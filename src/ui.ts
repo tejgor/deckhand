@@ -24,8 +24,10 @@ export function truncate(text: string, width: number): string {
 export function fitLines(text: string, width: number, height: number): string[] {
 	const rawLines = text.length > 0 ? text.split('\n') : [''];
 	const lines = rawLines.map(line => truncate(line, width));
-	if (lines.length >= height) return lines.slice(0, height);
-	return [...lines, ...Array.from({length: height - lines.length}, () => '')];
+	const fitted = lines.length >= height ? lines.slice(0, height) : [...lines, ...Array.from({length: height - lines.length}, () => '')];
+	// Ink can collapse empty <Text> nodes. Render blank terminal rows as a
+	// space so full-screen TUIs keep their vertical positioning in previews.
+	return fitted.map(line => (line === '' ? ' ' : line));
 }
 
 export function compactPath(path: string, width: number): string {

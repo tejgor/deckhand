@@ -525,7 +525,7 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 		// (border 2 + tabbar 1 + spacer 1) before the sub-pane content begins.
 		const paneInnerWidth = Math.max(10, rightWidth - 4);
 		const paneInnerHeight = Math.max(4, contentHeight - 4);
-		const previewRows = Math.max(1, paneInnerHeight - 2);
+		const previewRows = Math.max(1, paneInnerHeight - 1);
 		return {
 			sidebarWidth: leftWidth,
 			previewWidth: rightWidth,
