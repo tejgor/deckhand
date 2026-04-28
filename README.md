@@ -2,98 +2,158 @@
 
 A standalone terminal workbench for managing local coding-agent sessions.
 
-Deckhand is inspired by the [claude-squad](https://github.com/smtg-ai/claude-squad) project.
+Inspired by [claude-squad](https://github.com/smtg-ai/claude-squad), Deckhand gives you a persistent split-view UI for running multiple `claude` or `pi` sessions side-by-side, each backed by a daemon-owned PTY so sessions survive across attaches and detaches.
 
-## What it does today
+---
 
-- runs as a standalone terminal app
-- uses a background daemon to keep sessions alive
-- creates `claude` or `pi` sessions backed by daemon-owned PTYs
-- shows a persistent split view with an instance sidebar and Preview / Terminal / Git / Dev tabs
-- lets you cycle sessions with `j` / `k` and watch the preview follow selection
-- attaches/detaches from running sessions
-- freezes the last preview frame when a session exits
-- stores state in `~/.deckhand/state.json`
-- writes daemon diagnostics to `~/.deckhand/daemon.log`
-- tracks the active daemon PID in `~/.deckhand/daemon.pid`
+## Features
 
-## Install as a CLI
+- **Standalone terminal app** — runs anywhere, no editor integration required
+- **Background daemon** keeps sessions alive across detaches
+- **Multiple agent types** — spawn `claude` or `pi` sessions on demand
+- **Split-view UI** with an instance sidebar and Preview / Terminal / Git / Dev tabs
+- **Live preview** powered by a daemon-side `@xterm/headless` model, so cursor rewrites render correctly
+- **Worktree-aware** — create new git worktrees per session, or reuse existing ones
+- **Persistent state** in `~/.deckhand/`
 
-From this checkout:
+---
+
+## Requirements
+
+- Node.js `>= 20`
+- A POSIX shell (macOS or Linux)
+- `git` available on `PATH`
+
+---
+
+## Installation
+
+### Global install (recommended)
 
 ```bash
+npm install -g deckhand
+```
+
+### From source
+
+```bash
+git clone <this-repo>
+cd deckhand
 npm install
 npm run build
 npm link
 ```
 
-Then launch it from any git repo:
-
-```bash
-deckhand
-```
-
-For a global install without a symlink, use:
-
-```bash
-npm install -g .
-```
-
-After changing source code, rebuild before using the linked CLI again:
+After changing source code, rebuild before re-running the linked CLI:
 
 ```bash
 npm run build
 ```
 
-The CLI binary is declared in `package.json` as `deckhand -> dist/cli.js`, so the built `dist/cli.js` file is what gets put on your `PATH`.
+The CLI binary is declared in `package.json` as `deckhand → dist/cli.js`.
+
+> **macOS note:** `npm install` runs `scripts/fix-node-pty.js` to repair the `spawn-helper` executable bit and apply best-effort quarantine removal / ad-hoc codesigning.
+
+---
+
+## Quick start
+
+From any git repository:
+
+```bash
+deckhand
+```
+
+Then:
+
+1. Press `n` to create a new session
+2. Choose `claude` or `pi`
+3. Enter a name
+4. Press `tab` to pick a workspace mode (no worktree / new worktree / existing worktree)
+5. Press `enter` to launch
+
+Use `j` / `k` to move between sessions and `o` to attach to the selected one.
+
+---
 
 ## Controls
 
 ### Main view
 
-- `n` new session
-- `tab` cycle Preview / Terminal / Git / Dev tabs
-- `o` attach to selected running session's active tab
-- `d` start/stop the selected running session's dev command
-- `j` / `k` move between sessions
-- `x` kill selected running session
-- `delete` remove selected exited session
-- `r` refresh
-- `q` quit
+| Key | Action |
+| --- | --- |
+| `n` | New session |
+| `tab` | Cycle Preview / Terminal / Git / Dev tabs |
+| `o` | Attach to selected running session's active tab |
+| `d` | Start/stop the selected session's dev command |
+| `j` / `k` | Move between sessions |
+| `x` | Kill selected running session |
+| `s` | Restart selected exited session |
+| `backspace` | Remove selected exited session |
+| `r` | Refresh |
+| `?` | Show keyboard shortcuts |
+| `q` | Quit |
 
-### Create flow
+### Attach mode
 
-- choose `claude` or `pi`
-- enter a name
-- press `tab` to cycle workspace mode: no worktree, new worktree, existing worktree
-- press `enter` to create
+| Key | Action |
+| --- | --- |
+| *(any)* | Sent directly to the agent session |
+| `Ctrl+Space` | Detach and return to Deckhand |
 
-### Worktree hooks
+---
 
-For new-worktree sessions, Deckhand first creates or resolves a git worktree, then starts the selected agent inside it. If present, Deckhand uses this project hook before falling back to built-in `git worktree add`:
+## Configuration
 
-```txt
+### Dev command
+
+The Dev tab is started explicitly with `d`. Configure the global command in `~/.deckhand/config.json`:
+
+```json
+{
+  "dev_command": "npm run dev"
+}
+```
+
+If `dev_command` is omitted, Deckhand runs `dev`.
+
+### State and logs
+
+| Path | Purpose |
+| --- | --- |
+| `~/.deckhand/state.json` | Persisted session list |
+| `~/.deckhand/daemon.log` | Daemon diagnostics |
+| `~/.deckhand/daemon.pid` | Active daemon PID |
+| `~/.deckhand/worktrees/` | Default location for auto-created worktrees |
+
+---
+
+## Worktree hooks
+
+For new-worktree sessions, Deckhand first creates or resolves a git worktree, then starts the agent inside it. If present, Deckhand uses the following project hook before falling back to built-in `git worktree add`:
+
+```
 .claude/scripts/create-worktree.sh
 ```
 
-Hook contract:
+### Hook contract
 
-- read JSON from stdin
-- use `name` as the sanitized worktree/session name
-- use `cwd` as the exact directory where `deckhand` was launched; this may be the main repo or an existing linked worktree
-- create/register a git worktree
-- print the absolute worktree path to stdout as the final non-empty line
-- exit `0` on success
+- Read JSON from `stdin`
+- Use `name` as the sanitized worktree/session name
+- Use `cwd` as the directory where `deckhand` was launched (may be the main repo or an existing linked worktree)
+- Create or register a git worktree
+- Print the absolute worktree path to `stdout` as the final non-empty line
+- Exit `0` on success
 
 Deckhand also sets `CLAUDE_PROJECT_DIR` to the launch cwd for compatibility with Claude-style hooks.
 
-Input example:
+### Input example
 
 ```json
-{"name":"my_feature","cwd":"/path/to/current/worktree"}
+{ "name": "my_feature", "cwd": "/path/to/current/worktree" }
 ```
 
-Minimal hook:
+### Minimal hook
 
 ```bash
 #!/bin/bash
@@ -124,29 +184,32 @@ fi
 echo "$DIR"
 ```
 
-If a hook copies symlinks from the source worktree, prefer resolving them with `realpath` so newly-created worktrees point directly at the real target instead of through another linked worktree. If no hook exists, Deckhand creates worktrees under `~/.deckhand/worktrees`.
+> If your hook copies symlinks from the source worktree, prefer resolving them with `realpath` so newly-created worktrees point directly at the real target instead of through another linked worktree.
 
-### Dev command
+If no hook is present, Deckhand creates worktrees under `~/.deckhand/worktrees/`.
 
-The Dev tab is started explicitly with `d` for the selected running session. Configure the global command in `~/.deckhand/config.json`:
+---
 
-```json
-{
-  "dev_command": "npm run dev"
-}
+## Architecture
+
+- **TypeScript + [Ink](https://github.com/vadimdemedes/ink)** for the terminal UI
+- **Daemon** owns long-lived PTY sessions via [`node-pty`](https://github.com/microsoft/node-pty)
+- **Live preview** uses [`@xterm/headless`](https://www.npmjs.com/package/@xterm/headless) on the daemon side so cursor rewrites and in-place updates render as terminal screen state instead of raw scrollback
+- **Frozen frames** — when a session exits, Deckhand retains the last preview frame for review
+
+---
+
+## Development
+
+```bash
+npm install
+npm run dev      # run from source via tsx
+npm run daemon   # run only the daemon (dev mode)
+npm run build    # compile to dist/
 ```
 
-If `dev_command` is omitted, deckhand runs `dev`.
+---
 
-### Attach mode
+## License
 
-- interact directly with the agent session
-- `Ctrl+Space` detaches and returns to Deckhand
-
-## Notes
-
-- Deckhand is a standalone TypeScript/Ink implementation for managing local coding-agent sessions.
-- Deckhand is inspired by `claude-squad` and implemented as an independent TypeScript/Ink application.
-- The daemon uses `node-pty` directly for long-lived PTY sessions.
-- Live Preview is powered by a daemon-side `@xterm/headless` terminal model so cursor rewrites and in-place updates render as terminal screen state instead of raw scrollback.
-- On macOS, `npm install` runs `scripts/fix-node-pty.js` to repair the `spawn-helper` executable bit and apply best-effort quarantine removal / ad-hoc codesigning.
+See repository for license information.
