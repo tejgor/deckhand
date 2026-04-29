@@ -23,16 +23,11 @@ Inspired by [claude-squad](https://github.com/smtg-ai/claude-squad), Deckhand gi
 - Node.js `>= 20`
 - A POSIX shell (macOS or Linux)
 - `git` available on `PATH`
+- Optional: `lazygit` available on `PATH` for the Git tab
 
 ---
 
 ## Installation
-
-### Global install (recommended)
-
-```bash
-npm install -g deckhand
-```
 
 ### From source
 
