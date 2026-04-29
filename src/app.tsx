@@ -45,13 +45,19 @@ const WORKTREE_MODES: Array<{key: WorktreeMode; label: string}> = [
 const ANSI_ESCAPE_PATTERN = /\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\))/g;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/g;
 const ORPHAN_TERMINAL_SEQUENCE_PATTERN = /^(?:\[(?:[ABCDHFIOZ]|\d+(?:;\d+)*[~ABCDHF])|O[ABCDHF])$/;
+const ORPHAN_MOUSE_SEQUENCE_PATTERN = /^(?:\[?<\d*(?:;\d*){0,2}[mM]?|\[?\d+;\d*(?:;\d*)?[mM]?|\[?M[\s\S]{0,3})$/;
+const ALLOWED_NAME_INPUT_PATTERN = /[^a-zA-Z0-9 _\-/.:[\]()#]/g;
 
 function sanitizeNameInput(input: string): string {
 	const cleaned = input
 		.replace(ANSI_ESCAPE_PATTERN, '')
 		.replace(CONTROL_CHARACTER_PATTERN, '');
 
-	return ORPHAN_TERMINAL_SEQUENCE_PATTERN.test(cleaned) ? '' : cleaned;
+	if (ORPHAN_TERMINAL_SEQUENCE_PATTERN.test(cleaned) || ORPHAN_MOUSE_SEQUENCE_PATTERN.test(cleaned)) {
+		return '';
+	}
+
+	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
 type Mode = 'browse' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help';
