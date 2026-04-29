@@ -7,9 +7,10 @@
     "dev": "DECKHAND_DEV=1 node --import tsx src/cli.ts",
     "daemon": "DECKHAND_DEV=1 node --import tsx src/cli.ts --daemon",
     "build": "tsc -p tsconfig.json",
+    "postbuild": "chmod +x dist/cli.js",
     "start": "node dist/cli.js",
     "postinstall": "node scripts/fix-node-pty.js",
-    "prepack": "npm run build"
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@xterm/headless": "^5.5.0",
@@ -34,5 +35,9 @@
   ],
   "engines": {
     "node": ">=20"
-  }
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ]
 }

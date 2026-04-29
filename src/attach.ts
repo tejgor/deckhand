@@ -106,6 +106,55 @@ function normalizeTerminalOutput(data: string): string {
 		.replace(/\u009F/g, '\x1b_');
 }
 
+function createTerminalTitleOutputFilter(): (data: string) => string {
+	let pending = '';
+
+	return (data: string) => {
+		const input = pending + data;
+		pending = '';
+		let output = '';
+		let index = 0;
+
+		while (index < input.length) {
+			const start = input.indexOf('\x1b]', index);
+			if (start === -1) {
+				output += input.slice(index);
+				if (output.endsWith('\x1b')) {
+					pending = '\x1b';
+					output = output.slice(0, -1);
+				}
+				break;
+			}
+
+			output += input.slice(index, start);
+			const prefix = input.slice(start, start + 4);
+			if (prefix.length < 4) {
+				pending = input.slice(start);
+				break;
+			}
+
+			if (prefix !== '\x1b]0;' && prefix !== '\x1b]1;' && prefix !== '\x1b]2;') {
+				output += '\x1b]';
+				index = start + 2;
+				continue;
+			}
+
+			const contentStart = start + 4;
+			const bellEnd = input.indexOf('\x07', contentStart);
+			const stEnd = input.indexOf('\x1b\\', contentStart);
+			const end = bellEnd === -1 ? stEnd : stEnd === -1 ? bellEnd : Math.min(bellEnd, stEnd);
+			if (end === -1) {
+				pending = input.slice(start);
+				break;
+			}
+
+			index = end + (end === stEnd ? 2 : 1);
+		}
+
+		return output;
+	};
+}
+
 function normalizeScrollSensitivity(value: number | undefined): number {
 	if (value === undefined || !Number.isFinite(value)) {
 		return 0.25;
@@ -145,7 +194,7 @@ function compactTerminalTitle(value: string, maxLength = 32): string {
 function attachedTerminalTitle(sessionId: string, target: AttachTarget, options: AttachSessionOptions): string {
 	const title = compactTerminalTitle(options.title ?? sessionId);
 	const label = attachTargetTitleLabel(target);
-	return `ad/${label} ${title}`;
+	return `dh/${label} ${title}`;
 }
 
 const ATTACH_BANNER_ROWS = 5;
@@ -217,6 +266,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 	const requestId = randomUUID();
 	const names = targetRequestNames(target);
 	const normalizeAttachInput = createAttachInputNormalizer(normalizeScrollSensitivity(options.scrollSensitivity));
+	const filterTerminalTitleOutput = createTerminalTitleOutputFilter();
 	const originalProcessTitle = process.title || 'deckhand';
 	let attached = false;
 	let cleanedUp = false;
@@ -305,7 +355,8 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 			}
 
 			if (message.type === names.output && message.sessionId === sessionId) {
-				process.stdout.write(transformBannerOutput(normalizeTerminalOutput(message.data), target));
+				const output = filterTerminalTitleOutput(normalizeTerminalOutput(message.data));
+				process.stdout.write(transformBannerOutput(output, target));
 				overlayAttachBanner(sessionId, target, options);
 				return;
 			}

@@ -269,7 +269,7 @@ Current controls:
 - footer hints are dynamic and intentionally compact
 - `?` opens a keyboard-shortcuts help pane
 - `o` attaches to the selected running session's active pane (`agent` on Preview, shell on Terminal, `lazygit` on Git)
-- attach mode shows a deckhand banner with session/cwd and `Ctrl+Space` return instructions, then sets the compact terminal/window title to `ad/<pane> <session>` while streaming PTY output
+- attach mode shows a deckhand banner with session/cwd and `Ctrl+Space` return instructions, then sets the compact terminal/window title to `dh/<pane> <session>` while streaming PTY output
 - `m` merge or squash-merge selected worktree-backed session into the Deckhand launch/current branch without committing, with merge/squash/cancel confirmation
 - `x` kill selected running session
 - for worktree-backed sessions, `x` opens keep/delete/cancel confirmation when applicable
