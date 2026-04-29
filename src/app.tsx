@@ -186,13 +186,31 @@ function worktreeLabel(worktree: WorktreeInfoRecord, width: number): string {
 	return truncate(`${prefix}${branch}  ${compactPath(worktree.path, pathBudget)}`, width);
 }
 
-function WorktreePickerPane({worktrees, selectedIndex, width}: {worktrees: WorktreeInfoRecord[]; selectedIndex: number; width: number}) {
+function WorktreePickerPane({
+	worktrees,
+	selectedIndex,
+	query,
+	totalCount,
+	width,
+}: {
+	worktrees: WorktreeInfoRecord[];
+	selectedIndex: number;
+	query: string;
+	totalCount: number;
+	width: number;
+}) {
 	const contentWidth = Math.max(1, width - 4);
+	const countLabel = query ? `${worktrees.length}/${totalCount}` : String(totalCount);
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
 			<Text color={THEME.accent} bold>Existing worktree</Text>
+			<Text>
+				Search: <Text color={query ? THEME.active : THEME.muted}>{query || 'type to filter'}</Text>{' '}
+				<Text color={THEME.muted}>({countLabel})</Text>
+			</Text>
 			<Box marginTop={1} flexDirection="column">
-				{worktrees.length === 0 ? <Text color={THEME.muted}>No worktrees found.</Text> : null}
+				{totalCount === 0 ? <Text color={THEME.muted}>No worktrees found.</Text> : null}
+				{totalCount > 0 && worktrees.length === 0 ? <Text color={THEME.muted}>No matching worktrees.</Text> : null}
 				{worktrees.map((worktree, index) => {
 					const selected = index === selectedIndex;
 					return (
@@ -203,7 +221,7 @@ function WorktreePickerPane({worktrees, selectedIndex, width}: {worktrees: Workt
 				})}
 			</Box>
 			<Box marginTop={1}>
-				<Text color={THEME.muted}>enter select · esc back · j/k move</Text>
+				<Text color={THEME.muted}>type search · enter select · esc back · ↑↓ move · backspace delete</Text>
 			</Box>
 		</Box>
 	);
@@ -313,7 +331,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 		return 'tab worktree mode • enter create • esc back • backspace delete';
 	}
 	if (mode === 'pick-worktree') {
-		return 'enter select • esc back • j/k move';
+		return 'type search • enter select • esc back • ↑↓ move • backspace delete';
 	}
 	if (mode === 'confirm-kill' || mode === 'confirm-merge') {
 		return 'enter choose • esc cancel • j/k move';
@@ -330,6 +348,7 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 	const [draftName, setDraftName] = useState('');
 	const [worktreeMode, setWorktreeMode] = useState<WorktreeMode>('none');
 	const [worktrees, setWorktrees] = useState<WorktreeInfoRecord[]>([]);
+	const [worktreeQuery, setWorktreeQuery] = useState('');
 	const [worktreeIndex, setWorktreeIndex] = useState(0);
 	const [killConfirmIndex, setKillConfirmIndex] = useState(0);
 	const [killConfirmForce, setKillConfirmForce] = useState(false);
@@ -514,6 +533,20 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 	}, [selectedId, sessions]);
 
 	const selectedSession = sessions[selectedIndex];
+	const filteredWorktrees = useMemo(() => {
+		const terms = worktreeQuery
+			.toLowerCase()
+			.trim()
+			.split(/\s+/)
+			.filter(Boolean);
+		if (terms.length === 0) {
+			return worktrees;
+		}
+		return worktrees.filter(worktree => {
+			const haystack = `${worktree.branch} ${worktree.path}`.toLowerCase();
+			return terms.every(term => haystack.includes(term));
+		});
+	}, [worktreeQuery, worktrees]);
 	const selectedCanDeleteWorktree = Boolean(
 		selectedSession?.worktree?.path &&
 		selectedSession.worktree.mode !== 'none' &&
@@ -533,6 +566,10 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 		selectedSession.worktree.branch !== 'main' &&
 		selectedSession.worktree.branch !== 'master',
 	);
+
+	useEffect(() => {
+		setWorktreeIndex(index => Math.min(index, Math.max(0, filteredWorktrees.length - 1)));
+	}, [filteredWorktrees.length]);
 
 	useEffect(() => {
 		if (!selectedSession) {
@@ -996,6 +1033,7 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 						.listWorktrees(cwd)
 						.then(items => {
 							setWorktrees(items);
+							setWorktreeQuery('');
 							setWorktreeIndex(0);
 							setMode('pick-worktree');
 						})
@@ -1034,17 +1072,32 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 				setMode('enter-name');
 				return;
 			}
-			if (key.upArrow || input === 'k') {
+			if (key.upArrow) {
 				setWorktreeIndex(index => Math.max(0, index - 1));
 				return;
 			}
-			if (key.downArrow || input === 'j') {
-				setWorktreeIndex(index => Math.min(Math.max(0, worktrees.length - 1), index + 1));
+			if (key.downArrow) {
+				setWorktreeIndex(index => Math.min(Math.max(0, filteredWorktrees.length - 1), index + 1));
 				return;
 			}
-			if (key.return && worktrees[worktreeIndex]) {
-				void submitCreate(worktrees[worktreeIndex]!.path);
+			if (key.return && filteredWorktrees[worktreeIndex]) {
+				void submitCreate(filteredWorktrees[worktreeIndex]!.path);
 				return;
+			}
+			if (key.backspace || key.delete) {
+				setWorktreeQuery(value => value.slice(0, -1));
+				setWorktreeIndex(0);
+				return;
+			}
+			if (key.ctrl || key.meta || key.leftArrow || key.rightArrow || key.tab) {
+				return;
+			}
+			if (input) {
+				const text = sanitizeNameInput(input);
+				if (text) {
+					setWorktreeQuery(value => value + text);
+					setWorktreeIndex(0);
+				}
 			}
 			return;
 		}
@@ -1154,7 +1207,13 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 				) : mode === 'help' ? (
 					<HelpPane width={layout.previewWidth} />
 				) : mode === 'pick-worktree' ? (
-					<WorktreePickerPane worktrees={worktrees} selectedIndex={worktreeIndex} width={layout.previewWidth} />
+					<WorktreePickerPane
+						worktrees={filteredWorktrees}
+						selectedIndex={worktreeIndex}
+						query={worktreeQuery}
+						totalCount={worktrees.length}
+						width={layout.previewWidth}
+					/>
 				) : mode === 'confirm-kill' ? (
 					<KillConfirmPane
 						session={selectedSession}
