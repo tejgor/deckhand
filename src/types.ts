@@ -118,7 +118,7 @@ export type ClientRequest =
 	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean}
 	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string}
 	| {type: 'remove'; requestId: string; sessionId: string}
-	| {type: 'attach'; requestId: string; sessionId: string}
+	| {type: 'attach'; requestId: string; sessionId: string; cols?: number; rows?: number}
 	| {type: 'input'; sessionId: string; data: string}
 	| {type: 'resize'; sessionId: string; cols: number; rows: number}
 	| {type: 'detach'; sessionId: string}

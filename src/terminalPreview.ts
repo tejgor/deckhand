@@ -84,6 +84,29 @@ export class TerminalPreview {
 		return this.snapshot;
 	}
 
+	async getAnsiFrame(): Promise<string> {
+		await this.pending;
+		if (this.dirty) {
+			this.refreshSnapshot();
+			this.dirty = false;
+		}
+
+		const buffer = this.terminal.buffer.active;
+		const startLine = Math.max(0, buffer.baseY);
+		const chunks = ['\x1b[2J\x1b[H'];
+
+		for (let index = 0; index < this.rows; index += 1) {
+			const line = buffer.getLine(startLine + index);
+			const text = line ? line.translateToString(true) : '';
+			if (text) {
+				chunks.push(`\x1b[${index + 1};1H${text}`);
+			}
+		}
+
+		chunks.push(`\x1b[${Math.max(1, buffer.cursorY + 1)};${Math.max(1, buffer.cursorX + 1)}H`);
+		return chunks.join('');
+	}
+
 	getCachedSnapshot(): string {
 		return this.snapshot;
 	}

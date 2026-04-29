@@ -98,7 +98,7 @@ Use `j` / `k` to move between sessions and `o` to attach to the selected one.
 
 | Key | Action |
 | --- | --- |
-| *(any)* | Sent directly to the agent session |
+| *(any)* | Sent directly to the attached pane/session |
 | `Ctrl+Space` | Detach and return to Deckhand |
 
 ---

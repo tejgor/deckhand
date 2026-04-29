@@ -90,6 +90,21 @@ function setProcessTitle(value: string): void {
 	}
 }
 
+function normalizeTerminalOutput(data: string): string {
+	// Some PTY programs emit 8-bit C1 controls (for example CSI as U+009B).
+	// Many UTF-8 terminals do not interpret those reliably and the printable tail
+	// leaks onto the screen as text like "40;3H" or ";1". Convert them to the
+	// equivalent 7-bit ESC-prefixed sequences before forwarding to stdout.
+	return data
+		.replace(/\u008E/g, '\x1bN')
+		.replace(/\u008F/g, '\x1bO')
+		.replace(/\u0090/g, '\x1bP')
+		.replace(/\u009B/g, '\x1b[')
+		.replace(/\u009D/g, '\x1b]')
+		.replace(/\u009E/g, '\x1b^')
+		.replace(/\u009F/g, '\x1b_');
+}
+
 function attachTargetTitleLabel(target: AttachTarget): string {
 	return target === 'terminal' ? 'term' : target === 'git' ? 'git' : target === 'dev' ? 'dev' : 'agent';
 }
@@ -131,7 +146,9 @@ function writeAttachBanner(sessionId: string, target: AttachTarget, options: Att
 }
 
 export async function attachSession(sessionId: string, target: AttachTarget = 'agent', options: AttachSessionOptions = {}): Promise<void> {
-	writeAttachBanner(sessionId, target, options);
+	if (target !== 'agent' && target !== 'git') {
+		writeAttachBanner(sessionId, target, options);
+	}
 	const socket = await openPersistentConnection();
 	const requestId = randomUUID();
 	const names = targetRequestNames(target);
@@ -217,12 +234,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 			}
 
 			if (message.type === names.output && message.sessionId === sessionId) {
-				process.stdout.write(message.data);
-				if (titleSet) {
-					const activeTitle = attachedTerminalTitle(sessionId, target, options);
-					setTerminalTitle(activeTitle);
-					setProcessTitle(activeTitle);
-				}
+				process.stdout.write(normalizeTerminalOutput(message.data));
 				return;
 			}
 

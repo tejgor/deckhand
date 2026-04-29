@@ -544,13 +544,16 @@ export class InkDaemon {
 					if (runtime.attachedSocket && runtime.attachedSocket !== socket && !runtime.attachedSocket.destroyed) {
 						throw new Error('session is already attached elsewhere');
 					}
+					const cols = clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS);
+					const rows = clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS);
+					runtime.term.resize(cols, rows);
+					await runtime.preview.resize(cols, rows);
+					await this.suppressResizeActivity(runtime);
 					runtime.attachedSocket = socket;
 					setAttachedSessionId(session.id);
 					sendMessage(socket, response(message.requestId, session));
 					sendMessage(socket, {type: 'attached', sessionId: session.id});
-					if (runtime.scrollback) {
-						sendMessage(socket, {type: 'output', sessionId: session.id, data: runtime.scrollback});
-					}
+					sendMessage(socket, {type: 'output', sessionId: session.id, data: await runtime.preview.getAnsiFrame()});
 					return;
 				}
 				case 'input': {
@@ -594,9 +597,7 @@ export class InkDaemon {
 					setAttachedSessionId(message.sessionId);
 					sendMessage(socket, response(message.requestId, this.sessions.get(message.sessionId)));
 					sendMessage(socket, {type: 'terminal-attached', sessionId: message.sessionId});
-					if (terminal.scrollback) {
-						sendMessage(socket, {type: 'terminal-output', sessionId: message.sessionId, data: terminal.scrollback});
-					}
+					sendMessage(socket, {type: 'terminal-output', sessionId: message.sessionId, data: await terminal.preview.getAnsiFrame()});
 					return;
 				}
 				case 'terminal-input': {
@@ -639,9 +640,7 @@ export class InkDaemon {
 					setAttachedSessionId(message.sessionId);
 					sendMessage(socket, response(message.requestId, this.sessions.get(message.sessionId)));
 					sendMessage(socket, {type: 'git-attached', sessionId: message.sessionId});
-					if (git.scrollback) {
-						sendMessage(socket, {type: 'git-output', sessionId: message.sessionId, data: git.scrollback});
-					}
+					sendMessage(socket, {type: 'git-output', sessionId: message.sessionId, data: await git.preview.getAnsiFrame()});
 					return;
 				}
 				case 'git-input': {
@@ -684,9 +683,7 @@ export class InkDaemon {
 					setAttachedSessionId(message.sessionId);
 					sendMessage(socket, response(message.requestId, this.sessions.get(message.sessionId)));
 					sendMessage(socket, {type: 'dev-attached', sessionId: message.sessionId});
-					if (dev.scrollback) {
-						sendMessage(socket, {type: 'dev-output', sessionId: message.sessionId, data: dev.scrollback});
-					}
+					sendMessage(socket, {type: 'dev-output', sessionId: message.sessionId, data: await dev.preview.getAnsiFrame()});
 					return;
 				}
 				case 'dev-input': {
