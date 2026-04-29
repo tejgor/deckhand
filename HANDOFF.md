@@ -29,6 +29,7 @@ Current implemented behavior:
 - agent-agnostic new-worktree creation using project hook scripts when available
 - existing worktree picker, including the main/current worktree
 - worktree-aware kill confirmation with keep/delete/cancel behavior when applicable
+- merge or squash-merge without committing a selected session worktree back into the Deckhand launch/current branch
 - external attach / detach flow
 - kill running session from UI
 - remove exited session from UI
@@ -267,6 +268,7 @@ Current controls:
 - `?` opens a keyboard-shortcuts help pane
 - `o` attaches to the selected running session's active pane (`agent` on Preview, shell on Terminal, `lazygit` on Git)
 - attach mode shows a deckhand banner with session/cwd and `Ctrl+Space` return instructions, then sets the compact terminal/window title to `ad/<pane> <session>` while streaming PTY output
+- `m` merge or squash-merge selected worktree-backed session into the Deckhand launch/current branch without committing, with merge/squash/cancel confirmation
 - `x` kill selected running session
 - for worktree-backed sessions, `x` opens keep/delete/cancel confirmation when applicable
 - `s` restart selected exited session in its recorded cwd/worktree
@@ -353,6 +355,7 @@ Supported request types:
 - `create`
 - `restart`
 - `kill`
+- `merge-worktree`
 - `remove`
 - `attach`
 - `input`
@@ -454,6 +457,7 @@ Git helper layer for:
   - `CLAUDE_PROJECT_DIR` set to the exact Deckhand launch cwd
   - stdin JSON containing both `name` and `cwd`
 - removing safe-to-delete worktrees with `git worktree remove -f` and `git worktree prune`
+- merging a session worktree back into the launch/current worktree without committing using `git merge --no-commit --no-ff <source>`, or squash-applying without committing using `git merge --squash <source>`
 
 ### `src/paths.ts`
 
@@ -813,7 +817,7 @@ Particularly important cases:
 - attempted delete of current/main worktree should stay blocked
 - multiple sessions pointed at one worktree should block deletion
 
-Protocol is now v11. If an older daemon is still running, stop it first:
+Protocol is now v12. If an older daemon is still running, stop it first:
 
 ```bash
 kill $(cat ~/.deckhand/daemon.pid)

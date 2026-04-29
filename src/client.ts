@@ -12,7 +12,7 @@ import {
 	getSocketPath,
 	isDevRuntime,
 } from './paths.js';
-import type {ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord} from './types.js';
+import type {ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -81,7 +81,7 @@ export async function request<T = unknown>(message: Extract<ClientRequest, {requ
 	});
 }
 
-const PROTOCOL_VERSION = 11;
+const PROTOCOL_VERSION = 12;
 
 class ProtocolMismatchError extends Error {}
 
@@ -217,6 +217,11 @@ export async function restartSession(sessionId: string, cols: number, rows: numb
 export async function killSession(sessionId: string, deleteWorktree = false): Promise<void> {
 	await ensureDaemonRunning();
 	await request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree});
+}
+
+export async function mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string): Promise<WorktreeMergeResult> {
+	await ensureDaemonRunning();
+	return request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd});
 }
 
 export async function listWorktrees(cwd: string): Promise<WorktreeInfoRecord[]> {
@@ -400,6 +405,10 @@ export class LiveClient {
 
 	killSession(sessionId: string, deleteWorktree = false): Promise<void> {
 		return this.request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree});
+	}
+
+	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string): Promise<WorktreeMergeResult> {
+		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd});
 	}
 
 	removeSession(sessionId: string): Promise<void> {

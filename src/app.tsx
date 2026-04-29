@@ -7,7 +7,7 @@ import {PreviewPane} from './preview.js';
 import {Sidebar} from './sidebar.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
-import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RightPaneTab, SessionRecord, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMode} from './types.js';
+import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RightPaneTab, SessionRecord, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
 import {THEME, compactPath, truncate} from './ui.js';
 
 const PROGRAMS: Array<{key: ProgramKey; label: string; glyph: string}> = [
@@ -54,7 +54,7 @@ function sanitizeNameInput(input: string): string {
 	return ORPHAN_TERMINAL_SEQUENCE_PATTERN.test(cleaned) ? '' : cleaned;
 }
 
-type Mode = 'browse' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'help';
+type Mode = 'browse' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help';
 
 interface AppProps {
 	repoRoot: string;
@@ -203,6 +203,33 @@ function WorktreePickerPane({worktrees, selectedIndex, width}: {worktrees: Workt
 	);
 }
 
+function MergeConfirmPane({session, selectedIndex, width}: {session?: SessionRecord; selectedIndex: number; width: number}) {
+	const options = ['Merge into current branch without committing', 'Squash merge into current branch without committing', 'Cancel'];
+	const contentWidth = Math.max(1, width - 4);
+	return (
+		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
+			<Text color={THEME.accent} bold>Merge {session ? `"${session.title}"` : 'worktree'}?</Text>
+			{session?.worktree?.path ? (
+				<Text color={THEME.muted}>{truncate(compactPath(session.worktree.path, contentWidth), contentWidth)}</Text>
+			) : null}
+			<Box marginTop={1} flexDirection="column">
+				{options.map((option, index) => {
+					const selected = index === selectedIndex;
+					const isCancel = option === 'Cancel';
+					return (
+						<Text key={option} inverse={selected} color={selected ? (isCancel ? THEME.muted : THEME.active) : undefined} bold={selected}>
+							{selected ? '›' : ' '} {option}
+						</Text>
+					);
+				})}
+			</Box>
+			<Box marginTop={1}>
+				<Text color={THEME.muted}>enter choose · esc cancel · j/k move</Text>
+			</Box>
+		</Box>
+	);
+}
+
 function KillConfirmPane({session, selectedIndex, canDelete, width}: {session?: SessionRecord; selectedIndex: number; canDelete: boolean; width: number}) {
 	const options = canDelete ? ['Kill only, keep worktree', 'Kill and delete worktree', 'Cancel'] : ['Kill session', 'Cancel'];
 	const contentWidth = Math.max(1, width - 4);
@@ -239,6 +266,7 @@ function HelpPane({width}: {width: number}) {
 		['n', 'new session'],
 		['j/k', 'move selection'],
 		['h/l', 'resize sidebar'],
+		['m', 'merge selected worktree into current branch'],
 		['x', 'kill running session'],
 		['s', 'restart exited session'],
 		['d', 'start/stop dev command'],
@@ -267,7 +295,8 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 		const attach = session?.status === 'running' ? 'o attach' : undefined;
 		const lifecycle = session?.status === 'exited' ? 's restart • backspace remove' : session?.status === 'running' ? 'x kill' : undefined;
 		const dev = session?.status === 'running' ? 'd dev' : undefined;
-		return ['tab pane', attach, dev, 'j/k move', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
+		const merge = session?.worktree?.path && session.worktree.mode !== 'none' ? 'm merge' : undefined;
+		return ['tab pane', attach, dev, merge, 'j/k move', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
 	}
 	if (mode === 'pick-program') {
 		return 'enter continue • esc cancel • j/k switch';
@@ -278,7 +307,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 	if (mode === 'pick-worktree') {
 		return 'enter select • esc back • j/k move';
 	}
-	if (mode === 'confirm-kill') {
+	if (mode === 'confirm-kill' || mode === 'confirm-merge') {
 		return 'enter choose • esc cancel • j/k move';
 	}
 	return `${activeTab} shortcuts • esc/? close`;
@@ -295,12 +324,14 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 	const [worktrees, setWorktrees] = useState<WorktreeInfoRecord[]>([]);
 	const [worktreeIndex, setWorktreeIndex] = useState(0);
 	const [killConfirmIndex, setKillConfirmIndex] = useState(0);
+	const [mergeConfirmIndex, setMergeConfirmIndex] = useState(0);
 	const [activeTab, setActiveTab] = useState<RightPaneTab>('preview');
 	const [preview, setPreview] = useState<PreviewRecord>(EMPTY_PREVIEW);
 	const [terminal, setTerminal] = useState<TerminalRecord>(EMPTY_TERMINAL);
 	const [git, setGit] = useState<GitRecord>(EMPTY_GIT);
 	const [dev, setDev] = useState<DevRecord>(EMPTY_DEV);
 	const [error, setError] = useState<string | undefined>();
+	const [statusMessage, setStatusMessage] = useState<string | undefined>();
 	const [busy, setBusy] = useState(false);
 	const [client, setClient] = useState<LiveClient | undefined>();
 	const [connectionEpoch, setConnectionEpoch] = useState(0);
@@ -781,6 +812,23 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 		}
 	}, [client, layout.previewCols, layout.previewRows, selectedSession]);
 
+	const mergeSelected = useCallback(async (mergeMode: WorktreeMergeMode) => {
+		if (!client || !selectedSession?.worktree?.path || selectedSession.worktree.mode === 'none') {
+			return;
+		}
+		setBusy(true);
+		setError(undefined);
+		try {
+			const result = await client.mergeWorktree(selectedSession.id, mergeMode, cwd);
+			setMode('browse');
+			setStatusMessage(`${mergeMode === 'squash' ? 'Squash applied' : 'Merge applied without commit'} from ${result.sourceRef} into ${result.targetBranch}`);
+		} catch (nextError) {
+			setError(nextError instanceof Error ? nextError.message : String(nextError));
+		} finally {
+			setBusy(false);
+		}
+	}, [client, cwd, selectedSession]);
+
 	useInput((input, key) => {
 		if (busy) {
 			return;
@@ -833,6 +881,11 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 			}
 			if (key.rightArrow || input === 'l') {
 				resizeSidebar(2);
+				return;
+			}
+			if (input === 'm' && selectedSession?.worktree?.path && selectedSession.worktree.mode !== 'none') {
+				setMergeConfirmIndex(0);
+				setMode('confirm-merge');
 				return;
 			}
 			if (input === 'x' && selectedSession?.status === 'running') {
@@ -964,6 +1017,28 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 			return;
 		}
 
+		if (mode === 'confirm-merge') {
+			const optionCount = 3;
+			if (key.escape) {
+				setMode('browse');
+				return;
+			}
+			if (key.upArrow || input === 'k') {
+				setMergeConfirmIndex(index => (index - 1 + optionCount) % optionCount);
+				return;
+			}
+			if (key.downArrow || input === 'j') {
+				setMergeConfirmIndex(index => (index + 1) % optionCount);
+				return;
+			}
+			if (key.return) {
+				if (mergeConfirmIndex === 0) void mergeSelected('merge');
+				else if (mergeConfirmIndex === 1) void mergeSelected('squash');
+				else setMode('browse');
+				return;
+			}
+		}
+
 		if (mode === 'confirm-kill') {
 			const optionCount = selectedCanDeleteWorktree ? 3 : 2;
 			if (key.escape) {
@@ -1054,6 +1129,8 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 						canDelete={selectedCanDeleteWorktree}
 						width={layout.previewWidth}
 					/>
+				) : mode === 'confirm-merge' ? (
+					<MergeConfirmPane session={selectedSession} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} />
 				) : (
 					<CreatePane
 						mode={mode}
@@ -1066,6 +1143,7 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 			</Box>
 			<Text color={THEME.muted}>{footerHint(mode, activeTab, selectedSession)}</Text>
 			{busy ? <Text color={THEME.warn}>Working…</Text> : null}
+			{statusMessage ? <Text color={THEME.success}>{statusMessage}</Text> : null}
 			{error ? <Text color={THEME.error}>Error: {error}</Text> : null}
 		</Box>
 	);

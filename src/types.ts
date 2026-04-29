@@ -6,6 +6,7 @@ export type WorktreeMode = 'none' | 'new' | 'existing';
 export type SessionWorktreeMode = 'none' | 'managed' | 'attached';
 export type AttachTarget = 'agent' | 'terminal' | 'git' | 'dev';
 export type RightPaneTab = 'preview' | 'terminal' | 'git' | 'dev';
+export type WorktreeMergeMode = 'merge' | 'squash';
 
 export interface SessionWorktreeRecord {
 	mode: SessionWorktreeMode;
@@ -23,6 +24,14 @@ export interface WorktreeInfoRecord {
 	branch: string;
 	head: string;
 	isMain: boolean;
+}
+
+export interface WorktreeMergeResult {
+	mode: WorktreeMergeMode;
+	sourceRef: string;
+	targetBranch: string;
+	stdout: string;
+	stderr: string;
 }
 
 export interface SessionRecord {
@@ -107,6 +116,7 @@ export type ClientRequest =
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
 	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number}
 	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean}
+	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string}
 	| {type: 'remove'; requestId: string; sessionId: string}
 	| {type: 'attach'; requestId: string; sessionId: string}
 	| {type: 'input'; sessionId: string; data: string}

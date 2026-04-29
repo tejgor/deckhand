@@ -7,7 +7,7 @@ import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import pty, {type IPty} from 'node-pty';
 import {getDaemonLogPath, getDaemonPidPath, getSocketPath} from './paths.js';
-import {createWorktreeForSession, findRepoRoot, listWorktrees, removeWorktree} from './git.js';
+import {createWorktreeForSession, findRepoRoot, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst} from './storage.js';
 import {TerminalPreview} from './terminalPreview.js';
@@ -23,7 +23,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 11;
+const PROTOCOL_VERSION = 12;
 
 interface RuntimeSession {
 	term: IPty;
@@ -527,6 +527,9 @@ export class InkDaemon {
 				case 'kill':
 					await this.killSession(message.sessionId, message.deleteWorktree ?? false);
 					sendMessage(socket, response(message.requestId, {ok: true}));
+					return;
+				case 'merge-worktree':
+					sendMessage(socket, response(message.requestId, await this.mergeSessionWorktree(message.sessionId, message.mode, message.targetCwd)));
 					return;
 				case 'remove':
 					await this.removeSession(message.sessionId);
@@ -1530,6 +1533,20 @@ export class InkDaemon {
 			return {ok: false, reason: `worktree is in use by session "${other.title}"`};
 		}
 		return {ok: true};
+	}
+
+	private async mergeSessionWorktree(sessionId: string, mode: 'merge' | 'squash', targetCwd: string) {
+		const session = this.sessions.get(sessionId);
+		if (!session) {
+			throw new Error('session does not exist');
+		}
+		const worktreePath = session.worktree?.path;
+		if (!worktreePath || session.worktree?.mode === 'none') {
+			throw new Error('session does not have a worktree to merge');
+		}
+		const result = await mergeWorktreeIntoCurrent(worktreePath, targetCwd, mode);
+		await this.log(`${mode} merged ${session.title} (${result.sourceRef}) into ${result.targetBranch}`);
+		return result;
 	}
 
 	private async killSession(sessionId: string, deleteWorktree: boolean): Promise<void> {
