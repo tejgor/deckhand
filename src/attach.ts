@@ -10,14 +10,30 @@ interface AttachSessionOptions {
 	scrollSensitivity?: number;
 }
 
-function clearTerminalScreen(): void {
-	if (process.stdout.isTTY) {
-		process.stdout.write('\x1b[2J\x1b[H');
+function resetTerminalState(): void {
+	if (!process.stdout.isTTY) {
+		return;
 	}
+
+	// Attached programs are allowed to write directly to the user's terminal.
+	// Full-screen TUIs (tmux, vim, lazygit, etc.) can leave behind terminal modes
+	// that confuse Ink when Deckhand redraws, especially scroll regions and the
+	// alternate screen. Reset the modes we commonly inherit before returning.
+	process.stdout.write([
+		'\x1b[0m', // reset attributes
+		'\x1b[?25h', // show cursor
+		'\x1b[?7h', // enable line wrapping
+		'\x1b[?6l', // origin mode off
+		'\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l', // mouse/focus modes off
+		'\x1b[?2004l', // bracketed paste off
+		'\x1b[r', // reset scroll region
+	].join(''));
 }
 
-function attachTargetLabel(target: AttachTarget): string {
-	return target === 'terminal' ? 'Terminal' : target === 'git' ? 'Git' : target === 'dev' ? 'Dev' : 'Agent';
+function clearTerminalScreen(): void {
+	if (process.stdout.isTTY) {
+		process.stdout.write('\x1b[r\x1b[2J\x1b[H');
+	}
 }
 
 function targetRequestNames(target: AttachTarget) {
@@ -59,16 +75,6 @@ function targetRequestNames(target: AttachTarget) {
 		output: 'output',
 		detached: 'detached',
 	} as const;
-}
-
-function compactPath(value: string | undefined, maxLength: number): string | undefined {
-	if (!value || value.length <= maxLength) {
-		return value;
-	}
-	if (maxLength <= 3) {
-		return value.slice(-maxLength);
-	}
-	return `…${value.slice(-(maxLength - 1))}`;
 }
 
 function sanitizeTerminalTitle(value: string): string {
@@ -197,71 +203,11 @@ function attachedTerminalTitle(sessionId: string, target: AttachTarget, options:
 	return `dh/${label} ${title}`;
 }
 
-const ATTACH_BANNER_ROWS = 5;
-
-function hasAttachBanner(target: AttachTarget): boolean {
-	return target !== 'agent' && target !== 'git';
-}
-
-function buildAttachBanner(sessionId: string, target: AttachTarget, options: AttachSessionOptions): string {
-	const title = options.title ?? sessionId;
-	const label = attachTargetLabel(target);
-	const terminalWidth = process.stdout.columns || 80;
-	const width = Math.max(44, Math.min(terminalWidth, 88));
-	const cwd = compactPath(options.cwd, Math.max(12, width - title.length - label.length - 18));
-	const location = cwd ? ` • ${cwd}` : '';
-	const headline = `deckhand ${label}: ${title}${location}`;
-	const help = 'Ctrl+Space returns to deckhand';
-	const border = '─'.repeat(Math.max(0, width - 2));
-	const formatLine = (line: string) => {
-		const content = line.length > width - 4 ? `${line.slice(0, width - 5)}…` : line;
-		return `│ ${content}${' '.repeat(Math.max(0, width - content.length - 3))}│`;
-	};
-
-	return `┌${border}┐\n${formatLine(headline)}\n${formatLine(help)}\n└${border}┘\n\n`;
-}
-
-function writeAttachBanner(sessionId: string, target: AttachTarget, options: AttachSessionOptions): void {
-	clearTerminalScreen();
-	process.stdout.write(buildAttachBanner(sessionId, target, options));
-}
-
-function overlayAttachBanner(sessionId: string, target: AttachTarget, options: AttachSessionOptions): void {
-	if (!hasAttachBanner(target)) {
-		return;
-	}
-	// Repaint the banner after PTY output. Full-screen programs frequently clear
-	// or home the cursor during startup, so the initial banner can be erased by
-	// the first frame. Save/restore keeps the attached program's cursor intact.
-	process.stdout.write(`\x1b7\x1b[H${buildAttachBanner(sessionId, target, options)}\x1b8`);
-}
-
-function attachRows(target: AttachTarget): number {
-	const rows = process.stdout.rows || 24;
-	return Math.max(1, rows - (hasAttachBanner(target) ? ATTACH_BANNER_ROWS : 0));
-}
-
-function transformBannerOutput(data: string, target: AttachTarget): string {
-	if (!hasAttachBanner(target)) {
-		return data;
-	}
-
-	const firstContentRow = ATTACH_BANNER_ROWS + 1;
-	let output = data.replace(/\x1b\[(?:2|3)?J/g, '');
-	output = output.replace(/\x1b\[H/g, `\x1b[${firstContentRow};1H`);
-	output = output.replace(/\x1b\[(\d+);(\d+)([Hf])/g, (_match, row: string, col: string, suffix: string) => {
-		return `\x1b[${Number.parseInt(row, 10) + ATTACH_BANNER_ROWS};${col}${suffix}`;
-	});
-	output = output.replace(/\x1b\[(\d+)([Hf])/g, (_match, row: string, suffix: string) => {
-		return `\x1b[${Number.parseInt(row, 10) + ATTACH_BANNER_ROWS}${suffix}`;
-	});
-	return output;
+function attachRows(): number {
+	return Math.max(1, process.stdout.rows || 24);
 }
 
 export async function attachSession(sessionId: string, target: AttachTarget = 'agent', options: AttachSessionOptions = {}): Promise<void> {
-	if (hasAttachBanner(target)) {
-		writeAttachBanner(sessionId, target, options);
-	}
 	const socket = await openPersistentConnection();
 	const requestId = randomUUID();
 	const names = targetRequestNames(target);
@@ -285,6 +231,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 			}
 			cleanedUp = true;
 			restoreRawMode();
+			resetTerminalState();
 			if (titleSet) {
 				setTerminalTitle('deckhand');
 				setProcessTitle(originalProcessTitle);
@@ -309,14 +256,11 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 		};
 
 		const onResize = () => {
-			if (hasAttachBanner(target)) {
-				writeAttachBanner(sessionId, target, options);
-			}
 			writeMessage(socket, {
 				type: names.resize,
 				sessionId,
 				cols: process.stdout.columns || 80,
-				rows: attachRows(target),
+				rows: attachRows(),
 			});
 		};
 
@@ -356,8 +300,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 
 			if (message.type === names.output && message.sessionId === sessionId) {
 				const output = filterTerminalTitleOutput(normalizeTerminalOutput(message.data));
-				process.stdout.write(transformBannerOutput(output, target));
-				overlayAttachBanner(sessionId, target, options);
+				process.stdout.write(output);
 				return;
 			}
 
@@ -387,7 +330,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 			requestId,
 			sessionId,
 			cols: process.stdout.columns || 80,
-			rows: attachRows(target),
+			rows: attachRows(),
 		});
 	});
 }

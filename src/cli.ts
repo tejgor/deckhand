@@ -11,20 +11,39 @@ import type {UiExitResult} from './types.js';
 
 process.title = 'deckhand';
 
+function resetTerminalState(): void {
+	if (!process.stdout.isTTY) {
+		return;
+	}
+
+	process.stdout.write([
+		'\x1b[0m',
+		'\x1b[?25h',
+		'\x1b[?7h',
+		'\x1b[?6l',
+		'\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l',
+		'\x1b[?2004l',
+		'\x1b[r',
+	].join(''));
+}
+
 function clearTerminalScreen(): void {
 	if (process.stdout.isTTY) {
-		process.stdout.write('\x1b[2J\x1b[H');
+		resetTerminalState();
+		process.stdout.write('\x1b[?47l\x1b[?1047l\x1b[?1049l\x1b[2J\x1b[H');
 	}
 }
 
 function enterAlternateScreen(): void {
 	if (process.stdout.isTTY) {
+		resetTerminalState();
 		process.stdout.write('\x1b[?1049h\x1b[2J\x1b[H');
 	}
 }
 
 function leaveAlternateScreen(): void {
 	if (process.stdout.isTTY) {
+		resetTerminalState();
 		process.stdout.write('\x1b[?1049l');
 	}
 }

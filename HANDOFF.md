@@ -269,7 +269,7 @@ Current controls:
 - footer hints are dynamic and intentionally compact
 - `?` opens a keyboard-shortcuts help pane
 - `o` attaches to the selected running session's active pane (`agent` on Preview, shell on Terminal, `lazygit` on Git)
-- attach mode shows a deckhand banner with session/cwd and `Ctrl+Space` return instructions, then sets the compact terminal/window title to `dh/<pane> <session>` while streaming PTY output
+- attach mode sets the compact terminal/window title to `dh/<pane> <session>` while streaming PTY output directly; `Ctrl+Space` returns to Deckhand
 - `m` merge or squash-merge selected worktree-backed session into the Deckhand launch/current branch without committing, with merge/squash/cancel confirmation
 - `x` kill selected running session
 - for worktree-backed sessions, `x` opens keep/delete/cancel confirmation when applicable
@@ -403,15 +403,15 @@ Direct attach mode.
 
 Behavior:
 
-- clears the Ink UI and prints a deckhand attach banner with session/cwd and `Ctrl+Space` return instructions
+- clears the Ink UI, resets inherited terminal modes, and hands the full terminal to the selected PTY
 - opens a persistent daemon connection
 - sends an `attach`, `attach-terminal`, `attach-git`, or `attach-dev` request depending on the active pane
 - sets and reasserts a compact terminal/window title while attached with OSC 0/2, updates the Node process title as a best-effort fallback for terminal hosts such as VS Code, and resets to `deckhand` on cleanup
 - puts stdin into raw mode
 - forwards user input to the daemon
 - writes PTY output directly to stdout
-- resizes the agent or terminal PTY to the full terminal size while attached
-- detaches on `Ctrl+Space`
+- resizes the agent or companion PTY to the full terminal size while attached
+- detaches on `Ctrl+Space` and resets terminal modes such as scroll regions, mouse/focus tracking, bracketed paste, and child-owned alternate screens before Ink redraws
 
 This remains intentionally separate from the Ink-rendered Preview/Terminal panes; attach is a branded full-screen handoff rather than an embedded terminal emulator.
 
