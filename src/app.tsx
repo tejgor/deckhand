@@ -378,7 +378,12 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 	}, [sessions]);
 
 	useEffect(() => {
-		const onResize = () => setTerminalSize(getTerminalSize());
+		const onResize = () => {
+			if (process.stdout.isTTY) {
+				process.stdout.write('\x1b[2J\x1b[H');
+			}
+			setTerminalSize(getTerminalSize());
+		};
 		process.stdout.on('resize', onResize);
 		return () => {
 			process.stdout.off('resize', onResize);

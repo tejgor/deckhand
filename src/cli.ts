@@ -5,6 +5,7 @@ import {attachSession} from './attach.js';
 import {App} from './app.js';
 import {InkDaemon} from './daemon.js';
 import {ensureGitRepo} from './git.js';
+import {runSessionWorker} from './sessionWorker.js';
 import {loadAppConfig} from './storage.js';
 import type {UiExitResult} from './types.js';
 
@@ -16,8 +17,21 @@ function clearTerminalScreen(): void {
 	}
 }
 
+function enterAlternateScreen(): void {
+	if (process.stdout.isTTY) {
+		process.stdout.write('\x1b[?1049h\x1b[2J\x1b[H');
+	}
+}
+
+function leaveAlternateScreen(): void {
+	if (process.stdout.isTTY) {
+		process.stdout.write('\x1b[?1049l');
+	}
+}
+
 async function runUi(sidebarWidth: {current?: number}): Promise<UiExitResult | undefined> {
 	const repoRoot = await ensureGitRepo(process.cwd());
+	enterAlternateScreen();
 	const instance = render(
 		React.createElement(App, {
 			repoRoot,
@@ -37,11 +51,17 @@ async function runUi(sidebarWidth: {current?: number}): Promise<UiExitResult | u
 	} finally {
 		instance.clear();
 		instance.cleanup();
+		leaveAlternateScreen();
 		clearTerminalScreen();
 	}
 }
 
 async function main(): Promise<void> {
+	if (process.argv.includes('--session-worker')) {
+		await runSessionWorker();
+		return;
+	}
+
 	if (process.argv.includes('--daemon')) {
 		const daemon = new InkDaemon();
 		await daemon.start();

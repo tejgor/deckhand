@@ -11,7 +11,7 @@ Deckhand is inspired by the `claude-squad` project and implemented as an indepen
 Current implemented behavior:
 
 - standalone Ink UI
-- daemon-owned PTY sessions via `node-pty`
+- supervisor daemon with per-session worker-owned PTY sessions via `node-pty`
 - local IPC over a Unix socket
 - repo-scoped session list
 - persistent split layout:
@@ -60,9 +60,9 @@ Why:
 - the runtime model stays simple and agent-agnostic
 - the project can support multiple local coding agents consistently
 
-### 2. The daemon owns runtime state
+### 2. The supervisor owns control state; session workers own PTYs
 
-We chose a daemon-owned PTY architecture instead of putting PTYs directly inside the Ink process
+We use a central daemon as the supervisor/control plane and one child worker process per running session for the PTY runtime.
 
 Why:
 
@@ -70,6 +70,7 @@ Why:
 - sessions should survive quitting and reopening Ink
 - attach/detach should be controlled by Deckhand itself
 - live preview should come from a long-lived backend source of truth
+- a crash in one session runtime should not take down other sessions
 
 ### 3. PTYs are `node-pty`, with a macOS repair step
 
@@ -191,6 +192,7 @@ Relevant files now include:
 - `src/app.tsx`
 - `src/client.ts`
 - `src/daemon.ts`
+- `src/sessionWorker.ts`
 - `src/attach.ts`
 - `src/storage.ts`
 - `src/git.ts`
@@ -312,11 +314,11 @@ Important behavior:
 
 ### `src/daemon.ts`
 
-Core backend.
+Core supervisor backend.
 
 Responsibilities:
 
-- own runtime PTY sessions
+- supervise per-session worker processes
 - own persisted session metadata
 - expose an IPC server over a Unix socket
 - create PTY-backed sessions
@@ -326,10 +328,10 @@ Responsibilities:
 - call `.claude/scripts/create-worktree.sh` when available for new worktree creation
 - fall back to built-in `git worktree add` creation when no script exists
 - optionally remove a safe-to-delete worktree after killing a worktree-backed session
-- attach clients to live PTYs
-- stream raw PTY output to attached clients
-- own lazy per-session companion shell PTYs for the Terminal tab
-- maintain daemon-side preview state using `@xterm/headless`
+- route attach/input/resize requests to session workers
+- stream raw PTY output from workers to attached clients
+- supervise lazy per-session companion shell/Git/Dev PTYs owned by workers
+- receive daemon-side preview state updates from worker-owned `@xterm/headless` models
 - infer agent active/idle status from rendered preview changes
 - suppress activity recomputation caused only by preview/PTY resize redraws
 - broadcast session, preview, and terminal updates to subscribed UI clients
@@ -542,6 +544,18 @@ Shared theme + UI helpers used by every pane:
 - `programGlyph`, `statusGlyph`, `statusColor`, `previewStatusIcon`,
   `statusLabel` shared session-display helpers
 
+### `src/sessionWorker.ts`
+
+Per-session runtime worker.
+
+Responsibilities:
+
+- own the agent PTY for one session
+- own that session's Terminal/Git/Dev companion PTYs
+- maintain `@xterm/headless` preview models
+- infer active/idle activity from preview changes
+- forward snapshots, raw output, lifecycle exits, and pane updates to the supervisor
+
 ### `src/terminalPreview.ts`
 
 Daemon-side terminal preview model.
@@ -633,8 +647,8 @@ Current lifecycle is:
 12. user can resize the sidebar; the frontend re-requests preview at the new pane size
 13. daemon suppresses resize-only redraws from marking the agent active
 14. user can quit and reopen Ink without killing sessions, as long as daemon stays alive
-15. if daemon dies, PTYs die with it
-16. on next startup, stale sessions are shown as `exited` with their last frozen preview when available
+15. if a session worker dies, only that session exits; other session workers continue
+16. on next startup, sessions not reachable through the current supervisor lifecycle are shown as `exited` with their last frozen preview when available
 17. when killing a worktree-backed session, the daemon may remove the worktree after PTY exit if the user selected delete and safety checks passed
 
 Important limitation:
@@ -817,7 +831,7 @@ Particularly important cases:
 - attempted delete of current/main worktree should stay blocked
 - multiple sessions pointed at one worktree should block deletion
 
-Protocol is now v12. If an older daemon is still running, stop it first:
+Protocol is now v13. If an older daemon is still running, stop it first:
 
 ```bash
 kill $(cat ~/.deckhand/daemon.pid)

@@ -18,6 +18,18 @@ export function getDaemonLogPath(): string {
 	return path.join(getConfigDir(), 'daemon.log');
 }
 
+export function getWorkerDir(): string {
+	return path.join(getConfigDir(), 'workers');
+}
+
+export function getWorkerPidPath(sessionId: string): string {
+	return path.join(getWorkerDir(), `${sessionId}.pid`);
+}
+
+export function getWorkerLogPath(sessionId: string): string {
+	return path.join(getWorkerDir(), `${sessionId}.log`);
+}
+
 export function getStatePath(): string {
 	return path.join(getConfigDir(), 'state.json');
 }

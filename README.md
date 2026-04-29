@@ -9,7 +9,7 @@ Inspired by [claude-squad](https://github.com/smtg-ai/claude-squad), Deckhand gi
 ## Features
 
 - **Standalone terminal app** — runs anywhere, no editor integration required
-- **Background daemon** keeps sessions alive across detaches
+- **Supervisor daemon + per-session workers** keep sessions isolated across detaches
 - **Multiple agent types** — spawn `claude` or `pi` sessions on demand
 - **Split-view UI** with an instance sidebar and Preview / Terminal / Git / Dev tabs
 - **Live preview** powered by a daemon-side `@xterm/headless` model, so cursor rewrites render correctly
@@ -129,8 +129,9 @@ Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0`
 | Path | Purpose |
 | --- | --- |
 | `~/.deckhand/state.json` | Persisted session list |
-| `~/.deckhand/daemon.log` | Daemon diagnostics |
-| `~/.deckhand/daemon.pid` | Active daemon PID |
+| `~/.deckhand/daemon.log` | Supervisor daemon diagnostics |
+| `~/.deckhand/daemon.pid` | Active supervisor daemon PID |
+| `~/.deckhand/workers/` | Per-session worker PID/log files |
 | `~/.deckhand/worktrees/` | Default location for auto-created worktrees |
 
 ---
@@ -200,7 +201,7 @@ If no hook is present, Deckhand creates worktrees under `~/.deckhand/worktrees/`
 ## Architecture
 
 - **TypeScript + [Ink](https://github.com/vadimdemedes/ink)** for the terminal UI
-- **Daemon** owns long-lived PTY sessions via [`node-pty`](https://github.com/microsoft/node-pty)
+- **Central daemon** owns state, IPC, worktrees, and worker supervision; **per-session worker processes** own the live PTYs via [`node-pty`](https://github.com/microsoft/node-pty)
 - **Live preview** uses [`@xterm/headless`](https://www.npmjs.com/package/@xterm/headless) on the daemon side so cursor rewrites and in-place updates render as terminal screen state instead of raw scrollback
 - **Frozen frames** — when a session exits, Deckhand retains the last preview frame for review
 

@@ -148,7 +148,13 @@ function attachedTerminalTitle(sessionId: string, target: AttachTarget, options:
 	return `ad/${label} ${title}`;
 }
 
-function writeAttachBanner(sessionId: string, target: AttachTarget, options: AttachSessionOptions): void {
+const ATTACH_BANNER_ROWS = 5;
+
+function hasAttachBanner(target: AttachTarget): boolean {
+	return target !== 'agent' && target !== 'git';
+}
+
+function buildAttachBanner(sessionId: string, target: AttachTarget, options: AttachSessionOptions): string {
 	const title = options.title ?? sessionId;
 	const label = attachTargetLabel(target);
 	const terminalWidth = process.stdout.columns || 80;
@@ -163,15 +169,48 @@ function writeAttachBanner(sessionId: string, target: AttachTarget, options: Att
 		return `│ ${content}${' '.repeat(Math.max(0, width - content.length - 3))}│`;
 	};
 
+	return `┌${border}┐\n${formatLine(headline)}\n${formatLine(help)}\n└${border}┘\n\n`;
+}
+
+function writeAttachBanner(sessionId: string, target: AttachTarget, options: AttachSessionOptions): void {
 	clearTerminalScreen();
-	process.stdout.write(`┌${border}┐\n`);
-	process.stdout.write(`${formatLine(headline)}\n`);
-	process.stdout.write(`${formatLine(help)}\n`);
-	process.stdout.write(`└${border}┘\n\n`);
+	process.stdout.write(buildAttachBanner(sessionId, target, options));
+}
+
+function overlayAttachBanner(sessionId: string, target: AttachTarget, options: AttachSessionOptions): void {
+	if (!hasAttachBanner(target)) {
+		return;
+	}
+	// Repaint the banner after PTY output. Full-screen programs frequently clear
+	// or home the cursor during startup, so the initial banner can be erased by
+	// the first frame. Save/restore keeps the attached program's cursor intact.
+	process.stdout.write(`\x1b7\x1b[H${buildAttachBanner(sessionId, target, options)}\x1b8`);
+}
+
+function attachRows(target: AttachTarget): number {
+	const rows = process.stdout.rows || 24;
+	return Math.max(1, rows - (hasAttachBanner(target) ? ATTACH_BANNER_ROWS : 0));
+}
+
+function transformBannerOutput(data: string, target: AttachTarget): string {
+	if (!hasAttachBanner(target)) {
+		return data;
+	}
+
+	const firstContentRow = ATTACH_BANNER_ROWS + 1;
+	let output = data.replace(/\x1b\[(?:2|3)?J/g, '');
+	output = output.replace(/\x1b\[H/g, `\x1b[${firstContentRow};1H`);
+	output = output.replace(/\x1b\[(\d+);(\d+)([Hf])/g, (_match, row: string, col: string, suffix: string) => {
+		return `\x1b[${Number.parseInt(row, 10) + ATTACH_BANNER_ROWS};${col}${suffix}`;
+	});
+	output = output.replace(/\x1b\[(\d+)([Hf])/g, (_match, row: string, suffix: string) => {
+		return `\x1b[${Number.parseInt(row, 10) + ATTACH_BANNER_ROWS}${suffix}`;
+	});
+	return output;
 }
 
 export async function attachSession(sessionId: string, target: AttachTarget = 'agent', options: AttachSessionOptions = {}): Promise<void> {
-	if (target !== 'agent' && target !== 'git') {
+	if (hasAttachBanner(target)) {
 		writeAttachBanner(sessionId, target, options);
 	}
 	const socket = await openPersistentConnection();
@@ -220,11 +259,14 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 		};
 
 		const onResize = () => {
+			if (hasAttachBanner(target)) {
+				writeAttachBanner(sessionId, target, options);
+			}
 			writeMessage(socket, {
 				type: names.resize,
 				sessionId,
 				cols: process.stdout.columns || 80,
-				rows: process.stdout.rows || 24,
+				rows: attachRows(target),
 			});
 		};
 
@@ -263,7 +305,8 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 			}
 
 			if (message.type === names.output && message.sessionId === sessionId) {
-				process.stdout.write(normalizeTerminalOutput(message.data));
+				process.stdout.write(transformBannerOutput(normalizeTerminalOutput(message.data), target));
+				overlayAttachBanner(sessionId, target, options);
 				return;
 			}
 
@@ -293,7 +336,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 			requestId,
 			sessionId,
 			cols: process.stdout.columns || 80,
-			rows: process.stdout.rows || 24,
+			rows: attachRows(target),
 		});
 	});
 }

@@ -2,16 +2,16 @@ import fs from 'node:fs/promises';
 import {constants as fsConstants} from 'node:fs';
 import path from 'node:path';
 import net from 'node:net';
-import {execFile} from 'node:child_process';
+import {execFile, fork, type ChildProcess} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import pty, {type IPty} from 'node-pty';
-import {getDaemonLogPath, getDaemonPidPath, getSocketPath} from './paths.js';
+import {getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
 import {createWorktreeForSession, deleteLocalBranch, findRepoRoot, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst} from './storage.js';
 import {TerminalPreview} from './terminalPreview.js';
-import type {AgentActivityStatus, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ServerMessage, ServerResponse, SessionRecord, TerminalRecord} from './types.js';
+import type {AgentActivityStatus, AttachTarget, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ServerMessage, ServerResponse, SessionRecord, TerminalRecord} from './types.js';
 
 const execFileAsync = promisify(execFile);
 const SCROLLBACK_LIMIT = 200_000;
@@ -23,7 +23,8 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 12;
+const PROTOCOL_VERSION = 13;
+const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
 	term: IPty;
@@ -67,6 +68,27 @@ interface ClientSubscription {
 	devCols: number;
 	devRows: number;
 }
+
+interface WorkerRuntime {
+	process: ChildProcess;
+	pending: Map<string, {resolve: (value: unknown) => void; reject: (error: Error) => void; timer: NodeJS.Timeout}>;
+	attached: Partial<Record<AttachTarget, net.Socket>>;
+	deleteWorktreeOnExit?: boolean;
+	deleteBranchOnExit?: boolean;
+	exited?: boolean;
+}
+
+type WorkerEvent =
+	| {type: 'response'; requestId: string; ok: true; data?: unknown}
+	| {type: 'response'; requestId: string; ok: false; error: string}
+	| {type: 'running'; pid: number}
+	| {type: 'exit'; exitCode: number | null; exitSignal: number | null; lastPreview: string}
+	| {type: 'agent-status'; agentStatus: AgentActivityStatus}
+	| {type: 'preview-updated'; preview: PreviewRecord}
+	| {type: 'terminal-updated'; terminal: TerminalRecord}
+	| {type: 'git-updated'; git: GitRecord}
+	| {type: 'dev-updated'; dev: DevRecord}
+	| {type: 'output'; target: AttachTarget; data: string};
 
 function sendMessage(socket: net.Socket, message: ServerMessage): void {
 	if (!socket.destroyed) {
@@ -173,6 +195,7 @@ export class InkDaemon {
 	private readonly terminals = new Map<string, RuntimeTerminal>();
 	private readonly gits = new Map<string, RuntimeTerminal>();
 	private readonly devs = new Map<string, RuntimeTerminal & {command: string}>();
+	private readonly workers = new Map<string, WorkerRuntime>();
 	private readonly clients = new Map<net.Socket, ClientSubscription>();
 	private server?: net.Server;
 	private shuttingDown = false;
@@ -369,6 +392,26 @@ export class InkDaemon {
 			dev.preview.dispose();
 		}
 		this.devs.clear();
+
+		for (const [sessionId, worker] of this.workers.entries()) {
+			for (const pending of worker.pending.values()) {
+				clearTimeout(pending.timer);
+				pending.reject(new Error('daemon shutting down'));
+			}
+			worker.pending.clear();
+			try {
+				if (worker.process.connected) {
+					worker.process.send?.({type: 'kill', requestId: randomUUID(), force: true});
+				}
+			} catch {
+				// Fall through to direct worker termination.
+			}
+			setTimeout(() => {
+				try { worker.process.kill('SIGKILL'); } catch {}
+			}, 500).unref?.();
+			await fs.rm(getWorkerPidPath(sessionId), {force: true}).catch(() => {});
+		}
+		this.workers.clear();
 		await this.persist();
 
 		if (this.server) {
@@ -416,6 +459,15 @@ export class InkDaemon {
 				const dev = this.devs.get(attachedSessionId);
 				if (dev?.attachedSocket === socket) {
 					dev.attachedSocket = undefined;
+				}
+				const worker = this.workers.get(attachedSessionId);
+				if (worker) {
+					for (const target of ['agent', 'terminal', 'git', 'dev'] as const) {
+						if (worker.attached[target] === socket) {
+							worker.attached[target] = undefined;
+							this.sendWorkerEvent(attachedSessionId, {type: 'detach', target});
+						}
+					}
 				}
 				attachedSessionId = undefined;
 			}
@@ -525,11 +577,19 @@ export class InkDaemon {
 					return;
 				}
 				case 'start-dev': {
+					if (this.workers.has(message.sessionId)) {
+						sendMessage(socket, response(message.requestId, await this.sendWorkerRequest<DevRecord>(message.sessionId, {type: 'start-dev', cols: clampSize(message.cols, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows, DEFAULT_PREVIEW_ROWS)})));
+						return;
+					}
 					const dev = await this.startDev(message.sessionId, clampSize(message.cols, DEFAULT_PREVIEW_COLS), clampSize(message.rows, DEFAULT_PREVIEW_ROWS));
 					sendMessage(socket, response(message.requestId, this.buildDevRecord(message.sessionId, dev)));
 					return;
 				}
 				case 'stop-dev':
+					if (this.workers.has(message.sessionId)) {
+						sendMessage(socket, response(message.requestId, await this.sendWorkerRequest(message.sessionId, {type: 'stop-dev'})));
+						return;
+					}
 					this.cleanupDev(message.sessionId);
 					await this.broadcastDev(message.sessionId);
 					sendMessage(socket, response(message.requestId, {ok: true}));
@@ -556,6 +616,20 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, {ok: true}));
 					return;
 				case 'attach': {
+					if (this.workers.has(message.sessionId)) {
+						const session = this.sessions.get(message.sessionId);
+						const worker = this.workers.get(message.sessionId)!;
+						if (!session || session.status === 'exited') throw new Error('session is not running');
+						if (worker.attached.agent && worker.attached.agent !== socket && !worker.attached.agent.destroyed) throw new Error('session is already attached elsewhere');
+						worker.attached.agent = socket;
+						setAttachedSessionId(session.id);
+						const cols = clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS);
+						const rows = clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS);
+						sendMessage(socket, response(message.requestId, session));
+						sendMessage(socket, {type: 'attached', sessionId: session.id});
+						await this.sendWorkerRequest(message.sessionId, {type: 'attach', target: 'agent', cols, rows});
+						return;
+					}
 					const session = this.sessions.get(message.sessionId);
 					const runtime = this.runtime.get(message.sessionId);
 					if (!session || !runtime) {
@@ -577,6 +651,10 @@ export class InkDaemon {
 					return;
 				}
 				case 'input': {
+					if (this.workers.has(message.sessionId)) {
+						this.sendWorkerEvent(message.sessionId, {type: 'input', target: 'agent', data: message.data});
+						return;
+					}
 					const runtime = this.runtime.get(message.sessionId);
 					if (runtime) {
 						runtime.term.write(message.data);
@@ -584,6 +662,10 @@ export class InkDaemon {
 					return;
 				}
 				case 'resize': {
+					if (this.workers.has(message.sessionId)) {
+						this.sendWorkerEvent(message.sessionId, {type: 'resize', target: 'agent', cols: message.cols, rows: message.rows});
+						return;
+					}
 					const runtime = this.runtime.get(message.sessionId);
 					if (runtime) {
 						const cols = Math.max(1, message.cols);
@@ -596,6 +678,14 @@ export class InkDaemon {
 					return;
 				}
 				case 'detach': {
+					if (this.workers.has(message.sessionId)) {
+						const worker = this.workers.get(message.sessionId)!;
+						if (worker.attached.agent === socket) worker.attached.agent = undefined;
+						this.sendWorkerEvent(message.sessionId, {type: 'detach', target: 'agent'});
+						setAttachedSessionId(undefined);
+						sendMessage(socket, {type: 'detached', sessionId: message.sessionId});
+						return;
+					}
 					const runtime = this.runtime.get(message.sessionId);
 					if (runtime?.attachedSocket === socket) {
 						runtime.attachedSocket = undefined;
@@ -605,6 +695,18 @@ export class InkDaemon {
 					return;
 				}
 				case 'attach-terminal': {
+					if (this.workers.has(message.sessionId)) {
+						const session = this.sessions.get(message.sessionId);
+						const worker = this.workers.get(message.sessionId)!;
+						if (!session || session.status === 'exited') throw new Error('session is not running');
+						if (worker.attached.terminal && worker.attached.terminal !== socket && !worker.attached.terminal.destroyed) throw new Error('terminal is already attached elsewhere');
+						worker.attached.terminal = socket;
+						setAttachedSessionId(message.sessionId);
+						sendMessage(socket, response(message.requestId, session));
+						sendMessage(socket, {type: 'terminal-attached', sessionId: message.sessionId});
+						await this.sendWorkerRequest(message.sessionId, {type: 'attach', target: 'terminal', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
+						return;
+					}
 					const terminal = await this.ensureTerminal(
 						message.sessionId,
 						clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS),
@@ -621,6 +723,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'terminal-input': {
+					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'input', target: 'terminal', data: message.data}); return; }
 					const terminal = this.terminals.get(message.sessionId);
 					if (terminal && !terminal.exited) {
 						terminal.term.write(message.data);
@@ -628,6 +731,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'terminal-resize': {
+					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'resize', target: 'terminal', cols: message.cols, rows: message.rows}); return; }
 					const terminal = this.terminals.get(message.sessionId);
 					if (terminal && !terminal.exited) {
 						const cols = Math.max(1, message.cols);
@@ -639,6 +743,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'terminal-detach': {
+					if (this.workers.has(message.sessionId)) { const worker = this.workers.get(message.sessionId)!; if (worker.attached.terminal === socket) worker.attached.terminal = undefined; this.sendWorkerEvent(message.sessionId, {type: 'detach', target: 'terminal'}); setAttachedSessionId(undefined); sendMessage(socket, {type: 'terminal-detached', sessionId: message.sessionId}); return; }
 					const terminal = this.terminals.get(message.sessionId);
 					if (terminal?.attachedSocket === socket) {
 						terminal.attachedSocket = undefined;
@@ -648,6 +753,18 @@ export class InkDaemon {
 					return;
 				}
 				case 'attach-git': {
+					if (this.workers.has(message.sessionId)) {
+						const session = this.sessions.get(message.sessionId);
+						const worker = this.workers.get(message.sessionId)!;
+						if (!session || session.status === 'exited') throw new Error('session is not running');
+						if (worker.attached.git && worker.attached.git !== socket && !worker.attached.git.destroyed) throw new Error('git is already attached elsewhere');
+						worker.attached.git = socket;
+						setAttachedSessionId(message.sessionId);
+						sendMessage(socket, response(message.requestId, session));
+						sendMessage(socket, {type: 'git-attached', sessionId: message.sessionId});
+						await this.sendWorkerRequest(message.sessionId, {type: 'attach', target: 'git', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
+						return;
+					}
 					const git = await this.ensureGit(
 						message.sessionId,
 						clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS),
@@ -664,6 +781,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'git-input': {
+					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'input', target: 'git', data: message.data}); return; }
 					const git = this.gits.get(message.sessionId);
 					if (git && !git.exited) {
 						git.term.write(message.data);
@@ -671,6 +789,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'git-resize': {
+					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'resize', target: 'git', cols: message.cols, rows: message.rows}); return; }
 					const git = this.gits.get(message.sessionId);
 					if (git && !git.exited) {
 						const cols = Math.max(1, message.cols);
@@ -682,6 +801,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'git-detach': {
+					if (this.workers.has(message.sessionId)) { const worker = this.workers.get(message.sessionId)!; if (worker.attached.git === socket) worker.attached.git = undefined; this.sendWorkerEvent(message.sessionId, {type: 'detach', target: 'git'}); setAttachedSessionId(undefined); sendMessage(socket, {type: 'git-detached', sessionId: message.sessionId}); return; }
 					const git = this.gits.get(message.sessionId);
 					if (git?.attachedSocket === socket) {
 						git.attachedSocket = undefined;
@@ -691,6 +811,18 @@ export class InkDaemon {
 					return;
 				}
 				case 'attach-dev': {
+					if (this.workers.has(message.sessionId)) {
+						const session = this.sessions.get(message.sessionId);
+						const worker = this.workers.get(message.sessionId)!;
+						if (!session || session.status === 'exited') throw new Error('session is not running');
+						if (worker.attached.dev && worker.attached.dev !== socket && !worker.attached.dev.destroyed) throw new Error('dev command is already attached elsewhere');
+						worker.attached.dev = socket;
+						setAttachedSessionId(message.sessionId);
+						sendMessage(socket, response(message.requestId, session));
+						sendMessage(socket, {type: 'dev-attached', sessionId: message.sessionId});
+						await this.sendWorkerRequest(message.sessionId, {type: 'attach', target: 'dev', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
+						return;
+					}
 					const dev = this.devs.get(message.sessionId);
 					if (!dev || dev.exited) {
 						throw new Error('no running dev command; press d to start it');
@@ -707,6 +839,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'dev-input': {
+					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'input', target: 'dev', data: message.data}); return; }
 					const dev = this.devs.get(message.sessionId);
 					if (dev && !dev.exited) {
 						dev.term.write(message.data);
@@ -714,6 +847,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'dev-resize': {
+					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'resize', target: 'dev', cols: message.cols, rows: message.rows}); return; }
 					const dev = this.devs.get(message.sessionId);
 					if (dev && !dev.exited) {
 						const cols = Math.max(1, message.cols);
@@ -725,6 +859,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'dev-detach': {
+					if (this.workers.has(message.sessionId)) { const worker = this.workers.get(message.sessionId)!; if (worker.attached.dev === socket) worker.attached.dev = undefined; this.sendWorkerEvent(message.sessionId, {type: 'detach', target: 'dev'}); setAttachedSessionId(undefined); sendMessage(socket, {type: 'dev-detached', sessionId: message.sessionId}); return; }
 					const dev = this.devs.get(message.sessionId);
 					if (dev?.attachedSocket === socket) {
 						dev.attachedSocket = undefined;
@@ -738,6 +873,167 @@ export class InkDaemon {
 			if ('requestId' in message) {
 				sendMessage(socket, failure(message.requestId, error));
 			}
+		}
+	}
+
+	private async startWorker(session: SessionRecord, cols: number, rows: number): Promise<SessionRecord> {
+		await fs.mkdir(getWorkerDir(), {recursive: true});
+		const child = fork(getCliEntryPath(), ['--session-worker'], {
+			env: {...process.env},
+			stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+		});
+		const worker: WorkerRuntime = {process: child, pending: new Map(), attached: {}};
+		this.workers.set(session.id, worker);
+		await fs.writeFile(getWorkerPidPath(session.id), String(child.pid ?? ''), 'utf8').catch(() => {});
+		const logPath = getWorkerLogPath(session.id);
+		child.stdout?.on('data', chunk => void fs.appendFile(logPath, chunk).catch(() => {}));
+		child.stderr?.on('data', chunk => void fs.appendFile(logPath, chunk).catch(() => {}));
+		child.on('message', message => void this.handleWorkerMessage(session.id, message as WorkerEvent));
+		child.on('exit', () => void this.handleWorkerProcessExit(session.id));
+		try {
+			return await this.sendWorkerRequest<SessionRecord>(session.id, {type: 'start', session, cols, rows});
+		} catch (error) {
+			this.workers.delete(session.id);
+			await fs.rm(getWorkerPidPath(session.id), {force: true}).catch(() => {});
+			try { child.kill('SIGKILL'); } catch {}
+			throw error;
+		}
+	}
+
+	private sendWorkerRequest<T>(sessionId: string, payload: Record<string, unknown>): Promise<T> {
+		const worker = this.workers.get(sessionId);
+		if (!worker || worker.exited || !worker.process.connected) {
+			return Promise.reject(new Error('session worker is not running'));
+		}
+		const requestId = randomUUID();
+		return new Promise<T>((resolve, reject) => {
+			const timer = setTimeout(() => {
+				worker.pending.delete(requestId);
+				reject(new Error('session worker request timed out'));
+			}, WORKER_REQUEST_TIMEOUT_MS);
+			timer.unref?.();
+			worker.pending.set(requestId, {resolve: value => resolve(value as T), reject, timer});
+			worker.process.send?.({...payload, requestId}, error => {
+				if (error) {
+					const pending = worker.pending.get(requestId);
+					if (pending) clearTimeout(pending.timer);
+					worker.pending.delete(requestId);
+					reject(error);
+				}
+			});
+		});
+	}
+
+	private sendWorkerEvent(sessionId: string, payload: Record<string, unknown>): void {
+		const worker = this.workers.get(sessionId);
+		if (worker && !worker.exited && worker.process.connected) {
+			worker.process.send?.(payload);
+		}
+	}
+
+	private async handleWorkerMessage(sessionId: string, message: WorkerEvent): Promise<void> {
+		const worker = this.workers.get(sessionId);
+		if (message.type === 'response') {
+			const pending = worker?.pending.get(message.requestId);
+			if (pending) {
+				clearTimeout(pending.timer);
+				worker?.pending.delete(message.requestId);
+				message.ok ? pending.resolve(message.data) : pending.reject(new Error(message.error));
+			}
+			return;
+		}
+		if (message.type === 'running') {
+			const session = this.sessions.get(sessionId);
+			if (session && session.status !== 'exited') {
+				const updated = {...session, status: 'running' as const, pid: message.pid, updatedAt: new Date().toISOString()};
+				this.sessions.set(sessionId, updated);
+				await this.persist();
+				this.broadcastSessionUpdated(updated);
+			}
+			return;
+		}
+		if (message.type === 'exit') {
+			await this.handleWorkerSessionExit(sessionId, message.exitCode, message.exitSignal, message.lastPreview);
+			return;
+		}
+		if (message.type === 'agent-status') {
+			await this.setWorkerAgentStatus(sessionId, message.agentStatus);
+			return;
+		}
+		if (message.type === 'preview-updated') {
+			for (const [socket, client] of this.clients.entries()) if (client.watchedPreviewSessionId === sessionId) sendMessage(socket, {type: 'preview-updated', preview: message.preview});
+			return;
+		}
+		if (message.type === 'terminal-updated') {
+			for (const [socket, client] of this.clients.entries()) if (client.watchedTerminalSessionId === sessionId) sendMessage(socket, {type: 'terminal-updated', terminal: message.terminal});
+			return;
+		}
+		if (message.type === 'git-updated') {
+			for (const [socket, client] of this.clients.entries()) if (client.watchedGitSessionId === sessionId) sendMessage(socket, {type: 'git-updated', git: message.git});
+			return;
+		}
+		if (message.type === 'dev-updated') {
+			for (const [socket, client] of this.clients.entries()) if (client.watchedDevSessionId === sessionId) sendMessage(socket, {type: 'dev-updated', dev: message.dev});
+			return;
+		}
+		if (message.type === 'output') {
+			const attached = worker?.attached[message.target];
+			if (attached && !attached.destroyed) {
+				const eventType = message.target === 'agent' ? 'output' : `${message.target}-output`;
+				sendMessage(attached, {type: eventType, sessionId, data: message.data} as ServerMessage);
+			}
+		}
+	}
+
+	private async handleWorkerProcessExit(sessionId: string): Promise<void> {
+		const worker = this.workers.get(sessionId);
+		if (worker) {
+			worker.exited = true;
+			for (const pending of worker.pending.values()) {
+				clearTimeout(pending.timer);
+				pending.reject(new Error('session worker exited'));
+			}
+			worker.pending.clear();
+		}
+		await fs.rm(getWorkerPidPath(sessionId), {force: true}).catch(() => {});
+		const session = this.sessions.get(sessionId);
+		if (session && session.status !== 'exited') {
+			await this.handleWorkerSessionExit(sessionId, null, null, session.lastPreview ?? 'Session worker exited unexpectedly');
+		}
+	}
+
+	private async setWorkerAgentStatus(sessionId: string, agentStatus: AgentActivityStatus): Promise<void> {
+		const session = this.sessions.get(sessionId);
+		if (!session || session.status === 'exited' || session.agentStatus === agentStatus) return;
+		const updated = {...session, agentStatus, agentStatusUpdatedAt: new Date().toISOString(), updatedAt: session.updatedAt};
+		this.sessions.set(sessionId, updated);
+		await this.persist();
+		this.broadcastSessionUpdated(updated);
+	}
+
+	private async handleWorkerSessionExit(sessionId: string, exitCode: number | null, exitSignal: number | null, lastPreview: string): Promise<void> {
+		const existing = this.sessions.get(sessionId);
+		if (!existing || existing.status === 'exited') return;
+		const worker = this.workers.get(sessionId);
+		this.workers.delete(sessionId);
+		await fs.rm(getWorkerPidPath(sessionId), {force: true}).catch(() => {});
+		const now = new Date().toISOString();
+		const updated: SessionRecord = {...existing, status: 'exited', agentStatus: 'idle', agentStatusUpdatedAt: now, updatedAt: now, pid: undefined, exitCode, exitSignal, lastPreview};
+		this.sessions.set(sessionId, updated);
+		if (worker?.deleteWorktreeOnExit && existing.worktree?.path) {
+			try {
+				const repoCwd = existing.launchWorktreeRoot ?? existing.repoRoot;
+				const branch = existing.worktree.branch;
+				await removeWorktree(existing.worktree.path, repoCwd);
+				if (worker.deleteBranchOnExit && branch) await deleteLocalBranch(repoCwd, branch);
+			} catch (error) {
+				await this.log(`failed to remove worktree/branch for session ${existing.title}: ${error instanceof Error ? error.message : String(error)}`);
+			}
+		}
+		await this.persist();
+		this.broadcastSessionUpdated(updated);
+		for (const [socket, client] of this.clients.entries()) {
+			if (client.watchedPreviewSessionId === sessionId) sendMessage(socket, {type: 'preview-updated', preview: this.buildPreviewRecord(updated, updated.lastPreview ?? '')});
 		}
 	}
 
@@ -904,6 +1200,10 @@ export class InkDaemon {
 			};
 		}
 
+		if (this.workers.has(sessionId)) {
+			return await this.sendWorkerRequest<PreviewRecord>(sessionId, {type: 'snapshot', target: 'agent', cols, rows});
+		}
+
 		const runtime = this.runtime.get(sessionId);
 		if (runtime) {
 			runtime.term.resize(cols, rows);
@@ -1035,6 +1335,9 @@ export class InkDaemon {
 		if (session.status === 'exited') {
 			return {sessionId, content: '', live: false, cwd: session.cwd};
 		}
+		if (this.workers.has(sessionId)) {
+			return await this.sendWorkerRequest<TerminalRecord>(sessionId, {type: 'snapshot', target: 'terminal', cols, rows});
+		}
 		const terminal = await this.ensureTerminal(sessionId, cols, rows);
 		await terminal.preview.resize(cols, rows);
 		await terminal.preview.getSnapshot();
@@ -1161,6 +1464,9 @@ export class InkDaemon {
 		if (session.status === 'exited') {
 			return {sessionId, content: '', live: false, cwd: session.cwd};
 		}
+		if (this.workers.has(sessionId)) {
+			return await this.sendWorkerRequest<GitRecord>(sessionId, {type: 'snapshot', target: 'git', cols, rows});
+		}
 		const git = await this.ensureGit(sessionId, cols, rows);
 		await git.preview.resize(cols, rows);
 		await git.preview.getSnapshot();
@@ -1270,6 +1576,9 @@ export class InkDaemon {
 		const session = this.sessions.get(sessionId);
 		if (!session) return {sessionId, content: '', live: false};
 		if (session.status === 'exited') return {sessionId, content: '', live: false, cwd: session.cwd};
+		if (this.workers.has(sessionId)) {
+			return await this.sendWorkerRequest<DevRecord>(sessionId, {type: 'snapshot', target: 'dev', cols, rows});
+		}
 		const dev = this.devs.get(sessionId);
 		if (!dev) return {sessionId, content: '', live: false, cwd: session.cwd};
 		await dev.preview.resize(cols, rows);
@@ -1377,52 +1686,10 @@ export class InkDaemon {
 		this.sessions.set(sessionId, preparedSession);
 		this.broadcastSessionUpdated(preparedSession);
 
-		const term = pty.spawn(preparedSession.command, [], {
-			name: 'xterm-256color',
-			cwd: sessionCwd,
-			env: {...process.env},
-			cols: Math.max(1, input.cols),
-			rows: Math.max(1, input.rows),
-		});
-
-		const runningSession: SessionRecord = {
-			...preparedSession,
-			status: 'running',
-			updatedAt: new Date().toISOString(),
-			pid: term.pid,
-		};
+		const runningSession = await this.startWorker(preparedSession, input.cols, input.rows);
 		this.sessions.set(sessionId, runningSession);
-
-		const runtime: RuntimeSession = {
-			term,
-			scrollback: '',
-			preview: new TerminalPreview(input.cols, input.rows),
-			lastPreviewSnapshot: '',
-			previewChangeEvents: [],
-		};
-		this.runtime.set(sessionId, runtime);
-		runtime.activityIdleTimer = setTimeout(() => {
-			runtime.activityIdleTimer = undefined;
-			void this.setAgentStatus(sessionId, 'idle');
-		}, IDLE_AFTER_MS);
-
-		term.onData(output => {
-			runtime.scrollback = clampScrollback(runtime.scrollback + output);
-			void runtime.preview.write(output);
-			this.scheduleActivityEvaluation(sessionId);
-			this.schedulePreviewBroadcast(sessionId);
-			if (runtime.attachedSocket && !runtime.attachedSocket.destroyed) {
-				sendMessage(runtime.attachedSocket, {type: 'output', sessionId, data: output});
-			}
-		});
-
-		term.onExit(({exitCode, signal}) => {
-			void this.handleSessionExit(sessionId, exitCode ?? null, signal ?? null);
-		});
-
 		await this.persist();
 		this.broadcastSessionUpdated(runningSession);
-		this.schedulePreviewBroadcast(runningSession.id);
 	}
 
 	private async failStartingSession(sessionId: string, error: unknown): Promise<void> {
@@ -1435,6 +1702,7 @@ export class InkDaemon {
 			...session,
 			status: 'exited',
 			updatedAt: new Date().toISOString(),
+			pid: undefined,
 			exitCode: null,
 			exitSignal: null,
 			lastPreview: `Failed to start session: ${message}`,
@@ -1460,6 +1728,7 @@ export class InkDaemon {
 			agentStatus: 'unknown',
 			agentStatusUpdatedAt: now,
 			updatedAt: now,
+			pid: undefined,
 			exitCode: undefined,
 			exitSignal: undefined,
 			lastPreview: '',
@@ -1468,61 +1737,18 @@ export class InkDaemon {
 		await this.persist();
 		this.broadcastSessionUpdated(starting);
 
-		let term: IPty;
 		try {
-			term = pty.spawn(starting.command, [], {
-				name: 'xterm-256color',
-				cwd: starting.cwd,
-				env: {...process.env},
-				cols: Math.max(1, cols),
-				rows: Math.max(1, rows),
-			});
+			const runningSession = await this.startWorker(starting, cols, rows);
+			this.sessions.set(sessionId, runningSession);
+			await this.persist();
+			this.broadcastSessionUpdated(runningSession);
+			return runningSession;
 		} catch (error) {
 			this.sessions.set(sessionId, existing);
 			await this.persist();
 			this.broadcastSessionUpdated(existing);
 			throw error;
 		}
-
-		const runningSession: SessionRecord = {
-			...starting,
-			status: 'running',
-			updatedAt: new Date().toISOString(),
-			pid: term.pid,
-		};
-		this.sessions.set(sessionId, runningSession);
-
-		const runtime: RuntimeSession = {
-			term,
-			scrollback: '',
-			preview: new TerminalPreview(cols, rows),
-			lastPreviewSnapshot: '',
-			previewChangeEvents: [],
-		};
-		this.runtime.set(sessionId, runtime);
-		runtime.activityIdleTimer = setTimeout(() => {
-			runtime.activityIdleTimer = undefined;
-			void this.setAgentStatus(sessionId, 'idle');
-		}, IDLE_AFTER_MS);
-
-		term.onData(output => {
-			runtime.scrollback = clampScrollback(runtime.scrollback + output);
-			void runtime.preview.write(output);
-			this.scheduleActivityEvaluation(sessionId);
-			this.schedulePreviewBroadcast(sessionId);
-			if (runtime.attachedSocket && !runtime.attachedSocket.destroyed) {
-				sendMessage(runtime.attachedSocket, {type: 'output', sessionId, data: output});
-			}
-		});
-
-		term.onExit(({exitCode, signal}) => {
-			void this.handleSessionExit(sessionId, exitCode ?? null, signal ?? null);
-		});
-
-		await this.persist();
-		this.broadcastSessionUpdated(runningSession);
-		this.schedulePreviewBroadcast(sessionId);
-		return runningSession;
 	}
 
 	private canDeleteSessionWorktree(session: SessionRecord): {ok: true} | {ok: false; reason: string} {
@@ -1583,6 +1809,23 @@ export class InkDaemon {
 
 	private async killSession(sessionId: string, deleteWorktree: boolean, deleteBranch: boolean, force: boolean): Promise<void> {
 		const session = this.sessions.get(sessionId);
+		const worker = this.workers.get(sessionId);
+		if (worker) {
+			if (!session || session.status === 'exited') throw new Error('session is not running');
+			if (deleteBranch) {
+				const allowed = this.canDeleteSessionBranch(session);
+				if (!allowed.ok) throw new Error(allowed.reason);
+				worker.deleteWorktreeOnExit = true;
+				worker.deleteBranchOnExit = true;
+			} else if (deleteWorktree) {
+				const allowed = this.canDeleteSessionWorktree(session);
+				if (!allowed.ok) throw new Error(allowed.reason);
+				worker.deleteWorktreeOnExit = true;
+			}
+			await this.sendWorkerRequest(sessionId, {type: 'kill', force});
+			return;
+		}
+
 		const runtime = this.runtime.get(sessionId);
 		if (!session || !runtime) {
 			throw new Error('session is not running');
@@ -1621,7 +1864,7 @@ export class InkDaemon {
 		if (!existing) {
 			throw new Error('session does not exist');
 		}
-		if (this.runtime.has(sessionId) || existing.status === 'running') {
+		if (this.runtime.has(sessionId) || this.workers.has(sessionId) || existing.status === 'running') {
 			throw new Error('kill the session before removing it');
 		}
 		this.cleanupTerminal(sessionId);
@@ -1655,6 +1898,7 @@ export class InkDaemon {
 			agentStatus: 'idle',
 			agentStatusUpdatedAt: now,
 			updatedAt: now,
+			pid: undefined,
 			exitCode,
 			exitSignal,
 			lastPreview: runtime ? await runtime.preview.getSnapshot() : existing.lastPreview,
