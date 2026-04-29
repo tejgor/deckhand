@@ -214,9 +214,9 @@ export async function restartSession(sessionId: string, cols: number, rows: numb
 	return request<SessionRecord>({type: 'restart', requestId: randomUUID(), sessionId, cols, rows});
 }
 
-export async function killSession(sessionId: string, deleteWorktree = false): Promise<void> {
+export async function killSession(sessionId: string, deleteWorktree = false, deleteBranch = false, force = false): Promise<void> {
 	await ensureDaemonRunning();
-	await request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree});
+	await request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree, deleteBranch, force});
 }
 
 export async function mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string): Promise<WorktreeMergeResult> {
@@ -403,8 +403,8 @@ export class LiveClient {
 		return this.request<SessionRecord>({type: 'restart', requestId: randomUUID(), sessionId, cols, rows});
 	}
 
-	killSession(sessionId: string, deleteWorktree = false): Promise<void> {
-		return this.request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree});
+	killSession(sessionId: string, deleteWorktree = false, deleteBranch = false, force = false): Promise<void> {
+		return this.request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree, deleteBranch, force});
 	}
 
 	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string): Promise<WorktreeMergeResult> {

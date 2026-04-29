@@ -7,7 +7,7 @@ import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import pty, {type IPty} from 'node-pty';
 import {getDaemonLogPath, getDaemonPidPath, getSocketPath} from './paths.js';
-import {createWorktreeForSession, findRepoRoot, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree} from './git.js';
+import {createWorktreeForSession, deleteLocalBranch, findRepoRoot, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst} from './storage.js';
 import {TerminalPreview} from './terminalPreview.js';
@@ -37,6 +37,7 @@ interface RuntimeSession {
 	lastPreviewSnapshot: string;
 	previewChangeEvents: Array<{at: number; changedChars: number}>;
 	deleteWorktreeOnExit?: boolean;
+	deleteBranchOnExit?: boolean;
 }
 
 interface RuntimeTerminal {
@@ -145,6 +146,25 @@ function clampSize(value: number, fallback: number): number {
 		return fallback;
 	}
 	return Math.max(1, Math.floor(value));
+}
+
+function signalPtyProcess(term: IPty, signal: NodeJS.Signals, forceGroup = false): void {
+	if (forceGroup && process.platform !== 'win32') {
+		try {
+			// node-pty children are normally session/process-group leaders. Signalling
+			// the group catches shells that spawned the actual agent as a child.
+			process.kill(-term.pid, signal);
+			return;
+		} catch {
+			// Fall back to node-pty's direct child signalling below.
+		}
+	}
+
+	try {
+		term.kill(signal);
+	} catch {
+		// The process may already be gone; the onExit handler will clean up state.
+	}
 }
 
 export class InkDaemon {
@@ -525,7 +545,7 @@ export class InkDaemon {
 					return;
 				}
 				case 'kill':
-					await this.killSession(message.sessionId, message.deleteWorktree ?? false);
+					await this.killSession(message.sessionId, message.deleteWorktree ?? false, message.deleteBranch ?? false, message.force ?? false);
 					sendMessage(socket, response(message.requestId, {ok: true}));
 					return;
 				case 'merge-worktree':
@@ -1532,6 +1552,21 @@ export class InkDaemon {
 		return {ok: true};
 	}
 
+	private canDeleteSessionBranch(session: SessionRecord): {ok: true} | {ok: false; reason: string} {
+		const worktree = session.worktree;
+		const branch = worktree?.branch;
+		if (!worktree || worktree.mode !== 'managed') {
+			return {ok: false, reason: 'can only delete branches for managed worktrees'};
+		}
+		if (!branch) {
+			return {ok: false, reason: 'worktree is not on a local branch'};
+		}
+		if (branch === 'main' || branch === 'master') {
+			return {ok: false, reason: `refusing to delete protected branch ${branch}`};
+		}
+		return this.canDeleteSessionWorktree(session);
+	}
+
 	private async mergeSessionWorktree(sessionId: string, mode: 'merge' | 'squash', targetCwd: string) {
 		const session = this.sessions.get(sessionId);
 		if (!session) {
@@ -1546,13 +1581,20 @@ export class InkDaemon {
 		return result;
 	}
 
-	private async killSession(sessionId: string, deleteWorktree: boolean): Promise<void> {
+	private async killSession(sessionId: string, deleteWorktree: boolean, deleteBranch: boolean, force: boolean): Promise<void> {
 		const session = this.sessions.get(sessionId);
 		const runtime = this.runtime.get(sessionId);
 		if (!session || !runtime) {
 			throw new Error('session is not running');
 		}
-		if (deleteWorktree) {
+		if (deleteBranch) {
+			const allowed = this.canDeleteSessionBranch(session);
+			if (!allowed.ok) {
+				throw new Error(allowed.reason);
+			}
+			runtime.deleteWorktreeOnExit = true;
+			runtime.deleteBranchOnExit = true;
+		} else if (deleteWorktree) {
 			const allowed = this.canDeleteSessionWorktree(session);
 			if (!allowed.ok) {
 				throw new Error(allowed.reason);
@@ -1562,7 +1604,16 @@ export class InkDaemon {
 		this.cleanupTerminal(sessionId);
 		this.cleanupGit(sessionId);
 		this.cleanupDev(sessionId);
-		runtime.term.kill();
+		signalPtyProcess(runtime.term, 'SIGTERM', force);
+		if (force) {
+			const forceKillTimer = setTimeout(() => {
+				const current = this.runtime.get(sessionId);
+				if (current === runtime) {
+					signalPtyProcess(runtime.term, 'SIGKILL', true);
+				}
+			}, 1000);
+			forceKillTimer.unref?.();
+		}
 	}
 
 	private async removeSession(sessionId: string): Promise<void> {
@@ -1611,9 +1662,14 @@ export class InkDaemon {
 		this.sessions.set(sessionId, updated);
 		if (runtime?.deleteWorktreeOnExit && existing.worktree?.path) {
 			try {
-				await removeWorktree(existing.worktree.path, existing.launchWorktreeRoot ?? existing.repoRoot);
+				const repoCwd = existing.launchWorktreeRoot ?? existing.repoRoot;
+				const branch = existing.worktree.branch;
+				await removeWorktree(existing.worktree.path, repoCwd);
+				if (runtime.deleteBranchOnExit && branch) {
+					await deleteLocalBranch(repoCwd, branch);
+				}
 			} catch (error) {
-				await this.log(`failed to remove worktree for session ${existing.title}: ${error instanceof Error ? error.message : String(error)}`);
+				await this.log(`failed to remove worktree/branch for session ${existing.title}: ${error instanceof Error ? error.message : String(error)}`);
 			}
 		}
 		void this.persist();

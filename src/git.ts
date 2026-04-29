@@ -246,6 +246,17 @@ export async function removeWorktree(worktreePath: string, repoCwd: string): Pro
 	await execFileAsync('git', ['-C', repoCwd, 'worktree', 'prune']);
 }
 
+export async function deleteLocalBranch(repoCwd: string, branch: string): Promise<void> {
+	const trimmed = branch.trim();
+	if (!trimmed) {
+		throw new Error('cannot delete an unnamed branch');
+	}
+	if (trimmed === 'main' || trimmed === 'master') {
+		throw new Error(`refusing to delete protected branch ${trimmed}`);
+	}
+	await execFileAsync('git', ['-C', repoCwd, 'branch', '-D', trimmed]);
+}
+
 async function currentBranch(cwd: string): Promise<string> {
 	const {stdout} = await execFileAsync('git', ['-C', cwd, 'branch', '--show-current']);
 	return stdout.trim();

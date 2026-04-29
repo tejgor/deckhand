@@ -87,7 +87,7 @@ Use `j` / `k` to move between sessions and `o` to attach to the selected one.
 | `o` | Attach to selected running session's active tab |
 | `d` | Start/stop the selected session's dev command |
 | `j` / `k` | Move between sessions |
-| `x` | Kill selected running session |
+| `x` / `X` | Kill selected running session / force kill; worktree sessions prompt to optionally delete the worktree, or delete both the managed worktree and branch |
 | `s` | Restart selected exited session |
 | `backspace` | Remove selected exited session |
 | `r` | Refresh |

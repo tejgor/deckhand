@@ -236,12 +236,14 @@ function MergeConfirmPane({session, selectedIndex, width}: {session?: SessionRec
 	);
 }
 
-function KillConfirmPane({session, selectedIndex, canDelete, width}: {session?: SessionRecord; selectedIndex: number; canDelete: boolean; width: number}) {
-	const options = canDelete ? ['Kill only, keep worktree', 'Kill and delete worktree', 'Cancel'] : ['Kill session', 'Cancel'];
+function KillConfirmPane({session, selectedIndex, canDelete, canDeleteBranch, force, width}: {session?: SessionRecord; selectedIndex: number; canDelete: boolean; canDeleteBranch: boolean; force: boolean; width: number}) {
+	const options = canDelete
+		? ['Kill only, keep worktree', 'Kill and delete worktree', 'Cancel', ...(canDeleteBranch ? ['Delete worktree and branch'] : [])]
+		: ['Kill session', 'Cancel'];
 	const contentWidth = Math.max(1, width - 4);
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderDanger} paddingX={1}>
-			<Text color={THEME.error} bold>Kill {session ? `"${session.title}"` : 'session'}?</Text>
+			<Text color={THEME.error} bold>{force ? 'Force kill' : 'Kill'} {session ? `"${session.title}"` : 'session'}?</Text>
 			{session?.worktree?.path ? (
 				<Text color={THEME.muted}>{truncate(compactPath(session.worktree.path, contentWidth), contentWidth)}</Text>
 			) : null}
@@ -273,7 +275,7 @@ function HelpPane({width}: {width: number}) {
 		['j/k', 'move selection'],
 		['h/l', 'resize sidebar'],
 		['m', 'merge selected worktree into current branch'],
-		['x', 'kill running session'],
+		['x / X', 'kill running session / force kill'],
 		['s', 'restart exited session'],
 		['d', 'start/stop dev command'],
 		['backspace', 'remove exited session'],
@@ -299,7 +301,7 @@ function HelpPane({width}: {width: number}) {
 function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord): string {
 	if (mode === 'browse') {
 		const attach = session?.status === 'running' ? 'o attach' : undefined;
-		const lifecycle = session?.status === 'exited' ? 's restart • backspace remove' : session?.status === 'running' ? 'x kill' : undefined;
+		const lifecycle = session?.status === 'exited' ? 's restart • backspace remove' : session?.status === 'running' ? 'x kill • X force kill' : undefined;
 		const dev = session?.status === 'running' ? 'd dev' : undefined;
 		const merge = session?.worktree?.path && session.worktree.mode !== 'none' ? 'm merge' : undefined;
 		return ['tab pane', attach, dev, merge, 'j/k move', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
@@ -330,6 +332,7 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 	const [worktrees, setWorktrees] = useState<WorktreeInfoRecord[]>([]);
 	const [worktreeIndex, setWorktreeIndex] = useState(0);
 	const [killConfirmIndex, setKillConfirmIndex] = useState(0);
+	const [killConfirmForce, setKillConfirmForce] = useState(false);
 	const [mergeConfirmIndex, setMergeConfirmIndex] = useState(0);
 	const [activeTab, setActiveTab] = useState<RightPaneTab>('preview');
 	const [preview, setPreview] = useState<PreviewRecord>(EMPTY_PREVIEW);
@@ -345,10 +348,15 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 	const [sidebarWidthOverride, setSidebarWidthOverride] = useState<number | undefined>(initialSidebarWidth);
 	const [spinnerIndex, setSpinnerIndex] = useState(0);
 	const selectedIdRef = useRef<string | undefined>(selectedId);
+	const sessionsRef = useRef<SessionRecord[]>(sessions);
 
 	useEffect(() => {
 		selectedIdRef.current = selectedId;
 	}, [selectedId]);
+
+	useEffect(() => {
+		sessionsRef.current = sessions;
+	}, [sessions]);
 
 	useEffect(() => {
 		const onResize = () => setTerminalSize(getTerminalSize());
@@ -517,6 +525,13 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 				session.status !== 'exited' &&
 				session.worktree?.path === selectedSession.worktree?.path,
 		),
+	);
+	const selectedCanDeleteBranch = Boolean(
+		selectedCanDeleteWorktree &&
+		selectedSession?.worktree?.mode === 'managed' &&
+		selectedSession.worktree.branch &&
+		selectedSession.worktree.branch !== 'main' &&
+		selectedSession.worktree.branch !== 'master',
 	);
 
 	useEffect(() => {
@@ -766,15 +781,24 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 		}
 	}, [client, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, worktreeMode]);
 
-	const killSelected = useCallback(async (deleteWorktree = false) => {
+	const killSelected = useCallback(async (deleteWorktree = false, deleteBranch = false, force = false) => {
 		if (!client || !selectedSession || selectedSession.status !== 'running') {
 			return;
 		}
 		setBusy(true);
 		setError(undefined);
 		try {
-			await client.killSession(selectedSession.id, deleteWorktree);
+			const killedSessionId = selectedSession.id;
+			await client.killSession(killedSessionId, deleteWorktree || deleteBranch, deleteBranch, force);
 			setMode('browse');
+			if (!force) {
+				setTimeout(() => {
+					const session = sessionsRef.current.find(item => item.id === killedSessionId);
+					if (session?.status === 'running') {
+						setError('session still running; press X to force kill');
+					}
+				}, 1500).unref?.();
+			}
 		} catch (nextError) {
 			setError(nextError instanceof Error ? nextError.message : String(nextError));
 		} finally {
@@ -894,12 +918,14 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 				setMode('confirm-merge');
 				return;
 			}
-			if (input === 'x' && selectedSession?.status === 'running') {
+			if ((input === 'x' || input === 'X') && selectedSession?.status === 'running') {
+				const force = input === 'X';
 				if (selectedSession.worktree?.path && selectedSession.worktree.mode !== 'none') {
 					setKillConfirmIndex(0);
+					setKillConfirmForce(force);
 					setMode('confirm-kill');
 				} else {
-					void killSelected(false);
+					void killSelected(false, false, force);
 				}
 				return;
 			}
@@ -1046,7 +1072,7 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 		}
 
 		if (mode === 'confirm-kill') {
-			const optionCount = selectedCanDeleteWorktree ? 3 : 2;
+			const optionCount = selectedCanDeleteWorktree ? (selectedCanDeleteBranch ? 4 : 3) : 2;
 			if (key.escape) {
 				setMode('browse');
 				return;
@@ -1061,11 +1087,12 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 			}
 			if (key.return) {
 				if (selectedCanDeleteWorktree) {
-					if (killConfirmIndex === 0) void killSelected(false);
-					else if (killConfirmIndex === 1) void killSelected(true);
+					if (killConfirmIndex === 0) void killSelected(false, false, killConfirmForce);
+					else if (killConfirmIndex === 1) void killSelected(true, false, killConfirmForce);
+					else if (killConfirmIndex === 3 && selectedCanDeleteBranch) void killSelected(true, true, killConfirmForce);
 					else setMode('browse');
 				} else {
-					if (killConfirmIndex === 0) void killSelected(false);
+					if (killConfirmIndex === 0) void killSelected(false, false, killConfirmForce);
 					else setMode('browse');
 				}
 				return;
@@ -1133,6 +1160,8 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 						session={selectedSession}
 						selectedIndex={killConfirmIndex}
 						canDelete={selectedCanDeleteWorktree}
+						canDeleteBranch={selectedCanDeleteBranch}
+						force={killConfirmForce}
 						width={layout.previewWidth}
 					/>
 				) : mode === 'confirm-merge' ? (

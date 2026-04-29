@@ -115,7 +115,7 @@ export type ClientRequest =
 	| {type: 'stop-dev'; requestId: string; sessionId: string}
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
 	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number}
-	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean}
+	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean; deleteBranch?: boolean; force?: boolean}
 	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string}
 	| {type: 'remove'; requestId: string; sessionId: string}
 	| {type: 'attach'; requestId: string; sessionId: string; cols?: number; rows?: number}
