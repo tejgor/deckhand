@@ -5,6 +5,7 @@ import {attachSession} from './attach.js';
 import {App} from './app.js';
 import {InkDaemon} from './daemon.js';
 import {ensureGitRepo} from './git.js';
+import {loadAppConfig} from './storage.js';
 import type {UiExitResult} from './types.js';
 
 process.title = 'deckhand';
@@ -57,7 +58,8 @@ async function main(): Promise<void> {
 		if (result.kind === 'attach') {
 			clearTerminalScreen();
 			try {
-				await attachSession(result.sessionId, result.target, {title: result.title, cwd: result.cwd});
+				const config = await loadAppConfig();
+				await attachSession(result.sessionId, result.target, {title: result.title, cwd: result.cwd, scrollSensitivity: config.attach_scroll_sensitivity});
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				process.stderr.write(`\nattach failed: ${message}\n`);

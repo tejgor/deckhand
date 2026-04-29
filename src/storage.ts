@@ -7,8 +7,9 @@ interface InkState {
 	sessions: SessionRecord[];
 }
 
-interface AppConfig {
+export interface AppConfig {
 	dev_command?: string;
+	attach_scroll_sensitivity?: number;
 }
 
 const EMPTY_STATE: InkState = {sessions: []};
@@ -87,7 +88,10 @@ export async function loadAppConfig(): Promise<AppConfig> {
 	try {
 		const raw = await fs.readFile(getConfigPath(), 'utf8');
 		const parsed = JSON.parse(raw) as Partial<AppConfig>;
-		return {dev_command: typeof parsed.dev_command === 'string' ? parsed.dev_command : undefined};
+		return {
+			dev_command: typeof parsed.dev_command === 'string' ? parsed.dev_command : undefined,
+			attach_scroll_sensitivity: typeof parsed.attach_scroll_sensitivity === 'number' ? parsed.attach_scroll_sensitivity : undefined,
+		};
 	} catch (error) {
 		const err = error as NodeJS.ErrnoException;
 		if (err.code === 'ENOENT') {
