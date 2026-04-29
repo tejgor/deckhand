@@ -7,25 +7,10 @@ import {InkDaemon} from './daemon.js';
 import {ensureGitRepo} from './git.js';
 import {runSessionWorker} from './sessionWorker.js';
 import {loadAppConfig} from './storage.js';
+import {resetTerminalState} from './terminalState.js';
 import type {UiExitResult} from './types.js';
 
 process.title = 'deckhand';
-
-function resetTerminalState(): void {
-	if (!process.stdout.isTTY) {
-		return;
-	}
-
-	process.stdout.write([
-		'\x1b[0m',
-		'\x1b[?25h',
-		'\x1b[?7h',
-		'\x1b[?6l',
-		'\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l',
-		'\x1b[?2004l',
-		'\x1b[r',
-	].join(''));
-}
 
 function clearTerminalScreen(): void {
 	if (process.stdout.isTTY) {
@@ -98,7 +83,7 @@ async function main(): Promise<void> {
 			clearTerminalScreen();
 			try {
 				const config = await loadAppConfig();
-				await attachSession(result.sessionId, result.target, {title: result.title, cwd: result.cwd, scrollSensitivity: config.attach_scroll_sensitivity});
+				await attachSession(result.sessionId, result.target, {title: result.title, scrollSensitivity: config.attach_scroll_sensitivity});
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				process.stderr.write(`\nattach failed: ${message}\n`);

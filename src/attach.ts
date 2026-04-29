@@ -2,38 +2,12 @@ import {randomUUID} from 'node:crypto';
 import process from 'node:process';
 import type net from 'node:net';
 import {attachJsonParser, openPersistentConnection, writeMessage} from './client.js';
+import {resetTerminalState} from './terminalState.js';
 import type {AttachTarget, SessionRecord} from './types.js';
 
 interface AttachSessionOptions {
 	title?: string;
-	cwd?: string;
 	scrollSensitivity?: number;
-}
-
-function resetTerminalState(): void {
-	if (!process.stdout.isTTY) {
-		return;
-	}
-
-	// Attached programs are allowed to write directly to the user's terminal.
-	// Full-screen TUIs (tmux, vim, lazygit, etc.) can leave behind terminal modes
-	// that confuse Ink when Deckhand redraws, especially scroll regions and the
-	// alternate screen. Reset the modes we commonly inherit before returning.
-	process.stdout.write([
-		'\x1b[0m', // reset attributes
-		'\x1b[?25h', // show cursor
-		'\x1b[?7h', // enable line wrapping
-		'\x1b[?6l', // origin mode off
-		'\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l', // mouse/focus modes off
-		'\x1b[?2004l', // bracketed paste off
-		'\x1b[r', // reset scroll region
-	].join(''));
-}
-
-function clearTerminalScreen(): void {
-	if (process.stdout.isTTY) {
-		process.stdout.write('\x1b[r\x1b[2J\x1b[H');
-	}
 }
 
 function targetRequestNames(target: AttachTarget) {
