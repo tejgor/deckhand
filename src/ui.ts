@@ -46,6 +46,8 @@ export function programGlyph(program: SessionRecord['program']): string {
 			return '✶';
 		case 'pi':
 			return 'π';
+		case 'codex':
+			return '◇';
 	}
 }
 

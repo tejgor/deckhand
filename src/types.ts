@@ -1,4 +1,4 @@
-export type ProgramKey = 'claude' | 'pi';
+export type ProgramKey = 'claude' | 'pi' | 'codex';
 
 export type SessionStatus = 'starting' | 'running' | 'exited';
 export type AgentActivityStatus = 'unknown' | 'active' | 'idle';

@@ -1,42 +1,62 @@
 # Deckhand
 
-A standalone terminal workbench for managing local coding-agent sessions.
+A lightweight terminal workbench for running agents.
 
-Inspired by [claude-squad](https://github.com/smtg-ai/claude-squad), Deckhand gives you a persistent split-view UI for running multiple `claude` or `pi` sessions side-by-side, each backed by a daemon-owned PTY so sessions survive across attaches and detaches.
+> **Status:** early/experimental. Behavior, on-disk state, and the daemon IPC protocol may change between versions.
 
----
+- Start `claude`, `pi`, or `codex` sessions from one UI
+- Preview output without attaching to every session
+- Attach/detach while sessions keep running in the background
+- Pick a worktree mode per session: none, new, or existing
+- Designed to work well in IDE integrated terminals
+
+<!-- TODO: add a screenshot or asciinema GIF here once available, e.g.:
+![Deckhand](assets/screenshot.png)
+-->
+
+## Context
+
+Tools like [claude-squad](https://github.com/smtg-ai/claude-squad) and [agent-deck](https://github.com/asheshgoplani/agent-deck) manage parallel agent work with [`tmux`](https://github.com/tmux/tmux) and git worktrees. Deckhand uses a different stack with no `tmux` dependency: an [Ink](https://github.com/vadimdemedes/ink) UI, a local daemon, and [`node-pty`](https://github.com/microsoft/node-pty) workers.
 
 ## Features
 
-- **Standalone terminal app** — runs anywhere, no editor integration required
-- **Supervisor daemon + per-session workers** keep sessions isolated across detaches
-- **Multiple agent types** — spawn `claude` or `pi` sessions on demand
-- **Split-view UI** with an instance sidebar and Preview / Terminal / Git / Dev tabs
-- **Live preview** powered by a daemon-side `@xterm/headless` model, so cursor rewrites render correctly
-- **Worktree-aware** — create new git worktrees per session, or reuse existing ones
-- **Persistent state** in `~/.deckhand/`
+- **Split view** with session sidebar and Preview / Terminal / Git / Dev tabs
+- **Live previews** of session output without attaching
+- **Sessions persist** across UI quits and crashes — the daemon owns them
+- **Cleanup prompts** after a session exits to remove its worktree and branch
+- **Merge helpers** to merge or squash-merge a session's worktree into the current branch (staged, not committed) for review
+- **Optional Git tab** powered by `lazygit`
+- **Configurable Dev tab** for a command such as `npm run dev`
 
 ---
 
 ## Requirements
 
 - Node.js `>= 20`
-- A POSIX shell (macOS or Linux)
+- macOS or Linux
+- A POSIX shell
 - `git` available on `PATH`
-- Optional: `lazygit` available on `PATH` for the Git tab
+- `claude`, `pi`, and/or `codex` available on `PATH`, depending on which agents you want to run
+- Optional: [`lazygit`](https://github.com/jesseduffield/lazygit) on `PATH` for the Git tab
 
 ---
 
 ## Installation
 
-### From source
+Deckhand is not yet published to npm. Install from source:
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/tejgor/deckhand.git
 cd deckhand
 npm install
 npm run build
 npm link
+```
+
+Then run:
+
+```bash
+deckhand
 ```
 
 After changing source code, rebuild before re-running the linked CLI:
@@ -47,13 +67,13 @@ npm run build
 
 The CLI binary is declared in `package.json` as `deckhand → dist/cli.js`.
 
-> **macOS note:** `npm install` runs `scripts/fix-node-pty.js` to repair the `spawn-helper` executable bit and apply best-effort quarantine removal / ad-hoc codesigning.
+> **macOS note:** `npm install` runs `scripts/fix-node-pty.js`, which best-effort repairs the `node-pty` `spawn-helper` binary (executable bit, `xattr`, ad-hoc `codesign`). See [Troubleshooting](#troubleshooting) if install fails.
 
 ---
 
 ## Quick start
 
-From any git repository:
+From inside a git repository:
 
 ```bash
 deckhand
@@ -62,12 +82,12 @@ deckhand
 Then:
 
 1. Press `n` to create a new session
-2. Choose `claude` or `pi`
-3. Enter a name
-4. Press `tab` to pick a workspace mode (no worktree / new worktree / existing worktree)
+2. Choose `claude`, `pi`, or `codex`
+3. Enter a session name
+4. Press `tab` to choose a workspace mode: no worktree, new worktree, or existing worktree
 5. Press `enter` to launch
 
-Use `j` / `k` to move between sessions and `o` to attach to the selected one.
+Use `j` / `k` to move between sessions and `o` to attach to the selected session.
 
 ---
 
@@ -79,15 +99,19 @@ Use `j` / `k` to move between sessions and `o` to attach to the selected one.
 | --- | --- |
 | `n` | New session |
 | `tab` | Cycle Preview / Terminal / Git / Dev tabs |
-| `o` | Attach to selected running session's active tab |
-| `d` | Start/stop the selected session's dev command |
+| `o` | Attach to the selected session, opening whichever tab is currently shown |
+| `d` | Start/stop the selected session's Dev tab command |
+| `m` | Merge selected worktree into the current branch |
 | `j` / `k` | Move between sessions |
-| `x` / `X` | Kill selected running session / force kill; worktree sessions prompt to optionally delete the worktree, or delete both the managed worktree and branch |
+| `h` / `l` | Resize the sidebar |
+| `x` / `X` | Kill selected running session / force kill |
 | `s` | Restart selected exited session |
-| `backspace` | Remove selected exited session |
-| `r` | Refresh |
+| `backspace` | Drop selected exited session from the list |
+| `r` | Refresh session list |
 | `?` | Show keyboard shortcuts |
-| `q` | Quit |
+| `q` | Quit the UI; running sessions continue in the daemon |
+
+Worktree sessions may prompt to keep/delete the worktree, or delete both the managed worktree and branch when it is safe to do so.
 
 ### Attach mode
 
@@ -98,11 +122,27 @@ Use `j` / `k` to move between sessions and `o` to attach to the selected one.
 
 ---
 
+## Workspace modes
+
+When creating a session, Deckhand can launch it in one of three workspace modes:
+
+| Mode | Behavior |
+| --- | --- |
+| No worktree | Run in the current repository directory |
+| New worktree | Create or resolve a worktree for the session |
+| Existing worktree | Pick from existing git worktrees, including the current/main one |
+
+New worktrees are created through a project hook when present; otherwise Deckhand falls back to `git worktree add` under `~/.deckhand/worktrees/`.
+
+---
+
 ## Configuration
+
+Deckhand reads configuration from `~/.deckhand/config.json`.
 
 ### Dev command
 
-The Dev tab is started explicitly with `d`. Configure the global command in `~/.deckhand/config.json`:
+The Dev tab is started explicitly with `d`. Configure the global command like this:
 
 ```json
 {
@@ -110,11 +150,11 @@ The Dev tab is started explicitly with `d`. Configure the global command in `~/.
 }
 ```
 
-If `dev_command` is omitted, Deckhand runs `dev`.
+Set `dev_command` before pressing `d`. If omitted, Deckhand tries to runs a `dev` alias.
 
 ### Attach scroll sensitivity
 
-Attached sessions dampen trackpad/mouse-wheel scrolling by default. Configure the multiplier in `~/.deckhand/config.json`:
+Attached sessions dampen trackpad/mouse-wheel scrolling. Configure the multiplier like this:
 
 ```json
 {
@@ -122,15 +162,17 @@ Attached sessions dampen trackpad/mouse-wheel scrolling by default. Configure th
 }
 ```
 
-Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0` to ignore vertical wheel events while attached. The default is `0.25`.
+Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0` to ignore vertical wheel events while attached. Default: `0.25`.
 
 ### State and logs
 
 | Path | Purpose |
 | --- | --- |
 | `~/.deckhand/state.json` | Persisted session list |
+| `~/.deckhand/config.json` | User configuration |
 | `~/.deckhand/daemon.log` | Supervisor daemon diagnostics |
 | `~/.deckhand/daemon.pid` | Active supervisor daemon PID |
+| `~/.deckhand/daemon.sock` | Local IPC socket |
 | `~/.deckhand/workers/` | Per-session worker PID/log files |
 | `~/.deckhand/worktrees/` | Default location for auto-created worktrees |
 
@@ -138,9 +180,9 @@ Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0`
 
 ## Worktree hooks
 
-For new-worktree sessions, Deckhand first creates or resolves a git worktree, then starts the agent inside it. If present, Deckhand uses the following project hook before falling back to built-in `git worktree add`:
+For new-worktree sessions, Deckhand first creates or resolves a git worktree, then starts the agent inside it. Deckhand uses this project hook if present; otherwise it falls back to `git worktree add`:
 
-```
+```text
 .claude/scripts/create-worktree.sh
 ```
 
@@ -148,7 +190,7 @@ For new-worktree sessions, Deckhand first creates or resolves a git worktree, th
 
 - Read JSON from `stdin`
 - Use `name` as the sanitized worktree/session name
-- Use `cwd` as the directory where `deckhand` was launched (may be the main repo or an existing linked worktree)
+- Use `cwd` as the directory where `deckhand` was launched
 - Create or register a git worktree
 - Print the absolute worktree path to `stdout` as the final non-empty line
 - Exit `0` on success
@@ -161,7 +203,8 @@ Deckhand also sets `CLAUDE_PROJECT_DIR` to the launch cwd for compatibility with
 { "name": "my_feature", "cwd": "/path/to/current/worktree" }
 ```
 
-### Minimal hook
+<details>
+<summary><strong>Minimal hook example</strong></summary>
 
 ```bash
 #!/bin/bash
@@ -192,18 +235,34 @@ fi
 echo "$DIR"
 ```
 
-> If your hook copies symlinks from the source worktree, prefer resolving them with `realpath` so newly-created worktrees point directly at the real target instead of through another linked worktree.
+</details>
 
-If no hook is present, Deckhand creates worktrees under `~/.deckhand/worktrees/`.
+If your hook copies symlinks from the source worktree, prefer resolving them with `realpath` so newly-created worktrees point directly at the real target instead of through another linked worktree.
 
 ---
 
 ## Architecture
 
-- **TypeScript + [Ink](https://github.com/vadimdemedes/ink)** for the terminal UI
-- **Central daemon** owns state, IPC, worktrees, and worker supervision; **per-session worker processes** own the live PTYs via [`node-pty`](https://github.com/microsoft/node-pty)
-- **Live preview** uses [`@xterm/headless`](https://www.npmjs.com/package/@xterm/headless) on the daemon side so cursor rewrites and in-place updates render as terminal screen state instead of raw scrollback
-- **Frozen frames** — when a session exits, Deckhand retains the last preview frame for review
+Deckhand has three main pieces:
+
+- **Ink frontend** — renders the terminal UI, sends requests to the daemon, and attaches to live panes when requested.
+- **Local daemon** — owns session state, IPC, worktree operations, and worker supervision.
+- **Session workers** — one worker per running session; each worker owns the agent PTY plus optional Terminal / Git / Dev PTYs.
+
+Terminal output is fed into a headless [`xterm.js`](https://github.com/xtermjs/xterm.js) model. The UI receives rendered snapshots for previews, while attach mode streams input/output directly between your terminal and the selected PTY.
+
+The UI can quit or crash without taking sessions down; the daemon owns them.
+
+### Daemon lifecycle
+
+Deckhand spawns a long-lived supervisor daemon the first time you launch the UI. Quitting the UI with `q` leaves the daemon (and any running sessions) in place; relaunching `deckhand` reattaches. Stopping the daemon kills all running sessions.
+
+| Action | How |
+| --- | --- |
+| Check whether the daemon is running | `pgrep -F ~/.deckhand/daemon.pid` |
+| Tail daemon logs | `tail -f ~/.deckhand/daemon.log` |
+| Stop the daemon (and all sessions) | `kill $(cat ~/.deckhand/daemon.pid)` |
+| Recover from a crashed daemon | Remove `~/.deckhand/daemon.pid` and `~/.deckhand/daemon.sock`, then relaunch |
 
 ---
 
@@ -212,12 +271,66 @@ If no hook is present, Deckhand creates worktrees under `~/.deckhand/worktrees/`
 ```bash
 npm install
 npm run dev      # run from source via tsx
-npm run daemon   # run only the daemon (dev mode)
+npm run daemon   # run only the daemon in dev mode
 npm run build    # compile to dist/
 ```
+
+Useful checks before linking a build:
+
+```bash
+npm run build
+npm pack --dry-run --ignore-scripts
+```
+
+---
+
+## Troubleshooting
+
+**`deckhand` can't find an agent.** Confirm the binary you want is on `PATH`: `which claude`, `which pi`, `which codex`. Deckhand inherits the launching shell's environment.
+
+**`node-pty` fails to load on macOS** (e.g. `spawn-helper` permission errors). Re-run the repair script directly:
+
+```bash
+node scripts/fix-node-pty.js
+```
+
+If that doesn't help, reinstall: `rm -rf node_modules && npm install`.
+
+**Stale daemon socket / PID.** If `deckhand` hangs at startup or reports it can't reach the daemon, the supervisor may have exited uncleanly. Remove the stale files and relaunch:
+
+```bash
+rm -f ~/.deckhand/daemon.pid ~/.deckhand/daemon.sock
+deckhand
+```
+
+**Git tab is empty.** Install [`lazygit`](https://github.com/jesseduffield/lazygit) and ensure it is on `PATH`.
+
+**Dev tab does nothing.** The Dev command is started explicitly with `d`. If `~/.deckhand/config.json` does not set `dev_command`, Deckhand runs the literal command `dev`, which usually doesn't exist.
+
+---
+
+## Uninstall
+
+```bash
+npm unlink -g deckhand
+```
+
+To remove all local state (sessions, logs, auto-created worktrees):
+
+```bash
+rm -rf ~/.deckhand
+```
+
+If Deckhand created git worktrees under `~/.deckhand/worktrees/`, prefer removing them through the UI (or `git worktree remove`) before deleting the directory, so git's bookkeeping stays consistent.
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome. For larger changes, please open an issue first to discuss the approach. Run `npm run build` and confirm the CLI launches before sending a PR.
 
 ---
 
 ## License
 
-See repository for license information.
+No `LICENSE` file is currently included in this repository. Until one is added, all rights are reserved by default and the code should be treated as source-available, not open source.

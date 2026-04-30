@@ -13,6 +13,7 @@ import {THEME, compactPath, truncate} from './ui.js';
 const PROGRAMS: Array<{key: ProgramKey; label: string; glyph: string}> = [
 	{key: 'claude', label: 'Claude', glyph: '✶'},
 	{key: 'pi', label: 'Pi', glyph: 'π'},
+	{key: 'codex', label: 'Codex', glyph: '◇'},
 ];
 
 const EMPTY_PREVIEW: PreviewRecord = {

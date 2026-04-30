@@ -21,7 +21,7 @@ Current implemented behavior:
 - selection-driven preview updates with `j` / `k`
 - resizable instance sidebar with `h` / `l`
 - subtle icon-based agent/activity indicators
-- create flow for `claude` and `pi`
+- create flow for `claude`, `pi`, and `codex`
 - create sessions in one of three workspace modes:
   - no worktree
   - new worktree
@@ -121,7 +121,7 @@ Instead the daemon tracks changes to the rendered preview snapshot:
 - no visible preview changes for a quiet period marks it `idle`
 - new sessions start as `unknown` until enough signal exists
 
-This is intentionally agent-agnostic and works for `claude`, `pi`, and future agents.
+This is intentionally agent-agnostic and works for `claude`, `pi`, `codex`, and future agents.
 
 Important distinction:
 
@@ -136,6 +136,7 @@ Instead, for new worktree sessions, the daemon creates or resolves the worktree 
 
 - `claude`
 - `pi`
+- `codex`
 - future local agents
 
 New worktree creation uses a tiered strategy:
@@ -236,7 +237,7 @@ Current behavior:
 - subscribes to session updates
 - watches preview for the selected session
 - lets selection drive the Preview pane
-- supports create flow for `claude` and `pi`
+- supports create flow for `claude`, `pi`, and `codex`
 - during name entry, `tab` cycles workspace mode:
   - no worktree
   - new worktree
@@ -246,6 +247,7 @@ Current behavior:
 - shows compact program glyphs instead of program text:
   - `✶` for Claude
   - `π` for Pi
+  - `◇` for Codex
 - shows compact activity/lifecycle indicators instead of status text:
   - spinner for starting/active
   - green `●` for idle running sessions
@@ -686,7 +688,11 @@ Validated:
 - created `pi` sessions successfully
 - created `claude` sessions successfully
 - command resolution finds real local binaries
-- TypeScript build passes after adding worktree session creation fields
+- TypeScript build passes after adding codex support
+
+Not yet manually validated:
+
+- created `codex` sessions successfully
 
 ### Worktree support
 
@@ -831,7 +837,7 @@ Particularly important cases:
 - attempted delete of current/main worktree should stay blocked
 - multiple sessions pointed at one worktree should block deletion
 
-Protocol is now v13. If an older daemon is still running, stop it first:
+Protocol is now v14. If an older daemon is still running, stop it first:
 
 ```bash
 kill $(cat ~/.deckhand/daemon.pid)
