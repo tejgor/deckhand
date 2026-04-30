@@ -44,7 +44,7 @@
     "tsx": "^4.19.2",
     "typescript": "^5.8.3"
   },
-  "description": "A standalone terminal workbench for managing local coding-agent sessions.",
+  "description": "A lightweight agent workbench for your IDE terminal.",
   "bin": {
     "deckhand": "dist/cli.js"
   },

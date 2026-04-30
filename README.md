@@ -1,6 +1,6 @@
 # Deckhand
 
-A lightweight terminal workbench for running agents.
+A lightweight agent workbench for your IDE terminal.
 
 > **Status:** early/experimental. Behavior, on-disk state, and the daemon IPC protocol may change between versions.
 
