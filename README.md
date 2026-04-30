@@ -339,4 +339,4 @@ Issues and pull requests are welcome. For larger changes, please open an issue f
 
 ## License
 
-No `LICENSE` file is currently included in this repository. Until one is added, all rights are reserved by default and the code should be treated as source-available, not open source.
+Deckhand is released under the [MIT License](LICENSE).
