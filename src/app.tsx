@@ -949,11 +949,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setActiveTab(tab => (tab === 'preview' ? 'terminal' : tab === 'terminal' ? 'git' : tab === 'git' ? 'dev' : 'preview'));
 				return;
 			}
-			if (key.upArrow || input === 'k') {
+			if (input === 'k') {
 				moveSelection(-1);
 				return;
 			}
-			if (key.downArrow || input === 'j') {
+			if (input === 'j') {
 				moveSelection(1);
 				return;
 			}
