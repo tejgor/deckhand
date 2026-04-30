@@ -93,7 +93,7 @@ export function sortSessionsNewestFirst(sessions: SessionRecord[]): SessionRecor
 		if (a.status !== b.status) {
 			return a.status === 'running' ? -1 : 1;
 		}
-		return b.createdAt.localeCompare(a.createdAt);
+		return a.createdAt.localeCompare(b.createdAt);
 	});
 }
 

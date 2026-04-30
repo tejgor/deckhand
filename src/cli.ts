@@ -8,7 +8,7 @@ import {ensureGitRepo} from './git.js';
 import {runSessionWorker} from './sessionWorker.js';
 import {loadAppConfig} from './storage.js';
 import {resetTerminalState} from './terminalState.js';
-import type {UiExitResult} from './types.js';
+import type {RightPaneTab, UiExitResult} from './types.js';
 
 process.title = 'deckhand';
 
@@ -33,16 +33,24 @@ function leaveAlternateScreen(): void {
 	}
 }
 
-async function runUi(sidebarWidth: {current?: number}): Promise<UiExitResult | undefined> {
+async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number}): Promise<UiExitResult | undefined> {
 	const repoRoot = await ensureGitRepo(process.cwd());
 	enterAlternateScreen();
 	const instance = render(
 		React.createElement(App, {
 			repoRoot,
 			cwd: repoRoot,
-			initialSidebarWidth: sidebarWidth.current,
+			initialSelectedId: uiState.selectedId,
+			initialActiveTab: uiState.activeTab,
+			initialSidebarWidth: uiState.sidebarWidth,
+			onSelectedIdChange: sessionId => {
+				uiState.selectedId = sessionId;
+			},
+			onActiveTabChange: tab => {
+				uiState.activeTab = tab;
+			},
 			onSidebarWidthChange: width => {
-				sidebarWidth.current = width;
+				uiState.sidebarWidth = width;
 			},
 		}),
 		{
@@ -73,13 +81,15 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	const sidebarWidth: {current?: number} = {};
+	const uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number} = {};
 	while (true) {
-		const result = await runUi(sidebarWidth);
+		const result = await runUi(uiState);
 		if (!result || result.kind === 'quit') {
 			return;
 		}
 		if (result.kind === 'attach') {
+			uiState.selectedId = result.sessionId;
+			uiState.activeTab = result.target === 'terminal' ? 'terminal' : result.target === 'git' ? 'git' : result.target === 'dev' ? 'dev' : 'preview';
 			clearTerminalScreen();
 			try {
 				const config = await loadAppConfig();

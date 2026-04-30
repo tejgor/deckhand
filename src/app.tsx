@@ -66,7 +66,11 @@ type Mode = 'browse' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confir
 interface AppProps {
 	repoRoot: string;
 	cwd: string;
+	initialSelectedId?: string;
+	initialActiveTab?: RightPaneTab;
 	initialSidebarWidth?: number;
+	onSelectedIdChange?: (sessionId: string | undefined) => void;
+	onActiveTabChange?: (tab: RightPaneTab) => void;
 	onSidebarWidthChange?: (width: number) => void;
 }
 
@@ -113,7 +117,7 @@ function sortSessions(sessions: SessionRecord[]): SessionRecord[] {
 				return 1;
 			}
 		}
-		return b.createdAt.localeCompare(a.createdAt);
+		return a.createdAt.localeCompare(b.createdAt);
 	});
 }
 
@@ -340,11 +344,11 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 	return `${activeTab} shortcuts • esc/? close`;
 }
 
-export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: AppProps) {
+export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialSidebarWidth, onSelectedIdChange, onActiveTabChange, onSidebarWidthChange}: AppProps) {
 	const {exit} = useApp();
 	const [mode, setMode] = useState<Mode>('browse');
 	const [sessions, setSessions] = useState<SessionRecord[]>([]);
-	const [selectedId, setSelectedId] = useState<string | undefined>();
+	const [selectedId, setSelectedId] = useState<string | undefined>(initialSelectedId);
 	const [programIndex, setProgramIndex] = useState(0);
 	const [draftName, setDraftName] = useState('');
 	const [worktreeMode, setWorktreeMode] = useState<WorktreeMode>('none');
@@ -354,7 +358,7 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 	const [killConfirmIndex, setKillConfirmIndex] = useState(0);
 	const [killConfirmForce, setKillConfirmForce] = useState(false);
 	const [mergeConfirmIndex, setMergeConfirmIndex] = useState(0);
-	const [activeTab, setActiveTab] = useState<RightPaneTab>('preview');
+	const [activeTab, setActiveTab] = useState<RightPaneTab>(initialActiveTab ?? 'preview');
 	const [preview, setPreview] = useState<PreviewRecord>(EMPTY_PREVIEW);
 	const [terminal, setTerminal] = useState<TerminalRecord>(EMPTY_TERMINAL);
 	const [git, setGit] = useState<GitRecord>(EMPTY_GIT);
@@ -372,11 +376,16 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 
 	useEffect(() => {
 		selectedIdRef.current = selectedId;
-	}, [selectedId]);
+		onSelectedIdChange?.(selectedId);
+	}, [onSelectedIdChange, selectedId]);
 
 	useEffect(() => {
 		sessionsRef.current = sessions;
 	}, [sessions]);
+
+	useEffect(() => {
+		onActiveTabChange?.(activeTab);
+	}, [activeTab, onActiveTabChange]);
 
 	useEffect(() => {
 		const onResize = () => {
@@ -521,7 +530,7 @@ export function App({repoRoot, cwd, initialSidebarWidth, onSidebarWidthChange}: 
 	useEffect(() => {
 		setSelectedId(currentId => {
 			if (sessions.length === 0) {
-				return undefined;
+				return currentId;
 			}
 			if (currentId && sessions.some(session => session.id === currentId)) {
 				return currentId;
