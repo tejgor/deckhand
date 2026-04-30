@@ -43,7 +43,19 @@ Tools like [claude-squad](https://github.com/smtg-ai/claude-squad) and [agent-de
 
 ## Installation
 
-Deckhand is not yet published to npm. Install from source:
+Install from npm:
+
+```bash
+npm install -g @tejgor/deckhand
+```
+
+Then run:
+
+```bash
+deckhand
+```
+
+For local development, install from source:
 
 ```bash
 git clone https://github.com/tejgor/deckhand.git
@@ -51,12 +63,6 @@ cd deckhand
 npm install
 npm run build
 npm link
-```
-
-Then run:
-
-```bash
-deckhand
 ```
 
 After changing source code, rebuild before re-running the linked CLI:

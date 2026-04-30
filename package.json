@@ -1,5 +1,5 @@
 {
-  "name": "deckhand",
+  "name": "@tejgor/deckhand",
   "version": "0.1.0",
   "private": false,
   "type": "module",
@@ -12,6 +12,26 @@
     "postinstall": "node scripts/fix-node-pty.js",
     "prepare": "npm run build"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tejgor/deckhand.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tejgor/deckhand/issues"
+  },
+  "homepage": "https://github.com/tejgor/deckhand#readme",
+  "license": "MIT",
+  "keywords": [
+    "agent",
+    "cli",
+    "terminal",
+    "workbench",
+    "ink",
+    "worktree"
+  ],
   "dependencies": {
     "@xterm/headless": "^5.5.0",
     "ink": "^6.3.1",
