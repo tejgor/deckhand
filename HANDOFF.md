@@ -33,7 +33,7 @@ Current implemented behavior:
 - external attach / detach flow
 - kill running session from UI
 - remove exited session from UI
-- restart exited sessions in their recorded cwd/worktree
+- restart exited sessions in their recorded cwd/worktree and, for Deckhand-managed agent identities, resume the same agent conversation
 - lazy daemon-owned Git tab backed by `lazygit`
 - explicit daemon-owned Dev tab backed by a configurable global dev command
 - subtle Dev-running indicators in the tab bar and session sidebar
@@ -277,7 +277,7 @@ Current controls:
 - `m` merge or squash-merge selected worktree-backed session into the Deckhand launch/current branch without committing, with merge/squash/cancel confirmation
 - `x` kill selected running session
 - for worktree-backed sessions, `x` opens keep/delete/cancel confirmation when applicable
-- `s` restart selected exited session in its recorded cwd/worktree
+- `s` restart selected exited session in its recorded cwd/worktree, resuming the original agent conversation when `agentSessionRef` is available
 - `d` starts/stops the selected running session's Dev command and switches to the Dev tab
 - `backspace` removes selected exited session
 - `r` refresh / resubscribe
@@ -330,6 +330,10 @@ Responsibilities:
 - expose an IPC server over a Unix socket
 - create PTY-backed sessions
 - create sessions in no-worktree, new-worktree, or existing-worktree mode
+- assign deterministic Deckhand-owned agent session handles for resumable agents:
+  - Claude: `--name dh-{sanitized-title}-{short-id}` on create, `--resume <name>` on restart
+  - Pi: `--session ~/.deckhand/agent-sessions/pi/dh-{sanitized-title}-{short-id}.jsonl` on create/restart
+  - Codex: no deterministic handle yet; falls back to a normal launch
 - restart exited sessions in their existing recorded cwd/worktree without creating a new session record
 - list git worktrees for the frontend picker
 - call `.claude/scripts/create-worktree.sh` when available for new worktree creation
@@ -439,6 +443,8 @@ Responsibilities:
 
 Persisted session metadata now includes the usual identity/status fields plus:
 
+- `args`
+- `agentSessionRef`
 - `agentStatus`
 - `agentStatusUpdatedAt`
 - `lastPreview`
@@ -558,6 +564,7 @@ Per-session runtime worker.
 Responsibilities:
 
 - own the agent PTY for one session
+- spawn the agent with persisted `session.args` instead of always launching the bare command
 - own that session's Terminal/Git/Dev companion PTYs
 - maintain `@xterm/headless` preview models
 - infer active/idle activity from preview changes
@@ -614,6 +621,8 @@ Tracked fields include:
 - `title`
 - `program`
 - `command`
+- `args` (agent launch arguments; restart swaps create args for resume args when supported)
+- `agentSessionRef` (Deckhand-owned resume handle, currently Claude name or Pi session path)
 - `cwd` (actual agent cwd; may be a worktree path)
 - `repoRoot` (UI grouping repo root from where Deckhand was launched)
 - `launchCwd`
@@ -693,6 +702,7 @@ Validated:
 - created `pi` sessions successfully
 - created `claude` sessions successfully
 - command resolution finds real local binaries
+- TypeScript build passes with agent launch args and resumable Claude/Pi session handles
 - TypeScript build passes after adding codex support
 
 Not yet manually validated:

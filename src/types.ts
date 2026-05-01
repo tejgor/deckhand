@@ -34,11 +34,19 @@ export interface WorktreeMergeResult {
 	stderr: string;
 }
 
+export interface AgentSessionRef {
+	provider: ProgramKey;
+	kind: 'name' | 'path' | 'id';
+	value: string;
+}
+
 export interface SessionRecord {
 	id: string;
 	title: string;
 	program: ProgramKey;
 	command: string;
+	args?: string[];
+	agentSessionRef?: AgentSessionRef;
 	cwd: string;
 	repoRoot: string;
 	launchCwd?: string;

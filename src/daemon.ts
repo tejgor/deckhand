@@ -6,12 +6,12 @@ import {execFile, fork, type ChildProcess} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import pty, {type IPty} from 'node-pty';
-import {getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
-import {createWorktreeForSession, deleteLocalBranch, findRepoRoot, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree} from './git.js';
+import {getAgentSessionDir, getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
+import {createWorktreeForSession, deleteLocalBranch, findRepoRoot, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree, sanitizeWorktreeName} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst} from './storage.js';
 import {TerminalPreview} from './terminalPreview.js';
-import type {AgentActivityStatus, AttachTarget, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ServerMessage, ServerResponse, SessionRecord, TerminalRecord} from './types.js';
+import type {AgentActivityStatus, AgentSessionRef, AttachTarget, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ServerMessage, ServerResponse, SessionRecord, TerminalRecord} from './types.js';
 
 const execFileAsync = promisify(execFile);
 const SCROLLBACK_LIMIT = 200_000;
@@ -139,6 +139,42 @@ async function resolveProgramCommand(program: SessionRecord['program']): Promise
 
 	programCommandCache.set(program, program);
 	return program;
+}
+
+function buildDeckhandAgentName(title: string, sessionId: string): string {
+	const safeTitle = sanitizeWorktreeName(title).replace(/\//g, '-').slice(0, 40).replace(/^[-_]+|[-_]+$/g, '') || 'session';
+	return `dh-${safeTitle}-${sessionId.slice(0, 8)}`;
+}
+
+function buildAgentSessionRef(program: SessionRecord['program'], title: string, sessionId: string): AgentSessionRef | undefined {
+	const name = buildDeckhandAgentName(title, sessionId);
+	if (program === 'claude') {
+		return {provider: program, kind: 'name', value: name};
+	}
+	if (program === 'pi') {
+		return {provider: program, kind: 'path', value: path.join(getAgentSessionDir(program), `${name}.jsonl`)};
+	}
+	return undefined;
+}
+
+function buildAgentArgs(session: Pick<SessionRecord, 'program' | 'agentSessionRef'>, mode: 'create' | 'resume'): string[] {
+	const ref = session.agentSessionRef;
+	if (!ref) {
+		return [];
+	}
+	if (session.program === 'claude' && ref.kind === 'name') {
+		return mode === 'resume' ? ['--resume', ref.value] : ['--name', ref.value];
+	}
+	if (session.program === 'pi' && ref.kind === 'path') {
+		return ['--session', ref.value];
+	}
+	return [];
+}
+
+async function prepareAgentSessionRef(ref: AgentSessionRef | undefined): Promise<void> {
+	if (ref?.kind === 'path') {
+		await fs.mkdir(path.dirname(ref.value), {recursive: true});
+	}
 }
 
 function resolveShellCommand(): string {
@@ -1614,12 +1650,16 @@ export class InkDaemon {
 		}
 
 		const command = await resolveProgramCommand(input.program);
+		const sessionId = randomUUID();
+		const agentSessionRef = buildAgentSessionRef(input.program, title, sessionId);
 		const now = new Date().toISOString();
 		const baseSession: SessionRecord = {
-			id: randomUUID(),
+			id: sessionId,
 			title,
 			program: input.program,
 			command,
+			args: buildAgentArgs({program: input.program, agentSessionRef}, 'create'),
+			agentSessionRef,
 			cwd: input.cwd,
 			repoRoot: input.repoRoot,
 			launchCwd: input.cwd,
@@ -1698,6 +1738,7 @@ export class InkDaemon {
 		this.sessions.set(sessionId, preparedSession);
 		this.broadcastSessionUpdated(preparedSession);
 
+		await prepareAgentSessionRef(preparedSession.agentSessionRef);
 		const runningSession = await this.startWorker(preparedSession, input.cols, input.rows);
 		this.sessions.set(sessionId, runningSession);
 		await this.persist();
@@ -1734,8 +1775,11 @@ export class InkDaemon {
 		}
 
 		const now = new Date().toISOString();
+		const startingAgentSessionRef = existing.agentSessionRef;
 		const starting: SessionRecord = {
 			...existing,
+			args: buildAgentArgs({program: existing.program, agentSessionRef: startingAgentSessionRef}, 'resume'),
+			agentSessionRef: startingAgentSessionRef,
 			status: 'starting',
 			agentStatus: 'unknown',
 			agentStatusUpdatedAt: now,
@@ -1750,6 +1794,7 @@ export class InkDaemon {
 		this.broadcastSessionUpdated(starting);
 
 		try {
+			await prepareAgentSessionRef(starting.agentSessionRef);
 			const runningSession = await this.startWorker(starting, cols, rows);
 			this.sessions.set(sessionId, runningSession);
 			await this.persist();

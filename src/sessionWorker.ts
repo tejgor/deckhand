@@ -136,7 +136,7 @@ class SessionWorker {
 
 	private async startAgent(session: SessionRecord, cols: number, rows: number): Promise<SessionRecord> {
 		this.session = session;
-		const term = pty.spawn(session.command, [], {name: 'xterm-256color', cwd: session.cwd, env: {...process.env}, cols: size(cols, DEFAULT_COLS), rows: size(rows, DEFAULT_ROWS)});
+		const term = pty.spawn(session.command, session.args ?? [], {name: 'xterm-256color', cwd: session.cwd, env: {...process.env}, cols: size(cols, DEFAULT_COLS), rows: size(rows, DEFAULT_ROWS)});
 		const runtime: AgentRuntime = {term, preview: new TerminalPreview(cols, rows), cwd: session.cwd, exited: false, lastPreviewSnapshot: '', previewChangeEvents: []};
 		this.agent = runtime;
 		post({type: 'running', pid: term.pid});

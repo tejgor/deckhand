@@ -7,6 +7,7 @@ A lightweight agent workbench for your IDE terminal.
 - Start `claude`, `pi`, or `codex` sessions from one UI
 - Preview output without attaching to every session
 - Attach/detach while sessions keep running in the background
+- Restart Deckhand-managed Claude/Pi sessions into their original agent conversation
 - Pick a worktree mode per session: none, new, or existing
 - Designed to work well in IDE integrated terminals
 
@@ -23,6 +24,7 @@ Tools like [claude-squad](https://github.com/smtg-ai/claude-squad) and [agent-de
 - **Split view** with session sidebar and Preview / Terminal / Git / Dev tabs
 - **Live previews** of session output without attaching
 - **Sessions persist** across UI quits and crashes — the daemon owns them
+- **Resumable agent identity** for new Claude/Pi sessions, so restarts reopen the same conversation instead of a blank agent
 - **Cleanup prompts** after a session exits to remove its worktree and branch
 - **Merge helpers** to merge or squash-merge a session's worktree into the current branch (staged, not committed) for review
 - **Optional Git tab** powered by `lazygit`
@@ -111,7 +113,7 @@ Use `j` / `k` to move between sessions and `o` to attach to the selected session
 | `j` / `k` | Move between sessions |
 | `h` / `l` | Resize the sidebar |
 | `x` / `X` | Kill selected running session / force kill |
-| `s` | Restart selected exited session |
+| `s` | Restart selected exited session; new Claude/Pi sessions resume their original agent conversation |
 | `backspace` | Drop selected exited session from the list |
 | `r` | Refresh session list |
 | `?` | Show keyboard shortcuts |
@@ -125,6 +127,28 @@ Worktree sessions may prompt to keep/delete the worktree, or delete both the man
 | --- | --- |
 | *(any)* | Sent directly to the attached pane/session |
 | `Ctrl+Space` | Detach and return to Deckhand |
+
+---
+
+## Agent session identity and restarts
+
+For new sessions, Deckhand assigns a deterministic agent handle based on the visible session name plus a short immutable Deckhand id:
+
+```text
+dh-{sanitized-session-name}-{short-id}
+```
+
+This keeps handles readable while avoiding collisions between similarly named sessions.
+
+Current provider behavior:
+
+| Agent | Create behavior | Restart behavior |
+| --- | --- | --- |
+| Claude | `claude --name dh-{name}-{short-id}` | `claude --resume dh-{name}-{short-id}` |
+| Pi | `pi --session ~/.deckhand/agent-sessions/pi/dh-{name}-{short-id}.jsonl` | same `--session` path |
+| Codex | normal launch | normal launch; Codex session-id discovery is not implemented yet |
+
+Older Deckhand sessions created before this metadata existed do not have an agent handle and will keep the previous restart behavior.
 
 ---
 
@@ -180,6 +204,7 @@ Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0`
 | `~/.deckhand/daemon.pid` | Active supervisor daemon PID |
 | `~/.deckhand/daemon.sock` | Local IPC socket |
 | `~/.deckhand/workers/` | Per-session worker PID/log files |
+| `~/.deckhand/agent-sessions/` | Deckhand-owned agent session files, currently used for Pi |
 | `~/.deckhand/worktrees/` | Default location for auto-created worktrees |
 
 ---
@@ -257,7 +282,7 @@ Deckhand has three main pieces:
 
 Terminal output is fed into a headless [`xterm.js`](https://github.com/xtermjs/xterm.js) model. The UI receives rendered snapshots for previews, while attach mode streams input/output directly between your terminal and the selected PTY.
 
-The UI can quit or crash without taking sessions down; the daemon owns them.
+The UI can quit or crash without taking sessions down; the daemon owns them. New Claude and Pi sessions also persist a Deckhand-owned agent resume handle, allowing exited sessions to restart into the same conversation when the agent supports it.
 
 ### Daemon lifecycle
 

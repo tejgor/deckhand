@@ -30,6 +30,10 @@ export function getWorkerLogPath(sessionId: string): string {
 	return path.join(getWorkerDir(), `${sessionId}.log`);
 }
 
+export function getAgentSessionDir(program: string): string {
+	return path.join(getConfigDir(), 'agent-sessions', program);
+}
+
 export function getStatePath(): string {
 	return path.join(getConfigDir(), 'state.json');
 }
