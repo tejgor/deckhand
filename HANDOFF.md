@@ -333,7 +333,7 @@ Responsibilities:
 - create sessions in no-worktree, new-worktree, or existing-worktree mode
 - assign deterministic Deckhand-owned agent session handles for resumable agents:
   - Claude: `--name dh-{sanitized-title}-{short-id}` on create, `--resume <name>` on restart
-  - Pi: `--session ~/.deckhand/agent-sessions/pi/dh-{sanitized-title}-{short-id}.jsonl` on create/restart
+  - Pi: `--session ~/.pi/agent/sessions/--{cwd}--/{timestamp}_dh-{sanitized-title}-{short-id}_{id}.jsonl` on create/restart, using Pi's normal session tree so sessions remain visible to Pi independently of Deckhand
   - Codex: no deterministic handle yet; falls back to a normal launch
 - restart exited sessions in their existing recorded cwd/worktree without creating a new session record
 - list git worktrees for the frontend picker
@@ -623,7 +623,7 @@ Tracked fields include:
 - `program`
 - `command`
 - `args` (agent launch arguments; restart swaps create args for resume args when supported)
-- `agentSessionRef` (Deckhand-owned resume handle, currently Claude name or Pi session path)
+- `agentSessionRef` (Deckhand-owned resume handle, currently Claude name or Pi session path under Pi's normal `~/.pi/agent/sessions/` tree)
 - `cwd` (actual agent cwd; may be a worktree path)
 - `repoRoot` (UI grouping repo root from where Deckhand was launched)
 - `launchCwd`

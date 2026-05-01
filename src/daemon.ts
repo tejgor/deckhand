@@ -1,12 +1,13 @@
 import fs from 'node:fs/promises';
 import {constants as fsConstants} from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 import {execFile, fork, type ChildProcess} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import pty, {type IPty} from 'node-pty';
-import {getAgentSessionDir, getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
+import {getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
 import {createWorktreeForSession, deleteLocalBranch, findRepoRoot, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree, sanitizeWorktreeName} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst} from './storage.js';
@@ -146,13 +147,20 @@ function buildDeckhandAgentName(title: string, sessionId: string): string {
 	return `dh-${safeTitle}-${sessionId.slice(0, 8)}`;
 }
 
-function buildAgentSessionRef(program: SessionRecord['program'], title: string, sessionId: string): AgentSessionRef | undefined {
+function piSessionPath(cwd: string, name: string, sessionId: string): string {
+	const encodedCwd = cwd.replace(/\//g, '-');
+	const projectDir = `-${encodedCwd}-`;
+	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+	return path.join(os.homedir(), '.pi', 'agent', 'sessions', projectDir, `${timestamp}_${name}_${sessionId}.jsonl`);
+}
+
+function buildAgentSessionRef(program: SessionRecord['program'], title: string, sessionId: string, cwd: string): AgentSessionRef | undefined {
 	const name = buildDeckhandAgentName(title, sessionId);
 	if (program === 'claude') {
 		return {provider: program, kind: 'name', value: name};
 	}
 	if (program === 'pi') {
-		return {provider: program, kind: 'path', value: path.join(getAgentSessionDir(program), `${name}.jsonl`)};
+		return {provider: program, kind: 'path', value: piSessionPath(cwd, name, sessionId)};
 	}
 	return undefined;
 }
@@ -1651,15 +1659,13 @@ export class InkDaemon {
 
 		const command = await resolveProgramCommand(input.program);
 		const sessionId = randomUUID();
-		const agentSessionRef = buildAgentSessionRef(input.program, title, sessionId);
 		const now = new Date().toISOString();
 		const baseSession: SessionRecord = {
 			id: sessionId,
 			title,
 			program: input.program,
 			command,
-			args: buildAgentArgs({program: input.program, agentSessionRef}, 'create'),
-			agentSessionRef,
+			args: [],
 			cwd: input.cwd,
 			repoRoot: input.repoRoot,
 			launchCwd: input.cwd,
@@ -1728,9 +1734,12 @@ export class InkDaemon {
 			};
 		}
 
+		const agentSessionRef = startingSession.agentSessionRef ?? buildAgentSessionRef(startingSession.program, title, sessionId, sessionCwd);
 		const preparedSession: SessionRecord = {
 			...startingSession,
 			cwd: sessionCwd,
+			args: buildAgentArgs({program: startingSession.program, agentSessionRef}, 'create'),
+			agentSessionRef,
 			launchWorktreeRoot,
 			worktree,
 			updatedAt: new Date().toISOString(),

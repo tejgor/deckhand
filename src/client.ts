@@ -3,6 +3,7 @@ import {closeSync, openSync} from 'node:fs';
 import net from 'node:net';
 import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
+import {StringDecoder} from 'node:string_decoder';
 import {
 	getCliEntryPath,
 	getConfigDir,
@@ -29,8 +30,9 @@ function writeMessage(socket: net.Socket, message: ClientRequest): void {
 
 function attachJsonParser(socket: net.Socket, onMessage: (message: ServerMessage) => void): () => void {
 	let buffer = '';
+	const decoder = new StringDecoder('utf8');
 	const handleData = (chunk: Buffer | string) => {
-		buffer += chunk.toString();
+		buffer += Buffer.isBuffer(chunk) ? decoder.write(chunk) : chunk;
 		while (true) {
 			const newlineIndex = buffer.indexOf('\n');
 			if (newlineIndex === -1) {
@@ -47,6 +49,7 @@ function attachJsonParser(socket: net.Socket, onMessage: (message: ServerMessage
 	socket.on('data', handleData);
 	return () => {
 		socket.off('data', handleData);
+		decoder.end();
 	};
 }
 

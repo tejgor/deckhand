@@ -145,8 +145,10 @@ Current provider behavior:
 | Agent | Create behavior | Restart behavior |
 | --- | --- | --- |
 | Claude | `claude --name dh-{name}-{short-id}` | `claude --resume dh-{name}-{short-id}` |
-| Pi | `pi --session ~/.deckhand/agent-sessions/pi/dh-{name}-{short-id}.jsonl` | same `--session` path |
+| Pi | `pi --session ~/.pi/agent/sessions/--{cwd}--/{timestamp}_dh-{name}-{short-id}_{id}.jsonl` | same `--session` path |
 | Codex | normal launch | normal launch; Codex session-id discovery is not implemented yet |
+
+Pi session files are stored in Pi's normal session tree under `~/.pi/agent/sessions/`, not under `~/.deckhand`, so they remain available in Pi's own `/resume` UI and are not removed if Deckhand state is deleted.
 
 Older Deckhand sessions created before this metadata existed do not have an agent handle and will keep the previous restart behavior.
 
@@ -192,8 +194,8 @@ Set `dev_command` before pressing `d`. If omitted, Deckhand tries to runs a `dev
 | `~/.deckhand/daemon.pid` | Active supervisor daemon PID |
 | `~/.deckhand/daemon.sock` | Local IPC socket |
 | `~/.deckhand/workers/` | Per-session worker PID/log files |
-| `~/.deckhand/agent-sessions/` | Deckhand-owned agent session files, currently used for Pi |
 | `~/.deckhand/worktrees/` | Default location for auto-created worktrees |
+| `~/.pi/agent/sessions/` | Normal Pi session storage; Deckhand-created Pi sessions are stored here |
 
 ---
 
