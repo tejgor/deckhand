@@ -148,8 +148,9 @@ function buildDeckhandAgentName(title: string, sessionId: string): string {
 }
 
 function piSessionPath(cwd: string, name: string, sessionId: string): string {
-	const encodedCwd = cwd.replace(/\//g, '-');
-	const projectDir = `-${encodedCwd}-`;
+	// Match Pi's own getDefaultSessionDir() encoding:
+	// `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`
+	const projectDir = `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`;
 	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 	return path.join(os.homedir(), '.pi', 'agent', 'sessions', projectDir, `${timestamp}_${name}_${sessionId}.jsonl`);
 }

@@ -145,10 +145,10 @@ Current provider behavior:
 | Agent | Create behavior | Restart behavior |
 | --- | --- | --- |
 | Claude | `claude --name dh-{name}-{short-id}` | `claude --resume dh-{name}-{short-id}` |
-| Pi | `pi --session ~/.pi/agent/sessions/--{cwd}--/{timestamp}_dh-{name}-{short-id}_{id}.jsonl` | same `--session` path |
+| Pi | `pi --session ~/.pi/agent/sessions/--{encoded-cwd}--/{timestamp}_dh-{name}-{short-id}_{deckhand-id}.jsonl` | same `--session` path |
 | Codex | normal launch | normal launch; Codex session-id discovery is not implemented yet |
 
-Pi session files are stored in Pi's normal session tree under `~/.pi/agent/sessions/`, not under `~/.deckhand`, so they remain available in Pi's own `/resume` UI and are not removed if Deckhand state is deleted.
+Pi session files are stored in Pi's normal session tree under `~/.pi/agent/sessions/`, not under `~/.deckhand`, so they remain available in Pi's own `/resume` UI and are not removed if Deckhand state is deleted. Deckhand matches Pi's default project-directory encoding: `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`. The filename includes the readable Deckhand handle; Pi normally uses `{timestamp}_{sessionId}.jsonl`, but explicit `--session <path>` preserves the provided file path.
 
 Older Deckhand sessions created before this metadata existed do not have an agent handle and will keep the previous restart behavior.
 
