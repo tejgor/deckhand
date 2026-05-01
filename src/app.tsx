@@ -261,7 +261,7 @@ function MergeConfirmPane({session, selectedIndex, width}: {session?: SessionRec
 
 function KillConfirmPane({session, selectedIndex, canDelete, canDeleteBranch, force, width}: {session?: SessionRecord; selectedIndex: number; canDelete: boolean; canDeleteBranch: boolean; force: boolean; width: number}) {
 	const options = canDelete
-		? ['Kill only, keep worktree', 'Kill and delete worktree', 'Cancel', ...(canDeleteBranch ? ['Delete worktree and branch'] : [])]
+		? ['Kill only, keep worktree', 'Kill and delete worktree', ...(canDeleteBranch ? ['Kill, delete worktree and branch'] : []), 'Cancel']
 		: ['Kill session', 'Cancel'];
 	const contentWidth = Math.max(1, width - 4);
 	return (
@@ -576,8 +576,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	);
 	const selectedCanDeleteBranch = Boolean(
 		selectedCanDeleteWorktree &&
-		selectedSession?.worktree?.mode === 'managed' &&
-		selectedSession.worktree.branch &&
+		selectedSession?.worktree?.branch &&
 		selectedSession.worktree.branch !== 'main' &&
 		selectedSession.worktree.branch !== 'master',
 	);
@@ -905,7 +904,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		try {
 			const result = await client.mergeWorktree(selectedSession.id, mergeMode, cwd);
 			setMode('browse');
-			setStatusMessage(`${mergeMode === 'squash' ? 'Squash applied' : 'Merge applied without commit'} from ${result.sourceRef} into ${result.targetBranch}`);
+			if (result.skipped) {
+				setStatusMessage(`Skipped merge: no new commits from ${result.sourceRef} into ${result.targetBranch}`);
+			} else {
+				setStatusMessage(`${mergeMode === 'squash' ? 'Squash applied' : 'Merge applied without commit'} from ${result.sourceRef} into ${result.targetBranch}`);
+			}
 		} catch (nextError) {
 			setError(nextError instanceof Error ? nextError.message : String(nextError));
 		} finally {
@@ -1142,7 +1145,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 
 		if (mode === 'confirm-kill') {
-			const optionCount = selectedCanDeleteWorktree ? (selectedCanDeleteBranch ? 4 : 3) : 2;
+			const cancelIndex = selectedCanDeleteWorktree ? (selectedCanDeleteBranch ? 3 : 2) : 1;
+			const optionCount = cancelIndex + 1;
 			if (key.escape) {
 				setMode('browse');
 				return;
@@ -1159,7 +1163,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				if (selectedCanDeleteWorktree) {
 					if (killConfirmIndex === 0) void killSelected(false, false, killConfirmForce);
 					else if (killConfirmIndex === 1) void killSelected(true, false, killConfirmForce);
-					else if (killConfirmIndex === 3 && selectedCanDeleteBranch) void killSelected(true, true, killConfirmForce);
+					else if (killConfirmIndex === 2 && selectedCanDeleteBranch) void killSelected(true, true, killConfirmForce);
 					else setMode('browse');
 				} else {
 					if (killConfirmIndex === 0) void killSelected(false, false, killConfirmForce);

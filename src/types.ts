@@ -30,6 +30,8 @@ export interface WorktreeMergeResult {
 	mode: WorktreeMergeMode;
 	sourceRef: string;
 	targetBranch: string;
+	skipped?: boolean;
+	reason?: string;
 	stdout: string;
 	stderr: string;
 }

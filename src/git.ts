@@ -267,6 +267,11 @@ async function headSha(cwd: string): Promise<string> {
 	return stdout.trim();
 }
 
+async function countCommitsToMerge(targetRoot: string, sourceRef: string): Promise<number> {
+	const {stdout} = await execFileAsync('git', ['-C', targetRoot, 'rev-list', '--count', `HEAD..${sourceRef}`]);
+	return Number.parseInt(stdout.trim(), 10) || 0;
+}
+
 export async function mergeWorktreeIntoCurrent(
 	worktreePath: string,
 	targetCwd: string,
@@ -283,6 +288,19 @@ export async function mergeWorktreeIntoCurrent(
 	const targetBranch = await currentBranch(targetRoot);
 	if (!targetBranch) {
 		throw new Error('target worktree is detached; checkout a branch before merging');
+	}
+
+	const commitsToMerge = await countCommitsToMerge(targetRoot, sourceRef);
+	if (commitsToMerge === 0) {
+		return {
+			mode,
+			sourceRef,
+			targetBranch,
+			skipped: true,
+			reason: 'No new commits to merge',
+			stdout: '',
+			stderr: '',
+		};
 	}
 
 	const args = mode === 'squash'

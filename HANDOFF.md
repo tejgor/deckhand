@@ -29,7 +29,7 @@ Current implemented behavior:
 - agent-agnostic new-worktree creation using project hook scripts when available
 - existing worktree picker, including the main/current worktree
 - worktree-aware kill confirmation with keep/delete/cancel behavior when applicable
-- merge or squash-merge without committing a selected session worktree back into the Deckhand launch/current branch
+- merge or squash-merge without committing a selected session worktree back into the Deckhand launch/current branch, while skipping with a warning when the session branch has no new commits
 - external attach / detach flow
 - kill running session from UI
 - remove exited session from UI
@@ -180,6 +180,7 @@ When safe, worktree-backed session kill offers a one-step confirmation:
 
 - kill only / keep worktree
 - kill and delete worktree
+- kill, delete worktree and branch (for any non-protected branch, including existing-worktree sessions)
 - cancel
 
 ## Directory / file overview
@@ -244,7 +245,7 @@ Current behavior:
   - new worktree
   - existing worktree
 - existing worktree mode opens a picker in the right pane and includes all non-bare git worktrees, including the main/current worktree
-- worktree-backed kill opens a confirmation pane with keep/delete/cancel options when deletion is safe
+- worktree-backed kill opens a confirmation pane with keep/delete/delete-branch/cancel options when deletion is safe
 - shows compact program glyphs instead of program text:
   - `✶` for Claude
   - `π` for Pi
@@ -274,9 +275,9 @@ Current controls:
 - `?` opens a keyboard-shortcuts help pane
 - `o` attaches to the selected running session's active pane (`agent` on Preview, shell on Terminal, `lazygit` on Git)
 - attach mode sets the compact terminal/window title to `dh/<pane> <session>` while streaming PTY output directly; `Ctrl+Space` returns to Deckhand
-- `m` merge or squash-merge selected worktree-backed session into the Deckhand launch/current branch without committing, with merge/squash/cancel confirmation
+- `m` merge or squash-merge selected worktree-backed session into the Deckhand launch/current branch without committing, with merge/squash/cancel confirmation; if there are no new commits, Deckhand skips the merge and shows a warning
 - `x` kill selected running session
-- for worktree-backed sessions, `x` opens keep/delete/cancel confirmation when applicable
+- for worktree-backed sessions, `x` opens keep/delete/delete-branch/cancel confirmation when applicable
 - `s` restart selected exited session in its recorded cwd/worktree, resuming the original agent conversation when `agentSessionRef` is available
 - `d` starts/stops the selected running session's Dev command and switches to the Dev tab
 - `backspace` removes selected exited session
@@ -338,7 +339,7 @@ Responsibilities:
 - list git worktrees for the frontend picker
 - call `.claude/scripts/create-worktree.sh` when available for new worktree creation
 - fall back to built-in `git worktree add` creation when no script exists
-- optionally remove a safe-to-delete worktree after killing a worktree-backed session
+- optionally remove a safe-to-delete worktree, and optionally its non-protected checked-out branch, after killing a worktree-backed session
 - route attach/input/resize requests to session workers
 - stream raw PTY output from workers to attached clients
 - supervise lazy per-session companion shell/Git/Dev PTYs owned by workers
@@ -472,7 +473,7 @@ Git helper layer for:
   - `CLAUDE_PROJECT_DIR` set to the exact Deckhand launch cwd
   - stdin JSON containing both `name` and `cwd`
 - removing safe-to-delete worktrees with `git worktree remove -f` and `git worktree prune`
-- merging a session worktree back into the launch/current worktree without committing using `git merge --no-commit --no-ff <source>`, or squash-applying without committing using `git merge --squash <source>`
+- merging a session worktree back into the launch/current worktree without committing using `git merge --no-commit --no-ff <source>`, or squash-applying without committing using `git merge --squash <source>`; before either mode it checks `HEAD..<source>` and skips when there are no new commits
 
 ### `src/paths.ts`
 
@@ -848,7 +849,7 @@ Particularly important cases:
 - hook-script creation from a linked worktree
 - fallback creation when no script exists
 - existing worktree selection including the main worktree
-- delete confirmation on a non-current, non-main worktree
+- delete confirmation on a non-current, non-main worktree, including branch deletion for existing worktrees
 - attempted delete of current/main worktree should stay blocked
 - multiple sessions pointed at one worktree should block deletion
 

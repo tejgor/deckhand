@@ -1838,8 +1838,8 @@ export class InkDaemon {
 	private canDeleteSessionBranch(session: SessionRecord): {ok: true} | {ok: false; reason: string} {
 		const worktree = session.worktree;
 		const branch = worktree?.branch;
-		if (!worktree || worktree.mode !== 'managed') {
-			return {ok: false, reason: 'can only delete branches for managed worktrees'};
+		if (!worktree || worktree.mode === 'none') {
+			return {ok: false, reason: 'can only delete branches for worktree-backed sessions'};
 		}
 		if (!branch) {
 			return {ok: false, reason: 'worktree is not on a local branch'};
@@ -1860,7 +1860,11 @@ export class InkDaemon {
 			throw new Error('session does not have a worktree to merge');
 		}
 		const result = await mergeWorktreeIntoCurrent(worktreePath, targetCwd, mode);
-		await this.log(`${mode} merged ${session.title} (${result.sourceRef}) into ${result.targetBranch}`);
+		if (result.skipped) {
+			await this.log(`${mode} merge skipped for ${session.title} (${result.sourceRef}) into ${result.targetBranch}: ${result.reason ?? 'no new commits'}`);
+		} else {
+			await this.log(`${mode} merged ${session.title} (${result.sourceRef}) into ${result.targetBranch}`);
+		}
 		return result;
 	}
 
