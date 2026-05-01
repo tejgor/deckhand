@@ -182,18 +182,6 @@ The Dev tab is started explicitly with `d`. Configure the global command like th
 
 Set `dev_command` before pressing `d`. If omitted, Deckhand tries to runs a `dev` alias.
 
-### Attach scroll sensitivity
-
-Attached sessions dampen trackpad/mouse-wheel scrolling. Configure the multiplier like this:
-
-```json
-{
-  "attach_scroll_sensitivity": 0.25
-}
-```
-
-Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0` to ignore vertical wheel events while attached. Default: `0.25`.
-
 ### State and logs
 
 | Path | Purpose |

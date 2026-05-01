@@ -6,7 +6,6 @@ import {App} from './app.js';
 import {InkDaemon} from './daemon.js';
 import {ensureGitRepo} from './git.js';
 import {runSessionWorker} from './sessionWorker.js';
-import {loadAppConfig} from './storage.js';
 import {resetTerminalState} from './terminalState.js';
 import type {RightPaneTab, UiExitResult} from './types.js';
 
@@ -92,8 +91,7 @@ async function main(): Promise<void> {
 			uiState.activeTab = result.target === 'terminal' ? 'terminal' : result.target === 'git' ? 'git' : result.target === 'dev' ? 'dev' : 'preview';
 			clearTerminalScreen();
 			try {
-				const config = await loadAppConfig();
-				await attachSession(result.sessionId, result.target, {title: result.title, scrollSensitivity: config.attach_scroll_sensitivity});
+				await attachSession(result.sessionId, result.target, {title: result.title});
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				process.stderr.write(`\nattach failed: ${message}\n`);
