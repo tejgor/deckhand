@@ -70,6 +70,10 @@ export async function markAllNonExitedSessionsExited(): Promise<SessionRecord[]>
 	const now = new Date().toISOString();
 	const sessions = state.sessions.map(session => {
 		if (session.status === 'exited') {
+			if (session.devRunning) {
+				changed = true;
+				return {...session, devRunning: false};
+			}
 			return session;
 		}
 		changed = true;
@@ -80,6 +84,7 @@ export async function markAllNonExitedSessionsExited(): Promise<SessionRecord[]>
 			pid: undefined,
 			exitCode: session.exitCode ?? null,
 			exitSignal: session.exitSignal ?? null,
+			devRunning: false,
 		};
 	});
 	if (changed) {

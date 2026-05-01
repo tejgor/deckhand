@@ -23,7 +23,8 @@ function visibleSessions(sessions: SessionRecord[], selectedIndex: number, avail
 function renderRow(session: SessionRecord, index: number, active: boolean, width: number, spinnerFrame: string): string {
 	const cursor = active ? '›' : ' ';
 	const idx = `[${index}]`;
-	const glyph = `${statusGlyph(session, spinnerFrame)} ${programGlyph(session.program)}`;
+	const devGlyph = session.devRunning ? ' ▹' : '';
+	const glyph = `${statusGlyph(session, spinnerFrame)} ${programGlyph(session.program)}${devGlyph}`;
 	const prefix = `${cursor} ${idx} ${glyph} `;
 	const titleSpace = Math.max(0, width - prefix.length);
 	const title = truncate(session.title, titleSpace);

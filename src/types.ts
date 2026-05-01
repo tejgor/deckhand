@@ -53,6 +53,7 @@ export interface SessionRecord {
 	exitCode?: number | null;
 	exitSignal?: number | null;
 	lastPreview?: string;
+	devRunning?: boolean;
 }
 
 export interface PreviewRecord {

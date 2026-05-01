@@ -23,7 +23,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 14;
+const PROTOCOL_VERSION = 15;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
@@ -973,6 +973,7 @@ export class InkDaemon {
 			return;
 		}
 		if (message.type === 'dev-updated') {
+			await this.updateSessionDevRunning(sessionId, message.dev.live);
 			for (const [socket, client] of this.clients.entries()) if (client.watchedDevSessionId === sessionId) sendMessage(socket, {type: 'dev-updated', dev: message.dev});
 			return;
 		}
@@ -1018,7 +1019,7 @@ export class InkDaemon {
 		this.workers.delete(sessionId);
 		await fs.rm(getWorkerPidPath(sessionId), {force: true}).catch(() => {});
 		const now = new Date().toISOString();
-		const updated: SessionRecord = {...existing, status: 'exited', agentStatus: 'idle', agentStatusUpdatedAt: now, updatedAt: now, pid: undefined, exitCode, exitSignal, lastPreview};
+		const updated: SessionRecord = {...existing, status: 'exited', agentStatus: 'idle', agentStatusUpdatedAt: now, updatedAt: now, pid: undefined, exitCode, exitSignal, lastPreview, devRunning: false};
 		this.sessions.set(sessionId, updated);
 		if (worker?.deleteWorktreeOnExit && existing.worktree?.path) {
 			try {
@@ -1055,6 +1056,15 @@ export class InkDaemon {
 				sendMessage(socket, {type: 'session-removed', sessionId});
 			}
 		}
+	}
+
+	private async updateSessionDevRunning(sessionId: string, devRunning: boolean): Promise<void> {
+		const session = this.sessions.get(sessionId);
+		if (!session || session.status === 'exited' || Boolean(session.devRunning) === devRunning) return;
+		const updated = {...session, devRunning, updatedAt: session.updatedAt};
+		this.sessions.set(sessionId, updated);
+		await this.persist();
+		this.broadcastSessionUpdated(updated);
 	}
 
 	private schedulePreviewBroadcast(sessionId: string): void {
@@ -1497,9 +1507,11 @@ export class InkDaemon {
 	private async broadcastDev(sessionId: string): Promise<void> {
 		const dev = this.devs.get(sessionId);
 		if (dev) await dev.preview.getSnapshot();
+		const record = this.buildDevRecord(sessionId, dev);
+		await this.updateSessionDevRunning(sessionId, record.live);
 		for (const [socket, client] of this.clients.entries()) {
 			if (client.watchedDevSessionId !== sessionId) continue;
-			sendMessage(socket, {type: 'dev-updated', dev: this.buildDevRecord(sessionId, dev)});
+			sendMessage(socket, {type: 'dev-updated', dev: record});
 		}
 	}
 

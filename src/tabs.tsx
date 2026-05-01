@@ -10,15 +10,15 @@ const TABS: Array<{key: RightPaneTab; label: string; glyph: string}> = [
 	{key: 'dev', label: 'Dev', glyph: '▹'},
 ];
 
-export function TabBar({activeTab, width}: {activeTab: RightPaneTab; width: number}) {
+export function TabBar({activeTab, width, devRunning = false}: {activeTab: RightPaneTab; width: number; devRunning?: boolean}) {
 	return (
 		<Box width={width}>
 			{TABS.map((tab, index) => {
 				const active = tab.key === activeTab;
 				return (
 					<Box key={tab.key} marginRight={index === TABS.length - 1 ? 0 : 2}>
-						<Text color={active ? THEME.active : THEME.muted} bold={active} underline={active}>
-							{tab.glyph} {tab.label}
+						<Text color={active ? THEME.active : tab.key === 'dev' && devRunning ? THEME.success : THEME.muted} bold={active} underline={active}>
+							{tab.glyph} {tab.label}{tab.key === 'dev' && devRunning ? ' ●' : ''}
 						</Text>
 					</Box>
 				);

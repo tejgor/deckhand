@@ -36,6 +36,7 @@ Current implemented behavior:
 - restart exited sessions in their recorded cwd/worktree
 - lazy daemon-owned Git tab backed by `lazygit`
 - explicit daemon-owned Dev tab backed by a configurable global dev command
+- subtle Dev-running indicators in the tab bar and session sidebar
 - stale-session cleanup on daemon restart
 - frozen last preview frame for exited sessions
 - preview-change based active/idle detection for any agent, without hooks
@@ -253,6 +254,7 @@ Current behavior:
   - green `●` for idle running sessions
   - yellow `◌` for unknown running sessions
   - gray `○` for exited sessions
+  - appends a subtle `▹` on rows whose Dev command is running
 - supports resizing the instance sidebar with `h` / `l`
 - preserves the resized sidebar width across attach/detach within the same frontend process
 - lets the user attach, kill, restart exited sessions, remove, refresh, and quit
@@ -284,6 +286,9 @@ Current controls:
 Notes:
 
 - the app currently has Preview, Terminal, Git, and Dev panes
+- a running Dev command is indicated without opening the Dev tab:
+  - selected session: green `●` suffix on the Dev tab label
+  - all sessions: subtle `▹` suffix in each sidebar row
 - the right side renders as a single rounded-bordered frame containing the tab
   bar at the top and the active sub-pane below; sub-panes themselves are
   borderless content containers
@@ -837,7 +842,7 @@ Particularly important cases:
 - attempted delete of current/main worktree should stay blocked
 - multiple sessions pointed at one worktree should block deletion
 
-Protocol is now v14. If an older daemon is still running, stop it first:
+Protocol is now v15. If an older daemon is still running, stop it first:
 
 ```bash
 kill $(cat ~/.deckhand/daemon.pid)

@@ -783,12 +783,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setBusy(true);
 		setError(undefined);
 		try {
-			if (dev.sessionId === selectedSession.id && dev.live) {
+			if (selectedSession.devRunning || (dev.sessionId === selectedSession.id && dev.live)) {
 				await client.stopDev(selectedSession.id);
 				setDev({...EMPTY_DEV, sessionId: selectedSession.id, cwd: selectedSession.cwd});
+				setSessions(current => upsertSession(current, {...(current.find(session => session.id === selectedSession.id) ?? selectedSession), devRunning: false}));
 			} else {
 				const nextDev = await client.startDev(selectedSession.id, layout.previewCols, layout.previewRows);
 				setDev(nextDev);
+				setSessions(current => upsertSession(current, {...(current.find(session => session.id === selectedSession.id) ?? selectedSession), devRunning: nextDev.live}));
 				setActiveTab('dev');
 			}
 		} catch (nextError) {
@@ -994,7 +996,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === 'o' && selectedSession?.status === 'running') {
-				if (activeTab === 'dev' && !(dev.sessionId === selectedSession.id && dev.live)) {
+				if (activeTab === 'dev' && !selectedSession.devRunning && !(dev.sessionId === selectedSession.id && dev.live)) {
 					setError('start the dev command with d before attaching');
 					return;
 				}
@@ -1196,7 +1198,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						borderColor={THEME.border}
 						paddingX={1}
 					>
-						<TabBar activeTab={activeTab} width={layout.paneInnerWidth} />
+						<TabBar activeTab={activeTab} width={layout.paneInnerWidth} devRunning={selectedSession?.devRunning} />
 						<Box height={1} />
 						{activeTab === 'preview' ? (
 							<PreviewPane
