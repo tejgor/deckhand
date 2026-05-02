@@ -7,6 +7,7 @@ import type {AttachTarget, SessionRecord} from './types.js';
 
 interface AttachSessionOptions {
 	title?: string;
+	scrollSensitivity?: number;
 }
 
 function targetRequestNames(target: AttachTarget) {
@@ -134,6 +135,30 @@ function createTerminalTitleOutputFilter(): (data: string) => string {
 	};
 }
 
+function normalizeScrollSensitivity(value: number | undefined): number {
+	if (value === undefined || !Number.isFinite(value)) {
+		return 0.12;
+	}
+	return Math.max(0, Math.min(1, value));
+}
+
+function createAttachInputNormalizer(scrollSensitivity: number): (data: string) => string {
+	let verticalWheelAccumulator = 0;
+	const wheelPattern = /\x1b\[<(6[4-7]);\d+;\d+[mM]/g;
+
+	return (data: string) => data.replace(wheelPattern, match => {
+		const code = Number.parseInt(match.slice(3, 5), 10);
+		if (code === 64 || code === 65) {
+			verticalWheelAccumulator += scrollSensitivity;
+			if (verticalWheelAccumulator < 1) {
+				return '';
+			}
+			verticalWheelAccumulator -= 1;
+		}
+		return match;
+	});
+}
+
 function attachTargetTitleLabel(target: AttachTarget): string {
 	return target === 'terminal' ? 'term' : target === 'git' ? 'git' : target === 'dev' ? 'dev' : 'agent';
 }
@@ -160,6 +185,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 	const socket = await openPersistentConnection();
 	const requestId = randomUUID();
 	const names = targetRequestNames(target);
+	const normalizeAttachInput = createAttachInputNormalizer(normalizeScrollSensitivity(options.scrollSensitivity));
 	const filterTerminalTitleOutput = createTerminalTitleOutputFilter();
 	const originalProcessTitle = process.title || 'deckhand';
 	let attached = false;
@@ -219,7 +245,10 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 				finish();
 				return;
 			}
-			writeMessage(socket, {type: names.input, sessionId, data: chunk.toString('utf8')});
+			const normalized = normalizeAttachInput(chunk.toString('utf8'));
+			if (normalized) {
+				writeMessage(socket, {type: names.input, sessionId, data: normalized});
+			}
 		};
 
 		const stopParsing = attachJsonParser(socket, message => {

@@ -421,6 +421,7 @@ Behavior:
 - sets and reasserts a compact terminal/window title while attached with OSC 0/2, updates the Node process title as a best-effort fallback for terminal hosts such as VS Code, and resets to `deckhand` on cleanup
 - puts stdin into raw mode
 - forwards user input to the daemon
+- dampens matched vertical mouse-wheel events using `attach_scroll_sensitivity` from `~/.deckhand/config.json`, defaulting to `0.12`
 - writes PTY output directly to stdout
 - resizes the agent or companion PTY to the full terminal size while attached
 - detaches on `Ctrl+Space` and resets terminal modes such as scroll regions, mouse/focus tracking, bracketed paste, and child-owned alternate screens before Ink redraws
@@ -441,6 +442,7 @@ Responsibilities:
 - load/save Deckhand state
 - sort sessions for display
 - mark non-exited sessions exited on daemon restart
+- load app config, including `dev_command` and `attach_scroll_sensitivity`
 
 Persisted session metadata now includes the usual identity/status fields plus:
 
