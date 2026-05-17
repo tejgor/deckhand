@@ -7,7 +7,9 @@ A lightweight agent workbench for your IDE terminal.
 - Start `claude`, `pi`, or `codex` sessions from one UI
 - Preview output without attaching to every session
 - Attach/detach while sessions keep running in the background
+- Organize sessions manually, including lightweight sub-sessions
 - Restart Deckhand-managed Claude/Pi sessions into their original agent conversation
+- Fork Claude/Pi parent sessions into child sessions with `/fork`
 - Pick a worktree mode per session: none, new, or existing
 - Designed to work well in IDE integrated terminals
 
@@ -21,9 +23,13 @@ Tools like [claude-squad](https://github.com/smtg-ai/claude-squad) and [agent-de
 
 ## Features
 
-- **Split view** with session sidebar and Preview / Terminal / Git / Dev tabs
+- **Split view** with a numbered session sidebar and Preview / Terminal / Git / Dev tabs
 - **Live previews** of session output without attaching
-- **Sessions persist** across UI quits and crashes — the daemon owns them
+- **Persistent sessions** across UI quits and crashes — the daemon owns them
+- **Manual sidebar ordering** with keyboard reordering among sibling sessions
+- **Sub-sessions** for related work, rendered indented under their parent
+- **Clean sub-sessions** that start fresh in the parent session's directory/worktree by default
+- **Forked Claude/Pi sub-sessions** that resume the parent and send `/fork`
 - **Resumable agent identity** for new Claude/Pi sessions, so restarts reopen the same conversation instead of a blank agent
 - **Cleanup prompts** after a session exits to remove its worktree and branch
 - **Merge helpers** to merge or squash-merge a session's worktree into the current branch (staged, not committed) for review
@@ -89,13 +95,15 @@ deckhand
 
 Then:
 
-1. Press `n` to create a new session
+1. Press `n` to create a top-level session
 2. Choose `claude`, `pi`, or `codex`
 3. Enter a session name
 4. Press `tab` to choose a workspace mode: no worktree, new worktree, or existing worktree
 5. Press `enter` to launch
 
-Use `j` / `k` to move between sessions and `o` to attach to the selected session.
+Use `j` / `k` to move between sessions, type a sidebar number to jump directly, and press `o` to attach to the selected session.
+
+For related follow-up work, select a parent session and press `N`. The normal agent choices create a clean sub-session in the parent's directory/worktree. Claude and Pi parents also show `Fork parent`, which resumes the parent conversation and sends `/fork`.
 
 ---
 
@@ -105,12 +113,17 @@ Use `j` / `k` to move between sessions and `o` to attach to the selected session
 
 | Key | Action |
 | --- | --- |
-| `n` | New session |
-| `tab` | Cycle Preview / Terminal / Git / Dev tabs |
-| `o` | Attach to the selected session, opening whichever tab is currently shown |
-| `d` | Start/stop the selected session's Dev tab command |
-| `m` | Merge selected worktree into the current branch |
+| `n` | New top-level session |
+| `N` | New sub-session under the selected session |
+| sidebar number | Jump to that numbered session; `1`–`9` are instant, and `0` selects session 10 when present |
 | `j` / `k` | Move between sessions |
+| `J` / `K` | Move the selected session down/up among its siblings |
+| `tab` | Cycle Preview / Terminal / Git / Dev tabs |
+| `p` / `t` / `g` / `d` | Jump directly to Preview / Terminal / Git / Dev |
+| `d` on Dev tab | Start/stop the selected session's Dev tab command |
+| `o` | Attach to the selected session, opening whichever tab is currently shown |
+| `v` on Preview tab | Focus preview scrolling for a running session |
+| `m` | Merge selected worktree into the current branch |
 | `h` / `l` | Resize the sidebar |
 | `x` / `X` | Kill selected running session / force kill |
 | `s` | Restart selected exited session; new Claude/Pi sessions resume their original agent conversation |
@@ -120,6 +133,16 @@ Use `j` / `k` to move between sessions and `o` to attach to the selected session
 | `q` | Quit the UI; running sessions continue in the daemon |
 
 Worktree sessions may prompt to keep/delete the worktree, or delete both the managed worktree and branch when it is safe to do so.
+
+### Session organization
+
+Deckhand keeps the sidebar simple and keyboard-first:
+
+- Sessions are numbered in the sidebar. Type the number to select a session. When there are more than 10 sessions, Deckhand briefly buffers numeric input so multi-digit jumps such as `12` work.
+- `J` / `K` manually reorder the selected session among its siblings. The order is persisted.
+- `N` creates a child session under the selected session. Children are indented below their parent.
+- Choosing `claude`, `pi`, or `codex` while creating a sub-session creates a clean child session with a fresh agent context.
+- For Claude and Pi parents, `Fork parent` creates a forked child by resuming the parent agent session and sending `/fork`. Claude fork input includes an insert-mode safeguard for users with vim mode enabled.
 
 ### Attach mode
 
@@ -142,15 +165,17 @@ This keeps handles readable while avoiding collisions between similarly named se
 
 Current provider behavior:
 
-| Agent | Create behavior | Restart behavior |
-| --- | --- | --- |
-| Claude | `claude --name dh-{name}-{short-id}` | `claude --resume dh-{name}-{short-id}` |
-| Pi | `pi --session ~/.pi/agent/sessions/--{encoded-cwd}--/{timestamp}_dh-{name}-{short-id}_{deckhand-id}.jsonl` | same `--session` path |
-| Codex | normal launch | normal launch; Codex session-id discovery is not implemented yet |
+| Agent | Create behavior | Restart behavior | Forked sub-sessions |
+| --- | --- | --- | --- |
+| Claude | `claude --name dh-{name}-{short-id}` | `claude --resume dh-{name}-{short-id}` | Resume parent, then send `/fork` |
+| Pi | `pi --session ~/.pi/agent/sessions/--{encoded-cwd}--/{timestamp}_dh-{name}-{short-id}_{deckhand-id}.jsonl` | same `--session` path | Resume parent session file, then send `/fork` |
+| Codex | normal launch | normal launch; Codex session-id discovery is not implemented yet | Not supported yet |
 
 Pi session files are stored in Pi's normal session tree under `~/.pi/agent/sessions/`, not under `~/.deckhand`, so they remain available in Pi's own `/resume` UI and are not removed if Deckhand state is deleted. Deckhand matches Pi's default project-directory encoding: `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`. The filename includes the readable Deckhand handle; Pi normally uses `{timestamp}_{sessionId}.jsonl`, but explicit `--session <path>` preserves the provided file path.
 
 Older Deckhand sessions created before this metadata existed do not have an agent handle and will keep the previous restart behavior.
+
+Forked sub-sessions currently store the parent agent reference and issue `/fork` after startup. Deckhand does not yet discover and persist a new post-fork agent handle if the agent creates one internally.
 
 ---
 
@@ -164,6 +189,8 @@ When creating a session, Deckhand can launch it in one of three workspace modes:
 | New worktree | Create or resolve a worktree for the session |
 | Existing worktree | Pick from existing git worktrees, including the current/main one |
 
+Sub-sessions default to the parent session's current directory, so a clean child opens in the same worktree as its parent unless you choose a different workspace mode.
+
 New worktrees are created through a project hook when present; otherwise Deckhand falls back to `git worktree add` under `~/.deckhand/worktrees/`.
 
 ---
@@ -174,7 +201,7 @@ Deckhand reads configuration from `~/.deckhand/config.json`.
 
 ### Dev command
 
-The Dev tab is started explicitly with `d`. Configure the global command like this:
+The Dev tab is focused with `d`. Press `d` again while the Dev tab is focused to start or stop the command. Configure the global command like this:
 
 ```json
 {
@@ -182,7 +209,7 @@ The Dev tab is started explicitly with `d`. Configure the global command like th
 }
 ```
 
-Set `dev_command` before pressing `d`. If omitted, Deckhand tries to runs a `dev` alias.
+Set `dev_command` before toggling the Dev tab. If omitted, Deckhand tries to run a `dev` alias.
 
 ### Attach scroll sensitivity
 
@@ -338,7 +365,7 @@ deckhand
 
 **Git tab is empty.** Install [`lazygit`](https://github.com/jesseduffield/lazygit) and ensure it is on `PATH`.
 
-**Dev tab does nothing.** The Dev command is started explicitly with `d`. If `~/.deckhand/config.json` does not set `dev_command`, Deckhand runs the literal command `dev`, which usually doesn't exist.
+**Dev tab does nothing.** Press `d` once to focus the Dev tab, then press `d` again to start or stop the command. If `~/.deckhand/config.json` does not set `dev_command`, Deckhand runs the literal command `dev`, which usually doesn't exist.
 
 ---
 
