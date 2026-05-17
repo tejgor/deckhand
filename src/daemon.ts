@@ -25,7 +25,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 17;
+const PROTOCOL_VERSION = 18;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
@@ -166,6 +166,16 @@ function buildAgentSessionRef(program: SessionRecord['program'], title: string, 
 		return {provider: program, kind: 'path', value: piSessionPath(cwd, name, sessionId)};
 	}
 	return undefined;
+}
+
+function supportsForkedSubSession(program: SessionRecord['program']): boolean {
+	return program === 'claude' || program === 'pi';
+}
+
+function forkCommandInput(program: SessionRecord['program']): string {
+	// Claude Code users may be in vim normal mode. `a` enters insert mode, and
+	// backspace removes the inserted `a` when already in insert mode.
+	return program === 'claude' ? 'a\x7f/fork\r' : '/fork\r';
 }
 
 function buildAgentArgs(session: Pick<SessionRecord, 'program' | 'agentSessionRef'>, mode: 'create' | 'resume'): string[] {
@@ -1711,6 +1721,20 @@ export class InkDaemon {
 		if (input.parentSessionId && (!parentSession || parentSession.repoRoot !== input.repoRoot)) {
 			throw new Error('parent session does not exist in this repo');
 		}
+		if (input.subSessionKind === 'forked') {
+			if (!parentSession) {
+				throw new Error('forked sub-session requires a parent session');
+			}
+			if (!supportsForkedSubSession(parentSession.program)) {
+				throw new Error('forked sub-sessions are only supported for Claude and Pi');
+			}
+			if (input.program !== parentSession.program) {
+				throw new Error('forked sub-session must use the parent session program');
+			}
+			if (!parentSession.agentSessionRef) {
+				throw new Error('parent session does not have a resumable agent reference');
+			}
+		}
 		const conflict = [...this.sessions.values()].find(
 			session => session.repoRoot === input.repoRoot && session.title === title && session.status !== 'exited',
 		);
@@ -1744,6 +1768,8 @@ export class InkDaemon {
 			lastPreview: '',
 			parentSessionId: input.parentSessionId,
 			subSessionKind: input.subSessionKind,
+			forkedFromSessionId: input.subSessionKind === 'forked' ? parentSession?.id : undefined,
+			forkedFromAgentSessionRef: input.subSessionKind === 'forked' ? parentSession?.agentSessionRef : undefined,
 			sidebarOrder: nextSidebarOrder,
 		};
 
@@ -1802,12 +1828,15 @@ export class InkDaemon {
 			};
 		}
 
-		const agentSessionRef = startingSession.agentSessionRef ?? buildAgentSessionRef(startingSession.program, title, sessionId, sessionCwd);
+		const forkParent = input.subSessionKind === 'forked' && input.parentSessionId ? this.sessions.get(input.parentSessionId) : undefined;
+		const agentSessionRef = forkParent?.agentSessionRef ?? startingSession.agentSessionRef ?? buildAgentSessionRef(startingSession.program, title, sessionId, sessionCwd);
 		const preparedSession: SessionRecord = {
 			...startingSession,
 			cwd: sessionCwd,
-			args: buildAgentArgs({program: startingSession.program, agentSessionRef}, 'create'),
+			args: buildAgentArgs({program: startingSession.program, agentSessionRef}, forkParent ? 'resume' : 'create'),
 			agentSessionRef,
+			forkedFromSessionId: forkParent?.id ?? startingSession.forkedFromSessionId,
+			forkedFromAgentSessionRef: forkParent?.agentSessionRef ?? startingSession.forkedFromAgentSessionRef,
 			launchWorktreeRoot,
 			worktree,
 			updatedAt: new Date().toISOString(),
@@ -1817,6 +1846,9 @@ export class InkDaemon {
 
 		await prepareAgentSessionRef(preparedSession.agentSessionRef);
 		const runningSession = await this.startWorker(preparedSession, input.cols, input.rows);
+		if (forkParent) {
+			setTimeout(() => this.sendWorkerEvent(sessionId, {type: 'input', target: 'agent', data: forkCommandInput(preparedSession.program)}), 500).unref?.();
+		}
 		this.sessions.set(sessionId, runningSession);
 		await this.persist();
 		this.broadcastSessionUpdated(runningSession);
@@ -1852,7 +1884,7 @@ export class InkDaemon {
 		}
 
 		const now = new Date().toISOString();
-		const startingAgentSessionRef = existing.agentSessionRef;
+		const startingAgentSessionRef = existing.subSessionKind === 'forked' ? existing.forkedFromAgentSessionRef ?? existing.agentSessionRef : existing.agentSessionRef;
 		const starting: SessionRecord = {
 			...existing,
 			args: buildAgentArgs({program: existing.program, agentSessionRef: startingAgentSessionRef}, 'resume'),
@@ -1873,6 +1905,9 @@ export class InkDaemon {
 		try {
 			await prepareAgentSessionRef(starting.agentSessionRef);
 			const runningSession = await this.startWorker(starting, cols, rows);
+			if (starting.subSessionKind === 'forked') {
+				setTimeout(() => this.sendWorkerEvent(sessionId, {type: 'input', target: 'agent', data: forkCommandInput(starting.program)}), 500).unref?.();
+			}
 			this.sessions.set(sessionId, runningSession);
 			await this.persist();
 			this.broadcastSessionUpdated(runningSession);

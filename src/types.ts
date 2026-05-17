@@ -43,7 +43,7 @@ export interface AgentSessionRef {
 	value: string;
 }
 
-export type SubSessionKind = 'clean';
+export type SubSessionKind = 'clean' | 'forked';
 
 export interface SessionRecord {
 	id: string;
@@ -69,6 +69,8 @@ export interface SessionRecord {
 	devRunning?: boolean;
 	parentSessionId?: string;
 	subSessionKind?: SubSessionKind;
+	forkedFromSessionId?: string;
+	forkedFromAgentSessionRef?: AgentSessionRef;
 	sidebarOrder?: number;
 }
 

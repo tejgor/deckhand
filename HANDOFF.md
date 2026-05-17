@@ -11,7 +11,7 @@ Implemented behavior:
 - standalone Ink UI
 - supervisor daemon with local IPC over `~/.deckhand/daemon.sock`
 - per-session worker processes that own PTYs through `node-pty`
-- repo-scoped session list with manual sidebar ordering and clean sub-session nesting
+- repo-scoped session list with manual sidebar ordering plus clean/forked sub-session nesting
 - persistent split layout:
   - left session sidebar
   - right tabbed pane: Preview, Terminal, Git, Dev
@@ -127,7 +127,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - `j` / `k` move selected session
 - session numbers jump to matching sidebar rows; with more than 10 sessions, multi-digit input is buffered briefly and `enter` confirms immediately
 - `J` / `K` manually reorder selected session among its siblings
-- `N` creates a clean sub-session under the selected session
+- `N` creates a sub-session under the selected session; the normal agent picker creates clean sub-sessions in the parent's cwd/worktree by default, and Claude/Pi parents add a fourth `Fork parent` option
 - `h` / `l` resize sidebar
 - left/right arrows also resize sidebar in browse mode
 - `tab` switches Preview / Terminal / Git / Dev
@@ -267,7 +267,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v17**
+- current protocol version: **v18**
 
 If an older daemon is still running:
 
@@ -315,6 +315,8 @@ Tracked metadata includes:
 - `lastPreview`
 - `parentSessionId`
 - `subSessionKind`
+- `forkedFromSessionId`
+- `forkedFromAgentSessionRef`
 - `sidebarOrder`
 
 `agentStatus` is persisted only on activity transitions to avoid excessive disk writes.

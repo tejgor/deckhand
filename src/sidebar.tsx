@@ -25,7 +25,7 @@ function renderRow(session: SessionRecord, sessions: SessionRecord[], index: num
 	const cursor = active ? '›' : ' ';
 	const idx = `[${index}]`;
 	const devGlyph = session.devRunning ? ' ▹' : '';
-	const forkGlyph = session.subSessionKind === 'clean' ? '↳ ' : '';
+	const forkGlyph = session.subSessionKind === 'forked' ? '⑂ ' : session.subSessionKind === 'clean' ? '↳ ' : '';
 	const depth = sessionDepth(session, sessions);
 	const indent = '  '.repeat(Math.min(depth, 4));
 	const glyph = `${statusGlyph(session, spinnerFrame)} ${programGlyph(session.program)}${devGlyph}`;

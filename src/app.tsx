@@ -9,7 +9,7 @@ import {Sidebar} from './sidebar.js';
 import {sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
-import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RightPaneTab, SessionRecord, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
+import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
 import {THEME, compactPath, truncate} from './ui.js';
 
 const PROGRAMS: Array<{key: ProgramKey; label: string; glyph: string}> = [
@@ -164,6 +164,22 @@ function connectionColor(client: LiveClient | undefined): string {
 	return client ? THEME.success : THEME.warn;
 }
 
+function supportsForkedSubSession(session: SessionRecord | undefined): boolean {
+	return session?.program === 'claude' || session?.program === 'pi';
+}
+
+function parentWorkspaceLabel(session: SessionRecord | undefined, width: number): string | undefined {
+	if (!session) {
+		return undefined;
+	}
+	const worktree = session.worktree;
+	if (worktree?.path && worktree.mode !== 'none') {
+		const name = worktree.branch || worktree.name || compactPath(worktree.path, Math.max(8, width - 18));
+		return `parent worktree: ${truncate(name, Math.max(8, width - 18))}`;
+	}
+	return `parent dir: ${compactPath(session.cwd, Math.max(8, width - 12))}`;
+}
+
 function CreatePane({
 	mode,
 	programIndex,
@@ -171,6 +187,9 @@ function CreatePane({
 	worktreeMode,
 	width,
 	parentTitle,
+	parentWorkspaceLabel,
+	subSessionKind,
+	showForkOption,
 }: {
 	mode: 'pick-program' | 'enter-name';
 	programIndex: number;
@@ -178,13 +197,20 @@ function CreatePane({
 	worktreeMode: WorktreeMode;
 	width: number;
 	parentTitle?: string;
+	parentWorkspaceLabel?: string;
+	subSessionKind?: SubSessionKind;
+	showForkOption?: boolean;
 }) {
+	const forkSelected = mode === 'pick-program' && showForkOption && programIndex === PROGRAMS.length;
+	const workspaceLabel = parentWorkspaceLabel && worktreeMode === 'none'
+		? parentWorkspaceLabel
+		: WORKTREE_MODES.find(item => item.key === worktreeMode)?.label;
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1} paddingY={0}>
 			<Text color={THEME.accent} bold>
 				{mode === 'pick-program'
 					? parentTitle ? `New sub-session under ${parentTitle}` : 'New session'
-					: `New ${PROGRAMS[programIndex]!.label}${parentTitle ? ' sub-' : ' '}session`}
+					: `New ${PROGRAMS[programIndex]!.label}${parentTitle ? ` ${subSessionKind ?? 'clean'} sub-` : ' '}session`}
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{mode === 'pick-program' ? (
@@ -198,11 +224,16 @@ function CreatePane({
 								</Text>
 							);
 						})}
+						{showForkOption ? (
+							<Text inverse={forkSelected} color={forkSelected ? THEME.active : undefined} bold={forkSelected}>
+								{forkSelected ? '›' : ' '} ⑂ Fork parent
+							</Text>
+						) : null}
 					</>
 				) : (
 					<>
 						<Text>Name: <Text color={draftName ? THEME.active : THEME.muted}>{draftName || '█'}</Text></Text>
-						<Text>Workspace: <Text color={THEME.accent}>{WORKTREE_MODES.find(item => item.key === worktreeMode)?.label}</Text></Text>
+						<Text>Workspace: <Text color={THEME.accent}>{workspaceLabel}</Text></Text>
 					</>
 				)}
 			</Box>
@@ -394,6 +425,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [programIndex, setProgramIndex] = useState(0);
 	const [draftName, setDraftName] = useState('');
 	const [createParentId, setCreateParentId] = useState<string | undefined>();
+	const [createSubSessionKind, setCreateSubSessionKind] = useState<SubSessionKind | undefined>();
 	const [worktreeMode, setWorktreeMode] = useState<WorktreeMode>('none');
 	const [worktrees, setWorktrees] = useState<WorktreeInfoRecord[]>([]);
 	const [worktreeQuery, setWorktreeQuery] = useState('');
@@ -966,20 +998,24 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setBusy(true);
 		setError(undefined);
 		try {
+			const parent = createParentId ? sessions.find(session => session.id === createParentId) : undefined;
+			const sessionCwd = parent?.cwd ?? cwd;
+			const sessionRepoRoot = parent?.repoRoot ?? repoRoot;
 			const created = await client.createSession({
 				title,
 				program: PROGRAMS[programIndex]!.key,
-				cwd,
-				repoRoot,
+				cwd: sessionCwd,
+				repoRoot: sessionRepoRoot,
 				cols: layout.previewCols,
 				rows: layout.previewRows,
 				worktreeMode,
 				existingWorktreePath,
 				parentSessionId: createParentId,
-				subSessionKind: createParentId ? 'clean' : undefined,
+				subSessionKind: createParentId ? createSubSessionKind ?? 'clean' : undefined,
 			});
 			setDraftName('');
 			setCreateParentId(undefined);
+			setCreateSubSessionKind(undefined);
 			setWorktreeMode('none');
 			setMode('browse');
 			setSelectedId(created.id);
@@ -989,7 +1025,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		} finally {
 			setBusy(false);
 		}
-	}, [client, createParentId, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, worktreeMode]);
+	}, [client, createParentId, createSubSessionKind, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, sessions, worktreeMode]);
 
 	const killSelected = useCallback(async (deleteWorktree = false, deleteBranch = false, force = false) => {
 		if (!client || !selectedSession || selectedSession.status !== 'running') {
@@ -1170,6 +1206,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setProgramIndex(parent ? Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)) : 0);
 				setDraftName('');
 				setCreateParentId(parent?.id);
+				setCreateSubSessionKind(parent ? 'clean' : undefined);
 				setWorktreeMode('none');
 				setMode('pick-program');
 				return;
@@ -1284,18 +1321,27 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (mode === 'pick-program') {
 			if (key.escape) {
 				setCreateParentId(undefined);
+				setCreateSubSessionKind(undefined);
 				setMode('browse');
 				return;
 			}
+			const parent = createParentId ? sessions.find(session => session.id === createParentId) : undefined;
+			const optionCount = PROGRAMS.length + (parent && supportsForkedSubSession(parent) ? 1 : 0);
 			if (key.leftArrow || key.upArrow || input === 'k' || input === 'h') {
-				setProgramIndex(index => (index - 1 + PROGRAMS.length) % PROGRAMS.length);
+				setProgramIndex(index => (index - 1 + optionCount) % optionCount);
 				return;
 			}
 			if (key.rightArrow || key.downArrow || input === 'j' || input === 'l') {
-				setProgramIndex(index => (index + 1) % PROGRAMS.length);
+				setProgramIndex(index => (index + 1) % optionCount);
 				return;
 			}
 			if (key.return) {
+				if (parent && supportsForkedSubSession(parent) && programIndex === PROGRAMS.length) {
+					setCreateSubSessionKind('forked');
+					setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)));
+				} else {
+					setCreateSubSessionKind(parent ? 'clean' : undefined);
+				}
 				setMode('enter-name');
 			}
 			return;
@@ -1316,9 +1362,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						setError('still connecting to daemon');
 						return;
 					}
+					const parent = createParentId ? sessions.find(session => session.id === createParentId) : undefined;
 					setBusy(true);
 					void client
-						.listWorktrees(cwd)
+						.listWorktrees(parent?.cwd ?? cwd)
 						.then(items => {
 							setWorktrees(items);
 							setWorktreeQuery('');
@@ -1523,6 +1570,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						worktreeMode={worktreeMode}
 						width={layout.previewWidth}
 						parentTitle={createParentId ? sessions.find(session => session.id === createParentId)?.title : undefined}
+						parentWorkspaceLabel={parentWorkspaceLabel(createParentId ? sessions.find(session => session.id === createParentId) : undefined, layout.previewWidth)}
+						subSessionKind={createSubSessionKind}
+						showForkOption={createParentId ? supportsForkedSubSession(sessions.find(session => session.id === createParentId)) : false}
 					/>
 				)}
 			</Box>
