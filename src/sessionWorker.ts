@@ -19,7 +19,7 @@ const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
 type WorkerCommand =
 	| {type: 'start'; requestId: string; session: SessionRecord; cols: number; rows: number}
 	| {type: 'kill'; requestId: string; force?: boolean}
-	| {type: 'snapshot'; requestId: string; target: AttachTarget; cols: number; rows: number}
+	| {type: 'snapshot'; requestId: string; target: AttachTarget; cols: number; rows: number; scrollOffset?: number}
 	| {type: 'start-dev'; requestId: string; cols: number; rows: number}
 	| {type: 'stop-dev'; requestId: string}
 	| {type: 'attach'; requestId: string; target: AttachTarget; cols: number; rows: number}
@@ -121,7 +121,7 @@ class SessionWorker {
 			switch (command.type) {
 				case 'start': ok(command.requestId, await this.startAgent(command.session, command.cols, command.rows)); return;
 				case 'kill': this.kill(command.force ?? false); ok(command.requestId, {ok: true}); return;
-				case 'snapshot': ok(command.requestId, await this.snapshot(command.target, command.cols, command.rows)); return;
+				case 'snapshot': ok(command.requestId, await this.snapshot(command.target, command.cols, command.rows, command.scrollOffset)); return;
 				case 'start-dev': ok(command.requestId, await this.startDev(command.cols, command.rows)); return;
 				case 'stop-dev': this.cleanup('dev'); post({type: 'dev-updated', dev: this.buildDevRecord(undefined)}); ok(command.requestId, {ok: true}); return;
 				case 'attach': this.attached.add(command.target); ok(command.requestId, await this.attach(command.target, command.cols, command.rows)); return;
@@ -222,13 +222,18 @@ class SessionWorker {
 		return record;
 	}
 
-	private async snapshot(target: AttachTarget, cols: number, rows: number): Promise<unknown> {
+	private async snapshot(target: AttachTarget, cols: number, rows: number, scrollOffset = 0): Promise<unknown> {
 		if (target === 'agent') {
 			if (!this.agent || !this.session) return {content: '', live: false};
-			this.agent.term.resize(size(cols, DEFAULT_COLS), size(rows, DEFAULT_ROWS));
+			const nextCols = size(cols, DEFAULT_COLS);
+			const nextRows = size(rows, DEFAULT_ROWS);
+			const resized = this.agent.term.cols !== nextCols || this.agent.term.rows !== nextRows;
+			this.agent.term.resize(nextCols, nextRows);
 			await this.agent.preview.resize(cols, rows);
-			await this.suppressResizeActivity();
-			return {sessionId: this.session.id, content: await this.agent.preview.getSnapshot(), live: true, status: 'running', agentStatus: this.session.agentStatus} satisfies PreviewRecord;
+			if (resized) await this.suppressResizeActivity();
+			const content = await this.agent.preview.getSnapshot(scrollOffset);
+			const scrollInfo = await this.agent.preview.getScrollInfo(scrollOffset);
+			return {sessionId: this.session.id, content, live: true, status: 'running', agentStatus: this.session.agentStatus, ...scrollInfo} satisfies PreviewRecord;
 		}
 		if (target === 'terminal') return this.buildTerminalRecord(await this.ensureTerminal(cols, rows));
 		if (target === 'git') return this.buildGitRecord(await this.ensureGit(cols, rows));
@@ -277,7 +282,9 @@ class SessionWorker {
 		runtime.broadcastTimer = setTimeout(async () => {
 			runtime.broadcastTimer = undefined;
 			if (!this.session || !this.agent) return;
-			post({type: 'preview-updated', preview: {sessionId: this.session.id, content: await runtime.preview.getSnapshot(), live: true, status: 'running', agentStatus: this.session.agentStatus}});
+			const content = await runtime.preview.getSnapshot();
+			const scrollInfo = await runtime.preview.getScrollInfo();
+			post({type: 'preview-updated', preview: {sessionId: this.session.id, content, live: true, status: 'running', agentStatus: this.session.agentStatus, ...scrollInfo}});
 		}, PREVIEW_BROADCAST_DELAY_MS);
 	}
 

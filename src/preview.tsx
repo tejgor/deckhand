@@ -9,6 +9,7 @@ interface PreviewPaneProps {
 	width: number;
 	height: number;
 	spinnerFrame: string;
+	focused?: boolean;
 }
 
 function fallbackMessage(session: SessionRecord | undefined, preview: PreviewRecord): string {
@@ -23,8 +24,14 @@ function worktreeBadge(session: SessionRecord): string | undefined {
 	return session.worktree.mode === 'managed' ? 'worktree' : 'attached';
 }
 
-export function PreviewPane({session, preview, width, height}: PreviewPaneProps) {
-	const badge = session ? worktreeBadge(session) : undefined;
+export function PreviewPane({session, preview, width, height, focused = false}: PreviewPaneProps) {
+	const badges = [session ? worktreeBadge(session) : undefined];
+	if (focused) {
+		badges.push(preview.scrollOffset ? `preview ↑${preview.scrollOffset}` : 'preview focus');
+	} else if (preview.scrollOffset) {
+		badges.push(`↑${preview.scrollOffset}`);
+	}
+	const badge = badges.filter(Boolean).join(' · ') || undefined;
 	const bodyHeight = Math.max(1, height - 1);
 	const lines = fitLines(fallbackMessage(session, preview), width, bodyHeight);
 	const hasContent = Boolean(session && (preview.content || session.status === 'exited'));

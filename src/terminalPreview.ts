@@ -22,6 +22,7 @@ function stripTrailingEmptyLines(lines: string[]): string[] {
 export class TerminalPreview {
 	private readonly terminal: InstanceType<typeof Terminal>;
 	private snapshot = '';
+	private snapshotScrollOffset = 0;
 	private dirty = true;
 	private pending: Promise<void> = Promise.resolve();
 	private cols: number;
@@ -75,13 +76,23 @@ export class TerminalPreview {
 		return this.pending;
 	}
 
-	async getSnapshot(): Promise<string> {
+	async getSnapshot(scrollOffset = 0): Promise<string> {
 		await this.pending;
-		if (this.dirty) {
-			this.refreshSnapshot();
+		const normalizedScrollOffset = this.normalizeScrollOffset(scrollOffset);
+		if (this.dirty || normalizedScrollOffset !== this.snapshotScrollOffset) {
+			this.refreshSnapshot(normalizedScrollOffset);
 			this.dirty = false;
 		}
 		return this.snapshot;
+	}
+
+	async getScrollInfo(scrollOffset = 0): Promise<{scrollOffset: number; maxScrollOffset: number}> {
+		await this.pending;
+		const maxScrollOffset = this.getMaxScrollOffset();
+		return {
+			scrollOffset: this.normalizeScrollOffset(scrollOffset),
+			maxScrollOffset,
+		};
 	}
 
 	async getAnsiFrame(): Promise<string> {
@@ -115,9 +126,10 @@ export class TerminalPreview {
 		this.terminal.dispose();
 	}
 
-	private refreshSnapshot(): void {
+	private refreshSnapshot(scrollOffset = 0): void {
 		const buffer = this.terminal.buffer.active;
-		const startLine = Math.max(0, buffer.baseY);
+		const normalizedScrollOffset = this.normalizeScrollOffset(scrollOffset);
+		const startLine = Math.max(0, buffer.baseY - normalizedScrollOffset);
 		const renderedLines: string[] = [];
 
 		for (let index = 0; index < this.rows; index += 1) {
@@ -126,5 +138,17 @@ export class TerminalPreview {
 		}
 
 		this.snapshot = stripTrailingEmptyLines(renderedLines).join('\n');
+		this.snapshotScrollOffset = normalizedScrollOffset;
+	}
+
+	private getMaxScrollOffset(): number {
+		return Math.max(0, this.terminal.buffer.active.baseY);
+	}
+
+	private normalizeScrollOffset(scrollOffset: number): number {
+		if (!Number.isFinite(scrollOffset)) {
+			return 0;
+		}
+		return Math.min(Math.max(0, Math.floor(scrollOffset)), this.getMaxScrollOffset());
 	}
 }

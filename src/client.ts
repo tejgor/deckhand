@@ -84,7 +84,7 @@ export async function request<T = unknown>(message: Extract<ClientRequest, {requ
 	});
 }
 
-const PROTOCOL_VERSION = 15;
+const PROTOCOL_VERSION = 16;
 
 class ProtocolMismatchError extends Error {}
 
@@ -342,13 +342,14 @@ export class LiveClient {
 		return this.request<SessionRecord[]>({type: 'subscribe', requestId: randomUUID(), repoRoot});
 	}
 
-	watchPreview(sessionId: string | undefined, cols: number, rows: number): Promise<PreviewRecord> {
+	watchPreview(sessionId: string | undefined, cols: number, rows: number, scrollOffset = 0): Promise<PreviewRecord> {
 		return this.request<PreviewRecord>({
 			type: 'watch-preview',
 			requestId: randomUUID(),
 			sessionId,
 			cols,
 			rows,
+			scrollOffset,
 		});
 	}
 
@@ -416,6 +417,13 @@ export class LiveClient {
 
 	removeSession(sessionId: string): Promise<void> {
 		return this.request({type: 'remove', requestId: randomUUID(), sessionId});
+	}
+
+	sendAgentInput(sessionId: string, data: string): void {
+		if (this.closed || this.socket.destroyed) {
+			return;
+		}
+		writeMessage(this.socket, {type: 'input', sessionId, data});
 	}
 
 	close(): void {

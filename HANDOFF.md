@@ -19,6 +19,7 @@ Current implemented behavior:
   - right tabbed Preview / Terminal / Git pane
 - daemon-side terminal preview rendering via `@xterm/headless`
 - selection-driven preview updates with `j` / `k`
+- interactive Preview focus mode with `v`; `j` / `k` scroll live xterm scrollback for most agents and send synthetic mouse-wheel input for Claude Code without attaching
 - resizable instance sidebar with `h` / `l`
 - subtle icon-based agent/activity indicators
 - create flow for `claude`, `pi`, and `codex`
@@ -258,6 +259,7 @@ Current behavior:
   - appends a subtle `▹` on rows whose Dev command is running
 - supports resizing the instance sidebar with `h` / `l`
 - preserves the resized sidebar width across attach/detach within the same frontend process
+- lets the user focus and scroll the live read-only Preview without attaching
 - lets the user attach, kill, restart exited sessions, remove, refresh, and quit
 - reconnects if the daemon connection drops
 
@@ -268,6 +270,7 @@ Current controls:
 - in existing-worktree mode, `enter` opens the worktree picker
 - in worktree picker, `j` / `k` move and `enter` selects
 - `j` / `k` move selection
+- `v` enters Preview focus mode when the Preview tab is active for a running session; inside Preview focus, `j` / `k` scroll, `g` jumps to top, `G` jumps to bottom/live follow, and `esc` or `v` returns to normal browse mode. For Claude sessions these controls send SGR mouse-wheel events to the agent PTY; for other agents they scroll Deckhand's xterm scrollback snapshot.
 - `h` / `l` resize the instance sidebar
 - left / right arrows also resize the sidebar in browse mode
 - `tab` switches the right pane between Preview, Terminal, Git, and Dev
@@ -814,7 +817,11 @@ Keep this separation intact:
 - frontend = disposable UI/controller
 - daemon = long-lived runtime owner
 
-### 5. Preview text is not the same as full embedded terminal rendering
+### 5. Preview scrolling is read-only
+
+The Preview pane can be focused with `v` and scrolled for running sessions. For normal terminal-output agents, Deckhand scrolls the daemon-side xterm scrollback snapshot without sending input. Claude Code renders more like a TUI, so Preview focus sends synthetic SGR mouse-wheel events to the agent PTY for Claude sessions. Exited sessions still show only the frozen `lastPreview` frame.
+
+### 6. Preview text is not the same as full embedded terminal rendering
 
 The daemon is keeping a proper terminal model, which is a large step up from raw scrollback.
 
@@ -825,7 +832,7 @@ That means:
 - live state is much more accurate than before
 - full terminal styling/interaction parity is still a later step if desired
 
-### 6. PTY sizing is shared per PTY
+### 7. PTY sizing is shared per PTY
 
 Each agent PTY and companion terminal PTY has one active size.
 
@@ -841,7 +848,7 @@ The daemon suppresses agent activity recomputation for agent-preview resize-only
 
 This is acceptable with the current attach model.
 
-### 7. Worktree support is newly implemented and needs real-world exercise
+### 8. Worktree support is newly implemented and needs real-world exercise
 
 The worktree architecture and TypeScript build are in place, but the end-to-end flows should still be exercised in a disposable repository/worktree setup.
 
@@ -855,7 +862,7 @@ Particularly important cases:
 - attempted delete of current/main worktree should stay blocked
 - multiple sessions pointed at one worktree should block deletion
 
-Protocol is now v15. If an older daemon is still running, stop it first:
+Protocol is now v16. If an older daemon is still running, stop it first:
 
 ```bash
 kill $(cat ~/.deckhand/daemon.pid)

@@ -72,6 +72,8 @@ export interface PreviewRecord {
 	live: boolean;
 	status?: SessionStatus;
 	agentStatus?: AgentActivityStatus;
+	scrollOffset?: number;
+	maxScrollOffset?: number;
 }
 
 export interface TerminalRecord {
@@ -118,7 +120,7 @@ export type ClientRequest =
 	| {type: 'list'; requestId: string}
 	| {type: 'subscribe'; requestId: string; repoRoot: string}
 	| {type: 'list-worktrees'; requestId: string; cwd: string}
-	| {type: 'watch-preview'; requestId: string; sessionId?: string; cols: number; rows: number}
+	| {type: 'watch-preview'; requestId: string; sessionId?: string; cols: number; rows: number; scrollOffset?: number}
 	| {type: 'watch-terminal'; requestId: string; sessionId?: string; cols: number; rows: number}
 	| {type: 'watch-git'; requestId: string; sessionId?: string; cols: number; rows: number}
 	| {type: 'watch-dev'; requestId: string; sessionId?: string; cols: number; rows: number}

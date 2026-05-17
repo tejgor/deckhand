@@ -49,6 +49,13 @@ const ORPHAN_TERMINAL_SEQUENCE_PATTERN = /^(?:\[(?:[ABCDHFIOZ]|\d+(?:;\d+)*[~ABC
 const ORPHAN_MOUSE_SEQUENCE_PATTERN = /^(?:\[?<\d*(?:;\d*){0,2}[mM]?|\[?\d+;\d*(?:;\d*)?[mM]?|\[?M[\s\S]{0,3})$/;
 const ALLOWED_NAME_INPUT_PATTERN = /[^a-zA-Z0-9 _\-/.:[\]()#]/g;
 
+function mouseWheelSequence(direction: 'up' | 'down', cols: number, rows: number, count = 1): string {
+	const button = direction === 'up' ? 64 : 65;
+	const x = Math.max(1, Math.floor(cols / 2));
+	const y = Math.max(1, Math.floor(rows / 2));
+	return `\u001B[<${button};${x};${y}M`.repeat(Math.max(1, count));
+}
+
 function sanitizeNameInput(input: string): string {
 	const cleaned = input
 		.replace(ANSI_ESCAPE_PATTERN, '')
@@ -61,7 +68,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help';
+type Mode = 'browse' | 'preview-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help';
 
 interface AppProps {
 	repoRoot: string;
@@ -296,6 +303,9 @@ function HelpPane({width}: {width: number}) {
 		['Ctrl+Space', 'return from attach'],
 		['n', 'new session'],
 		['j/k', 'move selection'],
+		['v', 'focus preview scrolling'],
+		['preview: j/k', 'scroll preview'],
+		['preview: g/G', 'top / bottom'],
 		['h/l', 'resize sidebar'],
 		['m', 'merge selected worktree into current branch'],
 		['x / X', 'kill running session / force kill'],
@@ -322,12 +332,17 @@ function HelpPane({width}: {width: number}) {
 }
 
 function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord): string {
+	if (mode === 'preview-focus') {
+		const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
+		return `preview focus (${method}) • j/k scroll • g top • G bottom • esc/v return`;
+	}
 	if (mode === 'browse') {
 		const attach = session?.status === 'running' ? 'o attach' : undefined;
 		const lifecycle = session?.status === 'exited' ? 's restart • backspace remove' : session?.status === 'running' ? 'x kill • X force kill' : undefined;
 		const dev = session?.status === 'running' ? 'd dev' : undefined;
 		const merge = session?.worktree?.path && session.worktree.mode !== 'none' ? 'm merge' : undefined;
-		return ['tab pane', attach, dev, merge, 'j/k move', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
+		const previewFocus = activeTab === 'preview' && session?.status === 'running' ? 'v preview' : undefined;
+		return ['tab pane', attach, dev, merge, previewFocus, 'j/k move', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
 	}
 	if (mode === 'pick-program') {
 		return 'enter continue • esc cancel • j/k switch';
@@ -359,6 +374,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [killConfirmForce, setKillConfirmForce] = useState(false);
 	const [mergeConfirmIndex, setMergeConfirmIndex] = useState(0);
 	const [activeTab, setActiveTab] = useState<RightPaneTab>(initialActiveTab ?? 'preview');
+	const [previewScrollOffset, setPreviewScrollOffset] = useState(0);
 	const [preview, setPreview] = useState<PreviewRecord>(EMPTY_PREVIEW);
 	const [terminal, setTerminal] = useState<TerminalRecord>(EMPTY_TERMINAL);
 	const [git, setGit] = useState<GitRecord>(EMPTY_GIT);
@@ -377,6 +393,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	useEffect(() => {
 		selectedIdRef.current = selectedId;
 		onSelectedIdChange?.(selectedId);
+		setPreviewScrollOffset(0);
 	}, [onSelectedIdChange, selectedId]);
 
 	useEffect(() => {
@@ -385,6 +402,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 	useEffect(() => {
 		onActiveTabChange?.(activeTab);
+		if (activeTab !== 'preview') {
+			setPreviewScrollOffset(0);
+			setMode(current => (current === 'preview-focus' ? 'browse' : current));
+		}
 	}, [activeTab, onActiveTabChange]);
 
 	useEffect(() => {
@@ -458,6 +479,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							return;
 						}
 						setPreview(nextPreview);
+						if (typeof nextPreview.maxScrollOffset === 'number') {
+							setPreviewScrollOffset(offset => Math.min(offset, nextPreview.maxScrollOffset ?? 0));
+						}
 					},
 					onTerminalUpdated: nextTerminal => {
 						if (nextTerminal.sessionId && nextTerminal.sessionId !== selectedIdRef.current) {
@@ -677,7 +701,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 		let cancelled = false;
 		void client
-			.watchPreview(selectedId, layout.previewCols, layout.previewRows)
+			.watchPreview(selectedId, layout.previewCols, layout.previewRows, previewScrollOffset)
 			.then(nextPreview => {
 				if (cancelled) {
 					return;
@@ -686,6 +710,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					return;
 				}
 				setPreview(nextPreview);
+				if (typeof nextPreview.maxScrollOffset === 'number') {
+					setPreviewScrollOffset(offset => Math.min(offset, nextPreview.maxScrollOffset ?? 0));
+				}
 			})
 			.catch(nextError => {
 				if (!cancelled) {
@@ -695,7 +722,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		return () => {
 			cancelled = true;
 		};
-	}, [client, layout.previewCols, layout.previewRows, selectedId]);
+	}, [client, layout.previewCols, layout.previewRows, previewScrollOffset, selectedId]);
 
 	useEffect(() => {
 		if (!client || activeTab !== 'terminal') {
@@ -928,6 +955,38 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 
+		if (mode === 'preview-focus') {
+			const sendClaudeWheel = (direction: 'up' | 'down', count = 1) => {
+				if (client && selectedSession?.program === 'claude' && selectedSession.status === 'running') {
+					client.sendAgentInput(selectedSession.id, mouseWheelSequence(direction, layout.previewCols, layout.previewRows, count));
+					setPreviewScrollOffset(0);
+					return true;
+				}
+				return false;
+			};
+			if (key.escape || input === 'v') {
+				setMode('browse');
+				return;
+			}
+			if (input === 'k') {
+				if (!sendClaudeWheel('up')) setPreviewScrollOffset(offset => Math.min((preview.maxScrollOffset ?? offset + 1), offset + 1));
+				return;
+			}
+			if (input === 'j') {
+				if (!sendClaudeWheel('down')) setPreviewScrollOffset(offset => Math.max(0, offset - 1));
+				return;
+			}
+			if (input === 'g') {
+				if (!sendClaudeWheel('up', 12)) setPreviewScrollOffset(preview.maxScrollOffset ?? 0);
+				return;
+			}
+			if (input === 'G') {
+				if (!sendClaudeWheel('down', 12)) setPreviewScrollOffset(0);
+				return;
+			}
+			return;
+		}
+
 		if (mode === 'browse') {
 			if (input === 'q') {
 				exit({kind: 'quit'} satisfies UiExitResult);
@@ -951,7 +1010,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (key.tab) {
+				setPreviewScrollOffset(0);
 				setActiveTab(tab => (tab === 'preview' ? 'terminal' : tab === 'terminal' ? 'git' : tab === 'git' ? 'dev' : 'preview'));
+				return;
+			}
+			if (input === 'v' && activeTab === 'preview' && selectedSession?.status === 'running') {
+				setMode('preview-focus');
 				return;
 			}
 			if (input === 'k') {
@@ -1193,7 +1257,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					spinnerFrame={spinnerFrame}
 				/>
 				<Box width={1} />
-				{mode === 'browse' ? (
+				{mode === 'browse' || mode === 'preview-focus' ? (
 					<Box
 						flexDirection="column"
 						width={layout.previewWidth}
@@ -1211,6 +1275,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 								width={layout.paneInnerWidth}
 								height={layout.paneInnerHeight}
 								spinnerFrame={spinnerFrame}
+								focused={mode === 'preview-focus'}
 							/>
 						) : activeTab === 'terminal' ? (
 							<TerminalPane

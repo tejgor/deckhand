@@ -24,7 +24,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 15;
+const PROTOCOL_VERSION = 16;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
@@ -62,6 +62,7 @@ interface ClientSubscription {
 	watchedDevSessionId?: string;
 	previewCols: number;
 	previewRows: number;
+	previewScrollOffset: number;
 	terminalCols: number;
 	terminalRows: number;
 	gitCols: number;
@@ -213,6 +214,13 @@ function clampSize(value: number, fallback: number): number {
 		return fallback;
 	}
 	return Math.max(1, Math.floor(value));
+}
+
+function clampNonNegative(value: number): number {
+	if (!Number.isFinite(value)) {
+		return 0;
+	}
+	return Math.max(0, Math.floor(value));
 }
 
 function signalPtyProcess(term: IPty, signal: NodeJS.Signals, forceGroup = false): void {
@@ -476,6 +484,7 @@ export class InkDaemon {
 		this.clients.set(socket, {
 			previewCols: DEFAULT_PREVIEW_COLS,
 			previewRows: DEFAULT_PREVIEW_ROWS,
+			previewScrollOffset: 0,
 			terminalCols: DEFAULT_PREVIEW_COLS,
 			terminalRows: DEFAULT_PREVIEW_ROWS,
 			gitCols: DEFAULT_PREVIEW_COLS,
@@ -549,6 +558,7 @@ export class InkDaemon {
 			const created: ClientSubscription = {
 				previewCols: DEFAULT_PREVIEW_COLS,
 				previewRows: DEFAULT_PREVIEW_ROWS,
+				previewScrollOffset: 0,
 				terminalCols: DEFAULT_PREVIEW_COLS,
 				terminalRows: DEFAULT_PREVIEW_ROWS,
 				gitCols: DEFAULT_PREVIEW_COLS,
@@ -590,7 +600,8 @@ export class InkDaemon {
 					client.watchedPreviewSessionId = message.sessionId;
 					client.previewCols = clampSize(message.cols, client.previewCols);
 					client.previewRows = clampSize(message.rows, client.previewRows);
-					const preview = await this.getPreviewRecord(message.sessionId, client.previewCols, client.previewRows);
+					client.previewScrollOffset = clampNonNegative(message.scrollOffset ?? 0);
+					const preview = await this.getPreviewRecord(message.sessionId, client.previewCols, client.previewRows, client.previewScrollOffset);
 					sendMessage(socket, response(message.requestId, preview));
 					return;
 				}
@@ -1006,7 +1017,13 @@ export class InkDaemon {
 			return;
 		}
 		if (message.type === 'preview-updated') {
-			for (const [socket, client] of this.clients.entries()) if (client.watchedPreviewSessionId === sessionId) sendMessage(socket, {type: 'preview-updated', preview: message.preview});
+			for (const [socket, client] of this.clients.entries()) {
+				if (client.watchedPreviewSessionId !== sessionId) continue;
+				const preview = client.previewScrollOffset > 0
+					? await this.getPreviewRecord(sessionId, client.previewCols, client.previewRows, client.previewScrollOffset)
+					: message.preview;
+				sendMessage(socket, {type: 'preview-updated', preview});
+			}
 			return;
 		}
 		if (message.type === 'terminal-updated') {
@@ -1217,28 +1234,28 @@ export class InkDaemon {
 		if (!session) {
 			return;
 		}
-		const runtime = this.runtime.get(sessionId);
-		const snapshot = runtime ? await runtime.preview.getSnapshot() : session.lastPreview ?? '';
 		for (const [socket, client] of this.clients.entries()) {
 			if (client.watchedPreviewSessionId !== sessionId) {
 				continue;
 			}
-			const preview = this.buildPreviewRecord(session, snapshot);
+			const preview = await this.getPreviewRecord(sessionId, client.previewCols, client.previewRows, client.previewScrollOffset);
 			sendMessage(socket, {type: 'preview-updated', preview});
 		}
 	}
 
-	private buildPreviewRecord(session: SessionRecord, content: string): PreviewRecord {
+	private buildPreviewRecord(session: SessionRecord, content: string, scrollOffset = 0, maxScrollOffset = 0): PreviewRecord {
 		return {
 			sessionId: session.id,
 			content,
 			live: session.status === 'running',
 			status: session.status,
 			agentStatus: session.agentStatus,
+			scrollOffset,
+			maxScrollOffset,
 		};
 	}
 
-	private async getPreviewRecord(sessionId: string | undefined, cols: number, rows: number): Promise<PreviewRecord> {
+	private async getPreviewRecord(sessionId: string | undefined, cols: number, rows: number, scrollOffset = 0): Promise<PreviewRecord> {
 		if (!sessionId) {
 			return {
 				content: '',
@@ -1256,15 +1273,18 @@ export class InkDaemon {
 		}
 
 		if (this.workers.has(sessionId)) {
-			return await this.sendWorkerRequest<PreviewRecord>(sessionId, {type: 'snapshot', target: 'agent', cols, rows});
+			return await this.sendWorkerRequest<PreviewRecord>(sessionId, {type: 'snapshot', target: 'agent', cols, rows, scrollOffset});
 		}
 
 		const runtime = this.runtime.get(sessionId);
 		if (runtime) {
+			const resized = runtime.term.cols !== cols || runtime.term.rows !== rows;
 			runtime.term.resize(cols, rows);
 			await runtime.preview.resize(cols, rows);
-			await this.suppressResizeActivity(runtime);
-			return this.buildPreviewRecord(session, await runtime.preview.getSnapshot());
+			if (resized) await this.suppressResizeActivity(runtime);
+			const content = await runtime.preview.getSnapshot(scrollOffset);
+			const scrollInfo = await runtime.preview.getScrollInfo(scrollOffset);
+			return this.buildPreviewRecord(session, content, scrollInfo.scrollOffset, scrollInfo.maxScrollOffset);
 		}
 
 		return this.buildPreviewRecord(session, session.lastPreview ?? '');
