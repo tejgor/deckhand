@@ -1026,6 +1026,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			setMode('browse');
 			if (result.skipped) {
 				setStatusMessage(`Skipped merge: no new commits from ${result.sourceRef} into ${result.targetBranch}`);
+			} else if (result.conflicted) {
+				setStatusMessage(`${mergeMode === 'squash' ? 'Squash merge' : 'Merge'} has conflicts to resolve from ${result.sourceRef} into ${result.targetBranch}`);
 			} else {
 				setStatusMessage(`${mergeMode === 'squash' ? 'Squash applied' : 'Merge applied without commit'} from ${result.sourceRef} into ${result.targetBranch}`);
 			}

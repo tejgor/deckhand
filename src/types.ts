@@ -31,6 +31,7 @@ export interface WorktreeMergeResult {
 	sourceRef: string;
 	targetBranch: string;
 	skipped?: boolean;
+	conflicted?: boolean;
 	reason?: string;
 	stdout: string;
 	stderr: string;

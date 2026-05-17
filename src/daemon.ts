@@ -1892,6 +1892,8 @@ export class InkDaemon {
 		const result = await mergeWorktreeIntoCurrent(worktreePath, targetCwd, mode);
 		if (result.skipped) {
 			await this.log(`${mode} merge skipped for ${session.title} (${result.sourceRef}) into ${result.targetBranch}: ${result.reason ?? 'no new commits'}`);
+		} else if (result.conflicted) {
+			await this.log(`${mode} merge for ${session.title} (${result.sourceRef}) into ${result.targetBranch} has conflicts to resolve`);
 		} else {
 			await this.log(`${mode} merged ${session.title} (${result.sourceRef}) into ${result.targetBranch}`);
 		}

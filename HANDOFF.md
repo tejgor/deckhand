@@ -30,7 +30,7 @@ Current implemented behavior:
 - agent-agnostic new-worktree creation using project hook scripts when available
 - existing worktree picker, including the main/current worktree
 - worktree-aware kill confirmation with keep/delete/cancel behavior when applicable
-- merge or squash-merge without committing a selected session worktree back into the Deckhand launch/current branch, while skipping with a warning when the session branch has no new commits
+- merge or squash-merge without committing a selected session worktree back into the Deckhand launch/current branch, skipping with a warning when the session branch has no new commits and treating merge conflicts as an expected resolvable state instead of a Deckhand error
 - external attach / detach flow
 - kill running session from UI
 - remove exited session from UI
@@ -278,7 +278,7 @@ Current controls:
 - `?` opens a keyboard-shortcuts help pane
 - `o` attaches to the selected running session's active pane (`agent` on Preview, shell on Terminal, `lazygit` on Git)
 - attach mode sets the compact terminal/window title to `dh/<pane> <session>` while streaming PTY output directly; `Ctrl+Space` returns to Deckhand
-- `m` merge or squash-merge selected worktree-backed session into the Deckhand launch/current branch without committing, with merge/squash/cancel confirmation; if there are no new commits, Deckhand skips the merge and shows a warning
+- `m` merge or squash-merge selected worktree-backed session into the Deckhand launch/current branch without committing, with merge/squash/cancel confirmation; if there are no new commits, Deckhand skips the merge and shows a warning; if Git leaves conflicts, Deckhand returns to browse mode with a status message instead of entering an error state
 - `x` kill selected running session
 - for worktree-backed sessions, `x` opens keep/delete/delete-branch/cancel confirmation when applicable
 - `s` restart selected exited session in its recorded cwd/worktree, resuming the original agent conversation when `agentSessionRef` is available
@@ -478,7 +478,7 @@ Git helper layer for:
   - `CLAUDE_PROJECT_DIR` set to the exact Deckhand launch cwd
   - stdin JSON containing both `name` and `cwd`
 - removing safe-to-delete worktrees with `git worktree remove -f` and `git worktree prune`
-- merging a session worktree back into the launch/current worktree without committing using `git merge --no-commit --no-ff <source>`, or squash-applying without committing using `git merge --squash <source>`; before either mode it checks `HEAD..<source>` and skips when there are no new commits
+- merging a session worktree back into the launch/current worktree without committing using `git merge --no-commit --no-ff <source>`, or squash-applying without committing using `git merge --squash <source>`; before either mode it checks `HEAD..<source>` and skips when there are no new commits; if Git exits nonzero after leaving unmerged files, the helper returns a conflicted result rather than throwing
 
 ### `src/paths.ts`
 

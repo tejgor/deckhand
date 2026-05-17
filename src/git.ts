@@ -272,6 +272,11 @@ async function countCommitsToMerge(targetRoot: string, sourceRef: string): Promi
 	return Number.parseInt(stdout.trim(), 10) || 0;
 }
 
+async function hasUnmergedFiles(cwd: string): Promise<boolean> {
+	const {stdout} = await execFileAsync('git', ['-C', cwd, 'diff', '--name-only', '--diff-filter=U']);
+	return stdout.trim().length > 0;
+}
+
 export async function mergeWorktreeIntoCurrent(
 	worktreePath: string,
 	targetCwd: string,
@@ -312,6 +317,17 @@ export async function mergeWorktreeIntoCurrent(
 	} catch (error) {
 		const err = error as Error & {stdout?: string; stderr?: string};
 		const output = [err.message, err.stdout, err.stderr].filter(Boolean).join('\n').trim();
+		if (await hasUnmergedFiles(targetRoot)) {
+			return {
+				mode,
+				sourceRef,
+				targetBranch,
+				conflicted: true,
+				reason: 'Merge has conflicts to resolve',
+				stdout: err.stdout ?? '',
+				stderr: err.stderr ?? output,
+			};
+		}
 		throw new Error(output || `${mode === 'squash' ? 'squash merge' : 'merge'} failed`);
 	}
 }
