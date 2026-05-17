@@ -11,6 +11,7 @@ import {getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getW
 import {createWorktreeForSession, deleteLocalBranch, findRepoRoot, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree, sanitizeWorktreeName} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst} from './storage.js';
+import {compareSessionOrder, sortSessionsForSidebar} from './sessionOrder.js';
 import {TerminalPreview} from './terminalPreview.js';
 import type {AgentActivityStatus, AgentSessionRef, AttachTarget, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ServerMessage, ServerResponse, SessionRecord, TerminalRecord} from './types.js';
 
@@ -24,7 +25,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 16;
+const PROTOCOL_VERSION = 17;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
@@ -583,7 +584,7 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, {ok: true, version: PROTOCOL_VERSION}));
 					return;
 				case 'list':
-					sendMessage(socket, response(message.requestId, sortSessionsNewestFirst([...this.sessions.values()])));
+					sendMessage(socket, response(message.requestId, sortSessionsForSidebar([...this.sessions.values()])));
 					return;
 				case 'subscribe': {
 					const client = this.getClient(socket);
@@ -655,6 +656,9 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, session));
 					return;
 				}
+				case 'reorder-session':
+					sendMessage(socket, response(message.requestId, await this.reorderSession(message.sessionId, message.direction)));
+					return;
 				case 'restart': {
 					const session = await this.restartSession(message.sessionId, message.cols, message.rows);
 					sendMessage(socket, response(message.requestId, session));
@@ -1101,7 +1105,7 @@ export class InkDaemon {
 	}
 
 	private sessionsForRepo(repoRoot: string): SessionRecord[] {
-		return sortSessionsNewestFirst([...this.sessions.values()].filter(session => session.repoRoot === repoRoot));
+		return sortSessionsForSidebar([...this.sessions.values()].filter(session => session.repoRoot === repoRoot));
 	}
 
 	private broadcastSessionUpdated(session: SessionRecord): void {
@@ -1663,6 +1667,38 @@ export class InkDaemon {
 		return this.buildDevRecord(sessionId, dev);
 	}
 
+	private async reorderSession(sessionId: string, direction: 'up' | 'down'): Promise<SessionRecord[]> {
+		const session = this.sessions.get(sessionId);
+		if (!session) {
+			throw new Error('session does not exist');
+		}
+		const siblings = [...this.sessions.values()]
+			.filter(candidate => candidate.repoRoot === session.repoRoot && candidate.parentSessionId === session.parentSessionId)
+			.sort(compareSessionOrder);
+		const index = siblings.findIndex(candidate => candidate.id === sessionId);
+		const swapIndex = direction === 'up' ? index - 1 : index + 1;
+		if (index < 0 || swapIndex < 0 || swapIndex >= siblings.length) {
+			return this.sessionsForRepo(session.repoRoot);
+		}
+		const now = new Date().toISOString();
+		const normalized = siblings.map((candidate, order) => ({...candidate, sidebarOrder: order}));
+		const current = normalized[index]!;
+		const other = normalized[swapIndex]!;
+		const currentOrder = current.sidebarOrder;
+		const otherOrder = other.sidebarOrder;
+		const updatedCurrent = {...current, sidebarOrder: otherOrder, updatedAt: now};
+		const updatedOther = {...other, sidebarOrder: currentOrder, updatedAt: now};
+		for (const candidate of normalized) {
+			if (candidate.id === updatedCurrent.id) this.sessions.set(candidate.id, updatedCurrent);
+			else if (candidate.id === updatedOther.id) this.sessions.set(candidate.id, updatedOther);
+			else this.sessions.set(candidate.id, candidate);
+		}
+		await this.persist();
+		this.broadcastSessionUpdated(updatedCurrent);
+		this.broadcastSessionUpdated(updatedOther);
+		return this.sessionsForRepo(session.repoRoot);
+	}
+
 	private async createSession(input: CreateSessionInput): Promise<SessionRecord> {
 		const title = input.title.trim();
 		if (!title) {
@@ -1670,6 +1706,10 @@ export class InkDaemon {
 		}
 		if (title.length > 64) {
 			throw new Error('title cannot be longer than 64 characters');
+		}
+		const parentSession = input.parentSessionId ? this.sessions.get(input.parentSessionId) : undefined;
+		if (input.parentSessionId && (!parentSession || parentSession.repoRoot !== input.repoRoot)) {
+			throw new Error('parent session does not exist in this repo');
 		}
 		const conflict = [...this.sessions.values()].find(
 			session => session.repoRoot === input.repoRoot && session.title === title && session.status !== 'exited',
@@ -1681,6 +1721,10 @@ export class InkDaemon {
 		const command = await resolveProgramCommand(input.program);
 		const sessionId = randomUUID();
 		const now = new Date().toISOString();
+		const siblingOrders = [...this.sessions.values()]
+			.filter(session => session.repoRoot === input.repoRoot && session.parentSessionId === input.parentSessionId)
+			.map(session => (typeof session.sidebarOrder === 'number' && Number.isFinite(session.sidebarOrder) ? session.sidebarOrder : 0));
+		const nextSidebarOrder = siblingOrders.length === 0 ? 0 : Math.max(...siblingOrders) + 1;
 		const baseSession: SessionRecord = {
 			id: sessionId,
 			title,
@@ -1698,6 +1742,9 @@ export class InkDaemon {
 			createdAt: now,
 			updatedAt: now,
 			lastPreview: '',
+			parentSessionId: input.parentSessionId,
+			subSessionKind: input.subSessionKind,
+			sidebarOrder: nextSidebarOrder,
 		};
 
 		this.sessions.set(baseSession.id, baseSession);

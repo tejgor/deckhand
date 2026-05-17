@@ -11,7 +11,7 @@ Implemented behavior:
 - standalone Ink UI
 - supervisor daemon with local IPC over `~/.deckhand/daemon.sock`
 - per-session worker processes that own PTYs through `node-pty`
-- repo-scoped session list
+- repo-scoped session list with manual sidebar ordering and clean sub-session nesting
 - persistent split layout:
   - left session sidebar
   - right tabbed pane: Preview, Terminal, Git, Dev
@@ -115,7 +115,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - Dev-running indicators:
   - selected session: green `●` suffix on the Dev tab
   - all sessions: subtle `▹` suffix in sidebar row
-- Sidebar has right-aligned per-row markers like `[1]`, anticipating future numeric shortcuts.
+- Sidebar has numbered per-row markers like `[1]`; typing the number jumps to that session. With 10 or fewer sessions, single-digit jumps are instant and `0` selects 10; with more than 10 sessions, numeric input is briefly buffered for multi-digit selection.
 - Right pane is one rounded bordered frame with tab bar at the top; sub-panes are borderless content containers.
 
 ### Controls
@@ -125,9 +125,13 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - in existing-worktree mode, `enter` opens the worktree picker
 - in worktree picker, `j` / `k` move and `enter` selects
 - `j` / `k` move selected session
+- session numbers jump to matching sidebar rows; with more than 10 sessions, multi-digit input is buffered briefly and `enter` confirms immediately
+- `J` / `K` manually reorder selected session among its siblings
+- `N` creates a clean sub-session under the selected session
 - `h` / `l` resize sidebar
 - left/right arrows also resize sidebar in browse mode
 - `tab` switches Preview / Terminal / Git / Dev
+- `p` / `t` / `g` / `d` directly focus Preview / Terminal / Git / Dev
 - `v` enters Preview focus mode for running sessions
 - in Preview focus:
   - mouse wheel / trackpad scrolls
@@ -146,7 +150,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - `x` kills selected running session
 - for worktree-backed sessions, `x` opens keep/delete/delete-branch/cancel when applicable
 - `s` restarts selected exited session
-- `d` starts/stops selected session's Dev command and switches to Dev tab
+- `d` focuses the Dev tab; when already focused on Dev, it starts/stops the selected session's Dev command
 - `backspace` removes selected exited session
 - `r` refreshes/resubscribes
 - `?` opens help
@@ -263,7 +267,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v16**
+- current protocol version: **v17**
 
 If an older daemon is still running:
 
@@ -309,6 +313,9 @@ Tracked metadata includes:
 - `pid`
 - exit details
 - `lastPreview`
+- `parentSessionId`
+- `subSessionKind`
+- `sidebarOrder`
 
 `agentStatus` is persisted only on activity transitions to avoid excessive disk writes.
 
@@ -327,6 +334,7 @@ Supported request types include:
 - `start-dev`
 - `stop-dev`
 - `create`
+- `reorder-session`
 - `restart`
 - `kill`
 - `merge-worktree`

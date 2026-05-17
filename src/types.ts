@@ -43,6 +43,8 @@ export interface AgentSessionRef {
 	value: string;
 }
 
+export type SubSessionKind = 'clean';
+
 export interface SessionRecord {
 	id: string;
 	title: string;
@@ -65,6 +67,9 @@ export interface SessionRecord {
 	exitSignal?: number | null;
 	lastPreview?: string;
 	devRunning?: boolean;
+	parentSessionId?: string;
+	subSessionKind?: SubSessionKind;
+	sidebarOrder?: number;
 }
 
 export interface PreviewRecord {
@@ -114,6 +119,8 @@ export interface CreateSessionInput {
 	rows: number;
 	worktreeMode?: WorktreeMode;
 	existingWorktreePath?: string;
+	parentSessionId?: string;
+	subSessionKind?: SubSessionKind;
 }
 
 export type ClientRequest =
@@ -128,6 +135,7 @@ export type ClientRequest =
 	| {type: 'start-dev'; requestId: string; sessionId: string; cols: number; rows: number}
 	| {type: 'stop-dev'; requestId: string; sessionId: string}
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
+	| {type: 'reorder-session'; requestId: string; sessionId: string; direction: 'up' | 'down'}
 	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number}
 	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean; deleteBranch?: boolean; force?: boolean}
 	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string}

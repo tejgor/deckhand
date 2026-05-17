@@ -6,6 +6,7 @@ import {DevPane} from './devPane.js';
 import {GitPane} from './gitPane.js';
 import {PreviewPane} from './preview.js';
 import {Sidebar} from './sidebar.js';
+import {sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
 import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RightPaneTab, SessionRecord, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
@@ -146,23 +147,7 @@ function clampSidebarWidth(width: number, totalWidth: number): number {
 }
 
 function sortSessions(sessions: SessionRecord[]): SessionRecord[] {
-	return [...sessions].sort((a, b) => {
-		if (a.status !== b.status) {
-			if (a.status === 'running') {
-				return -1;
-			}
-			if (b.status === 'running') {
-				return 1;
-			}
-			if (a.status === 'starting') {
-				return -1;
-			}
-			if (b.status === 'starting') {
-				return 1;
-			}
-		}
-		return a.createdAt.localeCompare(b.createdAt);
-	});
+	return sortSessionsForSidebar(sessions);
 }
 
 function upsertSession(existing: SessionRecord[], session: SessionRecord): SessionRecord[] {
@@ -185,19 +170,21 @@ function CreatePane({
 	draftName,
 	worktreeMode,
 	width,
+	parentTitle,
 }: {
 	mode: 'pick-program' | 'enter-name';
 	programIndex: number;
 	draftName: string;
 	worktreeMode: WorktreeMode;
 	width: number;
+	parentTitle?: string;
 }) {
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1} paddingY={0}>
 			<Text color={THEME.accent} bold>
 				{mode === 'pick-program'
-					? 'New session'
-					: `New ${PROGRAMS[programIndex]!.label} session`}
+					? parentTitle ? `New sub-session under ${parentTitle}` : 'New session'
+					: `New ${PROGRAMS[programIndex]!.label}${parentTitle ? ' sub-' : ' '}session`}
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{mode === 'pick-program' ? (
@@ -219,6 +206,7 @@ function CreatePane({
 					</>
 				)}
 			</Box>
+			{parentTitle ? <Text color={THEME.muted}>Parent: {truncate(parentTitle, Math.max(8, width - 12))}</Text> : null}
 			<Box marginTop={1}>
 				<Text color={THEME.muted}>
 					{mode === 'pick-program' ? 'enter continue · esc cancel · ↑↓ switch' : 'tab worktree · enter create · esc back'}
@@ -336,6 +324,8 @@ function KillConfirmPane({session, selectedIndex, canDelete, canDeleteBranch, fo
 function HelpPane({width}: {width: number}) {
 	const rows: Array<[string, string]> = [
 		['tab', 'cycle Preview / Terminal / Git / Dev'],
+		['p/t/g/d', 'jump to Preview / Terminal / Git / Dev'],
+		['1..N', 'jump to numbered session'],
 		['o', 'attach active pane'],
 		['Ctrl+Space', 'return from attach'],
 		['n', 'new session'],
@@ -347,7 +337,7 @@ function HelpPane({width}: {width: number}) {
 		['m', 'merge selected worktree into current branch'],
 		['x / X', 'kill running session / force kill'],
 		['s', 'restart exited session'],
-		['d', 'start/stop dev command'],
+		['d on Dev', 'start/stop dev command'],
 		['backspace', 'remove exited session'],
 		['r', 'refresh sessions'],
 		['q', 'quit'],
@@ -376,10 +366,10 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 	if (mode === 'browse') {
 		const attach = session?.status === 'running' ? 'o attach' : undefined;
 		const lifecycle = session?.status === 'exited' ? 's restart • backspace remove' : session?.status === 'running' ? 'x kill • X force kill' : undefined;
-		const dev = session?.status === 'running' ? 'd dev' : undefined;
+		const dev = activeTab === 'dev' && session?.status === 'running' ? 'd toggle dev' : undefined;
 		const merge = session?.worktree?.path && session.worktree.mode !== 'none' ? 'm merge' : undefined;
 		const previewFocus = activeTab === 'preview' && session?.status === 'running' ? 'v preview' : undefined;
-		return ['tab pane', attach, dev, merge, previewFocus, 'j/k move', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
+		return [attach, dev, merge, previewFocus, 'j/k select', 'J/K reorder', 'n new', 'N child', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
 	}
 	if (mode === 'pick-program') {
 		return 'enter continue • esc cancel • j/k switch';
@@ -403,6 +393,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [selectedId, setSelectedId] = useState<string | undefined>(initialSelectedId);
 	const [programIndex, setProgramIndex] = useState(0);
 	const [draftName, setDraftName] = useState('');
+	const [createParentId, setCreateParentId] = useState<string | undefined>();
 	const [worktreeMode, setWorktreeMode] = useState<WorktreeMode>('none');
 	const [worktrees, setWorktrees] = useState<WorktreeInfoRecord[]>([]);
 	const [worktreeQuery, setWorktreeQuery] = useState('');
@@ -420,6 +411,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [dev, setDev] = useState<DevRecord>(EMPTY_DEV);
 	const [error, setError] = useState<string | undefined>();
 	const [statusMessage, setStatusMessage] = useState<string | undefined>();
+	const [numericSelection, setNumericSelection] = useState('');
 	const [busy, setBusy] = useState(false);
 	const [client, setClient] = useState<LiveClient | undefined>();
 	const [connectionEpoch, setConnectionEpoch] = useState(0);
@@ -720,6 +712,32 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		};
 	}, [error, sidebarWidthOverride, terminalSize.cols, terminalSize.rows]);
 
+	const confirmNumericSelection = useCallback((value: string) => {
+		if (!value) {
+			return;
+		}
+		const targetIndex = Number.parseInt(value, 10) - 1;
+		setNumericSelection('');
+		if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= sessions.length) {
+			setError(`no session ${value}`);
+			return;
+		}
+		setError(undefined);
+		setSelectedId(sessions[targetIndex]?.id);
+	}, [sessions]);
+
+	useEffect(() => {
+		if (!numericSelection) {
+			return;
+		}
+		const timer = setTimeout(() => {
+			confirmNumericSelection(numericSelection);
+		}, 300);
+		return () => {
+			clearTimeout(timer);
+		};
+	}, [confirmNumericSelection, numericSelection]);
+
 	const moveSelection = useCallback(
 		(delta: number) => {
 			if (sessions.length === 0) {
@@ -730,6 +748,22 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		},
 		[selectedIndex, sessions],
 	);
+
+	const reorderSelected = useCallback(async (direction: 'up' | 'down') => {
+		if (!client || !selectedSession) {
+			return;
+		}
+		setBusy(true);
+		setError(undefined);
+		try {
+			const reordered = await client.reorderSession(selectedSession.id, direction);
+			setSessions(sortSessions(reordered));
+		} catch (nextError) {
+			setError(nextError instanceof Error ? nextError.message : String(nextError));
+		} finally {
+			setBusy(false);
+		}
+	}, [client, selectedSession]);
 
 	const resizeSidebar = useCallback(
 		(delta: number) => {
@@ -941,8 +975,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				rows: layout.previewRows,
 				worktreeMode,
 				existingWorktreePath,
+				parentSessionId: createParentId,
+				subSessionKind: createParentId ? 'clean' : undefined,
 			});
 			setDraftName('');
+			setCreateParentId(undefined);
 			setWorktreeMode('none');
 			setMode('browse');
 			setSelectedId(created.id);
@@ -952,7 +989,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		} finally {
 			setBusy(false);
 		}
-	}, [client, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, worktreeMode]);
+	}, [client, createParentId, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, worktreeMode]);
 
 	const killSelected = useCallback(async (deleteWorktree = false, deleteBranch = false, force = false) => {
 		if (!client || !selectedSession || selectedSession.status !== 'running') {
@@ -1093,6 +1130,33 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 
 		if (mode === 'browse') {
+			if (numericSelection) {
+				if (/^\d$/.test(input)) {
+					setNumericSelection(value => value + input);
+					return;
+				}
+				if (key.return) {
+					confirmNumericSelection(numericSelection);
+					return;
+				}
+				if (key.escape) {
+					setNumericSelection('');
+					return;
+				}
+				if (key.backspace || key.delete) {
+					setNumericSelection(value => value.slice(0, -1));
+					return;
+				}
+				setNumericSelection('');
+			}
+			if (/^\d$/.test(input)) {
+				if (sessions.length <= 10) {
+					confirmNumericSelection(input === '0' ? '10' : input);
+				} else {
+					setNumericSelection(input);
+				}
+				return;
+			}
 			if (input === 'q') {
 				exit({kind: 'quit'} satisfies UiExitResult);
 				return;
@@ -1101,9 +1165,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setMode('help');
 				return;
 			}
-			if (input === 'n') {
-				setProgramIndex(0);
+			if (input === 'n' || input === 'N') {
+				const parent = input === 'N' ? selectedSession : undefined;
+				setProgramIndex(parent ? Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)) : 0);
 				setDraftName('');
+				setCreateParentId(parent?.id);
 				setWorktreeMode('none');
 				setMode('pick-program');
 				return;
@@ -1119,8 +1185,44 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setActiveTab(tab => (tab === 'preview' ? 'terminal' : tab === 'terminal' ? 'git' : tab === 'git' ? 'dev' : 'preview'));
 				return;
 			}
+			if (input === 'p') {
+				setPreviewScrollOffset(0);
+				setActiveTab('preview');
+				return;
+			}
+			if (input === 't') {
+				setPreviewScrollOffset(0);
+				setActiveTab('terminal');
+				return;
+			}
+			if (input === 'g') {
+				setPreviewScrollOffset(0);
+				setActiveTab('git');
+				return;
+			}
+			if (input === 'd') {
+				if (activeTab !== 'dev') {
+					setPreviewScrollOffset(0);
+					setActiveTab('dev');
+					return;
+				}
+				if (selectedSession?.status === 'running') {
+					void toggleDevSelected();
+				} else {
+					setError('session must be running to start dev');
+				}
+				return;
+			}
 			if (input === 'v' && activeTab === 'preview' && selectedSession?.status === 'running') {
 				setMode('preview-focus');
+				return;
+			}
+			if (input === 'K') {
+				void reorderSelected('up');
+				return;
+			}
+			if (input === 'J') {
+				void reorderSelected('down');
 				return;
 			}
 			if (input === 'k') {
@@ -1155,10 +1257,6 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				}
 				return;
 			}
-			if (input === 'd' && selectedSession?.status === 'running') {
-				void toggleDevSelected();
-				return;
-			}
 			if ((key.backspace || key.delete) && selectedSession?.status === 'exited') {
 				void removeSelected();
 				return;
@@ -1185,6 +1283,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 		if (mode === 'pick-program') {
 			if (key.escape) {
+				setCreateParentId(undefined);
 				setMode('browse');
 				return;
 			}
@@ -1423,10 +1522,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						draftName={draftName}
 						worktreeMode={worktreeMode}
 						width={layout.previewWidth}
+						parentTitle={createParentId ? sessions.find(session => session.id === createParentId)?.title : undefined}
 					/>
 				)}
 			</Box>
 			<Text color={THEME.muted}>{footerHint(mode, activeTab, selectedSession)}</Text>
+			{numericSelection ? <Text color={THEME.active}>Select session: {numericSelection}</Text> : null}
 			{busy ? <Text color={THEME.warn}>Working…</Text> : null}
 			{statusMessage ? <Text color={THEME.success}>{statusMessage}</Text> : null}
 			{error ? <Text color={THEME.error}>Error: {error}</Text> : null}

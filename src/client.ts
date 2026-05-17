@@ -84,7 +84,7 @@ export async function request<T = unknown>(message: Extract<ClientRequest, {requ
 	});
 }
 
-const PROTOCOL_VERSION = 16;
+const PROTOCOL_VERSION = 17;
 
 class ProtocolMismatchError extends Error {}
 
@@ -210,6 +210,11 @@ export async function listSessions(): Promise<SessionRecord[]> {
 export async function createSession(input: CreateSessionInput): Promise<SessionRecord> {
 	await ensureDaemonRunning();
 	return request<SessionRecord>({type: 'create', requestId: randomUUID(), input});
+}
+
+export async function reorderSession(sessionId: string, direction: 'up' | 'down'): Promise<SessionRecord[]> {
+	await ensureDaemonRunning();
+	return request<SessionRecord[]>({type: 'reorder-session', requestId: randomUUID(), sessionId, direction});
 }
 
 export async function restartSession(sessionId: string, cols: number, rows: number): Promise<SessionRecord> {
@@ -397,6 +402,10 @@ export class LiveClient {
 
 	createSession(input: CreateSessionInput): Promise<SessionRecord> {
 		return this.request<SessionRecord>({type: 'create', requestId: randomUUID(), input});
+	}
+
+	reorderSession(sessionId: string, direction: 'up' | 'down'): Promise<SessionRecord[]> {
+		return this.request<SessionRecord[]>({type: 'reorder-session', requestId: randomUUID(), sessionId, direction});
 	}
 
 	listWorktrees(cwd: string): Promise<WorktreeInfoRecord[]> {

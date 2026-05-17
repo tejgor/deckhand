@@ -1,6 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import type {SessionRecord} from './types.js';
+import {sessionDepth} from './sessionOrder.js';
 import {THEME, programGlyph, statusColor, statusGlyph, truncate} from './ui.js';
 
 interface SidebarProps {
@@ -20,12 +21,15 @@ function visibleSessions(sessions: SessionRecord[], selectedIndex: number, avail
 	return sessions.slice(start, start + availableRows);
 }
 
-function renderRow(session: SessionRecord, index: number, active: boolean, width: number, spinnerFrame: string): string {
+function renderRow(session: SessionRecord, sessions: SessionRecord[], index: number, active: boolean, width: number, spinnerFrame: string): string {
 	const cursor = active ? '›' : ' ';
 	const idx = `[${index}]`;
 	const devGlyph = session.devRunning ? ' ▹' : '';
+	const forkGlyph = session.subSessionKind === 'clean' ? '↳ ' : '';
+	const depth = sessionDepth(session, sessions);
+	const indent = '  '.repeat(Math.min(depth, 4));
 	const glyph = `${statusGlyph(session, spinnerFrame)} ${programGlyph(session.program)}${devGlyph}`;
-	const prefix = `${cursor} ${idx} ${glyph} `;
+	const prefix = `${cursor} ${idx} ${indent}${forkGlyph}${glyph} `;
 	const titleSpace = Math.max(0, width - prefix.length);
 	const title = truncate(session.title, titleSpace);
 	const filled = `${prefix}${title}`;
@@ -62,7 +66,7 @@ export function Sidebar({sessions, selectedId, width, height, spinnerFrame}: Sid
 							color={active ? THEME.active : statusColor(session)}
 							bold={active}
 						>
-							{renderRow(session, actualIndex, active, contentWidth, spinnerFrame)}
+							{renderRow(session, sessions, actualIndex, active, contentWidth, spinnerFrame)}
 						</Text>
 					);
 				})
