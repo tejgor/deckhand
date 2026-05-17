@@ -19,7 +19,7 @@ Current implemented behavior:
   - right tabbed Preview / Terminal / Git pane
 - daemon-side terminal preview rendering via `@xterm/headless`
 - selection-driven preview updates with `j` / `k`
-- interactive Preview focus mode with `v`; `j` / `k` scroll live xterm scrollback for most agents and send synthetic mouse-wheel input for Claude Code without attaching
+- interactive Preview focus mode with `v`; mouse wheel / trackpad scrolls live xterm scrollback for most agents and sends synthetic mouse-wheel input for Claude Code without attaching, using the same `attach_scroll_sensitivity` scaling as attach mode, with `j` / `k` retained as keyboard fallbacks
 - resizable instance sidebar with `h` / `l`
 - subtle icon-based agent/activity indicators
 - create flow for `claude`, `pi`, and `codex`
@@ -270,7 +270,7 @@ Current controls:
 - in existing-worktree mode, `enter` opens the worktree picker
 - in worktree picker, `j` / `k` move and `enter` selects
 - `j` / `k` move selection
-- `v` enters Preview focus mode when the Preview tab is active for a running session; inside Preview focus, `j` / `k` scroll, `g` jumps to top, `G` jumps to bottom/live follow, and `esc` or `v` returns to normal browse mode. For Claude sessions these controls send SGR mouse-wheel events to the agent PTY; for other agents they scroll Deckhand's xterm scrollback snapshot.
+- `v` enters Preview focus mode when the Preview tab is active for a running session; inside Preview focus, mouse wheel / trackpad scrolls, `j` / `k` are keyboard fallbacks, `g` jumps upward, `G` jumps back down/live follow, and `esc` or `v` returns to normal browse mode. Deckhand enables broad mouse tracking modes while focused to improve terminal/trackpad compatibility and applies the same `attach_scroll_sensitivity` scaling as attach mode. For Claude sessions these controls send SGR mouse-wheel events to the agent PTY; for other agents they scroll Deckhand's xterm scrollback snapshot.
 - `h` / `l` resize the instance sidebar
 - left / right arrows also resize the sidebar in browse mode
 - `tab` switches the right pane between Preview, Terminal, Git, and Dev

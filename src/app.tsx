@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Box, Text, useApp, useInput} from 'ink';
 import {LiveClient, createLiveClient} from './client.js';
+import {loadAppConfig} from './storage.js';
 import {DevPane} from './devPane.js';
 import {GitPane} from './gitPane.js';
 import {PreviewPane} from './preview.js';
@@ -42,6 +43,7 @@ const WORKTREE_MODES: Array<{key: WorktreeMode; label: string}> = [
 	{key: 'new', label: 'new worktree'},
 	{key: 'existing', label: 'existing worktree'},
 ];
+const DEFAULT_SCROLL_SENSITIVITY = 0.12;
 
 const ANSI_ESCAPE_PATTERN = /\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\))/g;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/g;
@@ -49,11 +51,46 @@ const ORPHAN_TERMINAL_SEQUENCE_PATTERN = /^(?:\[(?:[ABCDHFIOZ]|\d+(?:;\d+)*[~ABC
 const ORPHAN_MOUSE_SEQUENCE_PATTERN = /^(?:\[?<\d*(?:;\d*){0,2}[mM]?|\[?\d+;\d*(?:;\d*)?[mM]?|\[?M[\s\S]{0,3})$/;
 const ALLOWED_NAME_INPUT_PATTERN = /[^a-zA-Z0-9 _\-/.:[\]()#]/g;
 
+function normalizeScrollSensitivity(value: number | undefined): number {
+	if (value === undefined || !Number.isFinite(value)) {
+		return DEFAULT_SCROLL_SENSITIVITY;
+	}
+	return Math.max(0, Math.min(1, value));
+}
+
 function mouseWheelSequence(direction: 'up' | 'down', cols: number, rows: number, count = 1): string {
 	const button = direction === 'up' ? 64 : 65;
 	const x = Math.max(1, Math.floor(cols / 2));
 	const y = Math.max(1, Math.floor(rows / 2));
 	return `\u001B[<${button};${x};${y}M`.repeat(Math.max(1, count));
+}
+
+function parseMouseWheel(input: string): {direction: 'up' | 'down'; count: number} | undefined {
+	let up = 0;
+	let down = 0;
+
+	for (const match of input.matchAll(/\u001B\[<(\d+);\d+;\d+(?:;\d+;\d+)?[mM]/g)) {
+		const button = Number(match[1]);
+		if ((button & 64) === 64) {
+			if ((button & 1) === 1) down += 1;
+			else up += 1;
+		}
+	}
+
+	let legacyIndex = input.indexOf('\u001B[M');
+	while (legacyIndex >= 0 && input.length >= legacyIndex + 6) {
+		const button = input.charCodeAt(legacyIndex + 3) - 32;
+		if ((button & 64) === 64) {
+			if ((button & 1) === 1) down += 1;
+			else up += 1;
+		}
+		legacyIndex = input.indexOf('\u001B[M', legacyIndex + 6);
+	}
+
+	if (up === 0 && down === 0) {
+		return undefined;
+	}
+	return up > down ? {direction: 'up', count: up - down} : {direction: 'down', count: down - up};
 }
 
 function sanitizeNameInput(input: string): string {
@@ -334,7 +371,7 @@ function HelpPane({width}: {width: number}) {
 function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord): string {
 	if (mode === 'preview-focus') {
 		const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
-		return `preview focus (${method}) • j/k scroll • g top • G bottom • esc/v return`;
+		return `preview focus (${method}) • wheel scroll • j/k fallback • esc/v return`;
 	}
 	if (mode === 'browse') {
 		const attach = session?.status === 'running' ? 'o attach' : undefined;
@@ -375,6 +412,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [mergeConfirmIndex, setMergeConfirmIndex] = useState(0);
 	const [activeTab, setActiveTab] = useState<RightPaneTab>(initialActiveTab ?? 'preview');
 	const [previewScrollOffset, setPreviewScrollOffset] = useState(0);
+	const [previewScrollSensitivity, setPreviewScrollSensitivity] = useState(DEFAULT_SCROLL_SENSITIVITY);
+	const previewWheelAccumulatorRef = useRef(0);
 	const [preview, setPreview] = useState<PreviewRecord>(EMPTY_PREVIEW);
 	const [terminal, setTerminal] = useState<TerminalRecord>(EMPTY_TERMINAL);
 	const [git, setGit] = useState<GitRecord>(EMPTY_GIT);
@@ -401,12 +440,29 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	}, [sessions]);
 
 	useEffect(() => {
+		void loadAppConfig()
+			.then(config => setPreviewScrollSensitivity(normalizeScrollSensitivity(config.attach_scroll_sensitivity)))
+			.catch(() => setPreviewScrollSensitivity(DEFAULT_SCROLL_SENSITIVITY));
+	}, []);
+
+	useEffect(() => {
 		onActiveTabChange?.(activeTab);
 		if (activeTab !== 'preview') {
 			setPreviewScrollOffset(0);
 			setMode(current => (current === 'preview-focus' ? 'browse' : current));
 		}
 	}, [activeTab, onActiveTabChange]);
+
+	useEffect(() => {
+		if (mode !== 'preview-focus') {
+			return;
+		}
+		process.stdout.write('\u001B[?1000h\u001B[?1002h\u001B[?1003h\u001B[?1006h\u001B[?1015h\u001B[?1016h');
+		return () => {
+			process.stdout.write('\u001B[?1016l\u001B[?1015l\u001B[?1006l\u001B[?1003l\u001B[?1002l\u001B[?1000l');
+		};
+	}, [mode]);
+
 
 	useEffect(() => {
 		const onResize = () => {
@@ -687,6 +743,43 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		[onSidebarWidthChange, terminalSize.cols],
 	);
 
+	useEffect(() => {
+		if (mode !== 'preview-focus') {
+			return;
+		}
+		const onData = (chunk: Buffer) => {
+			const wheel = parseMouseWheel(chunk.toString('utf8'));
+			if (!wheel) {
+				return;
+			}
+			let scaledCount = 0;
+			for (let index = 0; index < wheel.count; index += 1) {
+				previewWheelAccumulatorRef.current += previewScrollSensitivity;
+				if (previewWheelAccumulatorRef.current >= 1) {
+					scaledCount += 1;
+					previewWheelAccumulatorRef.current -= 1;
+				}
+			}
+			if (scaledCount === 0) {
+				return;
+			}
+			if (client && selectedSession?.program === 'claude' && selectedSession.status === 'running') {
+				client.sendAgentInput(selectedSession.id, mouseWheelSequence(wheel.direction, layout.previewCols, layout.previewRows, scaledCount));
+				setPreviewScrollOffset(0);
+				return;
+			}
+			if (wheel.direction === 'up') {
+				setPreviewScrollOffset(offset => Math.min((preview.maxScrollOffset ?? offset + scaledCount), offset + scaledCount));
+			} else {
+				setPreviewScrollOffset(offset => Math.max(0, offset - scaledCount));
+			}
+		};
+		process.stdin.on('data', onData);
+		return () => {
+			process.stdin.off('data', onData);
+		};
+	}, [client, layout.previewCols, layout.previewRows, mode, preview.maxScrollOffset, previewScrollSensitivity, selectedSession]);
+
 	const refreshSessions = useCallback(async () => {
 		if (!client) {
 			throw new Error('still connecting to daemon');
@@ -964,20 +1057,30 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				}
 				return false;
 			};
+			const scrollPreview = (direction: 'up' | 'down', count = 1) => {
+				if (sendClaudeWheel(direction, count)) {
+					return;
+				}
+				if (direction === 'up') {
+					setPreviewScrollOffset(offset => Math.min((preview.maxScrollOffset ?? offset + count), offset + count));
+				} else {
+					setPreviewScrollOffset(offset => Math.max(0, offset - count));
+				}
+			};
 			if (key.escape || input === 'v') {
 				setMode('browse');
 				return;
 			}
 			if (input === 'k') {
-				if (!sendClaudeWheel('up')) setPreviewScrollOffset(offset => Math.min((preview.maxScrollOffset ?? offset + 1), offset + 1));
+				scrollPreview('up');
 				return;
 			}
 			if (input === 'j') {
-				if (!sendClaudeWheel('down')) setPreviewScrollOffset(offset => Math.max(0, offset - 1));
+				scrollPreview('down');
 				return;
 			}
 			if (input === 'g') {
-				if (!sendClaudeWheel('up', 12)) setPreviewScrollOffset(preview.maxScrollOffset ?? 0);
+				scrollPreview('up', 12);
 				return;
 			}
 			if (input === 'G') {
