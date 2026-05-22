@@ -17,6 +17,7 @@ export interface SessionWorktreeRecord {
 	origin?: 'created' | 'existing' | 'selected';
 	creator?: 'script' | 'fallback' | 'picker';
 	name?: string;
+	deletedAt?: string;
 }
 
 export interface WorktreeInfoRecord {

@@ -127,7 +127,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - `j` / `k` move selected session
 - session numbers jump to matching sidebar rows; with more than 10 sessions, multi-digit input is buffered briefly and `enter` confirms immediately
 - `J` / `K` manually reorder selected session among its siblings
-- `N` creates a sub-session under the selected session; the normal agent picker creates clean sub-sessions in the parent's cwd/worktree by default, and Claude/Pi parents add a fourth `Fork parent` option
+- `N` creates a sub-session under the selected session; the normal agent picker creates clean sub-sessions in the parent's cwd/worktree by default, and Claude/Pi parents add a fourth `Fork parent` option. Claude forks send `/fork <dh-name>` so the fork receives Deckhand's deterministic child session name.
 - `h` / `l` resize sidebar
 - left/right arrows also resize sidebar in browse mode
 - `tab` switches Preview / Terminal / Git / Dev
@@ -149,7 +149,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - `m` opens merge/squash/cancel confirmation for worktree-backed sessions
 - `x` kills selected running session
 - for worktree-backed sessions, `x` opens keep/delete/delete-branch/cancel when applicable
-- `s` restarts selected exited session
+- `s` restarts selected exited session; Claude forked sub-sessions restart directly from their parsed exit resume handle when available, otherwise Deckhand falls back to resuming the parent and sending `/fork`
 - `d` focuses the Dev tab; when already focused on Dev, it starts/stops the selected session's Dev command
 - `backspace` removes selected exited session
 - `r` refreshes/resubscribes
@@ -212,10 +212,12 @@ Worktree deletion is guarded:
 
 When safe, kill confirmation offers:
 
-- kill only / keep worktree
-- kill and delete worktree
-- kill, delete worktree and branch
+- kill only / keep worktree (restartable)
+- kill and delete worktree (not restartable)
+- kill, delete worktree and branch (not restartable)
 - cancel
+
+Deleted worktrees are recorded with `worktree.deletedAt`; Deckhand hides restart/merge hints and refuses restart/merge for those exited sessions.
 
 Branch deletion refuses protected branches `main` and `master`.
 
@@ -239,7 +241,9 @@ Deckhand assigns deterministic handles where supported:
 
 - Claude:
   - create: `--name dh-{sanitized-title}-{short-id}`
-  - restart: `--resume <name>`
+  - forked sub-session create: resume parent, then send `/fork dh-{sanitized-title}-{short-id}` while persisting the child handle for direct restart
+  - on exit, parse Claude Code's printed `claude --resume "..."` command from the final preview and persist that handle as `agentSessionRef`
+  - restart: `--resume <parsed-or-created-handle>`; restart also re-parses `lastPreview` so sessions that exited before this change can still recover the handle
 - Pi:
   - create/restart: explicit `--session` path under Pi's normal `~/.pi/agent/sessions/` tree
   - directory encoding matches Pi's `getDefaultSessionDir()`:
@@ -306,6 +310,7 @@ Tracked metadata includes:
   - HEAD
   - main-worktree flag
   - origin/creator/name metadata
+  - `deletedAt` when Deckhand deleted the worktree on session exit
 - lifecycle `status`
 - activity `agentStatus`
 - `agentStatusUpdatedAt`
@@ -483,6 +488,9 @@ Validated during development:
 - Claude session creation
 - command resolution for local binaries
 - TypeScript build with Claude/Pi resume args and Codex support
+- TypeScript build with Claude exit resume-handle parsing for forked sub-session restarts
+- TypeScript build with deleted-worktree sessions marked non-restartable/non-mergeable
+- TypeScript build with named Claude `/fork <dh-name>` creation
 - sanitizer behavior, including slash-preserving names
 - current/main worktree root lookup
 - `git worktree list --porcelain` parsing, including main worktree

@@ -324,7 +324,7 @@ function MergeConfirmPane({session, selectedIndex, width}: {session?: SessionRec
 
 function KillConfirmPane({session, selectedIndex, canDelete, canDeleteBranch, force, width}: {session?: SessionRecord; selectedIndex: number; canDelete: boolean; canDeleteBranch: boolean; force: boolean; width: number}) {
 	const options = canDelete
-		? ['Kill only, keep worktree', 'Kill and delete worktree', ...(canDeleteBranch ? ['Kill, delete worktree and branch'] : []), 'Cancel']
+		? ['Kill only, keep worktree (restartable)', 'Kill and delete worktree (not restartable)', ...(canDeleteBranch ? ['Kill, delete worktree and branch (not restartable)'] : []), 'Cancel']
 		: ['Kill session', 'Cancel'];
 	const contentWidth = Math.max(1, width - 4);
 	return (
@@ -396,9 +396,11 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 	}
 	if (mode === 'browse') {
 		const attach = session?.status === 'running' ? 'o attach' : undefined;
-		const lifecycle = session?.status === 'exited' ? 's restart • backspace remove' : session?.status === 'running' ? 'x kill • X force kill' : undefined;
+		const lifecycle = session?.status === 'exited'
+			? (session.worktree?.deletedAt ? 'worktree deleted • backspace remove' : 's restart • backspace remove')
+			: session?.status === 'running' ? 'x kill • X force kill' : undefined;
 		const dev = activeTab === 'dev' && session?.status === 'running' ? 'd toggle dev' : undefined;
-		const merge = session?.worktree?.path && session.worktree.mode !== 'none' ? 'm merge' : undefined;
+		const merge = session?.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge' : undefined;
 		const previewFocus = activeTab === 'preview' && session?.status === 'running' ? 'v preview' : undefined;
 		return [attach, dev, merge, previewFocus, 'j/k select', 'J/K reorder', 'n new', 'N child', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
 	}
@@ -669,6 +671,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const selectedCanDeleteWorktree = Boolean(
 		selectedSession?.worktree?.path &&
 		selectedSession.worktree.mode !== 'none' &&
+		!selectedSession.worktree.deletedAt &&
 		!selectedSession.worktree.isMain &&
 		(!selectedSession.launchWorktreeRoot || selectedSession.worktree.path !== selectedSession.launchWorktreeRoot) &&
 		!sessions.some(
@@ -1075,6 +1078,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (!client || !selectedSession || selectedSession.status !== 'exited') {
 			return;
 		}
+		if (selectedSession.worktree?.deletedAt) {
+			setError('cannot restart session because its worktree was deleted');
+			return;
+		}
 		setBusy(true);
 		setError(undefined);
 		try {
@@ -1278,7 +1285,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				resizeSidebar(2);
 				return;
 			}
-			if (input === 'm' && selectedSession?.worktree?.path && selectedSession.worktree.mode !== 'none') {
+			if (input === 'm' && selectedSession?.worktree?.path && selectedSession.worktree.mode !== 'none' && !selectedSession.worktree.deletedAt) {
 				setMergeConfirmIndex(0);
 				setMode('confirm-merge');
 				return;

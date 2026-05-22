@@ -172,10 +172,11 @@ function supportsForkedSubSession(program: SessionRecord['program']): boolean {
 	return program === 'claude' || program === 'pi';
 }
 
-function forkCommandInput(program: SessionRecord['program']): string {
+function forkCommandInput(program: SessionRecord['program'], name?: string): string {
+	const suffix = name && program === 'claude' ? ` ${name}` : '';
 	// Claude Code users may be in vim normal mode. `a` enters insert mode, and
 	// backspace removes the inserted `a` when already in insert mode.
-	return program === 'claude' ? 'a\x7f/fork\r' : '/fork\r';
+	return program === 'claude' ? `a\x7f/fork${suffix}\r` : '/fork\r';
 }
 
 function buildAgentArgs(session: Pick<SessionRecord, 'program' | 'agentSessionRef'>, mode: 'create' | 'resume'): string[] {
@@ -183,13 +184,41 @@ function buildAgentArgs(session: Pick<SessionRecord, 'program' | 'agentSessionRe
 	if (!ref) {
 		return [];
 	}
-	if (session.program === 'claude' && ref.kind === 'name') {
+	if (session.program === 'claude' && (ref.kind === 'name' || ref.kind === 'id')) {
 		return mode === 'resume' ? ['--resume', ref.value] : ['--name', ref.value];
 	}
 	if (session.program === 'pi' && ref.kind === 'path') {
 		return ['--session', ref.value];
 	}
 	return [];
+}
+
+function sameAgentSessionRef(left: AgentSessionRef | undefined, right: AgentSessionRef | undefined): boolean {
+	return Boolean(left && right && left.provider === right.provider && left.kind === right.kind && left.value === right.value);
+}
+
+function parseClaudeResumeRef(output: string): AgentSessionRef | undefined {
+	const text = output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
+	const match = text.match(/(?:^|\n)\s*claude\s+--resume(?:=|\s+)(?:"([^"]+)"|'([^']+)'|(\S+))/i);
+	const value = (match?.[1] ?? match?.[2] ?? match?.[3])?.trim();
+	return value ? {provider: 'claude', kind: 'name', value} : undefined;
+}
+
+function refFromExitOutput(session: SessionRecord, output: string): AgentSessionRef | undefined {
+	if (session.program === 'claude') {
+		return parseClaudeResumeRef(output);
+	}
+	return undefined;
+}
+
+function restartRefForSession(session: SessionRecord): {ref: AgentSessionRef | undefined; shouldForkParent: boolean} {
+	if (session.subSessionKind !== 'forked') {
+		return {ref: session.agentSessionRef, shouldForkParent: false};
+	}
+	if (session.agentSessionRef && !sameAgentSessionRef(session.agentSessionRef, session.forkedFromAgentSessionRef)) {
+		return {ref: session.agentSessionRef, shouldForkParent: false};
+	}
+	return {ref: session.forkedFromAgentSessionRef ?? session.agentSessionRef, shouldForkParent: true};
 }
 
 async function prepareAgentSessionRef(ref: AgentSessionRef | undefined): Promise<void> {
@@ -1001,6 +1030,7 @@ export class InkDaemon {
 		}
 	}
 
+
 	private async handleWorkerMessage(sessionId: string, message: WorkerEvent): Promise<void> {
 		const worker = this.workers.get(sessionId);
 		if (message.type === 'response') {
@@ -1095,7 +1125,20 @@ export class InkDaemon {
 		this.workers.delete(sessionId);
 		await fs.rm(getWorkerPidPath(sessionId), {force: true}).catch(() => {});
 		const now = new Date().toISOString();
-		const updated: SessionRecord = {...existing, status: 'exited', agentStatus: 'idle', agentStatusUpdatedAt: now, updatedAt: now, pid: undefined, exitCode, exitSignal, lastPreview, devRunning: false};
+		const parsedAgentSessionRef = refFromExitOutput(existing, lastPreview);
+		let updated: SessionRecord = {
+			...existing,
+			...(parsedAgentSessionRef ? {agentSessionRef: parsedAgentSessionRef} : {}),
+			status: 'exited',
+			agentStatus: 'idle',
+			agentStatusUpdatedAt: now,
+			updatedAt: now,
+			pid: undefined,
+			exitCode,
+			exitSignal,
+			lastPreview,
+			devRunning: false,
+		};
 		this.sessions.set(sessionId, updated);
 		if (worker?.deleteWorktreeOnExit && existing.worktree?.path) {
 			try {
@@ -1103,6 +1146,8 @@ export class InkDaemon {
 				const branch = existing.worktree.branch;
 				await removeWorktree(existing.worktree.path, repoCwd);
 				if (worker.deleteBranchOnExit && branch) await deleteLocalBranch(repoCwd, branch);
+				updated = {...updated, worktree: {...existing.worktree, deletedAt: new Date().toISOString()}, updatedAt: new Date().toISOString()};
+				this.sessions.set(sessionId, updated);
 			} catch (error) {
 				await this.log(`failed to remove worktree/branch for session ${existing.title}: ${error instanceof Error ? error.message : String(error)}`);
 			}
@@ -1829,11 +1874,13 @@ export class InkDaemon {
 		}
 
 		const forkParent = input.subSessionKind === 'forked' && input.parentSessionId ? this.sessions.get(input.parentSessionId) : undefined;
-		const agentSessionRef = forkParent?.agentSessionRef ?? startingSession.agentSessionRef ?? buildAgentSessionRef(startingSession.program, title, sessionId, sessionCwd);
+		const createdAgentSessionRef = startingSession.agentSessionRef ?? buildAgentSessionRef(startingSession.program, title, sessionId, sessionCwd);
+		const launchAgentSessionRef = forkParent?.agentSessionRef ?? createdAgentSessionRef;
+		const agentSessionRef = forkParent && startingSession.program === 'claude' ? createdAgentSessionRef : launchAgentSessionRef;
 		const preparedSession: SessionRecord = {
 			...startingSession,
 			cwd: sessionCwd,
-			args: buildAgentArgs({program: startingSession.program, agentSessionRef}, forkParent ? 'resume' : 'create'),
+			args: buildAgentArgs({program: startingSession.program, agentSessionRef: launchAgentSessionRef}, forkParent ? 'resume' : 'create'),
 			agentSessionRef,
 			forkedFromSessionId: forkParent?.id ?? startingSession.forkedFromSessionId,
 			forkedFromAgentSessionRef: forkParent?.agentSessionRef ?? startingSession.forkedFromAgentSessionRef,
@@ -1844,10 +1891,10 @@ export class InkDaemon {
 		this.sessions.set(sessionId, preparedSession);
 		this.broadcastSessionUpdated(preparedSession);
 
-		await prepareAgentSessionRef(preparedSession.agentSessionRef);
+		await prepareAgentSessionRef(launchAgentSessionRef);
 		const runningSession = await this.startWorker(preparedSession, input.cols, input.rows);
 		if (forkParent) {
-			setTimeout(() => this.sendWorkerEvent(sessionId, {type: 'input', target: 'agent', data: forkCommandInput(preparedSession.program)}), 500).unref?.();
+			setTimeout(() => this.sendWorkerEvent(sessionId, {type: 'input', target: 'agent', data: forkCommandInput(preparedSession.program, preparedSession.agentSessionRef?.value)}), 500).unref?.();
 		}
 		this.sessions.set(sessionId, runningSession);
 		await this.persist();
@@ -1882,11 +1929,17 @@ export class InkDaemon {
 		if (this.runtime.has(sessionId) || existing.status !== 'exited') {
 			throw new Error('session is already running');
 		}
+		if (existing.worktree?.deletedAt) {
+			throw new Error('cannot restart session because its worktree was deleted');
+		}
 
 		const now = new Date().toISOString();
-		const startingAgentSessionRef = existing.subSessionKind === 'forked' ? existing.forkedFromAgentSessionRef ?? existing.agentSessionRef : existing.agentSessionRef;
+		const parsedAgentSessionRef = existing.lastPreview ? refFromExitOutput(existing, existing.lastPreview) : undefined;
+		const restartSource = parsedAgentSessionRef ? {...existing, agentSessionRef: parsedAgentSessionRef} : existing;
+		const restartRef = restartRefForSession(restartSource);
+		const startingAgentSessionRef = restartRef.ref;
 		const starting: SessionRecord = {
-			...existing,
+			...restartSource,
 			args: buildAgentArgs({program: existing.program, agentSessionRef: startingAgentSessionRef}, 'resume'),
 			agentSessionRef: startingAgentSessionRef,
 			status: 'starting',
@@ -1905,8 +1958,9 @@ export class InkDaemon {
 		try {
 			await prepareAgentSessionRef(starting.agentSessionRef);
 			const runningSession = await this.startWorker(starting, cols, rows);
-			if (starting.subSessionKind === 'forked') {
-				setTimeout(() => this.sendWorkerEvent(sessionId, {type: 'input', target: 'agent', data: forkCommandInput(starting.program)}), 500).unref?.();
+			if (restartRef.shouldForkParent) {
+				const forkName = starting.program === 'claude' ? buildDeckhandAgentName(starting.title, starting.id) : undefined;
+				setTimeout(() => this.sendWorkerEvent(sessionId, {type: 'input', target: 'agent', data: forkCommandInput(starting.program, forkName)}), 500).unref?.();
 			}
 			this.sessions.set(sessionId, runningSession);
 			await this.persist();
@@ -1925,6 +1979,9 @@ export class InkDaemon {
 		const worktreePath = worktree?.path;
 		if (!worktreePath || !worktree || worktree.mode === 'none') {
 			return {ok: false, reason: 'session does not have a worktree'};
+		}
+		if (worktree.deletedAt) {
+			return {ok: false, reason: 'worktree was already deleted'};
 		}
 		if (worktree.isMain) {
 			return {ok: false, reason: 'cannot delete the main worktree'};
@@ -1967,9 +2024,13 @@ export class InkDaemon {
 		if (!session) {
 			throw new Error('session does not exist');
 		}
-		const worktreePath = session.worktree?.path;
-		if (!worktreePath || session.worktree?.mode === 'none') {
+		const worktree = session.worktree;
+		const worktreePath = worktree?.path;
+		if (!worktreePath || !worktree || worktree.mode === 'none') {
 			throw new Error('session does not have a worktree to merge');
+		}
+		if (worktree.deletedAt) {
+			throw new Error('cannot merge session because its worktree was deleted');
 		}
 		const result = await mergeWorktreeIntoCurrent(worktreePath, targetCwd, mode);
 		if (result.skipped) {
