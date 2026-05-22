@@ -36,24 +36,7 @@ For `tmux`-based alternatives, see [claude-squad](https://github.com/smtg-ai/cla
 
 ## Installation
 
-Deckhand requires Node.js 20 or newer. If you do not have Node installed, install it with `nvm`:
-
-```bash
-# Download and install nvm:
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-
-# in lieu of restarting the shell
-\. "$HOME/.nvm/nvm.sh"
-
-# Download and install Node.js:
-nvm install 24
-
-# Verify the Node.js version:
-node -v # Should print "v24.16.0".
-
-# Verify npm version:
-npm -v # Should print "11.13.0".
-```
+Deckhand requires Node.js 20 or newer. If you do not have Node installed, install the latest recommended version from the [Node.js website](https://nodejs.org/en/download/).
 
 Then install Deckhand from npm and run:
 
