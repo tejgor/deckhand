@@ -13,9 +13,7 @@ A lightweight agent workbench for your IDE terminal.
 - Pick a worktree mode per session: none, new, or existing
 - Designed to work well in IDE integrated terminals
 
-<!-- TODO: add a screenshot or asciinema GIF here once available, e.g.:
-![Deckhand](assets/screenshot.png)
--->
+https://github.com/user-attachments/assets/89ceed64-18c0-4006-bd9e-7500204ca02a
 
 ## Context
 
