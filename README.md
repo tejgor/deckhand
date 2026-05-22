@@ -4,60 +4,38 @@ A lightweight agent workbench for your IDE terminal.
 
 > **Status:** early/experimental. Behavior, on-disk state, and the daemon IPC protocol may change between versions.
 
-- Start `claude`, `pi`, or `codex` sessions from one UI
-- Preview output without attaching to every session
-- Attach/detach while sessions keep running in the background
-- Organize sessions manually, including lightweight sub-sessions
-- Restart Deckhand-managed Claude/Pi sessions into their original agent conversation
-- Fork Claude/Pi parent sessions into child sessions with `/fork`
-- Pick a worktree mode per session: none, new, or existing
-- Designed to work well in IDE integrated terminals
-
 https://github.com/user-attachments/assets/89ceed64-18c0-4006-bd9e-7500204ca02a
 
-## Context
+## Why Deckhand
 
-Tools like [claude-squad](https://github.com/smtg-ai/claude-squad) and [agent-deck](https://github.com/asheshgoplani/agent-deck) manage parallel agent work with [`tmux`](https://github.com/tmux/tmux) and git worktrees. Deckhand uses a different stack with no `tmux` dependency: an [Ink](https://github.com/vadimdemedes/ink) UI, a local daemon, and [`node-pty`](https://github.com/microsoft/node-pty) workers.
+Tools like [claude-squad](https://github.com/smtg-ai/claude-squad) and [agent-deck](https://github.com/asheshgoplani/agent-deck) run parallel agent work on [`tmux`](https://github.com/tmux/tmux) and git worktrees. Deckhand drops the `tmux` dependency for a different stack: an [Ink](https://github.com/vadimdemedes/ink) UI, a local daemon, and [`node-pty`](https://github.com/microsoft/node-pty) workers.
 
 ## Features
 
-- **Split view** with a numbered session sidebar and Preview / Terminal / Git / Dev tabs
-- **Live previews** of session output without attaching
-- **Persistent sessions** across UI quits and crashes — the daemon owns them
-- **Manual sidebar ordering** with keyboard reordering among sibling sessions
-- **Sub-sessions** for related work, rendered indented under their parent
-- **Clean sub-sessions** that start fresh in the parent session's directory/worktree by default
-- **Forked Claude/Pi sub-sessions** that resume the parent and send `/fork`
-- **Resumable agent identity** for new Claude/Pi sessions, so restarts reopen the same conversation instead of a blank agent
-- **Cleanup prompts** after a session exits to remove its worktree and branch
-- **Merge helpers** to merge or squash-merge a session's worktree into the current branch (staged, not committed) for review
-- **Optional Git tab** powered by `lazygit`
-- **Configurable Dev tab** for a command such as `npm run dev`
-
----
+- **Split view** — a numbered session sidebar beside Preview, Terminal, Git, and Dev tabs.
+- **Live previews** — watch a session's output without attaching to it.
+- **Persistent sessions** — the daemon owns sessions, so they survive UI quits and crashes.
+- **Keyboard reordering** — move sessions up and down among their siblings from the keyboard.
+- **Sub-sessions** — group related work under a parent session, indented in the sidebar; each one starts clean in the parent's directory, or forks the parent's Claude/Pi conversation.
+- **Resumable agents** — Claude and Pi sessions keep a stable identity, so a restart reopens the same conversation instead of a blank agent.
+- **Cleanup prompts** — after a session exits, remove its worktree and branch in one step.
+- **Merge helpers** — merge or squash-merge a session's worktree into the current branch, staged for review rather than committed.
+- **Optional tabs** — a Git tab powered by `lazygit`, and a configurable Dev tab for a command such as `npm run dev`.
 
 ## Requirements
 
 - Node.js `>= 20`
-- macOS or Linux
-- A POSIX shell
-- `git` available on `PATH`
-- `claude`, `pi`, and/or `codex` available on `PATH`, depending on which agents you want to run
+- macOS or Linux with a POSIX shell
+- `git` on `PATH`
+- `claude`, `pi`, and/or `codex` on `PATH` — whichever agents you plan to run
 - Optional: [`lazygit`](https://github.com/jesseduffield/lazygit) on `PATH` for the Git tab
-
----
 
 ## Installation
 
-Install from npm:
+Install from npm and run:
 
 ```bash
 npm install -g @tejgor/deckhand
-```
-
-Then run:
-
-```bash
 deckhand
 ```
 
@@ -71,39 +49,21 @@ npm run build
 npm link
 ```
 
-After changing source code, rebuild before re-running the linked CLI:
+After changing source code, rebuild with `npm run build` before re-running the linked CLI. The CLI binary is declared in `package.json` as `deckhand → dist/cli.js`.
 
-```bash
-npm run build
-```
-
-The CLI binary is declared in `package.json` as `deckhand → dist/cli.js`.
-
-> **macOS note:** `npm install` runs `scripts/fix-node-pty.js`, which best-effort repairs the `node-pty` `spawn-helper` binary (executable bit, `xattr`, ad-hoc `codesign`). See [Troubleshooting](#troubleshooting) if install fails.
-
----
+> **macOS note:** `npm install` runs `scripts/fix-node-pty.js`, which attempts to repair the `node-pty` `spawn-helper` binary — its executable bit, `xattr`, and ad-hoc `codesign`. See [Troubleshooting](#troubleshooting) if install fails.
 
 ## Quick start
 
-From inside a git repository:
+Run `deckhand` from inside a git repository, then create a session:
 
-```bash
-deckhand
-```
+1. Press `n` for a top-level session.
+2. Choose `claude`, `pi`, or `codex`.
+3. Enter a session name.
+4. Press `tab` to pick a workspace mode — no worktree, new worktree, or existing worktree.
+5. Press `enter` to launch.
 
-Then:
-
-1. Press `n` to create a top-level session
-2. Choose `claude`, `pi`, or `codex`
-3. Enter a session name
-4. Press `tab` to choose a workspace mode: no worktree, new worktree, or existing worktree
-5. Press `enter` to launch
-
-Use `j` / `k` to move between sessions, type a sidebar number to jump directly, and press `o` to attach to the selected session.
-
-For related follow-up work, select a parent session and press `N`. The normal agent choices create a clean sub-session in the parent's directory/worktree. Claude and Pi parents also show `Fork parent`, which resumes the parent conversation and sends `/fork`.
-
----
+Press `o` to attach to the selected session. To branch off related work, select a session and press `N` for a sub-session. See [Controls](#controls) for the full keymap and [Sessions](#sessions) for workspace modes, sub-sessions, and agent restarts.
 
 ## Controls
 
@@ -113,47 +73,58 @@ For related follow-up work, select a parent session and press `N`. The normal ag
 | --- | --- |
 | `n` | New top-level session |
 | `N` | New sub-session under the selected session |
-| sidebar number | Jump to that numbered session; `1`–`9` are instant, and `0` selects session 10 when present |
+| sidebar number | Jump to that numbered session — `1`–`9` are instant, and `0` selects session 10 when present. With more than 10 sessions, numeric input is briefly buffered so multi-digit jumps such as `12` work. |
 | `j` / `k` | Move between sessions |
-| `J` / `K` | Move the selected session down/up among its siblings |
-| `tab` | Cycle Preview / Terminal / Git / Dev tabs |
+| `J` / `K` | Move the selected session down / up among its siblings; the order is persisted |
+| `tab` | Cycle the Preview / Terminal / Git / Dev tabs |
 | `p` / `t` / `g` / `d` | Jump directly to Preview / Terminal / Git / Dev |
-| `d` on Dev tab | Start/stop the selected session's Dev tab command |
+| `d` on Dev tab | Start or stop the selected session's Dev command |
 | `o` | Attach to the selected session, opening whichever tab is currently shown |
 | `v` on Preview tab | Focus preview scrolling for a running session |
-| `m` | Merge selected worktree into the current branch |
+| `m` | Merge the selected worktree into the current branch |
 | `h` / `l` | Resize the sidebar |
-| `x` / `X` | Kill selected running session / force kill |
-| `s` | Restart selected exited session; new Claude/Pi sessions resume their original agent conversation |
-| `backspace` | Drop selected exited session from the list |
-| `r` | Refresh session list |
+| `x` / `X` | Kill the selected running session / force kill |
+| `s` | Restart the selected exited session; Claude/Pi sessions resume their original agent conversation |
+| `backspace` | Drop the selected exited session from the list |
+| `r` | Refresh the session list |
 | `?` | Show keyboard shortcuts |
 | `q` | Quit the UI; running sessions continue in the daemon |
 
-Worktree sessions may prompt to keep/delete the worktree, or delete both the managed worktree and branch when it is safe to do so.
-
-### Session organization
-
-Deckhand keeps the sidebar simple and keyboard-first:
-
-- Sessions are numbered in the sidebar. Type the number to select a session. When there are more than 10 sessions, Deckhand briefly buffers numeric input so multi-digit jumps such as `12` work.
-- `J` / `K` manually reorder the selected session among its siblings. The order is persisted.
-- `N` creates a child session under the selected session. Children are indented below their parent.
-- Choosing `claude`, `pi`, or `codex` while creating a sub-session creates a clean child session with a fresh agent context.
-- For Claude and Pi parents, `Fork parent` creates a forked child by resuming the parent agent session and sending `/fork`. Claude fork input includes an insert-mode safeguard for users with vim mode enabled.
+After a worktree session exits, Deckhand may prompt you to keep or delete the worktree — and to delete the managed worktree and its branch together when that is safe.
 
 ### Attach mode
 
 | Key | Action |
 | --- | --- |
-| *(any)* | Sent directly to the attached pane/session |
+| *(any key)* | Sent directly to the attached pane/session |
 | `Ctrl+Space` | Detach and return to Deckhand |
 
----
+## Sessions
 
-## Agent session identity and restarts
+### Workspace modes
 
-For new sessions, Deckhand assigns a deterministic agent handle based on the visible session name plus a short immutable Deckhand id:
+When you create a session, Deckhand launches it in one of three workspace modes:
+
+| Mode | Behavior |
+| --- | --- |
+| No worktree | Runs in the current repository directory |
+| New worktree | Creates or resolves a worktree for the session |
+| Existing worktree | Picks from existing git worktrees, including the current/main one |
+
+A sub-session defaults to its parent's current directory, so a clean sub-session opens in the parent's worktree unless you choose a different mode.
+
+New worktrees are created through a [project hook](#worktree-hooks) when one is present; otherwise Deckhand falls back to `git worktree add` under `~/.deckhand/worktrees/`.
+
+### Sub-sessions
+
+Press `N` on a selected session to create a sub-session for related follow-up work. Sub-sessions render indented under their parent in the sidebar.
+
+- Choosing `claude`, `pi`, or `codex` creates a **clean** sub-session — a fresh agent context in the parent's directory or worktree.
+- For Claude and Pi parents, choosing **`Fork parent`** resumes the parent's conversation and sends `/fork`. (Claude's fork input includes an insert-mode safeguard for users with vim mode enabled.)
+
+### Agent identity and restarts
+
+New sessions get a deterministic agent handle, built from the visible session name and a short, immutable Deckhand id:
 
 ```text
 dh-{sanitized-session-name}-{short-id}
@@ -161,37 +132,24 @@ dh-{sanitized-session-name}-{short-id}
 
 This keeps handles readable while avoiding collisions between similarly named sessions.
 
-Current provider behavior:
-
-| Agent | Create behavior | Restart behavior | Forked sub-sessions |
+| Agent | Create | Restart | Forked sub-sessions |
 | --- | --- | --- | --- |
 | Claude | `claude --name dh-{name}-{short-id}` | `claude --resume dh-{name}-{short-id}` | Resume parent, then send `/fork` |
-| Pi | `pi --session ~/.pi/agent/sessions/--{encoded-cwd}--/{timestamp}_dh-{name}-{short-id}_{deckhand-id}.jsonl` | same `--session` path | Resume parent session file, then send `/fork` |
-| Codex | normal launch | normal launch; Codex session-id discovery is not implemented yet | Not supported yet |
+| Pi | `pi --session <path>` (see below) | Same `--session` path | Resume parent session file, then send `/fork` |
+| Codex | Normal launch | Normal launch; Codex session-id discovery is not implemented yet | Not supported yet |
 
-Pi session files are stored in Pi's normal session tree under `~/.pi/agent/sessions/`, not under `~/.deckhand`, so they remain available in Pi's own `/resume` UI and are not removed if Deckhand state is deleted. Deckhand matches Pi's default project-directory encoding: `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`. The filename includes the readable Deckhand handle; Pi normally uses `{timestamp}_{sessionId}.jsonl`, but explicit `--session <path>` preserves the provided file path.
+Pi session files live in Pi's normal session tree at `~/.pi/agent/sessions/`, not under `~/.deckhand`. They therefore stay visible in Pi's own `/resume` UI and survive deletion of Deckhand state. Deckhand names them with the readable handle:
 
-Older Deckhand sessions created before this metadata existed do not have an agent handle and will keep the previous restart behavior.
+```text
+~/.pi/agent/sessions/--{encoded-cwd}--/{timestamp}_dh-{name}-{short-id}_{deckhand-id}.jsonl
+```
 
-Forked sub-sessions currently store the parent agent reference and issue `/fork` after startup. Deckhand does not yet discover and persist a new post-fork agent handle if the agent creates one internally.
+The `encoded-cwd` segment matches Pi's default project-directory encoding — the launch directory with any leading path separator removed and the remaining `/`, `\`, and `:` characters replaced by `-`. Pi normally names files `{timestamp}_{sessionId}.jsonl`, but an explicit `--session <path>` preserves the path Deckhand provides.
 
----
+Two caveats:
 
-## Workspace modes
-
-When creating a session, Deckhand can launch it in one of three workspace modes:
-
-| Mode | Behavior |
-| --- | --- |
-| No worktree | Run in the current repository directory |
-| New worktree | Create or resolve a worktree for the session |
-| Existing worktree | Pick from existing git worktrees, including the current/main one |
-
-Sub-sessions default to the parent session's current directory, so a clean child opens in the same worktree as its parent unless you choose a different workspace mode.
-
-New worktrees are created through a project hook when present; otherwise Deckhand falls back to `git worktree add` under `~/.deckhand/worktrees/`.
-
----
+- Sessions created before this metadata existed have no agent handle and keep the previous restart behavior.
+- Forked sub-sessions store the parent agent reference and issue `/fork` at startup. Deckhand does not yet discover or persist a new post-fork agent handle if the agent creates one internally.
 
 ## Configuration
 
@@ -199,7 +157,7 @@ Deckhand reads configuration from `~/.deckhand/config.json`.
 
 ### Dev command
 
-The Dev tab is focused with `d`. Press `d` again while the Dev tab is focused to start or stop the command. Configure the global command like this:
+Focus the Dev tab with `d`, then press `d` again while it is focused to start or stop the command. Set the command globally:
 
 ```json
 {
@@ -207,11 +165,11 @@ The Dev tab is focused with `d`. Press `d` again while the Dev tab is focused to
 }
 ```
 
-Set `dev_command` before toggling the Dev tab. If omitted, Deckhand tries to run a `dev` alias.
+Set `dev_command` before toggling the Dev tab. If it is omitted, Deckhand tries to run a `dev` alias.
 
 ### Attach scroll sensitivity
 
-Attached sessions dampen trackpad/mouse-wheel scrolling. Configure the multiplier like this:
+Attached sessions dampen trackpad and mouse-wheel scrolling. Set the multiplier:
 
 ```json
 {
@@ -230,15 +188,13 @@ Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0`
 | `~/.deckhand/daemon.log` | Supervisor daemon diagnostics |
 | `~/.deckhand/daemon.pid` | Active supervisor daemon PID |
 | `~/.deckhand/daemon.sock` | Local IPC socket |
-| `~/.deckhand/workers/` | Per-session worker PID/log files |
+| `~/.deckhand/workers/` | Per-session worker PID and log files |
 | `~/.deckhand/worktrees/` | Default location for auto-created worktrees |
-| `~/.pi/agent/sessions/` | Normal Pi session storage; Deckhand-created Pi sessions are stored here |
-
----
+| `~/.pi/agent/sessions/` | Pi's normal session storage; Deckhand-created Pi sessions live here |
 
 ## Worktree hooks
 
-For new-worktree sessions, Deckhand first creates or resolves a git worktree, then starts the agent inside it. Deckhand uses this project hook if present; otherwise it falls back to `git worktree add`:
+For new-worktree sessions, Deckhand creates or resolves a git worktree and then starts the agent inside it. It uses this project hook when present, and otherwise falls back to `git worktree add`:
 
 ```text
 .claude/scripts/create-worktree.sh
@@ -246,14 +202,14 @@ For new-worktree sessions, Deckhand first creates or resolves a git worktree, th
 
 ### Hook contract
 
-- Read JSON from `stdin`
-- Use `name` as the sanitized worktree/session name
-- Use `cwd` as the directory where `deckhand` was launched
-- Create or register a git worktree
-- Print the absolute worktree path to `stdout` as the final non-empty line
-- Exit `0` on success
+- Read JSON from `stdin`.
+- Use `name` as the sanitized worktree/session name.
+- Use `cwd` as the directory where `deckhand` was launched.
+- Create or register a git worktree.
+- Print the absolute worktree path to `stdout` as the final non-empty line.
+- Exit `0` on success.
 
-Deckhand also sets `CLAUDE_PROJECT_DIR` to the launch cwd for compatibility with Claude-style hooks.
+Deckhand also sets `CLAUDE_PROJECT_DIR` to the launch cwd, for compatibility with Claude-style hooks.
 
 ### Input example
 
@@ -295,25 +251,21 @@ echo "$DIR"
 
 </details>
 
-If your hook copies symlinks from the source worktree, prefer resolving them with `realpath` so newly-created worktrees point directly at the real target instead of through another linked worktree.
-
----
+If your hook copies symlinks from the source worktree, resolve them with `realpath` so new worktrees point directly at the real target instead of through another linked worktree.
 
 ## Architecture
 
 Deckhand has three main pieces:
 
-- **Ink frontend** — renders the terminal UI, sends requests to the daemon, and attaches to live panes when requested.
+- **Ink frontend** — renders the terminal UI, sends requests to the daemon, and attaches to live panes on request.
 - **Local daemon** — owns session state, IPC, worktree operations, and worker supervision.
-- **Session workers** — one worker per running session; each worker owns the agent PTY plus optional Terminal / Git / Dev PTYs.
+- **Session workers** — one per running session; each owns the agent PTY plus optional Terminal, Git, and Dev PTYs.
 
-Terminal output is fed into a headless [`xterm.js`](https://github.com/xtermjs/xterm.js) model. The UI receives rendered snapshots for previews, while attach mode streams input/output directly between your terminal and the selected PTY.
-
-The UI can quit or crash without taking sessions down; the daemon owns them. New Claude and Pi sessions also persist a Deckhand-owned agent resume handle, allowing exited sessions to restart into the same conversation when the agent supports it.
+Terminal output is fed into a headless [`xterm.js`](https://github.com/xtermjs/xterm.js) model. The UI receives rendered snapshots for previews, while attach mode streams input and output directly between your terminal and the selected PTY.
 
 ### Daemon lifecycle
 
-Deckhand spawns a long-lived supervisor daemon the first time you launch the UI. Quitting the UI with `q` leaves the daemon (and any running sessions) in place; relaunching `deckhand` reattaches. Stopping the daemon kills all running sessions.
+Deckhand spawns a long-lived supervisor daemon the first time you launch the UI. Quitting with `q` leaves the daemon — and any running sessions — in place; relaunching `deckhand` reattaches. Stopping the daemon kills all running sessions.
 
 | Action | How |
 | --- | --- |
@@ -321,8 +273,6 @@ Deckhand spawns a long-lived supervisor daemon the first time you launch the UI.
 | Tail daemon logs | `tail -f ~/.deckhand/daemon.log` |
 | Stop the daemon (and all sessions) | `kill $(cat ~/.deckhand/daemon.pid)` |
 | Recover from a crashed daemon | Remove `~/.deckhand/daemon.pid` and `~/.deckhand/daemon.sock`, then relaunch |
-
----
 
 ## Development
 
@@ -333,20 +283,18 @@ npm run daemon   # run only the daemon in dev mode
 npm run build    # compile to dist/
 ```
 
-Useful checks before linking a build:
+Before linking a build, verify it:
 
 ```bash
 npm run build
 npm pack --dry-run --ignore-scripts
 ```
 
----
-
 ## Troubleshooting
 
-**`deckhand` can't find an agent.** Confirm the binary you want is on `PATH`: `which claude`, `which pi`, `which codex`. Deckhand inherits the launching shell's environment.
+**`deckhand` can't find an agent.** Confirm the binary you want is on `PATH` with `which claude`, `which pi`, or `which codex`. Deckhand inherits the launching shell's environment.
 
-**`node-pty` fails to load on macOS** (e.g. `spawn-helper` permission errors). Re-run the repair script directly:
+**`node-pty` fails to load on macOS** (for example, `spawn-helper` permission errors). Re-run the repair script directly:
 
 ```bash
 node scripts/fix-node-pty.js
@@ -354,18 +302,16 @@ node scripts/fix-node-pty.js
 
 If that doesn't help, reinstall: `rm -rf node_modules && npm install`.
 
-**Stale daemon socket / PID.** If `deckhand` hangs at startup or reports it can't reach the daemon, the supervisor may have exited uncleanly. Remove the stale files and relaunch:
+**Stale daemon socket or PID.** If `deckhand` hangs at startup or reports that it can't reach the daemon, the supervisor may have exited uncleanly. Remove the stale files and relaunch:
 
 ```bash
 rm -f ~/.deckhand/daemon.pid ~/.deckhand/daemon.sock
 deckhand
 ```
 
-**Git tab is empty.** Install [`lazygit`](https://github.com/jesseduffield/lazygit) and ensure it is on `PATH`.
+**Git tab is empty.** Install [`lazygit`](https://github.com/jesseduffield/lazygit) and make sure it is on `PATH`.
 
 **Dev tab does nothing.** Press `d` once to focus the Dev tab, then press `d` again to start or stop the command. If `~/.deckhand/config.json` does not set `dev_command`, Deckhand runs the literal command `dev`, which usually doesn't exist.
-
----
 
 ## Uninstall
 
@@ -373,21 +319,17 @@ deckhand
 npm unlink -g deckhand
 ```
 
-To remove all local state (sessions, logs, auto-created worktrees):
+To remove all local state — sessions, logs, and auto-created worktrees:
 
 ```bash
 rm -rf ~/.deckhand
 ```
 
-If Deckhand created git worktrees under `~/.deckhand/worktrees/`, prefer removing them through the UI (or `git worktree remove`) before deleting the directory, so git's bookkeeping stays consistent.
-
----
+If Deckhand created git worktrees under `~/.deckhand/worktrees/`, remove them through the UI (or with `git worktree remove`) before deleting the directory, so git's bookkeeping stays consistent.
 
 ## Contributing
 
 Issues and pull requests are welcome. For larger changes, please open an issue first to discuss the approach. Run `npm run build` and confirm the CLI launches before sending a PR.
-
----
 
 ## License
 
