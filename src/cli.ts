@@ -6,6 +6,7 @@ import {App} from './app.js';
 import {InkDaemon} from './daemon.js';
 import {ensureGitRepo} from './git.js';
 import {runSessionWorker} from './sessionWorker.js';
+import {runSetup} from './setup.js';
 import {loadAppConfig} from './storage.js';
 import {resetTerminalState} from './terminalState.js';
 import type {RightPaneTab, UiExitResult} from './types.js';
@@ -78,6 +79,11 @@ async function main(): Promise<void> {
 		const daemon = new InkDaemon();
 		await daemon.start();
 		await new Promise(() => {});
+		return;
+	}
+
+	if (process.argv[2] === 'setup' || process.argv[2] === 'doctor') {
+		await runSetup(process.argv.slice(3));
 		return;
 	}
 

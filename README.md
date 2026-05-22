@@ -36,12 +36,53 @@ For `tmux`-based alternatives, see [claude-squad](https://github.com/smtg-ai/cla
 
 ## Installation
 
-Install from npm and run:
+Deckhand requires Node.js 20 or newer. If you do not have Node installed, install it with `nvm`:
+
+```bash
+# Download and install nvm:
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+
+# in lieu of restarting the shell
+\. "$HOME/.nvm/nvm.sh"
+
+# Download and install Node.js:
+nvm install 24
+
+# Verify the Node.js version:
+node -v # Should print "v24.16.0".
+
+# Verify npm version:
+npm -v # Should print "11.13.0".
+```
+
+Then install Deckhand from npm and run:
 
 ```bash
 npm install -g @tejgor/deckhand
 deckhand
 ```
+
+For an easier first-time setup, Deckhand can check for missing agents and offer to install them:
+
+```bash
+deckhand setup
+```
+
+The setup helper installs Claude Code with `curl -fsSL https://claude.ai/install.sh | bash`, Pi with `npm install -g --ignore-scripts @earendil-works/pi-coding-agent`, and Codex with `npm install -g @openai/codex`. Use `deckhand setup --check` for a read-only check, or `deckhand setup --yes` to accept the agent install prompts automatically.
+
+`lazygit` is optional and is not installed by `deckhand setup`. If you want the Git tab, install it separately:
+
+```bash
+# macOS with Homebrew
+brew install lazygit
+```
+
+```bash
+# Ubuntu/Debian, if available in your package sources
+sudo apt-get update && sudo apt-get install -y lazygit
+```
+
+See the [lazygit installation docs](https://github.com/jesseduffield/lazygit#installation) for other platforms.
 
 For local development, install from source:
 
