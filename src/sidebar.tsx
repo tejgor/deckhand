@@ -31,7 +31,8 @@ function renderRow(session: SessionRecord, sessions: SessionRecord[], index: num
 	const glyph = `${statusGlyph(session, spinnerFrame)} ${programGlyph(session.program)}${devGlyph}`;
 	const prefix = `${cursor} ${idx} ${indent}${forkGlyph}${glyph} `;
 	const titleSpace = Math.max(0, width - prefix.length);
-	const title = truncate(session.title, titleSpace);
+	const displayTitle = session.title.replace(/\s+\/\s+/g, '/');
+	const title = truncate(displayTitle, titleSpace);
 	const filled = `${prefix}${title}`;
 	if (filled.length >= width) return truncate(filled, width);
 	return filled + ' '.repeat(width - filled.length);

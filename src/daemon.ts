@@ -145,7 +145,10 @@ async function resolveProgramCommand(program: SessionRecord['program']): Promise
 }
 
 function buildDeckhandAgentName(title: string, sessionId: string, suffix?: string): string {
-	const safeTitle = sanitizeWorktreeName(title).replace(/\//g, '-').slice(0, 40).replace(/^[-_]+|[-_]+$/g, '') || 'session';
+	const safeTitle = sanitizeWorktreeName(title)
+		.replace(/_*\/+_*/g, '-')
+		.slice(0, 40)
+		.replace(/^[-_]+|[-_]+$/g, '') || 'session';
 	return `dh-${safeTitle}-${sessionId.slice(0, 8)}${suffix ? `-${suffix}` : ''}`;
 }
 
