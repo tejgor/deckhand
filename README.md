@@ -109,6 +109,7 @@ Press `o` to attach to the selected session. To branch off related work, select 
 | `d` on Dev tab | Start or stop the selected session's Dev command |
 | `o` | Attach to the selected session, opening whichever tab is currently shown |
 | `v` on Preview tab | Focus preview scrolling for a running session |
+| `[` / `]` | Decrease / increase the scroll multiplier and save it to config |
 | `m` | Merge the selected worktree into the current branch |
 | `h` / `l` | Resize the sidebar |
 | `x` / `X` | Kill the selected running session / force kill |
@@ -197,7 +198,7 @@ Set `dev_command` before toggling the Dev tab. If it is omitted, Deckhand tries 
 
 ### Attach scroll sensitivity
 
-Attached sessions dampen trackpad and mouse-wheel scrolling. Set the multiplier:
+Attached sessions and Preview focus dampen trackpad and mouse-wheel scrolling. Press `[` / `]` in Deckhand to decrease/increase the multiplier immediately and save it, or edit the config directly:
 
 ```json
 {
@@ -205,7 +206,7 @@ Attached sessions dampen trackpad and mouse-wheel scrolling. Set the multiplier:
 }
 ```
 
-Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0` to ignore vertical wheel events while attached. Default: `0.12`.
+Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0` to ignore vertical wheel events while attached/in Preview focus. Default: `0.12`.
 
 ### State and logs
 

@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Box, Text, useApp, useInput} from 'ink';
 import {LiveClient, createLiveClient} from './client.js';
-import {loadAppConfig} from './storage.js';
+import {loadAppConfig, updateAppConfig} from './storage.js';
 import {DevPane} from './devPane.js';
 import {GitPane} from './gitPane.js';
 import {PreviewPane} from './preview.js';
@@ -45,6 +45,7 @@ const WORKTREE_MODES: Array<{key: WorktreeMode; label: string}> = [
 	{key: 'existing', label: 'existing worktree'},
 ];
 const DEFAULT_SCROLL_SENSITIVITY = 0.12;
+const SCROLL_SENSITIVITY_STEP = 0.04;
 
 const ANSI_ESCAPE_PATTERN = /\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\))/g;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/g;
@@ -57,6 +58,10 @@ function normalizeScrollSensitivity(value: number | undefined): number {
 		return DEFAULT_SCROLL_SENSITIVITY;
 	}
 	return Math.max(0, Math.min(1, value));
+}
+
+function formatScrollSensitivity(value: number): string {
+	return value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 
 function mouseWheelSequence(direction: 'up' | 'down', cols: number, rows: number, count = 1): string {
@@ -364,6 +369,7 @@ function HelpPane({width}: {width: number}) {
 		['v', 'focus preview scrolling'],
 		['preview: j/k', 'scroll preview'],
 		['preview: g/G', 'top / bottom'],
+		['[ / ]', 'decrease / increase scroll multiplier'],
 		['h/l', 'resize sidebar'],
 		['m', 'merge selected worktree into current branch'],
 		['x / X', 'kill running session / force kill'],
@@ -389,10 +395,10 @@ function HelpPane({width}: {width: number}) {
 	);
 }
 
-function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord): string {
+function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY): string {
 	if (mode === 'preview-focus') {
 		const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
-		return `preview focus (${method}) • wheel scroll • j/k fallback • esc/v return`;
+		return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k fallback • esc/v return`;
 	}
 	if (mode === 'browse') {
 		const attach = session?.status === 'running' ? 'o attach' : undefined;
@@ -402,7 +408,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 		const dev = activeTab === 'dev' && session?.status === 'running' ? 'd toggle dev' : undefined;
 		const merge = session?.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge' : undefined;
 		const previewFocus = activeTab === 'preview' && session?.status === 'running' ? 'v preview' : undefined;
-		return [attach, dev, merge, previewFocus, 'j/k select', 'J/K reorder', 'n new', 'N child', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
+		return [attach, dev, merge, previewFocus, '[/] scroll ×', 'j/k select', 'J/K reorder', 'n new', 'N child', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
 	}
 	if (mode === 'pick-program') {
 		return 'enter continue • esc cancel • j/k switch';
@@ -812,6 +818,18 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		[onSidebarWidthChange, terminalSize.cols],
 	);
 
+	const adjustScrollSensitivity = useCallback((delta: number) => {
+		setPreviewScrollSensitivity(current => {
+			const next = normalizeScrollSensitivity(Math.round((current + delta) * 100) / 100);
+			previewWheelAccumulatorRef.current = 0;
+			setStatusMessage(`Scroll multiplier ${formatScrollSensitivity(next)} (saved)`);
+			void updateAppConfig({attach_scroll_sensitivity: next}).catch(nextError => {
+				setError(nextError instanceof Error ? nextError.message : String(nextError));
+			});
+			return next;
+		});
+	}, []);
+
 	useEffect(() => {
 		if (mode !== 'preview-focus') {
 			return;
@@ -1153,6 +1171,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setMode('browse');
 				return;
 			}
+			if (input === '[' || input === ']') {
+				adjustScrollSensitivity(input === ']' ? SCROLL_SENSITIVITY_STEP : -SCROLL_SENSITIVITY_STEP);
+				return;
+			}
 			if (input === 'k') {
 				scrollPreview('up');
 				return;
@@ -1173,6 +1195,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 
 		if (mode === 'browse') {
+			if (input === '[' || input === ']') {
+				adjustScrollSensitivity(input === ']' ? SCROLL_SENSITIVITY_STEP : -SCROLL_SENSITIVITY_STEP);
+				return;
+			}
 			if (numericSelection) {
 				if (/^\d$/.test(input)) {
 					setNumericSelection(value => value + input);
@@ -1583,7 +1609,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					/>
 				)}
 			</Box>
-			<Text color={THEME.muted}>{footerHint(mode, activeTab, selectedSession)}</Text>
+			<Text color={THEME.muted}>{footerHint(mode, activeTab, selectedSession, previewScrollSensitivity)}</Text>
 			{numericSelection ? <Text color={THEME.active}>Select session: {numericSelection}</Text> : null}
 			{busy ? <Text color={THEME.warn}>Working…</Text> : null}
 			{statusMessage ? <Text color={THEME.success}>{statusMessage}</Text> : null}

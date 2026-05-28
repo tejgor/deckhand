@@ -120,6 +120,21 @@ export async function loadAppConfig(): Promise<AppConfig> {
 	}
 }
 
+export async function saveAppConfig(config: AppConfig): Promise<void> {
+	await ensureConfigDir();
+	const configPath = getConfigPath();
+	const temporaryPath = `${configPath}.tmp-${process.pid}-${Date.now()}-${randomUUID()}`;
+	await fs.writeFile(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+	await fs.rename(temporaryPath, configPath);
+}
+
+export async function updateAppConfig(patch: AppConfig): Promise<AppConfig> {
+	const current = await loadAppConfig();
+	const next = {...current, ...patch};
+	await saveAppConfig(next);
+	return next;
+}
+
 export function stateFileDisplayPath(): string {
 	return path.relative(process.cwd(), getStatePath()) || getStatePath();
 }

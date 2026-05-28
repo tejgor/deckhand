@@ -130,6 +130,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - `N` creates a sub-session under the selected session; the normal agent picker creates clean sub-sessions in the parent's cwd/worktree by default, and Claude/Pi parents add a fourth `Fork parent` option. Claude forks send `/fork <dh-name>` so the fork receives Deckhand's deterministic child session name.
 - `h` / `l` resize sidebar
 - left/right arrows also resize sidebar in browse mode
+- `[` / `]` decrease/increase `attach_scroll_sensitivity` live and persist it to config
 - `tab` switches Preview / Terminal / Git / Dev
 - `p` / `t` / `g` / `d` directly focus Preview / Terminal / Git / Dev
 - `v` enters Preview focus mode for running sessions
@@ -161,7 +162,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 
 Preview focus is read-only for most agents and scrolls Deckhand's daemon-side xterm scrollback snapshot. Claude Code behaves more like a TUI, so Preview focus sends synthetic SGR mouse-wheel events to the Claude PTY instead of only scrolling Deckhand state.
 
-Both attach mode and Preview focus use `attach_scroll_sensitivity` from config, defaulting to `0.12`.
+Both attach mode and Preview focus use `attach_scroll_sensitivity` from config, defaulting to `0.12`. The multiplier can be adjusted live from the UI with `[` / `]`; Deckhand persists the new value to `~/.deckhand/config.json`, and subsequent attach sessions pick it up without restarting the app.
 
 Exited sessions show only the frozen `lastPreview` frame.
 
@@ -269,7 +270,7 @@ Deckhand writes under `~/.deckhand`:
 Config currently includes:
 
 - `dev_command`, default `dev`
-- `attach_scroll_sensitivity`, default `0.12`
+- `attach_scroll_sensitivity`, default `0.12`, adjustable in the UI with `[` / `]`
 
 Protocol:
 
