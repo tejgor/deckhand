@@ -149,7 +149,8 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - `m` opens merge/squash/cancel confirmation for worktree-backed sessions
 - `x` kills selected running session
 - for worktree-backed sessions, `x` opens keep/delete/delete-branch/cancel when applicable
-- `s` restarts selected exited session; Claude forked sub-sessions restart directly from their parsed exit resume handle when available, otherwise Deckhand falls back to resuming the parent and sending `/fork`
+- `s` resumes/restarts selected exited session; Claude forked sub-sessions restart directly from their parsed exit resume handle when available, otherwise Deckhand falls back to resuming the parent and sending `/fork`
+- `S` fresh-restarts selected exited session without using any persisted/parsed resume handle; Claude gets a new deterministic Deckhand name suffix and Pi gets a new session file path
 - `d` focuses the Dev tab; when already focused on Dev, it starts/stops the selected session's Dev command
 - `backspace` removes selected exited session
 - `r` refreshes/resubscribes
@@ -239,13 +240,15 @@ Implemented in `src/git.ts`.
 
 Deckhand assigns deterministic handles where supported:
 
+- Child session titles inherit parent context daemon-side as `parent title / child title` (trimmed to 64 chars) so agent/worktree/session names are not orphaned.
 - Claude:
   - create: `--name dh-{sanitized-title}-{short-id}`
   - forked sub-session create: resume parent, then send `/fork dh-{sanitized-title}-{short-id}` while persisting the child handle for direct restart
   - on exit, parse Claude Code's printed `claude --resume "..."` command from the final preview and persist that handle as `agentSessionRef`
-  - restart: `--resume <parsed-or-created-handle>`; restart also re-parses `lastPreview` so sessions that exited before this change can still recover the handle
+  - resume restart: `--resume <parsed-or-created-handle>`; restart also re-parses `lastPreview` so sessions that exited before this change can still recover the handle
+  - fresh restart: `--name dh-{sanitized-title}-{short-id}-fresh-{timestamp}` and does not parse or use prior resume handles
 - Pi:
-  - create/restart: explicit `--session` path under Pi's normal `~/.pi/agent/sessions/` tree
+  - create/resume restart: explicit `--session` path under Pi's normal `~/.pi/agent/sessions/` tree
   - directory encoding matches Pi's `getDefaultSessionDir()`:
     - `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`
   - filename is Deckhand-specific and includes timestamp, sanitized title, short id, and Deckhand session id
@@ -271,7 +274,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v18**
+- current protocol version: **v19**
 
 If an older daemon is still running:
 
@@ -489,6 +492,7 @@ Validated during development:
 - command resolution for local binaries
 - TypeScript build with Claude/Pi resume args and Codex support
 - TypeScript build with Claude exit resume-handle parsing for forked sub-session restarts
+- TypeScript build with fresh restart/no-resume mode and parent-inherited child titles
 - TypeScript build with deleted-worktree sessions marked non-restartable/non-mergeable
 - TypeScript build with named Claude `/fork <dh-name>` creation
 - sanitizer behavior, including slash-preserving names

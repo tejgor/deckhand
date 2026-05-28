@@ -9,7 +9,7 @@ import {Sidebar} from './sidebar.js';
 import {sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
-import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
+import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
 import {THEME, compactPath, truncate} from './ui.js';
 
 const PROGRAMS: Array<{key: ProgramKey; label: string; glyph: string}> = [
@@ -367,7 +367,7 @@ function HelpPane({width}: {width: number}) {
 		['h/l', 'resize sidebar'],
 		['m', 'merge selected worktree into current branch'],
 		['x / X', 'kill running session / force kill'],
-		['s', 'restart exited session'],
+		['s / S', 'resume / fresh restart exited session'],
 		['d on Dev', 'start/stop dev command'],
 		['backspace', 'remove exited session'],
 		['r', 'refresh sessions'],
@@ -397,7 +397,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 	if (mode === 'browse') {
 		const attach = session?.status === 'running' ? 'o attach' : undefined;
 		const lifecycle = session?.status === 'exited'
-			? (session.worktree?.deletedAt ? 'worktree deleted • backspace remove' : 's restart • backspace remove')
+			? (session.worktree?.deletedAt ? 'worktree deleted • backspace remove' : 's resume • S fresh • backspace remove')
 			: session?.status === 'running' ? 'x kill • X force kill' : undefined;
 		const dev = activeTab === 'dev' && session?.status === 'running' ? 'd toggle dev' : undefined;
 		const merge = session?.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge' : undefined;
@@ -1074,7 +1074,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 	}, [client, selectedSession]);
 
-	const restartSelected = useCallback(async () => {
+	const restartSelected = useCallback(async (restartMode: RestartMode = 'resume') => {
 		if (!client || !selectedSession || selectedSession.status !== 'exited') {
 			return;
 		}
@@ -1085,7 +1085,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setBusy(true);
 		setError(undefined);
 		try {
-			const restarted = await client.restartSession(selectedSession.id, layout.previewCols, layout.previewRows);
+			const restarted = await client.restartSession(selectedSession.id, layout.previewCols, layout.previewRows, restartMode);
 			setSelectedId(restarted.id);
 			setSessions(current => upsertSession(current, restarted));
 		} catch (nextError) {
@@ -1305,8 +1305,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				void removeSelected();
 				return;
 			}
-			if (input === 's' && selectedSession?.status === 'exited') {
-				void restartSelected();
+			if ((input === 's' || input === 'S') && selectedSession?.status === 'exited') {
+				void restartSelected(input === 'S' ? 'fresh' : 'resume');
 				return;
 			}
 			if (input === 'o' && selectedSession?.status === 'running') {

@@ -13,7 +13,7 @@ import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst} from './storage.js';
 import {compareSessionOrder, sortSessionsForSidebar} from './sessionOrder.js';
 import {TerminalPreview} from './terminalPreview.js';
-import type {AgentActivityStatus, AgentSessionRef, AttachTarget, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ServerMessage, ServerResponse, SessionRecord, TerminalRecord} from './types.js';
+import type {AgentActivityStatus, AgentSessionRef, AttachTarget, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, RestartMode, ServerMessage, ServerResponse, SessionRecord, TerminalRecord} from './types.js';
 
 const execFileAsync = promisify(execFile);
 const SCROLLBACK_LIMIT = 200_000;
@@ -25,7 +25,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 18;
+const PROTOCOL_VERSION = 19;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
@@ -144,9 +144,9 @@ async function resolveProgramCommand(program: SessionRecord['program']): Promise
 	return program;
 }
 
-function buildDeckhandAgentName(title: string, sessionId: string): string {
+function buildDeckhandAgentName(title: string, sessionId: string, suffix?: string): string {
 	const safeTitle = sanitizeWorktreeName(title).replace(/\//g, '-').slice(0, 40).replace(/^[-_]+|[-_]+$/g, '') || 'session';
-	return `dh-${safeTitle}-${sessionId.slice(0, 8)}`;
+	return `dh-${safeTitle}-${sessionId.slice(0, 8)}${suffix ? `-${suffix}` : ''}`;
 }
 
 function piSessionPath(cwd: string, name: string, sessionId: string): string {
@@ -157,8 +157,8 @@ function piSessionPath(cwd: string, name: string, sessionId: string): string {
 	return path.join(os.homedir(), '.pi', 'agent', 'sessions', projectDir, `${timestamp}_${name}_${sessionId}.jsonl`);
 }
 
-function buildAgentSessionRef(program: SessionRecord['program'], title: string, sessionId: string, cwd: string): AgentSessionRef | undefined {
-	const name = buildDeckhandAgentName(title, sessionId);
+function buildAgentSessionRef(program: SessionRecord['program'], title: string, sessionId: string, cwd: string, suffix?: string): AgentSessionRef | undefined {
+	const name = buildDeckhandAgentName(title, sessionId, suffix);
 	if (program === 'claude') {
 		return {provider: program, kind: 'name', value: name};
 	}
@@ -166,6 +166,33 @@ function buildAgentSessionRef(program: SessionRecord['program'], title: string, 
 		return {provider: program, kind: 'path', value: piSessionPath(cwd, name, sessionId)};
 	}
 	return undefined;
+}
+
+function truncateSessionTitle(value: string, maxLength: number): string {
+	if (value.length <= maxLength) {
+		return value;
+	}
+	if (maxLength <= 1) {
+		return value.slice(0, Math.max(0, maxLength));
+	}
+	return `${value.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function inheritedChildTitle(parentTitle: string, childTitle: string): string {
+	const normalizedParent = parentTitle.trim().replace(/\s+/g, ' ');
+	const normalizedChild = childTitle.trim().replace(/\s+/g, ' ');
+	if (!normalizedParent || normalizedChild === normalizedParent || normalizedChild.startsWith(`${normalizedParent} / `)) {
+		return truncateSessionTitle(normalizedChild, 64);
+	}
+	const separator = ' / ';
+	if (normalizedParent.length + separator.length + normalizedChild.length <= 64) {
+		return `${normalizedParent}${separator}${normalizedChild}`;
+	}
+	const minPrefixLength = Math.min(12, normalizedParent.length);
+	const maxChildLength = Math.max(1, 64 - separator.length - minPrefixLength);
+	const child = truncateSessionTitle(normalizedChild, maxChildLength);
+	const prefix = truncateSessionTitle(normalizedParent, Math.max(1, 64 - separator.length - child.length));
+	return `${prefix}${separator}${child}`;
 }
 
 function supportsForkedSubSession(program: SessionRecord['program']): boolean {
@@ -699,7 +726,7 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, await this.reorderSession(message.sessionId, message.direction)));
 					return;
 				case 'restart': {
-					const session = await this.restartSession(message.sessionId, message.cols, message.rows);
+					const session = await this.restartSession(message.sessionId, message.cols, message.rows, message.mode ?? 'resume');
 					sendMessage(socket, response(message.requestId, session));
 					return;
 				}
@@ -1755,14 +1782,14 @@ export class InkDaemon {
 	}
 
 	private async createSession(input: CreateSessionInput): Promise<SessionRecord> {
-		const title = input.title.trim();
+		const parentSession = input.parentSessionId ? this.sessions.get(input.parentSessionId) : undefined;
+		const title = parentSession ? inheritedChildTitle(parentSession.title, input.title) : input.title.trim();
 		if (!title) {
 			throw new Error('title cannot be empty');
 		}
 		if (title.length > 64) {
 			throw new Error('title cannot be longer than 64 characters');
 		}
-		const parentSession = input.parentSessionId ? this.sessions.get(input.parentSessionId) : undefined;
 		if (input.parentSessionId && (!parentSession || parentSession.repoRoot !== input.repoRoot)) {
 			throw new Error('parent session does not exist in this repo');
 		}
@@ -1921,7 +1948,7 @@ export class InkDaemon {
 		this.broadcastSessionUpdated(failedSession);
 	}
 
-	private async restartSession(sessionId: string, cols: number, rows: number): Promise<SessionRecord> {
+	private async restartSession(sessionId: string, cols: number, rows: number, mode: RestartMode = 'resume'): Promise<SessionRecord> {
 		const existing = this.sessions.get(sessionId);
 		if (!existing) {
 			throw new Error('session does not exist');
@@ -1934,13 +1961,15 @@ export class InkDaemon {
 		}
 
 		const now = new Date().toISOString();
-		const parsedAgentSessionRef = existing.lastPreview ? refFromExitOutput(existing, existing.lastPreview) : undefined;
+		const parsedAgentSessionRef = mode === 'resume' && existing.lastPreview ? refFromExitOutput(existing, existing.lastPreview) : undefined;
 		const restartSource = parsedAgentSessionRef ? {...existing, agentSessionRef: parsedAgentSessionRef} : existing;
-		const restartRef = restartRefForSession(restartSource);
+		const freshSuffix = mode === 'fresh' ? `fresh-${Date.now().toString(36)}` : undefined;
+		const freshAgentSessionRef = mode === 'fresh' ? buildAgentSessionRef(existing.program, existing.title, existing.id, existing.cwd, freshSuffix) : undefined;
+		const restartRef = mode === 'fresh' ? {ref: freshAgentSessionRef, shouldForkParent: false} : restartRefForSession(restartSource);
 		const startingAgentSessionRef = restartRef.ref;
 		const starting: SessionRecord = {
 			...restartSource,
-			args: buildAgentArgs({program: existing.program, agentSessionRef: startingAgentSessionRef}, 'resume'),
+			args: buildAgentArgs({program: existing.program, agentSessionRef: startingAgentSessionRef}, mode === 'fresh' ? 'create' : 'resume'),
 			agentSessionRef: startingAgentSessionRef,
 			status: 'starting',
 			agentStatus: 'unknown',
