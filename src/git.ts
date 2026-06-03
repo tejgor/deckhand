@@ -241,8 +241,28 @@ export async function createWorktreeForSession(title: string, launchCwd: string)
 	};
 }
 
+async function cleanupEmptyDeckhandWorktreeParents(worktreePath: string): Promise<void> {
+	const worktreesRoot = path.resolve(os.homedir(), '.deckhand', 'worktrees');
+	let current = path.dirname(path.resolve(worktreePath));
+	while (current !== worktreesRoot && current.startsWith(`${worktreesRoot}${path.sep}`)) {
+		try {
+			await fs.rmdir(current);
+		} catch {
+			break;
+		}
+		current = path.dirname(current);
+	}
+}
+
 export async function removeWorktree(worktreePath: string, repoCwd: string): Promise<void> {
-	await execFileAsync('git', ['-C', repoCwd, 'worktree', 'remove', '-f', worktreePath]);
+	const absolutePath = path.resolve(worktreePath);
+	await execFileAsync('git', ['-C', repoCwd, 'worktree', 'remove', '-f', absolutePath]);
+	// Some hook-created or nested managed worktrees can leave ignored files, empty
+	// directories, or parent folders behind after Git unregisters the worktree.
+	// Once Git removal has succeeded, remove the session directory itself and then
+	// prune empty parents under Deckhand's managed worktree root.
+	await fs.rm(absolutePath, {recursive: true, force: true, maxRetries: 3, retryDelay: 100});
+	await cleanupEmptyDeckhandWorktreeParents(absolutePath);
 	await execFileAsync('git', ['-C', repoCwd, 'worktree', 'prune']);
 }
 

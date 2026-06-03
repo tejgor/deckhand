@@ -23,7 +23,7 @@ Implemented behavior:
   - no worktree
   - new managed worktree
   - existing/attached worktree
-- safe worktree deletion and optional branch deletion on kill
+- safe worktree deletion and optional branch deletion on kill, including cleanup of leftover worktree directories/remnants
 - merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing
   - no new commits => skipped with a warning
   - conflicts => expected resolvable state, not a Deckhand error
@@ -218,6 +218,8 @@ When safe, kill confirmation offers:
 - kill and delete worktree (not restartable)
 - kill, delete worktree and branch (not restartable)
 - cancel
+
+After Git unregisters a deleted worktree, Deckhand also force-removes the worktree path to clear ignored/untracked remnants. For fallback managed worktrees under `~/.deckhand/worktrees`, it also prunes empty nested parent folders left by slash-preserving worktree names.
 
 Deleted worktrees are recorded with `worktree.deletedAt`; Deckhand hides restart/merge hints and refuses restart/merge for those exited sessions.
 
@@ -495,6 +497,7 @@ Validated during development:
 - TypeScript build with Claude exit resume-handle parsing for forked sub-session restarts
 - TypeScript build with fresh restart/no-resume mode and parent-inherited child titles
 - TypeScript build with deleted-worktree sessions marked non-restartable/non-mergeable
+- TypeScript build with post-removal cleanup of leftover worktree directories/remnants
 - TypeScript build with named Claude `/fork <dh-name>` creation
 - sanitizer behavior, including slash-preserving names
 - current/main worktree root lookup
