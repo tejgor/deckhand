@@ -2,7 +2,7 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import type {SessionRecord} from './types.js';
 import {sessionDepth} from './sessionOrder.js';
-import {THEME, programGlyph, statusColor, statusGlyph, truncate} from './ui.js';
+import {THEME, displaySessionTitle, programGlyph, statusColor, statusGlyph, truncate} from './ui.js';
 
 interface SidebarProps {
 	sessions: SessionRecord[];
@@ -31,8 +31,7 @@ function renderRow(session: SessionRecord, sessions: SessionRecord[], index: num
 	const glyph = `${statusGlyph(session, spinnerFrame)} ${programGlyph(session.program)}${devGlyph}`;
 	const prefix = `${cursor} ${idx} ${indent}${forkGlyph}${glyph} `;
 	const titleSpace = Math.max(0, width - prefix.length);
-	const displayTitle = session.title.replace(/\s+\/\s+/g, '/');
-	const title = truncate(displayTitle, titleSpace);
+	const title = truncate(displaySessionTitle(session, sessions), titleSpace);
 	const filled = `${prefix}${title}`;
 	if (filled.length >= width) return truncate(filled, width);
 	return filled + ' '.repeat(width - filled.length);

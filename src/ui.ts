@@ -75,6 +75,16 @@ export function statusColor(session: SessionRecord): string {
 	}
 }
 
+export function displaySessionTitle(session: SessionRecord, sessions: SessionRecord[]): string {
+	const parent = session.parentSessionId ? sessions.find(candidate => candidate.id === session.parentSessionId) : undefined;
+	const parentPrefix = parent ? `${parent.title.trim().replace(/\s+/g, ' ')} / ` : '';
+	const normalizedTitle = session.title.trim().replace(/\s+/g, ' ');
+	const localTitle = parentPrefix && normalizedTitle.startsWith(parentPrefix)
+		? normalizedTitle.slice(parentPrefix.length)
+		: normalizedTitle;
+	return localTitle.replace(/\s+\/\s+/g, '/');
+}
+
 export function previewStatusIcon(session: SessionRecord | undefined, preview: PreviewRecord, spinnerFrame: string): string {
 	if (!session) return '';
 	if (session.status === 'starting') return spinnerFrame;

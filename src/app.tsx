@@ -10,7 +10,7 @@ import {sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
 import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
-import {THEME, compactPath, truncate} from './ui.js';
+import {THEME, compactPath, displaySessionTitle, truncate} from './ui.js';
 
 const PROGRAMS: Array<{key: ProgramKey; label: string; glyph: string}> = [
 	{key: 'claude', label: 'Claude', glyph: '✶'},
@@ -300,12 +300,12 @@ function WorktreePickerPane({
 	);
 }
 
-function MergeConfirmPane({session, selectedIndex, width}: {session?: SessionRecord; selectedIndex: number; width: number}) {
+function MergeConfirmPane({session, sessions, selectedIndex, width}: {session?: SessionRecord; sessions: SessionRecord[]; selectedIndex: number; width: number}) {
 	const options = ['Merge into current branch without committing', 'Squash merge into current branch without committing', 'Cancel'];
 	const contentWidth = Math.max(1, width - 4);
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
-			<Text color={THEME.accent} bold>Merge {session ? `"${session.title}"` : 'worktree'}?</Text>
+			<Text color={THEME.accent} bold>Merge {session ? `"${displaySessionTitle(session, sessions)}"` : 'worktree'}?</Text>
 			{session?.worktree?.path ? (
 				<Text color={THEME.muted}>{truncate(compactPath(session.worktree.path, contentWidth), contentWidth)}</Text>
 			) : null}
@@ -327,14 +327,14 @@ function MergeConfirmPane({session, selectedIndex, width}: {session?: SessionRec
 	);
 }
 
-function KillConfirmPane({session, selectedIndex, canDelete, canDeleteBranch, force, width}: {session?: SessionRecord; selectedIndex: number; canDelete: boolean; canDeleteBranch: boolean; force: boolean; width: number}) {
+function KillConfirmPane({session, sessions, selectedIndex, canDelete, canDeleteBranch, force, width}: {session?: SessionRecord; sessions: SessionRecord[]; selectedIndex: number; canDelete: boolean; canDeleteBranch: boolean; force: boolean; width: number}) {
 	const options = canDelete
 		? ['Kill only, keep worktree (restartable)', 'Kill and delete worktree (not restartable)', ...(canDeleteBranch ? ['Kill, delete worktree and branch (not restartable)'] : []), 'Cancel']
 		: ['Kill session', 'Cancel'];
 	const contentWidth = Math.max(1, width - 4);
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderDanger} paddingX={1}>
-			<Text color={THEME.error} bold>{force ? 'Force kill' : 'Kill'} {session ? `"${session.title}"` : 'session'}?</Text>
+			<Text color={THEME.error} bold>{force ? 'Force kill' : 'Kill'} {session ? `"${displaySessionTitle(session, sessions)}"` : 'session'}?</Text>
 			{session?.worktree?.path ? (
 				<Text color={THEME.muted}>{truncate(compactPath(session.worktree.path, contentWidth), contentWidth)}</Text>
 			) : null}
@@ -1344,7 +1344,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					kind: 'attach',
 					sessionId: selectedSession.id,
 					target: activeTab === 'terminal' ? 'terminal' : activeTab === 'git' ? 'git' : activeTab === 'dev' ? 'dev' : 'agent',
-					title: selectedSession.title,
+					title: displaySessionTitle(selectedSession, sessions),
 					cwd: selectedSession.cwd,
 				} satisfies UiExitResult);
 			}
@@ -1587,6 +1587,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				) : mode === 'confirm-kill' ? (
 					<KillConfirmPane
 						session={selectedSession}
+						sessions={sessions}
 						selectedIndex={killConfirmIndex}
 						canDelete={selectedCanDeleteWorktree}
 						canDeleteBranch={selectedCanDeleteBranch}
@@ -1594,7 +1595,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						width={layout.previewWidth}
 					/>
 				) : mode === 'confirm-merge' ? (
-					<MergeConfirmPane session={selectedSession} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} />
+					<MergeConfirmPane session={selectedSession} sessions={sessions} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} />
 				) : (
 					<CreatePane
 						mode={mode}

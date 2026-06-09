@@ -243,7 +243,7 @@ Implemented in `src/git.ts`.
 
 Deckhand assigns deterministic handles where supported:
 
-- Child session titles inherit parent context daemon-side as `parent title / child title` (trimmed to 64 chars) so agent/worktree/session names are not orphaned.
+- Child session titles inherit parent context daemon-side as `parent title / child title` (trimmed to 64 chars) so agent/worktree/session names are not orphaned; Deckhand UI strips that parent prefix for nested sub-session display because the sidebar already shows the hierarchy.
 - Claude:
   - create: `--name dh-{sanitized-title}-{short-id}`
   - forked sub-session create: resume parent, then send `/fork dh-{sanitized-title}-{short-id}` while persisting the child handle for direct restart
