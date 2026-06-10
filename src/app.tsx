@@ -119,8 +119,10 @@ interface AppProps {
 	initialSelectedId?: string;
 	initialActiveTab?: RightPaneTab;
 	initialSidebarWidth?: number;
+	initialSessionTabs?: Record<string, RightPaneTab>;
 	onSelectedIdChange?: (sessionId: string | undefined) => void;
 	onActiveTabChange?: (tab: RightPaneTab) => void;
+	onSessionTabChange?: (sessionId: string, tab: RightPaneTab) => void;
 	onSidebarWidthChange?: (width: number) => void;
 }
 
@@ -425,7 +427,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 	return `${activeTab} shortcuts • esc/? close`;
 }
 
-export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialSidebarWidth, onSelectedIdChange, onActiveTabChange, onSidebarWidthChange}: AppProps) {
+export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialSidebarWidth, initialSessionTabs, onSelectedIdChange, onActiveTabChange, onSessionTabChange, onSidebarWidthChange}: AppProps) {
 	const {exit} = useApp();
 	const [mode, setMode] = useState<Mode>('browse');
 	const [sessions, setSessions] = useState<SessionRecord[]>([]);
@@ -441,7 +443,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [killConfirmIndex, setKillConfirmIndex] = useState(0);
 	const [killConfirmForce, setKillConfirmForce] = useState(false);
 	const [mergeConfirmIndex, setMergeConfirmIndex] = useState(0);
-	const [activeTab, setActiveTab] = useState<RightPaneTab>(initialActiveTab ?? 'preview');
+	const sessionTabsRef = useRef<Record<string, RightPaneTab>>({
+		...(initialSessionTabs ?? {}),
+		...(initialSelectedId && initialActiveTab ? {[initialSelectedId]: initialActiveTab} : {}),
+	});
+	const [activeTab, setActiveTab] = useState<RightPaneTab>(initialSelectedId ? sessionTabsRef.current[initialSelectedId] ?? 'preview' : initialActiveTab ?? 'preview');
 	const [previewScrollOffset, setPreviewScrollOffset] = useState(0);
 	const [previewScrollSensitivity, setPreviewScrollSensitivity] = useState(DEFAULT_SCROLL_SENSITIVITY);
 	const previewWheelAccumulatorRef = useRef(0);
@@ -465,6 +471,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		selectedIdRef.current = selectedId;
 		onSelectedIdChange?.(selectedId);
 		setPreviewScrollOffset(0);
+		if (selectedId) {
+			const nextTab = sessionTabsRef.current[selectedId] ?? 'preview';
+			setActiveTab(current => (current === nextTab ? current : nextTab));
+		}
 	}, [onSelectedIdChange, selectedId]);
 
 	useEffect(() => {
@@ -478,12 +488,17 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	}, []);
 
 	useEffect(() => {
+		const sessionId = selectedIdRef.current;
+		if (sessionId) {
+			sessionTabsRef.current[sessionId] = activeTab;
+			onSessionTabChange?.(sessionId, activeTab);
+		}
 		onActiveTabChange?.(activeTab);
 		if (activeTab !== 'preview') {
 			setPreviewScrollOffset(0);
 			setMode(current => (current === 'preview-focus' ? 'browse' : current));
 		}
-	}, [activeTab, onActiveTabChange]);
+	}, [activeTab, onActiveTabChange, onSessionTabChange]);
 
 	useEffect(() => {
 		if (mode !== 'preview-focus') {

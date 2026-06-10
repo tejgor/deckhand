@@ -15,6 +15,7 @@ Implemented behavior:
 - persistent split layout:
   - left session sidebar
   - right tabbed pane: Preview, Terminal, Git, Dev
+  - active right-pane tab is remembered per session within the frontend/attach loop
 - daemon-side terminal preview rendering using `@xterm/headless`
 - read-only Preview focus mode with scrolling
 - external full-screen attach/detach for agent, terminal, git, and dev PTYs
@@ -131,8 +132,9 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - `h` / `l` resize sidebar
 - left/right arrows also resize sidebar in browse mode
 - `[` / `]` decrease/increase `attach_scroll_sensitivity` live and persist it to config
-- `tab` switches Preview / Terminal / Git / Dev
-- `p` / `t` / `g` / `d` directly focus Preview / Terminal / Git / Dev
+- `tab` switches Preview / Terminal / Git / Dev for the selected session
+- `p` / `t` / `g` / `d` directly focus Preview / Terminal / Git / Dev for the selected session
+- switching sessions restores that session's most recently selected tab, defaulting to Preview
 - `v` enters Preview focus mode for running sessions
 - in Preview focus:
   - mouse wheel / trackpad scrolls

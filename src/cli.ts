@@ -34,7 +34,7 @@ function leaveAlternateScreen(): void {
 	}
 }
 
-async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number}): Promise<UiExitResult | undefined> {
+async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number; sessionTabs: Record<string, RightPaneTab>}): Promise<UiExitResult | undefined> {
 	const repoRoot = await ensureGitRepo(process.cwd());
 	enterAlternateScreen();
 	const instance = render(
@@ -44,11 +44,15 @@ async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; si
 			initialSelectedId: uiState.selectedId,
 			initialActiveTab: uiState.activeTab,
 			initialSidebarWidth: uiState.sidebarWidth,
+			initialSessionTabs: uiState.sessionTabs,
 			onSelectedIdChange: sessionId => {
 				uiState.selectedId = sessionId;
 			},
 			onActiveTabChange: tab => {
 				uiState.activeTab = tab;
+			},
+			onSessionTabChange: (sessionId, tab) => {
+				uiState.sessionTabs[sessionId] = tab;
 			},
 			onSidebarWidthChange: width => {
 				uiState.sidebarWidth = width;
@@ -87,7 +91,7 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	const uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number} = {};
+	const uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number; sessionTabs: Record<string, RightPaneTab>} = {sessionTabs: {}};
 	while (true) {
 		const result = await runUi(uiState);
 		if (!result || result.kind === 'quit') {
@@ -96,6 +100,7 @@ async function main(): Promise<void> {
 		if (result.kind === 'attach') {
 			uiState.selectedId = result.sessionId;
 			uiState.activeTab = result.target === 'terminal' ? 'terminal' : result.target === 'git' ? 'git' : result.target === 'dev' ? 'dev' : 'preview';
+			uiState.sessionTabs[result.sessionId] = uiState.activeTab;
 			clearTerminalScreen();
 			try {
 				const config = await loadAppConfig();
