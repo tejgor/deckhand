@@ -14,7 +14,7 @@ Implemented behavior:
 - repo-scoped session list with manual sidebar ordering plus clean/forked sub-session nesting
 - persistent split layout:
   - left session sidebar
-  - right tabbed pane: Preview, Terminal, Git, Dev
+  - right tabbed pane: Preview, Terminal, Git, Dev, Notes
   - active right-pane tab is remembered per session within the frontend/attach loop
 - daemon-side terminal preview rendering using `@xterm/headless`
 - read-only Preview focus mode with scrolling
@@ -132,8 +132,9 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - `h` / `l` resize sidebar
 - left/right arrows also resize sidebar in browse mode
 - `[` / `]` decrease/increase `attach_scroll_sensitivity` live and persist it to config
-- `tab` switches Preview / Terminal / Git / Dev for the selected session
-- `p` / `t` / `g` / `d` directly focus Preview / Terminal / Git / Dev for the selected session
+- `tab` switches Preview / Terminal / Git / Dev / Notes for the selected session
+- `p` / `t` / `g` / `d` / `a` directly focus Preview / Terminal / Git / Dev / Notes for the selected session
+- Notes is per-session persisted text; selecting the Notes tab is read-only until `o` enters notes edit/focus mode; `esc` exits notes editing
 - switching sessions restores that session's most recently selected tab, defaulting to Preview
 - `v` enters Preview focus mode for running sessions
 - in Preview focus:
@@ -147,6 +148,8 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
   - Terminal => shell
   - Git => lazygit
   - Dev => dev command PTY
+  - Notes => enters notes edit/focus mode
+- `O` opens the selected session directory/worktree in Cursor if available, otherwise Code (`cursor`/`code` CLI, macOS falls back to `open -a Cursor`)
 - attach mode title is `dh/<pane> <session>`
 - `Ctrl+Space` detaches back to Deckhand
 - `m` opens merge/squash/cancel confirmation for worktree-backed sessions
@@ -279,7 +282,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v19**
+- current protocol version: **v20**
 
 If an older daemon is still running:
 
@@ -326,6 +329,7 @@ Tracked metadata includes:
 - `pid`
 - exit details
 - `lastPreview`
+- `notes`
 - `parentSessionId`
 - `subSessionKind`
 - `forkedFromSessionId`
@@ -348,6 +352,7 @@ Supported request types include:
 - `watch-dev`
 - `start-dev`
 - `stop-dev`
+- `update-session-notes`
 - `create`
 - `reorder-session`
 - `restart`
@@ -398,6 +403,7 @@ Emitted event types include:
 - `src/terminalPane.tsx` — Terminal pane rendering.
 - `src/gitPane.tsx` — Git pane rendering.
 - `src/devPane.tsx` — Dev pane rendering.
+- `src/notesPane.tsx` — per-session Notes pane rendering.
 - `src/tabs.tsx` — tab UI.
 - `src/terminalPreview.ts` — headless xterm preview model.
 - `src/ui.ts` — shared theme, glyph, path, truncation, and display helpers.

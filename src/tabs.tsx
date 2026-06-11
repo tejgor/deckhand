@@ -8,6 +8,7 @@ const TABS: Array<{key: RightPaneTab; label: string; glyph: string; hotkey: stri
 	{key: 'terminal', label: 'Terminal', glyph: '⌁', hotkey: 't'},
 	{key: 'git', label: 'Git', glyph: '⑂', hotkey: 'g'},
 	{key: 'dev', label: 'Dev', glyph: '▹', hotkey: 'd'},
+	{key: 'notes', label: 'Notes', glyph: '✎', hotkey: 'a'},
 ];
 
 export function TabBar({activeTab, width, devRunning = false}: {activeTab: RightPaneTab; width: number; devRunning?: boolean}) {

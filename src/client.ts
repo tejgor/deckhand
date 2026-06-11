@@ -84,7 +84,7 @@ export async function request<T = unknown>(message: Extract<ClientRequest, {requ
 	});
 }
 
-const PROTOCOL_VERSION = 19;
+const PROTOCOL_VERSION = 20;
 
 class ProtocolMismatchError extends Error {}
 
@@ -240,6 +240,11 @@ export async function listWorktrees(cwd: string): Promise<WorktreeInfoRecord[]> 
 export async function removeSession(sessionId: string): Promise<void> {
 	await ensureDaemonRunning();
 	await request({type: 'remove', requestId: randomUUID(), sessionId});
+}
+
+export async function updateSessionNotes(sessionId: string, notes: string): Promise<SessionRecord> {
+	await ensureDaemonRunning();
+	return request<SessionRecord>({type: 'update-session-notes', requestId: randomUUID(), sessionId, notes});
 }
 
 export async function openPersistentConnection(): Promise<net.Socket> {
@@ -426,6 +431,10 @@ export class LiveClient {
 
 	removeSession(sessionId: string): Promise<void> {
 		return this.request({type: 'remove', requestId: randomUUID(), sessionId});
+	}
+
+	updateSessionNotes(sessionId: string, notes: string): Promise<SessionRecord> {
+		return this.request<SessionRecord>({type: 'update-session-notes', requestId: randomUUID(), sessionId, notes});
 	}
 
 	sendAgentInput(sessionId: string, data: string): void {

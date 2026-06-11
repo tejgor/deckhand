@@ -1,9 +1,11 @@
+import {spawn, spawnSync} from 'node:child_process';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Box, Text, useApp, useInput} from 'ink';
 import {LiveClient, createLiveClient} from './client.js';
 import {loadAppConfig, updateAppConfig} from './storage.js';
 import {DevPane} from './devPane.js';
 import {GitPane} from './gitPane.js';
+import {NotesPane} from './notesPane.js';
 import {PreviewPane} from './preview.js';
 import {Sidebar} from './sidebar.js';
 import {sortSessionsForSidebar} from './sessionOrder.js';
@@ -11,6 +13,20 @@ import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
 import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
 import {THEME, compactPath, displaySessionTitle, truncate} from './ui.js';
+
+const RIGHT_TABS: RightPaneTab[] = ['preview', 'terminal', 'git', 'dev', 'notes'];
+
+function resolveEditorCommand(): {command: string; args: string[]} | undefined {
+	const cli = spawnSync('sh', ['-lc', 'command -v cursor || command -v code'], {encoding: 'utf8'});
+	const command = cli.status === 0 ? cli.stdout.trim().split('\n')[0] : undefined;
+	if (command) {
+		return {command, args: []};
+	}
+	if (process.platform === 'darwin') {
+		return {command: 'open', args: ['-a', 'Cursor']};
+	}
+	return undefined;
+}
 
 const PROGRAMS: Array<{key: ProgramKey; label: string; glyph: string}> = [
 	{key: 'claude', label: 'Claude', glyph: '✶'},
@@ -111,7 +127,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help';
+type Mode = 'browse' | 'preview-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help';
 
 interface AppProps {
 	repoRoot: string;
@@ -361,10 +377,12 @@ function KillConfirmPane({session, sessions, selectedIndex, canDelete, canDelete
 
 function HelpPane({width}: {width: number}) {
 	const rows: Array<[string, string]> = [
-		['tab', 'cycle Preview / Terminal / Git / Dev'],
-		['p/t/g/d', 'jump to Preview / Terminal / Git / Dev'],
+		['tab', 'cycle Preview / Terminal / Git / Dev / Notes'],
+		['p/t/g/d/a', 'jump to Preview / Terminal / Git / Dev / Notes'],
+		['notes', 'select Notes then o to edit; esc exits edit'], 
 		['1..N', 'jump to numbered session'],
 		['o', 'attach active pane'],
+		['O', 'open session dir in Cursor/Code'],
 		['Ctrl+Space', 'return from attach'],
 		['n', 'new session'],
 		['j/k', 'move selection'],
@@ -402,15 +420,20 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 		const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
 		return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k fallback • esc/v return`;
 	}
+	if (mode === 'notes-focus') {
+		return 'notes edit • type to edit • enter newline • esc stop editing';
+	}
 	if (mode === 'browse') {
-		const attach = session?.status === 'running' ? 'o attach' : undefined;
+		const attach = session?.status === 'running' && activeTab !== 'notes' ? 'o attach' : undefined;
+		const openEditor = session ? 'O editor' : undefined;
 		const lifecycle = session?.status === 'exited'
 			? (session.worktree?.deletedAt ? 'worktree deleted • backspace remove' : 's resume • S fresh • backspace remove')
 			: session?.status === 'running' ? 'x kill • X force kill' : undefined;
 		const dev = activeTab === 'dev' && session?.status === 'running' ? 'd toggle dev' : undefined;
 		const merge = session?.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge' : undefined;
 		const previewFocus = activeTab === 'preview' && session?.status === 'running' ? 'v preview' : undefined;
-		return [attach, dev, merge, previewFocus, '[/] scroll ×', 'j/k select', 'J/K reorder', 'n new', 'N child', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
+		const notes = activeTab === 'notes' ? 'o edit notes' : 'a notes';
+		return [attach, openEditor, dev, merge, previewFocus, notes, '[/] scroll ×', 'j/k select', 'J/K reorder', 'n new', 'N child', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
 	}
 	if (mode === 'pick-program') {
 		return 'enter continue • esc cancel • j/k switch';
@@ -448,6 +471,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		...(initialSelectedId && initialActiveTab ? {[initialSelectedId]: initialActiveTab} : {}),
 	});
 	const [activeTab, setActiveTab] = useState<RightPaneTab>(initialSelectedId ? sessionTabsRef.current[initialSelectedId] ?? 'preview' : initialActiveTab ?? 'preview');
+	const [notesDraft, setNotesDraft] = useState('');
+	const lastSavedNotesRef = useRef<Record<string, string>>({});
 	const [previewScrollOffset, setPreviewScrollOffset] = useState(0);
 	const [previewScrollSensitivity, setPreviewScrollSensitivity] = useState(DEFAULT_SCROLL_SENSITIVITY);
 	const previewWheelAccumulatorRef = useRef(0);
@@ -497,6 +522,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (activeTab !== 'preview') {
 			setPreviewScrollOffset(0);
 			setMode(current => (current === 'preview-focus' ? 'browse' : current));
+		}
+		if (activeTab !== 'notes') {
+			setMode(current => (current === 'notes-focus' ? 'browse' : current));
 		}
 	}, [activeTab, onActiveTabChange, onSessionTabChange]);
 
@@ -675,6 +703,34 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	}, [selectedId, sessions]);
 
 	const selectedSession = sessions[selectedIndex];
+
+	useEffect(() => {
+		const notes = selectedSession?.notes ?? '';
+		if (selectedSession && lastSavedNotesRef.current[selectedSession.id] === undefined) {
+			lastSavedNotesRef.current[selectedSession.id] = notes;
+		}
+		setNotesDraft(notes);
+	}, [selectedSession?.id]);
+
+	useEffect(() => {
+		if (!client || !selectedSession) {
+			return;
+		}
+		const sessionId = selectedSession.id;
+		if ((lastSavedNotesRef.current[sessionId] ?? '') === notesDraft) {
+			return;
+		}
+		const timer = setTimeout(() => {
+			void client.updateSessionNotes(sessionId, notesDraft).then(updated => {
+				lastSavedNotesRef.current[sessionId] = updated.notes ?? '';
+				setSessions(current => upsertSession(current, updated));
+			}).catch(nextError => {
+				setError(nextError instanceof Error ? nextError.message : String(nextError));
+			});
+		}, 300);
+		return () => clearTimeout(timer);
+	}, [client, notesDraft, selectedSession?.id]);
+
 	const filteredWorktrees = useMemo(() => {
 		const terms = worktreeQuery
 			.toLowerCase()
@@ -997,6 +1053,43 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		};
 	}, [activeTab, client, layout.previewCols, layout.previewRows, selectedId]);
 
+	const updateNotesDraft = useCallback((updater: (current: string) => string) => {
+		if (!selectedSession) {
+			return;
+		}
+		setNotesDraft(current => {
+			const next = updater(current).slice(0, 50_000);
+			setSessions(sessions => {
+				const currentSession = sessions.find(session => session.id === selectedSession.id) ?? selectedSession;
+				return upsertSession(sessions, {...currentSession, notes: next});
+			});
+			return next;
+		});
+	}, [selectedSession]);
+
+	const openSelectedInEditor = useCallback(() => {
+		if (!selectedSession) {
+			setError('no session selected');
+			return;
+		}
+		const targetPath = selectedSession.worktree?.path ?? selectedSession.cwd;
+		const editor = resolveEditorCommand();
+		if (!editor) {
+			setError('could not find cursor or code command on PATH');
+			return;
+		}
+		try {
+			const child = spawn(editor.command, [...editor.args, targetPath], {
+				detached: true,
+				stdio: 'ignore',
+			});
+			child.unref();
+			setStatusMessage(`Opened ${targetPath} in ${editor.command.includes('cursor') || editor.args.includes('Cursor') ? 'Cursor' : 'Code'}`);
+		} catch (nextError) {
+			setError(nextError instanceof Error ? nextError.message : String(nextError));
+		}
+	}, [selectedSession]);
+
 	const toggleDevSelected = useCallback(async () => {
 		if (!client || !selectedSession || selectedSession.status !== 'running') {
 			return;
@@ -1209,6 +1302,33 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 
+		if (mode === 'notes-focus') {
+			if (key.escape) {
+				setMode('browse');
+				return;
+			}
+			if (input === 'O') {
+				openSelectedInEditor();
+				return;
+			}
+			if (key.backspace || key.delete) {
+				updateNotesDraft(value => value.slice(0, -1));
+				return;
+			}
+			if (key.return) {
+				updateNotesDraft(value => `${value}\n`);
+				return;
+			}
+			if (input) {
+				const cleaned = input.replace(/\r\n?|\n/g, '\n').replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '');
+				if (cleaned) {
+					updateNotesDraft(value => value + cleaned);
+				}
+				return;
+			}
+			return;
+		}
+
 		if (mode === 'browse') {
 			if (input === '[' || input === ']') {
 				adjustScrollSensitivity(input === ']' ? SCROLL_SENSITIVITY_STEP : -SCROLL_SENSITIVITY_STEP);
@@ -1267,7 +1387,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			}
 			if (key.tab) {
 				setPreviewScrollOffset(0);
-				setActiveTab(tab => (tab === 'preview' ? 'terminal' : tab === 'terminal' ? 'git' : tab === 'git' ? 'dev' : 'preview'));
+				setActiveTab(tab => RIGHT_TABS[(RIGHT_TABS.indexOf(tab) + 1) % RIGHT_TABS.length] ?? 'preview');
 				return;
 			}
 			if (input === 'p') {
@@ -1283,6 +1403,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if (input === 'g') {
 				setPreviewScrollOffset(0);
 				setActiveTab('git');
+				return;
+			}
+			if (input === 'a') {
+				setPreviewScrollOffset(0);
+				setActiveTab('notes');
 				return;
 			}
 			if (input === 'd') {
@@ -1348,6 +1473,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			}
 			if ((input === 's' || input === 'S') && selectedSession?.status === 'exited') {
 				void restartSelected(input === 'S' ? 'fresh' : 'resume');
+				return;
+			}
+			if (input === 'O') {
+				openSelectedInEditor();
+				return;
+			}
+			if (input === 'o' && activeTab === 'notes' && selectedSession) {
+				setMode('notes-focus');
 				return;
 			}
 			if (input === 'o' && selectedSession?.status === 'running') {
@@ -1556,7 +1689,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					spinnerFrame={spinnerFrame}
 				/>
 				<Box width={1} />
-				{mode === 'browse' || mode === 'preview-focus' ? (
+				{mode === 'browse' || mode === 'preview-focus' || mode === 'notes-focus' ? (
 					<Box
 						flexDirection="column"
 						width={layout.previewWidth}
@@ -1585,8 +1718,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							/>
 						) : activeTab === 'git' ? (
 							<GitPane session={selectedSession} git={git} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
-						) : (
+						) : activeTab === 'dev' ? (
 							<DevPane session={selectedSession} dev={dev} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
+						) : (
+							<NotesPane session={selectedSession} notes={notesDraft} width={layout.paneInnerWidth} height={layout.paneInnerHeight} focused={mode === 'notes-focus'} />
 						)}
 					</Box>
 				) : mode === 'help' ? (

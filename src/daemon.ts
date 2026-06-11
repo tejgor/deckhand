@@ -25,7 +25,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 19;
+const PROTOCOL_VERSION = 20;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
@@ -720,6 +720,9 @@ export class InkDaemon {
 					await this.broadcastDev(message.sessionId);
 					sendMessage(socket, response(message.requestId, {ok: true}));
 					return;
+				case 'update-session-notes':
+					sendMessage(socket, response(message.requestId, await this.updateSessionNotes(message.sessionId, message.notes)));
+					return;
 				case 'create': {
 					const session = await this.createSession(message.input);
 					sendMessage(socket, response(message.requestId, session));
@@ -1216,6 +1219,17 @@ export class InkDaemon {
 		this.sessions.set(sessionId, updated);
 		await this.persist();
 		this.broadcastSessionUpdated(updated);
+	}
+
+	private async updateSessionNotes(sessionId: string, notes: string): Promise<SessionRecord> {
+		const session = this.sessions.get(sessionId);
+		if (!session) throw new Error('session not found');
+		const normalizedNotes = notes.slice(0, 50_000);
+		const updated = {...session, notes: normalizedNotes, updatedAt: new Date().toISOString()};
+		this.sessions.set(sessionId, updated);
+		await this.persist();
+		this.broadcastSessionUpdated(updated);
+		return updated;
 	}
 
 	private schedulePreviewBroadcast(sessionId: string): void {

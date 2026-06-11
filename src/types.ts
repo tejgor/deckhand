@@ -5,7 +5,7 @@ export type AgentActivityStatus = 'unknown' | 'active' | 'idle';
 export type WorktreeMode = 'none' | 'new' | 'existing';
 export type SessionWorktreeMode = 'none' | 'managed' | 'attached';
 export type AttachTarget = 'agent' | 'terminal' | 'git' | 'dev';
-export type RightPaneTab = 'preview' | 'terminal' | 'git' | 'dev';
+export type RightPaneTab = 'preview' | 'terminal' | 'git' | 'dev' | 'notes';
 export type WorktreeMergeMode = 'merge' | 'squash';
 export type RestartMode = 'resume' | 'fresh';
 
@@ -68,6 +68,7 @@ export interface SessionRecord {
 	exitCode?: number | null;
 	exitSignal?: number | null;
 	lastPreview?: string;
+	notes?: string;
 	devRunning?: boolean;
 	parentSessionId?: string;
 	subSessionKind?: SubSessionKind;
@@ -138,6 +139,7 @@ export type ClientRequest =
 	| {type: 'watch-dev'; requestId: string; sessionId?: string; cols: number; rows: number}
 	| {type: 'start-dev'; requestId: string; sessionId: string; cols: number; rows: number}
 	| {type: 'stop-dev'; requestId: string; sessionId: string}
+	| {type: 'update-session-notes'; requestId: string; sessionId: string; notes: string}
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
 	| {type: 'reorder-session'; requestId: string; sessionId: string; direction: 'up' | 'down'}
 	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number; mode?: RestartMode}
