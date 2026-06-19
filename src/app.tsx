@@ -8,7 +8,7 @@ import {GitPane} from './gitPane.js';
 import {NotesPane} from './notesPane.js';
 import {PreviewPane} from './preview.js';
 import {Sidebar} from './sidebar.js';
-import {sortSessionsForSidebar} from './sessionOrder.js';
+import {filterCollapsedSessions, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
 import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
@@ -385,6 +385,7 @@ function HelpPane({width}: {width: number}) {
 		['O', 'open session dir in Cursor/Code'],
 		['Ctrl+Space', 'return from attach'],
 		['n', 'new session'],
+		['c', 'collapse/expand sub-sessions'],
 		['j/k', 'move selection'],
 		['v', 'focus preview scrolling'],
 		['preview: j/k', 'scroll preview'],
@@ -433,7 +434,8 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 		const merge = session?.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge' : undefined;
 		const previewFocus = activeTab === 'preview' && session?.status === 'running' ? 'v preview' : undefined;
 		const notes = activeTab === 'notes' ? 'o edit notes' : 'a notes';
-		return [attach, openEditor, dev, merge, previewFocus, notes, '[/] scroll ×', 'j/k select', 'J/K reorder', 'n new', 'N child', 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
+		const collapse = session ? 'c collapse' : undefined;
+		return [attach, openEditor, dev, merge, previewFocus, notes, '[/] scroll ×', 'j/k select', 'J/K reorder', 'n new', 'N child', collapse, 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
 	}
 	if (mode === 'pick-program') {
 		return 'enter continue • esc cancel • j/k switch';
@@ -454,6 +456,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const {exit} = useApp();
 	const [mode, setMode] = useState<Mode>('browse');
 	const [sessions, setSessions] = useState<SessionRecord[]>([]);
+	const [collapsedSessionIds, setCollapsedSessionIds] = useState<Set<string>>(() => new Set());
 	const [selectedId, setSelectedId] = useState<string | undefined>(initialSelectedId);
 	const [programIndex, setProgramIndex] = useState(0);
 	const [draftName, setDraftName] = useState('');
@@ -491,6 +494,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [spinnerIndex, setSpinnerIndex] = useState(0);
 	const selectedIdRef = useRef<string | undefined>(selectedId);
 	const sessionsRef = useRef<SessionRecord[]>(sessions);
+	const visibleSessions = useMemo(() => filterCollapsedSessions(sessions, collapsedSessionIds), [collapsedSessionIds, sessions]);
 
 	useEffect(() => {
 		selectedIdRef.current = selectedId;
@@ -684,25 +688,25 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 	useEffect(() => {
 		setSelectedId(currentId => {
-			if (sessions.length === 0) {
+			if (visibleSessions.length === 0) {
 				return currentId;
 			}
-			if (currentId && sessions.some(session => session.id === currentId)) {
+			if (currentId && visibleSessions.some(session => session.id === currentId)) {
 				return currentId;
 			}
-			return sessions[0]?.id;
+			return visibleSessions[0]?.id;
 		});
-	}, [sessions]);
+	}, [visibleSessions]);
 
 	const selectedIndex = useMemo(() => {
 		if (!selectedId) {
 			return 0;
 		}
-		const index = sessions.findIndex(session => session.id === selectedId);
+		const index = visibleSessions.findIndex(session => session.id === selectedId);
 		return index >= 0 ? index : 0;
-	}, [selectedId, sessions]);
+	}, [selectedId, visibleSessions]);
 
-	const selectedSession = sessions[selectedIndex];
+	const selectedSession = selectedId ? sessions.find(session => session.id === selectedId) : undefined;
 
 	useEffect(() => {
 		const notes = selectedSession?.notes ?? '';
@@ -830,13 +834,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 		const targetIndex = Number.parseInt(value, 10) - 1;
 		setNumericSelection('');
-		if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= sessions.length) {
-			setError(`no session ${value}`);
+		if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= visibleSessions.length) {
+			setError(`no visible session ${value}`);
 			return;
 		}
 		setError(undefined);
-		setSelectedId(sessions[targetIndex]?.id);
-	}, [sessions]);
+		setSelectedId(visibleSessions[targetIndex]?.id);
+	}, [visibleSessions]);
 
 	useEffect(() => {
 		if (!numericSelection) {
@@ -852,14 +856,31 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 	const moveSelection = useCallback(
 		(delta: number) => {
-			if (sessions.length === 0) {
+			if (visibleSessions.length === 0) {
 				return;
 			}
-			const nextIndex = (selectedIndex + delta + sessions.length) % sessions.length;
-			setSelectedId(sessions[nextIndex]?.id);
+			const nextIndex = (selectedIndex + delta + visibleSessions.length) % visibleSessions.length;
+			setSelectedId(visibleSessions[nextIndex]?.id);
 		},
-		[selectedIndex, sessions],
+		[selectedIndex, visibleSessions],
 	);
+
+	const toggleSelectedCollapse = useCallback(() => {
+		if (!selectedSession || !sessionHasChildren(selectedSession.id, sessions)) {
+			setError('selected session has no sub-sessions');
+			return;
+		}
+		setError(undefined);
+		setCollapsedSessionIds(current => {
+			const next = new Set(current);
+			if (next.has(selectedSession.id)) {
+				next.delete(selectedSession.id);
+			} else {
+				next.add(selectedSession.id);
+			}
+			return next;
+		});
+	}, [selectedSession, sessions]);
 
 	const reorderSelected = useCallback(async (direction: 'up' | 'down') => {
 		if (!client || !selectedSession) {
@@ -1354,7 +1375,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setNumericSelection('');
 			}
 			if (/^\d$/.test(input)) {
-				if (sessions.length <= 10) {
+				if (visibleSessions.length <= 10) {
 					confirmNumericSelection(input === '0' ? '10' : input);
 				} else {
 					setNumericSelection(input);
@@ -1425,6 +1446,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			}
 			if (input === 'v' && activeTab === 'preview' && selectedSession?.status === 'running') {
 				setMode('preview-focus');
+				return;
+			}
+			if (input === 'c') {
+				toggleSelectedCollapse();
 				return;
 			}
 			if (input === 'K') {
@@ -1682,11 +1707,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			</Box>
 			<Box flexDirection="row">
 				<Sidebar
-					sessions={sessions}
+					sessions={visibleSessions}
+					allSessions={sessions}
 					selectedId={selectedSession?.id}
 					width={layout.sidebarWidth}
 					height={layout.contentHeight}
 					spinnerFrame={spinnerFrame}
+					collapsedSessionIds={collapsedSessionIds}
 				/>
 				<Box width={1} />
 				{mode === 'browse' || mode === 'preview-focus' || mode === 'notes-focus' ? (

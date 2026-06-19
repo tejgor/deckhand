@@ -116,7 +116,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - Dev-running indicators:
   - selected session: green `●` suffix on the Dev tab
   - all sessions: subtle `▹` suffix in sidebar row
-- Sidebar has numbered per-row markers like `[1]`; typing the number jumps to that session. With 10 or fewer sessions, single-digit jumps are instant and `0` selects 10; with more than 10 sessions, numeric input is briefly buffered for multi-digit selection.
+- Sidebar has numbered per-row markers like `[1]`; typing the number jumps to that visible session. With 10 or fewer visible sessions, single-digit jumps are instant and `0` selects 10; with more than 10 visible sessions, numeric input is briefly buffered for multi-digit selection. Parent sessions with sub-sessions show `▾` / `▸` and can be expanded/collapsed.
 - Right pane is one rounded bordered frame with tab bar at the top; sub-panes are borderless content containers.
 
 ### Controls
@@ -128,6 +128,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
 - `j` / `k` move selected session
 - session numbers jump to matching sidebar rows; with more than 10 sessions, multi-digit input is buffered briefly and `enter` confirms immediately
 - `J` / `K` manually reorder selected session among its siblings
+- `c` collapses/expands the selected session's sub-session subtree in the sidebar
 - `N` creates a sub-session under the selected session; the normal agent picker creates clean sub-sessions in the parent's cwd/worktree by default, and Claude/Pi parents add a fourth `Fork parent` option. Claude forks send `/fork <dh-name>` so the fork receives Deckhand's deterministic child session name.
 - `h` / `l` resize sidebar
 - left/right arrows also resize sidebar in browse mode
@@ -392,6 +393,7 @@ Emitted event types include:
 - `src/client.ts` — daemon client, autostart, protocol version checks, persistent live client.
 - `src/daemon.ts` — supervisor daemon and IPC handling.
 - `src/sessionWorker.ts` — per-session PTY owner.
+- `src/sessionOrder.ts` — sidebar hierarchy sorting, depth, child detection, and collapse filtering.
 - `src/attach.ts` — full-screen attach/detach mode.
 - `src/storage.ts` — state/config loading and persistence.
 - `src/git.ts` — git repo, worktree, deletion, branch, and merge helpers.
@@ -507,6 +509,7 @@ Validated during development:
 - TypeScript build with deleted-worktree sessions marked non-restartable/non-mergeable
 - TypeScript build with post-removal cleanup of leftover worktree directories/remnants
 - TypeScript build with named Claude `/fork <dh-name>` creation
+- TypeScript build with collapsible sidebar sub-session trees
 - sanitizer behavior, including slash-preserving names
 - current/main worktree root lookup
 - `git worktree list --porcelain` parsing, including main worktree

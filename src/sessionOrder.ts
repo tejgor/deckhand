@@ -67,3 +67,44 @@ export function sessionDepth(session: SessionRecord, sessions: SessionRecord[]):
 	}
 	return depth;
 }
+
+export function sessionHasChildren(sessionId: string, sessions: SessionRecord[]): boolean {
+	return sessions.some(session => session.parentSessionId === sessionId);
+}
+
+export function countSessionDescendants(sessionId: string, sessions: SessionRecord[]): number {
+	const children = new Map<string, SessionRecord[]>();
+	for (const session of sessions) {
+		if (!session.parentSessionId) continue;
+		const siblings = children.get(session.parentSessionId) ?? [];
+		siblings.push(session);
+		children.set(session.parentSessionId, siblings);
+	}
+
+	let count = 0;
+	const stack = [...(children.get(sessionId) ?? [])];
+	const seen = new Set<string>([sessionId]);
+	while (stack.length > 0) {
+		const child = stack.pop()!;
+		if (seen.has(child.id)) continue;
+		seen.add(child.id);
+		count += 1;
+		stack.push(...(children.get(child.id) ?? []));
+	}
+	return count;
+}
+
+export function filterCollapsedSessions(sessions: SessionRecord[], collapsedSessionIds: ReadonlySet<string>): SessionRecord[] {
+	if (collapsedSessionIds.size === 0) return sessions;
+	const byId = new Map(sessions.map(session => [session.id, session]));
+	return sessions.filter(session => {
+		let parentId = session.parentSessionId;
+		const seen = new Set<string>([session.id]);
+		while (parentId && byId.has(parentId) && !seen.has(parentId)) {
+			if (collapsedSessionIds.has(parentId)) return false;
+			seen.add(parentId);
+			parentId = byId.get(parentId)?.parentSessionId;
+		}
+		return true;
+	});
+}

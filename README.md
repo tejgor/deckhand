@@ -128,9 +128,10 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | --- | --- |
 | `n` | New top-level session |
 | `N` | New sub-session under the selected session |
-| `1`–`9`, `0` | Jump to that numbered session (`0` selects session 10). Multi-digit jumps (e.g. `12`) work via brief buffering. |
-| `j` / `k` | Move between sessions |
+| `1`–`9`, `0` | Jump to that numbered visible session (`0` selects visible session 10). Multi-digit jumps (e.g. `12`) work via brief buffering. |
+| `j` / `k` | Move between visible sessions |
 | `J` / `K` | Move the selected session down / up among its siblings (order is persisted) |
+| `c` | Collapse or expand the selected session's sub-sessions in the sidebar |
 | `tab` | Cycle the Preview / Terminal / Git / Dev / Notes tabs |
 | `p` / `t` / `g` / `d` / `a` | Jump directly to Preview / Terminal / Git / Dev / Notes |
 | `d` *(on Dev tab)* | Start or stop the selected session's Dev command |
@@ -177,7 +178,7 @@ New worktrees are created through a [project hook](#-worktree-hooks) when one is
 
 ### Sub-sessions
 
-Press `N` on a selected session to create a sub-session for related follow-up work. Sub-sessions render indented under their parent in the sidebar.
+Press `N` on a selected session to create a sub-session for related follow-up work. Sub-sessions render indented under their parent in the sidebar; press `c` on a parent to collapse or expand its subtree.
 
 - Choosing `claude`, `pi`, or `codex` creates a **clean** sub-session — a fresh agent context in the parent's directory or worktree.
 - For Claude and Pi parents, choosing **`Fork parent`** resumes the parent's conversation and sends `/fork`. *(Claude's fork input includes an insert-mode safeguard for users with vim mode enabled.)*
