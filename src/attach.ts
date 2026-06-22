@@ -181,6 +181,22 @@ function attachRows(): number {
 	return Math.max(1, process.stdout.rows || 24);
 }
 
+function enterAttachScreen(): void {
+	if (!process.stdout.isTTY) {
+		return;
+	}
+	resetTerminalState();
+	process.stdout.write('\x1b[?1049h\x1b[2J\x1b[H');
+}
+
+function leaveAttachScreen(): void {
+	if (!process.stdout.isTTY) {
+		return;
+	}
+	resetTerminalState();
+	process.stdout.write('\x1b[?1049l');
+}
+
 export async function attachSession(sessionId: string, target: AttachTarget = 'agent', options: AttachSessionOptions = {}): Promise<void> {
 	const socket = await openPersistentConnection();
 	const requestId = randomUUID();
@@ -190,6 +206,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 	const originalProcessTitle = process.title || 'deckhand';
 	let attached = false;
 	let cleanedUp = false;
+	let attachScreenEntered = false;
 	let titleSet = false;
 
 	await new Promise<void>((resolve, reject) => {
@@ -205,7 +222,11 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 			}
 			cleanedUp = true;
 			restoreRawMode();
-			resetTerminalState();
+			if (attachScreenEntered) {
+				leaveAttachScreen();
+			} else {
+				resetTerminalState();
+			}
 			if (titleSet) {
 				setTerminalTitle('deckhand');
 				setProcessTitle(originalProcessTitle);
@@ -258,6 +279,8 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 					return;
 				}
 				attached = true;
+				enterAttachScreen();
+				attachScreenEntered = true;
 				const nextTitle = attachedTerminalTitle(sessionId, target, options);
 				setTerminalTitle(nextTitle);
 				setProcessTitle(nextTitle);
