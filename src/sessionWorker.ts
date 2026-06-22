@@ -109,6 +109,7 @@ class SessionWorker {
 	private terminal?: RuntimePty;
 	private git?: RuntimePty;
 	private dev?: RuntimePty;
+	private paneStartPromises = new Map<'git' | 'dev', Promise<RuntimePty>>();
 	private attached = new Set<AttachTarget>();
 
 	async start(): Promise<void> {
@@ -187,19 +188,46 @@ class SessionWorker {
 	private async ensureGit(cols: number, rows: number): Promise<RuntimePty> {
 		if (!this.session) throw new Error('session does not exist');
 		if (this.git && !this.git.exited) return this.resizeRuntime(this.git, cols, rows);
-		this.cleanup('git');
-		this.git = this.spawnPane('git', await lazyGitCommand(), [], this.session.cwd, cols, rows);
-		return this.git;
+		const pending = this.paneStartPromises.get('git');
+		if (pending) return this.resizeRuntime(await pending, cols, rows);
+
+		const start = (async () => {
+			this.cleanup('git');
+			const command = await lazyGitCommand();
+			if (this.git && !this.git.exited) return this.git;
+			if (!this.session) throw new Error('session does not exist');
+			this.git = this.spawnPane('git', command, [], this.session.cwd, cols, rows);
+			return this.git;
+		})();
+		this.paneStartPromises.set('git', start);
+		try {
+			return await start;
+		} finally {
+			if (this.paneStartPromises.get('git') === start) this.paneStartPromises.delete('git');
+		}
 	}
 
 	private async startDev(cols: number, rows: number): Promise<DevRecord> {
 		if (!this.session) throw new Error('session does not exist');
 		if (this.dev && !this.dev.exited) return this.buildDevRecord(await this.resizeRuntime(this.dev, cols, rows));
-		this.cleanup('dev');
-		const config = await loadAppConfig();
-		const command = config.dev_command?.trim() || 'dev';
-		this.dev = this.spawnPane('dev', shellCommand(), ['-ic', command], this.session.cwd, cols, rows, command);
-		return this.buildDevRecord(this.dev);
+		const pending = this.paneStartPromises.get('dev');
+		if (pending) return this.buildDevRecord(await this.resizeRuntime(await pending, cols, rows));
+
+		const start = (async () => {
+			this.cleanup('dev');
+			const config = await loadAppConfig();
+			const command = config.dev_command?.trim() || 'dev';
+			if (this.dev && !this.dev.exited) return this.dev;
+			if (!this.session) throw new Error('session does not exist');
+			this.dev = this.spawnPane('dev', shellCommand(), ['-ic', command], this.session.cwd, cols, rows, command);
+			return this.dev;
+		})();
+		this.paneStartPromises.set('dev', start);
+		try {
+			return this.buildDevRecord(await start);
+		} finally {
+			if (this.paneStartPromises.get('dev') === start) this.paneStartPromises.delete('dev');
+		}
 	}
 
 	private spawnPane(target: 'terminal' | 'git' | 'dev', command: string, args: string[], cwd: string, cols: number, rows: number, label?: string): RuntimePty {

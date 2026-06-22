@@ -11,7 +11,7 @@ import {Sidebar} from './sidebar.js';
 import {filterCollapsedSessions, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
-import type {DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
+import type {AttachTarget, DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
 import {THEME, compactPath, displaySessionTitle, truncate} from './ui.js';
 
 const RIGHT_TABS: RightPaneTab[] = ['preview', 'terminal', 'git', 'dev', 'notes'];
@@ -62,6 +62,8 @@ const WORKTREE_MODES: Array<{key: WorktreeMode; label: string}> = [
 ];
 const DEFAULT_SCROLL_SENSITIVITY = 0.12;
 const SCROLL_SENSITIVITY_STEP = 0.04;
+const STATUS_MESSAGE_AUTO_HIDE_MS = 5000;
+const ERROR_MESSAGE_AUTO_HIDE_MS = 8000;
 
 const ANSI_ESCAPE_PATTERN = /\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\))/g;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/g;
@@ -416,7 +418,7 @@ function HelpPane({width}: {width: number}) {
 	);
 }
 
-function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY): string {
+function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true): string {
 	if (mode === 'preview-focus') {
 		const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
 		return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k fallback • esc/v return`;
@@ -425,7 +427,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 		return 'notes edit • type to edit • enter newline • esc stop editing';
 	}
 	if (mode === 'browse') {
-		const attach = session?.status === 'running' && activeTab !== 'notes' ? 'o attach' : undefined;
+		const attach = session?.status === 'running' && activeTab !== 'notes' ? (attachReady ? 'o attach' : 'loading…') : undefined;
 		const openEditor = session ? 'O editor' : undefined;
 		const lifecycle = session?.status === 'exited'
 			? (session.worktree?.deletedAt ? 'worktree deleted • backspace remove' : 's resume • S fresh • backspace remove')
@@ -495,6 +497,28 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const selectedIdRef = useRef<string | undefined>(selectedId);
 	const sessionsRef = useRef<SessionRecord[]>(sessions);
 	const visibleSessions = useMemo(() => filterCollapsedSessions(sessions, collapsedSessionIds), [collapsedSessionIds, sessions]);
+
+	useEffect(() => {
+		if (!statusMessage) {
+			return;
+		}
+		const currentMessage = statusMessage;
+		const timer = setTimeout(() => {
+			setStatusMessage(message => (message === currentMessage ? undefined : message));
+		}, STATUS_MESSAGE_AUTO_HIDE_MS);
+		return () => clearTimeout(timer);
+	}, [statusMessage]);
+
+	useEffect(() => {
+		if (!error) {
+			return;
+		}
+		const currentError = error;
+		const timer = setTimeout(() => {
+			setError(message => (message === currentError ? undefined : message));
+		}, ERROR_MESSAGE_AUTO_HIDE_MS);
+		return () => clearTimeout(timer);
+	}, [error]);
 
 	useEffect(() => {
 		selectedIdRef.current = selectedId;
@@ -707,6 +731,15 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	}, [selectedId, visibleSessions]);
 
 	const selectedSession = selectedId ? sessions.find(session => session.id === selectedId) : undefined;
+	const activeAttachTarget: AttachTarget = activeTab === 'terminal' ? 'terminal' : activeTab === 'git' ? 'git' : activeTab === 'dev' ? 'dev' : 'agent';
+	const activePaneReadyForAttach = Boolean(
+		selectedSession?.status === 'running' && (
+			activeAttachTarget === 'agent' ||
+			(activeAttachTarget === 'terminal' && terminal.sessionId === selectedSession.id && terminal.live) ||
+			(activeAttachTarget === 'git' && git.sessionId === selectedSession.id && git.live) ||
+			(activeAttachTarget === 'dev' && dev.sessionId === selectedSession.id && dev.live)
+		),
+	);
 
 	useEffect(() => {
 		const notes = selectedSession?.notes ?? '';
@@ -1513,10 +1546,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					setError('start the dev command with d before attaching');
 					return;
 				}
+				if (!activePaneReadyForAttach) {
+					setError(`${activeAttachTarget === 'git' ? 'Git' : activeAttachTarget === 'terminal' ? 'Terminal' : 'Dev'} tab is still loading; wait for it to appear before attaching`);
+					return;
+				}
 				exit({
 					kind: 'attach',
 					sessionId: selectedSession.id,
-					target: activeTab === 'terminal' ? 'terminal' : activeTab === 'git' ? 'git' : activeTab === 'dev' ? 'dev' : 'agent',
+					target: activeAttachTarget,
 					title: displaySessionTitle(selectedSession, sessions),
 					cwd: selectedSession.cwd,
 				} satisfies UiExitResult);
@@ -1787,7 +1824,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					/>
 				)}
 			</Box>
-			<Text color={THEME.muted}>{footerHint(mode, activeTab, selectedSession, previewScrollSensitivity)}</Text>
+			<Text color={THEME.muted}>{footerHint(mode, activeTab, selectedSession, previewScrollSensitivity, activePaneReadyForAttach)}</Text>
 			{numericSelection ? <Text color={THEME.active}>Select session: {numericSelection}</Text> : null}
 			{busy ? <Text color={THEME.warn}>Working…</Text> : null}
 			{statusMessage ? <Text color={THEME.success}>{statusMessage}</Text> : null}

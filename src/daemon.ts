@@ -318,6 +318,7 @@ export class InkDaemon {
 	private readonly terminals = new Map<string, RuntimeTerminal>();
 	private readonly gits = new Map<string, RuntimeTerminal>();
 	private readonly devs = new Map<string, RuntimeTerminal & {command: string}>();
+	private readonly gitStartPromises = new Map<string, Promise<RuntimeTerminal>>();
 	private readonly workers = new Map<string, WorkerRuntime>();
 	private readonly clients = new Map<net.Socket, ClientSubscription>();
 	private server?: net.Server;
@@ -1577,41 +1578,59 @@ export class InkDaemon {
 			}
 		}
 
-		const command = await resolveLazyGitCommand();
-		const term = pty.spawn(command, [], {
-			name: 'xterm-256color',
-			cwd: session.cwd,
-			env: {...process.env},
-			cols: Math.max(1, cols),
-			rows: Math.max(1, rows),
-		});
-		const git: RuntimeTerminal = {
-			term,
-			scrollback: '',
-			preview: new TerminalPreview(cols, rows),
-			cwd: session.cwd,
-			exited: false,
-		};
-		this.gits.set(sessionId, git);
+		const pending = this.gitStartPromises.get(sessionId);
+		if (pending) {
+			const git = await pending;
+			git.term.resize(Math.max(1, cols), Math.max(1, rows));
+			await git.preview.resize(cols, rows);
+			return git;
+		}
 
-		term.onData(output => {
-			git.scrollback = clampScrollback(git.scrollback + output);
-			void git.preview.write(output);
+		const start = (async () => {
+			const command = await resolveLazyGitCommand();
+			const current = this.gits.get(sessionId);
+			if (current && !current.exited) return current;
+			const term = pty.spawn(command, [], {
+				name: 'xterm-256color',
+				cwd: session.cwd,
+				env: {...process.env},
+				cols: Math.max(1, cols),
+				rows: Math.max(1, rows),
+			});
+			const git: RuntimeTerminal = {
+				term,
+				scrollback: '',
+				preview: new TerminalPreview(cols, rows),
+				cwd: session.cwd,
+				exited: false,
+			};
+			this.gits.set(sessionId, git);
+
+			term.onData(output => {
+				git.scrollback = clampScrollback(git.scrollback + output);
+				void git.preview.write(output);
+				this.scheduleGitBroadcast(sessionId);
+				if (git.attachedSocket && !git.attachedSocket.destroyed) {
+					sendMessage(git.attachedSocket, {type: 'git-output', sessionId, data: output});
+				}
+			});
+
+			term.onExit(({exitCode, signal}) => {
+				git.exited = true;
+				git.exitCode = exitCode ?? null;
+				git.exitSignal = signal ?? null;
+				void this.broadcastGit(sessionId);
+			});
+
 			this.scheduleGitBroadcast(sessionId);
-			if (git.attachedSocket && !git.attachedSocket.destroyed) {
-				sendMessage(git.attachedSocket, {type: 'git-output', sessionId, data: output});
-			}
-		});
-
-		term.onExit(({exitCode, signal}) => {
-			git.exited = true;
-			git.exitCode = exitCode ?? null;
-			git.exitSignal = signal ?? null;
-			void this.broadcastGit(sessionId);
-		});
-
-		this.scheduleGitBroadcast(sessionId);
-		return git;
+			return git;
+		})();
+		this.gitStartPromises.set(sessionId, start);
+		try {
+			return await start;
+		} finally {
+			if (this.gitStartPromises.get(sessionId) === start) this.gitStartPromises.delete(sessionId);
+		}
 	}
 
 	private cleanupGit(sessionId: string): void {
