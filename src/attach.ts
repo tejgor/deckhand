@@ -286,10 +286,12 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 
 		const onInput = (data: Buffer | string) => {
 			const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data);
-			// Ctrl+Space is encoded as NUL (0x00) in raw mode. Reserve it as
-			// Deckhand's universal attach escape, including Pi agent sessions.
-			// Ctrl+] (0x1d) remains a secondary attach escape hatch.
-			const shouldDetach = chunk.includes(0x1d) || chunk.includes(0x00);
+			// Ctrl+Space is encoded as NUL (0x00). Non-Claude agent TUIs may use it
+			// as an application keybinding, so forward it for Pi/Codex and use Ctrl+]
+			// as Deckhand's attach escape there. Keep Ctrl+Space detach for Claude and
+			// auxiliary terminal/git/dev panes.
+			const forwardsControlSpace = target === 'agent' && options.program !== undefined && options.program !== 'claude';
+			const shouldDetach = chunk.includes(0x1d) || (!forwardsControlSpace && chunk.includes(0x00));
 			if (shouldDetach) {
 				writeMessage(socket, {type: names.detach, sessionId});
 				finish();

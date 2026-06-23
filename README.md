@@ -156,7 +156,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | Key | Action |
 | --- | --- |
 | *(most keys)* | Sent directly to the attached pane/session |
-| `Ctrl+Space` | Detach and return to Deckhand |
+| `Ctrl+Space` | Detach and return to Deckhand; forwarded to non-Claude agent sessions |
 | `Ctrl+]` | Detach and return to Deckhand |
 
 ---
