@@ -3,10 +3,11 @@ import process from 'node:process';
 import type net from 'node:net';
 import {attachJsonParser, openPersistentConnection, writeMessage} from './client.js';
 import {resetTerminalState} from './terminalState.js';
-import type {AttachTarget, SessionRecord} from './types.js';
+import type {AttachTarget, ProgramKey, SessionRecord} from './types.js';
 
 interface AttachSessionOptions {
 	title?: string;
+	program?: ProgramKey;
 	scrollSensitivity?: number;
 }
 
@@ -142,18 +143,28 @@ function normalizeScrollSensitivity(value: number | undefined): number {
 	return Math.max(0, Math.min(1, value));
 }
 
-function createAttachInputNormalizer(scrollSensitivity: number): (data: string) => string {
+function createAttachInputNormalizer(program: ProgramKey | undefined, scrollSensitivity: number): (data: string) => string {
 	let verticalWheelAccumulator = 0;
-	const wheelPattern = /\x1b\[<(6[4-7]);\d+;\d+[mM]/g;
+	const wheelPattern = /\x1b\[<(6[4-7]);\d+;\d+(?:;\d+;\d+)?[mM]/g;
 
 	return (data: string) => data.replace(wheelPattern, match => {
-		const code = Number.parseInt(match.slice(3, 5), 10);
-		if (code === 64 || code === 65) {
-			verticalWheelAccumulator += scrollSensitivity;
-			if (verticalWheelAccumulator < 1) {
-				return '';
-			}
-			verticalWheelAccumulator -= 1;
+		const codeMatch = /^\x1b\[<(6[4-7]);/.exec(match);
+		const code = codeMatch ? Number.parseInt(codeMatch[1], 10) : 0;
+		if (code !== 64 && code !== 65) {
+			return match;
+		}
+
+		verticalWheelAccumulator += scrollSensitivity;
+		if (verticalWheelAccumulator < 1) {
+			return '';
+		}
+		verticalWheelAccumulator -= 1;
+
+		// Claude's TUI handles mouse wheel events directly. Pi's documented scroll
+		// actions are PageUp/PageDown, and it does not currently consume wheel
+		// events in attach mode, so translate vertical wheel input for Pi.
+		if (program === 'pi') {
+			return code === 64 ? '\x1b[5~' : '\x1b[6~';
 		}
 		return match;
 	});
@@ -189,6 +200,19 @@ function enterAttachScreen(): void {
 	process.stdout.write('\x1b[?1049h\x1b[2J\x1b[H');
 }
 
+function enableAttachMouseReporting(): void {
+	if (!process.stdout.isTTY) {
+		return;
+	}
+	// Deckhand's attach view owns the outer terminal while proxying input to the
+	// child PTY. Some agent TUIs (Claude) enable mouse reporting themselves, but
+	// Pi currently does not; in an alternate screen most terminals then turn the
+	// wheel into Up/Down arrow keys. Enabling basic SGR mouse reporting here keeps
+	// wheel input as mouse events so the attach input normalizer can throttle and
+	// forward them to the agent instead of sending arrows.
+	process.stdout.write('\x1b[?1000h\x1b[?1006h');
+}
+
 function leaveAttachScreen(): void {
 	if (!process.stdout.isTTY) {
 		return;
@@ -201,8 +225,9 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 	const socket = await openPersistentConnection();
 	const requestId = randomUUID();
 	const names = targetRequestNames(target);
-	const normalizeAttachInput = createAttachInputNormalizer(normalizeScrollSensitivity(options.scrollSensitivity));
+	const normalizeAttachInput = createAttachInputNormalizer(options.program, normalizeScrollSensitivity(options.scrollSensitivity));
 	const filterTerminalTitleOutput = createTerminalTitleOutputFilter();
+	const useAttachScreen = target !== 'agent' || options.program === 'claude' || options.program === undefined;
 	const originalProcessTitle = process.title || 'deckhand';
 	let attached = false;
 	let cleanedUp = false;
@@ -261,7 +286,11 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 
 		const onInput = (data: Buffer | string) => {
 			const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data);
-			if (chunk.includes(0x00)) {
+			// Ctrl+Space is encoded as NUL (0x00) in raw mode. Reserve it as
+			// Deckhand's universal attach escape, including Pi agent sessions.
+			// Ctrl+] (0x1d) remains a secondary attach escape hatch.
+			const shouldDetach = chunk.includes(0x1d) || chunk.includes(0x00);
+			if (shouldDetach) {
 				writeMessage(socket, {type: names.detach, sessionId});
 				finish();
 				return;
@@ -279,8 +308,18 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 					return;
 				}
 				attached = true;
-				enterAttachScreen();
-				attachScreenEntered = true;
+				// The Ink dashboard enables terminal mouse reporting. When attaching to Pi
+				// without Claude's alternate-screen setup, leaving that mode enabled causes
+				// trackpad scrolls to be delivered as input instead of scrolling the IDE
+				// terminal's normal scrollback. Always reset modes at attach handoff.
+				resetTerminalState();
+				if (useAttachScreen) {
+					enterAttachScreen();
+					attachScreenEntered = true;
+				}
+				if (target === 'agent' && (options.program === 'claude' || options.program === undefined)) {
+					enableAttachMouseReporting();
+				}
 				const nextTitle = attachedTerminalTitle(sessionId, target, options);
 				setTerminalTitle(nextTitle);
 				setProcessTitle(nextTitle);

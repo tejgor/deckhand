@@ -155,8 +155,9 @@ Press `o` to attach to the selected session's active pane. To branch off related
 
 | Key | Action |
 | --- | --- |
-| *(any key)* | Sent directly to the attached pane/session |
+| *(most keys)* | Sent directly to the attached pane/session |
 | `Ctrl+Space` | Detach and return to Deckhand |
+| `Ctrl+]` | Detach and return to Deckhand |
 
 ---
 

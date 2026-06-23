@@ -195,4 +195,4 @@ export type ServerMessage = ServerResponse | ServerEvent;
 
 export type UiExitResult =
 	| {kind: 'quit'}
-	| {kind: 'attach'; sessionId: string; target: AttachTarget; title?: string; cwd?: string};
+	| {kind: 'attach'; sessionId: string; target: AttachTarget; title?: string; cwd?: string; program?: ProgramKey};

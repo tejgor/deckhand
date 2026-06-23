@@ -104,7 +104,7 @@ async function main(): Promise<void> {
 			clearTerminalScreen();
 			try {
 				const config = await loadAppConfig();
-				await attachSession(result.sessionId, result.target, {title: result.title, scrollSensitivity: config.attach_scroll_sensitivity});
+				await attachSession(result.sessionId, result.target, {title: result.title, program: result.program, scrollSensitivity: config.attach_scroll_sensitivity});
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				process.stderr.write(`\nattach failed: ${message}\n`);

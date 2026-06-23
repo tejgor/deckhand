@@ -18,7 +18,7 @@ Implemented behavior:
   - active right-pane tab is remembered per session within the frontend/attach loop
 - daemon-side terminal preview rendering using `@xterm/headless`
 - read-only Preview focus mode with scrolling
-- external full-screen attach/detach for agent, terminal, git, and dev PTYs
+- external attach/detach for agent, terminal, git, and dev PTYs
 - create/restart/kill/remove flows for `claude`, `pi`, and `codex`
 - worktree modes:
   - no worktree
@@ -152,7 +152,7 @@ Workers spawn agents with persisted `session.args`, not just the bare command, s
   - Notes => enters notes edit/focus mode
 - `O` opens the selected session directory/worktree in Cursor if available, otherwise Code (`cursor`/`code` CLI, macOS falls back to `open -a Cursor`)
 - attach mode title is `dh/<pane> <session>`
-- `Ctrl+Space` detaches back to Deckhand
+- `Ctrl+Space` or `Ctrl+]` detaches back to Deckhand
 - `m` opens merge/squash/cancel confirmation for worktree-backed sessions
 - `x` kills selected running session
 - for worktree-backed sessions, `x` opens keep/delete/delete-branch/cancel when applicable
@@ -394,7 +394,7 @@ Emitted event types include:
 - `src/daemon.ts` — supervisor daemon and IPC handling.
 - `src/sessionWorker.ts` — per-session PTY owner.
 - `src/sessionOrder.ts` — sidebar hierarchy sorting, depth, child detection, and collapse filtering.
-- `src/attach.ts` — full-screen attach/detach mode.
+- `src/attach.ts` — external attach/detach mode.
 - `src/storage.ts` — state/config loading and persistence.
 - `src/git.ts` — git repo, worktree, deletion, branch, and merge helpers.
 - `src/paths.ts` — config/socket/PID/log/runtime path helpers.
@@ -434,7 +434,7 @@ Emitted event types include:
 - Sets/reasserts terminal/window title with OSC 0/2 and best-effort `process.title`.
 - Puts stdin in raw mode.
 - Dampens matched vertical mouse wheel events using `attach_scroll_sensitivity`.
-- Detaches on `Ctrl+Space`.
+- Detaches on `Ctrl+Space` or `Ctrl+]`.
 - On cleanup, resets terminal modes such as scroll regions, mouse/focus tracking, bracketed paste, and child-owned alternate screens.
 
 ### `src/nodePty.ts` and `scripts/fix-node-pty.js`

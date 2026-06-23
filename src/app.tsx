@@ -385,7 +385,7 @@ function HelpPane({width}: {width: number}) {
 		['1..N', 'jump to numbered session'],
 		['o', 'attach active pane'],
 		['O', 'open session dir in Cursor/Code'],
-		['Ctrl+Space', 'return from attach'],
+		['Ctrl+Space / Ctrl+]', 'return from attach'],
 		['n', 'new session'],
 		['c', 'collapse/expand sub-sessions'],
 		['j/k', 'move selection'],
@@ -1556,6 +1556,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					target: activeAttachTarget,
 					title: displaySessionTitle(selectedSession, sessions),
 					cwd: selectedSession.cwd,
+					program: selectedSession.program,
 				} satisfies UiExitResult);
 			}
 			return;
