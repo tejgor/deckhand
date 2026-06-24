@@ -1,182 +1,208 @@
 # Deckhand Handoff
 
-This is the continuity document for Deckhand. It should preserve implementation details that matter for future development while avoiding repeated prose.
+Continuity notes for future Deckhand development. Keep this file focused on implementation details that are not obvious from the README or a quick file scan.
 
-## Current state
+## Snapshot
 
-Deckhand is a standalone TypeScript/Ink application backed by a long-lived local Node daemon. It is inspired by `claude-squad`, but it has its own state, protocol, daemon model, and session lifecycle.
+Deckhand is a standalone TypeScript/Ink app backed by a long-lived local Node daemon. It is inspired by `claude-squad`, but owns its own state, IPC protocol, worker model, and session lifecycle.
+
+Package/runtime facts:
+
+- npm package: `@tejgor/deckhand`
+- binary: `deckhand`
+- supported Node: `>=20`
+- supported OS in package metadata: `darwin`, `linux`
+- package is ESM (`"type": "module"`)
+- build output lives in `dist/`; dev mode uses `tsx`
 
 Implemented behavior:
 
-- standalone Ink UI
-- supervisor daemon with local IPC over `~/.deckhand/daemon.sock`
-- per-session worker processes that own PTYs through `node-pty`
-- repo-scoped session list with manual sidebar ordering plus clean/forked sub-session nesting
-- persistent split layout:
-  - left session sidebar
-  - right tabbed pane: Preview, Terminal, Git, Dev, Notes
-  - active right-pane tab is remembered per session within the frontend/attach loop
-- daemon-side terminal preview rendering using `@xterm/headless`
-- read-only Preview focus mode with scrolling
-- external attach/detach for agent, terminal, git, and dev PTYs
-- create/restart/kill/remove flows for `claude`, `pi`, and `codex`
-- worktree modes:
-  - no worktree
-  - new managed worktree
-  - existing/attached worktree
-- safe worktree deletion and optional branch deletion on kill, including cleanup of leftover worktree directories/remnants
-- merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing
-  - no new commits => skipped with a warning
-  - conflicts => expected resolvable state, not a Deckhand error
-- lazy Git tab backed by daemon-owned `lazygit`
-- explicit Dev tab backed by configurable global dev command
-- preview-change based active/idle detection without agent hooks
-- frozen last preview frame for exited sessions
-- stale-session cleanup after daemon restart
-- daemon PID/log files and protocol-version safeguards
+- Ink dashboard with sidebar plus Preview, Terminal, Git, Dev, and Notes tabs.
+- Local daemon IPC over `~/.deckhand/daemon.sock`.
+- One worker process per running session; workers own the live PTYs.
+- Supported agents: `claude`, `pi`, `codex`.
+- Session create/restart/kill/remove flows, including resume/fresh restart where supported.
+- Sub-sessions under parent sessions, with clean and forked variants for Claude/Pi parents.
+- Repo-scoped session list with persisted manual ordering among siblings and collapsible subtrees.
+- Daemon-side terminal preview rendering with `@xterm/headless`.
+- Read-only Preview focus mode with scrollback; Claude gets synthetic wheel input because its TUI behaves differently.
+- External attach/detach for agent, terminal, git, and dev PTYs.
+- Worktree modes: no worktree, new managed worktree, existing/attached worktree.
+- Safe worktree deletion, optional branch deletion, and cleanup of leftover directories/remnants.
+- Merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing.
+- Lazy Git tab powered by `lazygit` when installed.
+- Dev tab powered by configurable global `dev_command`.
+- Per-session persisted Notes tab.
+- Preview-change-based active/idle detection without agent hooks.
+- Frozen last preview frame for exited sessions.
+- Stale-session cleanup after daemon restart.
+- Daemon PID/log files and protocol-version safeguards.
+- `deckhand setup` / `deckhand doctor` helper for checking/installing supported agents.
 
 ## Architecture
 
 ### Core model
 
 - Frontend is disposable UI/controller.
-- Daemon is the source of truth for live control state.
+- Daemon is the source of truth for persisted session metadata and live control routing.
 - Workers own PTY runtime for individual sessions.
-- A worker crash should exit only that session, not the daemon.
-- Daemon crash/restart does **not** preserve live PTYs; stale running sessions are marked exited on next daemon start.
+- A worker crash exits only that session, not the daemon.
+- Frontend quit does not kill running sessions.
+- Daemon crash/restart does **not** preserve live PTYs; persisted non-exited sessions are marked exited on next daemon start.
 
-### Frontend
+### Frontend (`src/app.tsx`, `src/cli.ts`)
 
-`src/app.tsx` renders the Ink UI and talks to the daemon through `src/client.ts`.
+`src/cli.ts` chooses between UI, daemon, session-worker, and setup/doctor modes. Normal UI flow enters an alternate screen, renders `App`, exits Ink for attach mode, then re-enters Ink after detach while preserving in-process UI state such as selected session, selected tab, sidebar width, and per-session tab selection.
 
-The UI:
+`src/app.tsx`:
 
 - filters sessions to the current repo
-- subscribes to session updates
+- subscribes to daemon updates
 - watches preview/pane updates for the selected session
-- manages create, merge, kill, restart, remove, attach, and Dev command actions
+- owns create, merge, kill, restart, remove, attach, editor-open, Notes, and Dev-command actions
 - reconnects if the daemon connection drops
+- uses pane replacements for create/worktree picker/kill/merge/help rather than true overlays/modals
 
-### Daemon
-
-`src/daemon.ts` is the supervisor/control plane.
+### Daemon (`src/daemon.ts`)
 
 Responsibilities:
 
 - load/save persisted session metadata
 - own the IPC socket
 - start/stop session workers
-- route attach/input/resize requests to workers
-- receive worker snapshots and lifecycle messages
+- route attach/input/resize/snapshot requests to workers
+- receive worker snapshots, output, and lifecycle messages
 - broadcast session, preview, terminal, git, and dev events
 - manage worktree creation/deletion/merge safety
-- manage daemon PID and lifecycle logging
+- manage daemon PID, socket lifecycle, and logging
 
-### Workers
+Important technical-debt note: `src/daemon.ts` still contains legacy in-daemon PTY runtime maps and methods (`runtime`, `terminals`, `gits`, `devs`) used as fallback paths if a session has no worker. Current create/restart paths start workers, so be careful not to duplicate fixes across both paths unless the legacy fallback still matters.
 
-`src/sessionWorker.ts` owns all PTYs for one session:
+### Workers (`src/sessionWorker.ts`)
+
+Each worker owns all live PTYs for one session:
 
 - agent PTY
 - companion shell/Terminal PTY
 - companion Git/lazygit PTY
 - companion Dev PTY
-- daemon-side preview models using `@xterm/headless`
+- `@xterm/headless` preview models for all panes
 
 Workers spawn agents with persisted `session.args`, not just the bare command, so restarts can resume supported agents.
 
-## Important design rules
+Worker stdout/stderr are appended to per-session files under `~/.deckhand/workers/`.
+
+## Design rules
 
 - Lifecycle and activity are distinct:
   - lifecycle `status`: `starting`, `running`, `exited`
   - activity `agentStatus`: `unknown`, `active`, `idle`
 - Activity is inferred from visible preview changes, not agent-specific hooks.
 - Do not overload lifecycle status to mean activity.
+- Resize-only redraws must not mark idle agents active.
 - Preview is a rendered plain-text snapshot, not a full embedded terminal emulator.
+- Preview/pane snapshots are read-only; attach mode is required for direct interaction.
 - Attach mode intentionally exits Ink temporarily and gives stdin/stdout directly to the selected PTY.
-- PTY sizing is shared per PTY:
+- PTY sizing is per PTY:
   - Preview sizes the agent PTY to the preview viewport.
   - Terminal/Git/Dev size their companion PTYs to pane viewport.
   - Attach mode sizes the active PTY to the full terminal.
   - Returning from attach reapplies pane sizing.
-- Resize-only redraws must not mark idle agents active.
 
 ## UI behavior and controls
 
-### Main layout
+### Layout and indicators
 
-- Sidebar shows compact program glyphs:
+- Sidebar glyphs:
   - Claude: `✶`
   - Pi: `π`
   - Codex: `◇`
-- Sidebar activity/lifecycle indicators:
+- Sidebar status indicators:
   - spinner for starting/active
   - green `●` for idle running sessions
   - yellow `◌` for unknown running sessions
   - gray `○` for exited sessions
+- Sub-session rows are indented. Clean children show `↳`; forked children show `⑂`.
+- Parent sessions with children show `▾` / `▸` and can be expanded/collapsed.
 - Dev-running indicators:
-  - selected session: green `●` suffix on the Dev tab
+  - selected session: green `●` suffix on Dev tab
   - all sessions: subtle `▹` suffix in sidebar row
-- Sidebar has numbered per-row markers like `[1]`; typing the number jumps to that visible session. With 10 or fewer visible sessions, single-digit jumps are instant and `0` selects 10; with more than 10 visible sessions, numeric input is briefly buffered for multi-digit selection. Parent sessions with sub-sessions show `▾` / `▸` and can be expanded/collapsed.
-- Right pane is one rounded bordered frame with tab bar at the top; sub-panes are borderless content containers.
+- Sidebar row markers are numeric (`[1]`, `[2]`, ...). With 10 or fewer visible sessions, single digits jump immediately and `0` selects row 10; with more than 10, numeric input is briefly buffered for multi-digit selection.
+- Right pane is one rounded bordered frame with a tab bar; sub-panes are borderless content containers.
 
-### Controls
+### Main controls
 
-- `n` create session
+- `n` create top-level session
+- `N` create sub-session under selected session
+- in create program picker, Claude/Pi parents add `⑂ Fork parent`
 - during create name entry, `tab` cycles workspace mode: no/new/existing worktree
-- in existing-worktree mode, `enter` opens the worktree picker
-- in worktree picker, `j` / `k` move and `enter` selects
+- in existing-worktree picker, type to search, `j`/`k` or arrows move, `enter` selects
 - `j` / `k` move selected session
-- session numbers jump to matching sidebar rows; with more than 10 sessions, multi-digit input is buffered briefly and `enter` confirms immediately
-- `J` / `K` manually reorder selected session among its siblings
-- `c` collapses/expands the selected session's sub-session subtree in the sidebar
-- `N` creates a sub-session under the selected session; the normal agent picker creates clean sub-sessions in the parent's cwd/worktree by default, and Claude/Pi parents add a fourth `Fork parent` option. Claude forks send `/fork <dh-name>` so the fork receives Deckhand's deterministic child session name.
-- `h` / `l` resize sidebar
-- left/right arrows also resize sidebar in browse mode
+- session numbers jump to matching visible rows; multi-digit input is buffered when needed and `enter` confirms immediately
+- `J` / `K` manually reorder selected session among siblings
+- `c` collapses/expands selected session's subtree
+- `h` / `l` resize sidebar; left/right arrows also resize sidebar in browse mode
 - `[` / `]` decrease/increase `attach_scroll_sensitivity` live and persist it to config
-- `tab` switches Preview / Terminal / Git / Dev / Notes for the selected session
-- `p` / `t` / `g` / `d` / `a` directly focus Preview / Terminal / Git / Dev / Notes for the selected session
-- Notes is per-session persisted text; selecting the Notes tab is read-only until `o` enters notes edit/focus mode; `esc` exits notes editing
+- `tab` cycles Preview / Terminal / Git / Dev / Notes for selected session
+- `p` / `t` / `g` / `d` / `a` directly focus Preview / Terminal / Git / Dev / Notes
 - switching sessions restores that session's most recently selected tab, defaulting to Preview
 - `v` enters Preview focus mode for running sessions
-- in Preview focus:
-  - mouse wheel / trackpad scrolls
-  - `j` / `k` are keyboard fallbacks
-  - `g` jumps upward
-  - `G` jumps back down/live follow
-  - `esc` or `v` returns to browse mode
 - `o` attaches to selected session's active pane:
   - Preview => agent
   - Terminal => shell
   - Git => lazygit
   - Dev => dev command PTY
-  - Notes => enters notes edit/focus mode
-- `O` opens the selected session directory/worktree in Cursor if available, otherwise Code (`cursor`/`code` CLI, macOS falls back to `open -a Cursor`)
-- attach mode title is `dh/<pane> <session>`
-- `Ctrl+Space` or `Ctrl+]` detaches back to Deckhand
+  - Notes => enter notes edit/focus mode
+- `O` opens selected session directory/worktree in Cursor if available, otherwise Code (`cursor`/`code` CLI; macOS fallback is `open -a Cursor`)
 - `m` opens merge/squash/cancel confirmation for worktree-backed sessions
 - `x` kills selected running session
-- for worktree-backed sessions, `x` opens keep/delete/delete-branch/cancel when applicable
-- `s` resumes/restarts selected exited session; Claude forked sub-sessions restart directly from their parsed exit resume handle when available, otherwise Deckhand falls back to resuming the parent and sending `/fork`
-- `S` fresh-restarts selected exited session without using any persisted/parsed resume handle; Claude gets a new deterministic Deckhand name suffix and Pi gets a new session file path
-- `d` focuses the Dev tab; when already focused on Dev, it starts/stops the selected session's Dev command
+- `X` force-kills selected running session; workers send SIGTERM first and SIGKILL after a short delay if still alive
+- for worktree-backed sessions, kill confirmation offers keep/delete/delete-branch/cancel when applicable
+- `s` resume/restart selected exited session
+- `S` fresh-restart selected exited session without using prior parsed/persisted resume handle
+- `d` focuses Dev; when already on Dev, starts/stops selected session's Dev command
 - `backspace` removes selected exited session
 - `r` refreshes/resubscribes
 - `?` opens help
-- `q` quits
+- `q` quits UI; daemon and running sessions continue
 
-### Preview scrolling
+### Notes
 
-Preview focus is read-only for most agents and scrolls Deckhand's daemon-side xterm scrollback snapshot. Claude Code behaves more like a TUI, so Preview focus sends synthetic SGR mouse-wheel events to the Claude PTY instead of only scrolling Deckhand state.
+- Notes are persisted per session in `~/.deckhand/state.json`.
+- Selecting the Notes tab is read-only until `o` enters notes edit/focus mode.
+- `esc` exits notes editing.
+- Notes autosave through `update-session-notes` as text changes.
 
-Both attach mode and Preview focus use `attach_scroll_sensitivity` from config, defaulting to `0.12`. The multiplier can be adjusted live from the UI with `[` / `]`; Deckhand persists the new value to `~/.deckhand/config.json`, and subsequent attach sessions pick it up without restarting the app.
+### Preview focus and scrolling
+
+Preview focus is read-only for most agents and scrolls Deckhand's daemon/worker-side xterm scrollback snapshot. Claude Code behaves more like a TUI, so Preview focus sends synthetic SGR mouse-wheel events to the Claude PTY instead of only scrolling Deckhand state.
+
+Preview focus controls:
+
+- mouse wheel / trackpad scrolls
+- `j` / `k` are keyboard fallbacks
+- `g` jumps upward
+- `G` jumps back down/live follow
+- `esc` or `v` returns to browse mode
+
+Both attach mode and Preview focus use `attach_scroll_sensitivity` from config, defaulting to `0.12`. `[` / `]` adjust it live and persist to `~/.deckhand/config.json`. Attach sessions pick up the latest value when entered.
 
 Exited sessions show only the frozen `lastPreview` frame.
+
+### Attach mode
+
+- Attach mode title is `dh/<pane> <session>`.
+- Attach clears/reset inherited terminal modes before handing off to the child PTY.
+- `Ctrl+]` is the universal detach key.
+- `Ctrl+Space` also detaches for Claude agent sessions and for auxiliary Terminal/Git/Dev panes.
+- `Ctrl+Space` is forwarded to Pi/Codex agent sessions because those TUIs may use it as an application keybinding.
+- Attach cleanup resets scroll regions, mouse/focus tracking, bracketed paste, alternate-screen state, and other child-owned terminal modes.
 
 ## Worktree behavior
 
 ### Creation
 
-New worktree creation is agent-agnostic. The daemon resolves/creates the target cwd before launching the selected agent normally in that directory.
+New worktree creation is agent-agnostic. The daemon resolves/creates the target cwd, then launches the selected agent normally in that directory.
 
 Creation strategy:
 
@@ -195,7 +221,7 @@ When a hook script is used:
 {"name":"sanitized/session_name","cwd":"/exact/deckhand/launch/cwd"}
 ```
 
-`cwd` intentionally points to the exact directory where Deckhand was launched, which may be the main repo or a linked worktree. Hooks should prefer JSON `.cwd`, with `CLAUDE_PROJECT_DIR` as compatibility fallback.
+The final non-empty stdout line must be an absolute path to a registered git worktree. Hooks time out after 60 seconds.
 
 The sanitizer:
 
@@ -204,11 +230,12 @@ The sanitizer:
 - replaces other characters with `_`
 - collapses repeated `_` and `/`
 - trims leading/trailing `/`, `_`, `-`
+- limits to 96 chars
 - falls back to `worktree`
 
 Example: `Fix API/Login Bug!` => `fix_api/login_bug`.
 
-Hooks that copy/link dependency directories from the source worktree should resolve source symlinks with `realpath` if they want new worktrees to point to canonical targets rather than through another linked worktree.
+Hooks that copy/link dependency directories from a source worktree should resolve source symlinks with `realpath` if they want new worktrees to point to canonical targets rather than through another linked worktree.
 
 ### Deletion safety
 
@@ -225,7 +252,7 @@ When safe, kill confirmation offers:
 - kill, delete worktree and branch (not restartable)
 - cancel
 
-After Git unregisters a deleted worktree, Deckhand also force-removes the worktree path to clear ignored/untracked remnants. For fallback managed worktrees under `~/.deckhand/worktrees`, it also prunes empty nested parent folders left by slash-preserving worktree names.
+After Git unregisters a deleted worktree, Deckhand force-removes the worktree path to clear ignored/untracked remnants. For fallback managed worktrees under `~/.deckhand/worktrees`, it also prunes empty nested parent folders left by slash-preserving worktree names.
 
 Deleted worktrees are recorded with `worktree.deletedAt`; Deckhand hides restart/merge hints and refuses restart/merge for those exited sessions.
 
@@ -243,26 +270,37 @@ Implemented in `src/git.ts`.
 - source and target roots must differ
 - before merge, Deckhand checks `HEAD..<source>` and skips if there are no new commits
 - if Git exits nonzero and leaves unmerged files, Deckhand returns a `conflicted: true` result instead of throwing
-- UI returns to browse mode and shows a status message for conflicts
+- UI returns to browse mode and shows a status message for skipped/conflicted results
 
-## Agent resume handles
+## Agent identity, forks, and restarts
 
-Deckhand assigns deterministic handles where supported:
+Deckhand assigns deterministic handles where supported. The base name is `dh-{sanitized-title}-{short-id}`.
 
-- Child session titles inherit parent context daemon-side as `parent title / child title` (trimmed to 64 chars) so agent/worktree/session names are not orphaned; Deckhand UI strips that parent prefix for nested sub-session display because the sidebar already shows the hierarchy.
-- Claude:
-  - create: `--name dh-{sanitized-title}-{short-id}`
-  - forked sub-session create: resume parent, then send `/fork dh-{sanitized-title}-{short-id}` while persisting the child handle for direct restart
-  - on exit, parse Claude Code's printed `claude --resume "..."` command from the final preview and persist that handle as `agentSessionRef`
-  - resume restart: `--resume <parsed-or-created-handle>`; restart also re-parses `lastPreview` so sessions that exited before this change can still recover the handle
-  - fresh restart: `--name dh-{sanitized-title}-{short-id}-fresh-{timestamp}` and does not parse or use prior resume handles
-- Pi:
-  - create/resume restart: explicit `--session` path under Pi's normal `~/.pi/agent/sessions/` tree
-  - directory encoding matches Pi's `getDefaultSessionDir()`:
-    - `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`
-  - filename is Deckhand-specific and includes timestamp, sanitized title, short id, and Deckhand session id
-- Codex:
-  - no deterministic handle yet; launches normally
+Child session titles inherit parent context daemon-side as `parent title / child title` (trimmed to 64 chars). The UI strips that parent prefix for nested sidebar display because the sidebar already shows the hierarchy.
+
+### Claude
+
+- create: `--name dh-{sanitized-title}-{short-id}`
+- clean sub-session: fresh Claude handle in the selected/parent cwd
+- forked sub-session create: resume parent, then send `/fork <dh-name>` while persisting the child handle for direct restart
+- fork input includes a small insert-mode safeguard: `a`, backspace, then `/fork...`, for Claude users in vim normal mode
+- on exit, parse Claude Code's printed `claude --resume "..."` command from final preview and persist that handle as `agentSessionRef`
+- resume restart: `--resume <parsed-or-created-handle>`; restart also re-parses `lastPreview` so older exited sessions can recover a handle
+- fresh restart: `--name dh-{sanitized-title}-{short-id}-fresh-{timestamp}` and does not use prior resume handles
+
+### Pi
+
+- create/resume restart: explicit `--session` path under Pi's normal `~/.pi/agent/sessions/` tree
+- directory encoding matches Pi's `getDefaultSessionDir()`:
+  - `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`
+- filename includes timestamp, deterministic Deckhand name, and Deckhand session id
+- forked sub-session create/restart resumes the parent/fork source session file and sends `/fork`
+- fresh restart creates a new `--session` path
+
+### Codex
+
+- launches normally
+- no deterministic resume/fork support yet
 
 ## Persistence, socket, PID, and logs
 
@@ -273,11 +311,15 @@ Deckhand writes under `~/.deckhand`:
 - `daemon.sock` — Unix socket
 - `daemon.pid` — active daemon PID
 - `daemon.log` — daemon/client diagnostics
-- worker runtime/log files via helpers in `src/paths.ts`
+- `workers/<session>.pid` — session worker PID files
+- `workers/<session>.log` — session worker stdout/stderr
+- `worktrees/` — fallback managed worktree root
+
+Pi session files are intentionally under Pi's own `~/.pi/agent/sessions/` tree, not under `~/.deckhand`.
 
 Config currently includes:
 
-- `dev_command`, default `dev`
+- `dev_command`, default behavior is command `dev`
 - `attach_scroll_sensitivity`, default `0.12`, adjustable in the UI with `[` / `]`
 
 Protocol:
@@ -285,98 +327,63 @@ Protocol:
 - line-delimited JSON
 - current protocol version: **v20**
 
-If an older daemon is still running:
+If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
 ```bash
 kill $(cat ~/.deckhand/daemon.pid)
 ```
 
-### Client/daemon replacement behavior
-
-`src/client.ts`:
+### Client/daemon replacement behavior (`src/client.ts`)
 
 - auto-starts daemon when socket is missing/stale and no live daemon PID exists
 - writes daemon stdout/stderr to `~/.deckhand/daemon.log`
 - removes stale socket only when no live daemon PID exists
 - retries if PID is alive but ping fails, then surfaces an error instead of blindly replacing it
-- refuses to auto-replace a live daemon with mismatched protocol version; user must stop old daemon first
+- refuses to auto-replace a live daemon with mismatched protocol version
 
 ### Persisted session fields
 
 Tracked metadata includes:
 
-- `id`
-- `title`
-- `program`
-- `command`
-- `args`
+- `id`, `title`, `program`, `command`, `args`
 - `agentSessionRef`
-- `cwd`
-- `repoRoot`
-- `launchCwd`
-- `launchWorktreeRoot`
+- `cwd`, `repoRoot`, `launchCwd`, `launchWorktreeRoot`
 - `worktree` metadata:
   - mode: `none`, `managed`, `attached`
-  - path
-  - branch
-  - HEAD
-  - main-worktree flag
+  - path, branch, HEAD, main-worktree flag
   - origin/creator/name metadata
   - `deletedAt` when Deckhand deleted the worktree on session exit
 - lifecycle `status`
-- activity `agentStatus`
-- `agentStatusUpdatedAt`
-- timestamps
-- `pid`
-- exit details
-- `lastPreview`
+- activity `agentStatus`, `agentStatusUpdatedAt`
+- timestamps, `pid`, exit details, `lastPreview`
 - `notes`
-- `parentSessionId`
-- `subSessionKind`
-- `forkedFromSessionId`
-- `forkedFromAgentSessionRef`
+- `devRunning`
+- `parentSessionId`, `subSessionKind`, `forkedFromSessionId`, `forkedFromAgentSessionRef`
 - `sidebarOrder`
 
-`agentStatus` is persisted only on activity transitions to avoid excessive disk writes.
+`agentStatus` is persisted only on activity transitions to avoid excessive disk writes. `devRunning` is cleared during daemon restart recovery because live dev PTYs are not preserved.
 
 ## IPC request/event types
 
-Supported request types include:
+Request types:
 
 - `ping`
-- `list`
-- `subscribe`
+- `list`, `subscribe`
 - `list-worktrees`
-- `watch-preview`
-- `watch-terminal`
-- `watch-git`
-- `watch-dev`
-- `start-dev`
-- `stop-dev`
+- `watch-preview`, `watch-terminal`, `watch-git`, `watch-dev`
+- `start-dev`, `stop-dev`
 - `update-session-notes`
-- `create`
-- `reorder-session`
-- `restart`
-- `kill`
-- `merge-worktree`
-- `remove`
-- `attach`, `input`, `resize`, `detach`
-- `attach-terminal`, `terminal-input`, `terminal-resize`, `terminal-detach`
-- `attach-git`, `git-input`, `git-resize`, `git-detach`
-- `attach-dev`, `dev-input`, `dev-resize`, `dev-detach`
+- `create`, `reorder-session`, `restart`, `kill`, `merge-worktree`, `remove`
+- agent attach path: `attach`, `input`, `resize`, `detach`
+- terminal path: `attach-terminal`, `terminal-input`, `terminal-resize`, `terminal-detach`
+- git path: `attach-git`, `git-input`, `git-resize`, `git-detach`
+- dev path: `attach-dev`, `dev-input`, `dev-resize`, `dev-detach`
 
-Emitted event types include:
+Event types:
 
-- `session-updated`
-- `session-removed`
-- `preview-updated`
-- `terminal-updated`
-- `git-updated`
-- `dev-updated`
-- `output`
-- `terminal-output`
-- `git-output`
-- `dev-output`
+- `session-updated`, `session-removed`
+- `preview-updated`, `terminal-updated`, `git-updated`, `dev-updated`
+- `output`, `terminal-output`, `git-output`, `dev-output`
 - `attached`, `detached`
 - `terminal-attached`, `terminal-detached`
 - `git-attached`, `git-detached`
@@ -384,11 +391,12 @@ Emitted event types include:
 
 ## File map
 
-- `package.json` — package scripts/dependencies/bin metadata.
+- `package.json` — package scripts, dependency, bin, engine, OS, and publish metadata.
 - `tsconfig.json` — TypeScript config.
 - `README.md` — user-facing overview.
 - `HANDOFF.md` — this continuity document.
-- `src/cli.ts` — entry point; runs UI or daemon; loops around attach/detach.
+- `src/cli.ts` — entry point; runs UI, daemon, session worker, setup/doctor; loops around attach/detach.
+- `src/setup.ts` — setup/doctor tool detection and optional agent install prompts.
 - `src/app.tsx` — main Ink UI and interaction state.
 - `src/client.ts` — daemon client, autostart, protocol version checks, persistent live client.
 - `src/daemon.ts` — supervisor daemon and IPC handling.
@@ -400,6 +408,7 @@ Emitted event types include:
 - `src/paths.ts` — config/socket/PID/log/runtime path helpers.
 - `src/types.ts` — shared session/protocol/UI types.
 - `src/nodePty.ts` — macOS `node-pty` helper repair logic.
+- `src/terminalState.ts` — terminal escape reset helpers used before/after UI and attach transitions.
 - `src/sidebar.tsx` — session sidebar rendering.
 - `src/preview.tsx` — Preview pane rendering.
 - `src/terminalPane.tsx` — Terminal pane rendering.
@@ -415,16 +424,25 @@ Emitted event types include:
 
 ### `src/cli.ts`
 
-- Runs Ink UI normally.
+- Runs UI normally.
 - Runs daemon with `--daemon`.
-- Loops so app can render Ink, exit for attach, then return to Ink after detach.
+- Runs session worker with `--session-worker`.
+- Runs setup/doctor with `setup` or `doctor`.
+- Loops so the app can render Ink, exit for attach, then return to Ink after detach.
+
+### `src/setup.ts`
+
+- `deckhand setup` checks `claude`, `pi`, `codex`, and optional `lazygit`.
+- `--check` is read-only.
+- `--yes` / `-y` accepts agent install prompts.
+- Installs only missing supported agents; `lazygit` remains optional and is not installed by setup.
 
 ### `src/app.tsx`
 
 - Owns UI modes, selected session, active tab, pane subscriptions, and user input handling.
 - Create/worktree picker/kill confirmation currently replace the right pane rather than using true overlays.
 - Kill confirmation uses a red border for destructive actions.
-- Sidebar width is preserved across attach/detach in the same frontend process, but not yet across full frontend restarts.
+- Sidebar width is preserved across attach/detach in the same frontend process, but not across full frontend restarts.
 
 ### `src/attach.ts`
 
@@ -434,7 +452,7 @@ Emitted event types include:
 - Sets/reasserts terminal/window title with OSC 0/2 and best-effort `process.title`.
 - Puts stdin in raw mode.
 - Dampens matched vertical mouse wheel events using `attach_scroll_sensitivity`.
-- Detaches on `Ctrl+Space` or `Ctrl+]`.
+- Detaches on `Ctrl+]`; also detaches on `Ctrl+Space` except when attached to a non-Claude agent PTY.
 - On cleanup, resets terminal modes such as scroll regions, mouse/focus tracking, bracketed paste, and child-owned alternate screens.
 
 ### `src/nodePty.ts` and `scripts/fix-node-pty.js`
@@ -455,8 +473,9 @@ If `node-pty` fails on macOS, check helper permissions first.
 
 - Owns an `@xterm/headless` terminal instance.
 - Consumes PTY output.
-- Resizes with preview viewport.
+- Resizes with preview/pane viewport.
 - Produces plain-text snapshots of the rendered terminal screen.
+- Can produce an ANSI frame for attach handoff.
 - PTY writes mark preview dirty but do not immediately serialize the screen.
 - Snapshot serialization happens only when a broadcast/request needs it.
 - Broadcasts are coalesced/throttled.
@@ -472,13 +491,13 @@ If `node-pty` fails on macOS, check helper permissions first.
 
 Typical flow:
 
-1. Ink UI starts.
-2. Client pings daemon.
-3. Daemon auto-starts if missing/stale.
-4. Daemon loads persisted state.
-5. Daemon marks previously-running sessions exited on daemon restart.
+1. CLI ensures Deckhand is running inside a git repository.
+2. Ink UI starts in alternate screen.
+3. Client pings daemon.
+4. Daemon auto-starts if missing/stale.
+5. Daemon loads persisted state and marks previously running sessions exited if this is a daemon restart.
 6. Ink subscribes to repo sessions.
-7. Ink watches preview for selected session.
+7. Ink watches preview/pane for selected session.
 8. User creates a session and chooses worktree mode.
 9. Daemon resolves final cwd/worktree.
 10. Daemon starts a worker.
@@ -489,48 +508,30 @@ Typical flow:
 15. If a worker exits, only that session exits and last preview is frozen.
 16. If daemon restarts, stale running sessions are marked exited.
 
-## Validated
+## Validation status
 
-Validated during development:
+Validated during this cleanup:
 
-- `npm install`
 - `npm run build`
-- daemon autostart when socket missing
-- daemon stdout/stderr log wiring
-- PID file write/remove
-- stale socket replacement only when no live daemon PID exists
-- protocol mismatch detection and refusal to replace live mismatched daemon
-- Pi session creation
-- Claude session creation
-- command resolution for local binaries
-- TypeScript build with Claude/Pi resume args and Codex support
-- TypeScript build with Claude exit resume-handle parsing for forked sub-session restarts
-- TypeScript build with fresh restart/no-resume mode and parent-inherited child titles
-- TypeScript build with deleted-worktree sessions marked non-restartable/non-mergeable
-- TypeScript build with post-removal cleanup of leftover worktree directories/remnants
-- TypeScript build with named Claude `/fork <dh-name>` creation
-- TypeScript build with collapsible sidebar sub-session trees
-- sanitizer behavior, including slash-preserving names
-- current/main worktree root lookup
-- `git worktree list --porcelain` parsing, including main worktree
-- preview subscriptions and `preview-updated` events
-- live preview changes from agent PTY output
-- cursor-rewrite/progress rendering via headless xterm
-- debounced preview serialization and `lastPreview` persistence on exit
-- activity transitions `unknown` -> `active` -> `idle`
-- attach request/output/detach/return to Ink
-- killed session transitions to `exited`
-- frozen preview for exited sessions
-- split layout rendering
-- compact sidebar glyphs and per-row index markers
-- sidebar resize with `h` / `l`
-- sidebar width persistence across attach/detach in same process
-- resize does not mark idle sessions active
+
+Historically validated during development, but not exhaustively rechecked in this cleanup:
+
+- daemon autostart, PID/log/socket handling, and protocol mismatch refusal
+- Pi and Claude session creation/resume paths; Codex launch compiles cleanly
+- Claude exit resume-handle parsing, named `/fork <dh-name>`, and forked restart paths
+- fresh restart/no-resume mode and parent-inherited child titles
+- deleted-worktree sessions marked non-restartable/non-mergeable; leftover directory cleanup
+- worktree sanitizer and `git worktree list --porcelain` parsing
+- preview subscriptions, xterm rendering, frozen `lastPreview`, and activity transitions
+- attach request/output/detach/return-to-Ink flow
+- sidebar hierarchy, numbering, resize, and persisted in-process width across attach/detach
+- resize suppression for agent activity detection
 - stale-session cleanup after daemon restart
 
-Not fully manually validated:
+Not fully manually validated recently:
 
 - Codex session creation
+- setup/doctor install flows beyond build-level coverage
 - real hook-script worktree creation from main worktree
 - real hook-script worktree creation from linked worktree
 - fallback worktree creation under `~/.deckhand/worktrees`
@@ -539,18 +540,20 @@ Not fully manually validated:
 - branch deletion path for existing-worktree sessions
 - attempted deletion of current/main worktree remains blocked
 - multiple sessions pointing at one worktree block deletion
+- force-kill behavior against stubborn child process groups
 
 ## Caveats
 
-- This is still a prototype, though the architecture is established.
+- Deckhand is still experimental; state shape and IPC protocol may change.
 - Frontend restarts are supported; daemon crash/restart does not preserve running PTYs.
 - Preview and panes are read-only snapshots; attach is required for direct interaction.
 - Preview text is not equivalent to full styled terminal rendering.
-- Attach mode still temporarily exits Ink by design.
+- Attach mode temporarily exits Ink by design.
 - Create/worktree picker/kill confirmation are pane replacements, not true modals.
-- Worktree support is implemented but needs more real-world exercise.
+- Worktree support exists but still needs more real-world exercise.
 - Codex deterministic resume support is not implemented.
 - Terminal/Git/Dev scrollback controls are still future work.
+- `src/daemon.ts` still has legacy in-daemon PTY paths alongside the worker model.
 
 ## Recommended next steps
 
@@ -573,27 +576,27 @@ Near term:
    - activity transitions
    - resize suppression
    - IPC flows
-3. Polish create/worktree UX:
+   - setup/doctor detection behavior
+3. Decide whether to remove or formally support the legacy in-daemon PTY fallback paths.
+4. Polish create/worktree UX:
    - true overlays/modals
    - better validation and error feedback
    - better truncation/filtering for long paths
-4. Clean up attach/detach transition visuals.
-5. Add structured daemon logging.
-6. Add stronger daemon health/protocol compatibility handling.
+5. Clean up attach/detach transition visuals.
+6. Add structured daemon logging.
+7. Add stronger daemon health/protocol compatibility handling.
 
 Later:
 
 - Persist sidebar width across full frontend restarts.
 - Add richer sidebar branch/worktree metadata.
-- Add optional numeric shortcuts for sidebar row markers.
 - Add terminal/git/dev scrollback controls.
 - Add dev stop confirmation or persisted dev state if useful.
-- Add cleanup/restart lifecycle commands.
 - Monitor long-running macOS `node-pty` behavior under repeated spawn/exit churn.
 - Add Codex deterministic resume support if possible.
 - Consider embedded terminal rendering only if single-screen interaction becomes important.
 
-## How to run
+## How to run locally
 
 ```bash
 npm install
@@ -602,14 +605,15 @@ npm link
 deckhand
 ```
 
+Useful development commands:
+
+```bash
+npm run dev       # run UI from source via tsx
+npm run daemon    # run only daemon in dev mode
+deckhand setup    # check/install supported agents
+deckhand doctor   # alias for setup behavior
+```
+
 ## Final takeaway
 
-Deckhand now has a solid foundation:
-
-- independent state/protocol/runtime model
-- daemon-owned long-lived sessions
-- worker-owned PTYs
-- explicit attach/detach
-- split-view Ink frontend
-- daemon-side rendered Preview pipeline
-- initial agent-agnostic worktree support
+Deckhand's foundation is established: daemon-owned long-lived sessions, worker-owned PTYs, explicit attach/detach, split-view Ink frontend, daemon/worker-side rendered Preview pipeline, deterministic Claude/Pi identity where possible, sub-session hierarchy, and agent-agnostic worktree support.
