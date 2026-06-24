@@ -39,11 +39,16 @@ type WorkerMessage =
 	| {type: 'dev-updated'; dev: DevRecord}
 	| {type: 'output'; target: AttachTarget; data: string};
 
+interface TerminalModes {
+	bracketedPaste: boolean;
+}
+
 interface RuntimePty {
 	term: IPty;
 	preview: TerminalPreview;
 	cwd: string;
 	exited: boolean;
+	terminalModes: TerminalModes;
 	exitCode?: number | null;
 	exitSignal?: number | null;
 	broadcastTimer?: NodeJS.Timeout;
@@ -103,6 +108,13 @@ function signalPtyProcess(term: IPty, signal: NodeJS.Signals): void {
 	try { term.kill(signal); } catch {}
 }
 
+function updateTerminalModes(modes: TerminalModes, output: string): void {
+	const bracketedPastePattern = /\x1b\[\?2004([hl])/g;
+	for (const match of output.matchAll(bracketedPastePattern)) {
+		modes.bracketedPaste = match[1] === 'h';
+	}
+}
+
 class SessionWorker {
 	private session?: SessionRecord;
 	private agent?: AgentRuntime;
@@ -138,11 +150,12 @@ class SessionWorker {
 	private async startAgent(session: SessionRecord, cols: number, rows: number): Promise<SessionRecord> {
 		this.session = session;
 		const term = pty.spawn(session.command, session.args ?? [], {name: 'xterm-256color', cwd: session.cwd, env: {...process.env}, cols: size(cols, DEFAULT_COLS), rows: size(rows, DEFAULT_ROWS)});
-		const runtime: AgentRuntime = {term, preview: new TerminalPreview(cols, rows), cwd: session.cwd, exited: false, lastPreviewSnapshot: '', previewChangeEvents: []};
+		const runtime: AgentRuntime = {term, preview: new TerminalPreview(cols, rows), cwd: session.cwd, exited: false, terminalModes: {bracketedPaste: false}, lastPreviewSnapshot: '', previewChangeEvents: []};
 		this.agent = runtime;
 		post({type: 'running', pid: term.pid});
 		runtime.activityIdleTimer = setTimeout(() => { runtime.activityIdleTimer = undefined; void this.setAgentStatus('idle'); }, IDLE_AFTER_MS);
 		term.onData(output => {
+			updateTerminalModes(runtime.terminalModes, output);
 			void runtime.preview.write(output);
 			this.scheduleActivityEvaluation();
 			this.schedulePreviewBroadcast();
@@ -232,8 +245,9 @@ class SessionWorker {
 
 	private spawnPane(target: 'terminal' | 'git' | 'dev', command: string, args: string[], cwd: string, cols: number, rows: number, label?: string): RuntimePty {
 		const term = pty.spawn(command, args, {name: 'xterm-256color', cwd, env: {...process.env}, cols: size(cols, DEFAULT_COLS), rows: size(rows, DEFAULT_ROWS)});
-		const runtime: RuntimePty = {term, preview: new TerminalPreview(cols, rows), cwd, exited: false, command: label};
+		const runtime: RuntimePty = {term, preview: new TerminalPreview(cols, rows), cwd, exited: false, terminalModes: {bracketedPaste: false}, command: label};
 		term.onData(output => {
+			updateTerminalModes(runtime.terminalModes, output);
 			void runtime.preview.write(output);
 			this.schedulePaneBroadcast(target, runtime);
 			if (this.attached.has(target)) post({type: 'output', target, data: output});
@@ -246,8 +260,7 @@ class SessionWorker {
 	private async attach(target: AttachTarget, cols: number, rows: number): Promise<unknown> {
 		const record = await this.snapshot(target, cols, rows);
 		const runtime = this.getExisting(target);
-		if (runtime) post({type: 'output', target, data: await runtime.preview.getAnsiFrame()});
-		return record;
+		return runtime ? {...(record as object), terminalModes: runtime.terminalModes, initialFrame: await runtime.preview.getAnsiFrame()} : record;
 	}
 
 	private async snapshot(target: AttachTarget, cols: number, rows: number, scrollOffset = 0): Promise<unknown> {

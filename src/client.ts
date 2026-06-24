@@ -84,7 +84,7 @@ export async function request<T = unknown>(message: Extract<ClientRequest, {requ
 	});
 }
 
-const PROTOCOL_VERSION = 20;
+const PROTOCOL_VERSION = 21;
 
 class ProtocolMismatchError extends Error {}
 

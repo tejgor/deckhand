@@ -25,7 +25,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 20;
+const PROTOCOL_VERSION = 21;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
@@ -754,13 +754,14 @@ export class InkDaemon {
 						const worker = this.workers.get(message.sessionId)!;
 						if (!session || session.status === 'exited') throw new Error('session is not running');
 						if (worker.attached.agent && worker.attached.agent !== socket && !worker.attached.agent.destroyed) throw new Error('session is already attached elsewhere');
-						worker.attached.agent = socket;
-						setAttachedSessionId(session.id);
 						const cols = clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS);
 						const rows = clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS);
-						sendMessage(socket, response(message.requestId, session));
+						const attachData = await this.sendWorkerRequest<object & {initialFrame?: string}>(message.sessionId, {type: 'attach', target: 'agent', cols, rows});
+						worker.attached.agent = socket;
+						setAttachedSessionId(session.id);
+						sendMessage(socket, response(message.requestId, {...session, ...attachData}));
 						sendMessage(socket, {type: 'attached', sessionId: session.id});
-						await this.sendWorkerRequest(message.sessionId, {type: 'attach', target: 'agent', cols, rows});
+						if (attachData.initialFrame) sendMessage(socket, {type: 'output', sessionId: session.id, data: attachData.initialFrame});
 						return;
 					}
 					const session = this.sessions.get(message.sessionId);
@@ -833,11 +834,12 @@ export class InkDaemon {
 						const worker = this.workers.get(message.sessionId)!;
 						if (!session || session.status === 'exited') throw new Error('session is not running');
 						if (worker.attached.terminal && worker.attached.terminal !== socket && !worker.attached.terminal.destroyed) throw new Error('terminal is already attached elsewhere');
+						const attachData = await this.sendWorkerRequest<object & {initialFrame?: string}>(message.sessionId, {type: 'attach', target: 'terminal', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
 						worker.attached.terminal = socket;
 						setAttachedSessionId(message.sessionId);
-						sendMessage(socket, response(message.requestId, session));
+						sendMessage(socket, response(message.requestId, {...session, ...attachData}));
 						sendMessage(socket, {type: 'terminal-attached', sessionId: message.sessionId});
-						await this.sendWorkerRequest(message.sessionId, {type: 'attach', target: 'terminal', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
+						if (attachData.initialFrame) sendMessage(socket, {type: 'terminal-output', sessionId: message.sessionId, data: attachData.initialFrame});
 						return;
 					}
 					const terminal = await this.ensureTerminal(
@@ -891,11 +893,12 @@ export class InkDaemon {
 						const worker = this.workers.get(message.sessionId)!;
 						if (!session || session.status === 'exited') throw new Error('session is not running');
 						if (worker.attached.git && worker.attached.git !== socket && !worker.attached.git.destroyed) throw new Error('git is already attached elsewhere');
+						const attachData = await this.sendWorkerRequest<object & {initialFrame?: string}>(message.sessionId, {type: 'attach', target: 'git', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
 						worker.attached.git = socket;
 						setAttachedSessionId(message.sessionId);
-						sendMessage(socket, response(message.requestId, session));
+						sendMessage(socket, response(message.requestId, {...session, ...attachData}));
 						sendMessage(socket, {type: 'git-attached', sessionId: message.sessionId});
-						await this.sendWorkerRequest(message.sessionId, {type: 'attach', target: 'git', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
+						if (attachData.initialFrame) sendMessage(socket, {type: 'git-output', sessionId: message.sessionId, data: attachData.initialFrame});
 						return;
 					}
 					const git = await this.ensureGit(
@@ -949,11 +952,12 @@ export class InkDaemon {
 						const worker = this.workers.get(message.sessionId)!;
 						if (!session || session.status === 'exited') throw new Error('session is not running');
 						if (worker.attached.dev && worker.attached.dev !== socket && !worker.attached.dev.destroyed) throw new Error('dev command is already attached elsewhere');
+						const attachData = await this.sendWorkerRequest<object & {initialFrame?: string}>(message.sessionId, {type: 'attach', target: 'dev', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
 						worker.attached.dev = socket;
 						setAttachedSessionId(message.sessionId);
-						sendMessage(socket, response(message.requestId, session));
+						sendMessage(socket, response(message.requestId, {...session, ...attachData}));
 						sendMessage(socket, {type: 'dev-attached', sessionId: message.sessionId});
-						await this.sendWorkerRequest(message.sessionId, {type: 'attach', target: 'dev', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
+						if (attachData.initialFrame) sendMessage(socket, {type: 'dev-output', sessionId: message.sessionId, data: attachData.initialFrame});
 						return;
 					}
 					const dev = this.devs.get(message.sessionId);

@@ -11,6 +11,12 @@ interface AttachSessionOptions {
 	scrollSensitivity?: number;
 }
 
+interface AttachResponseData {
+	terminalModes?: {
+		bracketedPaste?: boolean;
+	};
+}
+
 function targetRequestNames(target: AttachTarget) {
 	if (target === 'terminal') {
 		return {
@@ -199,6 +205,13 @@ function isDetachInput(chunk: Buffer): boolean {
 	return /\x1b\[(?:32;5u|27;5;32~)/.test(input);
 }
 
+function attachResponseData(value: unknown): AttachResponseData | undefined {
+	if (!value || typeof value !== 'object') {
+		return undefined;
+	}
+	return value as AttachResponseData;
+}
+
 function attachRows(): number {
 	return Math.max(1, process.stdout.rows || 24);
 }
@@ -228,11 +241,11 @@ function enableAttachBracketedPaste(): void {
 	if (!process.stdout.isTTY) {
 		return;
 	}
-	// When attaching to an already-running Pi process, its earlier request to
+	// When attaching to an already-running agent TUI, its earlier request to
 	// enable bracketed paste was written to the PTY while Deckhand was not yet
 	// connected to the real terminal. Re-enable it on the outer terminal so a
 	// multi-line paste is forwarded as one bracketed paste instead of a series of
-	// Enter key presses that Pi submits as separate messages.
+	// Enter key presses that the agent may submit as separate messages.
 	process.stdout.write('\x1b[?2004h');
 }
 
@@ -330,6 +343,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 					return;
 				}
 				attached = true;
+				const terminalModes = attachResponseData(message.data)?.terminalModes;
 				// The Ink dashboard enables terminal mouse reporting. When attaching to Pi
 				// without Claude's alternate-screen setup, leaving that mode enabled causes
 				// trackpad scrolls to be delivered as input instead of scrolling the IDE
@@ -342,7 +356,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 				if (target === 'agent' && (options.program === 'claude' || options.program === undefined)) {
 					enableAttachMouseReporting();
 				}
-				if (target === 'agent' && options.program === 'pi') {
+				if (target === 'agent' || terminalModes?.bracketedPaste) {
 					enableAttachBracketedPaste();
 				}
 				const nextTitle = attachedTerminalTitle(sessionId, target, options);
