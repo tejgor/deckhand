@@ -188,6 +188,17 @@ function attachedTerminalTitle(sessionId: string, target: AttachTarget, options:
 	return `dh/${label} ${title}`;
 }
 
+function isDetachInput(chunk: Buffer): boolean {
+	if (chunk.includes(0x00) || chunk.includes(0x1d)) {
+		return true;
+	}
+
+	const input = chunk.toString('utf8');
+	// Some terminals encode Ctrl+Space as an enhanced-keyboard escape
+	// sequence when an attached TUI enables CSI-u / modifyOtherKeys mode.
+	return /\x1b\[(?:32;5u|27;5;32~)/.test(input);
+}
+
 function attachRows(): number {
 	return Math.max(1, process.stdout.rows || 24);
 }
@@ -211,6 +222,18 @@ function enableAttachMouseReporting(): void {
 	// wheel input as mouse events so the attach input normalizer can throttle and
 	// forward them to the agent instead of sending arrows.
 	process.stdout.write('\x1b[?1000h\x1b[?1006h');
+}
+
+function enableAttachBracketedPaste(): void {
+	if (!process.stdout.isTTY) {
+		return;
+	}
+	// When attaching to an already-running Pi process, its earlier request to
+	// enable bracketed paste was written to the PTY while Deckhand was not yet
+	// connected to the real terminal. Re-enable it on the outer terminal so a
+	// multi-line paste is forwarded as one bracketed paste instead of a series of
+	// Enter key presses that Pi submits as separate messages.
+	process.stdout.write('\x1b[?2004h');
 }
 
 function leaveAttachScreen(): void {
@@ -286,13 +309,10 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 
 		const onInput = (data: Buffer | string) => {
 			const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data);
-			// Ctrl+Space is encoded as NUL (0x00). Non-Claude agent TUIs may use it
-			// as an application keybinding, so forward it for Pi/Codex and use Ctrl+]
-			// as Deckhand's attach escape there. Keep Ctrl+Space detach for Claude and
-			// auxiliary terminal/git/dev panes.
-			const forwardsControlSpace = target === 'agent' && options.program !== undefined && options.program !== 'claude';
-			const shouldDetach = chunk.includes(0x1d) || (!forwardsControlSpace && chunk.includes(0x00));
-			if (shouldDetach) {
+			// Ctrl+Space is usually NUL (0x00), but attached TUIs can enable
+			// enhanced keyboard protocols that encode it as an escape sequence.
+			// Ctrl+] (0x1d) remains a secondary attach escape hatch.
+			if (isDetachInput(chunk)) {
 				writeMessage(socket, {type: names.detach, sessionId});
 				finish();
 				return;
@@ -321,6 +341,9 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 				}
 				if (target === 'agent' && (options.program === 'claude' || options.program === undefined)) {
 					enableAttachMouseReporting();
+				}
+				if (target === 'agent' && options.program === 'pi') {
+					enableAttachBracketedPaste();
 				}
 				const nextTitle = attachedTerminalTitle(sessionId, target, options);
 				setTerminalTitle(nextTitle);

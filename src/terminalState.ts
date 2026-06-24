@@ -7,6 +7,8 @@ const RESET_TERMINAL_STATE_SEQUENCE = [
 	'\x1b[?6l', // origin mode off
 	'\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l', // mouse/focus modes off
 	'\x1b[?2004l', // bracketed paste off
+	'\x1b[>4;0m', // xterm modifyOtherKeys off
+	'\x1b[<u', // kitty keyboard protocol off
 	'\x1b[r', // reset scroll region
 ].join('');
 

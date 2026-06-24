@@ -193,10 +193,10 @@ Exited sessions show only the frozen `lastPreview` frame.
 
 - Attach mode title is `dh/<pane> <session>`.
 - Attach clears/reset inherited terminal modes before handing off to the child PTY.
-- `Ctrl+]` is the universal detach key.
-- `Ctrl+Space` also detaches for Claude agent sessions and for auxiliary Terminal/Git/Dev panes.
-- `Ctrl+Space` is forwarded to Pi/Codex agent sessions because those TUIs may use it as an application keybinding.
-- Attach cleanup resets scroll regions, mouse/focus tracking, bracketed paste, alternate-screen state, and other child-owned terminal modes.
+- `Ctrl+Space` is the primary universal detach key.
+- `Ctrl+]` is a secondary universal detach key.
+- Attach recognizes normal NUL `Ctrl+Space` plus common enhanced-keyboard encodings emitted when a child TUI enables CSI-u / modifyOtherKeys mode.
+- Attach cleanup resets scroll regions, mouse/focus tracking, bracketed paste, alternate-screen state, enhanced-keyboard modes, and other child-owned terminal modes.
 
 ## Worktree behavior
 
@@ -452,8 +452,8 @@ Event types:
 - Sets/reasserts terminal/window title with OSC 0/2 and best-effort `process.title`.
 - Puts stdin in raw mode.
 - Dampens matched vertical mouse wheel events using `attach_scroll_sensitivity`.
-- Detaches on `Ctrl+]`; also detaches on `Ctrl+Space` except when attached to a non-Claude agent PTY.
-- On cleanup, resets terminal modes such as scroll regions, mouse/focus tracking, bracketed paste, and child-owned alternate screens.
+- Detaches on `Ctrl+Space` or `Ctrl+]`.
+- On cleanup, resets terminal modes such as scroll regions, mouse/focus tracking, bracketed paste, enhanced-keyboard modes, and child-owned alternate screens.
 
 ### `src/nodePty.ts` and `scripts/fix-node-pty.js`
 
