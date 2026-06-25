@@ -263,7 +263,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 	const names = targetRequestNames(target);
 	const normalizeAttachInput = createAttachInputNormalizer(options.program, normalizeScrollSensitivity(options.scrollSensitivity));
 	const filterTerminalTitleOutput = createTerminalTitleOutputFilter();
-	const useAttachScreen = target !== 'agent' || options.program === 'claude' || options.program === undefined;
+	const useAttachScreen = target !== 'terminal' && (target !== 'agent' || options.program === 'claude' || options.program === undefined);
 	const originalProcessTitle = process.title || 'deckhand';
 	let attached = false;
 	let cleanedUp = false;
@@ -344,8 +344,8 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 				}
 				attached = true;
 				const terminalModes = attachResponseData(message.data)?.terminalModes;
-				// The Ink dashboard enables terminal mouse reporting. When attaching to Pi
-				// without Claude's alternate-screen setup, leaving that mode enabled causes
+				// The Ink dashboard enables terminal mouse reporting. When attaching without
+				// Deckhand's alternate-screen setup, leaving that mode enabled causes
 				// trackpad scrolls to be delivered as input instead of scrolling the IDE
 				// terminal's normal scrollback. Always reset modes at attach handoff.
 				resetTerminalState();

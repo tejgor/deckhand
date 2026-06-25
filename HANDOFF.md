@@ -197,6 +197,7 @@ Exited sessions show only the frozen `lastPreview` frame.
 - `Ctrl+]` is a secondary universal detach key.
 - Attach recognizes normal NUL `Ctrl+Space` plus common enhanced-keyboard encodings emitted when a child TUI enables CSI-u / modifyOtherKeys mode.
 - Attach cleanup resets scroll regions, mouse/focus tracking, bracketed paste, alternate-screen state, enhanced-keyboard modes, and other child-owned terminal modes.
+- Attach mode mirrors bracketed-paste state across the PTY boundary: agent attaches enable bracketed paste on the outer terminal, while Terminal/Git/Dev attaches enable it only when the worker observed the child PTY request `?2004h`. This prevents multi-line paste from being delivered as separate Enter presses without forcing paste markers into arbitrary programs.
 
 ## Worktree behavior
 
@@ -325,7 +326,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v20**
+- current protocol version: **v21**
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -452,6 +453,7 @@ Event types:
 - Sets/reasserts terminal/window title with OSC 0/2 and best-effort `process.title`.
 - Puts stdin in raw mode.
 - Dampens matched vertical mouse wheel events using `attach_scroll_sensitivity`.
+- Re-enables bracketed paste on the outer terminal for agent attaches, and for Terminal/Git/Dev attaches when the worker reports the child PTY had requested bracketed paste.
 - Detaches on `Ctrl+Space` or `Ctrl+]`.
 - On cleanup, resets terminal modes such as scroll regions, mouse/focus tracking, bracketed paste, enhanced-keyboard modes, and child-owned alternate screens.
 
