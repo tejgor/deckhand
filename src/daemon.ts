@@ -206,7 +206,7 @@ function forkCommandInput(program: SessionRecord['program'], name?: string): str
 	const suffix = name && program === 'claude' ? ` ${name}` : '';
 	// Claude Code users may be in vim normal mode. `a` enters insert mode, and
 	// backspace removes the inserted `a` when already in insert mode.
-	return program === 'claude' ? `a\x7f/fork${suffix}\r` : '/fork\r';
+	return program === 'claude' ? `a\x7f/branch${suffix}\r` : '/fork\r';
 }
 
 function buildAgentArgs(session: Pick<SessionRecord, 'program' | 'agentSessionRef'>, mode: 'create' | 'resume'): string[] {

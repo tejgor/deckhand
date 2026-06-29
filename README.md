@@ -182,7 +182,7 @@ New worktrees are created through a [project hook](#-worktree-hooks) when one is
 Press `N` on a selected session to create a sub-session for related follow-up work. Sub-sessions render indented under their parent in the sidebar; press `c` on a parent to collapse or expand its subtree.
 
 - Choosing `claude`, `pi`, or `codex` creates a **clean** sub-session — a fresh agent context in the parent's directory or worktree.
-- For Claude and Pi parents, choosing **`Fork parent`** resumes the parent's conversation and sends `/fork`. *(Claude's fork input includes an insert-mode safeguard for users with vim mode enabled.)*
+- For Claude and Pi parents, choosing **`Fork parent`** resumes the parent's conversation and sends Claude's `/branch` or Pi's `/fork`. *(Claude's branch input includes an insert-mode safeguard for users with vim mode enabled.)*
 
 ### Agent Identity and Restarts
 
@@ -190,7 +190,7 @@ New sessions get a deterministic agent handle, built from the visible session na
 
 | Agent | Create | Restart | Forked sub-sessions |
 | --- | --- | --- | --- |
-| **Claude** | `claude --name dh-{name}-{short-id}` | `claude --resume <handle>`; `S` creates a fresh name | Resume parent, then send `/fork dh-{name}-{short-id}` |
+| **Claude** | `claude --name dh-{name}-{short-id}` | `claude --resume <handle>`; `S` creates a fresh name | Resume parent, then send `/branch dh-{name}-{short-id}` |
 | **Pi** | `pi --session <path>` | Same `--session` path; `S` creates a fresh path | Resume parent session file, then send `/fork` |
 | **Codex** | Normal launch | Normal launch | Not supported yet |
 
@@ -202,7 +202,7 @@ Pi session files live in Pi's normal session tree at `~/.pi/agent/sessions/`, no
 
 - Claude prints a `claude --resume "..."` command when it exits; Deckhand parses that final preview and persists the parsed handle when available.
 - `S` fresh-restarts an exited session without using the prior resume handle.
-- Forked sub-sessions store the parent agent reference and issue `/fork` at startup.
+- Forked sub-sessions store the parent agent reference and issue Claude's `/branch` or Pi's `/fork` at startup.
 
 </details>
 

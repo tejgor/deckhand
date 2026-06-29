@@ -283,8 +283,8 @@ Child session titles inherit parent context daemon-side as `parent title / child
 
 - create: `--name dh-{sanitized-title}-{short-id}`
 - clean sub-session: fresh Claude handle in the selected/parent cwd
-- forked sub-session create: resume parent, then send `/fork <dh-name>` while persisting the child handle for direct restart
-- fork input includes a small insert-mode safeguard: `a`, backspace, then `/fork...`, for Claude users in vim normal mode
+- forked sub-session create: resume parent, then send `/branch <dh-name>` while persisting the child handle for direct restart
+- branch input includes a small insert-mode safeguard: `a`, backspace, then `/branch...`, for Claude users in vim normal mode
 - on exit, parse Claude Code's printed `claude --resume "..."` command from final preview and persist that handle as `agentSessionRef`
 - resume restart: `--resume <parsed-or-created-handle>`; restart also re-parses `lastPreview` so older exited sessions can recover a handle
 - fresh restart: `--name dh-{sanitized-title}-{short-id}-fresh-{timestamp}` and does not use prior resume handles
@@ -520,7 +520,7 @@ Historically validated during development, but not exhaustively rechecked in thi
 
 - daemon autostart, PID/log/socket handling, and protocol mismatch refusal
 - Pi and Claude session creation/resume paths; Codex launch compiles cleanly
-- Claude exit resume-handle parsing, named `/fork <dh-name>`, and forked restart paths
+- Claude exit resume-handle parsing, named `/branch <dh-name>`, and forked restart paths
 - fresh restart/no-resume mode and parent-inherited child titles
 - deleted-worktree sessions marked non-restartable/non-mergeable; leftover directory cleanup
 - worktree sanitizer and `git worktree list --porcelain` parsing
