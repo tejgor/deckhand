@@ -1,7 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import type {SessionRecord} from './types.js';
-import {countSessionDescendants, sessionDepth, sessionHasChildren} from './sessionOrder.js';
+import {countHiddenSessionDescendants, countSessionDescendants, sessionDepth, sessionHasChildren} from './sessionOrder.js';
 import {THEME, displaySessionTitle, programGlyph, statusColor, statusGlyph, truncate} from './ui.js';
 
 interface SidebarProps {
@@ -12,6 +12,7 @@ interface SidebarProps {
 	height: number;
 	spinnerFrame: string;
 	collapsedSessionIds?: ReadonlySet<string>;
+	hiddenSessionIds?: ReadonlySet<string>;
 }
 
 function visibleSessions(sessions: SessionRecord[], selectedIndex: number, availableRows: number): SessionRecord[] {
@@ -23,26 +24,13 @@ function visibleSessions(sessions: SessionRecord[], selectedIndex: number, avail
 	return sessions.slice(start, start + availableRows);
 }
 
-const SUPERSCRIPT_DIGITS: Record<string, string> = {
-	'0': '⁰',
-	'1': '¹',
-	'2': '²',
-	'3': '³',
-	'4': '⁴',
-	'5': '⁵',
-	'6': '⁶',
-	'7': '⁷',
-	'8': '⁸',
-	'9': '⁹',
-};
-
 interface RowParts {
 	main: string;
 	suffix: string;
 }
 
 function subtleCount(count: number): string {
-	return `⁺${String(count).replace(/\d/g, digit => SUPERSCRIPT_DIGITS[digit] ?? digit)}`;
+	return `+${count}`;
 }
 
 function renderRow(
@@ -54,6 +42,7 @@ function renderRow(
 	width: number,
 	spinnerFrame: string,
 	collapsedSessionIds: ReadonlySet<string>,
+	hiddenSessionIds: ReadonlySet<string>,
 ): RowParts {
 	const cursor = active ? '›' : ' ';
 	const idxText = String(index);
@@ -66,7 +55,9 @@ function renderRow(
 	const hasChildren = sessionHasChildren(session.id, allSessions);
 	const collapsed = collapsedSessionIds.has(session.id);
 	const branchGlyph = hasChildren ? (collapsed ? '▸ ' : '▾ ') : '  ';
-	const childCount = collapsed && hasChildren ? countSessionDescendants(session.id, allSessions) : 0;
+	const childCount = collapsed && hasChildren
+		? countSessionDescendants(session.id, allSessions)
+		: countHiddenSessionDescendants(session.id, allSessions, hiddenSessionIds);
 	const suffix = childCount > 0 ? subtleCount(childCount) : '';
 	const glyph = `${statusGlyph(session, spinnerFrame)} ${programGlyph(session.program)}${devGlyph}`;
 	const prefix = `${cursor} ${idx}${idxPadding} ${indent}${branchGlyph}${forkGlyph}${glyph} `;
@@ -77,13 +68,17 @@ function renderRow(
 		return {main: filled.length >= width ? truncate(filled, width) : filled + ' '.repeat(width - filled.length), suffix: ''};
 	}
 	if (filled.length + suffix.length >= width) {
-		const truncated = truncate(`${filled}${suffix}`, width);
-		return {main: truncated, suffix: ''};
+		if (suffix.length >= width) {
+			return {main: truncate(`${filled}${suffix}`, width), suffix: ''};
+		}
+		const mainWidth = width - suffix.length;
+		const main = truncate(filled, mainWidth);
+		return {main: main.length >= mainWidth ? main : main + ' '.repeat(mainWidth - main.length), suffix};
 	}
 	return {main: filled + ' '.repeat(width - filled.length - suffix.length), suffix};
 }
 
-export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>()}: SidebarProps) {
+export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>()}: SidebarProps) {
 	const selectedIndex = Math.max(0, sessions.findIndex(session => session.id === selectedId));
 	const contentWidth = Math.max(1, width - 4);
 	const rowsForSessions = Math.max(1, height - 3);
@@ -106,7 +101,7 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 				visible.map((session, index) => {
 					const actualIndex = visibleStart + index + 1;
 					const active = session.id === selectedId;
-					const row = renderRow(session, allSessions, actualIndex, indexWidth, active, contentWidth, spinnerFrame, collapsedSessionIds);
+					const row = renderRow(session, allSessions, actualIndex, indexWidth, active, contentWidth, spinnerFrame, collapsedSessionIds, hiddenSessionIds);
 					return (
 						<Box key={session.id} width={contentWidth}>
 							<Text

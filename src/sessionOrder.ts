@@ -72,7 +72,7 @@ export function sessionHasChildren(sessionId: string, sessions: SessionRecord[])
 	return sessions.some(session => session.parentSessionId === sessionId);
 }
 
-export function countSessionDescendants(sessionId: string, sessions: SessionRecord[]): number {
+function childSessionMap(sessions: SessionRecord[]): Map<string, SessionRecord[]> {
 	const children = new Map<string, SessionRecord[]>();
 	for (const session of sessions) {
 		if (!session.parentSessionId) continue;
@@ -80,28 +80,46 @@ export function countSessionDescendants(sessionId: string, sessions: SessionReco
 		siblings.push(session);
 		children.set(session.parentSessionId, siblings);
 	}
+	return children;
+}
 
-	let count = 0;
+export function sessionDescendants(sessionId: string, sessions: SessionRecord[]): SessionRecord[] {
+	const children = childSessionMap(sessions);
+	const descendants: SessionRecord[] = [];
 	const stack = [...(children.get(sessionId) ?? [])];
 	const seen = new Set<string>([sessionId]);
 	while (stack.length > 0) {
 		const child = stack.pop()!;
 		if (seen.has(child.id)) continue;
 		seen.add(child.id);
-		count += 1;
+		descendants.push(child);
 		stack.push(...(children.get(child.id) ?? []));
 	}
-	return count;
+	return descendants;
 }
 
-export function filterCollapsedSessions(sessions: SessionRecord[], collapsedSessionIds: ReadonlySet<string>): SessionRecord[] {
-	if (collapsedSessionIds.size === 0) return sessions;
+export function countSessionDescendants(sessionId: string, sessions: SessionRecord[]): number {
+	return sessionDescendants(sessionId, sessions).length;
+}
+
+export function countHiddenSessionDescendants(sessionId: string, sessions: SessionRecord[], hiddenSessionIds: ReadonlySet<string>): number {
+	if (hiddenSessionIds.size === 0) return 0;
+	return sessionDescendants(sessionId, sessions).filter(session => hiddenSessionIds.has(session.id)).length;
+}
+
+export function filterCollapsedSessions(
+	sessions: SessionRecord[],
+	collapsedSessionIds: ReadonlySet<string>,
+	hiddenSessionIds: ReadonlySet<string> = new Set<string>(),
+): SessionRecord[] {
+	if (collapsedSessionIds.size === 0 && hiddenSessionIds.size === 0) return sessions;
 	const byId = new Map(sessions.map(session => [session.id, session]));
 	return sessions.filter(session => {
+		if (hiddenSessionIds.has(session.id)) return false;
 		let parentId = session.parentSessionId;
 		const seen = new Set<string>([session.id]);
 		while (parentId && byId.has(parentId) && !seen.has(parentId)) {
-			if (collapsedSessionIds.has(parentId)) return false;
+			if (collapsedSessionIds.has(parentId) || hiddenSessionIds.has(parentId)) return false;
 			seen.add(parentId);
 			parentId = byId.get(parentId)?.parentSessionId;
 		}

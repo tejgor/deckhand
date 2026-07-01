@@ -140,7 +140,7 @@ Worker stdout/stderr are appended to per-session files under `~/.deckhand/worker
 - `j` / `k` move selected session
 - session numbers jump to matching visible rows; multi-digit input is buffered when needed and `enter` confirms immediately
 - `J` / `K` manually reorder selected session among siblings
-- `c` collapses/expands selected session's subtree
+- `c` cycles selected session's subtree: collapse exited sub-sessions only, then collapse all sub-sessions, then expand all
 - `h` / `l` resize sidebar; left/right arrows also resize sidebar in browse mode
 - `[` / `]` decrease/increase `attach_scroll_sensitivity` live and persist it to config
 - `tab` cycles Preview / Terminal / Git / Dev / Notes for selected session

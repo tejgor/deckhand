@@ -8,7 +8,7 @@ import {GitPane} from './gitPane.js';
 import {NotesPane} from './notesPane.js';
 import {PreviewPane} from './preview.js';
 import {Sidebar} from './sidebar.js';
-import {filterCollapsedSessions, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
+import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
 import type {AttachTarget, DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
@@ -387,7 +387,7 @@ function HelpPane({width}: {width: number}) {
 		['O', 'open session dir in Cursor/Code'],
 		['Ctrl+Space / Ctrl+]', 'return from attach'],
 		['n', 'new session'],
-		['c', 'collapse/expand sub-sessions'],
+		['c', 'collapse exited / collapse all / expand all'],
 		['j/k', 'move selection'],
 		['v', 'focus preview scrolling'],
 		['preview: j/k', 'scroll preview'],
@@ -459,6 +459,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [mode, setMode] = useState<Mode>('browse');
 	const [sessions, setSessions] = useState<SessionRecord[]>([]);
 	const [collapsedSessionIds, setCollapsedSessionIds] = useState<Set<string>>(() => new Set());
+	const [hiddenExitedSessionIds, setHiddenExitedSessionIds] = useState<Set<string>>(() => new Set());
 	const [selectedId, setSelectedId] = useState<string | undefined>(initialSelectedId);
 	const [programIndex, setProgramIndex] = useState(0);
 	const [draftName, setDraftName] = useState('');
@@ -496,7 +497,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [spinnerIndex, setSpinnerIndex] = useState(0);
 	const selectedIdRef = useRef<string | undefined>(selectedId);
 	const sessionsRef = useRef<SessionRecord[]>(sessions);
-	const visibleSessions = useMemo(() => filterCollapsedSessions(sessions, collapsedSessionIds), [collapsedSessionIds, sessions]);
+	const visibleSessions = useMemo(
+		() => filterCollapsedSessions(sessions, collapsedSessionIds, hiddenExitedSessionIds),
+		[collapsedSessionIds, hiddenExitedSessionIds, sessions],
+	);
 
 	useEffect(() => {
 		if (!statusMessage) {
@@ -903,17 +907,48 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			setError('selected session has no sub-sessions');
 			return;
 		}
+
+		const descendants = sessionDescendants(selectedSession.id, sessions);
+		const descendantIds = new Set(descendants.map(session => session.id));
+		const exitedDescendants = descendants.filter(session => session.status === 'exited');
+		const exitedDescendantIds = new Set(exitedDescendants.map(session => session.id));
+		const selectedCollapsed = collapsedSessionIds.has(selectedSession.id);
+		const exitedAlreadyHidden = exitedDescendants.length > 0 && exitedDescendants.every(session => hiddenExitedSessionIds.has(session.id));
+
 		setError(undefined);
+		if (selectedCollapsed) {
+			setCollapsedSessionIds(current => {
+				const next = new Set(current);
+				next.delete(selectedSession.id);
+				for (const id of descendantIds) next.delete(id);
+				return next;
+			});
+			setHiddenExitedSessionIds(current => {
+				const next = new Set(current);
+				for (const id of exitedDescendantIds) next.delete(id);
+				return next;
+			});
+			setStatusMessage('expanded all sub-sessions');
+			return;
+		}
+
+		if (exitedDescendants.length > 0 && !exitedAlreadyHidden) {
+			setHiddenExitedSessionIds(current => {
+				const next = new Set(current);
+				for (const id of exitedDescendantIds) next.add(id);
+				return next;
+			});
+			setStatusMessage(`collapsed ${exitedDescendants.length} exited sub-session${exitedDescendants.length === 1 ? '' : 's'}`);
+			return;
+		}
+
 		setCollapsedSessionIds(current => {
 			const next = new Set(current);
-			if (next.has(selectedSession.id)) {
-				next.delete(selectedSession.id);
-			} else {
-				next.add(selectedSession.id);
-			}
+			next.add(selectedSession.id);
 			return next;
 		});
-	}, [selectedSession, sessions]);
+		setStatusMessage('collapsed all sub-sessions');
+	}, [collapsedSessionIds, hiddenExitedSessionIds, selectedSession, sessions]);
 
 	const reorderSelected = useCallback(async (direction: 'up' | 'down') => {
 		if (!client || !selectedSession) {
@@ -1752,6 +1787,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					height={layout.contentHeight}
 					spinnerFrame={spinnerFrame}
 					collapsedSessionIds={collapsedSessionIds}
+					hiddenSessionIds={hiddenExitedSessionIds}
 				/>
 				<Box width={1} />
 				{mode === 'browse' || mode === 'preview-focus' || mode === 'notes-focus' ? (
