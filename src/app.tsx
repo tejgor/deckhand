@@ -323,6 +323,10 @@ function WorktreePickerPane({
 function MergeConfirmPane({session, sessions, selectedIndex, width}: {session?: SessionRecord; sessions: SessionRecord[]; selectedIndex: number; width: number}) {
 	const options = ['Merge into current branch without committing', 'Squash merge into current branch without committing', 'Cancel'];
 	const contentWidth = Math.max(1, width - 4);
+	const noteSessions = session ? [session, ...sessionDescendants(session.id, sessions)] : [];
+	const noteEntries = noteSessions
+		.map(noteSession => ({session: noteSession, lines: (noteSession.notes?.trim() ?? '').split('\n').filter(Boolean)}))
+		.filter(entry => entry.lines.length > 0);
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
 			<Text color={THEME.accent} bold>Merge {session ? `"${displaySessionTitle(session, sessions)}"` : 'worktree'}?</Text>
@@ -342,6 +346,19 @@ function MergeConfirmPane({session, sessions, selectedIndex, width}: {session?: 
 			</Box>
 			<Box marginTop={1}>
 				<Text color={THEME.muted}>enter choose · esc cancel · j/k move</Text>
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color={THEME.accentSoft} bold>Notes</Text>
+				{noteEntries.length > 0 ? noteEntries.map(entry => (
+					<Box key={entry.session.id} flexDirection="column">
+						<Text color={THEME.muted} bold>{truncate(displaySessionTitle(entry.session, sessions), contentWidth)}</Text>
+						{entry.lines.map((line, index) => (
+							<Text key={`${entry.session.id}-${index}`} color={THEME.muted}>{truncate(`  ${line}`, contentWidth)}</Text>
+						))}
+					</Box>
+				)) : (
+					<Text color={THEME.muted}>No notes for this session or its sub-sessions.</Text>
+				)}
 			</Box>
 		</Box>
 	);
