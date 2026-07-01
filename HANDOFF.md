@@ -52,7 +52,7 @@ Implemented behavior:
 
 ### Frontend (`src/app.tsx`, `src/cli.ts`)
 
-`src/cli.ts` chooses between UI, daemon, session-worker, and setup/doctor modes. Normal UI flow enters an alternate screen, renders `App`, exits Ink for attach mode, then re-enters Ink after detach while preserving in-process UI state such as selected session, selected tab, sidebar width, and per-session tab selection.
+`src/cli.ts` chooses between UI, daemon, session-worker, and setup/doctor modes. Normal UI flow enters an alternate screen, renders `App`, exits Ink for attach mode, then re-enters Ink after detach while preserving in-process UI state such as selected session, selected tab, sidebar width, per-session tab selection, and collapsed/hidden sidebar state.
 
 `src/app.tsx`:
 
@@ -446,7 +446,7 @@ Event types:
 - Owns UI modes, selected session, active tab, pane subscriptions, and user input handling.
 - Create/worktree picker/kill confirmation currently replace the right pane rather than using true overlays.
 - Kill confirmation uses a red border for destructive actions.
-- Sidebar width is preserved across attach/detach in the same frontend process, but not across full frontend restarts.
+- Sidebar width and collapsed/hidden session state are preserved across attach/detach in the same frontend process, but not across full frontend restarts.
 
 ### `src/attach.ts`
 

@@ -34,7 +34,7 @@ function leaveAlternateScreen(): void {
 	}
 }
 
-async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number; sessionTabs: Record<string, RightPaneTab>}): Promise<UiExitResult | undefined> {
+async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number; sessionTabs: Record<string, RightPaneTab>; collapsedSessionIds: string[]; hiddenExitedSessionIds: string[]}): Promise<UiExitResult | undefined> {
 	const repoRoot = await ensureGitRepo(process.cwd());
 	enterAlternateScreen();
 	const instance = render(
@@ -45,6 +45,8 @@ async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; si
 			initialActiveTab: uiState.activeTab,
 			initialSidebarWidth: uiState.sidebarWidth,
 			initialSessionTabs: uiState.sessionTabs,
+			initialCollapsedSessionIds: uiState.collapsedSessionIds,
+			initialHiddenExitedSessionIds: uiState.hiddenExitedSessionIds,
 			onSelectedIdChange: sessionId => {
 				uiState.selectedId = sessionId;
 			},
@@ -56,6 +58,12 @@ async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; si
 			},
 			onSidebarWidthChange: width => {
 				uiState.sidebarWidth = width;
+			},
+			onCollapsedSessionIdsChange: sessionIds => {
+				uiState.collapsedSessionIds = sessionIds;
+			},
+			onHiddenExitedSessionIdsChange: sessionIds => {
+				uiState.hiddenExitedSessionIds = sessionIds;
 			},
 		}),
 		{
@@ -91,7 +99,7 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	const uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number; sessionTabs: Record<string, RightPaneTab>} = {sessionTabs: {}};
+	const uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number; sessionTabs: Record<string, RightPaneTab>; collapsedSessionIds: string[]; hiddenExitedSessionIds: string[]} = {sessionTabs: {}, collapsedSessionIds: [], hiddenExitedSessionIds: []};
 	while (true) {
 		const result = await runUi(uiState);
 		if (!result || result.kind === 'quit') {

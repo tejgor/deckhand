@@ -138,10 +138,14 @@ interface AppProps {
 	initialActiveTab?: RightPaneTab;
 	initialSidebarWidth?: number;
 	initialSessionTabs?: Record<string, RightPaneTab>;
+	initialCollapsedSessionIds?: string[];
+	initialHiddenExitedSessionIds?: string[];
 	onSelectedIdChange?: (sessionId: string | undefined) => void;
 	onActiveTabChange?: (tab: RightPaneTab) => void;
 	onSessionTabChange?: (sessionId: string, tab: RightPaneTab) => void;
 	onSidebarWidthChange?: (width: number) => void;
+	onCollapsedSessionIdsChange?: (sessionIds: string[]) => void;
+	onHiddenExitedSessionIdsChange?: (sessionIds: string[]) => void;
 }
 
 interface TerminalSize {
@@ -471,12 +475,12 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 	return `${activeTab} shortcuts • esc/? close`;
 }
 
-export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialSidebarWidth, initialSessionTabs, onSelectedIdChange, onActiveTabChange, onSessionTabChange, onSidebarWidthChange}: AppProps) {
+export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialSidebarWidth, initialSessionTabs, initialCollapsedSessionIds, initialHiddenExitedSessionIds, onSelectedIdChange, onActiveTabChange, onSessionTabChange, onSidebarWidthChange, onCollapsedSessionIdsChange, onHiddenExitedSessionIdsChange}: AppProps) {
 	const {exit} = useApp();
 	const [mode, setMode] = useState<Mode>('browse');
 	const [sessions, setSessions] = useState<SessionRecord[]>([]);
-	const [collapsedSessionIds, setCollapsedSessionIds] = useState<Set<string>>(() => new Set());
-	const [hiddenExitedSessionIds, setHiddenExitedSessionIds] = useState<Set<string>>(() => new Set());
+	const [collapsedSessionIds, setCollapsedSessionIds] = useState<Set<string>>(() => new Set(initialCollapsedSessionIds ?? []));
+	const [hiddenExitedSessionIds, setHiddenExitedSessionIds] = useState<Set<string>>(() => new Set(initialHiddenExitedSessionIds ?? []));
 	const [selectedId, setSelectedId] = useState<string | undefined>(initialSelectedId);
 	const [programIndex, setProgramIndex] = useState(0);
 	const [draftName, setDraftName] = useState('');
@@ -554,6 +558,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	useEffect(() => {
 		sessionsRef.current = sessions;
 	}, [sessions]);
+
+	useEffect(() => {
+		onCollapsedSessionIdsChange?.([...collapsedSessionIds]);
+	}, [collapsedSessionIds, onCollapsedSessionIdsChange]);
+
+	useEffect(() => {
+		onHiddenExitedSessionIdsChange?.([...hiddenExitedSessionIds]);
+	}, [hiddenExitedSessionIds, onHiddenExitedSessionIdsChange]);
 
 	useEffect(() => {
 		void loadAppConfig()
