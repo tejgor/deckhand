@@ -277,12 +277,12 @@ export async function deleteLocalBranch(repoCwd: string, branch: string): Promis
 	await execFileAsync('git', ['-C', repoCwd, 'branch', '-D', trimmed]);
 }
 
-async function currentBranch(cwd: string): Promise<string> {
+export async function currentBranch(cwd: string): Promise<string> {
 	const {stdout} = await execFileAsync('git', ['-C', cwd, 'branch', '--show-current']);
 	return stdout.trim();
 }
 
-async function headSha(cwd: string): Promise<string> {
+export async function headSha(cwd: string): Promise<string> {
 	const {stdout} = await execFileAsync('git', ['-C', cwd, 'rev-parse', 'HEAD']);
 	return stdout.trim();
 }

@@ -454,7 +454,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 			? (session.worktree?.deletedAt ? 'worktree deleted • backspace remove' : 's resume • S fresh • backspace remove')
 			: session?.status === 'running' ? 'x kill • X force kill' : undefined;
 		const dev = activeTab === 'dev' && session?.status === 'running' ? 'd toggle dev' : undefined;
-		const merge = session?.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge' : undefined;
+		const merge = session?.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge/M mark merged' : undefined;
 		const previewFocus = activeTab === 'preview' && session?.status === 'running' ? 'v preview' : undefined;
 		const notes = activeTab === 'notes' ? 'o edit notes' : 'a notes';
 		const collapse = session ? 'c collapse' : undefined;
@@ -1362,6 +1362,38 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 	}, [client, cwd, selectedSession]);
 
+	const markSelectedMerged = useCallback(async () => {
+		if (!client || !selectedSession?.worktree?.path || selectedSession.worktree.mode === 'none' || selectedSession.worktree.deletedAt) {
+			setError('selected session has no mergeable worktree');
+			return;
+		}
+		const wasMerged = Boolean(selectedSession.worktree.mergedAt);
+		setBusy(true);
+		setError(undefined);
+		try {
+			const updated = await client.markWorktreeMerged(selectedSession.id, cwd);
+			const displaySession = wasMerged && updated.worktree
+				? {
+					...updated,
+					worktree: {
+						...updated.worktree,
+						mergedAt: undefined,
+						mergeMode: undefined,
+						mergeTargetBranch: undefined,
+						mergeSourceRef: undefined,
+						mergeMarkedManually: undefined,
+					},
+				}
+				: updated;
+			setSessions(current => upsertSession(current, displaySession));
+			setStatusMessage(wasMerged ? 'Unmarked merged' : `Marked merged into ${updated.worktree?.mergeTargetBranch ?? 'target branch'}`);
+		} catch (nextError) {
+			setError(nextError instanceof Error ? nextError.message : String(nextError));
+		} finally {
+			setBusy(false);
+		}
+	}, [client, cwd, selectedSession]);
+
 	useInput((input, key) => {
 		if (busy) {
 			return;
@@ -1576,6 +1608,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if (input === 'm' && selectedSession?.worktree?.path && selectedSession.worktree.mode !== 'none' && !selectedSession.worktree.deletedAt) {
 				setMergeConfirmIndex(0);
 				setMode('confirm-merge');
+				return;
+			}
+			if (input === 'M') {
+				void markSelectedMerged();
 				return;
 			}
 			if ((input === 'x' || input === 'X') && selectedSession?.status === 'running') {

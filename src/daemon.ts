@@ -8,7 +8,7 @@ import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import pty, {type IPty} from 'node-pty';
 import {getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
-import {createWorktreeForSession, deleteLocalBranch, findRepoRoot, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree, sanitizeWorktreeName} from './git.js';
+import {createWorktreeForSession, currentBranch, deleteLocalBranch, findRepoRoot, headSha, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree, sanitizeWorktreeName} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst} from './storage.js';
 import {compareSessionOrder, sortSessionsForSidebar} from './sessionOrder.js';
@@ -25,7 +25,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 22;
+const PROTOCOL_VERSION = 23;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
@@ -743,6 +743,9 @@ export class InkDaemon {
 					return;
 				case 'merge-worktree':
 					sendMessage(socket, response(message.requestId, await this.mergeSessionWorktree(message.sessionId, message.mode, message.targetCwd)));
+					return;
+				case 'mark-worktree-merged':
+					sendMessage(socket, response(message.requestId, await this.markSessionWorktreeMerged(message.sessionId, message.targetCwd)));
 					return;
 				case 'remove':
 					await this.removeSession(message.sessionId);
@@ -2124,6 +2127,62 @@ export class InkDaemon {
 			await this.log(`${mode} merged ${session.title} (${result.sourceRef}) into ${result.targetBranch}`);
 		}
 		return result;
+	}
+
+	private async markSessionWorktreeMerged(sessionId: string, targetCwd: string): Promise<SessionRecord> {
+		const session = this.sessions.get(sessionId);
+		if (!session) {
+			throw new Error('session does not exist');
+		}
+		const worktree = session.worktree;
+		const worktreePath = worktree?.path;
+		if (!worktreePath || !worktree || worktree.mode === 'none') {
+			throw new Error('session does not have a worktree to mark merged');
+		}
+		if (worktree.deletedAt) {
+			throw new Error('cannot mark session merged because its worktree was deleted');
+		}
+		if (worktree.mergedAt) {
+			const unmergedWorktree = {...worktree};
+			delete unmergedWorktree.mergedAt;
+			delete unmergedWorktree.mergeMode;
+			delete unmergedWorktree.mergeTargetBranch;
+			delete unmergedWorktree.mergeSourceRef;
+			delete unmergedWorktree.mergeMarkedManually;
+			const updated: SessionRecord = {
+				...session,
+				worktree: unmergedWorktree,
+				updatedAt: new Date().toISOString(),
+			};
+			this.sessions.set(sessionId, updated);
+			await this.persist();
+			this.broadcastSessionUpdated(updated);
+			await this.log(`unmarked ${session.title} as merged`);
+			return updated;
+		}
+		const sourceRoot = await findRepoRoot(worktreePath);
+		const targetRoot = await findRepoRoot(targetCwd);
+		const sourceRef = await currentBranch(sourceRoot) || await headSha(sourceRoot);
+		const targetBranch = await currentBranch(targetRoot);
+		if (!targetBranch) {
+			throw new Error('target worktree is detached; checkout a branch before marking merged');
+		}
+		const updated: SessionRecord = {
+			...session,
+			worktree: {
+				...worktree,
+				mergedAt: new Date().toISOString(),
+				mergeTargetBranch: targetBranch,
+				mergeSourceRef: sourceRef,
+				mergeMarkedManually: true,
+			},
+			updatedAt: new Date().toISOString(),
+		};
+		this.sessions.set(sessionId, updated);
+		await this.persist();
+		this.broadcastSessionUpdated(updated);
+		await this.log(`manually marked ${session.title} (${sourceRef}) merged into ${targetBranch}`);
+		return updated;
 	}
 
 	private async killSession(sessionId: string, deleteWorktree: boolean, deleteBranch: boolean, force: boolean): Promise<void> {

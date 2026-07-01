@@ -84,7 +84,7 @@ export async function request<T = unknown>(message: Extract<ClientRequest, {requ
 	});
 }
 
-const PROTOCOL_VERSION = 22;
+const PROTOCOL_VERSION = 23;
 
 class ProtocolMismatchError extends Error {}
 
@@ -230,6 +230,11 @@ export async function killSession(sessionId: string, deleteWorktree = false, del
 export async function mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string): Promise<WorktreeMergeResult> {
 	await ensureDaemonRunning();
 	return request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd});
+}
+
+export async function markWorktreeMerged(sessionId: string, targetCwd: string): Promise<SessionRecord> {
+	await ensureDaemonRunning();
+	return request<SessionRecord>({type: 'mark-worktree-merged', requestId: randomUUID(), sessionId, targetCwd});
 }
 
 export async function listWorktrees(cwd: string): Promise<WorktreeInfoRecord[]> {
@@ -427,6 +432,10 @@ export class LiveClient {
 
 	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string): Promise<WorktreeMergeResult> {
 		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd});
+	}
+
+	markWorktreeMerged(sessionId: string, targetCwd: string): Promise<SessionRecord> {
+		return this.request<SessionRecord>({type: 'mark-worktree-merged', requestId: randomUUID(), sessionId, targetCwd});
 	}
 
 	removeSession(sessionId: string): Promise<void> {

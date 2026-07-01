@@ -155,6 +155,7 @@ Worker stdout/stderr are appended to per-session files under `~/.deckhand/worker
   - Notes => enter notes edit/focus mode
 - `O` opens selected session directory/worktree in Cursor if available, otherwise Code (`cursor`/`code` CLI; macOS fallback is `open -a Cursor`)
 - `m` opens merge/squash/cancel confirmation for worktree-backed sessions
+- `M` toggles the manual merged marker for a worktree-backed session, useful after resolving conflicted merges in the target branch
 - `x` kills selected running session
 - `X` force-kills selected running session; workers send SIGTERM first and SIGKILL after a short delay if still alive
 - for worktree-backed sessions, kill confirmation offers keep/delete/delete-branch/cancel when applicable
@@ -272,6 +273,7 @@ Implemented in `src/git.ts`.
 - before merge, Deckhand checks `HEAD..<source>` and skips if there are no new commits
 - successful merge/squash operations persist `worktree.mergedAt`, `mergeMode`, `mergeTargetBranch`, and `mergeSourceRef`; sidebar shows a trailing `✓` for those sessions
 - skipped or conflicted merge attempts do not set the merged marker
+- `M` toggles the merged marker after external/manual conflict resolution; marking persists `mergeMarkedManually: true` plus target/source metadata, unmarking clears merge metadata
 - if Git exits nonzero and leaves unmerged files, Deckhand returns a `conflicted: true` result instead of throwing
 - UI returns to browse mode and shows a status message for skipped/conflicted results
 
@@ -328,7 +330,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v22**
+- current protocol version: **v23**
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -356,6 +358,7 @@ Tracked metadata includes:
   - path, branch, HEAD, main-worktree flag
   - origin/creator/name metadata
   - `mergedAt` / `mergeMode` / `mergeTargetBranch` / `mergeSourceRef` when Deckhand successfully applied a merge/squash merge
+  - `mergeMarkedManually` when user pressed `M` to mark a worktree-backed session as merged
   - `deletedAt` when Deckhand deleted the worktree on session exit
 - lifecycle `status`
 - activity `agentStatus`, `agentStatusUpdatedAt`

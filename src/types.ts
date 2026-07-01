@@ -22,6 +22,7 @@ export interface SessionWorktreeRecord {
 	mergeMode?: WorktreeMergeMode;
 	mergeTargetBranch?: string;
 	mergeSourceRef?: string;
+	mergeMarkedManually?: boolean;
 	deletedAt?: string;
 }
 
@@ -149,6 +150,7 @@ export type ClientRequest =
 	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number; mode?: RestartMode}
 	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean; deleteBranch?: boolean; force?: boolean}
 	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string}
+	| {type: 'mark-worktree-merged'; requestId: string; sessionId: string; targetCwd: string}
 	| {type: 'remove'; requestId: string; sessionId: string}
 	| {type: 'attach'; requestId: string; sessionId: string; cols?: number; rows?: number}
 	| {type: 'input'; sessionId: string; data: string}
