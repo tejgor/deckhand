@@ -25,7 +25,7 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
-const PROTOCOL_VERSION = 21;
+const PROTOCOL_VERSION = 22;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 
 interface RuntimeSession {
@@ -2107,6 +2107,20 @@ export class InkDaemon {
 		} else if (result.conflicted) {
 			await this.log(`${mode} merge for ${session.title} (${result.sourceRef}) into ${result.targetBranch} has conflicts to resolve`);
 		} else {
+			const updated: SessionRecord = {
+				...session,
+				worktree: {
+					...worktree,
+					mergedAt: new Date().toISOString(),
+					mergeMode: mode,
+					mergeTargetBranch: result.targetBranch,
+					mergeSourceRef: result.sourceRef,
+				},
+				updatedAt: new Date().toISOString(),
+			};
+			this.sessions.set(sessionId, updated);
+			await this.persist();
+			this.broadcastSessionUpdated(updated);
 			await this.log(`${mode} merged ${session.title} (${result.sourceRef}) into ${result.targetBranch}`);
 		}
 		return result;

@@ -48,7 +48,8 @@ function renderRow(
 	const idxText = String(index);
 	const idx = `[${idxText}]`;
 	const idxPadding = ' '.repeat(Math.max(0, indexWidth - idxText.length));
-	const devGlyph = session.devRunning ? ' ▹' : '';
+	const devGlyph = session.devRunning ? '▶ ' : '';
+	const mergedGlyph = session.worktree?.mergedAt ? '✓' : '';
 	const forkGlyph = session.subSessionKind === 'forked' ? '⑂ ' : session.subSessionKind === 'clean' ? '↳ ' : '';
 	const depth = sessionDepth(session, allSessions);
 	const indent = '  '.repeat(Math.min(depth, 4));
@@ -58,8 +59,8 @@ function renderRow(
 	const childCount = collapsed && hasChildren
 		? countSessionDescendants(session.id, allSessions)
 		: countHiddenSessionDescendants(session.id, allSessions, hiddenSessionIds);
-	const suffix = childCount > 0 ? subtleCount(childCount) : '';
-	const glyph = `${statusGlyph(session, spinnerFrame)} ${programGlyph(session.program)}${devGlyph}`;
+	const suffix = [mergedGlyph, childCount > 0 ? subtleCount(childCount) : ''].filter(Boolean).join(' ');
+	const glyph = `${statusGlyph(session, spinnerFrame)} ${devGlyph}${programGlyph(session.program)}`;
 	const prefix = `${cursor} ${idx}${idxPadding} ${indent}${branchGlyph}${forkGlyph}${glyph} `;
 	const titleSpace = Math.max(0, width - prefix.length - suffix.length);
 	const title = truncate(displaySessionTitle(session, allSessions), titleSpace);

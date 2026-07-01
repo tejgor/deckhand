@@ -18,6 +18,10 @@ export interface SessionWorktreeRecord {
 	origin?: 'created' | 'existing' | 'selected';
 	creator?: 'script' | 'fallback' | 'picker';
 	name?: string;
+	mergedAt?: string;
+	mergeMode?: WorktreeMergeMode;
+	mergeTargetBranch?: string;
+	mergeSourceRef?: string;
 	deletedAt?: string;
 }
 

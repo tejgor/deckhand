@@ -29,7 +29,7 @@ Implemented behavior:
 - External attach/detach for agent, terminal, git, and dev PTYs.
 - Worktree modes: no worktree, new managed worktree, existing/attached worktree.
 - Safe worktree deletion, optional branch deletion, and cleanup of leftover directories/remnants.
-- Merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing.
+- Merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing, with successfully merged sessions marked in the sidebar.
 - Lazy Git tab powered by `lazygit` when installed.
 - Dev tab powered by configurable global `dev_command`.
 - Per-session persisted Notes tab.
@@ -126,7 +126,7 @@ Worker stdout/stderr are appended to per-session files under `~/.deckhand/worker
 - Parent sessions with children show `▾` / `▸` and can be expanded/collapsed.
 - Dev-running indicators:
   - selected session: green `●` suffix on Dev tab
-  - all sessions: subtle `▹` suffix in sidebar row
+  - all sessions: prominent `▶` near the left side of the sidebar row, after lifecycle status and before agent glyph
 - Sidebar row markers are numeric (`[1]`, `[2]`, ...). With 10 or fewer visible sessions, single digits jump immediately and `0` selects row 10; with more than 10, numeric input is briefly buffered for multi-digit selection.
 - Right pane is one rounded bordered frame with a tab bar; sub-panes are borderless content containers.
 
@@ -270,6 +270,8 @@ Implemented in `src/git.ts`.
 - target worktree must be on a branch
 - source and target roots must differ
 - before merge, Deckhand checks `HEAD..<source>` and skips if there are no new commits
+- successful merge/squash operations persist `worktree.mergedAt`, `mergeMode`, `mergeTargetBranch`, and `mergeSourceRef`; sidebar shows a trailing `✓` for those sessions
+- skipped or conflicted merge attempts do not set the merged marker
 - if Git exits nonzero and leaves unmerged files, Deckhand returns a `conflicted: true` result instead of throwing
 - UI returns to browse mode and shows a status message for skipped/conflicted results
 
@@ -326,7 +328,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v21**
+- current protocol version: **v22**
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -353,6 +355,7 @@ Tracked metadata includes:
   - mode: `none`, `managed`, `attached`
   - path, branch, HEAD, main-worktree flag
   - origin/creator/name metadata
+  - `mergedAt` / `mergeMode` / `mergeTargetBranch` / `mergeSourceRef` when Deckhand successfully applied a merge/squash merge
   - `deletedAt` when Deckhand deleted the worktree on session exit
 - lifecycle `status`
 - activity `agentStatus`, `agentStatusUpdatedAt`
