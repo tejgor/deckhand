@@ -29,7 +29,7 @@ Implemented behavior:
 - External attach/detach for agent, terminal, git, and dev PTYs.
 - Worktree modes: no worktree, new managed worktree, existing/attached worktree.
 - Safe worktree deletion, optional branch deletion, and cleanup of leftover directories/remnants.
-- Merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing, with successfully merged sessions marked in the sidebar.
+- Merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing, with merged/externally-pushed sessions markable in the sidebar.
 - Lazy Git tab powered by `lazygit` when installed.
 - Dev tab powered by configurable global `dev_command`.
 - Per-session persisted Notes tab.
@@ -155,7 +155,7 @@ Worker stdout/stderr are appended to per-session files under `~/.deckhand/worker
   - Notes => enter notes edit/focus mode
 - `O` opens selected session directory/worktree in Cursor if available, otherwise Code (`cursor`/`code` CLI; macOS fallback is `open -a Cursor`)
 - `m` opens merge/squash/cancel confirmation for worktree-backed sessions
-- `M` toggles the manual merged marker for a worktree-backed session, useful after resolving conflicted merges in the target branch
+- `M` toggles the manual merged marker for any session, useful after resolving conflicted merges or after pushing/integrating a non-worktree session
 - `x` kills selected running session
 - `X` force-kills selected running session; workers send SIGTERM first and SIGKILL after a short delay if still alive
 - for worktree-backed sessions, kill confirmation offers keep/delete/delete-branch/cancel when applicable
@@ -273,7 +273,7 @@ Implemented in `src/git.ts`.
 - before merge, Deckhand checks `HEAD..<source>` and skips if there are no new commits
 - successful merge/squash operations persist `worktree.mergedAt`, `mergeMode`, `mergeTargetBranch`, and `mergeSourceRef`; sidebar shows a trailing `✓` for those sessions
 - skipped or conflicted merge attempts do not set the merged marker
-- `M` toggles the merged marker after external/manual conflict resolution; marking persists `mergeMarkedManually: true` plus target/source metadata, unmarking clears merge metadata
+- `M` toggles the merged marker after external/manual conflict resolution or after a non-worktree session is pushed/integrated; worktree sessions store the marker under `worktree`, non-worktree sessions store lightweight top-level merge metadata
 - if Git exits nonzero and leaves unmerged files, Deckhand returns a `conflicted: true` result instead of throwing
 - UI returns to browse mode and shows a status message for skipped/conflicted results
 
@@ -330,7 +330,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v23**
+- current protocol version: **v24**
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -360,6 +360,7 @@ Tracked metadata includes:
   - `mergedAt` / `mergeMode` / `mergeTargetBranch` / `mergeSourceRef` when Deckhand successfully applied a merge/squash merge
   - `mergeMarkedManually` when user pressed `M` to mark a worktree-backed session as merged
   - `deletedAt` when Deckhand deleted the worktree on session exit
+- top-level `mergedAt` / `mergeTargetBranch` / `mergeSourceRef` / `mergeMarkedManually` when `M` marks a non-worktree session
 - lifecycle `status`
 - activity `agentStatus`, `agentStatusUpdatedAt`
 - timestamps, `pid`, exit details, `lastPreview`
@@ -380,7 +381,7 @@ Request types:
 - `watch-preview`, `watch-terminal`, `watch-git`, `watch-dev`
 - `start-dev`, `stop-dev`
 - `update-session-notes`
-- `create`, `reorder-session`, `restart`, `kill`, `merge-worktree`, `remove`
+- `create`, `reorder-session`, `restart`, `kill`, `merge-worktree`, `mark-session-merged`, `remove`
 - agent attach path: `attach`, `input`, `resize`, `detach`
 - terminal path: `attach-terminal`, `terminal-input`, `terminal-resize`, `terminal-detach`
 - git path: `attach-git`, `git-input`, `git-resize`, `git-detach`

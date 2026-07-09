@@ -416,6 +416,7 @@ function HelpPane({width}: {width: number}) {
 		['[ / ]', 'decrease / increase scroll multiplier'],
 		['h/l', 'resize sidebar'],
 		['m', 'merge selected worktree into current branch'],
+		['M', 'toggle merged/pushed marker on selected session'],
 		['x / X', 'kill running session / force kill'],
 		['s / S', 'resume / fresh restart exited session'],
 		['d on Dev', 'start/stop dev command'],
@@ -439,6 +440,14 @@ function HelpPane({width}: {width: number}) {
 	);
 }
 
+function hasMergedMarker(session?: SessionRecord): boolean {
+	return Boolean(session?.worktree?.mergedAt || session?.mergedAt);
+}
+
+function mergedTargetBranch(session: SessionRecord): string | undefined {
+	return session.worktree?.mergeTargetBranch ?? session.mergeTargetBranch;
+}
+
 function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true): string {
 	if (mode === 'preview-focus') {
 		const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
@@ -454,7 +463,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 			? (session.worktree?.deletedAt ? 'worktree deleted • backspace remove' : 's resume • S fresh • backspace remove')
 			: session?.status === 'running' ? 'x kill • X force kill' : undefined;
 		const dev = activeTab === 'dev' && session?.status === 'running' ? 'd toggle dev' : undefined;
-		const merge = session?.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge/M mark merged' : undefined;
+		const merge = session ? `${session.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge/' : ''}M mark` : undefined;
 		const previewFocus = activeTab === 'preview' && session?.status === 'running' ? 'v preview' : undefined;
 		const notes = activeTab === 'notes' ? 'o edit notes' : 'a notes';
 		const collapse = session ? 'c collapse' : undefined;
@@ -1363,30 +1372,16 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	}, [client, cwd, selectedSession]);
 
 	const markSelectedMerged = useCallback(async () => {
-		if (!client || !selectedSession?.worktree?.path || selectedSession.worktree.mode === 'none' || selectedSession.worktree.deletedAt) {
-			setError('selected session has no mergeable worktree');
+		if (!client || !selectedSession) {
 			return;
 		}
-		const wasMerged = Boolean(selectedSession.worktree.mergedAt);
+		const wasMerged = hasMergedMarker(selectedSession);
 		setBusy(true);
 		setError(undefined);
 		try {
-			const updated = await client.markWorktreeMerged(selectedSession.id, cwd);
-			const displaySession = wasMerged && updated.worktree
-				? {
-					...updated,
-					worktree: {
-						...updated.worktree,
-						mergedAt: undefined,
-						mergeMode: undefined,
-						mergeTargetBranch: undefined,
-						mergeSourceRef: undefined,
-						mergeMarkedManually: undefined,
-					},
-				}
-				: updated;
-			setSessions(current => upsertSession(current, displaySession));
-			setStatusMessage(wasMerged ? 'Unmarked merged' : `Marked merged into ${updated.worktree?.mergeTargetBranch ?? 'target branch'}`);
+			const updated = await client.markSessionMerged(selectedSession.id, cwd);
+			setSessions(current => upsertSession(current, updated));
+			setStatusMessage(wasMerged ? 'Unmarked' : `Marked into ${mergedTargetBranch(updated) ?? 'target branch'}`);
 		} catch (nextError) {
 			setError(nextError instanceof Error ? nextError.message : String(nextError));
 		} finally {

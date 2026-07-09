@@ -141,6 +141,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `esc` *(in Notes)* | Stop editing notes |
 | `[` / `]` | Decrease / increase the scroll multiplier and save it to config |
 | `m` | Merge the selected worktree into the current branch |
+| `M` | Toggle the merged/pushed marker for the selected session |
 | `h` / `l` | Resize the sidebar |
 | `x` / `X` | Kill the selected running session / force kill |
 | `s` / `S` | Resume / fresh-restart the selected exited session |

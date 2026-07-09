@@ -49,7 +49,7 @@ function renderRow(
 	const idx = `[${idxText}]`;
 	const idxPadding = ' '.repeat(Math.max(0, indexWidth - idxText.length));
 	const devGlyph = session.devRunning ? '▶ ' : '';
-	const mergedGlyph = session.worktree?.mergedAt ? '✓' : '';
+	const mergedGlyph = session.worktree?.mergedAt || session.mergedAt ? '✓' : '';
 	const forkGlyph = session.subSessionKind === 'forked' ? '⑂ ' : session.subSessionKind === 'clean' ? '↳ ' : '';
 	const depth = sessionDepth(session, allSessions);
 	const indent = '  '.repeat(Math.min(depth, 4));
