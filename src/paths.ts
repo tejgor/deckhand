@@ -1,9 +1,16 @@
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export function getConfigDir(): string {
-	return path.join(os.homedir(), '.deckhand');
+	return process.env.DECKHAND_HOME ? path.resolve(process.env.DECKHAND_HOME) : path.join(os.homedir(), '.deckhand');
+}
+
+/** Compares a reported Deckhand home with ours by realpath (e.g. macOS /var vs /private/var). */
+export function isSameConfigDir(other: string): boolean {
+	const canonical = (dir: string) => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
+	return canonical(other) === canonical(getConfigDir());
 }
 
 export function getSocketPath(): string {
@@ -53,6 +60,10 @@ export function getCliEntryPath(): string {
 		return path.join(root, 'src', 'cli.ts');
 	}
 	return path.join(root, 'dist', 'cli.js');
+}
+
+export function getTsxLoaderPath(): string {
+	return import.meta.resolve('tsx');
 }
 
 export function isDevRuntime(): boolean {

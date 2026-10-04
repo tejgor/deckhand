@@ -11,8 +11,10 @@ interface SidebarProps {
 	width: number;
 	height: number;
 	spinnerFrame: string;
+	// Empty in filtered/search views, where collapse state is not applied.
 	collapsedSessionIds?: ReadonlySet<string>;
 	hiddenSessionIds?: ReadonlySet<string>;
+	loaded?: boolean;
 }
 
 function visibleSessions(sessions: SessionRecord[], selectedIndex: number, availableRows: number): SessionRecord[] {
@@ -59,7 +61,7 @@ function renderRow(
 	const childCount = collapsed && hasChildren
 		? countSessionDescendants(session.id, allSessions)
 		: countHiddenSessionDescendants(session.id, allSessions, hiddenSessionIds);
-	const suffix = [mergedGlyph, childCount > 0 ? subtleCount(childCount) : ''].filter(Boolean).join(' ');
+	const suffix = [session.archivedAt ? '▣' : '', session.cleanupError ? '!' : '', mergedGlyph, childCount > 0 ? subtleCount(childCount) : ''].filter(Boolean).join(' ');
 	const glyph = `${statusGlyph(session, spinnerFrame)} ${devGlyph}${programGlyph(session.program)}`;
 	const prefix = `${cursor} ${idx}${idxPadding} ${indent}${branchGlyph}${forkGlyph}${glyph} `;
 	const titleSpace = Math.max(0, width - prefix.length - suffix.length);
@@ -79,13 +81,20 @@ function renderRow(
 	return {main: filled + ' '.repeat(width - filled.length - suffix.length), suffix};
 }
 
-export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>()}: SidebarProps) {
+function emptyMessage(allSessions: SessionRecord[], loaded: boolean): [string, string] {
+	if (!loaded && allSessions.length === 0) return ['Loading sessions…', ''];
+	if (allSessions.length > 0) return ['No sessions match this view.', 'f filter · / search'];
+	return ['No sessions yet.', 'Press n to create.'];
+}
+
+export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>(), loaded = true}: SidebarProps) {
 	const selectedIndex = Math.max(0, sessions.findIndex(session => session.id === selectedId));
 	const contentWidth = Math.max(1, width - 4);
 	const rowsForSessions = Math.max(1, height - 3);
 	const visible = visibleSessions(sessions, selectedIndex, rowsForSessions);
 	const visibleStart = Math.max(0, sessions.indexOf(visible[0] ?? sessions[0]));
 	const indexWidth = String(Math.max(1, sessions.length)).length;
+	const [emptyTitle, emptyHint] = emptyMessage(allSessions, loaded);
 
 	return (
 		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.border} paddingX={1}>
@@ -95,8 +104,8 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 			</Box>
 			{sessions.length === 0 ? (
 				<Box flexDirection="column" marginTop={1}>
-					<Text color={THEME.muted}>{truncate('No sessions yet.', contentWidth)}</Text>
-					<Text color={THEME.active}>{truncate('Press n to create.', contentWidth)}</Text>
+					<Text color={THEME.muted}>{truncate(emptyTitle, contentWidth)}</Text>
+					<Text color={THEME.active}>{truncate(emptyHint || ' ', contentWidth)}</Text>
 				</Box>
 			) : (
 				visible.map((session, index) => {

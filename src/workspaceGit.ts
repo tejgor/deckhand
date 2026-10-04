@@ -1,0 +1,271 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {findRepoRoot, git, optionalGit} from './git.js';
+const exec = promisify(execFile);
+export interface WorkspaceSummary {
+	cwd: string; branch: string; head: string; baseRef?: string;
+	changedFiles: number; additions: number; deletions: number; untrackedFiles: number;
+	ahead?: number; behind?: number; commitsAheadOfBase?: number;
+	/** Where create-pr would push the branch: its upstream remote, else `origin` when it exists. */
+	pushRemote?: string;
+	pr?: {number: number; url: string; state: string; checks: 'passing' | 'pending' | 'failing' | 'unknown'};
+	prError?: string;
+}
+export interface CleanupInspection {
+	safe: boolean; reasons: string[]; dirtyFiles: number; untrackedFiles: number; ignoredFiles: number;
+	/** Informational: commits ahead of the cached upstream / comparison base. Only `reasons` decide safety. */
+	unpublishedCommits?: number; unmergedCommits?: number;
+}
+export interface WorkspaceStatus {
+	/** HEAD commit; undefined when unborn. */
+	oid?: string;
+	/** Branch name; undefined when detached. */
+	branch?: string;
+	upstream?: string; ahead?: number; behind?: number;
+	dirtyFiles: number; untracked: string[]; ignored: string[];
+}
+function validateRef(ref: string): string {
+	if (!ref || ref.startsWith('-') || /[\0\r\n]/.test(ref)) throw new Error('Invalid Git comparison ref');
+	return ref;
+}
+// `requested` must already have passed validateRef (callers check it before any Git work).
+async function base(cwd: string, requested?: string): Promise<string | undefined> {
+	const ref = requested || await optionalGit(cwd, ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD']);
+	if (!ref) return undefined;
+	return await optionalGit(cwd, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]) ? ref : undefined;
+}
+/** Parses `git status --porcelain=v2 -z --branch` (paths are repository-relative and may contain spaces/newlines). */
+export function parseStatus(raw: string): WorkspaceStatus {
+	const status: WorkspaceStatus = {dirtyFiles: 0, untracked: [], ignored: []};
+	const records = raw.split('\0');
+	for (let i = 0; i < records.length; i++) {
+		const record = records[i]!;
+		const kind = record[0];
+		if (kind === '#') {
+			const [, key, ...rest] = record.split(' '), value = rest.join(' ');
+			if (key === 'branch.oid') status.oid = value === '(initial)' ? undefined : value;
+			else if (key === 'branch.head') status.branch = value === '(detached)' ? undefined : value;
+			else if (key === 'branch.upstream') status.upstream = value;
+			else if (key === 'branch.ab') { const match = value.match(/^\+(\d+) -(\d+)$/); if (match) { status.ahead = Number(match[1]); status.behind = Number(match[2]); } }
+		} else if (kind === '1' || kind === 'u') status.dirtyFiles++;
+		else if (kind === '2') { status.dirtyFiles++; i++; } // Rename/copy: the original path is the next NUL-separated field.
+		else if (kind === '?') status.untracked.push(record.slice(2));
+		else if (kind === '!') status.ignored.push(record.slice(2));
+	}
+	return status;
+}
+// Cleanup inspection needs ignored files (--ignored=matching collapses ignored directories
+// to one entry instead of listing every file); the summary skips that scan.
+async function readWorkspaceStatus(cwd: string, includeIgnored: boolean): Promise<WorkspaceStatus> {
+	return parseStatus(await git(cwd, ['--no-optional-locks', 'status', '--porcelain=v2', '-z', '--branch', '--untracked-files=all', ...(includeIgnored ? ['--ignored=matching'] : [])], {maxBuffer: 32 * 1024 * 1024}));
+}
+function numstat(raw: string): {additions: number; deletions: number} {
+	let additions = 0, deletions = 0;
+	const records = raw.split('\0');
+	for (let i = 0; i < records.length; i++) {
+		const match = records[i]!.match(/^(\d+|-)\t(\d+|-)\t([\s\S]*)$/);
+		if (!match) continue;
+		additions += Number(match[1]) || 0; deletions += Number(match[2]) || 0;
+		if (!match[3]) i += 2; // Rename: empty path then old and new paths.
+	}
+	return {additions, deletions};
+}
+export async function getWorkspaceSummary(cwd: string, baseRef?: string, includePr = false): Promise<WorkspaceSummary> {
+	if (baseRef) validateRef(baseRef);
+	const status = await readWorkspaceStatus(cwd, false);
+	const head = status.oid ?? '';
+	const [resolvedBase, diff] = await Promise.all([base(cwd, baseRef), git(cwd, ['--no-optional-locks', 'diff', ...(head ? ['HEAD'] : ['--cached']), '--numstat', '-z', '--'])]);
+	const result: WorkspaceSummary = {cwd, branch: status.branch ?? '(detached)', head, baseRef: resolvedBase, changedFiles: status.dirtyFiles, untrackedFiles: status.untracked.length, ...numstat(diff)};
+	if (status.upstream && status.ahead !== undefined) { result.ahead = status.ahead; result.behind = status.behind; }
+	const [aheadOfBase, remote] = await Promise.all([
+		resolvedBase && head ? git(cwd, ['rev-list', '--count', `${resolvedBase}..HEAD`]) : undefined,
+		status.branch ? pushRemote(cwd, status.branch) : undefined,
+		includePr ? pullRequest(cwd, result) : undefined,
+	]);
+	if (aheadOfBase !== undefined) result.commitsAheadOfBase = Number(aheadOfBase) || 0;
+	if (remote) result.pushRemote = remote;
+	return result;
+}
+async function pullRequest(cwd: string, result: WorkspaceSummary): Promise<void> {
+	try {
+		const {stdout} = await exec('gh', ['pr', 'view', '--json', 'number,url,state,statusCheckRollup'], {cwd, timeout: 8000, maxBuffer: 1024 * 1024});
+		const pr = JSON.parse(stdout);
+		if (!Number.isInteger(pr.number) || typeof pr.url !== 'string' || !/^https:\/\//.test(pr.url)) throw new Error('Invalid PR response');
+		const checks = Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : [];
+		const failed = checks.some((check: any) => ['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE'].includes(check.conclusion || check.state));
+		const pending = checks.some((check: any) => ['PENDING', 'QUEUED', 'IN_PROGRESS', 'WAITING', 'REQUESTED'].includes(check.state || check.status));
+		result.pr = {number: pr.number, url: pr.url, state: String(pr.state), checks: failed ? 'failing' : pending ? 'pending' : checks.length > 0 && checks.every((check: any) => ['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(check.conclusion || check.state)) ? 'passing' : 'unknown'};
+	} catch (error) {
+		result.prError = (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'Install gh for PR status' : 'No PR status available; check gh authentication and branch';
+	}
+}
+const disposableIgnored = (file: string) => file.split('/').includes('node_modules');
+const MAX_SYMLINK_CHECKS = 2000;
+/** lstat-based symlink test relative to the repository root; past the cap entries count as real data (conservative). */
+async function symlinkCheck(cwd: string, entries: number): Promise<(file: string) => Promise<boolean>> {
+	if (!entries) return async () => false;
+	const top = await findRepoRoot(cwd).catch(() => undefined);
+	let checks = 0;
+	return async file => {
+		if (!top || file.endsWith('/') || ++checks > MAX_SYMLINK_CHECKS) return false;
+		return fs.lstat(path.join(top, file)).then(stat => stat.isSymbolicLink(), () => false);
+	};
+}
+/**
+ * Removing a worktree loses its uncommitted/untracked/valuable ignored files. Commits are kept by the branch,
+ * so they only matter when the branch is deleted too or HEAD is detached; then only commits reachable from no
+ * other local or remote-tracking branch count. Upstream/base comparisons are informational.
+ */
+export async function inspectWorkspaceCleanup(cwd: string, baseRef?: string, options: {deleteBranch?: boolean} = {}): Promise<CleanupInspection> {
+	if (baseRef) validateRef(baseRef);
+	let status: WorkspaceStatus;
+	try { status = await readWorkspaceStatus(cwd, true); }
+	catch (error) { return {safe: false, reasons: [`Git status unavailable: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`], dirtyFiles: 0, untrackedFiles: 0, ignoredFiles: 0}; }
+	// Symlinks hold no data of their own (shared dependency dirs, linked env files): removing one never
+	// touches its target, so they are disposable. Paths are checked with lstat, never followed.
+	const isLink = await symlinkCheck(cwd, status.untracked.length + status.ignored.length);
+	const untracked: string[] = [];
+	for (const file of status.untracked) if (!await isLink(file)) untracked.push(file);
+	const ignored: string[] = [];
+	for (const file of status.ignored) if (!disposableIgnored(file) && !await isLink(file)) ignored.push(file);
+	const reasons: string[] = [];
+	if (status.dirtyFiles) reasons.push(`${status.dirtyFiles} modified/staged file(s)`);
+	if (untracked.length) reasons.push(`${untracked.length} untracked file(s)`);
+	if (ignored.length) reasons.push(`${ignored.length} valuable ignored file(s), including ${ignored.slice(0, 3).join(', ')}`);
+	const checkCommits = Boolean(status.oid) && (options.deleteBranch || !status.branch);
+	const exclusive = status.branch ? [`--exclude=${status.branch}`] : []; // --exclude patterns for --branches omit refs/heads/.
+	const [merged, lost] = await Promise.all([
+		base(cwd, baseRef).then(resolved => resolved && status.oid ? optionalGit(cwd, ['rev-list', '--count', `${resolved}..HEAD`]) : undefined),
+		checkCommits ? optionalGit(cwd, ['rev-list', '--count', 'HEAD', '--not', ...exclusive, '--branches', '--remotes']) : undefined,
+	]);
+	if (checkCommits) {
+		const where = status.branch ? `only on branch ${status.branch}` : 'only on the detached HEAD';
+		if (lost === undefined) reasons.push('Commit preservation cannot be verified');
+		else if (Number(lost) > 0) reasons.push(`${Number(lost)} commit(s) exist ${where} and would be lost`);
+	}
+	return {
+		safe: reasons.length === 0, reasons, dirtyFiles: status.dirtyFiles, untrackedFiles: untracked.length, ignoredFiles: ignored.length,
+		unpublishedCommits: status.upstream && status.ahead !== undefined ? status.ahead : undefined,
+		unmergedCommits: merged === undefined ? undefined : Number(merged),
+	};
+}
+
+/** The branch's configured upstream remote, else `origin` when that remote exists. */
+export async function pushRemote(cwd: string, branch: string): Promise<string | undefined> {
+	const configured = await optionalGit(cwd, ['config', '--get', `branch.${branch}.remote`]);
+	if (configured && configured !== '.' && !configured.startsWith('-')) return configured;
+	return (await optionalGit(cwd, ['remote']))?.split('\n').includes('origin') ? 'origin' : undefined;
+}
+export interface CreatePrResult {branch: string; remote: string; base?: string; existing: boolean}
+const firstLine = (error: unknown) => {
+	const err = error as Error & {stderr?: string};
+	return (err.stderr?.trim() || err.message).split('\n').map(line => line.trim()).filter(Boolean).slice(-3).join(' ').slice(0, 400);
+};
+const NON_INTERACTIVE = {GIT_TERMINAL_PROMPT: '0', GH_PROMPT_DISABLED: '1', GCM_INTERACTIVE: 'never'};
+/** Runs gh in `cwd` with stdin ignored, prompts disabled and a bounded timeout. */
+function gh(cwd: string, args: string[], timeout = 60_000): Promise<{stdout: string; stderr: string}> {
+	return new Promise((resolve, reject) => {
+		const child = execFile('gh', args, {cwd, timeout, maxBuffer: 1024 * 1024, encoding: 'utf8', env: {...process.env, ...NON_INTERACTIVE}}, (error, stdout, stderr) => {
+			if (error) reject(Object.assign(error, {stdout, stderr})); else resolve({stdout, stderr});
+		});
+		child.stdin?.end();
+	});
+}
+/**
+ * Pushes the workspace's branch (`git push -u`, never forced) and opens GitHub's new-PR form with `gh pr create --web`,
+ * or the existing open PR with `gh pr view --web`. Refuses detached HEAD, main/master and the session's base branch.
+ */
+export async function createPullRequest(cwd: string, options: {baseRef?: string; expectedBranch?: string} = {}): Promise<CreatePrResult> {
+	if (options.baseRef) validateRef(options.baseRef);
+	const branch = await git(cwd, ['branch', '--show-current']);
+	if (!branch) throw new Error('HEAD is detached; check out a branch before creating a PR');
+	if (options.expectedBranch !== undefined && options.expectedBranch !== branch) throw new Error(`Branch changed to ${branch}; reopen i before creating a PR`);
+	const remote = await pushRemote(cwd, branch);
+	if (!remote) throw new Error(`No remote to push ${branch} to: set an upstream or add an "origin" remote`);
+	const baseName = options.baseRef?.startsWith(`${remote}/`) ? options.baseRef.slice(remote.length + 1) : options.baseRef;
+	if (branch === 'main' || branch === 'master' || branch === baseName) throw new Error(`Refusing to create a PR from ${branch}: it is ${baseName === branch ? 'the session\'s base branch' : 'a protected branch'}`);
+	// --base only when the base exists on the remote as a branch (e.g. origin/main, or a launch branch that was pushed); otherwise gh chooses.
+	const base = baseName && /^[^-]/.test(baseName) && await optionalGit(cwd, ['rev-parse', '--verify', '--quiet', `refs/remotes/${remote}/${baseName}`]) ? baseName : undefined;
+	try { await git(cwd, ['push', '-u', remote, branch], {timeout: 5 * 60_000, env: {...process.env, ...NON_INTERACTIVE}}); }
+	catch (error) { throw new Error(`git push to ${remote} failed: ${firstLine(error)}`); }
+	const ghError = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT'
+		? new Error(`Pushed ${branch} to ${remote}, but gh is not installed; install GitHub CLI to open the PR form`)
+		: new Error(`Pushed ${branch} to ${remote}, but gh failed: ${firstLine(error)}`);
+	let existing = false;
+	try {
+		const view = JSON.parse((await gh(cwd, ['pr', 'view', branch, '--json', 'url,state'])).stdout);
+		existing = view?.state === 'OPEN';
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT' || !/no (open )?pull requests? found/i.test(firstLine(error))) throw ghError(error);
+	}
+	try { await gh(cwd, existing ? ['pr', 'view', branch, '--web'] : ['pr', 'create', '--web', '--head', branch, ...(base ? ['--base', base] : [])]); }
+	catch (error) { throw ghError(error); }
+	return {branch, remote, base, existing};
+}
+
+export interface HandoffGitContext {
+	baseRef?: string;
+	commits: string[]; moreCommits: number;
+	changes: Array<{status: string; path: string}>; moreChanges: number;
+	diff?: {files: number; insertions: number; deletions: number; names: Array<{path: string; additions?: number; deletions?: number}>};
+	error?: string;
+}
+const MAX_HANDOFF_COMMITS = 30, MAX_HANDOFF_CHANGES = 50;
+/** Porcelain v1 -z: `XY path`, renames/copies followed by their original path. */
+function changedFiles(raw: string): Array<{status: string; path: string}> {
+	const records = raw.split('\0'), changes: Array<{status: string; path: string}> = [];
+	for (let i = 0; i < records.length; i++) {
+		const record = records[i]!;
+		if (record.length < 4) continue;
+		const status = record.slice(0, 2);
+		changes.push({status: status.trim() || status, path: record.slice(3)});
+		if (/[RC]/.test(status[0]!)) i++;
+	}
+	return changes;
+}
+function numstatFiles(raw: string): Array<{path: string; additions?: number; deletions?: number}> {
+	const records = raw.split('\0'), files: Array<{path: string; additions?: number; deletions?: number}> = [];
+	for (let i = 0; i < records.length; i++) {
+		const match = records[i]!.match(/^(\d+|-)\t(\d+|-)\t([\s\S]*)$/);
+		if (!match) continue;
+		let name = match[3]!;
+		if (!name) { name = `${records[i + 1] ?? ''} → ${records[i + 2] ?? ''}`; i += 2; }
+		files.push({path: name, ...(match[1] === '-' ? {} : {additions: Number(match[1]), deletions: Number(match[2])})});
+	}
+	return files;
+}
+/**
+ * Git context for a handoff: commits since base, uncommitted file names with status, and a committed diff stat
+ * (`base...HEAD`): names and numbers only, never diff content. Undefined outside a Git repository; other
+ * failures are returned as `error` so the export still succeeds.
+ */
+export async function getHandoffGitContext(cwd: string, baseRef?: string): Promise<HandoffGitContext | undefined> {
+	if (await optionalGit(cwd, ['rev-parse', '--is-inside-work-tree']) !== 'true') {
+		return await fs.stat(cwd).then(() => undefined, error => ({commits: [], moreCommits: 0, changes: [], moreChanges: 0, error: (error as Error).message}));
+	}
+	try {
+		if (baseRef) validateRef(baseRef);
+		const [resolvedBase, head, status] = await Promise.all([
+			base(cwd, baseRef), optionalGit(cwd, ['rev-parse', '--verify', '--quiet', 'HEAD']),
+			git(cwd, ['--no-optional-locks', 'status', '--porcelain=v1', '-z', '--untracked-files=normal'], {maxBuffer: 16 * 1024 * 1024}),
+		]);
+		const changes = changedFiles(status);
+		const context: HandoffGitContext = {baseRef: resolvedBase, commits: [], moreCommits: 0, changes: changes.slice(0, MAX_HANDOFF_CHANGES), moreChanges: Math.max(0, changes.length - MAX_HANDOFF_CHANGES)};
+		if (resolvedBase && head) {
+			const [log, count, diff] = await Promise.all([
+				git(cwd, ['log', '--no-decorate', '--no-color', `--max-count=${MAX_HANDOFF_COMMITS}`, '--format=%h %s', `${resolvedBase}..HEAD`, '--']),
+				git(cwd, ['rev-list', '--count', `${resolvedBase}..HEAD`]),
+				git(cwd, ['--no-optional-locks', 'diff', '--no-color', '--no-ext-diff', '--numstat', '-z', `${resolvedBase}...HEAD`, '--'], {maxBuffer: 16 * 1024 * 1024}),
+			]);
+			context.commits = log ? log.split('\n') : [];
+			context.moreCommits = Math.max(0, (Number(count) || 0) - context.commits.length);
+			const names = numstatFiles(diff);
+			context.diff = {files: names.length, insertions: names.reduce((sum, file) => sum + (file.additions ?? 0), 0), deletions: names.reduce((sum, file) => sum + (file.deletions ?? 0), 0), names};
+		}
+		return context;
+	} catch (error) {
+		return {baseRef, commits: [], moreCommits: 0, changes: [], moreChanges: 0, error: firstLine(error)};
+	}
+}

@@ -6,9 +6,13 @@
   "scripts": {
     "dev": "DECKHAND_DEV=1 node --import tsx src/cli.ts",
     "daemon": "DECKHAND_DEV=1 node --import tsx src/cli.ts --daemon",
+    "start": "npm run build && node scripts/deckhand-dev.mjs --sandbox",
+    "stop": "node scripts/deckhand-dev.mjs stop",
+    "restart": "npm stop && npm start",
+    "status": "node scripts/deckhand-dev.mjs status",
     "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --import tsx --test tests/*.test.ts",
     "postbuild": "chmod +x dist/cli.js",
-    "start": "node dist/cli.js",
     "postinstall": "node scripts/fix-node-pty.js",
     "prepare": "npm run build"
   },
@@ -51,6 +55,7 @@
   "files": [
     "dist",
     "scripts",
+    "docs",
     "README.md"
   ],
   "engines": {

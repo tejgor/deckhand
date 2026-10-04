@@ -31,7 +31,9 @@ Implemented behavior:
 - Safe worktree deletion, optional branch deletion, and cleanup of leftover directories/remnants.
 - Merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing, with merged/externally-pushed sessions markable in the sidebar.
 - Lazy Git tab powered by `lazygit` when installed.
-- Dev tab powered by configurable global `dev_command`.
+- Dev tab powered by `devCommand` from effective settings (global defaults, overlaid by a trusted repository `deckhand.json`; legacy `dev_command` fallback).
+- Two-layer configuration: global `defaults` in the user config plus one repository `deckhand.json` in the main checkout (worktree copies ignored) that applies only when trusted, with inline content-fingerprint review, an in-app editor for both layers, archive/search/filter, handoffs, optional lifecycle hooks/notifications, and conservative cleanup inspection. User-facing behaviour: `docs/no-brainers.md`.
+- `DECKHAND_HOME` state namespaces and an isolated dev launcher (`scripts/deckhand-dev.mjs`, `docs/dev-build.md`).
 - Per-session persisted Notes tab.
 - Preview-change-based active/idle detection without agent hooks.
 - Frozen last preview frame for exited sessions.
@@ -76,7 +78,7 @@ Responsibilities:
 - manage worktree creation/deletion/merge safety
 - manage daemon PID, socket lifecycle, and logging
 
-Important technical-debt note: `src/daemon.ts` still contains legacy in-daemon PTY runtime maps and methods (`runtime`, `terminals`, `gits`, `devs`) used as fallback paths if a session has no worker. Current create/restart paths start workers, so be careful not to duplicate fixes across both paths unless the legacy fallback still matters.
+The agent PTY always lives in a worker. `src/daemon.ts` still keeps daemon-local Terminal/Git/Dev PTY maps (`terminals`, `gits`, `devs`) for sessions that have no worker yet (for example while `starting` during worktree setup); once a worker exists, those panes are routed to it and the daemon-local ones are disposed (also on startup failure/cancel). Fixes to companion panes may need to touch both paths.
 
 ### Workers (`src/sessionWorker.ts`)
 
@@ -97,7 +99,7 @@ Worker stdout/stderr are appended to per-session files under `~/.deckhand/worker
 - Lifecycle and activity are distinct:
   - lifecycle `status`: `starting`, `running`, `exited`
   - activity `agentStatus`: `unknown`, `active`, `idle`
-- Activity is inferred from visible preview changes, not agent-specific hooks.
+- Activity is inferred from visible preview changes, not agent-specific hooks. Optional lifecycle hooks set a separate advisory `attention` field.
 - Do not overload lifecycle status to mean activity.
 - Resize-only redraws must not mark idle agents active.
 - Preview is a rendered plain-text snapshot, not a full embedded terminal emulator.
@@ -210,7 +212,13 @@ Creation strategy:
 
 1. Use `.claude/scripts/create-worktree.sh` in the current worktree root if present.
 2. Else use `.claude/scripts/create-worktree.sh` in the main/original worktree root if present.
-3. Else fall back to built-in `git worktree add` under `~/.deckhand/worktrees`.
+3. Else fall back to built-in `git worktree add` at the effective `worktree.location` template (default `~/.deckhand/worktrees/{name}`; `expandWorktreeTemplate`/`worktreeLocation` in `src/worktreeLinks.ts`), reusing an existing worktree/branch.
+
+Hooks 1–2 apply only while enabled: `worktree.hook: false` (global defaults, or the repository file even when untrusted, since it can only disable) makes `loadProjectConfig` skip the script entirely (`disabledHook`: not read, fingerprinted, reviewed or run). `loadProjectConfig(cwd, user)` therefore takes the user config; every daemon caller passes it so fingerprints agree.
+
+The fallback (`fallbackCreateWorktree` in `src/git.ts`) names the branch from `worktree.branchName` (`{name}`/`{user}`, checked with `git check-ref-format --branch`) and starts it per `worktree.branchFrom`: `current` (launch HEAD), `default` (local origin/HEAD target, else main, else master) or `origin` (bounded non-interactive `git fetch origin +refs/heads/<b>:refs/remotes/origin/<b>`, failure aborts creation; `--no-track`). The base it used is returned as `baseRef` and stored on the session (cleanup / create-pr `--base`); reused worktrees/branches keep the old launch-branch baseRef. A hook ignores location/branch settings.
+
+After a worktree is newly **created** (by either path, never for reused/attached ones), `applyWorktreeLinks` (`src/worktreeLinks.ts`) links the effective `worktree.symlink` / `worktree.files` entries. It never throws: missing sources, existing real content (kept), and parents that resolve outside the worktree (checked segment by segment before any mkdir, then by realpath) become notes stored as `worktree.links` on the session (shown in `i`, logged by the daemon). Existing symlinks are replaced atomically (temp link + rename). Effective settings merge in `resolveSettings` via `mergeWorktreeSettings`.
 
 When a hook script is used:
 
@@ -241,11 +249,11 @@ Hooks that copy/link dependency directories from a source worktree should resolv
 
 ### Deletion safety
 
-Worktree deletion is guarded:
+Worktree deletion is guarded in two layers (`cleanupBlockers`/`inspectSessionCleanup` in `src/daemon.ts`, `inspectWorkspaceCleanup` in `src/workspaceGit.ts`):
 
-- current worktree cannot be deleted
-- main worktree cannot be deleted
-- a worktree used by another non-exited Deckhand session cannot be deleted
+- structural blockers, never overridable: main worktree, the session's launch worktree, a worktree used by another non-exited session, no/unregistered worktree, and for branch deletion a protected or changed branch
+- data reasons, overridable only by typing `DELETE` (`allowDataLoss`): modified/untracked/valuable ignored files (ignored `node_modules` and any untracked/ignored entry that is itself a symlink, checked with lstat and capped at 2000 checks, are disposable), and, when deleting the branch or on a detached HEAD, commits not reachable from another branch or remote ref
+- both are re-checked at kill/exit time, not just when the confirmation opens
 
 When safe, kill confirmation offers:
 
@@ -254,7 +262,7 @@ When safe, kill confirmation offers:
 - kill, delete worktree and branch (not restartable)
 - cancel
 
-After Git unregisters a deleted worktree, Deckhand force-removes the worktree path to clear ignored/untracked remnants. For fallback managed worktrees under `~/.deckhand/worktrees`, it also prunes empty nested parent folders left by slash-preserving worktree names.
+After Git unregisters a deleted worktree, Deckhand force-removes the worktree path to clear ignored/untracked remnants (only after `git worktree remove` succeeded, so only for a path Git had registered; neither Git nor `fs.rm` follows symlinks, so link targets survive — tested). It prunes empty parents under `~/.deckhand/worktrees`, and for custom locations only the intermediate directories of a slash-containing worktree name (`rmdir`, empty only).
 
 Deleted worktrees are recorded with `worktree.deletedAt`; Deckhand hides restart/merge hints and refuses restart/merge for those exited sessions.
 
@@ -279,40 +287,43 @@ Implemented in `src/git.ts`.
 
 ## Agent identity, forks, and restarts
 
-Deckhand assigns deterministic handles where supported. The base name is `dh-{sanitized-title}-{short-id}`.
+Claude and Pi get an exact native conversation ID (a UUID Deckhand generates) at launch, stored as an `id` ref, so resume never depends on name lookup or Pi's private file layout. The display label is `dh-{sanitized-title}-{short-id}`. Sessions persisted before this keep their `name` (Claude) or `path` (Pi) refs and resume exactly as before.
 
 Child session titles inherit parent context daemon-side as `parent title / child title` (trimmed to 64 chars). The UI strips that parent prefix for nested sidebar display because the sidebar already shows the hierarchy.
 
 ### Claude
 
-- create: `--name dh-{sanitized-title}-{short-id}`
-- clean sub-session: fresh Claude handle in the selected/parent cwd
-- forked sub-session create: resume parent, then send `/branch <dh-name>` while persisting the child handle for direct restart
+- create and clean sub-session: `--session-id <uuid> --name dh-{sanitized-title}-{short-id}`
+- resume restart: `--resume <uuid>` (never `--session-id`: Claude rejects it with `--resume` unless `--fork-session`, and refuses an ID already in use); legacy `name` refs use `--resume <name>`
+- unknown ID: Claude prints `No conversation found with session ID: <uuid>` and exits; Deckhand marks the exit failed, appends a "press S" hint to the preview and refuses `s` for that ID — it never starts fresh silently
+- SessionStart hooks cannot replace an assigned `id` ref (e.g. after `/clear`); forked children follow the fork rules below
+- forked sub-session create: `--resume <parent ref>`, then send `/branch <dh-name>`; the child is stored as that `name` ref until a SessionStart hook or exit hint reports the branch's ID (never the parent's)
 - branch input includes a small insert-mode safeguard: `a`, backspace, then `/branch...`, for Claude users in vim normal mode
-- on exit, parse Claude Code's printed `claude --resume "..."` command from final preview and persist that handle as `agentSessionRef`
-- resume restart: `--resume <parsed-or-created-handle>`; restart also re-parses `lastPreview` so older exited sessions can recover a handle
-- fresh restart: `--name dh-{sanitized-title}-{short-id}-fresh-{timestamp}` and does not use prior resume handles
+- on exit, parse Claude Code's printed `claude --resume "..."` command from final preview and persist it (`id` kind for UUIDs, `name` otherwise); restart also re-parses `lastPreview`
+- fresh restart: new UUID, labelled `dh-{sanitized-title}-{short-id}-fresh-{timestamp}`
 
 ### Pi
 
-- create/resume restart: explicit `--session` path under Pi's normal `~/.pi/agent/sessions/` tree
-- directory encoding matches Pi's `getDefaultSessionDir()`:
-  - `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`
-- filename includes timestamp, deterministic Deckhand name, and Deckhand session id
-- forked sub-session create/restart resumes the parent/fork source session file and sends `/fork`
-- fresh restart creates a new `--session` path
+- create: `--session-id <uuid> --name dh-{sanitized-title}-{short-id}`; resume: `--session-id <uuid>` (Pi opens the exact project session ID, or creates it if absent)
+- forked sub-session: `--fork <parent id or legacy path> --session-id <child uuid> --name ...` — Pi copies the parent before its TUI starts, so nothing is typed into the terminal; resume then uses the child's own ID
+- a fork that never launched, or whose `--fork` failed (`No session found matching`, e.g. the parent had no saved messages), forks again with a new child ID on `s`
+- legacy `path` refs keep `--session <path>`; legacy forked children (stored with the parent's path) fork again with `--fork <path>`
+- fresh restart: new UUID
 
 ### Codex
 
-- launches normally
-- no deterministic resume/fork support yet
+- launches normally; the native ID is captured from an authenticated SessionStart hook or the `codex resume <id>` exit hint
+- resume uses `codex resume <id>`; an unknown ID refuses resume (use `S`) rather than guessing `--last`
+- no fork support
 
 ## Persistence, socket, PID, and logs
 
 Deckhand writes under `~/.deckhand`:
 
 - `state.json` — persisted sessions
-- `config.json` — app config
+- `config.json` — app config, including `defaults` (global deckhand.json-schema settings) and `trustedProjects` (trust root → up to 20 fingerprints, newest first); written under a lockfile shared by UI and daemon
+- `ui-state.json` — per-repository UI preferences (selection, tabs, width, collapse/hidden, filter/search)
+- `handoffs/` — exported Markdown handoffs (0600 files in a 0700 directory)
 - `daemon.sock` — Unix socket
 - `daemon.pid` — active daemon PID
 - `daemon.log` — daemon/client diagnostics
@@ -322,15 +333,20 @@ Deckhand writes under `~/.deckhand`:
 
 Pi session files are intentionally under Pi's own `~/.pi/agent/sessions/` tree, not under `~/.deckhand`.
 
+`DECKHAND_HOME` replaces `~/.deckhand` for every path above. `scripts/deckhand-dev.mjs` uses it to run a dev-channel daemon (`DECKHAND_CHANNEL=dev`) in `~/.deckhand-dev` (or `DECKHAND_DEV_HOME`); only that channel accepts the `shutdown` request used by `npm stop`.
+
 Config currently includes:
 
-- `dev_command`, default behavior is command `dev`
+- `defaults` (validated where used by `globalDefaults`/`resolveSettings`)
+- `dev_command` (legacy fallback after `defaults.devCommand`), default behavior is command `dev`
 - `attach_scroll_sensitivity`, default `0.12`, adjustable in the UI with `[` / `]`
+- `agent_hooks`, `notifications` (both default off)
+- `trustedProjects`
 
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v24**
+- current protocol version: **v31** (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -375,7 +391,12 @@ Tracked metadata includes:
 
 Request types:
 
-- `ping`
+- `ping`, `shutdown` (dev channel only)
+- `project-info`, `config-targets`, `save-config` (global or repository), `trust-project`, `run-action`
+- `worktree-setup-info` (C → Worktree setup: layers, hook state, untracked/ignored candidates of the main checkout, previews), `worktree-candidate-sizes` (≤24 relative paths, `du -sk` with a 4s timeout each, null when unknown)
+- `workspace-summary`, `inspect-cleanup`, `archive-session`, `export-handoff`, `cancel-start`
+- `create-pr` (push `-u` without force, then `gh pr create --web` / `gh pr view --web`; refuses detached/main/master/base; optional `branch` must still match; invalidates the summary cache)
+- `agent-hook` (token + launch ID authenticated)
 - `list`, `subscribe`
 - `list-worktrees`
 - `watch-preview`, `watch-terminal`, `watch-git`, `watch-dev`
@@ -426,6 +447,24 @@ Event types:
 - `src/tabs.tsx` — tab UI.
 - `src/terminalPreview.ts` — headless xterm preview model.
 - `src/ui.ts` — shared theme, glyph, path, truncation, and display helpers.
+- `src/projectConfig.ts` — schema validation, loading the main checkout's `deckhand.json` + hook, fingerprints, trust lookup/update, and `resolveSettings` (the single source of effective settings: setup, Dev, actions, new-session defaults).
+- `src/projectConfigDocument.ts` — editor documents: global defaults (inside config.json) and repository targets, revision-checked saves, starter config.
+- `src/configDraft.ts` — pure editor helpers (size limit, JSON formatting).
+- `src/projectConfigFlow.tsx`, `src/configEditorPane.tsx` — config target picker/editor UI state and rendering.
+- `src/worktreeSetup.ts` — Worktree setup model (pure: candidate classification, initial model, `worktreeSection`/`applyWorktreeSection`) and daemon readers (candidates via porcelain v2 `--ignored=matching --untracked-files=normal`, bounded sizes); `src/worktreeSetupFlow.tsx` — the screen (saves through `save-config` with the target's revision).
+- `src/textEditor.ts` — pure multiline text editing and rendering model.
+- `src/terminalKeys.ts`, `src/useTerminalInput.ts` — raw key normalization (DEL/Kitty Backspace vs forward Delete, key releases) and the Ink input hook.
+- `src/workspaceGit.ts` — porcelain-v2 status, workspace summary, optional `gh` PR lookup, `createPullRequest`, handoff Git context (`getHandoffGitContext`: commits/changes/numstat, never diff content), cleanup inspection.
+- `src/worktreeLinks.ts` — worktree settings schema/merge, location template expansion, and link application.
+- `src/sessionFeatures.ts` — filters/search and handoff Markdown/export (pure; the daemon passes the Git context in).
+- `src/sessionScope.ts` — which sessions belong to the current repo/worktree.
+- `src/agentSignals.ts` — hook normalization, Claude/Codex integration args, Codex resume parsing.
+- `src/uiState.ts` — `ui-state.json` normalization and persistence.
+- `src/detailTexts.ts`, `src/detailsPane.tsx` — text for review/inspection panes and their scrolling renderer.
+- `src/desktop.ts` — editor/URL opening helpers.
+- `src/help.ts` — in-app `?` guide text.
+- `scripts/deckhand-dev.mjs` — isolated dev launcher and sandbox.
+- `tests/` — `node:test` suite (`npm test`); `tests/helpers.ts` holds fixture repos, env/temp helpers and the PTY harness.
 - `scripts/fix-node-pty.js` — install-time macOS `node-pty` fixup.
 
 ## File-specific notes
@@ -519,6 +558,8 @@ Typical flow:
 
 ## Validation status
 
+Automated: `npm test` (build, then `node --test` over `tests/`) covers config/trust, editor and key handling, storage, cleanup inspection, a real daemon with fake agents (setup/actions/cleanup/hooks/resume), the dev launcher, and one real-PTY UI run (inline review on n, raw-key config editing, persistence).
+
 Validated during this cleanup:
 
 - `npm run build`
@@ -527,7 +568,7 @@ Historically validated during development, but not exhaustively rechecked in thi
 
 - daemon autostart, PID/log/socket handling, and protocol mismatch refusal
 - Pi and Claude session creation/resume paths; Codex launch compiles cleanly
-- Claude exit resume-handle parsing, named `/branch <dh-name>`, and forked restart paths
+- Claude exit resume-handle parsing, named `/branch <dh-name>`, and forked restart paths (exact `--session-id`/`--fork` launch argv is covered by the fake-agent daemon test)
 - fresh restart/no-resume mode and parent-inherited child titles
 - deleted-worktree sessions marked non-restartable/non-mergeable; leftover directory cleanup
 - worktree sanitizer and `git worktree list --porcelain` parsing
@@ -560,9 +601,9 @@ Not fully manually validated recently:
 - Attach mode temporarily exits Ink by design.
 - Create/worktree picker/kill confirmation are pane replacements, not true modals.
 - Worktree support exists but still needs more real-world exercise.
-- Codex deterministic resume support is not implemented.
+- Codex resume depends on capturing its native ID; there is no Codex fork.
 - Terminal/Git/Dev scrollback controls are still future work.
-- `src/daemon.ts` still has legacy in-daemon PTY paths alongside the worker model.
+- `src/daemon.ts` keeps daemon-local companion PTYs for sessions without a worker alongside the worker model.
 
 ## Recommended next steps
 
@@ -580,13 +621,11 @@ Near term:
    - worktree parsing
    - sanitizer behavior
    - merge skipped/conflicted/success cases
-   - delete safety checks
    - preview serialization
    - activity transitions
    - resize suppression
-   - IPC flows
    - setup/doctor detection behavior
-3. Decide whether to remove or formally support the legacy in-daemon PTY fallback paths.
+3. Decide whether companion panes for worker-less (starting) sessions should move into the worker model.
 4. Polish create/worktree UX:
    - true overlays/modals
    - better validation and error feedback
@@ -597,12 +636,10 @@ Near term:
 
 Later:
 
-- Persist sidebar width across full frontend restarts.
 - Add richer sidebar branch/worktree metadata.
 - Add terminal/git/dev scrollback controls.
 - Add dev stop confirmation or persisted dev state if useful.
 - Monitor long-running macOS `node-pty` behavior under repeated spawn/exit churn.
-- Add Codex deterministic resume support if possible.
 - Consider embedded terminal rendering only if single-screen interaction becomes important.
 
 ## How to run locally
@@ -621,8 +658,11 @@ npm run dev       # run UI from source via tsx
 npm run daemon    # run only daemon in dev mode
 deckhand setup    # check/install supported agents
 deckhand doctor   # alias for setup behavior
+npm start              # build + isolated dev daemon in a disposable sandbox (see docs/dev-build.md)
+npm stop / npm restart # stop / rebuild-and-reopen only the dev daemon; npm run status checks it
+npm test
 ```
 
 ## Final takeaway
 
-Deckhand's foundation is established: daemon-owned long-lived sessions, worker-owned PTYs, explicit attach/detach, split-view Ink frontend, daemon/worker-side rendered Preview pipeline, deterministic Claude/Pi identity where possible, sub-session hierarchy, and agent-agnostic worktree support.
+Deckhand's foundation is established: daemon-owned long-lived sessions, worker-owned PTYs, explicit attach/detach, split-view Ink frontend, daemon/worker-side rendered Preview pipeline, exact Claude/Pi conversation IDs assigned at launch, sub-session hierarchy, and agent-agnostic worktree support.

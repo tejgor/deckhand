@@ -1,17 +1,18 @@
 #!/usr/bin/env node
-import React from 'react';
-import {render} from 'ink';
 import {attachSession} from './attach.js';
-import {App} from './app.js';
-import {InkDaemon} from './daemon.js';
 import {ensureGitRepo} from './git.js';
-import {runSessionWorker} from './sessionWorker.js';
-import {runSetup} from './setup.js';
+import {StringDecoder} from 'node:string_decoder';
 import {loadAppConfig} from './storage.js';
+import {loadUiState, saveUiState, type UiState} from './uiState.js';
+import {errorMessage} from './ui.js';
+import {request} from './client.js';
+import {randomUUID} from 'node:crypto';
+import {hookSettings} from './agentSignals.js';
+import {getConfigDir, isSameConfigDir} from './paths.js';
 import {resetTerminalState} from './terminalState.js';
 import type {RightPaneTab, UiExitResult} from './types.js';
 
-process.title = 'deckhand';
+process.title = process.env.DECKHAND_CHANNEL === 'dev' ? 'deckhand-dev' : 'deckhand';
 
 function clearTerminalScreen(): void {
 	if (process.stdout.isTTY) {
@@ -34,8 +35,14 @@ function leaveAlternateScreen(): void {
 	}
 }
 
-async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number; sessionTabs: Record<string, RightPaneTab>; collapsedSessionIds: string[]; hiddenExitedSessionIds: string[]}): Promise<UiExitResult | undefined> {
+async function runUi(uiState: UiState): Promise<UiExitResult | undefined> {
+	const [{default: React}, {render}, {App}] = await Promise.all([import('react'), import('ink'), import('./app.js')]);
 	const repoRoot = await ensureGitRepo(process.cwd());
+	let saveTimer: NodeJS.Timeout | undefined;
+	const scheduleSave = () => {
+		if (saveTimer) clearTimeout(saveTimer);
+		saveTimer = setTimeout(() => { void saveUiState(repoRoot, uiState).catch(() => {}); }, 250);
+	};
 	enterAlternateScreen();
 	const instance = render(
 		React.createElement(App, {
@@ -47,27 +54,37 @@ async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; si
 			initialSessionTabs: uiState.sessionTabs,
 			initialCollapsedSessionIds: uiState.collapsedSessionIds,
 			initialHiddenExitedSessionIds: uiState.hiddenExitedSessionIds,
+			initialSessionFilter: uiState.sessionFilter,
+			initialSessionQuery: uiState.sessionQuery,
+			onSessionVisibilityChange: (filter, query) => { uiState.sessionFilter = filter; uiState.sessionQuery = query; scheduleSave(); },
 			onSelectedIdChange: sessionId => {
 				uiState.selectedId = sessionId;
+				scheduleSave();
 			},
 			onActiveTabChange: tab => {
 				uiState.activeTab = tab;
+				scheduleSave();
 			},
 			onSessionTabChange: (sessionId, tab) => {
 				uiState.sessionTabs[sessionId] = tab;
+				scheduleSave();
 			},
 			onSidebarWidthChange: width => {
 				uiState.sidebarWidth = width;
+				scheduleSave();
 			},
 			onCollapsedSessionIdsChange: sessionIds => {
 				uiState.collapsedSessionIds = sessionIds;
+				scheduleSave();
 			},
 			onHiddenExitedSessionIdsChange: sessionIds => {
 				uiState.hiddenExitedSessionIds = sessionIds;
+				scheduleSave();
 			},
 		}),
 		{
-			exitOnCtrlC: true,
+			// App handles Ctrl+C: Esc-like on the first press in the config editor, quit otherwise.
+			exitOnCtrlC: false,
 			patchConsole: false,
 		},
 	);
@@ -76,18 +93,78 @@ async function runUi(uiState: {selectedId?: string; activeTab?: RightPaneTab; si
 	} finally {
 		instance.clear();
 		instance.cleanup();
+		if (saveTimer) clearTimeout(saveTimer);
+		// Restore the terminal before any I/O that can fail.
 		leaveAlternateScreen();
 		clearTerminalScreen();
+		await saveUiState(repoRoot, uiState).catch(error => {
+			process.stderr.write(`deckhand: could not save UI state: ${errorMessage(error)}\n`);
+		});
 	}
 }
 
+// Only the fields normalizeHook (agentSignals.ts) reads are forwarded; tool
+// inputs/outputs and other payload data never leave the hook process.
+const HOOK_FIELDS = ['hook_event_name', 'session_id', 'agent_id', 'parent_session_id', 'notification_type', 'error', 'error_type'] as const;
+const MAX_HOOK_INPUT_BYTES = 8 * 1024 * 1024;
+const MAX_HOOK_FIELD_LENGTH = 256;
+
+function hookSignalFields(payload: unknown): Record<string, string> {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Hook input must be an object');
+	const raw = payload as Record<string, unknown>;
+	const fields: Record<string, string> = {};
+	for (const field of HOOK_FIELDS) {
+		const value = raw[field];
+		if (value === undefined || value === null || value === false || value === '') continue;
+		// Non-string values keep their truthiness (e.g. agent_id) without copying their contents.
+		fields[field] = typeof value === 'string' ? value.slice(0, MAX_HOOK_FIELD_LENGTH) : typeof value === 'object' ? '[object]' : String(value).slice(0, MAX_HOOK_FIELD_LENGTH);
+	}
+	return fields;
+}
+
 async function main(): Promise<void> {
+	if (process.env.DECKHAND_CHANNEL === 'dev' && ['status', 'stop'].includes(process.argv[2] ?? '')) {
+		let daemon: {home: string; channel: string; version: number};
+		try { daemon = await request({type: 'ping', requestId: randomUUID()}, 1500); }
+		catch { console.log(`No isolated dev daemon running (${getConfigDir()})`); return; }
+		if (!isSameConfigDir(daemon.home) || daemon.channel !== 'dev') throw new Error('Refusing to control a daemon outside the isolated dev namespace');
+		if (process.argv[2] === 'stop') { await request({type: 'shutdown', requestId: randomUUID()}, 1500); console.log('Stopping isolated dev daemon. Production daemon untouched.'); }
+		else console.log(`Isolated dev daemon running (protocol v${daemon.version}): ${daemon.home}`);
+		return;
+	}
+	if (process.argv[2] === 'hook') {
+		// Hooks are advisory, bounded, and never approve or block agent actions.
+		const inputTimer = setTimeout(() => process.stdin.destroy(new Error('Hook input timed out')), 500);
+		try {
+			let raw = '', bytes = 0;
+			const decoder = new StringDecoder('utf8');
+			// Large PostToolUse payloads are read (bounded) so their event isn't lost; only signal fields are sent.
+			for await (const chunk of process.stdin) { bytes += Buffer.byteLength(chunk); if (bytes > MAX_HOOK_INPUT_BYTES) throw new Error('Hook input too large'); raw += decoder.write(chunk); }
+			raw += decoder.end(); clearTimeout(inputTimer);
+			const sessionId = process.env.DECKHAND_SESSION_ID;
+			const launchId = process.env.DECKHAND_LAUNCH_ID;
+			const token = process.env.DECKHAND_HOOK_TOKEN;
+			if (sessionId && launchId && token) await request({type: 'agent-hook', requestId: randomUUID(), sessionId, launchId, token, payload: hookSignalFields(JSON.parse(raw))}, 1200);
+		} catch { /* Disconnected/unsupported callbacks must not affect permissions. */ }
+		finally { clearTimeout(inputTimer); }
+		process.stdout.write('{}\n');
+		return;
+	}
+	if (process.argv[2] === 'hooks') {
+		const settings = hookSettings();
+		if (process.argv[3] === 'codex') { delete settings.hooks.Notification; delete settings.hooks.StopFailure; }
+		else delete settings.hooks.Interrupt;
+		process.stdout.write(`${JSON.stringify(settings, null, 2)}\n`);
+		return;
+	}
 	if (process.argv.includes('--session-worker')) {
+		const {runSessionWorker} = await import('./sessionWorker.js');
 		await runSessionWorker();
 		return;
 	}
 
 	if (process.argv.includes('--daemon')) {
+		const {InkDaemon} = await import('./daemon.js');
 		const daemon = new InkDaemon();
 		await daemon.start();
 		await new Promise(() => {});
@@ -95,11 +172,12 @@ async function main(): Promise<void> {
 	}
 
 	if (process.argv[2] === 'setup' || process.argv[2] === 'doctor') {
+		const {runSetup} = await import('./setup.js');
 		await runSetup(process.argv.slice(3));
 		return;
 	}
 
-	const uiState: {selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number; sessionTabs: Record<string, RightPaneTab>; collapsedSessionIds: string[]; hiddenExitedSessionIds: string[]} = {sessionTabs: {}, collapsedSessionIds: [], hiddenExitedSessionIds: []};
+	const uiState = await loadUiState(await ensureGitRepo(process.cwd()));
 	while (true) {
 		const result = await runUi(uiState);
 		if (!result || result.kind === 'quit') {

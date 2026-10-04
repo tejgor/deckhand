@@ -11,9 +11,11 @@ import {
 	getDaemonPidPath,
 	getProjectRoot,
 	getSocketPath,
+	getTsxLoaderPath,
 	isDevRuntime,
 } from './paths.js';
-import type {ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult} from './types.js';
+import {PROTOCOL_VERSION} from './types.js';
+import type {ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, ProjectConfigDocument, ConfigTargets, ConfigTargetKind, WorktreeSetupInfo} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -53,15 +55,17 @@ function attachJsonParser(socket: net.Socket, onMessage: (message: ServerMessage
 	};
 }
 
-export async function request<T = unknown>(message: Extract<ClientRequest, {requestId: string}>): Promise<T> {
+export async function request<T = unknown>(message: Extract<ClientRequest, {requestId: string}>, timeoutMs = 15000): Promise<T> {
 	const socket = await createConnection();
 	return new Promise<T>((resolve, reject) => {
 		let done = false;
+		const timer = setTimeout(() => { done = true; socket.destroy(); reject(new Error('daemon request timed out')); }, timeoutMs);
 		const cleanup = attachJsonParser(socket, payload => {
 			if (payload.type !== 'response' || payload.requestId !== message.requestId) {
 				return;
 			}
 			done = true;
+			clearTimeout(timer);
 			socket.end();
 			if (!payload.ok) {
 				reject(new Error(payload.error || 'daemon request failed'));
@@ -76,6 +80,7 @@ export async function request<T = unknown>(message: Extract<ClientRequest, {requ
 		});
 		socket.once('close', () => {
 			cleanup();
+			clearTimeout(timer);
 			if (!done) {
 				reject(new Error('daemon connection closed before response'));
 			}
@@ -83,8 +88,6 @@ export async function request<T = unknown>(message: Extract<ClientRequest, {requ
 		writeMessage(socket, message);
 	});
 }
-
-const PROTOCOL_VERSION = 24;
 
 class ProtocolMismatchError extends Error {}
 
@@ -130,7 +133,7 @@ async function appendClientLog(message: string): Promise<void> {
 
 function spawnDaemon(): void {
 	const cliPath = getCliEntryPath();
-	const args = isDevRuntime() ? ['--import', 'tsx', cliPath, '--daemon'] : [cliPath, '--daemon'];
+	const args = isDevRuntime() ? ['--import', getTsxLoaderPath(), cliPath, '--daemon'] : [cliPath, '--daemon'];
 	const stdoutFd = openSync(getDaemonLogPath(), 'a');
 	const stderrFd = openSync(getDaemonLogPath(), 'a');
 	try {
@@ -200,56 +203,6 @@ export async function ensureDaemonRunning(): Promise<void> {
 	}
 
 	await waitForDaemon(5000);
-}
-
-export async function listSessions(): Promise<SessionRecord[]> {
-	await ensureDaemonRunning();
-	return request<SessionRecord[]>({type: 'list', requestId: randomUUID()});
-}
-
-export async function createSession(input: CreateSessionInput): Promise<SessionRecord> {
-	await ensureDaemonRunning();
-	return request<SessionRecord>({type: 'create', requestId: randomUUID(), input});
-}
-
-export async function reorderSession(sessionId: string, direction: 'up' | 'down'): Promise<SessionRecord[]> {
-	await ensureDaemonRunning();
-	return request<SessionRecord[]>({type: 'reorder-session', requestId: randomUUID(), sessionId, direction});
-}
-
-export async function restartSession(sessionId: string, cols: number, rows: number, mode: RestartMode = 'resume'): Promise<SessionRecord> {
-	await ensureDaemonRunning();
-	return request<SessionRecord>({type: 'restart', requestId: randomUUID(), sessionId, cols, rows, mode});
-}
-
-export async function killSession(sessionId: string, deleteWorktree = false, deleteBranch = false, force = false): Promise<void> {
-	await ensureDaemonRunning();
-	await request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree, deleteBranch, force});
-}
-
-export async function mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string): Promise<WorktreeMergeResult> {
-	await ensureDaemonRunning();
-	return request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd});
-}
-
-export async function markSessionMerged(sessionId: string, targetCwd: string): Promise<SessionRecord> {
-	await ensureDaemonRunning();
-	return request<SessionRecord>({type: 'mark-session-merged', requestId: randomUUID(), sessionId, targetCwd});
-}
-
-export async function listWorktrees(cwd: string): Promise<WorktreeInfoRecord[]> {
-	await ensureDaemonRunning();
-	return request<WorktreeInfoRecord[]>({type: 'list-worktrees', requestId: randomUUID(), cwd});
-}
-
-export async function removeSession(sessionId: string): Promise<void> {
-	await ensureDaemonRunning();
-	await request({type: 'remove', requestId: randomUUID(), sessionId});
-}
-
-export async function updateSessionNotes(sessionId: string, notes: string): Promise<SessionRecord> {
-	await ensureDaemonRunning();
-	return request<SessionRecord>({type: 'update-session-notes', requestId: randomUUID(), sessionId, notes});
 }
 
 export async function openPersistentConnection(): Promise<net.Socket> {
@@ -422,12 +375,12 @@ export class LiveClient {
 		return this.request<WorktreeInfoRecord[]>({type: 'list-worktrees', requestId: randomUUID(), cwd});
 	}
 
-	restartSession(sessionId: string, cols: number, rows: number, mode: RestartMode = 'resume'): Promise<SessionRecord> {
-		return this.request<SessionRecord>({type: 'restart', requestId: randomUUID(), sessionId, cols, rows, mode});
+	restartSession(sessionId: string, cols: number, rows: number, mode: RestartMode = 'resume', projectFingerprint?: string): Promise<SessionRecord> {
+		return this.request<SessionRecord>({type: 'restart', requestId: randomUUID(), sessionId, cols, rows, mode, projectFingerprint});
 	}
 
-	killSession(sessionId: string, deleteWorktree = false, deleteBranch = false, force = false): Promise<void> {
-		return this.request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree, deleteBranch, force});
+	killSession(sessionId: string, deleteWorktree = false, deleteBranch = false, force = false, allowDataLoss = false): Promise<void> {
+		return this.request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree, deleteBranch, force, allowDataLoss});
 	}
 
 	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string): Promise<WorktreeMergeResult> {
@@ -445,6 +398,21 @@ export class LiveClient {
 	updateSessionNotes(sessionId: string, notes: string): Promise<SessionRecord> {
 		return this.request<SessionRecord>({type: 'update-session-notes', requestId: randomUUID(), sessionId, notes});
 	}
+
+	configTargets(cwd: string): Promise<ConfigTargets> { return this.request({type: 'config-targets', requestId: randomUUID(), cwd}); }
+	saveConfig(target: ConfigTargetKind, cwd: string, raw: string, revision: string | null): Promise<ProjectConfigDocument> { return this.request({type: 'save-config', requestId: randomUUID(), target, cwd, raw, revision}); }
+	worktreeSetupInfo(cwd: string): Promise<WorktreeSetupInfo> { return this.request({type: 'worktree-setup-info', requestId: randomUUID(), cwd}); }
+	worktreeCandidateSizes(cwd: string, paths: string[]): Promise<Record<string, number | null>> { return this.request({type: 'worktree-candidate-sizes', requestId: randomUUID(), cwd, paths}); }
+	// The repository of `cwd` (its main checkout's deckhand.json), with trust state and effective settings.
+	projectInfo(cwd: string): Promise<ProjectInfo> { return this.request({type: 'project-info', requestId: randomUUID(), cwd}); }
+	trustProject(cwd: string, fingerprint: string): Promise<ProjectInfo> { return this.request({type: 'trust-project', requestId: randomUUID(), cwd, fingerprint}); }
+	workspaceSummary(sessionId: string, includePr = false): Promise<WorkspaceSummary> { return this.request({type: 'workspace-summary', requestId: randomUUID(), sessionId, includePr}); }
+	createPr(sessionId: string, branch?: string): Promise<CreatePrResult> { return this.request({type: 'create-pr', requestId: randomUUID(), sessionId, branch}); }
+	inspectCleanup(sessionId: string, deleteBranch = true): Promise<SessionCleanupInspection> { return this.request({type: 'inspect-cleanup', requestId: randomUUID(), sessionId, deleteBranch}); }
+	archiveSession(sessionId: string, archived: boolean): Promise<SessionRecord> { return this.request({type: 'archive-session', requestId: randomUUID(), sessionId, archived}); }
+	exportHandoff(sessionId: string, includeOutput = false): Promise<string> { return this.request({type: 'export-handoff', requestId: randomUUID(), sessionId, includeOutput}); }
+	runAction(sessionId: string, action: string, cols: number, rows: number): Promise<DevRecord> { return this.request({type: 'run-action', requestId: randomUUID(), sessionId, action, cols, rows}); }
+	cancelStart(sessionId: string): Promise<void> { return this.request({type: 'cancel-start', requestId: randomUUID(), sessionId}); }
 
 	sendAgentInput(sessionId: string, data: string): void {
 		if (this.closed || this.socket.destroyed) {

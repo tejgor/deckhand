@@ -15,12 +15,15 @@ const ACTIVITY_WINDOW_MS = 3000;
 const IDLE_AFTER_MS = 5000;
 const ACTIVE_MIN_CHANGED_CHARS = 1;
 const RESIZE_ACTIVITY_SUPPRESSION_MS = 750;
+const PANE_KILL_GRACE_MS = 2000;
+// Root-session credentials stay with the agent; nested agents started from a pane must not reuse them.
+const ROOT_SESSION_ENV = ['DECKHAND_HOOK_TOKEN', 'DECKHAND_LAUNCH_ID', 'DECKHAND_SESSION_ID'];
 
 type WorkerCommand =
 	| {type: 'start'; requestId: string; session: SessionRecord; cols: number; rows: number}
 	| {type: 'kill'; requestId: string; force?: boolean}
 	| {type: 'snapshot'; requestId: string; target: AttachTarget; cols: number; rows: number; scrollOffset?: number}
-	| {type: 'start-dev'; requestId: string; cols: number; rows: number}
+	| {type: 'start-dev'; requestId: string; cols: number; rows: number; command?: string}
 	| {type: 'stop-dev'; requestId: string}
 	| {type: 'attach'; requestId: string; target: AttachTarget; cols: number; rows: number}
 	| {type: 'detach'; target: AttachTarget}
@@ -64,7 +67,8 @@ interface AgentRuntime extends RuntimePty {
 }
 
 function post(message: WorkerMessage): void {
-	if (process.send) process.send(message);
+	if (!process.connected || !process.send) return;
+	try { process.send(message); } catch { /* The daemon disconnected; the disconnect handler shuts down. */ }
 }
 
 function ok(requestId: string, data?: unknown): void {
@@ -127,6 +131,11 @@ class SessionWorker {
 	async start(): Promise<void> {
 		await ensureNodePtyReady();
 		process.on('message', message => void this.handle(message as WorkerCommand));
+		process.on('disconnect', () => {
+			this.cleanup('terminal'); this.cleanup('git'); this.cleanup('dev');
+			if (this.agent) signalPtyProcess(this.agent.term, 'SIGTERM');
+			setTimeout(() => { if (this.agent) signalPtyProcess(this.agent.term, 'SIGKILL'); process.exit(0); }, 1000).unref?.();
+		});
 	}
 
 	private async handle(command: WorkerCommand): Promise<void> {
@@ -135,7 +144,7 @@ class SessionWorker {
 				case 'start': ok(command.requestId, await this.startAgent(command.session, command.cols, command.rows)); return;
 				case 'kill': this.kill(command.force ?? false); ok(command.requestId, {ok: true}); return;
 				case 'snapshot': ok(command.requestId, await this.snapshot(command.target, command.cols, command.rows, command.scrollOffset)); return;
-				case 'start-dev': ok(command.requestId, await this.startDev(command.cols, command.rows)); return;
+				case 'start-dev': ok(command.requestId, await this.startDev(command.cols, command.rows, command.command)); return;
 				case 'stop-dev': this.cleanup('dev'); post({type: 'dev-updated', dev: this.buildDevRecord(undefined)}); ok(command.requestId, {ok: true}); return;
 				case 'attach': this.attached.add(command.target); ok(command.requestId, await this.attach(command.target, command.cols, command.rows)); return;
 				case 'detach': this.attached.delete(command.target); return;
@@ -220,16 +229,20 @@ class SessionWorker {
 		}
 	}
 
-	private async startDev(cols: number, rows: number): Promise<DevRecord> {
+	private async startDev(cols: number, rows: number, requestedCommand?: string): Promise<DevRecord> {
 		if (!this.session) throw new Error('session does not exist');
-		if (this.dev && !this.dev.exited) return this.buildDevRecord(await this.resizeRuntime(this.dev, cols, rows));
+		const reuse = async (runtime: RuntimePty) => {
+			if (requestedCommand?.trim() && requestedCommand.trim() !== runtime.command) throw new Error('Stop the current Dev/action command before starting another');
+			return this.buildDevRecord(await this.resizeRuntime(runtime, cols, rows));
+		};
+		if (this.dev && !this.dev.exited) return reuse(this.dev);
 		const pending = this.paneStartPromises.get('dev');
-		if (pending) return this.buildDevRecord(await this.resizeRuntime(await pending, cols, rows));
+		if (pending) return reuse(await pending);
 
 		const start = (async () => {
 			this.cleanup('dev');
 			const config = await loadAppConfig();
-			const command = config.dev_command?.trim() || 'dev';
+			const command = requestedCommand?.trim() || config.dev_command?.trim() || 'dev';
 			if (this.dev && !this.dev.exited) return this.dev;
 			if (!this.session) throw new Error('session does not exist');
 			this.dev = this.spawnPane('dev', shellCommand(), ['-ic', command], this.session.cwd, cols, rows, command);
@@ -244,15 +257,20 @@ class SessionWorker {
 	}
 
 	private spawnPane(target: 'terminal' | 'git' | 'dev', command: string, args: string[], cwd: string, cols: number, rows: number, label?: string): RuntimePty {
-		const term = pty.spawn(command, args, {name: 'xterm-256color', cwd, env: {...process.env}, cols: size(cols, DEFAULT_COLS), rows: size(rows, DEFAULT_ROWS)});
+		const env = {...process.env};
+		for (const key of ROOT_SESSION_ENV) delete env[key];
+		const term = pty.spawn(command, args, {name: 'xterm-256color', cwd, env, cols: size(cols, DEFAULT_COLS), rows: size(rows, DEFAULT_ROWS)});
 		const runtime: RuntimePty = {term, preview: new TerminalPreview(cols, rows), cwd, exited: false, terminalModes: {bracketedPaste: false}, command: label};
+		// A replaced/stopped pane may keep emitting until it dies; only the current one reports.
+		const current = () => this.getExisting(target) === runtime;
 		term.onData(output => {
+			if (!current()) return;
 			updateTerminalModes(runtime.terminalModes, output);
 			void runtime.preview.write(output);
 			this.schedulePaneBroadcast(target, runtime);
 			if (this.attached.has(target)) post({type: 'output', target, data: output});
 		});
-		term.onExit(({exitCode, signal}) => { runtime.exited = true; runtime.exitCode = exitCode ?? null; runtime.exitSignal = signal ?? null; this.schedulePaneBroadcast(target, runtime); });
+		term.onExit(({exitCode, signal}) => { runtime.exited = true; runtime.exitCode = exitCode ?? null; runtime.exitSignal = signal ?? null; if (current()) this.schedulePaneBroadcast(target, runtime); });
 		this.schedulePaneBroadcast(target, runtime);
 		return runtime;
 	}
@@ -290,8 +308,9 @@ class SessionWorker {
 	}
 
 	private async resizeRuntime<T extends RuntimePty>(runtime: T, cols: number, rows: number): Promise<T> {
-		runtime.term.resize(size(cols, DEFAULT_COLS), size(rows, DEFAULT_ROWS));
+		if (!runtime.exited) runtime.term.resize(size(cols, DEFAULT_COLS), size(rows, DEFAULT_ROWS));
 		await runtime.preview.resize(cols, rows);
+		await runtime.preview.getSnapshot();
 		return runtime;
 	}
 
@@ -306,7 +325,9 @@ class SessionWorker {
 		const runtime = this.getExisting(target);
 		if (!runtime) return;
 		if (runtime.broadcastTimer) clearTimeout(runtime.broadcastTimer);
-		try { runtime.term.kill(); } catch {}
+		// Interactive shells (`$SHELL -ic cmd`) ignore SIGTERM; SIGHUP is what a closed terminal sends.
+		signalPtyProcess(runtime.term, 'SIGHUP');
+		if (!runtime.exited) setTimeout(() => { if (!runtime.exited) signalPtyProcess(runtime.term, 'SIGKILL'); }, PANE_KILL_GRACE_MS).unref?.();
 		runtime.preview.dispose();
 		if (target === 'terminal') this.terminal = undefined;
 		else if (target === 'git') this.git = undefined;

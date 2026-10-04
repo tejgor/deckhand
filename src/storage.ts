@@ -11,12 +11,25 @@ interface InkState {
 export interface AppConfig {
 	dev_command?: string;
 	attach_scroll_sensitivity?: number;
+	/** Trusted project fingerprints per trust root, newest first (see trustProjectConfig). */
+	trustedProjects?: Record<string, string[]>;
+	agent_hooks?: boolean;
+	notifications?: boolean;
+	/** Global project defaults (deckhand.json schema), kept as stored; validated where used (see globalDefaults). */
+	defaults?: unknown;
 }
 
 const EMPTY_STATE: InkState = {sessions: []};
 
+let privateDir: string | undefined;
 export async function ensureConfigDir(): Promise<void> {
-	await fs.mkdir(getConfigDir(), {recursive: true});
+	const dir = getConfigDir();
+	await fs.mkdir(dir, {recursive: true, mode: 0o700});
+	if (privateDir === dir) return;
+	// Tighten directories created by older versions or a permissive umask, but never someone else's.
+	const stat = await fs.stat(dir);
+	if (stat.mode & 0o077 && stat.uid === process.getuid?.()) await fs.chmod(dir, 0o700);
+	privateDir = dir;
 }
 
 export async function loadState(): Promise<InkState> {
@@ -52,7 +65,7 @@ export async function saveState(state: InkState): Promise<void> {
 	await ensureConfigDir();
 	const statePath = getStatePath();
 	const temporaryPath = `${statePath}.tmp-${process.pid}-${Date.now()}-${randomUUID()}`;
-	await fs.writeFile(temporaryPath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+	await fs.writeFile(temporaryPath, `${JSON.stringify(state, null, 2)}\n`, {encoding: 'utf8', mode: 0o600});
 	await fs.rename(temporaryPath, statePath);
 }
 
@@ -85,6 +98,9 @@ export async function markAllNonExitedSessionsExited(): Promise<SessionRecord[]>
 			exitCode: session.exitCode ?? null,
 			exitSignal: session.exitSignal ?? null,
 			devRunning: false,
+			exitReason: 'interrupted' as const,
+			attention: {state: 'unknown' as const, event: 'DaemonRestart', at: now},
+			...(session.setup?.state === 'running' ? {setup: {...session.setup, state: 'failed' as const, output: `${session.setup.output}\nInterrupted by daemon restart`}} : {}),
 		};
 	});
 	if (changed) {
@@ -102,37 +118,95 @@ export function sortSessionsNewestFirst(sessions: SessionRecord[]): SessionRecor
 	});
 }
 
-export async function loadAppConfig(): Promise<AppConfig> {
-	await ensureConfigDir();
+type RawConfig = Record<string, unknown>;
+function normalizeAppConfig(parsed: RawConfig): AppConfig {
+	const trusted = parsed.trustedProjects && typeof parsed.trustedProjects === 'object' && !Array.isArray(parsed.trustedProjects) ? parsed.trustedProjects as Record<string, unknown> : {};
+	return {
+		dev_command: typeof parsed.dev_command === 'string' ? parsed.dev_command : undefined,
+		attach_scroll_sensitivity: typeof parsed.attach_scroll_sensitivity === 'number' ? parsed.attach_scroll_sensitivity : undefined,
+		// Older versions stored a single fingerprint string per root.
+		trustedProjects: Object.fromEntries(Object.entries(trusted).flatMap(([root, value]) => {
+			const list = typeof value === 'string' ? [value] : Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+			return list.length ? [[root, list]] : [];
+		})),
+		agent_hooks: parsed.agent_hooks === true,
+		notifications: parsed.notifications === true,
+		defaults: parsed.defaults,
+	};
+}
+async function readRawConfig(): Promise<RawConfig> {
 	try {
-		const raw = await fs.readFile(getConfigPath(), 'utf8');
-		const parsed = JSON.parse(raw) as Partial<AppConfig>;
-		return {
-			dev_command: typeof parsed.dev_command === 'string' ? parsed.dev_command : undefined,
-			attach_scroll_sensitivity: typeof parsed.attach_scroll_sensitivity === 'number' ? parsed.attach_scroll_sensitivity : undefined,
-		};
+		const parsed: unknown = JSON.parse(await fs.readFile(getConfigPath(), 'utf8'));
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(`${getConfigPath()} must contain a JSON object`);
+		return parsed as RawConfig;
 	} catch (error) {
-		const err = error as NodeJS.ErrnoException;
-		if (err.code === 'ENOENT') {
-			return {};
-		}
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
 		throw error;
 	}
 }
 
-export async function saveAppConfig(config: AppConfig): Promise<void> {
+export async function loadAppConfig(): Promise<AppConfig> {
 	await ensureConfigDir();
-	const configPath = getConfigPath();
-	const temporaryPath = `${configPath}.tmp-${process.pid}-${Date.now()}-${randomUUID()}`;
-	await fs.writeFile(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
-	await fs.rename(temporaryPath, configPath);
+	const raw = await readRawConfig();
+	return Object.keys(raw).length ? normalizeAppConfig(raw) : {};
 }
 
-export async function updateAppConfig(patch: AppConfig): Promise<AppConfig> {
-	const current = await loadAppConfig();
-	const next = {...current, ...patch};
-	await saveAppConfig(next);
-	return next;
+async function writeRawConfig(config: RawConfig): Promise<void> {
+	const configPath = getConfigPath();
+	const temporaryPath = `${configPath}.tmp-${process.pid}-${Date.now()}-${randomUUID()}`;
+	try {
+		await fs.writeFile(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, {encoding: 'utf8', mode: 0o600});
+		await fs.rename(temporaryPath, configPath);
+	} finally { await fs.rm(temporaryPath, {force: true}); }
+}
+
+const LOCK_STALE_MS = 5000, LOCK_TIMEOUT_MS = 10_000;
+// The UI and daemon processes both write config.json; an exclusive lockfile serializes their read-modify-write.
+async function withConfigLock<T>(operation: () => Promise<T>): Promise<T> {
+	const lock = `${getConfigPath()}.lock`;
+	const deadline = Date.now() + LOCK_TIMEOUT_MS;
+	for (let attempt = 0; ; attempt++) {
+		try { await (await fs.open(lock, 'wx', 0o600)).close(); break; }
+		catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+			const stat = await fs.stat(lock).catch(() => undefined);
+			if (stat && Date.now() - stat.mtimeMs > LOCK_STALE_MS) {
+				// A crashed writer left it behind; only remove the lock we judged stale.
+				if ((await fs.stat(lock).catch(() => undefined))?.ino === stat.ino) await fs.rm(lock, {force: true});
+				continue;
+			}
+			if (Date.now() > deadline) throw new Error(`Timed out waiting for ${lock}`);
+			await new Promise(resolve => setTimeout(resolve, Math.min(5 * 2 ** attempt, 100) + Math.random() * 10));
+		}
+	}
+	try { return await operation(); } finally { await fs.rm(lock, {force: true}); }
+}
+
+let configQueue: Promise<unknown> = Promise.resolve();
+/**
+ * Read-modify-write of config.json, serialized in-process and across processes. The patch/updater sees the
+ * normalized view; only the keys it changes are written back, so unknown keys and absent defaults are preserved.
+ */
+export function updateAppConfig(patchOrUpdater: AppConfig | ((current: AppConfig) => AppConfig)): Promise<AppConfig> {
+	const operation = configQueue.then(async () => {
+		await ensureConfigDir();
+		return withConfigLock(async () => {
+			const raw = await readRawConfig();
+			const current = normalizeAppConfig(raw);
+			const next = typeof patchOrUpdater === 'function' ? patchOrUpdater(current) : {...current, ...patchOrUpdater};
+			const written: RawConfig = {...raw};
+			const known = current as Record<string, unknown>, updated = next as Record<string, unknown>;
+			for (const key of new Set([...Object.keys(known), ...Object.keys(updated)])) {
+				if (JSON.stringify(known[key]) === JSON.stringify(updated[key])) continue;
+				if (updated[key] === undefined) delete written[key];
+				else written[key] = updated[key];
+			}
+			await writeRawConfig(written);
+			return normalizeAppConfig(written);
+		});
+	});
+	configQueue = operation.catch(() => {});
+	return operation;
 }
 
 export function stateFileDisplayPath(): string {
