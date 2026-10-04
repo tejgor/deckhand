@@ -12,6 +12,7 @@ import {createWorktreeForSession, currentBranch, deleteLocalBranch, findRepoRoot
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst} from './storage.js';
 import {compareSessionOrder, sortSessionsForSidebar} from './sessionOrder.js';
+import {sessionMatchesScope} from './sessionScope.js';
 import {TerminalPreview} from './terminalPreview.js';
 import type {AgentActivityStatus, AgentSessionRef, AttachTarget, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, RestartMode, ServerMessage, ServerResponse, SessionRecord, TerminalRecord} from './types.js';
 
@@ -1201,20 +1202,21 @@ export class InkDaemon {
 	}
 
 	private sessionsForRepo(repoRoot: string): SessionRecord[] {
-		return sortSessionsForSidebar([...this.sessions.values()].filter(session => session.repoRoot === repoRoot));
+		return sortSessionsForSidebar([...this.sessions.values()].filter(session => sessionMatchesScope(session, repoRoot)));
 	}
 
 	private broadcastSessionUpdated(session: SessionRecord): void {
 		for (const [socket, client] of this.clients.entries()) {
-			if (client.repoRoot === session.repoRoot) {
+			if (client.repoRoot && sessionMatchesScope(session, client.repoRoot)) {
 				sendMessage(socket, {type: 'session-updated', session});
 			}
 		}
 	}
 
-	private broadcastSessionRemoved(sessionId: string, repoRoot: string): void {
+	private broadcastSessionRemoved(session: SessionRecord): void {
+		const sessionId = session.id;
 		for (const [socket, client] of this.clients.entries()) {
-			if (client.repoRoot === repoRoot) {
+			if (client.repoRoot && sessionMatchesScope(session, client.repoRoot)) {
 				sendMessage(socket, {type: 'session-removed', sessionId});
 			}
 		}
@@ -2269,7 +2271,7 @@ export class InkDaemon {
 		this.cleanupDev(sessionId);
 		this.sessions.delete(sessionId);
 		await this.persist();
-		this.broadcastSessionRemoved(sessionId, existing.repoRoot);
+		this.broadcastSessionRemoved(existing);
 	}
 
 	private async handleSessionExit(sessionId: string, exitCode: number | null, exitSignal: number | null): Promise<void> {
