@@ -2,6 +2,7 @@ import pty, {type IPty} from 'node-pty';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {ensureNodePtyReady} from './nodePty.js';
+import {killSurvivors, snapshotDescendants} from './processTree.js';
 import {loadAppConfig} from './storage.js';
 import {TerminalPreview} from './terminalPreview.js';
 import type {AgentActivityStatus, AttachTarget, DevRecord, GitRecord, PreviewRecord, SessionRecord, TerminalRecord} from './types.js';
@@ -9,6 +10,7 @@ import type {AgentActivityStatus, AttachTarget, DevRecord, GitRecord, PreviewRec
 const execFileAsync = promisify(execFile);
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
+const PANE_KILL_GRACE_MS = 3000;
 const PREVIEW_BROADCAST_DELAY_MS = 75;
 const ACTIVITY_EVALUATION_DELAY_MS = 150;
 const ACTIVITY_WINDOW_MS = 3000;
@@ -306,7 +308,22 @@ class SessionWorker {
 		const runtime = this.getExisting(target);
 		if (!runtime) return;
 		if (runtime.broadcastTimer) clearTimeout(runtime.broadcastTimer);
-		try { runtime.term.kill(); } catch {}
+		// Hang up the whole PTY process group, like closing a real terminal.
+		// term.kill() only signals the direct child, and a shell script waiting
+		// on a foreground child (e.g. `tmux attach`) defers its traps, so dev
+		// scripts never got to clean up. SIGHUP rather than SIGTERM because
+		// interactive shells (`$SHELL -ic`) ignore SIGTERM but forward SIGHUP
+		// to their jobs. After the grace period, SIGKILL the group plus any
+		// descendants that survived, including jobs the shell moved to their
+		// own process group, which the group signal cannot reach.
+		if (!runtime.exited) {
+			const descendants = snapshotDescendants(runtime.term.pid);
+			signalPtyProcess(runtime.term, 'SIGHUP');
+			setTimeout(() => {
+				if (!runtime.exited) signalPtyProcess(runtime.term, 'SIGKILL');
+				killSurvivors(descendants);
+			}, PANE_KILL_GRACE_MS).unref?.();
+		}
 		runtime.preview.dispose();
 		if (target === 'terminal') this.terminal = undefined;
 		else if (target === 'git') this.git = undefined;
