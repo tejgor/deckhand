@@ -55,7 +55,7 @@ function renderRow(
 	const indent = '  '.repeat(Math.min(depth, 4));
 	const hasChildren = sessionHasChildren(session.id, allSessions);
 	const collapsed = collapsedSessionIds.has(session.id);
-	const branchGlyph = hasChildren ? (collapsed ? '▸ ' : '▾ ') : '  ';
+	const branchGlyph = hasChildren ? (collapsed ? '▸ ' : '▾ ') : '';
 	const childCount = collapsed && hasChildren
 		? countSessionDescendants(session.id, allSessions)
 		: countHiddenSessionDescendants(session.id, allSessions, hiddenSessionIds);

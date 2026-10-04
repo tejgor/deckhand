@@ -7,6 +7,7 @@ import {DevPane} from './devPane.js';
 import {GitPane} from './gitPane.js';
 import {NotesPane} from './notesPane.js';
 import {PreviewPane} from './preview.js';
+import {sessionMatchesScope} from './sessionScope.js';
 import {Sidebar} from './sidebar.js';
 import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
@@ -658,7 +659,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			try {
 				const nextClient = await createLiveClient({
 					onSessionUpdated: session => {
-						if (session.repoRoot !== repoRoot) {
+						if (!sessionMatchesScope(session, repoRoot)) {
 							return;
 						}
 						setSessions(current => upsertSession(current, session));
@@ -1452,8 +1453,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setMode('browse');
 				return;
 			}
-			if (input === 'O') {
-				openSelectedInEditor();
+			if (key.ctrl || key.meta) {
 				return;
 			}
 			if (key.backspace || key.delete) {
