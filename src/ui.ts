@@ -1,4 +1,4 @@
-import type {PreviewRecord, SessionRecord} from './types.js';
+import type {SessionRecord} from './types.js';
 
 // Use ANSI named colors so the palette inherits from the user's terminal theme
 // instead of locking in hex values that look wrong against custom palettes.
@@ -14,6 +14,32 @@ export const THEME = {
 	warn: 'yellow',
 	error: 'red',
 } as const;
+
+export function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+const TERMINAL_ESCAPE_PATTERN = /\u001B(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001B]*(?:\u0007|\u001B\\)?|[@-Z\\-_])/g;
+// C0/C1 controls except tab and newline (multi-line display text keeps those).
+export const DISPLAY_CONTROL_PATTERN = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g;
+
+// Single-line typed input: drop escape sequences and every control, tab/newline included.
+export function stripTerminalControls(text: string): string {
+	return text.replace(TERMINAL_ESCAPE_PATTERN, '').replace(DISPLAY_CONTROL_PATTERN, '').replace(/[\t\n]/g, '');
+}
+
+// Plain-text view of captured command output: drop escape sequences, keep what
+// a carriage return would leave visible on each line, and remove other controls.
+export function plainTerminalText(text: string): string {
+	return text
+		.replace(TERMINAL_ESCAPE_PATTERN, '')
+		.split('\n')
+		.map(line => {
+			const trimmed = line.replace(/\r+$/, '');
+			return trimmed.slice(trimmed.lastIndexOf('\r') + 1).replace(DISPLAY_CONTROL_PATTERN, '').replace(/\t/g, '  ');
+		})
+		.join('\n');
+}
 
 export function truncate(text: string, width: number): string {
 	if (width <= 0) return '';
@@ -52,6 +78,14 @@ export function programGlyph(program: SessionRecord['program']): string {
 }
 
 export function statusGlyph(session: SessionRecord, spinnerFrame: string): string {
+	if (session.status === 'running') {
+		if (session.attention?.state === 'needs-input') return '?';
+		if (session.attention?.state === 'response-ended') return '◆';
+		if (session.attention?.state === 'failed') return '!';
+		if (session.attention?.state === 'limited') return '⌛';
+		if (session.attention?.state === 'working') return spinnerFrame;
+	}
+	if (session.status === 'exited' && (session.exitReason === 'failed' || session.exitReason === 'interrupted')) return '!';
 	switch (session.status) {
 		case 'starting':
 			return spinnerFrame;
@@ -65,6 +99,8 @@ export function statusGlyph(session: SessionRecord, spinnerFrame: string): strin
 }
 
 export function statusColor(session: SessionRecord): string {
+	if (session.attention?.state === 'failed' || session.cleanupError || session.exitReason === 'failed') return THEME.error;
+	if (session.attention?.state === 'needs-input' || session.attention?.state === 'limited' || session.exitReason === 'interrupted') return THEME.warn;
 	switch (session.status) {
 		case 'starting':
 			return THEME.warn;
@@ -85,19 +121,10 @@ export function displaySessionTitle(session: SessionRecord, sessions: SessionRec
 	return localTitle.replace(/\s+\/\s+/g, '/');
 }
 
-export function previewStatusIcon(session: SessionRecord | undefined, preview: PreviewRecord, spinnerFrame: string): string {
-	if (!session) return '';
-	if (session.status === 'starting') return spinnerFrame;
-	if (session.status === 'exited') return '○';
-	const agentStatus = preview.agentStatus ?? session.agentStatus;
-	if (agentStatus === 'active') return spinnerFrame;
-	if (agentStatus === 'idle') return '●';
-	return '◌';
-}
-
 export function statusLabel(session?: SessionRecord): string {
 	if (!session) return '—';
-	if (session.status === 'exited') return 'exited';
-	if (session.status === 'starting') return 'starting';
+	if (session.status === 'exited') return session.exitReason ?? 'exited';
+	if (session.status === 'starting') return session.setup?.state === 'running' ? 'preparing workspace' : 'starting';
+	if (session.attention && session.attention.state !== 'unknown') return session.attention.state === 'response-ended' ? 'response ended (not task success)' : session.attention.state;
 	return session.agentStatus ?? 'running';
 }

@@ -1,32 +1,28 @@
-import {spawn, spawnSync} from 'node:child_process';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Box, Text, useApp, useInput} from 'ink';
+import {Box, Text, useApp} from 'ink';
+import {useTerminalInput} from './useTerminalInput.js';
 import {LiveClient, createLiveClient} from './client.js';
 import {loadAppConfig, updateAppConfig} from './storage.js';
 import {DevPane} from './devPane.js';
+import {DetailsPane, detailsViewport, scrollDetails} from './detailsPane.js';
+import {actionPickerText, cleanupOverrideText, createPrConfirmText, projectActionNames, trustReviewText, workspaceSummaryText} from './detailTexts.js';
+import {openInEditor, openUrl} from './desktop.js';
+import {isConfigFlowMode, useProjectConfigFlow} from './projectConfigFlow.js';
+import {HELP_TEXT} from './help.js';
+import {filterSessionList, sessionNeedsAttention, SESSION_FILTERS, type SessionFilter} from './sessionFeatures.js';
 import {GitPane} from './gitPane.js';
 import {NotesPane} from './notesPane.js';
 import {PreviewPane} from './preview.js';
+import {sessionMatchesScope} from './sessionScope.js';
 import {Sidebar} from './sidebar.js';
 import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
-import type {AttachTarget, DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode} from './types.js';
-import {THEME, compactPath, displaySessionTitle, truncate} from './ui.js';
+import type {AttachTarget, DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
+import {THEME, compactPath, displaySessionTitle, errorMessage, stripTerminalControls, truncate} from './ui.js';
 
 const RIGHT_TABS: RightPaneTab[] = ['preview', 'terminal', 'git', 'dev', 'notes'];
-
-function resolveEditorCommand(): {command: string; args: string[]} | undefined {
-	const cli = spawnSync('sh', ['-lc', 'command -v cursor || command -v code'], {encoding: 'utf8'});
-	const command = cli.status === 0 ? cli.stdout.trim().split('\n')[0] : undefined;
-	if (command) {
-		return {command, args: []};
-	}
-	if (process.platform === 'darwin') {
-		return {command: 'open', args: ['-a', 'Cursor']};
-	}
-	return undefined;
-}
+const EMPTY_ID_SET: ReadonlySet<string> = new Set();
 
 const PROGRAMS: Array<{key: ProgramKey; label: string; glyph: string}> = [
 	{key: 'claude', label: 'Claude', glyph: '✶'},
@@ -63,10 +59,14 @@ const WORKTREE_MODES: Array<{key: WorktreeMode; label: string}> = [
 const DEFAULT_SCROLL_SENSITIVITY = 0.12;
 const SCROLL_SENSITIVITY_STEP = 0.04;
 const STATUS_MESSAGE_AUTO_HIDE_MS = 5000;
+const HEADER_ROWS = 2;
+// The footer always renders exactly these rows: the key hint and one combined
+// message line. Ink repaints the whole screen once output reaches the terminal
+// height, so one spare row is kept below the footer.
+const FOOTER_ROWS = 2;
+const SPARE_ROWS = 1;
 const ERROR_MESSAGE_AUTO_HIDE_MS = 8000;
 
-const ANSI_ESCAPE_PATTERN = /\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\))/g;
-const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/g;
 const ORPHAN_TERMINAL_SEQUENCE_PATTERN = /^(?:\[(?:[ABCDHFIOZ]|\d+(?:;\d+)*[~ABCDHF])|O[ABCDHF])$/;
 const ORPHAN_MOUSE_SEQUENCE_PATTERN = /^(?:\[?<\d*(?:;\d*){0,2}[mM]?|\[?\d+;\d*(?:;\d*)?[mM]?|\[?M[\s\S]{0,3})$/;
 const ALLOWED_NAME_INPUT_PATTERN = /[^a-zA-Z0-9 _\-/.:[\]()#]/g;
@@ -118,9 +118,7 @@ function parseMouseWheel(input: string): {direction: 'up' | 'down'; count: numbe
 }
 
 function sanitizeNameInput(input: string): string {
-	const cleaned = input
-		.replace(ANSI_ESCAPE_PATTERN, '')
-		.replace(CONTROL_CHARACTER_PATTERN, '');
+	const cleaned = stripTerminalControls(input);
 
 	if (ORPHAN_TERMINAL_SEQUENCE_PATTERN.test(cleaned) || ORPHAN_MOUSE_SEQUENCE_PATTERN.test(cleaned)) {
 		return '';
@@ -129,7 +127,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help';
+type Mode = 'browse' | 'preview-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'pick-config' | 'edit-project' | 'discard-project' | 'worktree-setup' | 'discard-worktree-setup' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss';
 
 interface AppProps {
 	repoRoot: string;
@@ -140,12 +138,15 @@ interface AppProps {
 	initialSessionTabs?: Record<string, RightPaneTab>;
 	initialCollapsedSessionIds?: string[];
 	initialHiddenExitedSessionIds?: string[];
+	initialSessionFilter?: SessionFilter;
+	initialSessionQuery?: string;
 	onSelectedIdChange?: (sessionId: string | undefined) => void;
 	onActiveTabChange?: (tab: RightPaneTab) => void;
 	onSessionTabChange?: (sessionId: string, tab: RightPaneTab) => void;
 	onSidebarWidthChange?: (width: number) => void;
 	onCollapsedSessionIdsChange?: (sessionIds: string[]) => void;
 	onHiddenExitedSessionIdsChange?: (sessionIds: string[]) => void;
+	onSessionVisibilityChange?: (filter: SessionFilter, query: string) => void;
 }
 
 interface TerminalSize {
@@ -368,13 +369,47 @@ function MergeConfirmPane({session, sessions, selectedIndex, width}: {session?: 
 	);
 }
 
-function KillConfirmPane({session, sessions, selectedIndex, canDelete, canDeleteBranch, force, width}: {session?: SessionRecord; sessions: SessionRecord[]; selectedIndex: number; canDelete: boolean; canDeleteBranch: boolean; force: boolean; width: number}) {
-	const options = canDelete
-		? ['Kill only, keep worktree (restartable)', 'Kill and delete worktree (not restartable)', ...(canDeleteBranch ? ['Kill, delete worktree and branch (not restartable)'] : []), 'Cancel']
-		: ['Kill session', 'Cancel'];
+interface FooterMessage {text: string; color: string}
+
+type KillOptionKind = 'kill' | 'delete' | 'delete-branch' | 'cancel';
+interface KillOption {kind: KillOptionKind; label: string}
+
+function structuralBlockers(inspection: SessionCleanupInspection | undefined): string[] {
+	return inspection?.structuralBlockers ?? [];
+}
+
+// Structural blockers (main/current/shared worktrees, branch changed/protected)
+// cannot be overridden, so the blocked deletion is not offered at all. Branch
+// deletion has its own inspection whose blockers can exceed the worktree's.
+function killOptions(canDelete: boolean, canDeleteBranch: boolean, worktreeInspection: SessionCleanupInspection | undefined, branchInspection: SessionCleanupInspection | undefined): KillOption[] {
+	const cancel: KillOption = {kind: 'cancel', label: 'Cancel'};
+	if (!canDelete) return [{kind: 'kill', label: 'Kill session'}, cancel];
+	const keep: KillOption = {kind: 'kill', label: 'Kill only, keep worktree (restartable)'};
+	if (structuralBlockers(worktreeInspection).length > 0) return [keep, cancel];
+	const offerBranch = canDeleteBranch && structuralBlockers(branchInspection).length === 0;
+	return [
+		keep,
+		{kind: 'delete', label: 'Kill and delete worktree (not restartable)'},
+		...(offerBranch ? [{kind: 'delete-branch', label: 'Kill, delete worktree and branch (not restartable)'} satisfies KillOption] : []),
+		cancel,
+	];
+}
+
+function cleanupSummary(inspection: SessionCleanupInspection | undefined): string {
+	if (!inspection) return 'Checking cleanup safety…';
+	const blockers = structuralBlockers(inspection);
+	if (blockers.length > 0) return 'Worktree deletion is blocked:';
+	return inspection.safe ? 'Local cleanup checks passed' : inspection.reasons.join('; ');
+}
+
+function KillConfirmPane({session, sessions, options, selectedIndex, force, width, inspection}: {session?: SessionRecord; sessions: SessionRecord[]; options: KillOption[]; selectedIndex: number; force: boolean; width: number; inspection?: SessionCleanupInspection}) {
 	const contentWidth = Math.max(1, width - 4);
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderDanger} paddingX={1}>
+			<Text color={THEME.warn}>{truncate(cleanupSummary(inspection), contentWidth)}</Text>
+			{structuralBlockers(inspection).map((blocker, index) => (
+				<Text key={`blocker-${index}`} color={THEME.warn}>{truncate(`  ${blocker}`, contentWidth)}</Text>
+			))}
 			<Text color={THEME.error} bold>{force ? 'Force kill' : 'Kill'} {session ? `"${displaySessionTitle(session, sessions)}"` : 'session'}?</Text>
 			{session?.worktree?.path ? (
 				<Text color={THEME.muted}>{truncate(compactPath(session.worktree.path, contentWidth), contentWidth)}</Text>
@@ -382,59 +417,17 @@ function KillConfirmPane({session, sessions, selectedIndex, canDelete, canDelete
 			<Box marginTop={1} flexDirection="column">
 				{options.map((option, index) => {
 					const selected = index === selectedIndex;
-					const isCancel = option === 'Cancel';
+					const isCancel = option.kind === 'cancel';
 					const color = selected ? (isCancel ? THEME.muted : THEME.error) : undefined;
 					return (
-						<Text key={option} inverse={selected} color={color} bold={selected}>
-							{selected ? '›' : ' '} {option}
+						<Text key={option.kind} inverse={selected} color={color} bold={selected}>
+							{selected ? '›' : ' '} {option.label}
 						</Text>
 					);
 				})}
 			</Box>
 			<Box marginTop={1}>
 				<Text color={THEME.muted}>enter choose · esc cancel · j/k move</Text>
-			</Box>
-		</Box>
-	);
-}
-
-function HelpPane({width}: {width: number}) {
-	const rows: Array<[string, string]> = [
-		['tab', 'cycle Preview / Terminal / Git / Dev / Notes'],
-		['p/t/g/d/a', 'jump to Preview / Terminal / Git / Dev / Notes'],
-		['notes', 'select Notes then o to edit; esc exits edit'], 
-		['1..N', 'jump to numbered session'],
-		['o', 'attach active pane'],
-		['O', 'open session dir in Cursor/Code'],
-		['Ctrl+Space / Ctrl+]', 'return from attach'],
-		['n', 'new session'],
-		['c', 'collapse exited / collapse all / expand all'],
-		['j/k', 'move selection'],
-		['v', 'focus preview scrolling'],
-		['preview: j/k', 'scroll preview'],
-		['preview: g/G', 'top / bottom'],
-		['[ / ]', 'decrease / increase scroll multiplier'],
-		['h/l', 'resize sidebar'],
-		['m', 'merge selected worktree into current branch'],
-		['M', 'toggle merged/pushed marker on selected session'],
-		['x / X', 'kill running session / force kill'],
-		['s / S', 'resume / fresh restart exited session'],
-		['d on Dev', 'start/stop dev command'],
-		['backspace', 'remove exited session'],
-		['r', 'refresh sessions'],
-		['q', 'quit'],
-		['esc/?', 'close help'],
-	];
-	return (
-		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
-			<Text color={THEME.accent} bold>Keyboard shortcuts</Text>
-			<Box marginTop={1} flexDirection="column">
-				{rows.map(([key, description]) => (
-					<Text key={key}>
-						<Text color={THEME.active} bold>{key.padEnd(12)}</Text>
-						<Text color={THEME.muted}>{description}</Text>
-					</Text>
-				))}
 			</Box>
 		</Box>
 	);
@@ -449,45 +442,70 @@ function mergedTargetBranch(session: SessionRecord): string | undefined {
 }
 
 function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true): string {
-	if (mode === 'preview-focus') {
-		const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
-		return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k fallback • esc/v return`;
+	switch (mode) {
+		case 'help': return 'help & workflows • j/k/arrows/PgUp/PgDn scroll • Home/End jump • esc/? close';
+		case 'pick-config': return 'j/k/arrows choose global defaults, repository or worktree setup • enter open • esc cancel';
+		case 'worktree-setup': return 'worktree setup • ↑↓ move • space link/skip • ←→ option • t target • h hook • Ctrl+S save • e JSON • esc cancel';
+		case 'discard-worktree-setup': return 'enter discard unsaved worktree setup • esc keep editing';
+		case 'edit-project': return 'config editor • Ctrl+S save • Ctrl+F format • Ctrl+A select all • esc cancel';
+		case 'discard-project': return 'enter discard unsaved draft • esc keep editing';
+		case 'preview-focus': {
+			const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
+			return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k scroll • g/G top/bottom • esc/v return`;
+		}
+		case 'notes-focus': return 'notes edit • type to edit • enter newline • esc stop editing';
+		case 'search': return 'type to search • enter keep search • esc clear';
+		case 'workspace-info': return 'workspace overview • P PR status • b open PR • c create PR • g lazygit • j/k/PgUp/PgDn scroll • esc close';
+		case 'review-project': return 'review repository config • ↑↓/PgUp/PgDn scroll';
+		case 'confirm-loss': return 'type DELETE then enter to authorize data loss • ↑↓/PgUp/PgDn scroll • esc cancel';
+		case 'pick-action': return 'j/k choose action • enter run in Dev pane • esc cancel';
+		case 'pick-program': return 'enter continue • esc cancel • j/k switch';
+		case 'enter-name': return 'tab worktree mode • enter create • esc back • backspace delete';
+		case 'pick-worktree': return 'type search • enter select • esc back • ↑↓ move • backspace delete';
+		case 'confirm-kill':
+		case 'confirm-merge': return 'enter choose • esc cancel • j/k move';
+		case 'browse': {
+			// Keep this short; everything else is listed in ? help.
+			const running = session?.status === 'running';
+			const attach = running && activeTab !== 'notes' ? (attachReady ? 'o attach' : 'loading…') : undefined;
+			const pane = activeTab === 'notes' ? (session ? 'o edit notes' : undefined)
+				: activeTab === 'dev' && running ? 'd start/stop'
+					: activeTab === 'preview' && running ? 'v scroll' : undefined;
+			const lifecycle = session?.status === 'exited'
+				? (session.worktree?.deletedAt ? 'backspace remove' : 's resume • S fresh')
+				: running ? 'x kill' : session?.status === 'starting' ? 'x cancel start' : undefined;
+			return [attach, pane, lifecycle, '? help', 'n new', 'C config', 'T trust', 'i info', 'e actions', '/ search', 'f filter', 'q quit'].filter(Boolean).join(' • ');
+		}
 	}
-	if (mode === 'notes-focus') {
-		return 'notes edit • type to edit • enter newline • esc stop editing';
-	}
-	if (mode === 'browse') {
-		const attach = session?.status === 'running' && activeTab !== 'notes' ? (attachReady ? 'o attach' : 'loading…') : undefined;
-		const openEditor = session ? 'O editor' : undefined;
-		const lifecycle = session?.status === 'exited'
-			? (session.worktree?.deletedAt ? 'worktree deleted • backspace remove' : 's resume • S fresh • backspace remove')
-			: session?.status === 'running' ? 'x kill • X force kill' : undefined;
-		const dev = activeTab === 'dev' && session?.status === 'running' ? 'd toggle dev' : undefined;
-		const merge = session ? `${session.worktree?.path && session.worktree.mode !== 'none' && !session.worktree.deletedAt ? 'm merge/' : ''}M mark` : undefined;
-		const previewFocus = activeTab === 'preview' && session?.status === 'running' ? 'v preview' : undefined;
-		const notes = activeTab === 'notes' ? 'o edit notes' : 'a notes';
-		const collapse = session ? 'c collapse' : undefined;
-		return [attach, openEditor, dev, merge, previewFocus, notes, '[/] scroll ×', 'j/k select', 'J/K reorder', 'n new', 'N child', collapse, 'h/l resize', lifecycle, '? help', 'q quit'].filter(Boolean).join(' • ');
-	}
-	if (mode === 'pick-program') {
-		return 'enter continue • esc cancel • j/k switch';
-	}
-	if (mode === 'enter-name') {
-		return 'tab worktree mode • enter create • esc back • backspace delete';
-	}
-	if (mode === 'pick-worktree') {
-		return 'type search • enter select • esc back • ↑↓ move • backspace delete';
-	}
-	if (mode === 'confirm-kill' || mode === 'confirm-merge') {
-		return 'enter choose • esc cancel • j/k move';
-	}
-	return `${activeTab} shortcuts • esc/? close`;
 }
 
-export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialSidebarWidth, initialSessionTabs, initialCollapsedSessionIds, initialHiddenExitedSessionIds, onSelectedIdChange, onActiveTabChange, onSessionTabChange, onSidebarWidthChange, onCollapsedSessionIdsChange, onHiddenExitedSessionIdsChange}: AppProps) {
+export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialSidebarWidth, initialSessionTabs, initialCollapsedSessionIds, initialHiddenExitedSessionIds, initialSessionFilter, initialSessionQuery, onSessionVisibilityChange, onSelectedIdChange, onActiveTabChange, onSessionTabChange, onSidebarWidthChange, onCollapsedSessionIdsChange, onHiddenExitedSessionIdsChange}: AppProps) {
 	const {exit} = useApp();
 	const [mode, setMode] = useState<Mode>('browse');
+	const [sessionFilter, setSessionFilter] = useState<SessionFilter>(initialSessionFilter ?? 'active');
+	const [sessionQuery, setSessionQuery] = useState(initialSessionQuery ?? '');
+	// The inline repository-config review: what it shows, the cwd it was resolved for, and the action it gates
+	// (resumed after Enter trusts or s skips; none for an explicit T review).
+	const [review, setReview] = useState<{project: ProjectInfo; cwd: string; resume?: (project: ProjectInfo) => void}>();
+	// The project (and session) the action picker was opened for.
+	const [actionProject, setActionProject] = useState<{project: ProjectInfo; sessionId?: string}>();
+	// The repository config fingerprint reviewed for the session being created (see CreateSessionInput).
+	const [createProjectFingerprint, setCreateProjectFingerprint] = useState<string>();
+	// Async results are keyed by session (and a request counter) so a late
+	// response for one session never renders in, or authorizes, another.
+	const [workspaceInfo, setWorkspaceInfo] = useState<{sessionId: string; summary?: WorkspaceSummary; prLoading?: boolean; confirmPr?: boolean; creatingPr?: boolean}>();
+	const workspaceRequestRef = useRef(0);
+	// Deleting only the worktree keeps the branch (and its commits), so it is
+	// inspected separately from deleting the worktree and branch.
+	const [cleanupCheck, setCleanupCheck] = useState<{sessionId: string; worktree?: SessionCleanupInspection; branch?: SessionCleanupInspection}>();
+	const cleanupRequestRef = useRef(0);
+	const [detailsScroll, setDetailsScroll] = useState(0);
+	const [confirmationDraft, setConfirmationDraft] = useState('');
+	const [actionIndex, setActionIndex] = useState(0);
+	const [pendingDeleteBranch, setPendingDeleteBranch] = useState(false);
+	const [handoffFromId, setHandoffFromId] = useState<string>();
 	const [sessions, setSessions] = useState<SessionRecord[]>([]);
+	const [sessionsLoaded, setSessionsLoaded] = useState(false);
 	const [collapsedSessionIds, setCollapsedSessionIds] = useState<Set<string>>(() => new Set(initialCollapsedSessionIds ?? []));
 	const [hiddenExitedSessionIds, setHiddenExitedSessionIds] = useState<Set<string>>(() => new Set(initialHiddenExitedSessionIds ?? []));
 	const [selectedId, setSelectedId] = useState<string | undefined>(initialSelectedId);
@@ -527,10 +545,17 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [spinnerIndex, setSpinnerIndex] = useState(0);
 	const selectedIdRef = useRef<string | undefined>(selectedId);
 	const sessionsRef = useRef<SessionRecord[]>(sessions);
+	// Search and nondefault filters reveal matches regardless of collapse state.
+	const collapseApplied = !sessionQuery && sessionFilter === 'active';
 	const visibleSessions = useMemo(
-		() => filterCollapsedSessions(sessions, collapsedSessionIds, hiddenExitedSessionIds),
-		[collapsedSessionIds, hiddenExitedSessionIds, sessions],
+		() => {
+			const filtered = filterSessionList(sessions, sessionFilter, sessionQuery);
+			return collapseApplied ? filterCollapsedSessions(filtered, collapsedSessionIds, hiddenExitedSessionIds) : filtered;
+		},
+		[collapseApplied, collapsedSessionIds, hiddenExitedSessionIds, sessions, sessionFilter, sessionQuery],
 	);
+
+	useEffect(() => { onSessionVisibilityChange?.(sessionFilter, sessionQuery); }, [onSessionVisibilityChange, sessionFilter, sessionQuery]);
 
 	useEffect(() => {
 		if (!statusMessage) {
@@ -623,7 +648,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	}, []);
 
 	const shouldAnimateStatus = sessions.some(
-		session => session.status === 'starting' || (session.status === 'running' && session.agentStatus === 'active'),
+		session => session.status === 'starting' || (session.status === 'running' && (session.attention?.state === 'working' || ((!session.attention || session.attention.state === 'unknown') && session.agentStatus === 'active'))),
 	);
 
 	useEffect(() => {
@@ -658,7 +683,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			try {
 				const nextClient = await createLiveClient({
 					onSessionUpdated: session => {
-						if (session.repoRoot !== repoRoot) {
+						if (!sessionMatchesScope(session, repoRoot)) {
 							return;
 						}
 						setSessions(current => upsertSession(current, session));
@@ -731,10 +756,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					return;
 				}
 				setSessions(sortSessions(initialSessions));
+				setSessionsLoaded(true);
 				setError(undefined);
 			} catch (nextError) {
 				if (!cancelled) {
-					setError(nextError instanceof Error ? nextError.message : String(nextError));
+					setError(errorMessage(nextError));
 					scheduleReconnect();
 				}
 			}
@@ -753,16 +779,22 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	}, [connectionEpoch, repoRoot]);
 
 	useEffect(() => {
+		// Sessions arrive asynchronously; until then keep the persisted (or
+		// pre-attach) selection instead of resetting it to the first session.
+		if (!sessionsLoaded) {
+			return;
+		}
 		setSelectedId(currentId => {
-			if (visibleSessions.length === 0) {
-				return currentId;
-			}
 			if (currentId && visibleSessions.some(session => session.id === currentId)) {
 				return currentId;
 			}
+			if (visibleSessions.length === 0) {
+				// A filter/search that temporarily matches nothing keeps the selection.
+				return currentId && sessions.some(session => session.id === currentId) ? currentId : undefined;
+			}
 			return visibleSessions[0]?.id;
 		});
-	}, [visibleSessions]);
+	}, [sessions, sessionsLoaded, visibleSessions]);
 
 	const selectedIndex = useMemo(() => {
 		if (!selectedId) {
@@ -772,7 +804,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		return index >= 0 ? index : 0;
 	}, [selectedId, visibleSessions]);
 
-	const selectedSession = selectedId ? sessions.find(session => session.id === selectedId) : undefined;
+	// Only a visible session is actionable; a hidden selection is kept for later.
+	const selectedSession = selectedId ? visibleSessions.find(session => session.id === selectedId) : undefined;
+	const currentWorkspaceInfo = workspaceInfo && workspaceInfo.sessionId === selectedSession?.id ? workspaceInfo : undefined;
+	const currentCleanupCheck = cleanupCheck && cleanupCheck.sessionId === selectedSession?.id ? cleanupCheck : undefined;
+	const cleanupInspectionFor = (deleteBranch: boolean) => (deleteBranch ? currentCleanupCheck?.branch : currentCleanupCheck?.worktree);
 	const activeAttachTarget: AttachTarget = activeTab === 'terminal' ? 'terminal' : activeTab === 'git' ? 'git' : activeTab === 'dev' ? 'dev' : 'agent';
 	const activePaneReadyForAttach = Boolean(
 		selectedSession?.status === 'running' && (
@@ -804,7 +840,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				lastSavedNotesRef.current[sessionId] = updated.notes ?? '';
 				setSessions(current => upsertSession(current, updated));
 			}).catch(nextError => {
-				setError(nextError instanceof Error ? nextError.message : String(nextError));
+				setError(errorMessage(nextError));
 			});
 		}, 300);
 		return () => clearTimeout(timer);
@@ -885,8 +921,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		const leftWidth = clampSidebarWidth(sidebarWidthOverride ?? sidebarWidth(totalWidth), totalWidth);
 		const separatorWidth = 1;
 		const rightWidth = Math.max(20, totalWidth - leftWidth - separatorWidth);
-		const footerLines = error ? 3 : 2;
-		const contentHeight = Math.max(8, totalHeight - 2 - footerLines);
+		const contentHeight = Math.max(8, totalHeight - HEADER_ROWS - FOOTER_ROWS - SPARE_ROWS);
 		// Right pane wrapper consumes 4 cols (border 2 + paddingX 2) and 4 rows
 		// (border 2 + tabbar 1 + spacer 1) before the sub-pane content begins.
 		const paneInnerWidth = Math.max(10, rightWidth - 4);
@@ -901,7 +936,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			previewCols: paneInnerWidth,
 			previewRows,
 		};
-	}, [error, sidebarWidthOverride, terminalSize.cols, terminalSize.rows]);
+	}, [sidebarWidthOverride, terminalSize.cols, terminalSize.rows]);
 
 	const confirmNumericSelection = useCallback((value: string) => {
 		if (!value) {
@@ -998,7 +1033,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			const reordered = await client.reorderSession(selectedSession.id, direction);
 			setSessions(sortSessions(reordered));
 		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : String(nextError));
+			setError(errorMessage(nextError));
 		} finally {
 			setBusy(false);
 		}
@@ -1022,7 +1057,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			previewWheelAccumulatorRef.current = 0;
 			setStatusMessage(`Scroll multiplier ${formatScrollSensitivity(next)} (saved)`);
 			void updateAppConfig({attach_scroll_sensitivity: next}).catch(nextError => {
-				setError(nextError instanceof Error ? nextError.message : String(nextError));
+				setError(errorMessage(nextError));
 			});
 			return next;
 		});
@@ -1094,7 +1129,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			})
 			.catch(nextError => {
 				if (!cancelled) {
-					setError(nextError instanceof Error ? nextError.message : String(nextError));
+					setError(errorMessage(nextError));
 				}
 			});
 		return () => {
@@ -1120,7 +1155,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			})
 			.catch(nextError => {
 				if (!cancelled) {
-					setError(nextError instanceof Error ? nextError.message : String(nextError));
+					setError(errorMessage(nextError));
 				}
 			});
 		return () => {
@@ -1146,7 +1181,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			})
 			.catch(nextError => {
 				if (!cancelled) {
-					setError(nextError instanceof Error ? nextError.message : String(nextError));
+					setError(errorMessage(nextError));
 				}
 			});
 		return () => {
@@ -1172,7 +1207,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			})
 			.catch(nextError => {
 				if (!cancelled) {
-					setError(nextError instanceof Error ? nextError.message : String(nextError));
+					setError(errorMessage(nextError));
 				}
 			});
 		return () => {
@@ -1200,22 +1235,73 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 		const targetPath = selectedSession.worktree?.path ?? selectedSession.cwd;
-		const editor = resolveEditorCommand();
-		if (!editor) {
-			setError('could not find cursor or code command on PATH');
-			return;
-		}
-		try {
-			const child = spawn(editor.command, [...editor.args, targetPath], {
-				detached: true,
-				stdio: 'ignore',
-			});
-			child.unref();
-			setStatusMessage(`Opened ${targetPath} in ${editor.command.includes('cursor') || editor.args.includes('Cursor') ? 'Cursor' : 'Code'}`);
-		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : String(nextError));
+		const label = openInEditor(targetPath, setError);
+		if (label) {
+			setStatusMessage(`Opened ${targetPath} in ${label}`);
 		}
 	}, [selectedSession]);
+
+	const configFlow = useProjectConfigFlow({client, mode, setMode, setBusy, setError, setStatusMessage});
+
+	// Resolves the repository config for `targetCwd` and runs `resume` with it, showing the inline review first when
+	// `gate` says the action depends on an untrusted override. If the config cannot be read, the error is shown and
+	// `resume` still runs without it (the daemon enforces trust and reports problems) unless `required`.
+	// Without `resume` (T) the review is shown on its own.
+	const reviewThen = (targetCwd: string, resume: ((project?: ProjectInfo) => void) | undefined, {gate = (project: ProjectInfo) => project.needsReview, required = false} = {}) => {
+		if (!client) return;
+		setBusy(true); setError(undefined);
+		void client.projectInfo(targetCwd).then(project => {
+			setBusy(false);
+			if (resume && !gate(project)) { resume(project); return; }
+			setReview({project, cwd: targetCwd, resume}); setDetailsScroll(0); setMode('review-project');
+		}, error => {
+			setBusy(false); setError(errorMessage(error));
+			if (!required) resume?.(undefined);
+		});
+	};
+
+	const quit = useCallback(() => {
+		exit({kind: 'quit'} satisfies UiExitResult);
+	}, [exit]);
+
+	// Title, text and footer for the scrollable details modes. Built only when
+	// one of those modes is active (render and key handling).
+	const detailsContent = (): {title: string; text: string; footer: string; scroll: number} | undefined => {
+		switch (mode) {
+			case 'help':
+				return {title: 'Help & workflows', text: HELP_TEXT, footer: 'j/k/arrows/PgUp/PgDn scroll · Home/End jump · ? close', scroll: detailsScroll};
+			case 'workspace-info':
+				if (currentWorkspaceInfo?.confirmPr && currentWorkspaceInfo.summary) return {title: 'Create pull request', text: createPrConfirmText(currentWorkspaceInfo.summary), footer: 'enter push & open PR form · esc cancel', scroll: detailsScroll};
+				return {title: 'Workspace overview', text: workspaceSummaryText(currentWorkspaceInfo?.summary, currentWorkspaceInfo?.prLoading, {creatingPr: currentWorkspaceInfo?.creatingPr, links: selectedSession?.worktree?.links}), footer: 'P fetch PR status · b open PR · c create PR · g lazygit', scroll: detailsScroll};
+			case 'review-project':
+				return {
+					title: 'Review repository configuration',
+					text: review ? trustReviewText(review.project) : 'No repository configuration loaded.',
+					footer: review?.resume ? 'enter trust & continue • s continue without it (global defaults only) • esc cancel' : review?.project.needsReview ? 'enter trust • esc close' : 'esc close',
+					scroll: detailsScroll,
+				};
+			case 'confirm-loss':
+				return {title: 'Destructive cleanup override', text: cleanupOverrideText(cleanupInspectionFor(pendingDeleteBranch)?.reasons), footer: `Type DELETE then enter: ${confirmationDraft}`, scroll: detailsScroll};
+			case 'pick-action':
+				return {title: 'Actions', text: actionPickerText(actionProject?.project, actionIndex), footer: 'j/k choose · enter run in Dev pane', scroll: Math.max(0, actionIndex - 1)};
+			default:
+				return undefined;
+		}
+	};
+
+	// Shared scrolling for details modes; true when the key scrolled.
+	const killConfirmOptions = killOptions(selectedCanDeleteWorktree, selectedCanDeleteBranch, currentCleanupCheck?.worktree, currentCleanupCheck?.branch);
+	const killConfirmIndexClamped = Math.min(killConfirmIndex, killConfirmOptions.length - 1);
+	const killConfirmInspection = cleanupInspectionFor(killConfirmOptions[killConfirmIndexClamped]?.kind === 'delete-branch');
+
+	const scrollDetailsPane = (input: string, key: Parameters<typeof scrollDetails>[2]): boolean => {
+		const content = detailsContent();
+		if (!content) return false;
+		const next = scrollDetails(detailsScroll, input, key, detailsViewport(content.text, layout.previewWidth, layout.contentHeight));
+		if (next === undefined) return false;
+		setDetailsScroll(next);
+		return true;
+	};
 
 	const toggleDevSelected = useCallback(async () => {
 		if (!client || !selectedSession || selectedSession.status !== 'running') {
@@ -1235,7 +1321,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setActiveTab('dev');
 			}
 		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : String(nextError));
+			setError(errorMessage(nextError));
 		} finally {
 			setBusy(false);
 		}
@@ -1268,22 +1354,25 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				existingWorktreePath,
 				parentSessionId: createParentId,
 				subSessionKind: createParentId ? createSubSessionKind ?? 'clean' : undefined,
+				handoffFromSessionId: handoffFromId,
+				projectFingerprint: createProjectFingerprint,
 			});
 			setDraftName('');
 			setCreateParentId(undefined);
 			setCreateSubSessionKind(undefined);
+			setHandoffFromId(undefined);
 			setWorktreeMode('none');
 			setMode('browse');
 			setSelectedId(created.id);
 			setSessions(current => upsertSession(current, created));
 		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : String(nextError));
+			setError(errorMessage(nextError));
 		} finally {
 			setBusy(false);
 		}
-	}, [client, createParentId, createSubSessionKind, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, sessions, worktreeMode]);
+	}, [client, createParentId, createSubSessionKind, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, sessions, worktreeMode, handoffFromId, createProjectFingerprint]);
 
-	const killSelected = useCallback(async (deleteWorktree = false, deleteBranch = false, force = false) => {
+	const killSelected = useCallback(async (deleteWorktree = false, deleteBranch = false, force = false, allowDataLoss = false) => {
 		if (!client || !selectedSession || selectedSession.status !== 'running') {
 			return;
 		}
@@ -1291,7 +1380,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setError(undefined);
 		try {
 			const killedSessionId = selectedSession.id;
-			await client.killSession(killedSessionId, deleteWorktree || deleteBranch, deleteBranch, force);
+			await client.killSession(killedSessionId, deleteWorktree || deleteBranch, deleteBranch, force, allowDataLoss);
 			setMode('browse');
 			if (!force) {
 				setTimeout(() => {
@@ -1302,7 +1391,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				}, 1500).unref?.();
 			}
 		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : String(nextError));
+			setError(errorMessage(nextError));
 		} finally {
 			setBusy(false);
 		}
@@ -1321,13 +1410,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			setGit(EMPTY_GIT);
 			setDev(EMPTY_DEV);
 		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : String(nextError));
+			setError(errorMessage(nextError));
 		} finally {
 			setBusy(false);
 		}
 	}, [client, selectedSession]);
 
-	const restartSelected = useCallback(async (restartMode: RestartMode = 'resume') => {
+	const restartSelected = useCallback(async (restartMode: RestartMode = 'resume', projectFingerprint?: string) => {
 		if (!client || !selectedSession || selectedSession.status !== 'exited') {
 			return;
 		}
@@ -1338,11 +1427,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setBusy(true);
 		setError(undefined);
 		try {
-			const restarted = await client.restartSession(selectedSession.id, layout.previewCols, layout.previewRows, restartMode);
+			const restarted = await client.restartSession(selectedSession.id, layout.previewCols, layout.previewRows, restartMode, projectFingerprint);
 			setSelectedId(restarted.id);
 			setSessions(current => upsertSession(current, restarted));
 		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : String(nextError));
+			setError(errorMessage(nextError));
 		} finally {
 			setBusy(false);
 		}
@@ -1365,7 +1454,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setStatusMessage(`${mergeMode === 'squash' ? 'Squash applied' : 'Merge applied without commit'} from ${result.sourceRef} into ${result.targetBranch}`);
 			}
 		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : String(nextError));
+			setError(errorMessage(nextError));
 		} finally {
 			setBusy(false);
 		}
@@ -1383,21 +1472,36 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			setSessions(current => upsertSession(current, updated));
 			setStatusMessage(wasMerged ? 'Unmarked' : `Marked into ${mergedTargetBranch(updated) ?? 'target branch'}`);
 		} catch (nextError) {
-			setError(nextError instanceof Error ? nextError.message : String(nextError));
+			setError(errorMessage(nextError));
 		} finally {
 			setBusy(false);
 		}
 	}, [client, cwd, selectedSession]);
 
-	useInput((input, key) => {
+	useTerminalInput((input, key) => {
+		// Ink's exitOnCtrlC is disabled (see cli.ts) so a first Ctrl+C acts like Esc
+		// in the config editor (asking before discarding a draft). Ctrl+C at the
+		// discard prompt, while a save is in flight, or anywhere else quits like q.
+		if (key.ctrl && input === 'c') {
+			if ((mode === 'edit-project' || mode === 'worktree-setup') && !busy) {
+				configFlow.handleInput('', {escape: true});
+				return;
+			}
+			quit();
+			return;
+		}
+
 		if (busy) {
 			return;
 		}
 
+		if (isConfigFlowMode(mode)) {
+			configFlow.handleInput(input, key);
+			return;
+		}
 		if (mode === 'help') {
-			if (key.escape || input === '?') {
-				setMode('browse');
-			}
+			if (key.escape || input === '?') { setMode('browse'); return; }
+			scrollDetailsPane(input, key);
 			return;
 		}
 
@@ -1437,7 +1541,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === 'g') {
-				scrollPreview('up', 12);
+				// Claude scrolls its own view, so only the wheel fallback applies there.
+				if (!sendClaudeWheel('up', 12)) setPreviewScrollOffset(offset => preview.maxScrollOffset ?? offset + layout.previewRows);
 				return;
 			}
 			if (input === 'G') {
@@ -1452,8 +1557,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setMode('browse');
 				return;
 			}
-			if (input === 'O') {
-				openSelectedInEditor();
+			if (key.ctrl || key.meta) {
 				return;
 			}
 			if (key.backspace || key.delete) {
@@ -1474,6 +1578,110 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 
+		if (mode === 'search') {
+			if (key.escape) { setSessionQuery(''); setMode('browse'); return; }
+			if (key.return) { setMode('browse'); return; }
+			if (key.backspace || key.delete) setSessionQuery(value => value.slice(0, -1));
+			else if (!key.ctrl && !key.meta) setSessionQuery(value => (value + stripTerminalControls(input)).slice(0, 256));
+			return;
+		}
+		if (mode === 'review-project') {
+			// Enter trusts these exact bytes and resumes the gated action; s resumes it with the override ignored.
+			if (!review) { setMode('browse'); return; }
+			const {project, cwd: reviewCwd, resume} = review;
+			if (key.escape) { setReview(undefined); setMode('browse'); return; }
+			if (scrollDetailsPane(input, key)) return;
+			if (input === 's') { setReview(undefined); setMode('browse'); resume?.(project); return; }
+			if (!key.return || !client) return;
+			if (!project.needsReview) { setReview(undefined); setMode('browse'); setStatusMessage(project.trusted ? 'Already trusted' : 'Nothing to trust'); resume?.(project); return; }
+			setBusy(true); setError(undefined);
+			void client.trustProject(reviewCwd, project.fingerprint).then(trusted => {
+				setBusy(false); setReview(undefined); setMode('browse'); setStatusMessage('Repository configuration trusted');
+				resume?.(trusted);
+			}, async error => {
+				// Changed since this review: show the new bytes instead.
+				setError(errorMessage(error));
+				const next = await client.projectInfo(reviewCwd).catch(() => undefined);
+				if (next) setReview(current => (current ? {...current, project: next} : current));
+				setBusy(false);
+			});
+			return;
+		}
+		if (mode === 'confirm-loss') {
+			if (key.escape) { setMode('browse'); return; }
+			if (scrollDetailsPane(input, key)) return;
+			if (key.backspace || key.delete) { setConfirmationDraft(value => value.slice(0, -1)); return; }
+			if (key.return) {
+				if (confirmationDraft === 'DELETE') {
+					const inspection = cleanupInspectionFor(pendingDeleteBranch);
+					if (inspection && !inspection.safe && structuralBlockers(inspection).length === 0) void killSelected(true, pendingDeleteBranch, killConfirmForce, true);
+				}
+				return;
+			}
+			if (!key.ctrl && !key.meta) setConfirmationDraft(value => (value + sanitizeNameInput(input)).slice(0, 10));
+			return;
+		}
+		if (mode === 'workspace-info') {
+			if (currentWorkspaceInfo?.confirmPr) {
+				// Pushing is outward-facing: only Enter on this confirmation runs it.
+				const {sessionId, summary} = currentWorkspaceInfo;
+				if (key.escape) { setWorkspaceInfo(current => (current?.sessionId === sessionId ? {...current, confirmPr: false} : current)); return; }
+				if (scrollDetailsPane(input, key)) return;
+				if (!key.return || !client || !summary) return;
+				setDetailsScroll(0); setError(undefined);
+				setWorkspaceInfo(current => (current?.sessionId === sessionId ? {...current, confirmPr: false, creatingPr: true} : current));
+				const done = () => setWorkspaceInfo(current => (current?.sessionId === sessionId ? {...current, creatingPr: false} : current));
+				void client.createPr(sessionId, summary.branch).then(result => {
+					done();
+					setStatusMessage(result.existing ? `Pushed ${result.branch} to ${result.remote}; opened its PR` : `Pushed ${result.branch} to ${result.remote}; opened GitHub's new-PR form${result.base ? ` (base ${result.base})` : ''}`);
+					// Refresh the counts; P fetches the PR now that the cache was invalidated.
+					const requestId = ++workspaceRequestRef.current;
+					void client.workspaceSummary(sessionId).then(next => { if (workspaceRequestRef.current === requestId) setWorkspaceInfo(current => (current?.sessionId === sessionId ? {...current, summary: next} : current)); }).catch(() => {});
+				}, error => { done(); setError(errorMessage(error)); });
+				return;
+			}
+			if (key.escape) { setMode('browse'); return; }
+			if (scrollDetailsPane(input, key)) return;
+			if (input === 'c' && currentWorkspaceInfo?.summary && !currentWorkspaceInfo.creatingPr) {
+				if (currentWorkspaceInfo.summary.branch === '(detached)') { setError('HEAD is detached; check out a branch before creating a PR'); return; }
+				const {sessionId} = currentWorkspaceInfo;
+				setDetailsScroll(0);
+				setWorkspaceInfo(current => (current?.sessionId === sessionId ? {...current, confirmPr: true} : current));
+				return;
+			}
+			if (input === 'P' && client && currentWorkspaceInfo?.summary && !currentWorkspaceInfo.prLoading && !currentWorkspaceInfo.creatingPr) {
+				const {sessionId} = currentWorkspaceInfo;
+				const requestId = ++workspaceRequestRef.current;
+				setWorkspaceInfo(current => (current?.sessionId === sessionId ? {...current, prLoading: true} : current));
+				void client.workspaceSummary(sessionId, true).then(summary => {
+					if (workspaceRequestRef.current === requestId) setWorkspaceInfo({sessionId, summary});
+				}).catch(error => {
+					if (workspaceRequestRef.current !== requestId) return;
+					setWorkspaceInfo(current => (current?.sessionId === sessionId ? {...current, prLoading: false} : current));
+					setError(errorMessage(error));
+				});
+				return;
+			}
+			if (input === 'b' && currentWorkspaceInfo?.summary?.pr) { openUrl(currentWorkspaceInfo.summary.pr.url, setError); return; }
+			if (input === 'g') { setActiveTab('git'); setMode('browse'); }
+			return;
+		}
+		if (mode === 'pick-action') {
+			const actions = projectActionNames(actionProject?.project);
+			const reviewSessionId = actionProject?.sessionId;
+			if (key.escape) { setMode('browse'); return; }
+			if (key.upArrow || input === 'k') setActionIndex(index => Math.max(0, index - 1));
+			if (key.downArrow || input === 'j') setActionIndex(index => Math.min(Math.max(0, actions.length - 1), index + 1));
+			if (key.return && actions[actionIndex]) {
+				if (!client || !reviewSessionId) { setError('select a running session to run project actions'); return; }
+				setBusy(true);
+				void client.runAction(reviewSessionId, actions[actionIndex]!, layout.previewCols, layout.previewRows).then(record => {
+					setDev(record); setActiveTab('dev');
+					setMode(current => (current === 'pick-action' ? 'browse' : current));
+				}).catch(error => setError(errorMessage(error))).finally(() => setBusy(false));
+			}
+			return;
+		}
 		if (mode === 'browse') {
 			if (input === '[' || input === ']') {
 				adjustScrollSensitivity(input === ']' ? SCROLL_SENSITIVITY_STEP : -SCROLL_SENSITIVITY_STEP);
@@ -1507,26 +1715,91 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === 'q') {
-				exit({kind: 'quit'} satisfies UiExitResult);
+				quit();
 				return;
 			}
 			if (input === '?') {
-				setMode('help');
+				setDetailsScroll(0); setMode('help');
 				return;
 			}
+			if (input === '/') { setMode('search'); return; }
+			if (input === 'f') { setSessionFilter(filter => SESSION_FILTERS[(SESSION_FILTERS.indexOf(filter) + 1) % SESSION_FILTERS.length]!); return; }
+			if (input === 'A' && client && selectedSession) { void client.archiveSession(selectedSession.id, !selectedSession.archivedAt).catch(error => setError(errorMessage(error))); return; }
+			if (input === '!') {
+				const targets = sessions.filter(session => !session.archivedAt && sessionNeedsAttention(session));
+				const next = targets[(targets.findIndex(session => session.id === selectedId) + 1) % Math.max(1, targets.length)];
+				if (next) { setSessionFilter('attention'); setSessionQuery(''); setSelectedId(next.id); } else setStatusMessage('No known attention requests');
+				return;
+			}
+			if (input === 'i' && client && selectedSession) {
+				const sessionId = selectedSession.id;
+				const requestId = ++workspaceRequestRef.current;
+				setWorkspaceInfo({sessionId}); setDetailsScroll(0); setMode('workspace-info');
+				void client.workspaceSummary(sessionId).then(summary => {
+					if (workspaceRequestRef.current === requestId) setWorkspaceInfo({sessionId, summary});
+				}).catch(error => {
+					if (workspaceRequestRef.current === requestId) setError(errorMessage(error));
+				});
+				return;
+			}
+			if (input === 'C' && client) {
+				configFlow.open(selectedSession?.cwd ?? cwd);
+				return;
+			}
+			if (input === 'T') {
+				reviewThen(selectedSession?.cwd ?? cwd, undefined);
+				return;
+			}
+			if (input === 'e') {
+				// Actions come from the session's repository: global defaults, plus repository actions once trusted.
+				const sessionId = selectedSession?.id;
+				reviewThen(selectedSession?.cwd ?? cwd, project => {
+					if (!project) return;
+					setActionProject({project, sessionId}); setActionIndex(0); setMode('pick-action');
+				}, {required: true});
+				return;
+			}
+			if (input === 'H' && client && selectedSession) {
+				void client.exportHandoff(selectedSession.id).then(file => {
+					setStatusMessage(`Handoff: ${file}`);
+					openInEditor(file, setError);
+				}).catch(error => setError(errorMessage(error)));
+				return;
+			}
+			if (input === 'F' && selectedSession) {
+				if (!selectedSession.handoffPath) { setError('Export and review a handoff with H before creating a handoff child'); return; }
+				const parent = selectedSession;
+				reviewThen(parent.cwd, project => {
+					setSessionFilter('active'); setSessionQuery('');
+					setHandoffFromId(parent.id); setCreateParentId(parent.id); setCreateSubSessionKind('clean'); setDraftName(''); setWorktreeMode('none');
+					setCreateProjectFingerprint(project?.fingerprint);
+					setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)));
+					setMode('pick-program');
+				});
+				return;
+			}
+			if ((input === 'x' || input === 'X') && selectedSession?.status === 'starting' && client) { void client.cancelStart(selectedSession.id).catch(error => setError(errorMessage(error))); return; }
 			if (input === 'n' || input === 'N') {
+				// Review first: the repository override can set the defaults and the new worktree's setup.
+				// Children keep their parent's agent and directory.
 				const parent = input === 'N' ? selectedSession : undefined;
-				setProgramIndex(parent ? Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)) : 0);
-				setDraftName('');
-				setCreateParentId(parent?.id);
-				setCreateSubSessionKind(parent ? 'clean' : undefined);
-				setWorktreeMode('none');
-				setMode('pick-program');
+				reviewThen(parent?.cwd ?? cwd, project => {
+					const defaults = parent ? undefined : project?.effective;
+					setHandoffFromId(undefined);
+					setSessionFilter('active'); setSessionQuery('');
+					setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === (parent?.program ?? defaults?.defaultAgent ?? 'claude'))));
+					setDraftName('');
+					setCreateParentId(parent?.id);
+					setCreateSubSessionKind(parent ? 'clean' : undefined);
+					setCreateProjectFingerprint(project?.fingerprint);
+					setWorktreeMode(defaults?.defaultWorkspace ?? 'none');
+					setMode('pick-program');
+				});
 				return;
 			}
 			if (input === 'r') {
 				void refreshSessions().catch(nextError =>
-					setError(nextError instanceof Error ? nextError.message : String(nextError)),
+					setError(errorMessage(nextError)),
 				);
 				return;
 			}
@@ -1562,7 +1835,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					return;
 				}
 				if (selectedSession?.status === 'running') {
-					void toggleDevSelected();
+					// Starting Dev reviews an untrusted repository devCommand first (skipping uses the global one).
+					if (selectedSession.devRunning || (dev.sessionId === selectedSession.id && dev.live)) void toggleDevSelected();
+					else reviewThen(selectedSession.cwd, () => void toggleDevSelected(), {gate: project => project.needsReview && Boolean(project.config.devCommand)});
 				} else {
 					setError('session must be running to start dev');
 				}
@@ -1612,9 +1887,22 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if ((input === 'x' || input === 'X') && selectedSession?.status === 'running') {
 				const force = input === 'X';
 				if (selectedSession.worktree?.path && selectedSession.worktree.mode !== 'none') {
+					const sessionId = selectedSession.id;
+					const requestId = ++cleanupRequestRef.current;
 					setKillConfirmIndex(0);
 					setKillConfirmForce(force);
+					setCleanupCheck({sessionId});
 					setMode('confirm-kill');
+					if (client) {
+						const inspect = (deleteBranch: boolean) => {
+							const settle = (inspection: SessionCleanupInspection) => {
+								if (cleanupRequestRef.current === requestId) setCleanupCheck(current => (current?.sessionId === sessionId ? {...current, [deleteBranch ? 'branch' : 'worktree']: inspection} : current));
+							};
+							void client.inspectCleanup(sessionId, deleteBranch).then(settle).catch(error => settle({safe: false, reasons: [errorMessage(error)], dirtyFiles: 0, untrackedFiles: 0, ignoredFiles: 0, structuralBlockers: []}));
+						};
+						inspect(false);
+						if (selectedCanDeleteBranch) inspect(true);
+					}
 				} else {
 					void killSelected(false, false, force);
 				}
@@ -1625,7 +1913,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if ((input === 's' || input === 'S') && selectedSession?.status === 'exited') {
-				void restartSelected(input === 'S' ? 'fresh' : 'resume');
+				const restartMode = input === 'S' ? 'fresh' : 'resume';
+				// Setup still owed (failed, cancelled or refused as untrusted) depends on the repository config.
+				if (selectedSession.setup && selectedSession.setup.state !== 'complete') reviewThen(selectedSession.cwd, project => void restartSelected(restartMode, project?.fingerprint));
+				else void restartSelected(restartMode);
 				return;
 			}
 			if (input === 'O') {
@@ -1665,7 +1956,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			const parent = createParentId ? sessions.find(session => session.id === createParentId) : undefined;
-			const optionCount = PROGRAMS.length + (parent && supportsForkedSubSession(parent) ? 1 : 0);
+			const optionCount = PROGRAMS.length + (parent && !handoffFromId && supportsForkedSubSession(parent) ? 1 : 0);
 			if (key.leftArrow || key.upArrow || input === 'k' || input === 'h') {
 				setProgramIndex(index => (index - 1 + optionCount) % optionCount);
 				return;
@@ -1675,7 +1966,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (key.return) {
-				if (parent && supportsForkedSubSession(parent) && programIndex === PROGRAMS.length) {
+				if (parent && !handoffFromId && supportsForkedSubSession(parent) && programIndex === PROGRAMS.length) {
 					setCreateSubSessionKind('forked');
 					setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)));
 				} else {
@@ -1711,7 +2002,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							setWorktreeIndex(0);
 							setMode('pick-worktree');
 						})
-						.catch(nextError => setError(nextError instanceof Error ? nextError.message : String(nextError)))
+						.catch(nextError => setError(errorMessage(nextError)))
 						.finally(() => setBusy(false));
 					return;
 				}
@@ -1799,44 +2090,70 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 
 		if (mode === 'confirm-kill') {
-			const cancelIndex = selectedCanDeleteWorktree ? (selectedCanDeleteBranch ? 3 : 2) : 1;
-			const optionCount = cancelIndex + 1;
+			const options = killConfirmOptions;
+			const selectedIndex = killConfirmIndexClamped;
 			if (key.escape) {
 				setMode('browse');
 				return;
 			}
 			if (key.upArrow || input === 'k') {
-				setKillConfirmIndex(index => (index - 1 + optionCount) % optionCount);
+				setKillConfirmIndex((selectedIndex - 1 + options.length) % options.length);
 				return;
 			}
 			if (key.downArrow || input === 'j') {
-				setKillConfirmIndex(index => (index + 1) % optionCount);
+				setKillConfirmIndex((selectedIndex + 1) % options.length);
 				return;
 			}
 			if (key.return) {
-				if (selectedCanDeleteWorktree) {
-					if (killConfirmIndex === 0) void killSelected(false, false, killConfirmForce);
-					else if (killConfirmIndex === 1) void killSelected(true, false, killConfirmForce);
-					else if (killConfirmIndex === 2 && selectedCanDeleteBranch) void killSelected(true, true, killConfirmForce);
-					else setMode('browse');
-				} else {
-					if (killConfirmIndex === 0) void killSelected(false, false, killConfirmForce);
-					else setMode('browse');
-				}
+				const option = options[selectedIndex]!;
+				if (option.kind === 'kill') void killSelected(false, false, killConfirmForce);
+				else if (option.kind === 'delete' || option.kind === 'delete-branch') {
+					// Wait for this session's inspection; never authorize from another session's result.
+					const deleteBranch = option.kind === 'delete-branch';
+					const inspection = cleanupInspectionFor(deleteBranch);
+					if (!inspection) return;
+					const blockers = structuralBlockers(inspection);
+					if (blockers.length > 0) setError(blockers.join('; '));
+					else if (inspection.safe) void killSelected(true, deleteBranch, killConfirmForce);
+					else { setPendingDeleteBranch(deleteBranch); setConfirmationDraft(''); setDetailsScroll(0); setMode('confirm-loss'); }
+				} else setMode('browse');
 				return;
 			}
 		}
 	});
 
+	const visibilityLabel = truncate(`${sessionFilter}${sessionQuery ? ` · /${sessionQuery}` : ''} · ${visibleSessions.length}/${sessions.length} sessions`, Math.max(10, Math.floor(terminalSize.cols / 2)));
+	const repoLabelWidth = Math.max(1, terminalSize.cols - visibilityLabel.length - 1);
+	const candidateMessages: Array<FooterMessage | undefined> = [
+		error ? {text: `Error: ${error}`, color: THEME.error} : undefined,
+		busy ? {text: 'Working…', color: THEME.warn} : undefined,
+		numericSelection ? {text: `Select session: ${numericSelection}`, color: THEME.active} : undefined,
+		statusMessage ? {text: statusMessage, color: THEME.success} : undefined,
+		selectedSession?.cleanupError ? {text: selectedSession.cleanupError, color: THEME.error} : undefined,
+	];
+	const footerMessages = candidateMessages.filter((message): message is FooterMessage => Boolean(message));
+	// Exactly FOOTER_ROWS rows, each truncated, so the layout above never shifts.
+	const footerRows = [
+		<Text key="hint" color={mode === 'search' ? THEME.active : THEME.muted} wrap="truncate-end">
+			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : mode === 'workspace-info' && currentWorkspaceInfo?.confirmPr ? 'create pull request • enter push & open PR form • esc cancel' : footerHint(mode, activeTab, selectedSession, previewScrollSensitivity, activePaneReadyForAttach)}
+		</Text>,
+		<Text key="messages" wrap="truncate-end">
+			{footerMessages.length > 0
+				? footerMessages.map((message, index) => <Text key={index} color={message.color}>{index > 0 ? ' · ' : ''}{message.text.replace(/\s*\n\s*/g, ' ')}</Text>)
+				: ' '}
+		</Text>,
+	];
+	const details = detailsContent();
+
 	return (
 		<Box flexDirection="column">
 			<Box justifyContent="space-between" width={terminalSize.cols}>
-				<Text color={THEME.accent} bold>deckhand</Text>
+				<Text color={THEME.accent} bold>{process.env.DECKHAND_CHANNEL === 'dev' ? 'deckhand · DEV (isolated)' : 'deckhand'}</Text>
 				<Text color={connectionColor(client)}>● {describeConnection(client)}</Text>
 			</Box>
 			<Box justifyContent="space-between" width={terminalSize.cols}>
-				<Text color={THEME.muted}>{truncate(compactPath(repoRoot, Math.max(10, terminalSize.cols - 16)), Math.max(10, terminalSize.cols - 16))}</Text>
-				<Text color={THEME.muted}>{sessions.length} session{sessions.length === 1 ? '' : 's'}</Text>
+				<Text color={THEME.muted} wrap="truncate-end">{truncate(compactPath(repoRoot, repoLabelWidth), repoLabelWidth)}</Text>
+				<Text color={THEME.muted} wrap="truncate-end">{visibilityLabel}</Text>
 			</Box>
 			<Box flexDirection="row">
 				<Sidebar
@@ -1846,11 +2163,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					width={layout.sidebarWidth}
 					height={layout.contentHeight}
 					spinnerFrame={spinnerFrame}
-					collapsedSessionIds={collapsedSessionIds}
-					hiddenSessionIds={hiddenExitedSessionIds}
+					collapsedSessionIds={collapseApplied ? collapsedSessionIds : EMPTY_ID_SET}
+					hiddenSessionIds={collapseApplied ? hiddenExitedSessionIds : EMPTY_ID_SET}
+					loaded={sessionsLoaded}
 				/>
 				<Box width={1} />
-				{mode === 'browse' || mode === 'preview-focus' || mode === 'notes-focus' ? (
+				{mode === 'browse' || mode === 'preview-focus' || mode === 'notes-focus' || mode === 'search' ? (
 					<Box
 						flexDirection="column"
 						width={layout.previewWidth}
@@ -1885,8 +2203,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							<NotesPane session={selectedSession} notes={notesDraft} width={layout.paneInnerWidth} height={layout.paneInnerHeight} focused={mode === 'notes-focus'} />
 						)}
 					</Box>
-				) : mode === 'help' ? (
-					<HelpPane width={layout.previewWidth} />
+				) : details ? (
+					<DetailsPane title={details.title} text={details.text} footer={details.footer} width={layout.previewWidth} height={layout.contentHeight} scroll={details.scroll} />
+				) : isConfigFlowMode(mode) ? (
+					configFlow.render(layout.previewWidth, layout.contentHeight)
 				) : mode === 'pick-worktree' ? (
 					<WorktreePickerPane
 						worktrees={filteredWorktrees}
@@ -1899,15 +2219,15 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					<KillConfirmPane
 						session={selectedSession}
 						sessions={sessions}
-						selectedIndex={killConfirmIndex}
-						canDelete={selectedCanDeleteWorktree}
-						canDeleteBranch={selectedCanDeleteBranch}
+						options={killConfirmOptions}
+						selectedIndex={killConfirmIndexClamped}
 						force={killConfirmForce}
 						width={layout.previewWidth}
+						inspection={killConfirmInspection}
 					/>
 				) : mode === 'confirm-merge' ? (
 					<MergeConfirmPane session={selectedSession} sessions={sessions} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} />
-				) : (
+				) : mode === 'pick-program' || mode === 'enter-name' ? (
 					<CreatePane
 						mode={mode}
 						programIndex={programIndex}
@@ -1917,15 +2237,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						parentTitle={createParentId ? sessions.find(session => session.id === createParentId)?.title : undefined}
 						parentWorkspaceLabel={parentWorkspaceLabel(createParentId ? sessions.find(session => session.id === createParentId) : undefined, layout.previewWidth)}
 						subSessionKind={createSubSessionKind}
-						showForkOption={createParentId ? supportsForkedSubSession(sessions.find(session => session.id === createParentId)) : false}
+						showForkOption={createParentId && !handoffFromId ? supportsForkedSubSession(sessions.find(session => session.id === createParentId)) : false}
 					/>
-				)}
+				) : null}
 			</Box>
-			<Text color={THEME.muted}>{footerHint(mode, activeTab, selectedSession, previewScrollSensitivity, activePaneReadyForAttach)}</Text>
-			{numericSelection ? <Text color={THEME.active}>Select session: {numericSelection}</Text> : null}
-			{busy ? <Text color={THEME.warn}>Working…</Text> : null}
-			{statusMessage ? <Text color={THEME.success}>{statusMessage}</Text> : null}
-			{error ? <Text color={THEME.error}>Error: {error}</Text> : null}
+			{footerRows}
 		</Box>
 	);
 }

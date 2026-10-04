@@ -1,3 +1,12 @@
+import type {AttentionState} from './agentSignals.js';
+import type {WorkspaceSummary, CleanupInspection, CreatePrResult} from './workspaceGit.js';
+import type {LoadedProject, ProjectConfig} from './projectConfig.js';
+import type {ConfigTargetKind, ConfigTargets, ProjectConfigDocument} from './projectConfigDocument.js';
+import type {WorktreeSetupInfo} from './worktreeSetup.js';
+
+// Bump whenever the daemon/client request or response shape changes.
+export const PROTOCOL_VERSION = 31;
+
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
 export type SessionStatus = 'starting' | 'running' | 'exited';
@@ -23,7 +32,10 @@ export interface SessionWorktreeRecord {
 	mergeTargetBranch?: string;
 	mergeSourceRef?: string;
 	mergeMarkedManually?: boolean;
+	baseRef?: string;
 	deletedAt?: string;
+	/** Worktree settings links applied when the worktree was created; notes list skipped/failed entries. */
+	links?: {linked: string[]; notes: string[]};
 }
 
 export interface WorktreeInfoRecord {
@@ -84,6 +96,15 @@ export interface SessionRecord {
 	forkedFromSessionId?: string;
 	forkedFromAgentSessionRef?: AgentSessionRef;
 	sidebarOrder?: number;
+	archivedAt?: string;
+	launchId?: string;
+	agentStartedAt?: string;
+	attention?: {state: AttentionState; event: string; at: string};
+	exitReason?: 'stopped' | 'failed' | 'completed' | 'interrupted';
+	cleanupError?: string;
+	setup?: {command: string; state: 'pending' | 'running' | 'failed' | 'cancelled' | 'complete'; output: string; exitCode?: number | null};
+	handoffPath?: string;
+	requestedWorktreeMode?: WorktreeMode;
 }
 
 export interface PreviewRecord {
@@ -135,10 +156,31 @@ export interface CreateSessionInput {
 	existingWorktreePath?: string;
 	parentSessionId?: string;
 	subSessionKind?: SubSessionKind;
+	handoffFromSessionId?: string;
+	/** Fingerprint of the repository configuration the user reviewed; an untrusted one it matches is skipped, not refused. */
+	projectFingerprint?: string;
 }
 
 export type ClientRequest =
 	| {type: 'ping'; requestId: string}
+	| {type: 'shutdown'; requestId: string}
+	| {type: 'project-info'; requestId: string; cwd: string}
+	| {type: 'config-targets'; requestId: string; cwd: string}
+	| {type: 'save-config'; requestId: string; target: ConfigTargetKind; cwd: string; raw: string; revision: string | null}
+	/** C → Worktree setup: layers, hook state, candidates and previews. Read-only. */
+	| {type: 'worktree-setup-info'; requestId: string; cwd: string}
+	/** Bounded sizes (KiB, null when unknown) of candidate paths relative to the main checkout. */
+	| {type: 'worktree-candidate-sizes'; requestId: string; cwd: string; paths: string[]}
+	| {type: 'trust-project'; requestId: string; cwd: string; fingerprint: string}
+	| {type: 'workspace-summary'; requestId: string; sessionId: string; includePr?: boolean}
+	| {type: 'inspect-cleanup'; requestId: string; sessionId: string; deleteBranch?: boolean}
+	/** Pushes the session's branch and opens GitHub's PR form; `branch` (as confirmed) must still be checked out. */
+	| {type: 'create-pr'; requestId: string; sessionId: string; branch?: string}
+	| {type: 'archive-session'; requestId: string; sessionId: string; archived: boolean}
+	| {type: 'export-handoff'; requestId: string; sessionId: string; includeOutput?: boolean}
+	| {type: 'agent-hook'; requestId: string; sessionId: string; launchId: string; token: string; payload: unknown}
+	| {type: 'cancel-start'; requestId: string; sessionId: string}
+	| {type: 'run-action'; requestId: string; sessionId: string; action: string; cols: number; rows: number}
 	| {type: 'list'; requestId: string}
 	| {type: 'subscribe'; requestId: string; repoRoot: string}
 	| {type: 'list-worktrees'; requestId: string; cwd: string}
@@ -151,8 +193,8 @@ export type ClientRequest =
 	| {type: 'update-session-notes'; requestId: string; sessionId: string; notes: string}
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
 	| {type: 'reorder-session'; requestId: string; sessionId: string; direction: 'up' | 'down'}
-	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number; mode?: RestartMode}
-	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean; deleteBranch?: boolean; force?: boolean}
+	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number; mode?: RestartMode; projectFingerprint?: string}
+	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean; deleteBranch?: boolean; force?: boolean; allowDataLoss?: boolean}
 	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string}
 	| {type: 'mark-session-merged'; requestId: string; sessionId: string; targetCwd: string}
 	| {type: 'remove'; requestId: string; sessionId: string}
@@ -172,6 +214,13 @@ export type ClientRequest =
 	| {type: 'dev-input'; sessionId: string; data: string}
 	| {type: 'dev-resize'; sessionId: string; cols: number; rows: number}
 	| {type: 'dev-detach'; sessionId: string};
+
+/** A repository's override plus what the inline review needs; `effective` is global defaults overlaid by the override only when trusted. */
+export interface ProjectInfo extends LoadedProject {trusted: boolean; needsReview: boolean; effective: ProjectConfig}
+// reasons/safe describe data that DELETE (allowDataLoss) may override; structuralBlockers
+// (main/current/shared/missing worktree, protected branch) can never be overridden.
+export type SessionCleanupInspection = CleanupInspection & {structuralBlockers: string[]};
+export type {WorkspaceSummary, CleanupInspection, CreatePrResult, ProjectConfigDocument, ConfigTargets, ConfigTargetKind, WorktreeSetupInfo};
 
 export type ServerResponse<T = unknown> = {
 	type: 'response';
