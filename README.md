@@ -190,7 +190,7 @@ When you create a session, Deckhand launches it in one of three workspace modes:
 
 A sub-session defaults to its parent's current directory, so a clean sub-session opens in the parent's worktree unless you choose a different mode.
 
-New worktrees use an explicitly trusted [project hook](#-worktree-hooks); otherwise Deckhand falls back to `git worktree add` at the configured `worktree.location` (default: the active state directory's `worktrees/`, normally `~/.deckhand/worktrees/`). The `worktree` setting can also choose the new branch's start point (current checkout, default branch, or a freshly fetched `origin/<default>`) and name template, switch the hook off, and symlink heavy directories (such as `node_modules` or a virtualenv) and private files into each new worktree. **C → Worktree setup** edits all of this with presets and link suggestions from your checkout — see [worktree settings](docs/no-brainers.md#worktree-settings).
+New worktrees use an explicitly trusted [project hook](#-worktree-hooks); otherwise Deckhand falls back to `git worktree add` at the configured `worktree.location` (default: the active state directory's `worktrees/`, normally `~/.deckhand/worktrees/`). The `worktree` setting can also choose the new branch's start point (current checkout, default branch, or a freshly fetched `origin/<default>`) and name template, switch the hook off, and symlink heavy directories (such as `node_modules` or a virtualenv) and private files into each new worktree. **C → Worktree setup** edits all of this with presets and link suggestions from your checkout, and **C → Effective settings** shows what is in effect and which layer sets it — see [worktree settings](docs/no-brainers.md#worktree-settings).
 
 ### Sub-sessions
 

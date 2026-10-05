@@ -2,11 +2,11 @@ import fs from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {resolveCreateScript, resolveRepoContext, type CreationHook, type RepoContext} from './git.js';
+import {resolveCreateScript, resolveRepoContext, worktreeTemplateVars, type CreationHook, type RepoContext} from './git.js';
 import type {ProgramKey, WorktreeMode} from './types.js';
 import {MAX_CONFIG_BYTES} from './configDraft.js';
-import {getConfigPath} from './paths.js';
-import {mergeWorktreeSettings, validateWorktreeSettings, type WorktreeSettings} from './worktreeLinks.js';
+import {getConfigDir, getConfigPath} from './paths.js';
+import {expandBranchName, expandWorktreeTemplate, mergeWorktreeSettings, userSlug, validateWorktreeSettings, worktreeLocation, type TemplateVars, type WorktreeSettings} from './worktreeLinks.js';
 
 export const PROJECT_CONFIG_FILE = 'deckhand.json';
 const MAX_TRUSTED_FINGERPRINTS = 20;
@@ -198,4 +198,118 @@ export function resolveSetupCommand(project: LoadedProject | undefined, user: Us
 		throw new Error('Repository deckhand.json is not trusted (unreviewed or changed since review); setup has not run. Press s to review it and retry');
 	}
 	return settings.setupCommand;
+}
+
+/** Where an effective setting comes from (C → Effective settings). */
+export type SettingSource = 'repo' | 'global' | 'legacy dev_command' | 'built-in default' | 'not set';
+/**
+ * One row of the effective-settings breakdown. List-valued settings (actions, worktree.symlink, worktree.files) get
+ * one row per entry. `raw` is the winning layer's value as written (templates unexpanded), absent for built-in
+ * defaults and unset rows; `value` is display-ready (templates expanded). `pending` is what an untrusted repository
+ * file would set here once trusted. Rows with source 'not set' and a `pending` exist only in the untrusted file.
+ */
+export interface SettingRow {key: string; entry?: string; value: string; source: SettingSource; raw?: string | boolean; pending?: {value: string; raw: string | boolean}; note?: string}
+export interface ExplainContext {
+	/** Template placeholders (name `<name>`) for expanding location/files; without them templates are shown as written. */
+	vars?: TemplateVars;
+	/** `{user}` for the branch-name example. */
+	user?: string;
+	/** A detected create-worktree.sh when the project could not be loaded (otherwise taken from the project). */
+	hookFile?: string;
+	/** Deckhand's state directory (default getConfigDir()), for the built-in worktree location. */
+	configDir?: string;
+}
+export interface SettingsExplanation {rows: SettingRow[]; globalError?: string}
+const SCALARS = [['defaultAgent', 'claude'], ['defaultWorkspace', 'none'], ['devCommand', 'dev'], ['setupCommand', undefined]] as const;
+
+/**
+ * The effective settings row by row with their sources: values come from resolveSettings (invalid global defaults
+ * are reported and skipped, keeping the legacy dev_command), sources from the layers, pending values from an
+ * untrusted repository file. Pure; never reads files.
+ */
+export function explainSettings(project: LoadedProject | undefined, user: UserSettings, context: ExplainContext = {}): SettingsExplanation {
+	let global: ProjectConfig, globalError: string | undefined, effective: ProjectConfig;
+	try { global = globalDefaults(user); effective = resolveSettings(project, user); }
+	catch (error) {
+		globalError = error instanceof Error ? error.message : String(error);
+		const lenient = {...user, defaults: undefined};
+		global = globalDefaults(lenient); effective = resolveSettings(project, lenient);
+	}
+	const trusted = Boolean(project && isProjectTrusted(project, user));
+	const repository: ProjectConfig = project && trusted ? project.config : {};
+	const pendingLayer: ProjectConfig = project && !trusted ? project.config : {};
+	const {vars} = context;
+	const location = (template: string) => { if (!vars) return template; try { return worktreeLocation(template, vars); } catch { return template; } };
+	const source = (template: string) => { if (!vars) return template; try { return expandWorktreeTemplate(template, vars); } catch { return template; } };
+	const branch = (template: string) => { try { return expandBranchName(template, {name: vars?.name ?? '<name>', user: context.user ?? 'user'}); } catch { return template; } };
+	const show = (value: string | boolean) => typeof value === 'boolean' ? (value ? 'on' : 'off') : value;
+	const rows: SettingRow[] = [];
+	const hookFile = project ? project.creationHook?.file ?? project.disabledHook?.file : context.hookFile;
+	const hookActive = trusted && Boolean(project?.creationHook);
+	const overrides = (globalValue: unknown, value: unknown, display: (value: string | boolean) => string) => globalValue !== undefined && globalValue !== value ? `overrides global ${display(globalValue as string | boolean)}` : undefined;
+	const pick = <T extends string | boolean>(key: string, value: T | undefined, layers: {repo?: T; global?: T; pending?: T}, fallback: {value?: T; display: (value: T) => string}, extra: {legacy?: boolean; note?: string} = {}) => {
+		const display = fallback.display as (value: string | boolean) => string;
+		const from: SettingSource = value === undefined ? (fallback.value === undefined ? 'not set' : 'built-in default') : layers.repo !== undefined && layers.repo === value ? 'repo' : extra.legacy ? 'legacy dev_command' : 'global';
+		const row: SettingRow = {key, value: value !== undefined ? display(value) : fallback.value !== undefined ? display(fallback.value) : '—', source: from, ...value !== undefined ? {raw: value} : {}};
+		const note = [from === 'repo' ? overrides(layers.global, value, display) : undefined, extra.note].filter(Boolean).join(' · ');
+		if (note) row.note = note;
+		if (layers.pending !== undefined) row.pending = {value: display(layers.pending), raw: layers.pending};
+		rows.push(row);
+	};
+	for (const [key, builtIn] of SCALARS) {
+		pick<string>(key, effective[key], {repo: repository[key], global: global[key], pending: pendingLayer[key]}, {value: builtIn, display: String}, {legacy: key === 'devCommand' && repository.devCommand === undefined && effective.devCommand !== undefined && (globalError !== undefined || (user.defaults as ProjectConfig | undefined)?.devCommand === undefined)});
+	}
+	const entries = (key: string, values: Record<string, string> | undefined, layers: {repo?: Record<string, string>; global?: Record<string, string>; pending?: Record<string, string>}, display: (value: string) => string) => {
+		const before = rows.length;
+		for (const [entry, value] of Object.entries(values ?? {})) {
+			const repo = layers.repo !== undefined && Object.hasOwn(layers.repo, entry);
+			const row: SettingRow = {key, entry, value: display(value), source: repo ? 'repo' : 'global', raw: value};
+			const globalValue = layers.global && Object.hasOwn(layers.global, entry) ? layers.global[entry] : undefined;
+			if (repo && globalValue !== undefined && globalValue !== value) row.note = `overrides global ${display(globalValue)}`;
+			if (layers.pending && Object.hasOwn(layers.pending, entry)) row.pending = {value: display(layers.pending[entry]!), raw: layers.pending[entry]!};
+			rows.push(row);
+		}
+		for (const [entry, value] of Object.entries(layers.pending ?? {})) if (!values || !Object.hasOwn(values, entry)) rows.push({key, entry, value: '—', source: 'not set', pending: {value: display(value), raw: value}});
+		if (rows.length === before) rows.push({key, value: '—', source: 'not set'});
+	};
+	entries('actions', effective.actions, {repo: repository.actions, global: global.actions, pending: pendingLayer.actions}, String);
+	const tree = effective.worktree ?? {}, repoTree = repository.worktree ?? {}, globalTree = global.worktree ?? {}, pendingTree = pendingLayer.worktree ?? {};
+	const ignored = hookActive ? 'ignored: the creation hook decides' : undefined;
+	pick<string>('worktree.location', tree.location, {repo: repoTree.location, global: globalTree.location, pending: pendingTree.location}, {value: path.join(context.configDir ?? getConfigDir(), 'worktrees', vars?.name ?? '{name}'), display: location}, {note: ignored});
+	pick<string>('worktree.branchFrom', tree.branchFrom, {repo: repoTree.branchFrom, global: globalTree.branchFrom, pending: pendingTree.branchFrom}, {value: 'current', display: String}, {note: ignored});
+	pick<string>('worktree.branchName', tree.branchName, {repo: repoTree.branchName, global: globalTree.branchName, pending: pendingTree.branchName}, {value: '{name}', display: branch}, {note: ignored});
+	// The repository's hook: false applies even untrusted (see hookSetting); only `true` can be pending.
+	const hookOn = tree.hook !== false;
+	const hookNote = !hookFile ? 'no .claude/scripts/create-worktree.sh detected' : !hookOn ? '.claude/scripts/create-worktree.sh detected, not used' : hookActive ? '.claude/scripts/create-worktree.sh detected: decides location and branch' : '.claude/scripts/create-worktree.sh detected: will not run until trusted (T)';
+	pick<boolean>('worktree.hook', tree.hook, {repo: project?.config.worktree?.hook === false ? false : repoTree.hook, global: globalTree.hook, pending: pendingTree.hook === true ? true : undefined}, {value: true, display: show}, {note: hookNote});
+	const symlinks = tree.symlink ?? [], repoLinks = new Set(repoTree.symlink ?? []), globalLinks = new Set(globalTree.symlink ?? []);
+	const before = rows.length;
+	for (const entry of symlinks) rows.push({key: 'worktree.symlink', entry, value: entry, source: globalLinks.has(entry) ? 'global' : repoLinks.has(entry) ? 'repo' : 'global', raw: entry});
+	for (const entry of pendingTree.symlink ?? []) if (!symlinks.includes(entry)) rows.push({key: 'worktree.symlink', entry, value: '—', source: 'not set', pending: {value: entry, raw: entry}});
+	if (rows.length === before) rows.push({key: 'worktree.symlink', value: '—', source: 'not set'});
+	entries('worktree.files', tree.files, {repo: repoTree.files, global: globalTree.files, pending: pendingTree.files}, source);
+	return {rows, ...globalError ? {globalError} : {}};
+}
+
+/** C → Effective settings for `cwd`'s repository: the trust state of its deckhand.json plus the breakdown. Read-only. */
+export interface EffectiveSettingsInfo {
+	cwd: string;
+	repo: string;
+	repository: {state: 'trusted' | 'untrusted' | 'absent' | 'invalid' | 'bare' | 'none'; path?: string; error?: string};
+	/** T has something to review (an untrusted deckhand.json or enabled creation hook). */
+	needsReview: boolean;
+	globalError?: string;
+	rows: SettingRow[];
+}
+export async function readEffectiveSettings(cwd: string, user: UserSettings): Promise<EffectiveSettingsInfo> {
+	const message = (error: unknown) => error instanceof Error ? error.message : String(error);
+	let context: RepoContext | undefined, project: LoadedProject | undefined, error: string | undefined;
+	try { context = await resolveRepoContext(cwd); } catch (caught) { error = `Not a Git repository: ${message(caught)}`; }
+	if (context) try { project = await loadProjectConfig(cwd, user, context); } catch (caught) { error = message(caught); }
+	const hookFile = context && !project ? await resolveCreateScript(context.root, context.mainRoot).catch(() => undefined) : undefined;
+	const vars = context ? await worktreeTemplateVars('<name>', cwd).catch(() => undefined) : undefined;
+	const {rows, globalError} = explainSettings(project, user, {...vars ? {vars} : {}, user: userSlug(), ...hookFile ? {hookFile} : {}});
+	const state: EffectiveSettingsInfo['repository']['state'] = !context ? 'none' : error ? 'invalid' : !project?.path ? 'bare' : !project.exists ? 'absent' : isProjectTrusted(project, user) ? 'trusted' : 'untrusted';
+	const file = project?.path ?? (context?.mainRoot ? path.join(context.mainRoot, PROJECT_CONFIG_FILE) : undefined);
+	return {cwd, repo: vars?.repo ?? path.basename(cwd), repository: {state, ...file ? {path: file} : {}, ...error ? {error} : {}}, needsReview: Boolean(project && projectNeedsReview(project, user)), ...globalError ? {globalError} : {}, rows};
 }

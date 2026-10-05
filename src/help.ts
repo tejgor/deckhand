@@ -1,5 +1,5 @@
 export const HELP_TEXT = `QUICK START
-C  Edit configuration: Global defaults (all repositories), Repository (deckhand.json in the main checkout) or Worktree setup.
+C  Edit configuration: Global defaults (all repositories), Repository (deckhand.json in the main checkout), Worktree setup or Effective settings.
 n  New session: pick an agent, enter a name, Tab chooses workspace mode, Enter launches.
 N  Child session in the parent's workspace; optionally fork supported Claude/Pi conversations.
 o  Attach the active pane. Ctrl+Space or Ctrl+] returns to Deckhand.
@@ -34,6 +34,9 @@ Worktree setup edits the worktree section with presets and suggestions, saving t
   ↑↓ move • Space link/skip an untracked/ignored entry (or toggle) • ←→ change Location/Branch from • Enter edits Branch name
   t toggles the save target • h switches the creation hook on/off • Ctrl+S saves • e opens the JSON • Esc cancels (asks if edited)
   Suggestions: dependencies/env files link, build/cache/clutter skip. Saving never runs or trusts anything.
+Effective settings (read-only) lists every setting in effect for this repository with its source: repo, global,
+  legacy dev_command, built-in default or not set; an untrusted deckhand.json's values are shown as (repo, pending trust).
+  ↑↓ move • Enter/e opens the file that sets the row (repo → deckhand.json, otherwise global defaults) • T review/trust • Esc back
 A missing target starts from a starter draft. Nothing is written until Ctrl+S.
 Arrows/Home/End move the cursor; Enter inserts a newline; Tab inserts two spaces.
 Ctrl+A selects all; typing/paste replaces it. Backspace removes left, forward Delete removes right.

@@ -127,7 +127,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'pick-config' | 'edit-project' | 'discard-project' | 'worktree-setup' | 'discard-worktree-setup' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss';
+type Mode = 'browse' | 'preview-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'pick-config' | 'edit-project' | 'discard-project' | 'worktree-setup' | 'discard-worktree-setup' | 'effective-settings' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss';
 
 interface AppProps {
 	repoRoot: string;
@@ -444,7 +444,8 @@ function mergedTargetBranch(session: SessionRecord): string | undefined {
 function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true): string {
 	switch (mode) {
 		case 'help': return 'help & workflows • j/k/arrows/PgUp/PgDn scroll • Home/End jump • esc/? close';
-		case 'pick-config': return 'j/k/arrows choose global defaults, repository or worktree setup • enter open • esc cancel';
+		case 'pick-config': return 'j/k/arrows choose global defaults, repository, worktree setup or effective settings • enter open • esc cancel';
+		case 'effective-settings': return 'effective settings • ↑↓ move • enter/e open the file that sets it • T review/trust • esc back';
 		case 'worktree-setup': return 'worktree setup • ↑↓ move • space link/skip • ←→ option • t target • h hook • Ctrl+S save • e JSON • esc cancel';
 		case 'discard-worktree-setup': return 'enter discard unsaved worktree setup • esc keep editing';
 		case 'edit-project': return 'config editor • Ctrl+S save • Ctrl+F format • Ctrl+A select all • esc cancel';
@@ -486,7 +487,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [sessionQuery, setSessionQuery] = useState(initialSessionQuery ?? '');
 	// The inline repository-config review: what it shows, the cwd it was resolved for, and the action it gates
 	// (resumed after Enter trusts or s skips; none for an explicit T review).
-	const [review, setReview] = useState<{project: ProjectInfo; cwd: string; resume?: (project: ProjectInfo) => void}>();
+	// back: where closing the review returns (Effective settings' T); otherwise browse.
+	const [review, setReview] = useState<{project: ProjectInfo; cwd: string; resume?: (project: ProjectInfo) => void; back?: () => void}>();
 	// The project (and session) the action picker was opened for.
 	const [actionProject, setActionProject] = useState<{project: ProjectInfo; sessionId?: string}>();
 	// The repository config fingerprint reviewed for the session being created (see CreateSessionInput).
@@ -1241,19 +1243,19 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 	}, [selectedSession]);
 
-	const configFlow = useProjectConfigFlow({client, mode, setMode, setBusy, setError, setStatusMessage});
+	const configFlow = useProjectConfigFlow({client, mode, setMode, setBusy, setError, setStatusMessage, onReview: (reviewCwd, back) => reviewThen(reviewCwd, undefined, {back})});
 
 	// Resolves the repository config for `targetCwd` and runs `resume` with it, showing the inline review first when
 	// `gate` says the action depends on an untrusted override. If the config cannot be read, the error is shown and
 	// `resume` still runs without it (the daemon enforces trust and reports problems) unless `required`.
 	// Without `resume` (T) the review is shown on its own.
-	const reviewThen = (targetCwd: string, resume: ((project?: ProjectInfo) => void) | undefined, {gate = (project: ProjectInfo) => project.needsReview, required = false} = {}) => {
+	const reviewThen = (targetCwd: string, resume: ((project?: ProjectInfo) => void) | undefined, {gate = (project: ProjectInfo) => project.needsReview, required = false, back}: {gate?: (project: ProjectInfo) => boolean; required?: boolean; back?: () => void} = {}) => {
 		if (!client) return;
 		setBusy(true); setError(undefined);
 		void client.projectInfo(targetCwd).then(project => {
 			setBusy(false);
 			if (resume && !gate(project)) { resume(project); return; }
-			setReview({project, cwd: targetCwd, resume}); setDetailsScroll(0); setMode('review-project');
+			setReview({project, cwd: targetCwd, resume, back}); setDetailsScroll(0); setMode('review-project');
 		}, error => {
 			setBusy(false); setError(errorMessage(error));
 			if (!required) resume?.(undefined);
@@ -1588,15 +1590,16 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (mode === 'review-project') {
 			// Enter trusts these exact bytes and resumes the gated action; s resumes it with the override ignored.
 			if (!review) { setMode('browse'); return; }
-			const {project, cwd: reviewCwd, resume} = review;
-			if (key.escape) { setReview(undefined); setMode('browse'); return; }
+			const {project, cwd: reviewCwd, resume, back} = review;
+			const close = () => { setReview(undefined); setMode('browse'); back?.(); };
+			if (key.escape) { close(); return; }
 			if (scrollDetailsPane(input, key)) return;
-			if (input === 's') { setReview(undefined); setMode('browse'); resume?.(project); return; }
+			if (input === 's') { close(); resume?.(project); return; }
 			if (!key.return || !client) return;
-			if (!project.needsReview) { setReview(undefined); setMode('browse'); setStatusMessage(project.trusted ? 'Already trusted' : 'Nothing to trust'); resume?.(project); return; }
+			if (!project.needsReview) { close(); setStatusMessage(project.trusted ? 'Already trusted' : 'Nothing to trust'); resume?.(project); return; }
 			setBusy(true); setError(undefined);
 			void client.trustProject(reviewCwd, project.fingerprint).then(trusted => {
-				setBusy(false); setReview(undefined); setMode('browse'); setStatusMessage('Repository configuration trusted');
+				setBusy(false); close(); setStatusMessage('Repository configuration trusted');
 				resume?.(trusted);
 			}, async error => {
 				// Changed since this review: show the new bytes instead.
