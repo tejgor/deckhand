@@ -25,7 +25,16 @@ export interface WorkspaceStatus {
 	branch?: string;
 	upstream?: string; ahead?: number; behind?: number;
 	dirtyFiles: number; untracked: string[]; ignored: string[];
+	/** Changed (`1`/`2`), unmerged (`u`) and untracked (`?`) entries in Git's order, for the Changes view. */
+	entries: StatusEntry[];
 }
+/**
+ * One porcelain-v2 entry. `xy` is Git's two-letter code (index, worktree; `.` unchanged, `??` untracked); `origPath`
+ * is a rename's or copy's source. Paths are repository-relative.
+ */
+export interface StatusEntry {kind: '1' | '2' | 'u' | '?'; xy: string; path: string; origPath?: string}
+// Space-separated fields before the path of each porcelain-v2 record kind (the path itself may contain spaces).
+const PATH_FIELD: Record<'1' | '2' | 'u', number> = {'1': 8, '2': 9, 'u': 10};
 function validateRef(ref: string): string {
 	if (!ref || ref.startsWith('-') || /[\0\r\n]/.test(ref)) throw new Error('Invalid Git comparison ref');
 	return ref;
@@ -38,7 +47,7 @@ async function base(cwd: string, requested?: string): Promise<string | undefined
 }
 /** Parses `git status --porcelain=v2 -z --branch` (paths are repository-relative and may contain spaces/newlines). */
 export function parseStatus(raw: string): WorkspaceStatus {
-	const status: WorkspaceStatus = {dirtyFiles: 0, untracked: [], ignored: []};
+	const status: WorkspaceStatus = {dirtyFiles: 0, untracked: [], ignored: [], entries: []};
 	const records = raw.split('\0');
 	for (let i = 0; i < records.length; i++) {
 		const record = records[i]!;
@@ -49,9 +58,14 @@ export function parseStatus(raw: string): WorkspaceStatus {
 			else if (key === 'branch.head') status.branch = value === '(detached)' ? undefined : value;
 			else if (key === 'branch.upstream') status.upstream = value;
 			else if (key === 'branch.ab') { const match = value.match(/^\+(\d+) -(\d+)$/); if (match) { status.ahead = Number(match[1]); status.behind = Number(match[2]); } }
-		} else if (kind === '1' || kind === 'u') status.dirtyFiles++;
-		else if (kind === '2') { status.dirtyFiles++; i++; } // Rename/copy: the original path is the next NUL-separated field.
-		else if (kind === '?') status.untracked.push(record.slice(2));
+		} else if (kind === '1' || kind === '2' || kind === 'u') {
+			status.dirtyFiles++;
+			const fields = record.split(' ');
+			const entry: StatusEntry = {kind, xy: fields[1] ?? '..', path: fields.slice(PATH_FIELD[kind]).join(' ')};
+			// Rename/copy: the original path is the next NUL-separated field.
+			if (kind === '2') entry.origPath = records[++i] ?? '';
+			status.entries.push(entry);
+		} else if (kind === '?') { status.untracked.push(record.slice(2)); status.entries.push({kind, xy: '??', path: record.slice(2)}); }
 		else if (kind === '!') status.ignored.push(record.slice(2));
 	}
 	return status;

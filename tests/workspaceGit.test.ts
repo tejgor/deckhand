@@ -9,7 +9,10 @@ test('porcelain v2 parsing handles headers, renames with odd names, unmerged, un
 	const raw = ['# branch.oid (initial)', '# branch.head (detached)', '# branch.upstream origin/x', '# branch.ab +2 -1',
 		'2 R. N... 100644 100644 100644 aaa bbb R100 new name\nwith newline', 'old 1 M. x', '1 .M N... 100644 100644 100644 aaa aaa spaced 2 name',
 		'u UU N... 100644 100644 100644 100644 a b c conflict', '? untracked\nname', '! node_modules/', ''].join('\0');
-	assert.deepEqual(parseStatus(raw), {oid: undefined, branch: undefined, upstream: 'origin/x', ahead: 2, behind: 1, dirtyFiles: 3, untracked: ['untracked\nname'], ignored: ['node_modules/']});
+	assert.deepEqual(parseStatus(raw), {oid: undefined, branch: undefined, upstream: 'origin/x', ahead: 2, behind: 1, dirtyFiles: 3, untracked: ['untracked\nname'], ignored: ['node_modules/'], entries: [
+		{kind: '2', xy: 'R.', path: 'new name\nwith newline', origPath: 'old 1 M. x'}, {kind: '1', xy: '.M', path: 'spaced 2 name'},
+		{kind: 'u', xy: 'UU', path: 'conflict'}, {kind: '?', xy: '??', path: 'untracked\nname'},
+	]});
 });
 test('cleanup blocks dirty, untracked and valuable ignored files but not dependency caches', async t => {
 	const cwd = await repo(); t.after(() => fs.rm(cwd, {recursive: true, force: true}));

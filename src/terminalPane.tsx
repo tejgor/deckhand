@@ -2,6 +2,7 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import type {SessionRecord, TerminalRecord} from './types.js';
 import {THEME, compactPath, fitLines, truncate} from './ui.js';
+import {workspacePaneUnavailable} from './workspace.js';
 
 interface TerminalPaneProps {
 	session?: SessionRecord;
@@ -10,11 +11,13 @@ interface TerminalPaneProps {
 	height: number;
 }
 
+// The shell belongs to the session's workspace (worktree) and is shared by every session in it, running or not.
 function fallbackMessage(session: SessionRecord | undefined, terminal: TerminalRecord): string {
 	if (!session) return 'No session selected.';
-	if (session.status === 'exited') return 'Session exited. Restart it to open a terminal.';
+	const unavailable = workspacePaneUnavailable(session, terminal);
+	if (unavailable) return `Terminal is unavailable: ${unavailable}.`;
 	if (!terminal.live && terminal.content) return terminal.content;
-	if (!terminal.live && terminal.sessionId === session.id) return 'Terminal exited. Switch away and back after restarting the session.';
+	if (!terminal.live && terminal.sessionId === session.id) return 'Shell exited. Switch tabs and back to start a new one.';
 	return terminal.content || 'Starting terminal…';
 }
 

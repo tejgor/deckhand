@@ -50,7 +50,9 @@ Tools for running coding agents in parallel typically rely on [`tmux`](https://g
 - **Per-session Notes** — Keep persisted scratch notes alongside each session.
 - **Safer Cleanup** — Check uncommitted, untracked and valuable ignored files, and commits that deleting a branch would lose, before deletion; force kill and data-loss authorization are separate.
 - **Merge Helpers** — Merge or squash-merge a session's worktree into the current branch, staged for review rather than committed.
-- **Optional Tabs** — A Git tab powered by `lazygit`, and a configurable Dev tab for a command such as `npm run dev`.
+- **Git Changes** — The Git tab lists the worktree's changes like VS Code's Source Control panel (merge conflicts, staged, unstaged, untracked, with line counts), previews each file's diff, stages/unstages files and opens them in your editor at the first change; `lazygit` (optional) is one key away for everything else.
+- **Optional Tabs** — A configurable Dev tab for a command such as `npm run dev`.
+- **Shared Worktree Panes** — Terminal, Git and Dev belong to the worktree, not the session: sessions in one worktree share one shell, one Changes view and lazygit, and one Dev command, which stay available after their agents exit.
 - **Trusted Project Actions** — Global defaults plus an optional per-repository `deckhand.json` (defaults, setup, Dev command, named actions, creation hook), reviewed inline before any repository command runs.
 - **Organization & Visibility** — Persistent archive/search/filter/tree preferences, local Git summaries, and explicit optional PR/check lookups.
 - **Handoffs & Attention** — Inspectable Markdown context for clean children and capability-gated lifecycle signals/desktop notifications.
@@ -65,7 +67,7 @@ See [the feature guide](docs/no-brainers.md) and [isolated dev testing](docs/dev
 - **OS**: macOS or Linux with a POSIX shell
 - **Git**: `git` on `PATH`
 - **Agents**: `claude`, `pi`, and/or `codex` on `PATH` — whichever agents you plan to run
-- **Optional**: [`lazygit`](https://github.com/jesseduffield/lazygit) on `PATH` for the Git tab
+- **Optional**: [`lazygit`](https://github.com/jesseduffield/lazygit) on `PATH`, attached from the Git tab with `o`
 
 ---
 
@@ -139,14 +141,15 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `c` | Collapse or expand the selected session's sub-sessions in the sidebar |
 | `tab` | Cycle the Preview / Terminal / Git / Dev / Notes tabs |
 | `p` / `t` / `g` / `d` / `a` | Jump directly to Preview / Terminal / Git / Dev / Notes |
-| `d` *(on Dev tab)* | Start or stop the selected session's Dev command |
-| `o` | Attach to the selected session (opens current tab); on Notes, enter edit mode |
+| `d` *(on Dev tab)* | Start or stop the Dev command of the selected session's worktree (shared by every session in it) |
+| `o` | Attach to the selected session (opens current tab; Terminal, Git and Dev also for exited sessions; on Git it opens lazygit); on Notes, enter edit mode |
 | `O` | Open the selected session directory/worktree in Cursor (if available) or VS Code |
 | `v` *(on Preview tab)* | Focus preview scrolling (`j`/`k` scroll, `g`/`G` jump, `esc` exits focus) |
+| `v` *(on Git tab)* | Focus the Changes list (see [Git Changes](#git-changes)) |
 | `esc` *(in Notes)* | Stop editing notes |
 | `[` / `]` | Decrease / increase the scroll multiplier and save it to config |
-| `m` | Merge the selected worktree into the current branch |
-| `M` | Toggle the merged/pushed marker for the selected session |
+| `m` | Merge the selected worktree into the current branch (on success every session of that worktree shows `✓`) |
+| `M` | Toggle the merged/pushed marker: for the whole worktree in a linked worktree, for just the selected session in the main checkout |
 | `h` / `l` | Resize the sidebar |
 | `x` / `X` | Kill the selected running session / force kill |
 | `s` / `S` | Resume / fresh-restart the selected exited session |
@@ -154,7 +157,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `r` | Refresh the session list |
 | `A` | Archive/unarchive (does not stop an agent) |
 | `f` / `/` | Cycle filters / search title, notes, provider, branch, path |
-| `i` | Workspace Git summary; `P` queries PR, `b` opens it, `c` pushes and opens GitHub's new-PR form (after confirmation), `g` opens lazygit |
+| `i` | Workspace Git summary; `P` queries PR, `b` opens it, `c` pushes and opens GitHub's new-PR form (after confirmation), `g` opens the Git tab |
 | `C` | Settings: a grid of every setting with a Global and a This repo column (● in effect, ⚠ needs trust); ↑↓ setting, ←→ column, Enter edits that cell's layer, x clears it, e that column's raw JSON, T reviews/trusts the repo file (you're also asked inline right before anything from it runs) |
 | `e` | Choose an action (global, plus trusted repository actions) for the shared Dev pane |
 | `H` / `F` | Export/open handoff (notes plus commits and changed files, no diff content) / create a clean child from the reviewed document |
@@ -172,6 +175,22 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | *(most keys)* | Sent directly to the attached pane/session |
 | `Ctrl+Space` | Detach and return to Deckhand |
 | `Ctrl+]` | Detach and return to Deckhand |
+
+### Git Changes
+
+The Git tab shows the selected session's worktree changes in VS Code's groups: **Merge Conflicts**, **Staged Changes**, **Changes** (unstaged tracked files) and **Untracked**, each with a count. A partially staged file appears in both Staged and Changes. Each row shows the status letter (M, A, D, R, C, U, ?), the file name with its directory dimmed, `old → new` for renames, and `+added −removed` lines (`bin` for binary files). The list refreshes about every two seconds while the tab is open and right after you stage or unstage. Press `v` to focus it:
+
+| Key | Action |
+| --- | --- |
+| `j` / `k` (↑↓), `g` / `G` | Select a file (across groups) / first / last |
+| `space` | Stage the selected file (unstaged, untracked, or conflicted: marks it resolved) or unstage it (staged) |
+| `a` / `A` | Stage everything (conflicted files are left for you to stage one by one) / unstage everything |
+| `enter` / `e` | Open the file in Cursor or VS Code at its first changed line |
+| `J` / `K`, PgUp/PgDn | Scroll the diff preview |
+| `o` | Attach lazygit (commits, discards, hunks, branches, history) |
+| `esc` / `v` | Back to browsing |
+
+The diff preview (beside the list in wide terminals, below it otherwise) shows the staged diff for staged files, the unstaged diff for changes and conflicts, and the whole file for untracked files; it is read-only and cut at 256 KB. Deckhand never commits, discards or edits files from this view.
 
 ---
 
@@ -231,9 +250,13 @@ Session defaults, a Dev command, a setup command and layout/symlinks for new wor
 
 Optional **Agent signals** and **Notifications** (Settings → Agents, global only; `agent_hooks`/`notifications` in user config) enable capability-gated lifecycle integration and best-effort desktop notifications. They default off. Claude needs nothing else; Codex needs `deckhand hooks codex` in `~/.codex/hooks.json` (Settings warns when it's missing). Native approvals stay in agent terminals. A response ending is **not task success**.
 
+### Terminal, Git and Dev Panes
+
+Terminal (your `$SHELL`), Git (the Changes view, plus `lazygit` on `o`) and Dev belong to the session's **worktree** (or, for sessions without a worktree, the checkout they run in). Every session in the same worktree sees the same shell, the same changes, the same lazygit and the same Dev command, and attaching (`o`) from any of them opens that one process, also after the session's agent has exited. The shell starts the first time you view the Terminal tab and lazygit the first time you attach it; one that exited (`exit`, `q`) starts again the next time you view (Terminal) or attach it. They stop when the worktree is deleted, when the worktree's last session is removed, or when the daemon stops. While a new worktree is still being created, these tabs say so; a deleted worktree has none, for every session that was in it.
+
 ### Dev Command
 
-Focus the Dev tab with `d`, then press `d` again while it is focused to start or stop the command. Set the command globally (or per repository as `devCommand` in `deckhand.json`):
+Focus the Dev tab with `d`, then press `d` again while it is focused to start or stop the command. Dev belongs to the session's **worktree**, not to the session: every session in the same worktree (or in the same checkout, for sessions without a worktree) sees the same Dev pane and output, and starting or stopping it from any of them acts on that one process. It keeps running after the agents exit (exited sessions still show, attach to and stop it) until you stop it, delete the worktree, remove the worktree's last session, or the daemon stops; every session in the worktree shows `▶` in the sidebar while it runs. Set the command globally (or per repository as `devCommand` in `deckhand.json`):
 
 ```json
 {
@@ -263,7 +286,7 @@ Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0`
 
 | Path | Purpose |
 | --- | --- |
-| `~/.deckhand/state.json` | Persisted session list |
+| `~/.deckhand/state.json` | Persisted session list and per-worktree merged/deleted markers |
 | `~/.deckhand/config.json` | User configuration, global `defaults` and exact repository trust fingerprints |
 | `~/.deckhand/ui-state.json` | Per-repository selection, tabs, width, tree/filter/search preferences |
 | `~/.deckhand/handoffs/` | Private, inspectable Markdown handoffs |
@@ -337,11 +360,12 @@ echo "$DIR"
 
 ## 🏗️ Architecture
 
-Deckhand has three main pieces:
+Deckhand has four main pieces:
 
 1. **Ink Frontend** — renders the terminal UI, sends requests to the daemon, and attaches to live panes on request.
 2. **Local Daemon** — owns session state, IPC, worktree operations, and worker supervision.
-3. **Session Workers** — one per running session; each owns the agent PTY plus optional Terminal, Git, and Dev PTYs.
+3. **Session Workers** — one per running session; each owns the agent PTY.
+4. **Workspace Workers** — one per worktree in use (started on demand: the first Terminal view, lazygit attach, or starting Dev); each owns the Terminal (shell), lazygit and Dev PTYs shared by every session in that worktree. The Git tab's Changes view needs no worker: the daemon reads Git status for the worktrees being watched.
 
 Terminal output is fed into a headless [`xterm.js`](https://github.com/xtermjs/xterm.js) model. The UI receives rendered snapshots for previews, while attach mode streams input and output directly between your terminal and the selected PTY.
 
@@ -385,7 +409,7 @@ After changing source code, rebuild with `npm run build` before re-running the l
 - **`deckhand` can't find an agent:** Confirm the binary is on `PATH` with `which claude`, `which pi`, or `which codex`. Deckhand inherits the launching shell's environment.
 - **`node-pty` fails to load on macOS:** Re-run the repair script directly: `node scripts/fix-node-pty.js`. If that doesn't help, reinstall: `rm -rf node_modules && npm install`.
 - **Stale daemon socket or PID:** If `deckhand` hangs at startup, the supervisor may have exited uncleanly. Remove stale files: `rm -f ~/.deckhand/daemon.pid ~/.deckhand/daemon.sock` and relaunch.
-- **Git tab is empty:** Install [`lazygit`](https://github.com/jesseduffield/lazygit) and ensure it is on `PATH`.
+- **`o` on the Git tab fails:** Install [`lazygit`](https://github.com/jesseduffield/lazygit) and ensure it is on `PATH`. The Changes list itself only needs `git`.
 - **Dev tab does nothing:** Press `d` once to focus the Dev tab, then press `d` again to start/stop the command. Ensure a `devCommand` is set in global defaults (**C**) or a trusted `deckhand.json`.
 
 ---

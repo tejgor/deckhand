@@ -3,9 +3,9 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {launcher, terminalUi} from './helpers.js';
+import {launcher, terminalUi, UI_TEST_TIMEOUT_MS} from './helpers.js';
 
-test('C → Settings in the sandbox: a grid with a Global and a This repo column; ←→ picks the cell\'s layer (sticky across rows), Enter edits that layer, Linked items writes its worktree.symlink, x clears, T trusts, e opens the raw JSON; Agents rows are global only', {timeout: 30000}, async t => {
+test('C → Settings in the sandbox: a grid with a Global and a This repo column; ←→ picks the cell\'s layer (sticky across rows), Enter edits that layer, Linked items writes its worktree.symlink, x clears, T trusts, e opens the raw JSON; Agents rows are global only', {timeout: UI_TEST_TIMEOUT_MS}, async t => {
 	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-ui-'));
 	const codexHome = path.join(home, 'codex'); await fs.mkdir(codexHome);
 	const {ui} = terminalUi(t, {args: [launcher, '--sandbox'], cwd: home, home, env: {CODEX_HOME: codexHome}});
@@ -79,7 +79,7 @@ process.stdin.resume();
 setInterval(() => {}, 10000);
 `;
 
-test('a Dev command saved in Settings keeps the repository file trusted (created and trusted, so d starts it without asking); an edit from outside Deckhand is reviewed on the next d; a guided new action saves', {timeout: 40000}, async t => {
+test('a Dev command saved in Settings keeps the repository file trusted (created and trusted, so d starts it without asking); an edit from outside Deckhand is reviewed on the next d; a guided new action saves', {timeout: UI_TEST_TIMEOUT_MS}, async t => {
 	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-ui-'));
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const agent of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, agent), fakeAgent, {mode: 0o755});

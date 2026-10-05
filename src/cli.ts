@@ -162,6 +162,11 @@ async function main(): Promise<void> {
 		await runSessionWorker();
 		return;
 	}
+	if (process.argv.includes('--workspace-worker')) {
+		const {runWorkspaceWorker} = await import('./sessionWorker.js');
+		await runWorkspaceWorker();
+		return;
+	}
 
 	if (process.argv.includes('--daemon')) {
 		const {InkDaemon} = await import('./daemon.js');

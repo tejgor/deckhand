@@ -15,7 +15,7 @@ import {
 	isDevRuntime,
 } from './paths.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
+import type {ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -215,7 +215,7 @@ interface LiveClientHandlers {
 	onSessionRemoved?: (sessionId: string) => void;
 	onPreviewUpdated?: (preview: PreviewRecord) => void;
 	onTerminalUpdated?: (terminal: TerminalRecord) => void;
-	onGitUpdated?: (git: GitRecord) => void;
+	onChangesUpdated?: (changes: ChangesRecord) => void;
 	onDevUpdated?: (dev: DevRecord) => void;
 	onError?: (error: Error) => void;
 	onClose?: () => void;
@@ -260,8 +260,8 @@ export class LiveClient {
 					case 'terminal-updated':
 						this.handlers.onTerminalUpdated?.(message.terminal);
 						return;
-					case 'git-updated':
-						this.handlers.onGitUpdated?.(message.git);
+					case 'changes-updated':
+						this.handlers.onChangesUpdated?.(message.changes);
 						return;
 					case 'dev-updated':
 						this.handlers.onDevUpdated?.(message.dev);
@@ -331,14 +331,18 @@ export class LiveClient {
 		});
 	}
 
-	watchGit(sessionId: string | undefined, cols: number, rows: number): Promise<GitRecord> {
-		return this.request<GitRecord>({
-			type: 'watch-git',
-			requestId: randomUUID(),
-			sessionId,
-			cols,
-			rows,
-		});
+	// The Git tab's Changes view (lazygit itself is only attached, with o). No sessionId stops watching.
+	watchChanges(sessionId: string | undefined): Promise<ChangesRecord> {
+		return this.request<ChangesRecord>({type: 'watch-changes', requestId: randomUUID(), sessionId});
+	}
+
+	changesDiff(sessionId: string, group: ChangeGroup, path: string): Promise<ChangeDiff> {
+		return this.request<ChangeDiff>({type: 'changes-diff', requestId: randomUUID(), sessionId, group, path});
+	}
+
+	/** Stages/unstages one entry, or everything without `entry`. */
+	changeStage(sessionId: string, mode: 'stage' | 'unstage', entry?: {group: ChangeGroup; path: string}): Promise<{changed: number; skippedConflicts: number; changes: ChangesRecord}> {
+		return this.request({type: 'change-stage', requestId: randomUUID(), sessionId, mode, group: entry?.group, path: entry?.path});
 	}
 
 	watchDev(sessionId: string | undefined, cols: number, rows: number): Promise<DevRecord> {

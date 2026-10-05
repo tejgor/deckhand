@@ -2,10 +2,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {getConfigDir, getConfigPath, getStatePath} from './paths.js';
-import type {SessionRecord} from './types.js';
+import type {SessionRecord, WorktreeRecord} from './types.js';
+import {migrateWorktreeRecords} from './worktreeRecords.js';
 
-interface InkState {
+export interface InkState {
 	sessions: SessionRecord[];
+	/** Merge/deletion markers per linked worktree incarnation, referenced by `session.worktree.id` (src/worktreeRecords.ts). */
+	worktrees: WorktreeRecord[];
 }
 
 export interface AppConfig {
@@ -19,7 +22,7 @@ export interface AppConfig {
 	defaults?: unknown;
 }
 
-const EMPTY_STATE: InkState = {sessions: []};
+const EMPTY_STATE: InkState = {sessions: [], worktrees: []};
 
 let privateDir: string | undefined;
 export async function ensureConfigDir(): Promise<void> {
@@ -33,29 +36,33 @@ export async function ensureConfigDir(): Promise<void> {
 }
 
 export async function loadState(): Promise<InkState> {
+	return (await readState()).state;
+}
+
+/** The persisted state; `migrated` when it was written before worktree records (lifted into records here). */
+async function readState(): Promise<{state: InkState; migrated: boolean}> {
 	await ensureConfigDir();
 	const statePath = getStatePath();
 	try {
 		const raw = await fs.readFile(statePath, 'utf8');
 		if (!raw.trim()) {
 			await saveState(EMPTY_STATE);
-			return EMPTY_STATE;
+			return {state: EMPTY_STATE, migrated: false};
 		}
 		const parsed = JSON.parse(raw) as Partial<InkState>;
-		return {
-			sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
-		};
+		const {sessions, worktrees, changed} = migrateWorktreeRecords(Array.isArray(parsed.sessions) ? parsed.sessions : [], Array.isArray(parsed.worktrees) ? parsed.worktrees : []);
+		return {state: {sessions, worktrees}, migrated: changed};
 	} catch (error) {
 		const err = error as NodeJS.ErrnoException;
 		if (err.code === 'ENOENT') {
 			await saveState(EMPTY_STATE);
-			return EMPTY_STATE;
+			return {state: EMPTY_STATE, migrated: false};
 		}
 		if (error instanceof SyntaxError) {
 			const backupPath = `${statePath}.corrupt-${Date.now()}`;
 			await fs.rename(statePath, backupPath).catch(() => {});
 			await saveState(EMPTY_STATE);
-			return EMPTY_STATE;
+			return {state: EMPTY_STATE, migrated: false};
 		}
 		throw error;
 	}
@@ -69,17 +76,14 @@ export async function saveState(state: InkState): Promise<void> {
 	await fs.rename(temporaryPath, statePath);
 }
 
-export async function saveSessions(sessions: SessionRecord[]): Promise<void> {
-	await saveState({sessions});
-}
-
 // Daemon-crash/restart recovery: live PTYs are owned by the daemon process.
 // If a new daemon process starts, any persisted non-exited sessions no longer
 // have live node-pty handles and must be shown as exited. Normal frontend quit
 // should not reach this path because the daemon should remain alive.
-export async function markAllNonExitedSessionsExited(): Promise<SessionRecord[]> {
-	const state = await loadState();
-	let changed = false;
+export async function markAllNonExitedSessionsExited(): Promise<InkState> {
+	const {state, migrated} = await readState();
+	// A migrated state is written back at once.
+	let changed = migrated;
 	const now = new Date().toISOString();
 	const sessions = state.sessions.map(session => {
 		if (session.status === 'exited') {
@@ -103,10 +107,11 @@ export async function markAllNonExitedSessionsExited(): Promise<SessionRecord[]>
 			...(session.setup?.state === 'running' ? {setup: {...session.setup, state: 'failed' as const, output: `${session.setup.output}\nInterrupted by daemon restart`}} : {}),
 		};
 	});
+	const recovered = {...state, sessions};
 	if (changed) {
-		await saveSessions(sessions);
+		await saveState(recovered);
 	}
-	return sessions;
+	return recovered;
 }
 
 export function sortSessionsNewestFirst(sessions: SessionRecord[]): SessionRecord[] {

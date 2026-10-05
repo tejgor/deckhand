@@ -11,15 +11,17 @@ import {MenuList, MenuPane, SelectableRow, type HintPart} from './menu.js';
 import {isSettingsFlowMode, useSettingsFlow} from './settingsFlow.js';
 import {useHelp} from './helpPane.js';
 import {filterSessionList, sessionNeedsAttention, SESSION_FILTERS, type SessionFilter} from './sessionFeatures.js';
-import {GitPane} from './gitPane.js';
+import {useChangesFlow} from './changesFlow.js';
+import {emptyChanges, type ChangesRecord} from './changesModel.js';
 import {NotesPane} from './notesPane.js';
 import {PreviewPane} from './preview.js';
 import {sessionMatchesScope} from './sessionScope.js';
+import {noWorkspaceReason, workspaceKey} from './workspace.js';
 import {Sidebar} from './sidebar.js';
 import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
-import type {AttachTarget, DevRecord, GitRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
+import type {AttachTarget, DevRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
 import {THEME, compactPath, displaySessionTitle, errorMessage, stripTerminalControls, truncate} from './ui.js';
 
 const RIGHT_TABS: RightPaneTab[] = ['preview', 'terminal', 'git', 'dev', 'notes'];
@@ -41,10 +43,7 @@ const EMPTY_TERMINAL: TerminalRecord = {
 	live: false,
 };
 
-const EMPTY_GIT: GitRecord = {
-	content: '',
-	live: false,
-};
+const EMPTY_CHANGES: ChangesRecord = emptyChanges();
 
 const EMPTY_DEV: DevRecord = {
 	content: '',
@@ -128,7 +127,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss';
+type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss';
 
 interface AppProps {
 	repoRoot: string;
@@ -454,14 +453,20 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 			const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
 			return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k scroll • g/G top/bottom • esc/v return`;
 		}
+		case 'changes-focus': return 'changes • esc/v back • j/k select • space stage/unstage • a/A stage/unstage all • enter/e open in editor • J/K scroll diff • o lazygit';
 		case 'notes-focus': return 'notes edit • type to edit • enter newline • esc stop editing';
 		case 'search': return 'type to search • enter keep search • esc clear';
 		case 'browse': {
 			// Keep this short; everything else is listed in ? help.
 			const running = session?.status === 'running';
-			const attach = running && activeTab !== 'notes' ? (attachReady ? 'o attach' : 'loading…') : undefined;
+			// Terminal, Git and Dev belong to the session's workspace, so they are usable whether or not the agent runs.
+			const hasWorkspace = Boolean(session && workspaceKey(session));
+			const attach = activeTab === 'dev' ? (attachReady ? 'o attach' : undefined)
+				: activeTab === 'git' ? (hasWorkspace ? (attachReady ? 'v changes • o lazygit' : 'loading…') : undefined)
+				: activeTab === 'terminal' ? (hasWorkspace ? (attachReady ? 'o attach' : 'loading…') : undefined)
+					: running && activeTab === 'preview' ? (attachReady ? 'o attach' : 'loading…') : undefined;
 			const pane = activeTab === 'notes' ? (session ? 'o edit notes' : undefined)
-				: activeTab === 'dev' && running ? 'd start/stop'
+				: activeTab === 'dev' && session && workspaceKey(session) ? 'd start/stop'
 					: activeTab === 'preview' && running ? 'v scroll' : undefined;
 			const lifecycle = session?.status === 'exited'
 				? (session.worktree?.deletedAt ? 'backspace remove' : 's resume • S fresh')
@@ -524,7 +529,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const previewWheelAccumulatorRef = useRef(0);
 	const [preview, setPreview] = useState<PreviewRecord>(EMPTY_PREVIEW);
 	const [terminal, setTerminal] = useState<TerminalRecord>(EMPTY_TERMINAL);
-	const [git, setGit] = useState<GitRecord>(EMPTY_GIT);
+	const [changes, setChanges] = useState<ChangesRecord>(EMPTY_CHANGES);
+	// Whether this UI asked the daemon to watch (poll) a workspace's changes, so leaving the Git tab stops it.
+	const changesWatchedRef = useRef(false);
 	const [dev, setDev] = useState<DevRecord>(EMPTY_DEV);
 	const [error, setError] = useState<string | undefined>();
 	const [statusMessage, setStatusMessage] = useState<string | undefined>();
@@ -613,6 +620,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (activeTab !== 'notes') {
 			setMode(current => (current === 'notes-focus' ? 'browse' : current));
 		}
+		if (activeTab !== 'git') {
+			setMode(current => (current === 'changes-focus' ? 'browse' : current));
+		}
 	}, [activeTab, onActiveTabChange, onSessionTabChange]);
 
 	useEffect(() => {
@@ -685,7 +695,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						if (selectedIdRef.current === sessionId) {
 							setPreview(EMPTY_PREVIEW);
 							setTerminal(EMPTY_TERMINAL);
-							setGit(EMPTY_GIT);
+							setChanges(EMPTY_CHANGES);
 							setDev(EMPTY_DEV);
 						}
 					},
@@ -710,14 +720,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						}
 						setTerminal(nextTerminal);
 					},
-					onGitUpdated: nextGit => {
-						if (nextGit.sessionId && nextGit.sessionId !== selectedIdRef.current) {
+					onChangesUpdated: nextChanges => {
+						if (nextChanges.sessionId !== selectedIdRef.current) {
 							return;
 						}
-						if (!nextGit.sessionId && selectedIdRef.current) {
-							return;
-						}
-						setGit(nextGit);
+						setChanges(nextChanges);
 					},
 					onDevUpdated: nextDev => {
 						if (nextDev.sessionId && nextDev.sessionId !== selectedIdRef.current) {
@@ -802,14 +809,20 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const currentCleanupCheck = cleanupCheck && cleanupCheck.sessionId === selectedSession?.id ? cleanupCheck : undefined;
 	const cleanupInspectionFor = (deleteBranch: boolean) => (deleteBranch ? currentCleanupCheck?.branch : currentCleanupCheck?.worktree);
 	const activeAttachTarget: AttachTarget = activeTab === 'terminal' ? 'terminal' : activeTab === 'git' ? 'git' : activeTab === 'dev' ? 'dev' : 'agent';
+	// The workspace's shared panes (Terminal, Git, Dev) may run while this session's agent does not.
+	const selectedWorkspace = selectedSession ? workspaceKey(selectedSession) : undefined;
 	const activePaneReadyForAttach = Boolean(
-		selectedSession?.status === 'running' && (
-			activeAttachTarget === 'agent' ||
+		selectedSession && (
+			(activeAttachTarget === 'agent' && selectedSession.status === 'running') ||
 			(activeAttachTarget === 'terminal' && terminal.sessionId === selectedSession.id && terminal.live) ||
-			(activeAttachTarget === 'git' && git.sessionId === selectedSession.id && git.live) ||
+			// lazygit starts on attach; the Changes record confirms the daemon sees the workspace.
+			(activeAttachTarget === 'git' && changes.sessionId === selectedSession.id && Boolean(changes.workspace)) ||
 			(activeAttachTarget === 'dev' && dev.sessionId === selectedSession.id && dev.live)
 		),
 	);
+	// Workspace panes are watched again when the selected session gains (or loses) its workspace, e.g. once its
+	// worktree is prepared, and on lifecycle changes (the daemon reports a session still preparing as having none).
+	const selectedPaneScope = selectedSession ? `${selectedWorkspace ?? ''}\0${selectedSession.status}` : undefined;
 
 	useEffect(() => {
 		const notes = selectedSession?.notes ?? '';
@@ -880,12 +893,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (!selectedSession) {
 			setPreview(EMPTY_PREVIEW);
 			setTerminal(EMPTY_TERMINAL);
-			setGit(EMPTY_GIT);
+			setChanges(EMPTY_CHANGES);
 			setDev(EMPTY_DEV);
 			return;
 		}
 		setTerminal(current => (current.sessionId === selectedSession.id ? current : EMPTY_TERMINAL));
-		setGit(current => (current.sessionId === selectedSession.id ? current : EMPTY_GIT));
+		setChanges(current => (current.sessionId === selectedSession.id ? current : EMPTY_CHANGES));
 		setDev(current => (current.sessionId === selectedSession.id ? current : EMPTY_DEV));
 		setPreview(current => {
 			const sameSession = current.sessionId === selectedSession.id;
@@ -1153,23 +1166,30 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		return () => {
 			cancelled = true;
 		};
-	}, [activeTab, client, layout.previewCols, layout.previewRows, selectedId]);
+	}, [activeTab, client, layout.previewCols, layout.previewRows, selectedId, selectedPaneScope]);
 
+	// The Git tab shows the workspace's Changes (lazygit only on attach). The daemon polls a watched workspace, so
+	// leaving the tab stops watching.
 	useEffect(() => {
-		if (!client || activeTab !== 'git') {
+		if (!client) {
+			changesWatchedRef.current = false;
+			return;
+		}
+		if (activeTab !== 'git') {
+			if (changesWatchedRef.current) {
+				changesWatchedRef.current = false;
+				void client.watchChanges(undefined).catch(() => {});
+			}
 			return;
 		}
 		let cancelled = false;
+		changesWatchedRef.current = true;
 		void client
-			.watchGit(selectedId, layout.previewCols, layout.previewRows)
-			.then(nextGit => {
-				if (cancelled) {
-					return;
+			.watchChanges(selectedId)
+			.then(nextChanges => {
+				if (!cancelled && nextChanges.sessionId === selectedId) {
+					setChanges(nextChanges);
 				}
-				if (nextGit.sessionId && nextGit.sessionId !== selectedId) {
-					return;
-				}
-				setGit(nextGit);
 			})
 			.catch(nextError => {
 				if (!cancelled) {
@@ -1179,7 +1199,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		return () => {
 			cancelled = true;
 		};
-	}, [activeTab, client, layout.previewCols, layout.previewRows, selectedId]);
+	}, [activeTab, client, selectedId, selectedPaneScope]);
 
 	useEffect(() => {
 		if (!client || activeTab !== 'dev') {
@@ -1205,7 +1225,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		return () => {
 			cancelled = true;
 		};
-	}, [activeTab, client, layout.previewCols, layout.previewRows, selectedId]);
+	}, [activeTab, client, layout.previewCols, layout.previewRows, selectedId, selectedPaneScope]);
 
 	const updateNotesDraft = useCallback((updater: (current: string) => string) => {
 		if (!selectedSession) {
@@ -1234,6 +1254,21 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	}, [selectedSession]);
 
 	const help = useHelp();
+	const changesFlow = useChangesFlow({
+		client, session: selectedSession, changes, focused: mode === 'changes-focus',
+		onChanges: next => { if (next.sessionId === selectedIdRef.current) setChanges(next); },
+		onExit: () => setMode('browse'),
+		onAttach: () => { if (selectedSession) attachTo(selectedSession, 'git'); },
+		setBusy, setError, setStatusMessage,
+	});
+	const attachTo = (session: SessionRecord, target: AttachTarget) => exit({
+		kind: 'attach',
+		sessionId: session.id,
+		target,
+		title: displaySessionTitle(session, sessions),
+		cwd: session.cwd,
+		program: session.program,
+	} satisfies UiExitResult);
 	const settingsFlow = useSettingsFlow({client, mode, setMode, setBusy, setError, setStatusMessage, onReview: (reviewCwd, back) => reviewThen(reviewCwd, undefined, {back})});
 
 	// Resolves the repository config for `targetCwd` and runs `resume` with it, showing the inline review first when
@@ -1277,7 +1312,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		switch (mode) {
 			case 'workspace-info':
 				if (currentWorkspaceInfo?.confirmPr && currentWorkspaceInfo.summary) return {title: 'Create pull request', text: createPrConfirmText(currentWorkspaceInfo.summary), footer: ['enter push & open PR form', 'esc cancel'], scroll: detailsScroll};
-				return {title: 'Workspace overview', text: workspaceSummaryText(currentWorkspaceInfo?.summary, currentWorkspaceInfo?.prLoading, {creatingPr: currentWorkspaceInfo?.creatingPr, links: selectedSession?.worktree?.links}), footer: [{text: 'P fetch PR status', short: 'P PR status'}, 'b open PR', 'c create PR', 'g lazygit', 'esc close'], scroll: detailsScroll};
+				return {title: 'Workspace overview', text: workspaceSummaryText(currentWorkspaceInfo?.summary, currentWorkspaceInfo?.prLoading, {creatingPr: currentWorkspaceInfo?.creatingPr, links: selectedSession?.worktree?.links}), footer: [{text: 'P fetch PR status', short: 'P PR status'}, 'b open PR', 'c create PR', 'g git tab', 'esc close'], scroll: detailsScroll};
 			case 'review-project':
 				return {
 					title: 'Review repository configuration',
@@ -1306,8 +1341,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		return true;
 	};
 
+	// Dev is shared by every session in the selected session's workspace; starting/stopping acts on that one process.
 	const toggleDevSelected = useCallback(async () => {
-		if (!client || !selectedSession || selectedSession.status !== 'running') {
+		if (!client || !selectedSession || !workspaceKey(selectedSession)) {
 			return;
 		}
 		setBusy(true);
@@ -1411,7 +1447,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			await client.removeSession(selectedSession.id);
 			setPreview(EMPTY_PREVIEW);
 			setTerminal(EMPTY_TERMINAL);
-			setGit(EMPTY_GIT);
+			setChanges(EMPTY_CHANGES);
 			setDev(EMPTY_DEV);
 		} catch (nextError) {
 			setError(errorMessage(nextError));
@@ -1552,6 +1588,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				if (!sendClaudeWheel('down', 12)) setPreviewScrollOffset(0);
 				return;
 			}
+			return;
+		}
+
+		if (mode === 'changes-focus') {
+			changesFlow.handleInput(input, key);
 			return;
 		}
 
@@ -1840,7 +1881,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					setActiveTab('dev');
 					return;
 				}
-				if (selectedSession?.status === 'running') {
+				if (selectedSession && workspaceKey(selectedSession)) {
 					// Starting Dev reviews an untrusted repository devCommand first (skipping uses the global one).
 					if (selectedSession.devRunning || (dev.sessionId === selectedSession.id && dev.live)) void toggleDevSelected();
 					else reviewThen(selectedSession.cwd, () => void toggleDevSelected(), {
@@ -1849,13 +1890,19 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						labels: project => ({enter: {text: 'enter trust & start', short: 'enter trust'}, skip: {text: `s start ${project.effective.devCommand?.trim() || 'dev'} instead`, short: 's start fallback'}}),
 						purpose: project => `About to start Dev with the repository devCommand: ${project.config.devCommand} (until trusted, d runs ${project.effective.devCommand?.trim() ? `the global ${project.effective.devCommand.trim()}` : 'the built-in fallback dev'})`,
 					});
-				} else {
-					setError('session must be running to start dev');
+				} else if (selectedSession) {
+					setError(`Dev is unavailable: ${noWorkspaceReason(selectedSession)}`);
 				}
 				return;
 			}
 			if (input === 'v' && activeTab === 'preview' && selectedSession?.status === 'running') {
 				setMode('preview-focus');
+				return;
+			}
+			if (input === 'v' && activeTab === 'git' && selectedSession) {
+				if (!selectedWorkspace) setError(`Git is unavailable: ${noWorkspaceReason(selectedSession)}`);
+				else if (changes.sessionId === selectedSession.id && changes.workspace) setMode('changes-focus');
+				else setError('Changes are still loading; try again in a moment');
 				return;
 			}
 			if (input === 'c') {
@@ -1942,7 +1989,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setMode('notes-focus');
 				return;
 			}
-			if (input === 'o' && selectedSession?.status === 'running') {
+			const workspaceTab = activeTab === 'terminal' || activeTab === 'git' || activeTab === 'dev';
+			if (input === 'o' && selectedSession && (selectedSession.status === 'running' || workspaceTab)) {
+				if (workspaceTab && !selectedWorkspace) {
+					setError(`${activeTab === 'git' ? 'Git' : activeTab === 'terminal' ? 'Terminal' : 'Dev'} is unavailable: ${noWorkspaceReason(selectedSession)}`);
+					return;
+				}
 				if (activeTab === 'dev' && !selectedSession.devRunning && !(dev.sessionId === selectedSession.id && dev.live)) {
 					setError('start the dev command with d before attaching');
 					return;
@@ -1951,14 +2003,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					setError(`${activeAttachTarget === 'git' ? 'Git' : activeAttachTarget === 'terminal' ? 'Terminal' : 'Dev'} tab is still loading; wait for it to appear before attaching`);
 					return;
 				}
-				exit({
-					kind: 'attach',
-					sessionId: selectedSession.id,
-					target: activeAttachTarget,
-					title: displaySessionTitle(selectedSession, sessions),
-					cwd: selectedSession.cwd,
-					program: selectedSession.program,
-				} satisfies UiExitResult);
+				attachTo(selectedSession, activeAttachTarget);
 			}
 			return;
 		}
@@ -2187,7 +2232,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					loaded={sessionsLoaded}
 				/>
 				<Box width={1} />
-				{mode === 'browse' || mode === 'preview-focus' || mode === 'notes-focus' || mode === 'search' ? (
+				{mode === 'browse' || mode === 'preview-focus' || mode === 'changes-focus' || mode === 'notes-focus' || mode === 'search' ? (
 					<Box
 						flexDirection="column"
 						width={layout.previewWidth}
@@ -2215,7 +2260,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 								height={layout.paneInnerHeight}
 							/>
 						) : activeTab === 'git' ? (
-							<GitPane session={selectedSession} git={git} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
+							changesFlow.render(layout.paneInnerWidth, layout.paneInnerHeight)
 						) : activeTab === 'dev' ? (
 							<DevPane session={selectedSession} dev={dev} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
 						) : (

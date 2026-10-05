@@ -6,48 +6,40 @@ import {execFile, fork, spawn, type ChildProcess} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import {StringDecoder} from 'node:string_decoder';
-import pty, {type IPty} from 'node-pty';
 import {getConfigDir, getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
 import {createWorktreeForSession, currentBranch, deleteLocalBranch, findGitCommonDir, findRepoRoot, headSha, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree, sanitizeWorktreeName} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
-import {ensureConfigDir, loadAppConfig, type AppConfig, markAllNonExitedSessionsExited, saveSessions, sortSessionsNewestFirst, updateAppConfig} from './storage.js';
+import {ensureConfigDir, loadAppConfig, type AppConfig, markAllNonExitedSessionsExited, saveState, sortSessionsNewestFirst, updateAppConfig} from './storage.js';
+import {liveWorktreeRecord, MERGE_MARKERS, ownWorktreePath, projectWorktree, storedSession, withoutMarkers} from './worktreeRecords.js';
 import {compareSessionOrder, sortSessionsForSidebar} from './sessionOrder.js';
 import {isPathInside, sessionMatchesScope} from './sessionScope.js';
+import {noWorkspaceReason, workspaceKey, workspaceWorkerId} from './workspace.js';
 import {errorMessage} from './ui.js';
-import {TerminalPreview} from './terminalPreview.js';
 import type {WorktreeSettings} from './worktreeLinks.js';
 import {loadProjectConfig, isProjectTrusted, projectNeedsReview, resolveDevCommand, resolveSettings, resolveSetupCommand, trustProjectConfig, type LoadedProject} from './projectConfig.js';
 import {saveGlobalDefaultsDocument, saveProjectConfigDocument} from './projectConfigDocument.js';
 import {readCandidateSizes, readSettingsInfo, readWorktreeCandidates} from './settingsInfo.js';
 import {createPullRequest, getHandoffGitContext, getWorkspaceSummary, inspectWorkspaceCleanup, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
+import {applyStage, readChangeDiff, readChanges, type ChangesSnapshot, type UntrackedCounts} from './changesGit.js';
+import {emptyChanges, findChange, type ChangesRecord} from './changesModel.js';
 import {normalizeHook, integrationArgs, codexResumeFromOutput, needsAttention} from './agentSignals.js';
 import {exportHandoff} from './sessionFeatures.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {AgentActivityStatus, AgentSessionRef, AttachTarget, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, TerminalRecord} from './types.js';
+import type {AgentActivityStatus, AgentSessionRef, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, TerminalRecord, WorktreeMarkers, WorktreeRecord} from './types.js';
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_PREVIEW_COLS = 80;
 const DEFAULT_PREVIEW_ROWS = 24;
-const PREVIEW_BROADCAST_DELAY_MS = 75;
 const WORKER_REQUEST_TIMEOUT_MS = 10_000;
 const WORKER_KILL_GRACE_MS = 2000;
 const MAX_REQUEST_LINE = 256_000;
 const SETUP_OUTPUT_LIVE_LIMIT = 16_000;
 const SETUP_OUTPUT_STORED_LIMIT = 4096;
 const SUMMARY_TTL_MS = 4000;
-
-// Daemon-local panes serve sessions that are still starting (no worker yet); they are
-// disposed when a worker takes over or the start fails/is cancelled.
-interface RuntimeTerminal {
-	term: IPty;
-	preview: TerminalPreview;
-	attachedSocket?: net.Socket;
-	broadcastTimer?: NodeJS.Timeout;
-	cwd: string;
-	exited: boolean;
-	exitCode?: number | null;
-	exitSignal?: number | null;
-}
+const WORKSPACE_SHUTDOWN_TIMEOUT_MS = 3000;
+const CHANGES_POLL_MS = 2000;
+// A diff request reuses the last status read when it is this recent instead of reading again.
+const CHANGES_FRESH_MS = 2500;
 
 interface ClientSubscription {
 	repoRoot?: string;
@@ -55,6 +47,7 @@ interface ClientSubscription {
 	watchedTerminalSessionId?: string;
 	watchedGitSessionId?: string;
 	watchedDevSessionId?: string;
+	watchedChangesSessionId?: string;
 	previewCols: number;
 	previewRows: number;
 	previewScrollOffset: number;
@@ -66,29 +59,86 @@ interface ClientSubscription {
 	devRows: number;
 }
 
-interface WorkerRuntime {
+// An IPC child the daemon sends requests to: a session worker or a workspace worker.
+interface WorkerChannel {
 	process: ChildProcess;
 	pending: Map<string, {resolve: (value: unknown) => void; reject: (error: Error) => void; timer: NodeJS.Timeout}>;
-	attached: Partial<Record<AttachTarget, net.Socket>>;
+	exited?: boolean;
+}
+
+// A session worker owns only the agent PTY; Terminal/Git/Dev live in the session's workspace worker.
+interface WorkerRuntime extends WorkerChannel {
+	attached: {agent?: net.Socket};
 	deleteWorktreeOnExit?: boolean;
 	deleteBranchOnExit?: boolean;
-	exited?: boolean;
 	hookToken: string;
 	launchId: string;
 	allowDataLoss?: boolean;
 }
 
-type WorkerEvent =
+// Panes a workspace worker hosts for every session in one worktree (sessionWorker.ts WORKSPACE_PANES).
+type WorkspacePane = 'terminal' | 'git' | 'dev';
+// One record shape serves all three panes (TerminalRecord and GitRecord are DevRecord without `command`).
+type WorkspacePaneRecord = DevRecord;
+const PANE_LABELS: Record<WorkspacePane, string> = {terminal: 'Terminal', git: 'Git', dev: 'Dev'};
+const PANE_ATTACH_NAMES: Record<WorkspacePane, string> = {terminal: 'terminal', git: 'git', dev: 'dev command'};
+
+// The workspace worker of one workspace (workspaceKey: the worktree root), started on demand. Requests name a
+// session; the daemon resolves its workspace, and stamps each viewer's session ID on the shared pane records.
+interface WorkspaceRuntime extends WorkerChannel {
+	key: string;
+	attached: Partial<Record<WorkspacePane, {socket: net.Socket; sessionId: string}>>;
+	/** The last record each pane reported; `dev.live` drives every workspace session's devRunning. */
+	records: Partial<Record<WorkspacePane, WorkspacePaneRecord>>;
+	/** Pane requests in flight; an idle worker is retired only when none is pending. */
+	busy: number;
+}
+
+type WorkerResponse =
 	| {type: 'response'; requestId: string; ok: true; data?: unknown}
-	| {type: 'response'; requestId: string; ok: false; error: string}
+	| {type: 'response'; requestId: string; ok: false; error: string};
+
+type WorkerEvent =
+	| WorkerResponse
 	| {type: 'running'; pid: number}
 	| {type: 'exit'; exitCode: number | null; exitSignal: number | null; lastPreview: string}
 	| {type: 'agent-status'; agentStatus: AgentActivityStatus}
 	| {type: 'preview-updated'; preview: PreviewRecord}
+	| {type: 'output'; target: 'agent'; data: string};
+
+type WorkspaceEvent =
+	| WorkerResponse
 	| {type: 'terminal-updated'; terminal: TerminalRecord}
 	| {type: 'git-updated'; git: GitRecord}
 	| {type: 'dev-updated'; dev: DevRecord}
-	| {type: 'output'; target: AttachTarget; data: string};
+	| {type: 'output'; target: WorkspacePane; data: string};
+
+// The Git tab's Changes view of one workspace: no worker or PTY, just Git run by the daemon. Polled while any client
+// watches a session of the workspace; every Git run for it (status, diff, stage) is serialized through `queue`.
+interface ChangesWatch {
+	key: string;
+	timer?: NodeJS.Timeout;
+	queue: Promise<unknown>;
+	/** A status read queued behind `queue` and not started yet: callers share it. */
+	queued?: Promise<ChangesSnapshot>;
+	running: boolean;
+	last?: {snapshot: ChangesSnapshot; at: number};
+	/** The last record pushed to watchers (JSON), so polls push only changes. */
+	published?: string;
+	untracked: UntrackedCounts;
+}
+
+function paneUpdatedMessage(pane: WorkspacePane, record: WorkspacePaneRecord): ServerMessage {
+	if (pane === 'terminal') return {type: 'terminal-updated', terminal: record};
+	if (pane === 'git') return {type: 'git-updated', git: record};
+	return {type: 'dev-updated', dev: record};
+}
+
+function updatedPaneRecord(message: Exclude<WorkspaceEvent, WorkerResponse | {type: 'output'}>): [WorkspacePane, WorkspacePaneRecord] {
+	if (message.type === 'terminal-updated') return ['terminal', message.terminal];
+	if (message.type === 'git-updated') return ['git', message.git];
+	return ['dev', message.dev];
+}
 
 function sendMessage(socket: net.Socket, message: ServerMessage): void {
 	if (!socket.destroyed) {
@@ -270,20 +320,6 @@ function resolveShellCommand(): string {
 	return process.env.SHELL || '/bin/sh';
 }
 
-async function resolveLazyGitCommand(): Promise<string> {
-	const shell = process.env.SHELL || '/bin/bash';
-	try {
-		const {stdout} = await execFileAsync(shell, ['-ic', 'command -v lazygit']);
-		const resolved = stdout.trim();
-		if (resolved) {
-			return resolved;
-		}
-	} catch {
-		// handled below
-	}
-	throw new Error('lazygit is not installed or not on PATH');
-}
-
 function clampSize(value: number, fallback: number): number {
 	if (!Number.isFinite(value)) {
 		return fallback;
@@ -306,13 +342,28 @@ async function realpathOrResolve(target: string): Promise<string> {
 	return fs.realpath(target).catch(() => path.resolve(target));
 }
 
+/** Whether a checkout root is a linked worktree (not the main checkout). Git reports both paths the same way. */
+async function isLinkedWorktreeRoot(root: string): Promise<boolean> {
+	const worktrees = await listWorktrees(root).catch(() => []);
+	return worktrees.some(item => !item.isMain && path.resolve(item.path) === path.resolve(root));
+}
+
+// Sessions as the daemon holds and sends them: setting one projects its worktree record's markers into it (merged,
+// deleted; src/worktreeRecords.ts), so every reader sees the markers its worktree's sessions share. persist() strips them.
+class SessionMap extends Map<string, SessionRecord> {
+	constructor(private readonly worktrees: ReadonlyMap<string, WorktreeRecord>) { super(); }
+	override set(id: string, session: SessionRecord): this {
+		return super.set(id, projectWorktree(session, this.worktrees));
+	}
+}
+
 export class InkDaemon {
-	private readonly sessions = new Map<string, SessionRecord>();
-	private readonly terminals = new Map<string, RuntimeTerminal>();
-	private readonly gits = new Map<string, RuntimeTerminal>();
-	private readonly devs = new Map<string, RuntimeTerminal & {command: string}>();
-	private readonly gitStartPromises = new Map<string, Promise<RuntimeTerminal>>();
+	/** Linked worktree incarnations by ID (persisted with the sessions); the only copy of their merge/deleted markers. */
+	private readonly worktrees = new Map<string, WorktreeRecord>();
+	private readonly sessions = new SessionMap(this.worktrees);
 	private readonly workers = new Map<string, WorkerRuntime>();
+	private readonly workspaces = new Map<string, WorkspaceRuntime>();
+	private readonly workspaceStarts = new Map<string, Promise<WorkspaceRuntime>>();
 	private readonly clients = new Map<net.Socket, ClientSubscription>();
 	private server?: net.Server;
 	private shuttingDown = false;
@@ -322,6 +373,7 @@ export class InkDaemon {
 	private readonly cleanupWorktrees = new Set<string>();
 	private readonly preparingSessions = new Set<string>();
 	private readonly summaries = new Map<string, {key: string; at: number; result: Promise<WorkspaceSummary>}>();
+	private readonly changeWatches = new Map<string, ChangesWatch>();
 
 	async start(): Promise<void> {
 		await ensureConfigDir();
@@ -332,7 +384,8 @@ export class InkDaemon {
 		// different daemon process and their node-pty handles are gone. Mark them
 		// exited as crash/restart recovery, not as normal frontend quit behavior.
 		const stored = await markAllNonExitedSessionsExited();
-		for (const session of stored) {
+		for (const record of stored.worktrees) this.worktrees.set(record.id, record);
+		for (const session of stored.sessions) {
 			this.sessions.set(session.id, session);
 		}
 
@@ -468,42 +521,9 @@ export class InkDaemon {
 		}
 		this.clients.clear();
 
-		for (const terminal of this.terminals.values()) {
-			if (terminal.broadcastTimer) {
-				clearTimeout(terminal.broadcastTimer);
-			}
-			try {
-				terminal.term.kill();
-			} catch {
-				// ignore shutdown errors
-			}
-			terminal.preview.dispose();
-		}
-		this.terminals.clear();
-		for (const git of this.gits.values()) {
-			if (git.broadcastTimer) {
-				clearTimeout(git.broadcastTimer);
-			}
-			try {
-				git.term.kill();
-			} catch {
-				// ignore shutdown errors
-			}
-			git.preview.dispose();
-		}
-		this.gits.clear();
-		for (const dev of this.devs.values()) {
-			if (dev.broadcastTimer) {
-				clearTimeout(dev.broadcastTimer);
-			}
-			try {
-				dev.term.kill();
-			} catch {
-				// ignore shutdown errors
-			}
-			dev.preview.dispose();
-		}
-		this.devs.clear();
+		for (const key of [...this.changeWatches.keys()]) this.stopChangesWatch(key);
+		// Every Terminal, Git and Dev pane lives in a workspace worker.
+		await Promise.all([...this.workspaces.keys()].map(key => this.retireWorkspace(key)));
 
 		// Detach workers first so their exit events are ignored, then wait briefly for
 		// each to exit before SIGKILL; process.exit follows cleanup, so the fallback must not be deferred.
@@ -564,30 +584,22 @@ export class InkDaemon {
 
 		const cleanup = () => {
 			if (attachedSessionId) {
-				const terminal = this.terminals.get(attachedSessionId);
-				if (terminal?.attachedSocket === socket) {
-					terminal.attachedSocket = undefined;
-				}
-				const git = this.gits.get(attachedSessionId);
-				if (git?.attachedSocket === socket) {
-					git.attachedSocket = undefined;
-				}
-				const dev = this.devs.get(attachedSessionId);
-				if (dev?.attachedSocket === socket) {
-					dev.attachedSocket = undefined;
-				}
 				const worker = this.workers.get(attachedSessionId);
-				if (worker) {
-					for (const target of ['agent', 'terminal', 'git', 'dev'] as const) {
-						if (worker.attached[target] === socket) {
-							worker.attached[target] = undefined;
-							this.sendWorkerEvent(attachedSessionId, {type: 'detach', target});
-						}
-					}
+				if (worker?.attached.agent === socket) {
+					worker.attached.agent = undefined;
+					this.sendWorkerEvent(attachedSessionId, {type: 'detach', target: 'agent'});
 				}
 				attachedSessionId = undefined;
 			}
+			for (const workspace of this.workspaces.values()) {
+				for (const pane of Object.keys(workspace.attached) as WorkspacePane[]) {
+					if (workspace.attached[pane]?.socket !== socket) continue;
+					workspace.attached[pane] = undefined;
+					this.sendChannelEvent(workspace, {type: 'detach', target: pane});
+				}
+			}
 			this.clients.delete(socket);
+			this.syncChangeWatches();
 			void this.log('client disconnected');
 		};
 
@@ -727,23 +739,22 @@ export class InkDaemon {
 					const child = this.setupProcesses.get(session.id);
 					if (child?.pid) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} }
 					if (this.workers.has(session.id)) this.sendWorkerEvent(session.id, {type: 'kill', requestId: randomUUID(), force: true});
-					this.cleanupLocalPanes(session.id);
 					// Only an in-flight setup is cancelled; pending/failed setup stays retryable as-is.
 					const setupRunning = Boolean(child) || session.setup?.state === 'running';
 					await this.saveSession({...session, status: 'exited', exitReason: 'stopped', lastPreview: setupRunning ? 'Setup cancelled; worktree retained.' : 'Startup cancelled. In-flight worktree preparation may finish, but the agent will not launch.', setup: setupRunning && session.setup ? {...session.setup, state: 'cancelled', output: session.setup.output.slice(-SETUP_OUTPUT_STORED_LIMIT)} : session.setup});
 					sendMessage(socket, response(message.requestId, {ok: true})); return;
 				}
 				case 'run-action': {
-					const session = this.requireSession(message.sessionId);
-					if (session.status !== 'running') throw new Error('Start the agent session before running actions');
+					// Actions run in the workspace's shared Dev pane, so like Dev they need a workspace, not a running agent.
+					const {session, key} = this.requireWorkspace(message.sessionId, 'dev');
 					// Untrusted repository actions are never run, only global defaults' actions.
 					const config = await loadAppConfig(), project = await loadProjectConfig(session.cwd, config);
 					const actions = resolveSettings(project, config).actions ?? {};
 					const command = Object.hasOwn(actions, message.action) ? actions[message.action] : undefined;
 					if (!command && Object.hasOwn(project.config.actions ?? {}, message.action)) throw new Error('Review and trust deckhand.json first (press e or T)');
 					if (!command) throw new Error('Unknown project action');
-					if (session.devRunning) throw new Error('Stop the current Dev/action command before starting another');
-					sendMessage(socket, response(message.requestId, await this.sendWorkerRequest<DevRecord>(session.id, {type: 'start-dev', command, cols: message.cols, rows: message.rows}))); return;
+					if (this.workspaceDevLive(key)) throw new Error('Stop the current Dev/action command before starting another');
+					sendMessage(socket, response(message.requestId, await this.startWorkspaceDev(session.id, key, command, message.cols, message.rows))); return;
 				}
 				case 'list':
 					sendMessage(socket, response(message.requestId, sortSessionsForSidebar([...this.sessions.values()])));
@@ -768,12 +779,13 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, preview));
 					return;
 				}
+				// Terminal, Git and Dev requests name a session; they act on the one pane shared by every session in its workspace.
 				case 'watch-terminal': {
 					const client = this.getClient(socket);
 					client.watchedTerminalSessionId = message.sessionId;
 					client.terminalCols = clampSize(message.cols, client.terminalCols);
 					client.terminalRows = clampSize(message.rows, client.terminalRows);
-					const terminal = await this.getTerminalRecord(message.sessionId, client.terminalCols, client.terminalRows);
+					const terminal = await this.watchWorkspacePane('terminal', message.sessionId, client.terminalCols, client.terminalRows);
 					sendMessage(socket, response(message.requestId, terminal));
 					return;
 				}
@@ -782,7 +794,7 @@ export class InkDaemon {
 					client.watchedGitSessionId = message.sessionId;
 					client.gitCols = clampSize(message.cols, client.gitCols);
 					client.gitRows = clampSize(message.rows, client.gitRows);
-					const git = await this.getGitRecord(message.sessionId, client.gitCols, client.gitRows);
+					const git = await this.watchWorkspacePane('git', message.sessionId, client.gitCols, client.gitRows);
 					sendMessage(socket, response(message.requestId, git));
 					return;
 				}
@@ -791,29 +803,56 @@ export class InkDaemon {
 					client.watchedDevSessionId = message.sessionId;
 					client.devCols = clampSize(message.cols, client.devCols);
 					client.devRows = clampSize(message.rows, client.devRows);
-					const dev = await this.getDevRecord(message.sessionId, client.devCols, client.devRows);
+					const dev = await this.watchWorkspacePane('dev', message.sessionId, client.devCols, client.devRows);
 					sendMessage(socket, response(message.requestId, dev));
 					return;
 				}
-				case 'start-dev': {
-					if (this.workers.has(message.sessionId)) {
-						const command = await this.resolveSessionDevCommand(this.requireSession(message.sessionId));
-						sendMessage(socket, response(message.requestId, await this.sendWorkerRequest<DevRecord>(message.sessionId, {type: 'start-dev', command, cols: clampSize(message.cols, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows, DEFAULT_PREVIEW_ROWS)})));
-						return;
-					}
-					const dev = await this.startDev(message.sessionId, clampSize(message.cols, DEFAULT_PREVIEW_COLS), clampSize(message.rows, DEFAULT_PREVIEW_ROWS));
-					sendMessage(socket, response(message.requestId, this.buildDevRecord(message.sessionId, dev)));
+				// The Git tab's Changes view: computed here from the workspace (no worker), pushed while watched.
+				case 'watch-changes': {
+					this.getClient(socket).watchedChangesSessionId = message.sessionId;
+					this.syncChangeWatches();
+					sendMessage(socket, response(message.requestId, await this.watchChanges(message.sessionId)));
 					return;
 				}
-				case 'stop-dev':
-					if (this.workers.has(message.sessionId)) {
-						sendMessage(socket, response(message.requestId, await this.sendWorkerRequest(message.sessionId, {type: 'stop-dev'})));
-						return;
-					}
-					this.cleanupDev(message.sessionId);
-					await this.broadcastDev(message.sessionId);
+				case 'changes-diff': {
+					const {key} = this.requireWorkspace(message.sessionId, 'git');
+					const watch = this.changesWatch(key);
+					const recent = watch.last && Date.now() - watch.last.at < CHANGES_FRESH_MS ? watch.last.snapshot : await this.refreshChanges(key);
+					if (recent.record.error) throw new Error(recent.record.error);
+					const entry = findChange(recent.all, message.group, message.path);
+					if (!entry) throw new Error(`${message.path} is not in the current changes`);
+					sendMessage(socket, response(message.requestId, await this.changesExclusive(watch, () => readChangeDiff(key, entry))));
+					this.syncChangeWatches();
+					return;
+				}
+				case 'change-stage': {
+					const {session, key} = this.requireWorkspace(message.sessionId, 'git');
+					const watch = this.changesWatch(key);
+					const target = message.path !== undefined && message.group ? {group: message.group, path: message.path} : undefined;
+					try {
+						const result = await this.changesExclusive(watch, async () => {
+							this.assertWorkspaceAvailable(key);
+							// Validated against a status read inside the same exclusive section, so the paths are current.
+							const current = await readChanges(key, watch.untracked);
+							return applyStage(key, current, message.mode, target);
+						});
+						const snapshot = await this.refreshChanges(key);
+						sendMessage(socket, response(message.requestId, {...result, changes: {...snapshot.record, sessionId: session.id, workspace: key}}));
+					} finally { this.syncChangeWatches(); }
+					return;
+				}
+				case 'start-dev': {
+					const {session, key} = this.requireWorkspace(message.sessionId, 'dev');
+					const command = await this.resolveSessionDevCommand(session);
+					sendMessage(socket, response(message.requestId, await this.startWorkspaceDev(session.id, key, command, message.cols, message.rows)));
+					return;
+				}
+				case 'stop-dev': {
+					const key = this.workspaceKeyOf(this.requireSession(message.sessionId));
+					if (key) await this.stopWorkspaceDev(key);
 					sendMessage(socket, response(message.requestId, {ok: true}));
 					return;
+				}
 				case 'update-session-notes':
 					sendMessage(socket, response(message.requestId, await this.updateSessionNotes(message.sessionId, message.notes)));
 					return;
@@ -878,181 +917,38 @@ export class InkDaemon {
 					sendMessage(socket, {type: 'detached', sessionId: message.sessionId});
 					return;
 				}
-				case 'attach-terminal': {
-					if (this.workers.has(message.sessionId)) {
-						const session = this.sessions.get(message.sessionId);
-						const worker = this.workers.get(message.sessionId)!;
-						if (!session || session.status === 'exited') throw new Error('session is not running');
-						if (worker.attached.terminal && worker.attached.terminal !== socket && !worker.attached.terminal.destroyed) throw new Error('terminal is already attached elsewhere');
-						const attachData = await this.sendWorkerRequest<object & {initialFrame?: string}>(message.sessionId, {type: 'attach', target: 'terminal', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
-						worker.attached.terminal = socket;
-						setAttachedSessionId(message.sessionId);
-						sendMessage(socket, response(message.requestId, {...session, ...attachData}));
-						sendMessage(socket, {type: 'terminal-attached', sessionId: message.sessionId});
-						if (attachData.initialFrame) sendMessage(socket, {type: 'terminal-output', sessionId: message.sessionId, data: attachData.initialFrame});
-						return;
-					}
-					const terminal = await this.ensureTerminal(
-						message.sessionId,
-						clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS),
-						clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS),
-					);
-					if (terminal.attachedSocket && terminal.attachedSocket !== socket && !terminal.attachedSocket.destroyed) {
-						throw new Error('terminal is already attached elsewhere');
-					}
-					terminal.attachedSocket = socket;
-					setAttachedSessionId(message.sessionId);
-					sendMessage(socket, response(message.requestId, this.sessions.get(message.sessionId)));
-					sendMessage(socket, {type: 'terminal-attached', sessionId: message.sessionId});
-					sendMessage(socket, {type: 'terminal-output', sessionId: message.sessionId, data: await terminal.preview.getAnsiFrame()});
-					return;
-				}
-				case 'terminal-input': {
-					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'input', target: 'terminal', data: message.data}); return; }
-					const terminal = this.terminals.get(message.sessionId);
-					if (terminal && !terminal.exited) {
-						terminal.term.write(message.data);
-					}
-					return;
-				}
-				case 'terminal-resize': {
-					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'resize', target: 'terminal', cols: message.cols, rows: message.rows}); return; }
-					const terminal = this.terminals.get(message.sessionId);
-					if (terminal && !terminal.exited) {
-						const cols = Math.max(1, message.cols);
-						const rows = Math.max(1, message.rows);
-						terminal.term.resize(cols, rows);
-						await terminal.preview.resize(cols, rows);
-						this.scheduleTerminalBroadcast(message.sessionId);
-					}
-					return;
-				}
-				case 'terminal-detach': {
-					if (this.workers.has(message.sessionId)) { const worker = this.workers.get(message.sessionId)!; if (worker.attached.terminal === socket) worker.attached.terminal = undefined; this.sendWorkerEvent(message.sessionId, {type: 'detach', target: 'terminal'}); setAttachedSessionId(undefined); sendMessage(socket, {type: 'terminal-detached', sessionId: message.sessionId}); return; }
-					const terminal = this.terminals.get(message.sessionId);
-					if (terminal?.attachedSocket === socket) {
-						terminal.attachedSocket = undefined;
-					}
-					setAttachedSessionId(undefined);
-					sendMessage(socket, {type: 'terminal-detached', sessionId: message.sessionId});
-					return;
-				}
-				case 'attach-git': {
-					if (this.workers.has(message.sessionId)) {
-						const session = this.sessions.get(message.sessionId);
-						const worker = this.workers.get(message.sessionId)!;
-						if (!session || session.status === 'exited') throw new Error('session is not running');
-						if (worker.attached.git && worker.attached.git !== socket && !worker.attached.git.destroyed) throw new Error('git is already attached elsewhere');
-						const attachData = await this.sendWorkerRequest<object & {initialFrame?: string}>(message.sessionId, {type: 'attach', target: 'git', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
-						worker.attached.git = socket;
-						setAttachedSessionId(message.sessionId);
-						sendMessage(socket, response(message.requestId, {...session, ...attachData}));
-						sendMessage(socket, {type: 'git-attached', sessionId: message.sessionId});
-						if (attachData.initialFrame) sendMessage(socket, {type: 'git-output', sessionId: message.sessionId, data: attachData.initialFrame});
-						return;
-					}
-					const git = await this.ensureGit(
-						message.sessionId,
-						clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS),
-						clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS),
-					);
-					if (git.attachedSocket && git.attachedSocket !== socket && !git.attachedSocket.destroyed) {
-						throw new Error('git is already attached elsewhere');
-					}
-					git.attachedSocket = socket;
-					setAttachedSessionId(message.sessionId);
-					sendMessage(socket, response(message.requestId, this.sessions.get(message.sessionId)));
-					sendMessage(socket, {type: 'git-attached', sessionId: message.sessionId});
-					sendMessage(socket, {type: 'git-output', sessionId: message.sessionId, data: await git.preview.getAnsiFrame()});
-					return;
-				}
-				case 'git-input': {
-					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'input', target: 'git', data: message.data}); return; }
-					const git = this.gits.get(message.sessionId);
-					if (git && !git.exited) {
-						git.term.write(message.data);
-					}
-					return;
-				}
-				case 'git-resize': {
-					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'resize', target: 'git', cols: message.cols, rows: message.rows}); return; }
-					const git = this.gits.get(message.sessionId);
-					if (git && !git.exited) {
-						const cols = Math.max(1, message.cols);
-						const rows = Math.max(1, message.rows);
-						git.term.resize(cols, rows);
-						await git.preview.resize(cols, rows);
-						this.scheduleGitBroadcast(message.sessionId);
-					}
-					return;
-				}
-				case 'git-detach': {
-					if (this.workers.has(message.sessionId)) { const worker = this.workers.get(message.sessionId)!; if (worker.attached.git === socket) worker.attached.git = undefined; this.sendWorkerEvent(message.sessionId, {type: 'detach', target: 'git'}); setAttachedSessionId(undefined); sendMessage(socket, {type: 'git-detached', sessionId: message.sessionId}); return; }
-					const git = this.gits.get(message.sessionId);
-					if (git?.attachedSocket === socket) {
-						git.attachedSocket = undefined;
-					}
-					setAttachedSessionId(undefined);
-					sendMessage(socket, {type: 'git-detached', sessionId: message.sessionId});
-					return;
-				}
+				case 'attach-terminal':
+				case 'attach-git':
 				case 'attach-dev': {
-					if (this.workers.has(message.sessionId)) {
-						const session = this.sessions.get(message.sessionId);
-						const worker = this.workers.get(message.sessionId)!;
-						if (!session || session.status === 'exited') throw new Error('session is not running');
-						if (worker.attached.dev && worker.attached.dev !== socket && !worker.attached.dev.destroyed) throw new Error('dev command is already attached elsewhere');
-						const attachData = await this.sendWorkerRequest<object & {initialFrame?: string}>(message.sessionId, {type: 'attach', target: 'dev', cols: clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
-						worker.attached.dev = socket;
-						setAttachedSessionId(message.sessionId);
-						sendMessage(socket, response(message.requestId, {...session, ...attachData}));
-						sendMessage(socket, {type: 'dev-attached', sessionId: message.sessionId});
-						if (attachData.initialFrame) sendMessage(socket, {type: 'dev-output', sessionId: message.sessionId, data: attachData.initialFrame});
-						return;
-					}
-					const dev = this.devs.get(message.sessionId);
-					if (!dev || dev.exited) {
-						throw new Error('no running dev command; press d to start it');
-					}
-					if (dev.attachedSocket && dev.attachedSocket !== socket && !dev.attachedSocket.destroyed) {
-						throw new Error('dev command is already attached elsewhere');
-					}
-					dev.term.resize(clampSize(message.cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), clampSize(message.rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS));
-					dev.attachedSocket = socket;
-					setAttachedSessionId(message.sessionId);
-					sendMessage(socket, response(message.requestId, this.sessions.get(message.sessionId)));
-					sendMessage(socket, {type: 'dev-attached', sessionId: message.sessionId});
-					sendMessage(socket, {type: 'dev-output', sessionId: message.sessionId, data: await dev.preview.getAnsiFrame()});
+					// Workspace pane attaches are released by scanning the workspaces when the socket closes.
+					const pane = message.type === 'attach-terminal' ? 'terminal' : message.type === 'attach-git' ? 'git' : 'dev';
+					await this.attachWorkspacePane(socket, message.requestId, pane, message.sessionId, message.cols, message.rows);
 					return;
 				}
+				case 'terminal-input':
+				case 'git-input':
 				case 'dev-input': {
-					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'input', target: 'dev', data: message.data}); return; }
-					const dev = this.devs.get(message.sessionId);
-					if (dev && !dev.exited) {
-						dev.term.write(message.data);
-					}
+					const workspace = this.workspaceOfSession(message.sessionId);
+					if (workspace) this.sendChannelEvent(workspace, {type: 'input', target: message.type.slice(0, -'-input'.length), data: message.data});
 					return;
 				}
+				case 'terminal-resize':
+				case 'git-resize':
 				case 'dev-resize': {
-					if (this.workers.has(message.sessionId)) { this.sendWorkerEvent(message.sessionId, {type: 'resize', target: 'dev', cols: message.cols, rows: message.rows}); return; }
-					const dev = this.devs.get(message.sessionId);
-					if (dev && !dev.exited) {
-						const cols = Math.max(1, message.cols);
-						const rows = Math.max(1, message.rows);
-						dev.term.resize(cols, rows);
-						await dev.preview.resize(cols, rows);
-						this.scheduleDevBroadcast(message.sessionId);
-					}
+					const workspace = this.workspaceOfSession(message.sessionId);
+					if (workspace) this.sendChannelEvent(workspace, {type: 'resize', target: message.type.slice(0, -'-resize'.length), cols: message.cols, rows: message.rows});
 					return;
 				}
+				case 'terminal-detach':
+				case 'git-detach':
 				case 'dev-detach': {
-					if (this.workers.has(message.sessionId)) { const worker = this.workers.get(message.sessionId)!; if (worker.attached.dev === socket) worker.attached.dev = undefined; this.sendWorkerEvent(message.sessionId, {type: 'detach', target: 'dev'}); setAttachedSessionId(undefined); sendMessage(socket, {type: 'dev-detached', sessionId: message.sessionId}); return; }
-					const dev = this.devs.get(message.sessionId);
-					if (dev?.attachedSocket === socket) {
-						dev.attachedSocket = undefined;
+					const pane = message.type.slice(0, -'-detach'.length) as WorkspacePane;
+					const workspace = this.workspaceOfSession(message.sessionId);
+					if (workspace?.attached[pane]?.socket === socket) {
+						workspace.attached[pane] = undefined;
+						this.sendChannelEvent(workspace, {type: 'detach', target: pane});
 					}
-					setAttachedSessionId(undefined);
-					sendMessage(socket, {type: 'dev-detached', sessionId: message.sessionId});
+					sendMessage(socket, {type: `${pane}-detached`, sessionId: message.sessionId} as ServerMessage);
 					return;
 				}
 			}
@@ -1070,19 +966,62 @@ export class InkDaemon {
 	}
 
 	private async saveSession(session: SessionRecord): Promise<SessionRecord> {
-		this.sessions.set(session.id, session);
+		this.setSessionInWorkspace(session);
 		await this.persist();
 		this.broadcastSessionUpdated(session);
-		return session;
+		// A session that joined or left a workspace (prepared, worktree deleted) moves its Changes watchers.
+		this.syncChangeWatches();
+		return this.requireSession(session.id);
+	}
+
+	// devRunning mirrors the workspace's shared Dev (see syncDevRunning), also for sessions that just joined or left it.
+	private setSessionInWorkspace(session: SessionRecord): void {
+		this.sessions.set(session.id, session);
+		const projected = this.requireSession(session.id);
+		const devRunning = this.workspaceDevLive(this.workspaceKeyOf(projected));
+		if (Boolean(projected.devRunning) !== devRunning) this.sessions.set(session.id, {...projected, devRunning});
 	}
 
 	// Merges onto the latest record so work that awaited in between never writes back a stale copy.
 	private patchSession(sessionId: string, patch: Partial<SessionRecord>): SessionRecord | undefined {
 		const current = this.sessions.get(sessionId);
 		if (!current) return undefined;
-		const updated = {...current, ...patch};
-		this.sessions.set(sessionId, updated);
-		return updated;
+		this.sessions.set(sessionId, {...current, ...patch});
+		return this.sessions.get(sessionId);
+	}
+
+	/** The record of the linked worktree incarnation the session runs in, if any (main-checkout sessions have none). */
+	private worktreeRecordOf(session: SessionRecord): WorktreeRecord | undefined {
+		return session.worktree?.id ? this.worktrees.get(session.worktree.id) : undefined;
+	}
+
+	// Saves a worktree record and re-projects it into every session of that incarnation: they all change together
+	// (merged, unmarked, deleted), and every client hears about each of them.
+	private async saveWorktreeRecord(record: WorktreeRecord): Promise<void> {
+		this.worktrees.set(record.id, record);
+		const now = new Date().toISOString();
+		const affected = [...this.sessions.values()].filter(session => session.worktree?.id === record.id);
+		for (const session of affected) this.setSessionInWorkspace({...session, updatedAt: now});
+		await this.persist();
+		for (const session of affected) this.broadcastSessionUpdated(session);
+		this.syncChangeWatches();
+	}
+
+	/**
+	 * The incarnation a session that now runs in the linked worktree at `worktreePath` joins: the live one there, unless
+	 * Deckhand just created the worktree (`created`), which starts a new one. A live incarnation still recorded at that
+	 * path was then removed outside Deckhand: it is marked deleted, so its sessions never share the new worktree.
+	 * Synchronous from lookup to the caller's set, so the record cannot be dropped as unreferenced in between.
+	 */
+	private joinWorktree(worktreePath: string, created: boolean): {id: string; superseded?: WorktreeRecord} {
+		const live = liveWorktreeRecord(this.worktrees.values(), worktreePath);
+		if (live && !created) return {id: live.id};
+		const record: WorktreeRecord = {id: randomUUID(), path: path.resolve(worktreePath), createdAt: new Date().toISOString()};
+		this.worktrees.set(record.id, record);
+		const superseded = live && {...live, deletedAt: record.createdAt};
+		// Marked at once (the caller saves and broadcasts it), so there is never a second live record at the path.
+		if (superseded) this.worktrees.set(superseded.id, superseded);
+		return {id: record.id, superseded};
 	}
 
 	private isCurrentLaunch(sessionId: string, launchId: string | undefined): boolean {
@@ -1252,8 +1191,6 @@ export class InkDaemon {
 			else { for (const pending of worker.pending.values()) { clearTimeout(pending.timer); pending.reject(new Error('session worker exited')); } worker.pending.clear(); }
 		});
 		this.workers.set(session.id, worker);
-		// Pane requests now route to the worker; retire any daemon-local panes from the starting phase.
-		this.cleanupLocalPanes(session.id);
 		let started: SessionRecord;
 		try {
 			await fs.writeFile(getWorkerPidPath(session.id), String(child.pid ?? ''), 'utf8').catch(() => {});
@@ -1284,14 +1221,19 @@ export class InkDaemon {
 
 	private sendWorkerRequest<T>(sessionId: string, payload: Record<string, unknown>): Promise<T> {
 		const worker = this.workers.get(sessionId);
-		if (!worker || worker.exited || !worker.process.connected) {
-			return Promise.reject(new Error('session worker is not running'));
+		if (!worker) return Promise.reject(new Error('session worker is not running'));
+		return this.requestChannel<T>(worker, payload);
+	}
+
+	private requestChannel<T>(worker: WorkerChannel, payload: Record<string, unknown>): Promise<T> {
+		if (worker.exited || !worker.process.connected) {
+			return Promise.reject(new Error('worker is not running'));
 		}
 		const requestId = randomUUID();
 		return new Promise<T>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				worker.pending.delete(requestId);
-				reject(new Error('session worker request timed out'));
+				reject(new Error('worker request timed out'));
 			}, WORKER_REQUEST_TIMEOUT_MS);
 			timer.unref?.();
 			worker.pending.set(requestId, {resolve: value => resolve(value as T), reject, timer});
@@ -1308,20 +1250,35 @@ export class InkDaemon {
 
 	private sendWorkerEvent(sessionId: string, payload: Record<string, unknown>): void {
 		const worker = this.workers.get(sessionId);
-		if (worker && !worker.exited && worker.process.connected) {
+		if (worker) this.sendChannelEvent(worker, payload);
+	}
+
+	private sendChannelEvent(worker: WorkerChannel, payload: Record<string, unknown>): void {
+		if (!worker.exited && worker.process.connected) {
 			worker.process.send?.(payload);
 		}
+	}
+
+	private settleResponse(worker: WorkerChannel, message: WorkerResponse): void {
+		const pending = worker.pending.get(message.requestId);
+		if (!pending) return;
+		clearTimeout(pending.timer);
+		worker.pending.delete(message.requestId);
+		message.ok ? pending.resolve(message.data) : pending.reject(new Error(message.error));
+	}
+
+	private rejectPending(worker: WorkerChannel, reason: string): void {
+		for (const pending of worker.pending.values()) {
+			clearTimeout(pending.timer);
+			pending.reject(new Error(reason));
+		}
+		worker.pending.clear();
 	}
 
 
 	private async handleWorkerMessage(sessionId: string, message: WorkerEvent, worker: WorkerRuntime): Promise<void> {
 		if (message.type === 'response') {
-			const pending = worker?.pending.get(message.requestId);
-			if (pending) {
-				clearTimeout(pending.timer);
-				worker?.pending.delete(message.requestId);
-				message.ok ? pending.resolve(message.data) : pending.reject(new Error(message.error));
-			}
+			this.settleResponse(worker, message);
 			return;
 		}
 		if (this.workers.get(sessionId) !== worker) return;
@@ -1348,25 +1305,9 @@ export class InkDaemon {
 			}
 			return;
 		}
-		if (message.type === 'terminal-updated') {
-			for (const [socket, client] of this.clients.entries()) if (client.watchedTerminalSessionId === sessionId) sendMessage(socket, {type: 'terminal-updated', terminal: message.terminal});
-			return;
-		}
-		if (message.type === 'git-updated') {
-			for (const [socket, client] of this.clients.entries()) if (client.watchedGitSessionId === sessionId) sendMessage(socket, {type: 'git-updated', git: message.git});
-			return;
-		}
-		if (message.type === 'dev-updated') {
-			await this.updateSessionDevRunning(sessionId, message.dev.live);
-			for (const [socket, client] of this.clients.entries()) if (client.watchedDevSessionId === sessionId) sendMessage(socket, {type: 'dev-updated', dev: message.dev});
-			return;
-		}
 		if (message.type === 'output') {
-			const attached = worker?.attached[message.target];
-			if (attached && !attached.destroyed) {
-				const eventType = message.target === 'agent' ? 'output' : `${message.target}-output`;
-				sendMessage(attached, {type: eventType, sessionId, data: message.data} as ServerMessage);
-			}
+			const attached = worker.attached.agent;
+			if (attached && !attached.destroyed) sendMessage(attached, {type: 'output', sessionId, data: message.data});
 		}
 	}
 
@@ -1415,7 +1356,6 @@ export class InkDaemon {
 			exitSignal,
 			// Never start fresh behind the user's back: say how to (S) instead.
 			lastPreview: missingConversation ? `${lastPreview}\n\nClaude has no saved conversation ${missingConversation}. Press S to start a fresh conversation.` : lastPreview,
-			devRunning: false,
 			exitReason,
 		});
 		await fs.rm(getWorkerPidPath(sessionId), {force: true}).catch(() => {});
@@ -1423,17 +1363,25 @@ export class InkDaemon {
 		if (worker?.deleteWorktreeOnExit && worktree?.path) {
 			const cleanupKey = path.resolve(worktree.path);
 			this.cleanupWorktrees.add(cleanupKey);
-			// Every write below patches the latest record: notes/archive edits may land during these awaits.
-			const markDeleted = () => this.patchSession(sessionId, {worktree: {...(this.sessions.get(sessionId)?.worktree ?? worktree), deletedAt: new Date().toISOString()}, updatedAt: new Date().toISOString()});
+			// Every write below patches the latest record: notes/archive edits may land during these awaits. The deletion
+			// marks the worktree's incarnation, so every session of it loses its workspace and restart/merge.
+			const markDeleted = async () => {
+				const record = this.worktreeRecordOf(this.requireSession(sessionId));
+				if (record) await this.saveWorktreeRecord({...record, deletedAt: new Date().toISOString()});
+				else this.patchSession(sessionId, {worktree: {...(this.sessions.get(sessionId)?.worktree ?? worktree), deletedAt: new Date().toISOString()}, updatedAt: new Date().toISOString()});
+			};
 			try {
 				const repoCwd = existing.launchWorktreeRoot ?? existing.repoRoot;
 				await this.assertCleanupAllowed(sessionId, Boolean(worker.deleteBranchOnExit), worker.allowDataLoss ?? false);
+				// The workspace's shared Terminal/Git/Dev run inside the worktree: stop them (and wait) before removal.
+				const workspace = workspaceKey(existing);
+				if (workspace) { this.stopChangesWatch(workspace); await this.retireWorkspace(workspace); }
 				await removeWorktree(worktree.path, repoCwd, worktree.name);
-				markDeleted();
+				await markDeleted();
 				if (worker.deleteBranchOnExit && worktree.branch) await deleteLocalBranch(repoCwd, worktree.branch);
 			} catch (error) {
 				const gone = await fs.stat(worktree.path).then(() => false, statError => (statError as NodeJS.ErrnoException).code === 'ENOENT');
-				if (gone && !this.sessions.get(sessionId)?.worktree?.deletedAt) markDeleted();
+				if (gone && !this.sessions.get(sessionId)?.worktree?.deletedAt) await markDeleted();
 				const cleanupError = `${gone ? 'Worktree removed; cleanup incomplete' : 'Worktree retained'}: ${errorMessage(error)}`;
 				this.patchSession(sessionId, {cleanupError});
 				await this.log(cleanupError);
@@ -1467,12 +1415,6 @@ export class InkDaemon {
 				sendMessage(socket, {type: 'session-removed', sessionId});
 			}
 		}
-	}
-
-	private async updateSessionDevRunning(sessionId: string, devRunning: boolean): Promise<void> {
-		const session = this.sessions.get(sessionId);
-		if (!session || session.status === 'exited' || Boolean(session.devRunning) === devRunning) return;
-		await this.saveSession({...session, devRunning});
 	}
 
 	private async updateSessionNotes(sessionId: string, notes: string): Promise<SessionRecord> {
@@ -1517,400 +1459,325 @@ export class InkDaemon {
 		return this.buildPreviewRecord(session, session.lastPreview ?? '');
 	}
 
-	private buildTerminalRecord(sessionId: string | undefined, terminal?: RuntimeTerminal): TerminalRecord {
-		return {
-			sessionId,
-			content: terminal?.preview.getCachedSnapshot() ?? '',
-			live: Boolean(terminal && !terminal.exited),
-			cwd: terminal?.cwd,
-			exitCode: terminal?.exitCode,
-			exitSignal: terminal?.exitSignal,
-		};
+	/** The session's workspace (its worktree root), or undefined while it has none (deleted, or still being prepared). */
+	private workspaceKeyOf(session: SessionRecord): string | undefined {
+		return this.preparingSessions.has(session.id) ? undefined : workspaceKey(session);
 	}
 
-	private scheduleTerminalBroadcast(sessionId: string): void {
-		const terminal = this.terminals.get(sessionId);
-		if (!terminal || terminal.broadcastTimer) {
-			return;
-		}
-		terminal.broadcastTimer = setTimeout(() => {
-			terminal.broadcastTimer = undefined;
-			void this.broadcastTerminal(sessionId);
-		}, PREVIEW_BROADCAST_DELAY_MS);
+	private requireWorkspace(sessionId: string, pane: WorkspacePane): {session: SessionRecord; key: string} {
+		const session = this.requireSession(sessionId);
+		const key = this.workspaceKeyOf(session);
+		if (!key) throw new Error(`${PANE_LABELS[pane]} is unavailable: ${noWorkspaceReason(session)}`);
+		return {session, key};
 	}
 
-	private async broadcastTerminal(sessionId: string): Promise<void> {
-		const terminal = this.terminals.get(sessionId);
-		if (terminal) {
-			await terminal.preview.getSnapshot();
-		}
-		for (const [socket, client] of this.clients.entries()) {
-			if (client.watchedTerminalSessionId !== sessionId) {
-				continue;
-			}
-			sendMessage(socket, {type: 'terminal-updated', terminal: this.buildTerminalRecord(sessionId, terminal)});
-		}
-	}
-
-	private async ensureTerminal(sessionId: string, cols: number, rows: number): Promise<RuntimeTerminal> {
+	private workspaceOfSession(sessionId: string): WorkspaceRuntime | undefined {
 		const session = this.sessions.get(sessionId);
-		if (!session) {
-			throw new Error('session does not exist');
-		}
-		if (session.status === 'exited') {
-			throw new Error('cannot start terminal for exited session');
-		}
-
-		const existing = this.terminals.get(sessionId);
-		if (existing) {
-			if (existing.exited) {
-				this.cleanupTerminal(sessionId);
-			} else {
-				existing.term.resize(Math.max(1, cols), Math.max(1, rows));
-				await existing.preview.resize(cols, rows);
-				return existing;
-			}
-		}
-
-		const command = resolveShellCommand();
-		const term = pty.spawn(command, [], {
-			name: 'xterm-256color',
-			cwd: session.cwd,
-			env: {...process.env},
-			cols: Math.max(1, cols),
-			rows: Math.max(1, rows),
-		});
-		const terminal: RuntimeTerminal = {
-			term,
-			preview: new TerminalPreview(cols, rows),
-			cwd: session.cwd,
-			exited: false,
-		};
-		this.terminals.set(sessionId, terminal);
-
-		term.onData(output => {
-			void terminal.preview.write(output);
-			this.scheduleTerminalBroadcast(sessionId);
-			if (terminal.attachedSocket && !terminal.attachedSocket.destroyed) {
-				sendMessage(terminal.attachedSocket, {type: 'terminal-output', sessionId, data: output});
-			}
-		});
-
-		term.onExit(({exitCode, signal}) => {
-			terminal.exited = true;
-			terminal.exitCode = exitCode ?? null;
-			terminal.exitSignal = signal ?? null;
-			void this.broadcastTerminal(sessionId);
-		});
-
-		this.scheduleTerminalBroadcast(sessionId);
-		return terminal;
+		const key = session ? this.workspaceKeyOf(session) : undefined;
+		return key ? this.workspaces.get(key) : undefined;
 	}
 
-	private cleanupLocalPanes(sessionId: string): void {
-		this.cleanupTerminal(sessionId);
-		this.cleanupGit(sessionId);
-		this.cleanupDev(sessionId);
+	private workspaceDevLive(key: string | undefined): boolean {
+		return Boolean(key && this.workspaces.get(key)?.records.dev?.live);
 	}
 
-	private cleanupTerminal(sessionId: string): void {
-		const terminal = this.terminals.get(sessionId);
-		if (!terminal) {
-			return;
-		}
-		this.terminals.delete(sessionId);
-		if (terminal.broadcastTimer) {
-			clearTimeout(terminal.broadcastTimer);
-		}
-		try {
-			terminal.term.kill();
-		} catch {
-			// ignore cleanup errors
-		}
-		terminal.preview.dispose();
+	/** The workspace's worker, started on demand; refuses a worktree that is being deleted or is gone from disk. */
+	private async openWorkspace(key: string): Promise<WorkspaceRuntime> {
+		this.assertWorkspaceAvailable(key);
+		const existing = this.workspaces.get(key);
+		if (existing) return existing;
+		const present = await fs.stat(key).then(stat => stat.isDirectory(), () => false);
+		if (!present) throw new Error(`Worktree directory is missing: ${key}`);
+		this.assertWorkspaceAvailable(key);
+		return this.ensureWorkspace(key);
 	}
 
-	private async getTerminalRecord(sessionId: string | undefined, cols: number, rows: number): Promise<TerminalRecord> {
-		if (!sessionId) {
-			return {content: '', live: false};
-		}
-		const session = this.sessions.get(sessionId);
-		if (!session) {
-			return {sessionId, content: '', live: false};
-		}
-		if (session.status === 'exited') {
-			return {sessionId, content: '', live: false, cwd: session.cwd};
-		}
-		if (this.workers.has(sessionId)) {
-			return await this.sendWorkerRequest<TerminalRecord>(sessionId, {type: 'snapshot', target: 'terminal', cols, rows});
-		}
-		const terminal = await this.ensureTerminal(sessionId, cols, rows);
-		await terminal.preview.resize(cols, rows);
-		await terminal.preview.getSnapshot();
-		return this.buildTerminalRecord(sessionId, terminal);
-	}
-
-	private buildGitRecord(sessionId: string | undefined, git?: RuntimeTerminal): GitRecord {
-		return {
-			sessionId,
-			content: git?.preview.getCachedSnapshot() ?? '',
-			live: Boolean(git && !git.exited),
-			cwd: git?.cwd,
-			exitCode: git?.exitCode,
-			exitSignal: git?.exitSignal,
-		};
-	}
-
-	private scheduleGitBroadcast(sessionId: string): void {
-		const git = this.gits.get(sessionId);
-		if (!git || git.broadcastTimer) {
-			return;
-		}
-		git.broadcastTimer = setTimeout(() => {
-			git.broadcastTimer = undefined;
-			void this.broadcastGit(sessionId);
-		}, PREVIEW_BROADCAST_DELAY_MS);
-	}
-
-	private async broadcastGit(sessionId: string): Promise<void> {
-		const git = this.gits.get(sessionId);
-		if (git) {
-			await git.preview.getSnapshot();
-		}
-		for (const [socket, client] of this.clients.entries()) {
-			if (client.watchedGitSessionId !== sessionId) {
-				continue;
-			}
-			sendMessage(socket, {type: 'git-updated', git: this.buildGitRecord(sessionId, git)});
-		}
-	}
-
-	private async ensureGit(sessionId: string, cols: number, rows: number): Promise<RuntimeTerminal> {
-		const session = this.sessions.get(sessionId);
-		if (!session) {
-			throw new Error('session does not exist');
-		}
-		if (session.status === 'exited') {
-			throw new Error('cannot start lazygit for exited session');
-		}
-
-		const existing = this.gits.get(sessionId);
-		if (existing) {
-			if (existing.exited) {
-				this.cleanupGit(sessionId);
-			} else {
-				existing.term.resize(Math.max(1, cols), Math.max(1, rows));
-				await existing.preview.resize(cols, rows);
-				return existing;
-			}
-		}
-
-		const pending = this.gitStartPromises.get(sessionId);
-		if (pending) {
-			const git = await pending;
-			git.term.resize(Math.max(1, cols), Math.max(1, rows));
-			await git.preview.resize(cols, rows);
-			return git;
-		}
-
-		const start = (async () => {
-			const command = await resolveLazyGitCommand();
-			const current = this.gits.get(sessionId);
-			if (current && !current.exited) return current;
-			const term = pty.spawn(command, [], {
-				name: 'xterm-256color',
-				cwd: session.cwd,
-				env: {...process.env},
-				cols: Math.max(1, cols),
-				rows: Math.max(1, rows),
-			});
-			const git: RuntimeTerminal = {
-				term,
-					preview: new TerminalPreview(cols, rows),
-				cwd: session.cwd,
-				exited: false,
-			};
-			this.gits.set(sessionId, git);
-
-			term.onData(output => {
-				void git.preview.write(output);
-				this.scheduleGitBroadcast(sessionId);
-				if (git.attachedSocket && !git.attachedSocket.destroyed) {
-					sendMessage(git.attachedSocket, {type: 'git-output', sessionId, data: output});
-				}
-			});
-
-			term.onExit(({exitCode, signal}) => {
-				git.exited = true;
-				git.exitCode = exitCode ?? null;
-				git.exitSignal = signal ?? null;
-				void this.broadcastGit(sessionId);
-			});
-
-			this.scheduleGitBroadcast(sessionId);
-			return git;
-		})();
-		this.gitStartPromises.set(sessionId, start);
+	private async ensureWorkspace(key: string): Promise<WorkspaceRuntime> {
+		const existing = this.workspaces.get(key);
+		if (existing) return existing;
+		const pending = this.workspaceStarts.get(key);
+		if (pending) return pending;
+		const start = this.startWorkspaceWorker(key);
+		this.workspaceStarts.set(key, start);
 		try {
 			return await start;
 		} finally {
-			if (this.gitStartPromises.get(sessionId) === start) this.gitStartPromises.delete(sessionId);
+			if (this.workspaceStarts.get(key) === start) this.workspaceStarts.delete(key);
 		}
 	}
 
-	private cleanupGit(sessionId: string): void {
-		const git = this.gits.get(sessionId);
-		if (!git) {
+	private async startWorkspaceWorker(key: string): Promise<WorkspaceRuntime> {
+		await fs.mkdir(getWorkerDir(), {recursive: true});
+		const id = workspaceWorkerId(key);
+		const child = fork(getCliEntryPath(), ['--workspace-worker'], {stdio: ['ignore', 'pipe', 'pipe', 'ipc']});
+		const workspace: WorkspaceRuntime = {key, process: child, pending: new Map(), attached: {}, records: {}, busy: 0};
+		// Wire every listener before the first await so no worker event can be missed.
+		const logPath = getWorkerLogPath(id);
+		child.stdout?.on('data', chunk => void fs.appendFile(logPath, chunk).catch(() => {}));
+		child.stderr?.on('data', chunk => void fs.appendFile(logPath, chunk).catch(() => {}));
+		child.on('message', message => void this.handleWorkspaceMessage(workspace, message as WorkspaceEvent));
+		child.on('exit', () => void this.handleWorkspaceExit(workspace));
+		this.workspaces.set(key, workspace);
+		try {
+			await fs.writeFile(getWorkerPidPath(id), String(child.pid ?? ''), 'utf8').catch(() => {});
+			await this.requestChannel(workspace, {type: 'start', cwd: key});
+		} catch (error) {
+			if (this.workspaces.get(key) === workspace) this.workspaces.delete(key);
+			try { child.kill('SIGKILL'); } catch {}
+			throw error;
+		}
+		await this.log(`workspace worker pid=${child.pid ?? '?'} started for ${key}`);
+		return workspace;
+	}
+
+	/** A pane request (snapshot, attach, start-dev). A failed one (e.g. lazygit is not installed) may leave the worker empty: retire it then. */
+	private async requestPane<T>(workspace: WorkspaceRuntime, payload: Record<string, unknown>): Promise<T> {
+		workspace.busy += 1;
+		try {
+			return await this.requestChannel<T>(workspace, payload);
+		} catch (error) {
+			void this.retireIfIdle(workspace);
+			throw error;
+		} finally {
+			workspace.busy -= 1;
+		}
+	}
+
+	// A worker is retired once nothing lives in it (no pane, live or exited with output, and none starting) and no
+	// pane request is in flight. Its own panes never make it idle: a shell never exits on its own, and an exited
+	// pane keeps its output visible.
+	private async retireIfIdle(workspace: WorkspaceRuntime, idle?: boolean): Promise<void> {
+		if (this.workspaces.get(workspace.key) !== workspace) return;
+		idle ??= (await this.requestChannel<{idle: boolean}>(workspace, {type: 'idle'}).catch(() => ({idle: false}))).idle;
+		if (!idle || workspace.busy > 0 || this.workspaces.get(workspace.key) !== workspace) return;
+		await this.retireWorkspace(workspace.key).catch(error => this.log(`stopping workspace ${workspace.key} failed: ${errorMessage(error)}`));
+	}
+
+	private async handleWorkspaceMessage(workspace: WorkspaceRuntime, message: WorkspaceEvent): Promise<void> {
+		if (message.type === 'response') {
+			this.settleResponse(workspace, message);
 			return;
 		}
-		this.gits.delete(sessionId);
-		if (git.broadcastTimer) {
-			clearTimeout(git.broadcastTimer);
+		if (this.workspaces.get(workspace.key) !== workspace) return;
+		if (message.type === 'output') {
+			const attached = workspace.attached[message.target];
+			if (attached && !attached.socket.destroyed) sendMessage(attached.socket, {type: `${message.target}-output`, sessionId: attached.sessionId, data: message.data} as ServerMessage);
+			return;
 		}
-		try {
-			git.term.kill();
-		} catch {
-			// ignore cleanup errors
-		}
-		git.preview.dispose();
+		const [pane, record] = updatedPaneRecord(message);
+		workspace.records[pane] = record;
+		this.publishWorkspacePane(workspace.key, pane, record);
+		if (pane === 'dev') await this.syncDevRunning(workspace.key);
 	}
 
-	private async getGitRecord(sessionId: string | undefined, cols: number, rows: number): Promise<GitRecord> {
-		if (!sessionId) {
-			return {content: '', live: false};
+	private async handleWorkspaceExit(workspace: WorkspaceRuntime): Promise<void> {
+		workspace.exited = true;
+		this.rejectPending(workspace, 'workspace worker exited');
+		// A retired worker is finished up by retireWorkspace.
+		if (this.workspaces.get(workspace.key) !== workspace) return;
+		this.workspaces.delete(workspace.key);
+		await fs.rm(getWorkerPidPath(workspaceWorkerId(workspace.key)), {force: true}).catch(() => {});
+		await this.log(`workspace worker for ${workspace.key} exited unexpectedly`);
+		this.detachWorkspaceClients(workspace);
+		// Viewers keep the last output, marked stopped; viewing Terminal/Git again starts a new worker.
+		for (const [pane, last] of Object.entries(workspace.records) as Array<[WorkspacePane, WorkspacePaneRecord]>) {
+			this.publishWorkspacePane(workspace.key, pane, {content: last.content, live: false, cwd: workspace.key, command: last.command});
 		}
+		await this.syncDevRunning(workspace.key);
+	}
+
+	/** Stops a workspace's worker and every pane in it (Terminal, Git, Dev), waiting (bounded) until it exited. */
+	private async retireWorkspace(key: string): Promise<void> {
+		const workspace = this.workspaces.get(key) ?? await this.workspaceStarts.get(key)?.catch(() => undefined);
+		if (!workspace || this.workspaces.get(key) !== workspace) return;
+		this.workspaces.delete(key);
+		const exited = new Promise<void>(resolve => {
+			if (workspace.process.exitCode !== null || workspace.process.signalCode !== null) return resolve();
+			const timer = setTimeout(() => { try { workspace.process.kill('SIGKILL'); } catch {} resolve(); }, WORKSPACE_SHUTDOWN_TIMEOUT_MS);
+			workspace.process.once('exit', () => { clearTimeout(timer); resolve(); });
+		});
+		this.sendChannelEvent(workspace, {type: 'shutdown', requestId: randomUUID()});
+		await exited;
+		workspace.exited = true;
+		this.rejectPending(workspace, 'workspace worker stopped');
+		await fs.rm(getWorkerPidPath(workspaceWorkerId(key)), {force: true}).catch(() => {});
+		this.detachWorkspaceClients(workspace);
+		// Panes started again meanwhile run in a new worker; leave their state alone.
+		if (this.shuttingDown || this.workspaces.has(key)) return;
+		for (const pane of Object.keys(workspace.records) as WorkspacePane[]) this.publishWorkspacePane(key, pane, {content: '', live: false, cwd: key});
+		await this.syncDevRunning(key);
+	}
+
+	private detachWorkspaceClients(workspace: WorkspaceRuntime): void {
+		const attached = workspace.attached;
+		workspace.attached = {};
+		for (const [pane, viewer] of Object.entries(attached) as Array<[WorkspacePane, {socket: net.Socket; sessionId: string} | undefined]>) {
+			if (viewer && !viewer.socket.destroyed) sendMessage(viewer.socket, {type: `${pane}-detached`, sessionId: viewer.sessionId} as ServerMessage);
+		}
+	}
+
+	// Terminal and Git start on first view or attach (a shell or lazygit that exited starts again on the next view);
+	// Dev only through start-dev/run-action, so a workspace without a worker has no Dev to show.
+	private async watchWorkspacePane(pane: WorkspacePane, sessionId: string | undefined, cols: number, rows: number): Promise<WorkspacePaneRecord> {
+		if (!sessionId) return {content: '', live: false};
 		const session = this.sessions.get(sessionId);
-		if (!session) {
-			return {sessionId, content: '', live: false};
-		}
-		if (session.status === 'exited') {
-			return {sessionId, content: '', live: false, cwd: session.cwd};
-		}
-		if (this.workers.has(sessionId)) {
-			return await this.sendWorkerRequest<GitRecord>(sessionId, {type: 'snapshot', target: 'git', cols, rows});
-		}
-		const git = await this.ensureGit(sessionId, cols, rows);
-		await git.preview.resize(cols, rows);
-		await git.preview.getSnapshot();
-		return this.buildGitRecord(sessionId, git);
+		if (!session) return {sessionId, content: '', live: false};
+		const key = this.workspaceKeyOf(session);
+		// No `workspace` on the record tells the pane there is none yet (or any more).
+		if (!key) return {sessionId, content: '', live: false, cwd: session.cwd};
+		const workspace = pane === 'dev' ? this.workspaces.get(key) : await this.openWorkspace(key);
+		if (!workspace) return {sessionId, content: '', live: false, cwd: key, workspace: key};
+		// Last viewer to size the shared pane wins.
+		return {...await this.requestPane<WorkspacePaneRecord>(workspace, {type: 'snapshot', target: pane, cols, rows}), sessionId, workspace: key};
 	}
 
-	private buildDevRecord(sessionId: string | undefined, dev?: RuntimeTerminal & {command: string}): DevRecord {
-		return {
-			sessionId,
-			content: dev?.preview.getCachedSnapshot() ?? '',
-			live: Boolean(dev && !dev.exited),
-			cwd: dev?.cwd,
-			command: dev?.command,
-			exitCode: dev?.exitCode,
-			exitSignal: dev?.exitSignal,
-		};
+	// One attach per workspace pane; output goes to the attaching socket under its session ID.
+	private async attachWorkspacePane(socket: net.Socket, requestId: string, pane: WorkspacePane, sessionId: string, cols?: number, rows?: number): Promise<void> {
+		const {session, key} = this.requireWorkspace(sessionId, pane);
+		const workspace = pane === 'dev' ? this.workspaces.get(key) : await this.openWorkspace(key);
+		if (!workspace) throw new Error('no running dev command; press d to start it');
+		const current = workspace.attached[pane];
+		if (current && current.socket !== socket && !current.socket.destroyed) throw new Error(`${PANE_ATTACH_NAMES[pane]} is already attached elsewhere`);
+		const attachData = await this.requestPane<object & {initialFrame?: string}>(workspace, {type: 'attach', target: pane, cols: clampSize(cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
+		workspace.attached[pane] = {socket, sessionId: session.id};
+		// attachData carries terminalModes, so attach mode can mirror the pane's bracketed-paste state.
+		sendMessage(socket, response(requestId, {...session, ...attachData}));
+		sendMessage(socket, {type: `${pane}-attached`, sessionId: session.id} as ServerMessage);
+		if (attachData.initialFrame) sendMessage(socket, {type: `${pane}-output`, sessionId: session.id, data: attachData.initialFrame} as ServerMessage);
 	}
 
-	private scheduleDevBroadcast(sessionId: string): void {
-		const dev = this.devs.get(sessionId);
-		if (!dev || dev.broadcastTimer) return;
-		dev.broadcastTimer = setTimeout(() => {
-			dev.broadcastTimer = undefined;
-			void this.broadcastDev(sessionId);
-		}, PREVIEW_BROADCAST_DELAY_MS);
+	private async startWorkspaceDev(sessionId: string, key: string, command: string, cols: number, rows: number): Promise<DevRecord> {
+		const workspace = await this.openWorkspace(key);
+		const dev = await this.requestPane<DevRecord>(workspace, {type: 'start-dev', command, cols: clampSize(cols, DEFAULT_PREVIEW_COLS), rows: clampSize(rows, DEFAULT_PREVIEW_ROWS)});
+		if (this.workspaces.get(key) === workspace) {
+			workspace.records.dev = dev;
+			this.publishWorkspacePane(key, 'dev', dev);
+			await this.syncDevRunning(key);
+		}
+		return {...dev, sessionId, workspace: key};
 	}
 
-	private async broadcastDev(sessionId: string): Promise<void> {
-		const dev = this.devs.get(sessionId);
-		if (dev) await dev.preview.getSnapshot();
-		const record = this.buildDevRecord(sessionId, dev);
-		await this.updateSessionDevRunning(sessionId, record.live);
+	private async stopWorkspaceDev(key: string): Promise<void> {
+		const workspace = this.workspaces.get(key);
+		if (!workspace) return;
+		const {idle} = await this.requestChannel<{idle: boolean}>(workspace, {type: 'stop-dev'});
+		// Nothing else (Terminal, Git) lives in the worker: retire it (its PTYs were already signalled).
+		void this.retireIfIdle(workspace, idle);
+	}
+
+	// Every client watching any session of the workspace sees the one shared pane, stamped with the session it watches.
+	private publishWorkspacePane(key: string, pane: WorkspacePane, record: WorkspacePaneRecord): void {
 		for (const [socket, client] of this.clients.entries()) {
-			if (client.watchedDevSessionId !== sessionId) continue;
-			sendMessage(socket, {type: 'dev-updated', dev: record});
+			const watched = pane === 'terminal' ? client.watchedTerminalSessionId : pane === 'git' ? client.watchedGitSessionId : client.watchedDevSessionId;
+			const session = watched ? this.sessions.get(watched) : undefined;
+			if (session && this.workspaceKeyOf(session) === key) sendMessage(socket, paneUpdatedMessage(pane, {...record, sessionId: session.id, workspace: key}));
 		}
+	}
+
+	// The Git tab's Changes view. A workspace is polled (every CHANGES_POLL_MS, pushing only when the result changed)
+	// while at least one client watches one of its sessions; one queue per workspace keeps its Git runs from overlapping.
+	private changesWatch(key: string): ChangesWatch {
+		let watch = this.changeWatches.get(key);
+		if (!watch) { watch = {key, queue: Promise.resolve(), running: false, untracked: new Map()}; this.changeWatches.set(key, watch); }
+		return watch;
+	}
+
+	private changesExclusive<T>(watch: ChangesWatch, run: () => Promise<T>): Promise<T> {
+		const next = watch.queue.then(run, run);
+		watch.queue = next.catch(() => {});
+		return next;
+	}
+
+	/** A fresh status read (shared with a read already queued and not started), pushed to watchers when it changed. */
+	private refreshChanges(key: string): Promise<ChangesSnapshot> {
+		const watch = this.changesWatch(key);
+		if (watch.queued) return watch.queued;
+		const queued: Promise<ChangesSnapshot> = this.changesExclusive(watch, async () => {
+			if (watch.queued === queued) watch.queued = undefined;
+			watch.running = true;
+			try {
+				let snapshot: ChangesSnapshot;
+				try {
+					this.assertWorkspaceAvailable(key);
+					snapshot = await readChanges(key, watch.untracked);
+				} catch (error) {
+					snapshot = {record: emptyChanges({loaded: true, error: errorMessage(error).split('\n')[0]}), all: [], hasHead: false};
+				}
+				watch.last = {snapshot, at: Date.now()};
+				this.publishChanges(watch, snapshot.record);
+				return snapshot;
+			} finally { watch.running = false; }
+		});
+		watch.queued = queued;
+		return queued;
+	}
+
+	private publishChanges(watch: ChangesWatch, record: ChangesRecord): void {
+		const json = JSON.stringify(record);
+		if (json === watch.published) return;
+		watch.published = json;
+		for (const [socket, client] of this.clients.entries()) {
+			const session = client.watchedChangesSessionId ? this.sessions.get(client.watchedChangesSessionId) : undefined;
+			if (session && this.workspaceKeyOf(session) === watch.key) sendMessage(socket, {type: 'changes-updated', changes: {...record, sessionId: session.id, workspace: watch.key}});
+		}
+	}
+
+	private async watchChanges(sessionId: string | undefined): Promise<ChangesRecord> {
+		if (!sessionId) return emptyChanges();
+		const session = this.sessions.get(sessionId);
+		if (!session) return emptyChanges({sessionId});
+		const key = this.workspaceKeyOf(session);
+		// No `workspace` on the record tells the pane there is none yet (or any more).
+		if (!key) return emptyChanges({sessionId, loaded: true});
+		return {...(await this.refreshChanges(key)).record, sessionId, workspace: key};
+	}
+
+	/** Polls exactly the workspaces some client watches; the others stop (and are forgotten). */
+	private syncChangeWatches(): void {
+		const watched = new Set<string>();
+		for (const client of this.clients.values()) {
+			const session = client.watchedChangesSessionId ? this.sessions.get(client.watchedChangesSessionId) : undefined;
+			const key = session ? this.workspaceKeyOf(session) : undefined;
+			if (key) watched.add(key);
+		}
+		for (const key of [...this.changeWatches.keys()]) if (!watched.has(key)) this.stopChangesWatch(key);
+		if (this.shuttingDown) return;
+		for (const key of watched) {
+			const watch = this.changesWatch(key);
+			if (watch.timer) continue;
+			watch.timer = setInterval(() => { if (!watch.queued && !watch.running) void this.refreshChanges(key); }, CHANGES_POLL_MS);
+			watch.timer.unref();
+		}
+	}
+
+	/** Stops polling a workspace (no watchers left, its worktree is being deleted, or the daemon stops). */
+	private stopChangesWatch(key: string): void {
+		const watch = this.changeWatches.get(key);
+		if (!watch) return;
+		if (watch.timer) clearInterval(watch.timer);
+		this.changeWatches.delete(key);
+	}
+
+	// devRunning mirrors the workspace's Dev on every session in it, exited ones included (Dev outlives agents).
+	// Sessions that join or leave a workspace are brought in line by saveSession.
+	private async syncDevRunning(key: string): Promise<void> {
+		const devRunning = this.workspaceDevLive(key);
+		const changed: SessionRecord[] = [];
+		for (const session of this.sessions.values()) {
+			if (Boolean(session.devRunning) === devRunning || this.workspaceKeyOf(session) !== key) continue;
+			const updated = {...session, devRunning};
+			this.sessions.set(session.id, updated);
+			changed.push(updated);
+		}
+		if (!changed.length) return;
+		await this.persist();
+		for (const session of changed) this.broadcastSessionUpdated(session);
 	}
 
 	// An unreadable deckhand.json is treated as untrusted: fall back to the global dev command.
 	private async resolveSessionDevCommand(session: SessionRecord): Promise<string> {
 		const appConfig = await loadAppConfig();
 		return resolveDevCommand(await loadProjectConfig(session.cwd, appConfig).catch(() => undefined), appConfig);
-	}
-
-	private async startDev(sessionId: string, cols: number, rows: number): Promise<RuntimeTerminal & {command: string}> {
-		const session = this.sessions.get(sessionId);
-		if (!session) throw new Error('session does not exist');
-		if (session.status === 'exited') throw new Error('cannot start dev command for exited session');
-
-		const existing = this.devs.get(sessionId);
-		if (existing) {
-			if (existing.exited) this.cleanupDev(sessionId);
-			else {
-				existing.term.resize(Math.max(1, cols), Math.max(1, rows));
-				await existing.preview.resize(cols, rows);
-				return existing;
-			}
-		}
-
-		const command = await this.resolveSessionDevCommand(session);
-		const shell = resolveShellCommand();
-		const term = pty.spawn(shell, ['-ic', command], {
-			name: 'xterm-256color',
-			cwd: session.cwd,
-			env: {...process.env},
-			cols: Math.max(1, cols),
-			rows: Math.max(1, rows),
-		});
-		const dev: RuntimeTerminal & {command: string} = {
-			term,
-			preview: new TerminalPreview(cols, rows),
-			cwd: session.cwd,
-			exited: false,
-			command,
-		};
-		this.devs.set(sessionId, dev);
-
-		term.onData(output => {
-			void dev.preview.write(output);
-			this.scheduleDevBroadcast(sessionId);
-			if (dev.attachedSocket && !dev.attachedSocket.destroyed) {
-				sendMessage(dev.attachedSocket, {type: 'dev-output', sessionId, data: output});
-			}
-		});
-
-		term.onExit(({exitCode, signal}) => {
-			dev.exited = true;
-			dev.exitCode = exitCode ?? null;
-			dev.exitSignal = signal ?? null;
-			void this.broadcastDev(sessionId);
-		});
-
-		this.scheduleDevBroadcast(sessionId);
-		return dev;
-	}
-
-	private cleanupDev(sessionId: string): void {
-		const dev = this.devs.get(sessionId);
-		if (!dev) return;
-		this.devs.delete(sessionId);
-		if (dev.broadcastTimer) clearTimeout(dev.broadcastTimer);
-		try {
-			dev.term.kill();
-		} catch {
-			// ignore cleanup errors
-		}
-		dev.preview.dispose();
-	}
-
-	private async getDevRecord(sessionId: string | undefined, cols: number, rows: number): Promise<DevRecord> {
-		if (!sessionId) return {content: '', live: false};
-		const session = this.sessions.get(sessionId);
-		if (!session) return {sessionId, content: '', live: false};
-		if (session.status === 'exited') return {sessionId, content: '', live: false, cwd: session.cwd};
-		if (this.workers.has(sessionId)) {
-			return await this.sendWorkerRequest<DevRecord>(sessionId, {type: 'snapshot', target: 'dev', cols, rows});
-		}
-		const dev = this.devs.get(sessionId);
-		if (!dev) return {sessionId, content: '', live: false, cwd: session.cwd};
-		await dev.preview.resize(cols, rows);
-		await dev.preview.getSnapshot();
-		return this.buildDevRecord(sessionId, dev);
 	}
 
 	private async reorderSession(sessionId: string, direction: 'up' | 'down'): Promise<SessionRecord[]> {
@@ -2102,6 +1969,10 @@ export class InkDaemon {
 		// until a SessionStart hook or exit hint reports that ID. Everything else gets an exact ID now.
 		const branchesClaude = Boolean(forkParent) && program === 'claude';
 		const agentSessionRef = startingSession.agentSessionRef ?? (branchesClaude ? {provider: program, kind: 'name', value: agentName} : buildAgentSessionRef(program));
+		const baseRef = worktree.baseRef ?? (await currentBranch(launchWorktreeRoot) || await headSha(launchWorktreeRoot));
+		// The linked worktree the session runs in shares its markers with every session there: its own, or for a session
+		// without one (e.g. a sub-session) the linked worktree it was launched in. The main checkout has none.
+		const linkedRoot = ownWorktreePath(worktree) ?? (requestedWorktreeMode === 'none' && await isLinkedWorktreeRoot(launchWorktreeRoot) ? launchWorktreeRoot : undefined);
 		const preparedSession: SessionRecord = {
 			...startingSession,
 			cwd: sessionCwd,
@@ -2112,17 +1983,23 @@ export class InkDaemon {
 			forkedFromSessionId: forkParent?.id ?? startingSession.forkedFromSessionId,
 			forkedFromAgentSessionRef: forkParent?.agentSessionRef ?? startingSession.forkedFromAgentSessionRef,
 			launchWorktreeRoot,
-			worktree: {...worktree, baseRef: worktree.baseRef ?? (await currentBranch(launchWorktreeRoot) || await headSha(launchWorktreeRoot))},
+			worktree: {...worktree, baseRef},
 			updatedAt: new Date().toISOString(),
 		};
-		if (this.sessions.get(sessionId)?.status !== 'starting') {
-			const cancelled = this.sessions.get(sessionId);
-			if (cancelled && worktree.path) await this.saveSession({...cancelled, cwd: sessionCwd, launchWorktreeRoot, worktree: preparedSession.worktree, updatedAt: new Date().toISOString()});
-			return;
+		const current = this.sessions.get(sessionId);
+		const cancelled = current?.status !== 'starting';
+		if (cancelled && !(current && worktree.path)) return;
+		// No await from joining the incarnation until the session that references it is set.
+		const joined = linkedRoot ? this.joinWorktree(linkedRoot, worktree.origin === 'created') : undefined;
+		if (joined) preparedSession.worktree = {...preparedSession.worktree!, id: joined.id};
+		if (cancelled) await this.saveSession({...current!, cwd: sessionCwd, launchWorktreeRoot, worktree: preparedSession.worktree, updatedAt: new Date().toISOString()});
+		else {
+			this.sessions.set(sessionId, preparedSession);
+			this.broadcastSessionUpdated(preparedSession);
+			this.preparingSessions.delete(sessionId);
 		}
-		this.sessions.set(sessionId, preparedSession);
-		this.broadcastSessionUpdated(preparedSession);
-		this.preparingSessions.delete(sessionId);
+		if (joined?.superseded) await this.saveWorktreeRecord(joined.superseded);
+		if (cancelled) return;
 
 		// Setup uses the configuration that was reviewed for this launch (the same bytes whose trust chose
 		// the creation hook): global defaults, overlaid by the repository override only when trusted.
@@ -2158,7 +2035,6 @@ export class InkDaemon {
 		if (!session || session.status !== 'starting' || (launchId && session.launchId !== launchId)) {
 			return;
 		}
-		this.cleanupLocalPanes(sessionId);
 		await this.saveSession({
 			...session,
 			status: 'exited',
@@ -2265,21 +2141,31 @@ export class InkDaemon {
 		} else if (result.conflicted) {
 			await this.log(`${mode} merge for ${session.title} (${result.sourceRef}) into ${result.targetBranch} has conflicts to resolve`);
 		} else {
-			const updated: SessionRecord = {
-				...session,
-				worktree: {
-					...worktree,
-					mergedAt: new Date().toISOString(),
-					mergeMode: mode,
-					mergeTargetBranch: result.targetBranch,
-					mergeSourceRef: result.sourceRef,
-				},
-				updatedAt: new Date().toISOString(),
-			};
-			await this.saveSession(updated);
+			await this.saveMergeMarkers(sessionId, {
+				mergedAt: new Date().toISOString(),
+				mergeMode: mode,
+				mergeTargetBranch: result.targetBranch,
+				mergeSourceRef: result.sourceRef,
+			});
 			await this.log(`${mode} merged ${session.title} (${result.sourceRef}) into ${result.targetBranch}`);
 		}
 		return result;
+	}
+
+	// Replaces the merge markers (undefined: clears them) where they live: on the worktree record of a linked worktree
+	// (every session of it changes), else on the session (under `worktree` for the main worktree, else top-level).
+	private async saveMergeMarkers(sessionId: string, markers: WorktreeMarkers | undefined): Promise<SessionRecord> {
+		const session = this.requireSession(sessionId);
+		const record = this.worktreeRecordOf(session);
+		if (record) {
+			await this.saveWorktreeRecord({...withoutMarkers(record, MERGE_MARKERS), ...markers});
+			return this.requireSession(sessionId);
+		}
+		const updated: SessionRecord = {...withoutMarkers(session, MERGE_MARKERS), updatedAt: new Date().toISOString()};
+		const worktree: SessionWorktreeRecord | undefined = session.worktree && withoutMarkers(session.worktree, MERGE_MARKERS);
+		if (worktree?.path && worktree.mode !== 'none') updated.worktree = {...worktree, ...markers};
+		else Object.assign(updated, markers && {mergedAt: markers.mergedAt, mergeTargetBranch: markers.mergeTargetBranch, mergeSourceRef: markers.mergeSourceRef, mergeMarkedManually: markers.mergeMarkedManually});
+		return this.saveSession(updated);
 	}
 
 	private async markSessionMerged(sessionId: string, targetCwd: string): Promise<SessionRecord> {
@@ -2289,29 +2175,8 @@ export class InkDaemon {
 		}
 		const worktree = session.worktree;
 		const worktreePath = worktree?.mode !== 'none' ? worktree?.path : undefined;
-		if (worktree?.mergedAt) {
-			const unmergedWorktree = {...worktree};
-			delete unmergedWorktree.mergedAt;
-			delete unmergedWorktree.mergeMode;
-			delete unmergedWorktree.mergeTargetBranch;
-			delete unmergedWorktree.mergeSourceRef;
-			delete unmergedWorktree.mergeMarkedManually;
-			const updated: SessionRecord = {
-				...session,
-				worktree: unmergedWorktree,
-				updatedAt: new Date().toISOString(),
-			};
-			await this.saveSession(updated);
-			await this.log(`unmarked ${session.title} as merged`);
-			return updated;
-		}
-		if (session.mergedAt) {
-			const updated: SessionRecord = {...session, updatedAt: new Date().toISOString()};
-			delete updated.mergedAt;
-			delete updated.mergeTargetBranch;
-			delete updated.mergeSourceRef;
-			delete updated.mergeMarkedManually;
-			await this.saveSession(updated);
+		if (worktree?.mergedAt || session.mergedAt) {
+			const updated = await this.saveMergeMarkers(sessionId, undefined);
 			await this.log(`unmarked ${session.title} as merged`);
 			return updated;
 		}
@@ -2325,28 +2190,7 @@ export class InkDaemon {
 		if (!targetBranch) {
 			throw new Error('target worktree is detached; checkout a branch before marking merged');
 		}
-		const now = new Date().toISOString();
-		const updated: SessionRecord = worktreePath && worktree
-			? {
-				...session,
-				worktree: {
-					...worktree,
-					mergedAt: now,
-					mergeTargetBranch: targetBranch,
-					mergeSourceRef: sourceRef,
-					mergeMarkedManually: true,
-				},
-				updatedAt: now,
-			}
-			: {
-				...session,
-				mergedAt: now,
-				mergeTargetBranch: targetBranch,
-				mergeSourceRef: sourceRef,
-				mergeMarkedManually: true,
-				updatedAt: now,
-			};
-		await this.saveSession(updated);
+		const updated = await this.saveMergeMarkers(sessionId, {mergedAt: new Date().toISOString(), mergeTargetBranch: targetBranch, mergeSourceRef: sourceRef, mergeMarkedManually: true});
 		await this.log(`manually marked ${session.title} (${sourceRef}) merged into ${targetBranch}`);
 		return updated;
 	}
@@ -2378,20 +2222,30 @@ export class InkDaemon {
 		if (this.workers.has(sessionId) || existing.status === 'running') {
 			throw new Error('kill the session before removing it');
 		}
-		this.cleanupLocalPanes(sessionId);
 		this.summaries.forEach((_entry, slot) => { if (slot.startsWith(`${sessionId}\0`)) this.summaries.delete(slot); });
+		const workspace = this.workspaceKeyOf(existing);
 		this.sessions.delete(sessionId);
+		// A worktree record lives as long as a session references it.
+		const worktreeId = existing.worktree?.id;
+		if (worktreeId && ![...this.sessions.values()].some(session => session.worktree?.id === worktreeId)) this.worktrees.delete(worktreeId);
 		await this.persist();
 		this.broadcastSessionRemoved(existing);
+		this.syncChangeWatches();
+		// Workspace panes outlive agents but not their workspace's sessions: with the last one gone, nothing could show
+		// or stop them (a shell never exits on its own).
+		if (workspace && ![...this.sessions.values()].some(session => this.workspaceKeyOf(session) === workspace)) {
+			void this.retireWorkspace(workspace).catch(error => this.log(`stopping workspace ${workspace} failed: ${errorMessage(error)}`));
+		}
 	}
 
 	// Coalesced: at most one write in flight plus one queued. Every caller arriving before the
-	// queued write snapshots the sessions shares it, so bursts of updates cost one write.
+	// queued write snapshots the sessions shares it, so bursts of updates cost one write. Worktree markers are written
+	// only in their records (storedSession drops the projection).
 	private persist(): Promise<void> {
 		if (this.persistQueued) return this.persistQueued;
 		const operation = this.persistInFlight.catch(() => {}).then(() => {
 			this.persistQueued = undefined;
-			return saveSessions(sortSessionsNewestFirst([...this.sessions.values()]));
+			return saveState({sessions: sortSessionsNewestFirst([...this.sessions.values()]).map(storedSession), worktrees: [...this.worktrees.values()]});
 		});
 		this.persistQueued = operation;
 		this.persistInFlight = operation;

@@ -29,13 +29,19 @@ function spawnDetached(command: string, args: string[], onError: (message: strin
 	}
 }
 
-export function openInEditor(target: string, onError: (message: string) => void): string | undefined {
+/**
+ * Opens `target` in Cursor or VS Code; with `line`, at that line (`-g <path>:<line>`, both CLIs; VS Code's defaults
+ * reuse the last active window). The macOS `open -a` fallback just opens the file.
+ */
+export function openInEditor(target: string, onError: (message: string) => void, line?: number): string | undefined {
 	const editor = resolveEditorCommand();
 	if (!editor) {
 		onError('could not find cursor or code command on PATH');
 		return undefined;
 	}
-	return spawnDetached(editor.command, [...editor.args, target], onError) ? editor.label : undefined;
+	const cli = editor.command !== 'open';
+	const args = line !== undefined && cli ? ['-g', `${target}:${Math.max(1, Math.floor(line))}`] : [target];
+	return spawnDetached(editor.command, [...editor.args, ...args], onError) ? editor.label : undefined;
 }
 
 export function openUrl(url: string, onError: (message: string) => void): boolean {
