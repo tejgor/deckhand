@@ -7,10 +7,10 @@ import {DevPane} from './devPane.js';
 import {DetailsPane, detailsViewport, scrollDetails} from './detailsPane.js';
 import {cleanupOverrideText, createPrConfirmText, projectActions, trustReviewText, workspaceSummaryText} from './detailTexts.js';
 import {openInEditor, openUrl} from './desktop.js';
-import {MenuList, MenuPane, SelectableRow, type HintPart} from './menu.js';
+import {MenuList, MenuPane, SelectableRow, fitHint, type HintPart} from './menu.js';
 import {isSettingsFlowMode, useSettingsFlow} from './settingsFlow.js';
 import {useHelp} from './helpPane.js';
-import {filterSessionList, sessionNeedsAttention, SESSION_FILTERS, type SessionFilter} from './sessionFeatures.js';
+import {filterCycleMessage, filterSessionList, nextSessionFilter, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
 import {useChangesFlow} from './changesFlow.js';
 import {emptyChanges, type ChangesRecord} from './changesModel.js';
 import {NotesPane} from './notesPane.js';
@@ -442,7 +442,7 @@ function mergedTargetBranch(session: SessionRecord): string | undefined {
 	return session.worktree?.mergeTargetBranch ?? session.mergeTargetBranch;
 }
 
-function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true): string {
+function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true): string {
 	switch (mode) {
 		// Every other mode replaces the right pane with a screen that shows its own (single) hint line.
 		case 'help': case 'settings':
@@ -471,7 +471,12 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 			const lifecycle = session?.status === 'exited'
 				? (session.worktree?.deletedAt ? 'backspace remove' : 's resume • S fresh')
 				: running ? 'x kill' : session?.status === 'starting' ? 'x cancel start' : undefined;
-			return [attach, pane, lifecycle, '? help', 'n new', 'C settings', 'i info', 'e actions', '/ search', 'f filter', 'q quit'].filter(Boolean).join(' • ');
+			// Archiving is offered where it is the likely next step (finished sessions), and undoing it where it applies.
+			const archive: HintPart | undefined = session?.archivedAt ? {text: 'A unarchive', drop: 2}
+				: session?.status === 'exited' ? {text: 'A archive', drop: 2} : undefined;
+			// Higher drop numbers go first when the line is too narrow; ? help always stays.
+			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, '? help', {text: 'n new', drop: 1}, {text: 'C settings', drop: 1}, {text: 'i info', drop: 3}, {text: 'e actions', drop: 3}, {text: '/ search', drop: 2}, {text: 'f filter', drop: 2}, {text: 'q quit', drop: 1}];
+			return fitHint(parts.filter((part): part is string | HintPart => Boolean(part)), width, ' • ');
 		}
 	}
 }
@@ -1778,8 +1783,18 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === '/') { setMode('search'); return; }
-			if (input === 'f') { setSessionFilter(filter => SESSION_FILTERS[(SESSION_FILTERS.indexOf(filter) + 1) % SESSION_FILTERS.length]!); return; }
-			if (input === 'A' && client && selectedSession) { void client.archiveSession(selectedSession.id, !selectedSession.archivedAt).catch(error => setError(errorMessage(error))); return; }
+			if (input === 'f') {
+				const next = nextSessionFilter(sessionFilter);
+				setSessionFilter(next); setStatusMessage(filterCycleMessage(next));
+				return;
+			}
+			if (input === 'A' && client && selectedSession) {
+				const {id, archivedAt} = selectedSession, title = displaySessionTitle(selectedSession, sessions);
+				// Archiving hides the session from the default view, so say where it went.
+				void client.archiveSession(id, !archivedAt).then(() => setStatusMessage(archivedAt ? `Unarchived ${title}`
+					: `Archived ${title}${sessionFilter === 'active' ? ' · hidden here, press f for the archived view' : ''}`)).catch(error => setError(errorMessage(error)));
+				return;
+			}
 			if (input === '!') {
 				const targets = sessions.filter(session => !session.archivedAt && sessionNeedsAttention(session));
 				const next = targets[(targets.findIndex(session => session.id === selectedId) + 1) % Math.max(1, targets.length)];
@@ -2196,7 +2211,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Exactly FOOTER_ROWS rows, each truncated, so the layout above never shifts.
 	const footerRows = [
 		<Text key="hint" color={mode === 'search' ? THEME.active : THEME.muted} wrap="truncate-end">
-			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : footerHint(mode, activeTab, selectedSession, previewScrollSensitivity, activePaneReadyForAttach)}
+			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach)}
 		</Text>,
 		<Text key="messages" wrap="truncate-end">
 			{footerMessages.length > 0
@@ -2216,7 +2231,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			</Box>
 			<Box justifyContent="space-between" width={terminalSize.cols}>
 				<Text color={THEME.muted} wrap="truncate-end">{truncate(compactPath(repoRoot, repoLabelWidth), repoLabelWidth)}</Text>
-				<Text color={THEME.muted} wrap="truncate-end">{visibilityLabel}</Text>
+				{/* A non-default filter is highlighted: some sessions are hidden from this view. */}
+				<Text color={sessionFilter === 'active' && !sessionQuery ? THEME.muted : THEME.active} wrap="truncate-end">{visibilityLabel}</Text>
 			</Box>
 			<Box flexDirection="row">
 				{settingsOpen ? settingsFlow.render(terminalSize.cols, layout.contentHeight) : mode === 'help' ? help.render(terminalSize.cols, layout.contentHeight) : <>
