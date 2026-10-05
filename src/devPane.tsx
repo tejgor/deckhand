@@ -2,6 +2,7 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import type {DevRecord, SessionRecord} from './types.js';
 import {THEME, compactPath, fitLines, truncate} from './ui.js';
+import {workspacePaneUnavailable} from './workspace.js';
 
 interface DevPaneProps {
 	session?: SessionRecord;
@@ -10,12 +11,14 @@ interface DevPaneProps {
 	height: number;
 }
 
+// Dev belongs to the session's workspace (worktree) and is shared by every session in it, running or not.
 function fallbackMessage(session: SessionRecord | undefined, dev: DevRecord): string {
 	if (!session) return 'No session selected.';
-	if (session.status === 'exited') return 'Session exited. Restart it to run a dev command.';
+	const unavailable = workspacePaneUnavailable(session, dev);
+	if (unavailable) return `Dev is unavailable: ${unavailable}.`;
 	if (!dev.live && dev.content) return dev.content;
 	if (!dev.live && dev.sessionId === session.id) return 'Dev command exited. Press d to start it again.';
-	return dev.content || 'Press d to start dev command.';
+	return dev.content || 'Press d to start the dev command (shared by every session in this worktree).';
 }
 
 export function DevPane({session, dev, width, height}: DevPaneProps) {

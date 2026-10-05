@@ -5,13 +5,17 @@ import path from 'node:path';
 import os from 'node:os';
 import {spawn, type ChildProcess} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
-import {request} from '../src/client.js';
-import type {ClientRequest, SessionRecord, ProjectInfo, DevRecord, SessionCleanupInspection} from '../src/types.js';
+import net from 'node:net';
+import {once} from 'node:events';
+import {attachJsonParser, request, writeMessage} from '../src/client.js';
+import {getSocketPath, getWorkerPidPath} from '../src/paths.js';
+import type {ChangeDiff, ChangesRecord, ClientRequest, SessionRecord, ProjectInfo, DevRecord, GitRecord, ServerMessage, SessionCleanupInspection, TerminalRecord} from '../src/types.js';
 import type {WorktreeInfo} from '../src/git.js';
 import {cli, repo, git, waitFor, withEnv, isAlive} from './helpers.js';
 import {loadAppConfig, loadState, saveState, updateAppConfig} from '../src/storage.js';
 import type {SettingsInfo, WorktreeCandidates} from '../src/settingsInfo.js';
 import {applyChange, initialLinks, linkSelection, infoLayer} from '../src/settingsModel.js';
+import {workspaceKey, workspacePaneUnavailable, workspaceWorkerId} from '../src/workspace.js';
 const fakeAgent = `#!/usr/bin/env node
 const fs = require('fs');
 const cp = require('child_process');
@@ -32,7 +36,7 @@ async function stop(child: ChildProcess): Promise<void> {
 	const ended = new Promise<void>(resolve => child.once('exit', () => resolve()));
 	child.kill('SIGTERM'); await ended;
 }
-test('daemon features operate in isolated state with fake agents', {timeout: 60000}, async t => {
+test('daemon features operate in isolated state with fake agents', {timeout: 90000}, async t => {
 	const root = await repo();
 	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-state-'));
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
@@ -305,11 +309,334 @@ test('daemon features operate in isolated state with fake agents', {timeout: 600
 		const legacyPath = path.join(home, 'legacy-pi.jsonl');
 		const legacy: Record<string, SessionRecord['agentSessionRef']> = {[claude.id]: {provider: 'claude', kind: 'name', value: 'dh-legacy'}, [pi.id]: {provider: 'pi', kind: 'path', value: legacyPath}};
 		const saved = await loadState();
-		await saveState({sessions: saved.sessions.map(item => legacy[item.id] ? {...item, agentSessionRef: legacy[item.id]} : item)});
+		await saveState({...saved, sessions: saved.sessions.map(item => legacy[item.id] ? {...item, agentSessionRef: legacy[item.id]} : item)});
 		daemon = launch();
 		await waitFor(async () => { try { return await call<{ok: boolean}>({type: 'ping'}); } catch { return {ok: false}; } }, result => result.ok);
 		assert.deepEqual((await relaunch(claude.id)).slice(0, 2), ['--resume', 'dh-legacy']);
 		assert.deepEqual((await relaunch(pi.id)).slice(0, 2), ['--session', legacyPath]);
 		await killAndWait(claude.id); await killAndWait(pi.id);
+	});
+
+	await t.test('sessions in one worktree share one Dev that outlives their agents; another worktree has its own', async () => {
+		await updateAppConfig(current => ({...current, defaults: {devCommand: `node -e "console.log('dev-pid=' + process.pid + ' cwd=' + process.cwd()); setInterval(() => {}, 1000)"`}}));
+		const watch = (id: string) => call<DevRecord>({type: 'watch-dev', sessionId: id, cols: 120, rows: 24} as any);
+		const startDev = (id: string) => call<DevRecord>({type: 'start-dev', sessionId: id, cols: 120, rows: 24} as any);
+		const devPid = async (id: string) => Number((await waitFor(() => watch(id), record => record.live && /dev-pid=\d+/.test(record.content))).content.match(/dev-pid=(\d+)/)![1]);
+		const devRunning = (ids: string[], expected: boolean[]) => waitFor(() => list(), items => ids.every((id, index) => Boolean(items.find(item => item.id === id)?.devRunning) === expected[index]));
+		// A new worktree and a second session attached to it share one workspace; a third worktree is another.
+		const first = await create('ws-shared', 'claude', 'new');
+		const firstState = await waitFor(() => state(first.id), item => item.status === 'running');
+		const second = await call<SessionRecord>({type: 'create', input: {title: 'ws-attached', program: 'pi', cwd: root, repoRoot: root, cols: 80, rows: 24, worktreeMode: 'existing', existingWorktreePath: firstState.cwd}} as any);
+		const solo = await create('ws-solo', 'claude', 'new');
+		const [secondState, soloState] = await Promise.all([second, solo].map(session => waitFor(() => state(session.id), item => item.status === 'running')));
+		const key = workspaceKey(firstState)!;
+		assert.equal(workspaceKey(secondState!), key); assert.notEqual(workspaceKey(soloState!), key);
+
+		const started = await startDev(first.id);
+		assert.equal(started.live, true); assert.equal(started.workspace, key); assert.equal(started.sessionId, first.id);
+		const pid = await devPid(second.id);
+		assert.equal(await devPid(first.id), pid);
+		// Starting from the other session reuses the shared process.
+		assert.equal((await startDev(second.id)).sessionId, second.id);
+		assert.equal(await devPid(second.id), pid);
+		await devRunning([first.id, second.id, solo.id], [true, true, false]);
+		const soloDev = await watch(solo.id);
+		assert.equal(soloDev.live, false); assert.equal(soloDev.workspace, workspaceKey(soloState!));
+		await startDev(solo.id);
+		const soloPid = await devPid(solo.id);
+		assert.notEqual(soloPid, pid);
+		assert.ok((await watch(solo.id)).content.includes(`cwd=${soloState!.cwd}`));
+		await devRunning([first.id, second.id, solo.id], [true, true, true]);
+
+		// Dev outlives an agent: still visible from, stoppable and startable by the exited session.
+		await killAndWait(second.id);
+		assert.ok(isAlive(pid)); assert.equal((await watch(second.id)).live, true);
+		await devRunning([first.id, second.id], [true, true]);
+		await call({type: 'stop-dev', sessionId: second.id} as any);
+		await waitFor(async () => isAlive(pid), alive => !alive);
+		await devRunning([first.id, second.id], [false, false]);
+		assert.equal((await watch(first.id)).live, false);
+		await startDev(second.id);
+		const restarted = await devPid(first.id);
+
+		// Deleting the worktree stops its Dev before removal; a deleted worktree has no Dev.
+		await call({type: 'kill', sessionId: first.id, deleteWorktree: true, deleteBranch: true} as any);
+		const deleted = await waitFor(() => state(first.id), item => Boolean(item.worktree?.deletedAt));
+		assert.equal(isAlive(restarted), false); assert.equal(deleted.devRunning, false);
+		await devRunning([second.id], [false]);
+		await assert.rejects(startDev(first.id), /worktree was deleted/);
+
+		// Removing a workspace's last session stops its Dev.
+		await killAndWait(solo.id);
+		assert.ok(isAlive(soloPid));
+		await call({type: 'remove', sessionId: solo.id} as any);
+		await waitFor(async () => isAlive(soloPid), alive => !alive);
+		await updateAppConfig(current => ({...current, defaults: undefined}));
+	});
+
+	await t.test('sessions in one worktree share one Terminal and one lazygit, also once exited; the workspace stops them with its worktree or last session', async () => {
+		// A fake lazygit (bin is first on the daemon's PATH) that reports its PID and cwd and stays up.
+		const lazygit = path.join(bin, 'lazygit');
+		await fs.writeFile(lazygit, `#!/usr/bin/env node\nconsole.log('lazygit-pid=' + process.pid + ' cwd=' + process.cwd());\nsetInterval(() => {}, 1000);\n`, {mode: 0o755});
+		await updateAppConfig(current => ({...current, defaults: {devCommand: `node -e "setInterval(() => {}, 1000)"`}}));
+		// One persistent connection: the fire-and-forget input path, and a UI-like watcher that receives fan-out.
+		const socket = net.createConnection(getSocketPath()); await once(socket, 'connect');
+		const events: ServerMessage[] = []; attachJsonParser(socket, message => void events.push(message));
+		const send = (message: object) => writeMessage(socket, message as ClientRequest);
+		t.after(() => { socket.destroy(); return fs.rm(lazygit, {force: true}); });
+		// Wide enough that no echoed worktree path wraps.
+		const watch = (id: string) => call<TerminalRecord>({type: 'watch-terminal', sessionId: id, cols: 300, rows: 24} as any);
+		const watchGit = (id: string) => call<GitRecord>({type: 'watch-git', sessionId: id, cols: 300, rows: 24} as any);
+		// Typed lines echo `$$`; only the shell's output has digits there.
+		const shell = async (id: string) => {
+			const marker = randomUUID().slice(0, 8);
+			await waitFor(() => watch(id), record => record.live); // Input reaches only a started shell.
+			send({type: 'terminal-input', sessionId: id, data: `echo ${marker}=$$:$(pwd -P)\r`});
+			const [, pid, cwd] = (await waitFor(() => watch(id), record => new RegExp(`${marker}=\\d+:`).test(record.content))).content.match(new RegExp(`${marker}=(\\d+):(\\S+)`))!;
+			return {pid: Number(pid), cwd};
+		};
+		const gitPid = async (id: string) => Number((await waitFor(() => watchGit(id), record => record.live && /lazygit-pid=\d+/.test(record.content))).content.match(/lazygit-pid=(\d+)/)![1]);
+		const first = await create('term-shared', 'claude', 'new');
+		const firstState = await waitFor(() => state(first.id), item => item.status === 'running');
+		const second = await call<SessionRecord>({type: 'create', input: {title: 'term-attached', program: 'pi', cwd: root, repoRoot: root, cols: 80, rows: 24, worktreeMode: 'existing', existingWorktreePath: firstState.cwd}} as any);
+		const solo = await create('term-solo', 'claude', 'new');
+		const [, soloState] = await Promise.all([second, solo].map(session => waitFor(() => state(session.id), item => item.status === 'running')));
+		const key = workspaceKey(firstState)!;
+		const workerPidFile = getWorkerPidPath(workspaceWorkerId(key));
+
+		// Terminal and Git start on first view, in the workspace worker; both sessions see the same shell and lazygit.
+		const viewed = await watch(first.id);
+		assert.equal(viewed.workspace, key); assert.equal(viewed.sessionId, first.id);
+		await fs.access(workerPidFile);
+		const {pid: shellPid, cwd} = await shell(first.id);
+		assert.equal(cwd, await fs.realpath(firstState.cwd));
+		assert.equal((await shell(second.id)).pid, shellPid);
+		const lazygitPid = await gitPid(first.id);
+		assert.equal(await gitPid(second.id), lazygitPid);
+		const solos = await shell(solo.id);
+		assert.notEqual(solos.pid, shellPid); assert.equal(solos.cwd, await fs.realpath(soloState!.cwd));
+		assert.notEqual(await gitPid(solo.id), lazygitPid);
+
+		// Fan-out: a client watching one session sees output typed through another session of the workspace.
+		send({type: 'watch-terminal', requestId: randomUUID(), sessionId: first.id, cols: 300, rows: 24});
+		send({type: 'terminal-input', sessionId: second.id, data: 'echo fanout-$((40+2))\r'});
+		await waitFor(async () => events.some(event => event.type === 'terminal-updated' && event.terminal.sessionId === first.id && event.terminal.workspace === key && /fanout-42/.test(event.terminal.content)), Boolean);
+		assert.ok(!events.some(event => event.type === 'terminal-updated' && event.terminal.sessionId !== first.id));
+
+		// Attach goes through the workspace, mirrors bracketed paste, and allows one attacher per pane.
+		send({type: 'terminal-input', sessionId: first.id, data: `printf '\\033[?2004h'; echo paste-$((2+3))\r`});
+		await waitFor(() => watch(first.id), record => /paste-5/.test(record.content));
+		const attachId = randomUUID();
+		send({type: 'attach-terminal', requestId: attachId, sessionId: second.id, cols: 300, rows: 30});
+		const attached = await waitFor(async () => events.find(event => event.type === 'response' && event.requestId === attachId), Boolean) as Extract<ServerMessage, {type: 'response'}>;
+		assert.equal(attached.ok, true);
+		assert.equal((attached as {data?: {terminalModes?: {bracketedPaste?: boolean}}}).data?.terminalModes?.bracketedPaste, true);
+		await assert.rejects(call({type: 'attach-terminal', sessionId: first.id, cols: 80, rows: 24} as any), /already attached elsewhere/);
+		send({type: 'terminal-input', sessionId: second.id, data: 'echo attached-$((1+1))\r'});
+		await waitFor(async () => events.some(event => event.type === 'terminal-output' && event.sessionId === second.id && /attached-2/.test(event.data)), Boolean);
+		send({type: 'terminal-detach', sessionId: second.id});
+		await waitFor(async () => events.some(event => event.type === 'terminal-detached' && event.sessionId === second.id), Boolean);
+
+		// The panes outlive agents: an exited session still has the shared shell and lazygit.
+		await killAndWait(second.id);
+		assert.ok(isAlive(shellPid)); assert.equal((await watch(second.id)).live, true);
+		assert.equal((await shell(second.id)).pid, shellPid);
+		// A lazygit that exited starts again on the next view.
+		process.kill(lazygitPid, 'SIGKILL');
+		await waitFor(() => watchGit(first.id), record => record.live && !record.content.includes(`lazygit-pid=${lazygitPid}`));
+		const relaunchedGit = await gitPid(second.id);
+		assert.notEqual(relaunchedGit, lazygitPid);
+		// Stopping Dev keeps a worker whose Terminal/Git are in use.
+		await call({type: 'start-dev', sessionId: second.id, cols: 80, rows: 24} as any);
+		await call({type: 'stop-dev', sessionId: second.id} as any);
+		await new Promise(resolve => setTimeout(resolve, 300));
+		assert.ok(isAlive(shellPid)); assert.equal((await shell(first.id)).pid, shellPid);
+
+		// Kill-with-delete stops the workspace's panes before removing the worktree; the deleted session has no workspace.
+		await call({type: 'kill', sessionId: first.id, deleteWorktree: true, allowDataLoss: true} as any);
+		const deleted = await waitFor(() => state(first.id), item => Boolean(item.worktree?.deletedAt));
+		assert.equal(isAlive(shellPid), false); assert.equal(isAlive(relaunchedGit), false);
+		await assert.rejects(fs.access(workerPidFile));
+		await assert.rejects(fs.access(deleted.cwd));
+		const gone = await watch(first.id);
+		assert.equal(gone.live, false); assert.equal(gone.workspace, undefined);
+		await assert.rejects(call({type: 'attach-terminal', sessionId: first.id, cols: 80, rows: 24} as any), /Terminal is unavailable: its worktree was deleted/);
+		// The deletion belongs to the worktree: its other (exited) session has no workspace either.
+		assert.equal((await state(second.id)).worktree?.deletedAt, deleted.worktree?.deletedAt);
+		assert.equal((await watch(second.id)).workspace, undefined);
+
+		// Removing a workspace's last session stops its shell (which never exits on its own).
+		await killAndWait(solo.id);
+		assert.ok(isAlive(solos.pid));
+		await call({type: 'remove', sessionId: solo.id} as any);
+		await waitFor(async () => isAlive(solos.pid), alive => !alive);
+		await waitFor(() => fs.access(getWorkerPidPath(workspaceWorkerId(workspaceKey(soloState!)!))).then(() => true, () => false), exists => !exists);
+		socket.destroy(); await fs.rm(lazygit, {force: true});
+		await updateAppConfig(current => ({...current, defaults: undefined}));
+	});
+
+	await t.test('the Git tab\'s Changes are per worktree: watched sessions get pushed updates; stage/unstage only touch listed paths', async () => {
+		const socket = net.createConnection(getSocketPath()); await once(socket, 'connect');
+		const events: ServerMessage[] = []; attachJsonParser(socket, message => void events.push(message));
+		t.after(() => socket.destroy());
+		const pushed = async (sessionId: string, matches: (changes: ChangesRecord) => boolean) => {
+			const found = (await waitFor(async () => events.find(event => event.type === 'changes-updated' && event.changes.sessionId === sessionId && matches(event.changes)), Boolean, 10000)) as Extract<ServerMessage, {type: 'changes-updated'}>;
+			return found.changes;
+		};
+		const shape = (changes: ChangesRecord) => changes.entries.map(entry => `${entry.group}:${entry.status}:${entry.path}`);
+		const first = await create('changes-a', 'claude', 'new');
+		const firstState = await waitFor(() => state(first.id), item => item.status === 'running');
+		const second = await call<SessionRecord>({type: 'create', input: {title: 'changes-b', program: 'pi', cwd: root, repoRoot: root, cols: 80, rows: 24, worktreeMode: 'existing', existingWorktreePath: firstState.cwd}} as any);
+		await waitFor(() => state(second.id), item => item.status === 'running');
+		const key = workspaceKey(firstState)!;
+
+		// The second session's viewer watches; changes made in the worktree arrive by polling.
+		writeMessage(socket, {type: 'watch-changes', requestId: randomUUID(), sessionId: second.id});
+		const initial = await call<ChangesRecord>({type: 'watch-changes', sessionId: first.id} as any);
+		assert.equal(initial.workspace, key); assert.equal(initial.loaded, true); assert.deepEqual(initial.entries, []);
+		await fs.writeFile(path.join(key, 'file.txt'), 'first\nchanged\n'); await fs.writeFile(path.join(key, 'new file.txt'), 'new\n');
+		const polled = await pushed(second.id, changes => changes.counts.untracked === 1);
+		assert.equal(polled.workspace, key); assert.deepEqual(shape(polled), ['unstaged:M:file.txt', 'untracked:?:new file.txt']);
+		assert.equal(polled.entries[0]!.additions, 1);
+
+		// One session stages; the other session's viewer receives the update at once.
+		events.length = 0;
+		const staged = await call<{changes: ChangesRecord}>({type: 'change-stage', sessionId: first.id, mode: 'stage', group: 'unstaged', path: 'file.txt'} as any);
+		assert.deepEqual(shape(staged.changes), ['staged:M:file.txt', 'untracked:?:new file.txt']); assert.equal(staged.changes.sessionId, first.id);
+		await pushed(second.id, changes => changes.counts.staged === 1);
+		const diff = await call<ChangeDiff>({type: 'changes-diff', sessionId: second.id, group: 'staged', path: 'file.txt'} as any);
+		assert.match(diff.text, /^\+changed$/m); assert.equal(diff.firstLine, 2);
+		// Paths that are not listed (or listed on the other side) are refused, and so are sessions without a workspace.
+		await assert.rejects(call({type: 'change-stage', sessionId: first.id, mode: 'stage', group: 'untracked', path: '../outside.txt'} as any), /not among the unstaged changes/);
+		await assert.rejects(call({type: 'change-stage', sessionId: first.id, mode: 'unstage', group: 'untracked', path: 'new file.txt'} as any), /not among the staged changes/);
+		await assert.rejects(call({type: 'changes-diff', sessionId: first.id, group: 'unstaged', path: 'nope.txt'} as any), /not in the current changes/);
+		assert.deepEqual(await git(key, 'diff', '--cached', '--name-only'), 'file.txt');
+		// Stage all, unstage all.
+		assert.deepEqual(shape((await call<{changes: ChangesRecord}>({type: 'change-stage', sessionId: second.id, mode: 'stage'} as any)).changes), ['staged:M:file.txt', 'staged:A:new file.txt']);
+		assert.deepEqual(shape((await call<{changes: ChangesRecord}>({type: 'change-stage', sessionId: first.id, mode: 'unstage'} as any)).changes), ['unstaged:M:file.txt', 'untracked:?:new file.txt']);
+		await pushed(second.id, changes => changes.counts.staged === 0 && changes.counts.untracked === 1);
+
+		// A session in a repository without commits: unstaging removes the path from the index.
+		const unborn = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-unborn-'));
+		t.after(() => fs.rm(unborn, {recursive: true, force: true}));
+		await git(unborn, 'init', '-b', 'main'); await fs.writeFile(path.join(unborn, 'a.txt'), 'a\n'); await git(unborn, 'add', 'a.txt');
+		const fresh = await call<SessionRecord>({type: 'create', input: {title: 'changes-unborn', program: 'claude', cwd: unborn, repoRoot: unborn, cols: 80, rows: 24}} as any);
+		await waitFor(() => state(fresh.id), item => item.status === 'running');
+		assert.deepEqual(shape(await call<ChangesRecord>({type: 'watch-changes', sessionId: fresh.id} as any)), ['staged:A:a.txt']);
+		assert.deepEqual(shape((await call<{changes: ChangesRecord}>({type: 'change-stage', sessionId: fresh.id, mode: 'unstage', group: 'staged', path: 'a.txt'} as any)).changes), ['untracked:?:a.txt']);
+
+		// Unwatching stops the pushes (and the polling).
+		writeMessage(socket, {type: 'watch-changes', requestId: randomUUID()});
+		await new Promise(resolve => setTimeout(resolve, 100));
+		events.length = 0;
+		await fs.writeFile(path.join(key, 'later.txt'), 'later\n');
+		await new Promise(resolve => setTimeout(resolve, 2600));
+		assert.ok(!events.some(event => event.type === 'changes-updated'));
+		for (const session of [first, second, fresh]) await killAndWait(session.id);
+	});
+
+	await t.test('merge and deletion markers belong to the worktree: every session of it shares them, a new worktree at the path does not', async () => {
+		const socket = net.createConnection(getSocketPath()); await once(socket, 'connect');
+		const events: ServerMessage[] = []; attachJsonParser(socket, message => void events.push(message));
+		t.after(() => socket.destroy());
+		const subscribeId = randomUUID();
+		writeMessage(socket, {type: 'subscribe', requestId: subscribeId, repoRoot: root});
+		await waitFor(async () => events.some(event => event.type === 'response' && event.requestId === subscribeId), Boolean);
+		const updated = (id: string, matches: (session: SessionRecord) => boolean) => waitFor(async () => events.some(event => event.type === 'session-updated' && event.session.id === id && matches(event.session)), Boolean);
+		const merged = (id: string) => state(id).then(item => item.worktree?.mergedAt);
+		// A new worktree, a session attached to it and a sub-session launched in it (no worktree of its own).
+		const first = await create('records-a', 'claude', 'new');
+		const firstState = await waitFor(() => state(first.id), item => item.status === 'running');
+		const attached = await call<SessionRecord>({type: 'create', input: {title: 'records-b', program: 'pi', cwd: root, repoRoot: root, cols: 80, rows: 24, worktreeMode: 'existing', existingWorktreePath: firstState.cwd}} as any);
+		const child = await call<SessionRecord>({type: 'create', input: {title: 'records-child', program: 'pi', cwd: firstState.cwd, repoRoot: root, cols: 80, rows: 24, parentSessionId: first.id, subSessionKind: 'clean'}} as any);
+		const [attachedState, childState] = await Promise.all([attached, child].map(session => waitFor(() => state(session.id), item => item.status === 'running')));
+		const worktreeId = firstState.worktree?.id;
+		assert.ok(worktreeId); assert.equal(attachedState!.worktree?.id, worktreeId); assert.equal(childState!.worktree?.id, worktreeId);
+		assert.equal(childState!.worktree?.mode, 'none');
+
+		// m from one session marks the worktree: every session of it gets the marker, and every client hears about each.
+		await fs.writeFile(path.join(firstState.cwd, 'records.txt'), 'records\n'); await git(firstState.cwd, 'add', '.'); await git(firstState.cwd, 'commit', '-m', 'records');
+		events.length = 0;
+		const result = await call<{skipped?: boolean; conflicted?: boolean}>({type: 'merge-worktree', sessionId: first.id, mode: 'squash', targetCwd: root} as any);
+		assert.ok(!result.skipped && !result.conflicted);
+		await git(root, 'commit', '-m', 'squashed records');
+		for (const id of [attached.id, child.id]) await updated(id, session => Boolean(session.worktree?.mergedAt));
+		const sibling = await state(attached.id);
+		assert.equal(sibling.worktree?.mergeMode, 'squash'); assert.equal(sibling.worktree?.mergeTargetBranch, 'main'); assert.equal(sibling.worktree?.mergeSourceRef, 'records-a');
+		assert.equal(await merged(child.id), sibling.worktree?.mergedAt);
+		// M from another session toggles it for all of them.
+		const unmarked = await call<SessionRecord>({type: 'mark-session-merged', sessionId: attached.id, targetCwd: root} as any);
+		assert.equal(unmarked.worktree?.mergedAt, undefined);
+		for (const id of [first.id, attached.id, child.id]) assert.equal(await merged(id), undefined);
+		const marked = await call<SessionRecord>({type: 'mark-session-merged', sessionId: child.id, targetCwd: root} as any);
+		assert.equal(marked.worktree?.mergeMarkedManually, true);
+		for (const id of [first.id, attached.id]) assert.equal(await merged(id), marked.worktree?.mergedAt);
+		// The marker is stored once, in the worktree record.
+		const stored = await loadState();
+		assert.equal(stored.worktrees.find(record => record.id === worktreeId)?.mergedAt, marked.worktree?.mergedAt);
+		assert.ok(stored.sessions.every(item => item.worktree?.mergedAt === undefined || !item.worktree.id));
+
+		// Main-checkout sessions keep their own markers.
+		const mainOne = await create('records-main-1'), mainTwo = await create('records-main-2');
+		const main = (await call<WorktreeInfo[]>({type: 'list-worktrees', cwd: root} as any)).find(item => item.isMain)!;
+		const mainAttached = await call<SessionRecord>({type: 'create', input: {title: 'records-main-3', program: 'claude', cwd: root, repoRoot: root, cols: 80, rows: 24, worktreeMode: 'existing', existingWorktreePath: main.path}} as any);
+		for (const session of [mainOne, mainTwo, mainAttached]) await waitFor(() => state(session.id), item => item.status === 'running');
+		const mainMarked = await call<SessionRecord>({type: 'mark-session-merged', sessionId: mainOne.id, targetCwd: root} as any);
+		assert.ok(mainMarked.mergedAt); assert.equal(mainMarked.worktree?.id, undefined);
+		assert.ok((await call<SessionRecord>({type: 'mark-session-merged', sessionId: mainAttached.id, targetCwd: root} as any)).worktree?.mergedAt);
+		const mainOther = await state(mainTwo.id);
+		assert.equal(mainOther.mergedAt, undefined); assert.equal(mainOther.worktree?.mergedAt, undefined); assert.equal((await state(mainAttached.id)).worktree?.id, undefined);
+		for (const session of [mainOne, mainTwo, mainAttached]) { await killAndWait(session.id); await call({type: 'remove', sessionId: session.id} as any); }
+
+		// Kill-with-delete marks the worktree deleted: every session of it loses its workspace, restart and merge.
+		await killAndWait(attached.id); await killAndWait(child.id);
+		events.length = 0;
+		await call({type: 'kill', sessionId: first.id, deleteWorktree: true, allowDataLoss: true} as any);
+		const deletedAt = (await waitFor(() => state(first.id), item => Boolean(item.worktree?.deletedAt))).worktree!.deletedAt;
+		for (const id of [attached.id, child.id]) await updated(id, session => session.worktree?.deletedAt === deletedAt);
+		for (const id of [attached.id, child.id]) {
+			const item = await state(id);
+			assert.equal(workspaceKey(item), undefined);
+			await assert.rejects(call({type: 'restart', sessionId: id, cols: 80, rows: 24} as any), /worktree was deleted/);
+			const terminal = await call<TerminalRecord>({type: 'watch-terminal', sessionId: id, cols: 80, rows: 24} as any);
+			assert.equal(terminal.workspace, undefined); assert.equal(workspacePaneUnavailable(item, terminal), 'its worktree was deleted');
+			const changes = await call<ChangesRecord>({type: 'watch-changes', sessionId: id} as any);
+			assert.equal(workspacePaneUnavailable(item, changes), 'its worktree was deleted');
+		}
+		await assert.rejects(call({type: 'merge-worktree', sessionId: attached.id, mode: 'merge', targetCwd: root} as any), /worktree was deleted/);
+		// M can still clear a deleted worktree's marker (for all of its sessions), but not set one.
+		assert.equal((await call<SessionRecord>({type: 'mark-session-merged', sessionId: attached.id, targetCwd: root} as any)).worktree?.mergedAt, undefined);
+		assert.equal(await merged(child.id), undefined);
+		await assert.rejects(call({type: 'mark-session-merged', sessionId: child.id, targetCwd: root} as any), /worktree was deleted/);
+
+		// A new worktree created at the same path is a new incarnation: no inherited markers, and the old sessions stay out.
+		const again = await create('records-a', 'claude', 'new');
+		const againState = await waitFor(() => state(again.id), item => item.status === 'running');
+		assert.equal(againState.cwd, firstState.cwd);
+		assert.ok(againState.worktree?.id); assert.notEqual(againState.worktree?.id, worktreeId);
+		assert.equal(againState.worktree?.mergedAt, undefined); assert.equal(againState.worktree?.deletedAt, undefined);
+		assert.equal(workspaceKey(againState), workspaceKey(firstState));
+		for (const id of [first.id, attached.id, child.id]) {
+			const item = await state(id);
+			assert.equal(item.worktree?.deletedAt, deletedAt); assert.equal(workspaceKey(item), undefined);
+			assert.equal((await call<TerminalRecord>({type: 'watch-terminal', sessionId: id, cols: 80, rows: 24} as any)).workspace, undefined);
+		}
+
+		// The record lives as long as a session references it.
+		await call({type: 'remove', sessionId: first.id} as any); await call({type: 'remove', sessionId: attached.id} as any);
+		assert.ok((await loadState()).worktrees.some(record => record.id === worktreeId));
+		await call({type: 'remove', sessionId: child.id} as any);
+		const remaining = (await loadState()).worktrees;
+		assert.ok(!remaining.some(record => record.id === worktreeId)); assert.ok(remaining.some(record => record.id === againState.worktree?.id));
+
+		// A worktree removed outside Deckhand: when Deckhand creates one at that path again, the old incarnation is deleted.
+		await killAndWait(again.id);
+		await git(root, 'worktree', 'remove', '--force', againState.cwd);
+		const third = await create('records-a', 'claude', 'new');
+		const thirdState = await waitFor(() => state(third.id), item => item.status === 'running');
+		assert.equal(thirdState.cwd, againState.cwd); assert.notEqual(thirdState.worktree?.id, againState.worktree?.id);
+		const superseded = await state(again.id);
+		assert.ok(superseded.worktree?.deletedAt); assert.equal(workspaceKey(superseded), undefined); assert.equal(workspaceKey(thirdState), workspaceKey(againState));
+		await killAndWait(third.id);
 	});
 });

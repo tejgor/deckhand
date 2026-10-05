@@ -3,9 +3,10 @@ import type {WorkspaceSummary, CleanupInspection, CreatePrResult} from './worksp
 import type {LoadedProject, ProjectConfig} from './projectConfig.js';
 import type {ConfigTargetKind, ConfigTargets, ProjectConfigDocument, SavedConfigDocument} from './projectConfigDocument.js';
 import type {SettingsInfo, WorktreeCandidates} from './settingsInfo.js';
+import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 35;
+export const PROTOCOL_VERSION = 36;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -20,6 +21,12 @@ export type RestartMode = 'resume' | 'fresh';
 
 export interface SessionWorktreeRecord {
 	mode: SessionWorktreeMode;
+	/**
+	 * The `WorktreeRecord` (incarnation) of the linked worktree the session runs in: set for managed/attached non-main
+	 * worktrees and for sessions without their own worktree (mode `none`, e.g. sub-sessions) launched in one. Its markers
+	 * below are then projected from that record by the daemon, never stored on the session (src/worktreeRecords.ts).
+	 */
+	id?: string;
 	path?: string;
 	branch?: string;
 	head?: string;
@@ -36,6 +43,20 @@ export interface SessionWorktreeRecord {
 	deletedAt?: string;
 	/** Worktree settings links applied when the worktree was created; notes list skipped/failed entries. */
 	links?: {linked: string[]; notes: string[]};
+}
+
+/** The merge and deletion markers of a worktree (see WorktreeRecord). */
+export type WorktreeMarkers = Pick<SessionWorktreeRecord, 'mergedAt' | 'mergeMode' | 'mergeTargetBranch' | 'mergeSourceRef' | 'mergeMarkedManually' | 'deletedAt'>;
+
+/**
+ * One incarnation of a linked worktree, shared by every session in it (state.json `worktrees`): created when Deckhand
+ * creates or first attaches the worktree. A worktree later created at the same path is a new incarnation.
+ */
+export interface WorktreeRecord extends WorktreeMarkers {
+	id: string;
+	/** The worktree root, as Git reports it. */
+	path: string;
+	createdAt: string;
 }
 
 export interface WorktreeInfoRecord {
@@ -86,6 +107,7 @@ export interface SessionRecord {
 	exitSignal?: number | null;
 	lastPreview?: string;
 	notes?: string;
+	/** The session's workspace Dev is running (mirrored on every session in that worktree; never survives a daemon restart). */
 	devRunning?: boolean;
 	mergedAt?: string;
 	mergeTargetBranch?: string;
@@ -117,8 +139,11 @@ export interface PreviewRecord {
 	maxScrollOffset?: number;
 }
 
+/** The Terminal (shell) pane shared by every session in one workspace; `sessionId` is the session it was watched for. */
 export interface TerminalRecord {
 	sessionId?: string;
+	/** The workspace (worktree root, see src/workspace.ts) whose shell this is; absent while the session has none. */
+	workspace?: string;
 	content: string;
 	live: boolean;
 	cwd?: string;
@@ -126,8 +151,11 @@ export interface TerminalRecord {
 	exitSignal?: number | null;
 }
 
+/** The Git (lazygit) pane shared by every session in one workspace; `sessionId` is the session it was watched for. */
 export interface GitRecord {
 	sessionId?: string;
+	/** The workspace whose lazygit this is; absent while the session has none. */
+	workspace?: string;
 	content: string;
 	live: boolean;
 	cwd?: string;
@@ -135,8 +163,11 @@ export interface GitRecord {
 	exitSignal?: number | null;
 }
 
+/** The Dev pane shared by every session in one workspace; `sessionId` is the session it was requested/watched for. */
 export interface DevRecord {
 	sessionId?: string;
+	/** The workspace (worktree root, see src/workspace.ts) whose Dev this is; absent while the session has none. */
+	workspace?: string;
 	content: string;
 	live: boolean;
 	cwd?: string;
@@ -189,6 +220,12 @@ export type ClientRequest =
 	| {type: 'watch-terminal'; requestId: string; sessionId?: string; cols: number; rows: number}
 	| {type: 'watch-git'; requestId: string; sessionId?: string; cols: number; rows: number}
 	| {type: 'watch-dev'; requestId: string; sessionId?: string; cols: number; rows: number}
+	/** The Git tab's Changes view of the session's workspace; pushes `changes-updated` while watched. No sessionId stops watching. */
+	| {type: 'watch-changes'; requestId: string; sessionId?: string}
+	/** One listed entry's diff preview (read-only, bounded). */
+	| {type: 'changes-diff'; requestId: string; sessionId: string; group: ChangeGroup; path: string}
+	/** Stages/unstages one listed entry, or everything (no `path`); responds with the refreshed ChangesRecord. */
+	| {type: 'change-stage'; requestId: string; sessionId: string; mode: 'stage' | 'unstage'; group?: ChangeGroup; path?: string}
 	| {type: 'start-dev'; requestId: string; sessionId: string; cols: number; rows: number}
 	| {type: 'stop-dev'; requestId: string; sessionId: string}
 	| {type: 'update-session-notes'; requestId: string; sessionId: string; notes: string}
@@ -221,7 +258,7 @@ export interface ProjectInfo extends LoadedProject {trusted: boolean; needsRevie
 // reasons/safe describe data that DELETE (allowDataLoss) may override; structuralBlockers
 // (main/current/shared/missing worktree, protected branch) can never be overridden.
 export type SessionCleanupInspection = CleanupInspection & {structuralBlockers: string[]};
-export type {WorkspaceSummary, CleanupInspection, CreatePrResult, ProjectConfigDocument, SavedConfigDocument, ConfigTargets, ConfigTargetKind, SettingsInfo, WorktreeCandidates};
+export type {WorkspaceSummary, CleanupInspection, CreatePrResult, ProjectConfigDocument, SavedConfigDocument, ConfigTargets, ConfigTargetKind, SettingsInfo, WorktreeCandidates, ChangeDiff, ChangeGroup, ChangesRecord};
 
 export type ServerResponse<T = unknown> = {
 	type: 'response';
@@ -239,6 +276,7 @@ export type ServerEvent =
 	| {type: 'terminal-updated'; terminal: TerminalRecord}
 	| {type: 'git-updated'; git: GitRecord}
 	| {type: 'dev-updated'; dev: DevRecord}
+	| {type: 'changes-updated'; changes: ChangesRecord}
 	| {type: 'terminal-output'; sessionId: string; data: string}
 	| {type: 'git-output'; sessionId: string; data: string}
 	| {type: 'dev-output'; sessionId: string; data: string}

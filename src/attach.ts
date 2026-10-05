@@ -381,7 +381,8 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 
 			if (message.type === 'session-updated' && message.session.id === sessionId) {
 				const session = message.session as SessionRecord;
-				if (session.status === 'exited') {
+				// Terminal, Git and Dev belong to the workspace and outlive the agent; their end arrives as <pane>-detached.
+				if (session.status === 'exited' && target === 'agent') {
 					process.stdout.write(`\n\r[session exited: ${session.title}]\n`);
 					finish();
 				}

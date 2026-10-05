@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {exec, launcher, terminalUi, waitFor} from './helpers.js';
+import {exec, launcher, terminalUi, waitFor, UI_TEST_TIMEOUT_MS, UI_WAIT_MS} from './helpers.js';
 
 // A stand-in agent (never a real one): stays alive and prints a marker.
 const fakeAgent = `#!/usr/bin/env node
@@ -13,7 +13,7 @@ process.stdin.resume();
 setInterval(() => {}, 10000);
 `;
 
-test('isolated terminal UI asks for trust only when repository config is about to run, edits the raw JSON (C → e) with raw terminal keys, persists search/filter and quits leaving the dev daemon alive', {timeout: 40000}, async t => {
+test('isolated terminal UI asks for trust only when repository config is about to run, edits the raw JSON (C → e) with raw terminal keys, persists search/filter and quits leaving the dev daemon alive', {timeout: UI_TEST_TIMEOUT_MS}, async t => {
 	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-ui-'));
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const agent of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, agent), fakeAgent, {mode: 0o755});
@@ -47,7 +47,7 @@ test('isolated terminal UI asks for trust only when repository config is about t
 	press('\x1b'); await screen('C settings');
 	// T in Settings trusts it explicitly; n still opens the picker directly.
 	press('C'); await screen('Settings ·'); press('T'); await screen('Review repository configuration'); press('\r'); await screen('trusted ✓'); press('\x1b'); await screen('C settings');
-	await waitFor(() => readJson('config.json'), config => Object.keys(config.trustedProjects ?? {}).length === 1);
+	await waitFor(() => readJson('config.json'), config => Object.keys(config.trustedProjects ?? {}).length === 1, UI_WAIT_MS);
 	press('n'); await screen('Choose an agent'); press('\r'); await screen('Workspace: new worktree'); press('\x1b'); await screen('Choose an agent'); press('\x1b'); await screen('C settings');
 
 	// Global defaults are stored in config.json under "defaults", keeping the trust entry.
@@ -82,9 +82,9 @@ test('isolated terminal UI asks for trust only when repository config is about t
 	assert.equal(await fs.readFile(file, 'utf8'), '{"devCommand":"d"}');
 
 	const preferences = async () => Object.values(await readJson('ui-state.json'))[0] as {sessionFilter?: string; sessionQuery?: string} | undefined;
-	press('f'); await waitFor(preferences, state => state?.sessionFilter === 'archived');
+	press('f'); await waitFor(preferences, state => state?.sessionFilter === 'archived', UI_WAIT_MS);
 	press('/'); await screen('Search: /');
-	press('marker'); await waitFor(preferences, state => state?.sessionQuery === 'marker');
+	press('marker'); await waitFor(preferences, state => state?.sessionQuery === 'marker', UI_WAIT_MS);
 	press('\r'); await screen('C settings');
 	// Ctrl+C again at the discard prompt quits (so the editor can never trap the UI).
 	await openConfig();

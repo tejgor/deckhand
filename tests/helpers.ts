@@ -52,6 +52,13 @@ export async function stopDevDaemon(home: string, env: NodeJS.ProcessEnv): Promi
 	try { await waitFor(async () => isAlive(pid), alive => !alive, 5000); }
 	catch { try { process.kill(pid, 'SIGKILL'); } catch {} }
 }
+/**
+ * Ceiling for a real-PTY UI wait. The waits are condition-based (they return as soon as the screen matches), so this
+ * only matters under load: `npm test` runs the test files in parallel and the daemon test keeps several agents busy.
+ */
+export const UI_WAIT_MS = 30_000;
+/** Test timeout for a real-PTY UI run: room for a few slow waits without hiding a hang. */
+export const UI_TEST_TIMEOUT_MS = 120_000;
 export type TerminalUi = {screen(text: string): Promise<string>; press(key: string): void; write(data: string): void; ended: Promise<number>};
 /** Runs Deckhand in a real PTY. Cleanup kills it, stops the dev daemon in `home`, then removes `home` and `remove`. */
 export function terminalUi(t: TestContext, options: {args: string[]; cwd: string; home: string; env?: Record<string, string>; remove?: string[]}): {ui: TerminalUi; env: Record<string, string>} {
@@ -70,7 +77,7 @@ export function terminalUi(t: TestContext, options: {args: string[]; cwd: string
 		for (const directory of [options.home, userHome, ...options.remove ?? []]) await fs.rm(directory, {recursive: true, force: true});
 	});
 	const ui: TerminalUi = {
-		screen: text => waitFor(async () => output.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, ''), value => value.includes(text)),
+		screen: text => waitFor(async () => output.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, ''), value => value.includes(text), UI_WAIT_MS),
 		// Clearing first means the next screen() only matches output produced after this key.
 		press: key => { output = ''; term.write(key); },
 		write: data => term.write(data),

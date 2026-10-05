@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test, type TestContext} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {saveSessions, markAllNonExitedSessionsExited, updateAppConfig, loadAppConfig, ensureConfigDir} from '../src/storage.js';
+import {saveState, markAllNonExitedSessionsExited, updateAppConfig, loadAppConfig, ensureConfigDir} from '../src/storage.js';
 import {loadUiState, saveUiState, normalizeUiState} from '../src/uiState.js';
 import {readGlobalDefaultsDocument, saveGlobalDefaultsDocument} from '../src/projectConfigDocument.js';
 import {resolveSettings} from '../src/projectConfig.js';
@@ -14,7 +14,7 @@ async function isolatedHome(t: TestContext): Promise<string> {
 test('crash recovery marks live sessions interrupted and keeps their identity, archive state and notes', async t => {
 	await isolatedHome(t);
 	const session = {id: 'id', status: 'running', archivedAt: 'yesterday', notes: 'keep', agentSessionRef: {provider: 'codex', kind: 'id', value: 'native'}, setup: {command: 'setup', state: 'running', output: 'partial'}} as SessionRecord;
-	await saveSessions([session]); const [recovered] = await markAllNonExitedSessionsExited();
+	await saveState({sessions: [session], worktrees: []}); const {sessions: [recovered]} = await markAllNonExitedSessionsExited();
 	assert.equal(recovered?.exitReason, 'interrupted'); assert.equal(recovered?.setup?.state, 'failed');
 	assert.equal(recovered?.agentSessionRef?.value, 'native'); assert.equal(recovered?.archivedAt, 'yesterday'); assert.equal(recovered?.notes, 'keep');
 });
