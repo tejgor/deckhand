@@ -2,11 +2,11 @@ import fs from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {resolveCreateScript, resolveRepoContext, worktreeTemplateVars, type CreationHook, type RepoContext} from './git.js';
+import {resolveCreateScript, resolveRepoContext, type CreationHook, type RepoContext} from './git.js';
 import type {ProgramKey, WorktreeMode} from './types.js';
 import {MAX_CONFIG_BYTES} from './configDraft.js';
 import {getConfigDir, getConfigPath} from './paths.js';
-import {expandBranchName, expandWorktreeTemplate, mergeWorktreeSettings, userSlug, validateWorktreeSettings, worktreeLocation, type TemplateVars, type WorktreeSettings} from './worktreeLinks.js';
+import {expandBranchName, expandWorktreeTemplate, mergeWorktreeSettings, validateWorktreeSettings, worktreeLocation, type TemplateVars, type WorktreeSettings} from './worktreeLinks.js';
 
 export const PROJECT_CONFIG_FILE = 'deckhand.json';
 const MAX_TRUSTED_FINGERPRINTS = 20;
@@ -139,11 +139,44 @@ export async function loadProjectConfig(cwd: string, user: UserSettings = {}, co
 			creationHook = {file: hookPath, content: text, fingerprint: sha256(bytes)};
 		}
 	}
-	const fingerprint = sha256(`config\0${raw}\0creation-hook\0${creationHook?.fingerprint ?? ''}`);
+	const fingerprint = projectFingerprint(raw, creationHook?.fingerprint);
 	return {root, trustRoot, path: file, config, exists, fingerprint, ...(creationHook ? {creationHook} : {}), ...(disabledHook ? {disabledHook} : {})};
 }
+/** What trust is keyed by: deckhand.json's text ('' when absent) together with the enabled creation hook's bytes. */
+export function projectFingerprint(raw: string, hookFingerprint?: string): string {
+	return sha256(`config\0${raw}\0creation-hook\0${hookFingerprint ?? ''}`);
+}
 
-export function isProjectTrusted(project: LoadedProject, config: ProjectTrust): boolean {
+/** How a deckhand.json saved through Deckhand ended up: still (or newly) trusted, or why it needs a review. */
+export type SaveTrust = 'kept' | 'created' | 'unreviewed' | 'hook';
+/**
+ * Self-edits keep trust. A save made through Deckhand (Settings, its sub-editors or the raw JSON editor) replaced
+ * `previous` — exactly the bytes the user edited from: save-config's revision check proves it — with `next`. The new
+ * bytes are trusted (their fingerprint is returned to be added) only when both hold:
+ *  1. The whole previous bundle was trusted: `previous` together with the creation hook as it is NOW (enabled or
+ *     not per `previous` and the global defaults) is a trusted fingerprint. A hook edited since that trust, or a file
+ *     with changes nobody reviewed, therefore never carries over. A file that did not exist counts as trusted only
+ *     when no hook was enabled (nothing to review) or that hook alone was trusted.
+ *  2. The creation hook does not join the bundle through this save: if `next` enables it, `previous` enabled it too,
+ *     so its current bytes were part of the trusted bundle in (1). A hook is only ever trusted through the review.
+ * Otherwise the file needs a review as before ('unreviewed', or 'hook' when the hook is what was never reviewed).
+ * Edits made outside Deckhand never pass through here, so they always need a review.
+ */
+export async function savedProjectTrust(context: RepoContext, previous: {raw: string; exists: boolean}, next: string, user: UserSettings): Promise<{trust: SaveTrust; fingerprint?: string}> {
+	const hookPath = await resolveCreateScript(context.root, context.mainRoot);
+	const hook = hookPath ? sha256((await readBoundedUtf8(hookPath, {max: MAX_CONFIG_BYTES})).bytes) : undefined;
+	let before: ProjectConfig | undefined;
+	try { before = previous.exists ? parseProjectConfig(previous.raw) : {}; } catch { return {trust: 'unreviewed'}; } // Never loadable, so never trusted.
+	const enabled = (config: ProjectConfig) => hook !== undefined && hookSetting(config, user).enabled;
+	const hookBefore = enabled(before), hookAfter = enabled(parseProjectConfig(next));
+	const trustRoot = context.trustRoot;
+	const trusted = !previous.exists && !hookBefore ? true : isProjectTrusted({trustRoot, fingerprint: projectFingerprint(previous.exists ? previous.raw : '', hookBefore ? hook : undefined)}, user);
+	if (!trusted) return {trust: !previous.exists ? 'hook' : 'unreviewed'};
+	if (hookAfter && !hookBefore) return {trust: 'hook'};
+	return {trust: previous.exists ? 'kept' : 'created', fingerprint: projectFingerprint(next, hookAfter ? hook : undefined)};
+}
+
+export function isProjectTrusted(project: Pick<LoadedProject, 'trustRoot' | 'fingerprint'>, config: ProjectTrust): boolean {
 	const trusted = config.trustedProjects?.[project.trustRoot];
 	return Array.isArray(trusted) && trusted.includes(project.fingerprint);
 }
@@ -152,7 +185,7 @@ export function projectNeedsReview(project: LoadedProject, config: ProjectTrust)
 	return (project.exists || Boolean(project.creationHook)) && !isProjectTrusted(project, config);
 }
 /** Prepends the project's fingerprint for its trust root (deduped, capped); use as an updateAppConfig updater. */
-export function trustProjectConfig<T extends object>(project: LoadedProject, config: T & ProjectTrust): T & Required<ProjectTrust> {
+export function trustProjectConfig<T extends object>(project: Pick<LoadedProject, 'trustRoot' | 'fingerprint'>, config: T & ProjectTrust): T & Required<ProjectTrust> {
 	const previous = config.trustedProjects?.[project.trustRoot];
 	const list = [project.fingerprint, ...(Array.isArray(previous) ? previous : []).filter(value => value !== project.fingerprint)].slice(0, MAX_TRUSTED_FINGERPRINTS);
 	return {...config, trustedProjects: {...config.trustedProjects, [project.trustRoot]: list}};
@@ -163,19 +196,26 @@ export function globalDefaults(user: UserSettings): ProjectConfig {
 	let defaults: ProjectConfig = {};
 	if (user.defaults !== undefined) {
 		try { defaults = validateProjectConfig(user.defaults, 'defaults'); }
-		catch (error) { throw new Error(`Invalid "defaults" in ${getConfigPath()}: ${error instanceof Error ? error.message : String(error)}. Fix it with C → Global defaults.`); }
+		catch (error) { throw new Error(`Invalid "defaults" in ${getConfigPath()}: ${error instanceof Error ? error.message : String(error)}. Repair it with C (Settings): ← to the Global column, then e for the raw JSON.`); }
 	}
 	const legacyDev = user.dev_command?.trim();
 	return defaults.devCommand === undefined && legacyDev ? {...defaults, devCommand: legacyDev} : defaults;
 }
+/** Settings that only preselect choices the user confirms (the agent and workspace in n); they never run anything. */
+export const SUGGESTION_KEYS = ['defaultAgent', 'defaultWorkspace'] as const;
+/** The part of an untrusted repository file that applies anyway: its suggestions (see SUGGESTION_KEYS). */
+export function untrustedLayer(config: ProjectConfig): ProjectConfig {
+	return Object.fromEntries(SUGGESTION_KEYS.filter(key => config[key] !== undefined).map(key => [key, config[key]]));
+}
 /**
- * Effective settings: global defaults overlaid field by field by the repository override, only while that
- * override is trusted (untrusted or absent → global only). Actions merge by name, the repository winning;
- * worktree settings merge per field (see mergeWorktreeSettings).
+ * Effective settings: global defaults overlaid field by field by the repository override. Everything that runs or
+ * places files (commands, actions, worktree settings, the hook) applies only while the override is trusted; its
+ * suggestions (defaultAgent, defaultWorkspace) apply regardless, since the user confirms them in the picker.
+ * Actions merge by name, the repository winning; worktree settings merge per field (see mergeWorktreeSettings).
  */
 export function resolveSettings(project: LoadedProject | undefined, user: UserSettings): ProjectConfig {
 	const global = globalDefaults(user);
-	const repository = project && isProjectTrusted(project, user) ? project.config : {};
+	const repository = !project ? {} : isProjectTrusted(project, user) ? project.config : untrustedLayer(project.config);
 	const merged: ProjectConfig = {...global, ...repository};
 	if (global.actions || repository.actions) merged.actions = {...global.actions, ...repository.actions};
 	const worktree = mergeWorktreeSettings(global.worktree, repository.worktree);
@@ -200,15 +240,16 @@ export function resolveSetupCommand(project: LoadedProject | undefined, user: Us
 	return settings.setupCommand;
 }
 
-/** Where an effective setting comes from (C → Effective settings). */
+/** Where an effective setting comes from (C → Settings). */
 export type SettingSource = 'repo' | 'global' | 'legacy dev_command' | 'built-in default' | 'not set';
 /**
  * One row of the effective-settings breakdown. List-valued settings (actions, worktree.symlink, worktree.files) get
  * one row per entry. `raw` is the winning layer's value as written (templates unexpanded), absent for built-in
  * defaults and unset rows; `value` is display-ready (templates expanded). `pending` is what an untrusted repository
- * file would set here once trusted. Rows with source 'not set' and a `pending` exist only in the untrusted file.
+ * file would set here once trusted; `pending.same` marks one equal to the value in effect (trusting changes nothing
+ * here). Rows with source 'not set' and a `pending` exist only in the untrusted file.
  */
-export interface SettingRow {key: string; entry?: string; value: string; source: SettingSource; raw?: string | boolean; pending?: {value: string; raw: string | boolean}; note?: string}
+export interface SettingRow {key: string; entry?: string; value: string; source: SettingSource; raw?: string | boolean; pending?: {value: string; raw: string | boolean; same?: true}; note?: string}
 export interface ExplainContext {
 	/** Template placeholders (name `<name>`) for expanding location/files; without them templates are shown as written. */
 	vars?: TemplateVars;
@@ -236,8 +277,9 @@ export function explainSettings(project: LoadedProject | undefined, user: UserSe
 		global = globalDefaults(lenient); effective = resolveSettings(project, lenient);
 	}
 	const trusted = Boolean(project && isProjectTrusted(project, user));
-	const repository: ProjectConfig = project && trusted ? project.config : {};
-	const pendingLayer: ProjectConfig = project && !trusted ? project.config : {};
+	const repository: ProjectConfig = !project ? {} : trusted ? project.config : untrustedLayer(project.config);
+	// What trust would add: everything but the suggestions, which apply already.
+	const pendingLayer: ProjectConfig = project && !trusted ? Object.fromEntries(Object.entries(project.config).filter(([key]) => !(SUGGESTION_KEYS as readonly string[]).includes(key))) : {};
 	const {vars} = context;
 	const location = (template: string) => { if (!vars) return template; try { return worktreeLocation(template, vars); } catch { return template; } };
 	const source = (template: string) => { if (!vars) return template; try { return expandWorktreeTemplate(template, vars); } catch { return template; } };
@@ -246,6 +288,7 @@ export function explainSettings(project: LoadedProject | undefined, user: UserSe
 	const rows: SettingRow[] = [];
 	const hookFile = project ? project.creationHook?.file ?? project.disabledHook?.file : context.hookFile;
 	const hookActive = trusted && Boolean(project?.creationHook);
+	const pendingOf = (row: SettingRow, value: string, raw: string | boolean): NonNullable<SettingRow['pending']> => ({value, raw, ...row.source !== 'not set' && value === row.value ? {same: true as const} : {}});
 	const overrides = (globalValue: unknown, value: unknown, display: (value: string | boolean) => string) => globalValue !== undefined && globalValue !== value ? `overrides global ${display(globalValue as string | boolean)}` : undefined;
 	const pick = <T extends string | boolean>(key: string, value: T | undefined, layers: {repo?: T; global?: T; pending?: T}, fallback: {value?: T; display: (value: T) => string}, extra: {legacy?: boolean; note?: string} = {}) => {
 		const display = fallback.display as (value: string | boolean) => string;
@@ -253,11 +296,12 @@ export function explainSettings(project: LoadedProject | undefined, user: UserSe
 		const row: SettingRow = {key, value: value !== undefined ? display(value) : fallback.value !== undefined ? display(fallback.value) : '—', source: from, ...value !== undefined ? {raw: value} : {}};
 		const note = [from === 'repo' ? overrides(layers.global, value, display) : undefined, extra.note].filter(Boolean).join(' · ');
 		if (note) row.note = note;
-		if (layers.pending !== undefined) row.pending = {value: display(layers.pending), raw: layers.pending};
+		if (layers.pending !== undefined) row.pending = pendingOf(row, display(layers.pending), layers.pending);
 		rows.push(row);
 	};
 	for (const [key, builtIn] of SCALARS) {
-		pick<string>(key, effective[key], {repo: repository[key], global: global[key], pending: pendingLayer[key]}, {value: builtIn, display: String}, {legacy: key === 'devCommand' && repository.devCommand === undefined && effective.devCommand !== undefined && (globalError !== undefined || (user.defaults as ProjectConfig | undefined)?.devCommand === undefined)});
+		const suggestion = project && !trusted && (SUGGESTION_KEYS as readonly string[]).includes(key) && repository[key] !== undefined;
+		pick<string>(key, effective[key], {repo: repository[key], global: global[key], pending: pendingLayer[key]}, {value: builtIn, display: String}, {legacy: key === 'devCommand' && repository.devCommand === undefined && effective.devCommand !== undefined && (globalError !== undefined || (user.defaults as ProjectConfig | undefined)?.devCommand === undefined), ...suggestion ? {note: 'applies without trust: only preselects the new-session picker'} : {}});
 	}
 	const entries = (key: string, values: Record<string, string> | undefined, layers: {repo?: Record<string, string>; global?: Record<string, string>; pending?: Record<string, string>}, display: (value: string) => string) => {
 		const before = rows.length;
@@ -266,7 +310,7 @@ export function explainSettings(project: LoadedProject | undefined, user: UserSe
 			const row: SettingRow = {key, entry, value: display(value), source: repo ? 'repo' : 'global', raw: value};
 			const globalValue = layers.global && Object.hasOwn(layers.global, entry) ? layers.global[entry] : undefined;
 			if (repo && globalValue !== undefined && globalValue !== value) row.note = `overrides global ${display(globalValue)}`;
-			if (layers.pending && Object.hasOwn(layers.pending, entry)) row.pending = {value: display(layers.pending[entry]!), raw: layers.pending[entry]!};
+			if (layers.pending && Object.hasOwn(layers.pending, entry)) row.pending = pendingOf(row, display(layers.pending[entry]!), layers.pending[entry]!);
 			rows.push(row);
 		}
 		for (const [entry, value] of Object.entries(layers.pending ?? {})) if (!values || !Object.hasOwn(values, entry)) rows.push({key, entry, value: '—', source: 'not set', pending: {value: display(value), raw: value}});
@@ -289,27 +333,4 @@ export function explainSettings(project: LoadedProject | undefined, user: UserSe
 	if (rows.length === before) rows.push({key: 'worktree.symlink', value: '—', source: 'not set'});
 	entries('worktree.files', tree.files, {repo: repoTree.files, global: globalTree.files, pending: pendingTree.files}, source);
 	return {rows, ...globalError ? {globalError} : {}};
-}
-
-/** C → Effective settings for `cwd`'s repository: the trust state of its deckhand.json plus the breakdown. Read-only. */
-export interface EffectiveSettingsInfo {
-	cwd: string;
-	repo: string;
-	repository: {state: 'trusted' | 'untrusted' | 'absent' | 'invalid' | 'bare' | 'none'; path?: string; error?: string};
-	/** T has something to review (an untrusted deckhand.json or enabled creation hook). */
-	needsReview: boolean;
-	globalError?: string;
-	rows: SettingRow[];
-}
-export async function readEffectiveSettings(cwd: string, user: UserSettings): Promise<EffectiveSettingsInfo> {
-	const message = (error: unknown) => error instanceof Error ? error.message : String(error);
-	let context: RepoContext | undefined, project: LoadedProject | undefined, error: string | undefined;
-	try { context = await resolveRepoContext(cwd); } catch (caught) { error = `Not a Git repository: ${message(caught)}`; }
-	if (context) try { project = await loadProjectConfig(cwd, user, context); } catch (caught) { error = message(caught); }
-	const hookFile = context && !project ? await resolveCreateScript(context.root, context.mainRoot).catch(() => undefined) : undefined;
-	const vars = context ? await worktreeTemplateVars('<name>', cwd).catch(() => undefined) : undefined;
-	const {rows, globalError} = explainSettings(project, user, {...vars ? {vars} : {}, user: userSlug(), ...hookFile ? {hookFile} : {}});
-	const state: EffectiveSettingsInfo['repository']['state'] = !context ? 'none' : error ? 'invalid' : !project?.path ? 'bare' : !project.exists ? 'absent' : isProjectTrusted(project, user) ? 'trusted' : 'untrusted';
-	const file = project?.path ?? (context?.mainRoot ? path.join(context.mainRoot, PROJECT_CONFIG_FILE) : undefined);
-	return {cwd, repo: vars?.repo ?? path.basename(cwd), repository: {state, ...file ? {path: file} : {}, ...error ? {error} : {}}, needsReview: Boolean(project && projectNeedsReview(project, user)), ...globalError ? {globalError} : {}, rows};
 }

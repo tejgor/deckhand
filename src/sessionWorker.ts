@@ -64,6 +64,15 @@ interface AgentRuntime extends RuntimePty {
 	suppressActivityUntil?: number;
 	lastPreviewSnapshot: string;
 	previewChangeEvents: Array<{at: number; changedChars: number}>;
+	lastDataAt?: number;
+}
+
+// node-pty can report exit before the final output chunks are delivered. Exit-time parsing (resume hints,
+// "No conversation found") needs those last lines, so wait briefly for output to go quiet first.
+const EXIT_OUTPUT_QUIET_MS = 60, EXIT_OUTPUT_MAX_WAIT_MS = 400;
+async function waitForQuietOutput(runtime: AgentRuntime): Promise<void> {
+	const deadline = Date.now() + EXIT_OUTPUT_MAX_WAIT_MS;
+	while (Date.now() < deadline && Date.now() - (runtime.lastDataAt ?? 0) < EXIT_OUTPUT_QUIET_MS) await new Promise(resolve => setTimeout(resolve, 20));
 }
 
 function post(message: WorkerMessage): void {
@@ -164,6 +173,7 @@ class SessionWorker {
 		post({type: 'running', pid: term.pid});
 		runtime.activityIdleTimer = setTimeout(() => { runtime.activityIdleTimer = undefined; void this.setAgentStatus('idle'); }, IDLE_AFTER_MS);
 		term.onData(output => {
+			runtime.lastDataAt = Date.now();
 			updateTerminalModes(runtime.terminalModes, output);
 			void runtime.preview.write(output);
 			this.scheduleActivityEvaluation();
@@ -181,6 +191,7 @@ class SessionWorker {
 		agent.exited = true;
 		this.clearActivityTimers(agent);
 		if (agent.broadcastTimer) clearTimeout(agent.broadcastTimer);
+		await waitForQuietOutput(agent);
 		const lastPreview = await agent.preview.getSnapshot();
 		this.cleanup('terminal'); this.cleanup('git'); this.cleanup('dev');
 		agent.preview.dispose();

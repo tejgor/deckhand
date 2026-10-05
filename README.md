@@ -155,8 +155,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `A` | Archive/unarchive (does not stop an agent) |
 | `f` / `/` | Cycle filters / search title, notes, provider, branch, path |
 | `i` | Workspace Git summary; `P` queries PR, `b` opens it, `c` pushes and opens GitHub's new-PR form (after confirmation), `g` opens lazygit |
-| `C` | Edit global defaults or the repository's `deckhand.json` (main checkout); Ctrl+S saves |
-| `T` | Review the repository config/hook; Enter trusts the exact contents (also shown inline by `n`, `e`, Dev and setup retry when needed) |
+| `C` | Settings: a grid of every setting with a Global and a This repo column (● in effect, ⚠ needs trust); ↑↓ setting, ←→ column, Enter edits that cell's layer, x clears it, e that column's raw JSON, T reviews/trusts the repo file (you're also asked inline right before anything from it runs) |
 | `e` | Choose an action (global, plus trusted repository actions) for the shared Dev pane |
 | `H` / `F` | Export/open handoff (notes plus commits and changed files, no diff content) / create a clean child from the reviewed document |
 | `!` | Next known attention session |
@@ -190,7 +189,7 @@ When you create a session, Deckhand launches it in one of three workspace modes:
 
 A sub-session defaults to its parent's current directory, so a clean sub-session opens in the parent's worktree unless you choose a different mode.
 
-New worktrees use an explicitly trusted [project hook](#-worktree-hooks); otherwise Deckhand falls back to `git worktree add` at the configured `worktree.location` (default: the active state directory's `worktrees/`, normally `~/.deckhand/worktrees/`). The `worktree` setting can also choose the new branch's start point (current checkout, default branch, or a freshly fetched `origin/<default>`) and name template, switch the hook off, and symlink heavy directories (such as `node_modules` or a virtualenv) and private files into each new worktree. **C → Worktree setup** edits all of this with presets and link suggestions from your checkout, and **C → Effective settings** shows what is in effect and which layer sets it — see [worktree settings](docs/no-brainers.md#worktree-settings).
+New worktrees use an explicitly trusted [project hook](#-worktree-hooks); otherwise Deckhand falls back to `git worktree add` at the configured `worktree.location` (default: the active state directory's `worktrees/`, normally `~/.deckhand/worktrees/`). The `worktree` setting can also choose the new branch's start point (current checkout, default branch, or a freshly fetched `origin/<default>`) and name template, switch the hook off, and symlink heavy directories (such as `node_modules` or a virtualenv) and private files into each new worktree. **C** (Settings) shows what is in effect and which layer sets it, and edits it in place: location presets, branch options, the hook switch and a link picker with suggestions from your checkout — see [worktree settings](docs/no-brainers.md#worktree-settings).
 
 ### Sub-sessions
 
@@ -228,7 +227,7 @@ Deckhand reads configuration from `~/.deckhand/config.json`. `DECKHAND_HOME` sel
 
 ### Project Configuration
 
-Session defaults, a Dev command, a setup command and layout/symlinks for new worktrees, and named actions come from two layers, both edited with **C**: global `defaults` in your user `config.json` (never need trust), overridden per repository by one `deckhand.json` in the main checkout. The repository file applies only once you trust its exact contents; Deckhand asks inline (Enter trusts, `s` continues with global defaults only) when you create a session, open actions, start Dev or retry setup — see [project configuration, trust and cleanup](docs/no-brainers.md) for the full behaviour.
+Session defaults, a Dev command, a setup command and layout/symlinks for new worktrees, and named actions come from two layers, both edited in place from the **C** Settings screen: global `defaults` in your user `config.json` (never need trust), overridden per repository by one `deckhand.json` in the main checkout. The repository file applies only once you trust its exact contents; Deckhand asks inline (Enter trusts, `s` continues with global defaults only) when you create a session, open actions, start Dev or retry setup. Edits you make in Deckhand keep the file trusted if it was trusted (or new); changes from outside need review — see [project configuration, trust and cleanup](docs/no-brainers.md) for the full behaviour.
 
 Optional `agent_hooks` and `notifications` in user config enable capability-gated lifecycle integration and best-effort desktop notifications. They default off; native approvals stay in agent terminals. A response ending is **not task success**.
 
@@ -285,7 +284,7 @@ For new-worktree sessions, Deckhand creates or resolves a git worktree and then 
 .claude/scripts/create-worktree.sh
 ```
 
-Set `"worktree": {"hook": false}` (or press **h** in **C → Worktree setup**) to ignore the script entirely: it is then never run or reviewed. A repository's `deckhand.json` can switch it off even before it is trusted, since that only prevents execution.
+Set `"worktree": {"hook": false}` (or set **Creation hook** to off in **C** Settings) to ignore the script entirely: it is then never run or reviewed. A repository's `deckhand.json` can switch it off even before it is trusted, since that only prevents execution.
 
 ### Hook Contract
 

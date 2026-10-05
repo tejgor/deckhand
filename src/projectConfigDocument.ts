@@ -2,8 +2,8 @@ import fs from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
-import {resolveRepoContext} from './git.js';
-import {PROJECT_CONFIG_FILE, parseProjectConfig, readBoundedUtf8, sha256} from './projectConfig.js';
+import {resolveRepoContext, type RepoContext} from './git.js';
+import {PROJECT_CONFIG_FILE, parseProjectConfig, readBoundedUtf8, savedProjectTrust, sha256, trustProjectConfig, type SaveTrust} from './projectConfig.js';
 import {MAX_CONFIG_BYTES, MAX_CONFIG_LABEL} from './configDraft.js';
 import {getConfigDir, getConfigPath} from './paths.js';
 import {loadAppConfig, updateAppConfig} from './storage.js';
@@ -18,6 +18,8 @@ export interface ProjectConfigDocument {
 	revision: string | null;
 	exists: boolean;
 }
+/** A saved document; a repository file saved with keepTrust says whether it is (still) trusted (see savedProjectTrust). */
+export interface SavedConfigDocument extends ProjectConfigDocument {trust?: SaveTrust}
 /** C's two targets: the user's global defaults and the repository's deckhand.json (main checkout). */
 export interface ConfigTargets {
 	global?: ProjectConfigDocument;
@@ -35,10 +37,10 @@ export async function readConfigTargets(cwd: string): Promise<ConfigTargets> {
 	return targets;
 }
 
-async function repositoryRoot(cwd: string): Promise<string> {
-	const {mainRoot} = await resolveRepoContext(cwd);
-	if (!mainRoot) throw new Error('Bare repositories have no main checkout, so no repository deckhand.json; use global defaults');
-	return mainRoot;
+async function repositoryContext(cwd: string): Promise<RepoContext & {mainRoot: string}> {
+	const context = await resolveRepoContext(cwd);
+	if (!context.mainRoot) throw new Error('Bare repositories have no main checkout, so no repository deckhand.json; use global defaults');
+	return {...context, mainRoot: context.mainRoot};
 }
 
 // Unlike loadProjectConfig, opening a document must allow malformed JSON to be repaired.
@@ -55,7 +57,7 @@ async function readDocumentAt(root: string): Promise<{document: ProjectConfigDoc
 }
 /** The repository's deckhand.json, always in the main checkout (worktree copies are ignored). */
 export async function readProjectConfigDocument(cwd: string): Promise<ProjectConfigDocument> {
-	return (await readDocumentAt(await repositoryRoot(cwd))).document;
+	return (await readDocumentAt((await repositoryContext(cwd)).mainRoot)).document;
 }
 
 // Exclusive creation that never overwrites a newly-created file; copy when the filesystem lacks hard links.
@@ -73,10 +75,16 @@ function checkDraft(raw: string, expectedRevision: string | null): void {
 }
 
 const writes = new Map<string, Promise<void>>();
-export async function saveProjectConfigDocument(cwd: string, raw: string, expectedRevision: string | null): Promise<ProjectConfigDocument> {
+/**
+ * Writes the repository's deckhand.json if it still has `expectedRevision` (null: must not exist). With `keepTrust`
+ * (saves made through Deckhand), the trust decision is made from exactly the replaced bytes inside the same
+ * serialized write, and the new bytes' fingerprint is trusted when savedProjectTrust allows it.
+ */
+export async function saveProjectConfigDocument(cwd: string, raw: string, expectedRevision: string | null, {keepTrust = false}: {keepTrust?: boolean} = {}): Promise<SavedConfigDocument> {
 	checkDraft(raw, expectedRevision);
 	parseProjectConfig(raw); // Never replace a valid file with an invalid draft.
-	const root = await repositoryRoot(cwd);
+	const context = await repositoryContext(cwd);
+	const root = context.mainRoot;
 	const file = path.join(root, PROJECT_CONFIG_FILE);
 	const operation = (writes.get(file) ?? Promise.resolve()).then(async () => {
 		const check = async () => {
@@ -85,6 +93,8 @@ export async function saveProjectConfigDocument(cwd: string, raw: string, expect
 			return current;
 		};
 		const current = await check();
+		// Decided from the bytes the revision names (what the user edited from), before anything is written.
+		const decision = keepTrust ? await savedProjectTrust(context, {raw: current.document.raw, exists: current.document.exists}, raw, await loadAppConfig()) : undefined;
 		const temporary = path.join(root, `.deckhand.json.${randomUUID()}.tmp`);
 		try {
 			await fs.writeFile(temporary, raw, {encoding: 'utf8', mode: current.mode, flag: 'wx'});
@@ -92,7 +102,10 @@ export async function saveProjectConfigDocument(cwd: string, raw: string, expect
 			await check();
 			if (expectedRevision === null) await createExclusive(temporary, file);
 			else await fs.rename(temporary, file);
-			return {kind: 'repository' as const, root, path: file, raw, revision: sha256(Buffer.from(raw)), exists: true};
+			// The fingerprint covers the bytes written here: anything written over them later needs a review again.
+			const fingerprint = decision?.fingerprint;
+			if (fingerprint) await updateAppConfig(config => trustProjectConfig({trustRoot: context.trustRoot, fingerprint}, config));
+			return {kind: 'repository' as const, root, path: file, raw, revision: sha256(Buffer.from(raw)), exists: true, ...decision ? {trust: decision.trust} : {}};
 		} finally { await fs.rm(temporary, {force: true}); }
 	});
 	const tail = operation.then(() => {}, () => {});

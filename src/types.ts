@@ -1,11 +1,11 @@
 import type {AttentionState} from './agentSignals.js';
 import type {WorkspaceSummary, CleanupInspection, CreatePrResult} from './workspaceGit.js';
-import type {EffectiveSettingsInfo, LoadedProject, ProjectConfig} from './projectConfig.js';
-import type {ConfigTargetKind, ConfigTargets, ProjectConfigDocument} from './projectConfigDocument.js';
-import type {WorktreeSetupInfo} from './worktreeSetup.js';
+import type {LoadedProject, ProjectConfig} from './projectConfig.js';
+import type {ConfigTargetKind, ConfigTargets, ProjectConfigDocument, SavedConfigDocument} from './projectConfigDocument.js';
+import type {SettingsInfo, WorktreeCandidates} from './settingsInfo.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 32;
+export const PROTOCOL_VERSION = 34;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -165,12 +165,11 @@ export type ClientRequest =
 	| {type: 'ping'; requestId: string}
 	| {type: 'shutdown'; requestId: string}
 	| {type: 'project-info'; requestId: string; cwd: string}
-	| {type: 'config-targets'; requestId: string; cwd: string}
 	| {type: 'save-config'; requestId: string; target: ConfigTargetKind; cwd: string; raw: string; revision: string | null}
-	/** C → Worktree setup: layers, hook state, candidates and previews. Read-only. */
-	| {type: 'worktree-setup-info'; requestId: string; cwd: string}
-	/** C → Effective settings: each effective setting with its source and any pending (untrusted) repository value. Read-only. */
-	| {type: 'effective-settings'; requestId: string; cwd: string}
+	/** C → Settings: each effective setting with its source and pending (untrusted) value, trust state and both editable documents. Read-only. */
+	| {type: 'settings-info'; requestId: string; cwd: string}
+	/** Settings → Linked items: untracked/ignored entries of the main checkout plus configured links. Read-only. */
+	| {type: 'worktree-candidates'; requestId: string; cwd: string}
 	/** Bounded sizes (KiB, null when unknown) of candidate paths relative to the main checkout. */
 	| {type: 'worktree-candidate-sizes'; requestId: string; cwd: string; paths: string[]}
 	| {type: 'trust-project'; requestId: string; cwd: string; fingerprint: string}
@@ -222,7 +221,7 @@ export interface ProjectInfo extends LoadedProject {trusted: boolean; needsRevie
 // reasons/safe describe data that DELETE (allowDataLoss) may override; structuralBlockers
 // (main/current/shared/missing worktree, protected branch) can never be overridden.
 export type SessionCleanupInspection = CleanupInspection & {structuralBlockers: string[]};
-export type {WorkspaceSummary, CleanupInspection, CreatePrResult, ProjectConfigDocument, ConfigTargets, ConfigTargetKind, WorktreeSetupInfo, EffectiveSettingsInfo};
+export type {WorkspaceSummary, CleanupInspection, CreatePrResult, ProjectConfigDocument, SavedConfigDocument, ConfigTargets, ConfigTargetKind, SettingsInfo, WorktreeCandidates};
 
 export type ServerResponse<T = unknown> = {
 	type: 'response';

@@ -25,9 +25,9 @@ Settings come from two layers with the same schema. Every setting is optional; u
 | `actions` | Named commands offered by **e** |
 | `worktree` | Where new worktrees go, what their branch starts from and is called, whether the creation hook is used, and what is symlinked into them; see [Worktree settings](#worktree-settings) |
 
-- **Global defaults**: the `defaults` object in your user config (`~/.deckhand/config.json`). You wrote them, so they never need trust. If they are invalid, whatever uses them (new worktree setup, Dev, actions) reports the error; **C** opens them for repair.
+- **Global defaults**: the `defaults` object in your user config (`~/.deckhand/config.json`). You wrote them, so they never need trust. If they are invalid, whatever uses them (new worktree setup, Dev, actions) reports the error; **C** (Settings) shows it, and **←** (the Global column) then **e** opens them for repair.
 - **Repository override**: one `deckhand.json` at the root of the repository's **main checkout**, read live (uncommitted edits apply at once to every worktree of that repository). Copies of `deckhand.json` inside linked worktrees are ignored. Bare repositories have no main checkout and use global defaults only. The file is limited to 64 KiB and must not be a symlink.
-- **Effective settings** are the global defaults overlaid field by field by the repository override, **only while the override is trusted**; `actions` merge by name with the repository winning, and `worktree` merges per field (below). Untrusted, only global defaults apply.
+- **Effective settings** are the global defaults overlaid field by field by the repository override, **only while the override is trusted**; `actions` merge by name with the repository winning, and `worktree` merges per field (below). Untrusted, only global defaults apply, except the repository's `defaultAgent` and `defaultWorkspace`: they only preselect the new-session picker (you confirm them, nothing runs), so they apply untrusted too and Settings shows them in effect without *needs trust*.
 
 Child sessions keep their parent's agent and directory instead of the defaults.
 
@@ -66,39 +66,63 @@ Child sessions keep their parent's agent and directory instead of the defaults.
 
 The creation hook (below) remains the escape hatch for anything these settings cannot express.
 
-### Worktree setup (C → Worktree setup)
+### Settings (C)
 
-A guided editor for the `worktree` section, so you rarely need to write it by hand:
+**C** opens one Settings screen for the current repository (the selected session's, else the launch directory's), using the full width of the terminal. It is a grid: one row per setting, in three sections, and two value columns side by side, **Global (all repos)** and **This repo**:
 
-- **Save target**: the repository's `deckhand.json` (default, when the repository has a main checkout) or global defaults; **t** toggles. The screen starts from both layers as written (the repository file counts even before it is trusted) and saves the complete chosen section into that target only, keeping every other setting there. Values the target would inherit anyway (for the repository, from global defaults) are not repeated, and the target's own `files` entries are kept untouched.
-- **Hook**: when `.claude/scripts/create-worktree.sh` exists it is shown with its state; **h** switches it on or off (`worktree.hook`). While it is on, Location and Branch are marked as ignored.
-- **Location**: next to the repository (`{repoParent}/worktrees/{name}`), Deckhand's default (writes no `location`; for the repository target this shows the global location if one is set), inside the repository (`{repoRoot}/.worktrees/{name}`, with a warning when `.worktrees/` is not gitignored), or the existing custom value. Each shows the path it resolves to.
-- **Branch from**: current checkout, default branch (named), or fetch `origin/<default>` first. **Branch name**: Enter edits the template inline and shows an example for `my-task`.
-- **Missing from new worktrees**: the untracked and ignored entries of the main checkout (`git status --ignored=matching --untracked-files=normal`, so directories collapse; at most 200, then "+N more (edit JSON)"), with sizes computed in the background (`…` while pending, `?` when unknown or too slow) and symlink targets. Entries already in the effective `symlink` list or `files` are marked as link, configured entries that no longer exist are listed as "missing in checkout" so they can be removed, and everything else is suggested: dependencies and env files (`node_modules`, `.venv`, `venv`, `vendor`, `.vercel`, `.env`, `.env.*`, `*.env`) as link; build output, caches and clutter (`dist`, `build`, `out`, `coverage`, `.next`, `.turbo`, `.cache`, `__pycache__`, `.pytest_cache`, `.DS_Store`, `*.log`) and everything else as skip. **Space** toggles link/skip; `files` entries are changed in JSON.
-- **Keys**: ↑↓ (j/k) move, Space toggles, ←→ change the option, **t** save target, **h** hook, **Ctrl+S** save, **e** opens the regular JSON editor for the same target (save or discard first), **Esc** cancels and asks before discarding changes.
+```
+                       Global (all repos)          This repo
+ General
+❯ Default agent      ● pi                          —
+  Default workspace    —                         ● new worktree
+ Commands
+  Dev command        ● npm run dev:all             npm run dev ⚠ needs trust
+  Actions            ● fmt, test                   test ⚠ needs trust
+ Worktrees
+  Location           ● ~/Dev/worktrees/app/<name>  —
+  Branch from        ● current checkout (built-in) —
+```
 
-Saving goes through the same revision-checked save as the editor below: it runs nothing and grants no trust, so the next **n** asks you to review a changed `deckhand.json`.
+- **General**: Default agent, Default workspace.
+- **Commands**: Dev command, Setup command, Actions (the names).
+- **Worktrees**: Location, Branch from, Branch name, Linked items (`worktree.symlink` plus `worktree.files`, as a count), Creation hook (on/off).
 
-### Editing (C)
+Each cell shows **that layer's own stored value** (`—` when it sets none); templates show their expansion for this repository, with the template in the details box. **●** marks the value in effect (what `resolveSettings` uses, via `explainSettings`), shown bold; a value the other layer overrides is dimmed. When neither layer sets a value, the Global column shows the built-in default in italics, e.g. *dev (built-in)*. A value this repository's `deckhand.json` sets while the file is untrusted stays in its cell with **⚠** (*⚠ needs trust* when there is room): the emphasis stays on what applies now, and it applies once you trust the file — you're asked the first time it runs, or press **T**. `defaultAgent`, `defaultWorkspace` and `worktree.hook: false` apply untrusted too. Lists show a compact summary per layer: action names, or a count of linked items.
 
-**C** offers four targets: **Global defaults** (the `defaults` object in `config.json`; other keys are preserved) and **Repository** (`deckhand.json` in the main checkout), each with its exact path and whether it exists, plus [**Worktree setup**](#worktree-setup-c--worktree-setup) and **Effective settings**. A missing target opens from a starter draft. Nothing is written until **Ctrl+S**. Saving validates the settings and rejects a draft whose target changed since it was opened; the repository file keeps its permissions. Malformed JSON can be opened for repair. Esc or Ctrl+C cancels and asks before discarding edits; a second Ctrl+C at that prompt, or Ctrl+C while a save is in flight, quits the UI (unsaved edits are lost).
+The cursor is a **cell**: **↑↓** move between settings, **←→** (or **Tab**) between the columns, and the column stays put while you move up and down. Settings opens on **This repo** (on Global outside a Git repository or in a bare one, where only global defaults exist). Below 64 columns of width only the selected column is shown, with a *◂ Global | This repo ▸* indicator; ←→ still switch it. The header shows the file's state (*trusted ✓*, *needs trust*, *not present* or *invalid*) and invalid global defaults. Rows are cut to fit, never wrapped, and the grid scrolls to keep the selection visible.
 
-Saving never runs anything, grants trust or commits.
+The box under the grid describes the selected cell in one line (two in narrow terminals): its layer and file (`~` for your home) and how it relates to the other column — *overrides global*, *inherited by this repo*, *overridden by this repo*, *not set: inherits global* — or, for a built-in value, what it means (*No Dev command is set, so d runs a shell command named `dev`.*), or for an untrusted value *Applies once trusted — you'll be asked the first time it runs (or press T)*. A value the cell had to cut is shown there in full.
 
-To see what's in effect and where it comes from, use **C → Effective settings**: a read-only list of every setting for the current repository (the selected session's, else the launch directory's) with its value and source (`repo`, `global`, `legacy dev_command`, `built-in default` or `not set`), one row per action, symlink and file entry. Templates show their expansion for this repository with the raw template beside it, and the hook row says whether `create-worktree.sh` was detected and whether it will run. While `deckhand.json` is untrusted, the global values are shown as in effect and each repository value beneath them as *(repo, pending trust)*. **Enter** (or **e**) opens the file that sets the selected row (repository rows open `deckhand.json`, everything else global defaults), **T** opens the trust review and returns here, **Esc** goes back to the targets.
+**Keys.** **Enter** edits the selected cell, starting from that layer's stored value (an empty input shows the inherited value as a hint), and saves to that layer. **x** clears the cell after a confirmation; the other layer (or the built-in default) takes over. **e** opens the selected column's raw JSON and returns to Settings. **T** opens the trust review and returns. **Esc** closes Settings.
+
+**Edit controls.** The control opens under the grid, titled *<Setting> · <Layer>*; Esc cancels it.
+
+- **Choices** (↑↓, Enter saves; ◉ marks the layer's own value): agent (`claude`, `pi`, `codex`), workspace (no / new / existing worktree), branch from (current checkout, default branch, fetch `origin/<default>` first), creation hook (on/off), and location: inherit (the global location when editing This repo, else Deckhand's default; removes the layer's own `location`), next to the repository (`{repoParent}/worktrees/{name}`), inside it (`{repoRoot}/.worktrees/{name}`, with a warning on its own line when `.worktrees/` is not gitignored) or **custom…** (a template). Each location shows the path it resolves to.
+- **Text** (one line; ←→/Home/End move, Ctrl+A selects all): Dev command, Setup command, Branch name (with an example for `my-task`) and a custom location (with a preview). Invalid values show the error inline and keep the input open.
+- **Actions** (Enter on the Actions cell): that column's actions only, name → command, with the other layer's actions dimmed underneath as context. Actions are named shell commands you run with **e** on a session; they run in that session's worktree, in the Dev pane. Enter edits the command, **a** adds one in two titled steps, **x** removes it.
+  - *Step 1 of 2: name*: letters, numbers, spaces, `_ . -`; starts with a letter or number; up to 48 characters (`test`, `lint frontend`, `db.migrate`). It is checked as you type (*can't start with a space*, *can't contain "/"*, …; Enter keeps the step open) and says what saving does: *adds a new action to this repo*, *replaces the existing test action (this repo)*, *overrides the global test action in this repo*. A layer holds at most 30 actions; at the limit the step says so.
+  - *Step 2 of 2: command for <name>*: runs with your shell (`$SHELL -ic`) in the session's worktree, like typing it in a terminal, so `&&`, pipes, `cd` and env vars work; for example `npm test`, `cd backend && .venv/bin/pytest -x` or `make lint`. It must not be empty (at most 8192 characters).
+- **Linked items** (Enter on the Linked items cell): the untracked and ignored entries of the main checkout (`git status --ignored=matching --untracked-files=normal`, so directories collapse; at most 200, then "+N more"), with sizes computed in the background (`…` while pending, `?` when unknown or too slow) and symlink targets. Configured entries are marked as link (with the layers that list them), configured entries that no longer exist show as "missing in checkout", and everything else is suggested: dependencies and env files (`node_modules`, `.venv`, `venv`, `vendor`, `.vercel`, `.env`, `.env.*`, `*.env`) as link; build output, caches and clutter (`dist`, `build`, `out`, `coverage`, `.next`, `.turbo`, `.cache`, `__pycache__`, `.pytest_cache`, `.DS_Store`, `*.log`) and everything else as skip. **Space** toggles link/skip and **Enter** saves the column's `worktree.symlink` (its own entries keep their order; entries the other layer links stay linked). `worktree.files` entries are listed read-only: edit them in the raw JSON.
+
+Each confirmed edit saves immediately through the same safe save as the JSON editor, preserving every other key, and the status line says where and what happened to trust: *Saved Dev command to this repo · still trusted*, *· created and trusted*, or *· review required (the file had changes you haven't reviewed)*; global saves never involve trust. A file that changed on disk since Settings read it rejects the edit; Settings reloads and says what was not saved.
+
+The raw JSON editor (**e**): a missing file opens from a starter draft, nothing is written until **Ctrl+S**, malformed JSON can be opened for repair, and the repository file keeps its permissions. Esc or Ctrl+C returns and asks before discarding edits; a second Ctrl+C at that prompt, or Ctrl+C while a save is in flight, quits the UI (unsaved edits are lost).
+
+Saving never runs anything or commits. Edits you make in Deckhand keep `deckhand.json` trusted if it was trusted (or new); changes from outside need review (see [Trust](#trust-inline-review)).
 
 ### Trust (inline review)
 
-A repository's `deckhand.json` and its optional `.claude/scripts/create-worktree.sh` creation hook are trusted together, by exact content. A repository with neither has nothing to trust. A hook switched off with `worktree.hook: false` is not part of the trust at all. When an untrusted override matters, Deckhand shows its exact bytes inline before continuing:
+A repository's `deckhand.json` and its optional `.claude/scripts/create-worktree.sh` creation hook are trusted together, by exact content. A repository with neither has nothing to trust. A hook switched off with `worktree.hook: false` is not part of the trust at all. Trust gates **running**, not seeing or choosing: every list shows every option, and you're asked when something from the repository is about to run. Deckhand then shows its exact bytes inline, with what is about to run on top:
 
-- **n**, **N** and **F** (new sessions), before the program picker, since the override can set the defaults and the new worktree's setup.
-- **e**, before the action list.
-- Starting Dev (**d**), when the override defines a `devCommand`.
-- **s** on a session whose setup has not completed.
+- **n**, **N** and **F** (new sessions) open the picker at once, with the repository's `defaultAgent`/`defaultWorkspace` preselected even untrusted. Only confirming a **new worktree** that would use untrusted repository parts (its `setupCommand`, an enabled creation hook, or `worktree` location/branch/link settings) reviews first: **Enter** trusts and creates, **s** creates with global settings only, **Esc** returns to the form. No-worktree and existing-worktree sessions never ask.
+- **e** lists global and all repository actions; untrusted repository ones are marked *· needs trust*. Choosing one reviews first: **Enter** trusts and runs it, **s** cancels that run (or runs the global action of the same name, if there is one), **Esc** returns to the list. Global and trusted actions run at once.
+- Starting Dev (**d**), when the override defines a `devCommand`: **Enter** trusts and starts it, **s** starts the global (or built-in) Dev command instead.
+- **s** on a session whose setup has not completed, when the override defines a `setupCommand`: **s** in the review retries without it.
 
-In the review, **Enter** trusts these exact bytes and continues, **s** continues without them (global defaults only, this time), and **Esc** cancels the action. **T** opens the same review on its own. Tabs are shown as spaces and invisible or bidirectional characters as `<U+XXXX>`.
+**Esc** always backs out without running anything. In Settings (**C**), **T** opens the same review. Tabs are shown as spaces and invisible or bidirectional characters as `<U+XXXX>`.
 
-- Trust lives in your user `config.json`, never in the repository. It is keyed per repository (by its main checkout, or by its Git common directory for bare repositories) and keeps the 20 most recently trusted fingerprints, so any change to the bytes needs a fresh review.
+- Trust lives in your user `config.json`, never in the repository. It is keyed per repository (by its main checkout, or by its Git common directory for bare repositories) and keeps the 20 most recently trusted fingerprints, so any change to the bytes needs a fresh review — except your own edits made in Deckhand (next point).
+- **Edits you make in Deckhand keep the file trusted if it was trusted (or new); changes from outside need review.** A save through Settings, its Actions and Linked items editors or the raw JSON editor (**e**) trusts the new bytes when the version it replaced was trusted, or when there was no `deckhand.json` and no creation hook to review. The check uses exactly the bytes you edited from (the save's revision check) together with the creation hook as it is now, so a file or hook changed since you last trusted it does not carry over: the status says *review required (the file had changes you haven't reviewed)* and you're asked once, with the whole file shown. A creation hook is never trusted through a save: a save that switches an unreviewed hook on, or creates the file next to one, needs a review too. Edits from outside Deckhand (your editor, `git pull`, an agent) always need a review.
 - A trust request is checked against the reviewed fingerprint: if the file changed after you opened the review, it is refused and the review shows the new bytes.
 - The daemon enforces trust independently of the prompt: untrusted repository setup, Dev and action commands and creation hooks never run.
 

@@ -16,9 +16,9 @@ import {isPathInside, sessionMatchesScope} from './sessionScope.js';
 import {errorMessage} from './ui.js';
 import {TerminalPreview} from './terminalPreview.js';
 import type {WorktreeSettings} from './worktreeLinks.js';
-import {loadProjectConfig, isProjectTrusted, readEffectiveSettings, projectNeedsReview, resolveDevCommand, resolveSettings, resolveSetupCommand, trustProjectConfig, type LoadedProject} from './projectConfig.js';
-import {readConfigTargets, saveGlobalDefaultsDocument, saveProjectConfigDocument} from './projectConfigDocument.js';
-import {readCandidateSizes, readWorktreeSetupInfo} from './worktreeSetup.js';
+import {loadProjectConfig, isProjectTrusted, projectNeedsReview, resolveDevCommand, resolveSettings, resolveSetupCommand, trustProjectConfig, type LoadedProject} from './projectConfig.js';
+import {saveGlobalDefaultsDocument, saveProjectConfigDocument} from './projectConfigDocument.js';
+import {readCandidateSizes, readSettingsInfo, readWorktreeCandidates} from './settingsInfo.js';
 import {createPullRequest, getHandoffGitContext, getWorkspaceSummary, inspectWorkspaceCleanup, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
 import {normalizeHook, integrationArgs, codexResumeFromOutput, needsAttention} from './agentSignals.js';
 import {exportHandoff} from './sessionFeatures.js';
@@ -667,16 +667,14 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, {ok: true}));
 					setTimeout(() => { void this.cleanup().finally(() => process.exit(0)); }, 25); return;
 				}
-				case 'config-targets': {
-					sendMessage(socket, response(message.requestId, await readConfigTargets(message.cwd))); return;
-				}
 				case 'save-config': {
-					// Saving never runs anything or grants trust.
-					const saved = message.target === 'global' ? await saveGlobalDefaultsDocument(message.raw, message.revision) : await saveProjectConfigDocument(message.cwd, message.raw, message.revision);
+					// Saving never runs anything. A repository file saved here stays trusted when the version it replaces was
+					// trusted (or absent), never newly trusting a creation hook; see savedProjectTrust.
+					const saved = message.target === 'global' ? await saveGlobalDefaultsDocument(message.raw, message.revision) : await saveProjectConfigDocument(message.cwd, message.raw, message.revision, {keepTrust: true});
 					sendMessage(socket, response(message.requestId, saved)); return;
 				}
-				case 'worktree-setup-info': sendMessage(socket, response(message.requestId, await readWorktreeSetupInfo(message.cwd))); return;
-				case 'effective-settings': sendMessage(socket, response(message.requestId, await readEffectiveSettings(message.cwd, await loadAppConfig()))); return;
+				case 'settings-info': sendMessage(socket, response(message.requestId, await readSettingsInfo(message.cwd))); return;
+				case 'worktree-candidates': sendMessage(socket, response(message.requestId, await readWorktreeCandidates(message.cwd))); return;
 				case 'worktree-candidate-sizes': sendMessage(socket, response(message.requestId, await readCandidateSizes(message.cwd, message.paths))); return;
 				case 'project-info': {
 					const config = await loadAppConfig();
