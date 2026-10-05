@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {loadProjectConfig, parseProjectConfig, isProjectTrusted, projectNeedsReview, trustProjectConfig, resolveDevCommand, resolveSettings, resolveSetupCommand, type LoadedProject} from '../src/projectConfig.js';
+import {explainSettings, loadProjectConfig, parseProjectConfig, isProjectTrusted, projectNeedsReview, trustProjectConfig, resolveDevCommand, resolveSettings, resolveSetupCommand, type LoadedProject, type ProjectConfig, type SettingRow, type UserSettings} from '../src/projectConfig.js';
 import {readProjectConfigDocument} from '../src/projectConfigDocument.js';
 import {git, repo} from './helpers.js';
 test('strict project schema rejects malformed/unknown commands and defaults', () => {
@@ -22,6 +22,59 @@ test('effective settings: global defaults overlaid by the repository override on
 	assert.throws(() => resolveSetupCommand(project, user), /not trusted/);
 	assert.equal(resolveSetupCommand(project, user, 'f'), 'npm ci');
 	assert.equal(resolveSetupCommand(project, trusted), 'repo setup');
+});
+// Rebuilds a ProjectConfig from the rows that are in effect (not built-in, unset or pending).
+function fromRows(rows: SettingRow[]): ProjectConfig {
+	const config: Record<string, unknown> = {}, worktree: Record<string, unknown> = {};
+	for (const row of rows) {
+		if (row.source === 'built-in default' || row.source === 'not set') continue;
+		const [scope, field] = row.key.startsWith('worktree.') ? [worktree, row.key.slice(9)] : [config, row.key];
+		if (field === 'symlink') scope.symlink = [...scope.symlink as string[] ?? [], row.raw];
+		else if (row.entry !== undefined) scope[field] = {...scope[field] as object, [row.entry]: row.raw};
+		else scope[field] = row.raw;
+	}
+	return Object.keys(worktree).length ? {...config, worktree} as ProjectConfig : config as ProjectConfig;
+}
+const find = (rows: SettingRow[], key: string, entry?: string) => rows.find(row => row.key === key && row.entry === entry)!;
+test('explainSettings: sources per row, pending untrusted values, list merges, legacy and built-in defaults; values equal resolveSettings', () => {
+	const vars = {name: '<name>', repo: 'mono', repoParent: '/dev', repoRoot: '/dev/mono', home: '/home/me'};
+	const context = {vars, user: 'tejas', configDir: '/state'};
+	const repoConfig: ProjectConfig = {defaultWorkspace: 'new', devCommand: 'cd frontend && npm run dev', actions: {test: 'pytest', lint: 'repo lint'}, worktree: {location: '{repoParent}/worktrees/{name}', hook: false, symlink: ['frontend/node_modules', 'node_modules'], files: {'backend/local.cfg': '{repoParent}/backend.cfg'}}};
+	const project = {root: '/dev/mono', trustRoot: '/dev/mono', path: '/dev/mono/deckhand.json', exists: true, fingerprint: 'f', config: repoConfig} as LoadedProject;
+	const user: UserSettings = {dev_command: 'legacy dev', defaults: {defaultAgent: 'codex', actions: {lint: 'npm run lint'}, worktree: {branchName: '{user}/{name}', symlink: ['node_modules'], files: {'backend/local.cfg': '/g/cfg'}}}};
+	const trusted = trustProjectConfig(project, user);
+	const cases: Array<[LoadedProject | undefined, UserSettings]> = [[undefined, {}], [undefined, user], [project, user], [project, trusted], [{...project, config: {}}, {defaults: {devCommand: 'npm start'}}]];
+	for (const [p, u] of cases) assert.deepEqual(fromRows(explainSettings(p, u, context).rows), resolveSettings(p, u));
+
+	// Built-in defaults only.
+	const empty = explainSettings(undefined, {}, context).rows;
+	assert.deepEqual([find(empty, 'defaultAgent').value, find(empty, 'defaultAgent').source], ['claude', 'built-in default']);
+	assert.deepEqual([find(empty, 'devCommand').value, find(empty, 'setupCommand').source, find(empty, 'actions').source], ['dev', 'not set', 'not set']);
+	assert.equal(find(empty, 'worktree.location').value, '/state/worktrees/<name>');
+	assert.deepEqual([find(empty, 'worktree.hook').value, find(empty, 'worktree.hook').note], ['on', 'no .claude/scripts/create-worktree.sh detected']);
+
+	// Global only (repository untrusted): legacy dev_command, repo values pending; the repository's hook: false applies anyway.
+	const pending = explainSettings(project, user, context).rows;
+	assert.deepEqual([find(pending, 'devCommand').source, find(pending, 'devCommand').value, find(pending, 'devCommand').pending?.value], ['legacy dev_command', 'legacy dev', 'cd frontend && npm run dev']);
+	assert.deepEqual([find(pending, 'defaultWorkspace').source, find(pending, 'defaultWorkspace').pending?.value], ['built-in default', 'new']);
+	assert.deepEqual([find(pending, 'actions', 'lint').source, find(pending, 'actions', 'lint').pending?.value], ['global', 'repo lint']);
+	assert.deepEqual([find(pending, 'actions', 'test').source, find(pending, 'actions', 'test').pending?.value], ['not set', 'pytest']);
+	assert.deepEqual([find(pending, 'worktree.symlink', 'frontend/node_modules').source, find(pending, 'worktree.symlink', 'node_modules').source], ['not set', 'global']);
+	assert.deepEqual([find(pending, 'worktree.hook').value, find(pending, 'worktree.hook').source, find(pending, 'worktree.hook').pending], ['off', 'repo', undefined]);
+	assert.deepEqual([find(pending, 'worktree.branchName').value, find(pending, 'worktree.branchName').raw], ['tejas/<name>', '{user}/{name}']);
+	assert.equal(find(pending, 'worktree.location').pending?.value, '/dev/worktrees/<name>');
+
+	// Trusted: repository wins field by field and per entry, global entries it does not override stay.
+	const merged = explainSettings(project, trusted, context).rows;
+	assert.deepEqual([find(merged, 'devCommand').source, find(merged, 'defaultAgent').source, find(merged, 'worktree.branchName').source, find(merged, 'worktree.branchFrom').source], ['repo', 'global', 'global', 'built-in default']);
+	assert.deepEqual([find(merged, 'actions', 'lint').source, find(merged, 'actions', 'lint').note, find(merged, 'actions', 'test').source], ['repo', 'overrides global npm run lint', 'repo']);
+	assert.deepEqual([find(merged, 'worktree.files', 'backend/local.cfg').value, find(merged, 'worktree.files', 'backend/local.cfg').raw, find(merged, 'worktree.location').value], ['/dev/backend.cfg', '{repoParent}/backend.cfg', '/dev/worktrees/<name>']);
+	assert.ok(merged.every(row => !row.pending));
+	// A non-legacy global devCommand, and invalid global defaults reported while the rest still resolves.
+	assert.equal(find(explainSettings(undefined, {dev_command: 'x', defaults: {devCommand: 'npm start'}}).rows, 'devCommand').source, 'global');
+	const broken = explainSettings(project, {...trusted, defaults: {setupCommand: ''}}, context);
+	assert.match(broken.globalError ?? '', /Invalid "defaults"/);
+	assert.deepEqual([find(broken.rows, 'devCommand').source, find(broken.rows, 'defaultWorkspace').value], ['repo', 'new']);
 });
 test('the repository override is the main checkout\'s live deckhand.json; worktree copies are ignored', async t => {
 	const cwd = await repo(), other = await repo(); t.after(async () => { await fs.rm(cwd, {recursive: true, force: true}); await fs.rm(other, {recursive: true, force: true}); });

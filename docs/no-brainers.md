@@ -81,9 +81,11 @@ Saving goes through the same revision-checked save as the editor below: it runs 
 
 ### Editing (C)
 
-**C** offers three targets: **Global defaults** (the `defaults` object in `config.json`; other keys are preserved) and **Repository** (`deckhand.json` in the main checkout), each with its exact path and whether it exists, plus [**Worktree setup**](#worktree-setup-c--worktree-setup). A missing target opens from a starter draft. Nothing is written until **Ctrl+S**. Saving validates the settings and rejects a draft whose target changed since it was opened; the repository file keeps its permissions. Malformed JSON can be opened for repair. Esc or Ctrl+C cancels and asks before discarding edits; a second Ctrl+C at that prompt, or Ctrl+C while a save is in flight, quits the UI (unsaved edits are lost).
+**C** offers four targets: **Global defaults** (the `defaults` object in `config.json`; other keys are preserved) and **Repository** (`deckhand.json` in the main checkout), each with its exact path and whether it exists, plus [**Worktree setup**](#worktree-setup-c--worktree-setup) and **Effective settings**. A missing target opens from a starter draft. Nothing is written until **Ctrl+S**. Saving validates the settings and rejects a draft whose target changed since it was opened; the repository file keeps its permissions. Malformed JSON can be opened for repair. Esc or Ctrl+C cancels and asks before discarding edits; a second Ctrl+C at that prompt, or Ctrl+C while a save is in flight, quits the UI (unsaved edits are lost).
 
 Saving never runs anything, grants trust or commits.
+
+To see what's in effect and where it comes from, use **C → Effective settings**: a read-only list of every setting for the current repository (the selected session's, else the launch directory's) with its value and source (`repo`, `global`, `legacy dev_command`, `built-in default` or `not set`), one row per action, symlink and file entry. Templates show their expansion for this repository with the raw template beside it, and the hook row says whether `create-worktree.sh` was detected and whether it will run. While `deckhand.json` is untrusted, the global values are shown as in effect and each repository value beneath them as *(repo, pending trust)*. **Enter** (or **e**) opens the file that sets the selected row (repository rows open `deckhand.json`, everything else global defaults), **T** opens the trust review and returns here, **Esc** goes back to the targets.
 
 ### Trust (inline review)
 

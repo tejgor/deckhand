@@ -164,22 +164,36 @@ const LOCK_STALE_MS = 5000, LOCK_TIMEOUT_MS = 10_000;
 // The UI and daemon processes both write config.json; an exclusive lockfile serializes their read-modify-write.
 async function withConfigLock<T>(operation: () => Promise<T>): Promise<T> {
 	const lock = `${getConfigPath()}.lock`;
+	const token = `${process.pid}:${randomUUID()}`;
 	const deadline = Date.now() + LOCK_TIMEOUT_MS;
+	const readToken = (file: string) => fs.readFile(file, 'utf8').catch(() => undefined);
 	for (let attempt = 0; ; attempt++) {
-		try { await (await fs.open(lock, 'wx', 0o600)).close(); break; }
-		catch (error) {
+		try {
+			const handle = await fs.open(lock, 'wx', 0o600);
+			try { await handle.writeFile(token); } finally { await handle.close(); }
+			break;
+		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
 			const stat = await fs.stat(lock).catch(() => undefined);
 			if (stat && Date.now() - stat.mtimeMs > LOCK_STALE_MS) {
-				// A crashed writer left it behind; only remove the lock we judged stale.
-				if ((await fs.stat(lock).catch(() => undefined))?.ino === stat.ino) await fs.rm(lock, {force: true});
+				// A crashed writer left it behind. Checking and then deleting by path could delete a lock another
+				// writer created in between, so move it aside atomically and only discard it if it is still stale.
+				const aside = `${lock}.${randomUUID()}.stale`;
+				if (await fs.rename(lock, aside).then(() => true, () => false)) {
+					const moved = await fs.stat(aside).catch(() => undefined);
+					// A live lock we raced with is put back (link fails rather than overwrite a newer lock).
+					if (moved && Date.now() - moved.mtimeMs <= LOCK_STALE_MS) await fs.link(aside, lock).catch(() => {});
+					await fs.rm(aside, {force: true});
+				}
 				continue;
 			}
 			if (Date.now() > deadline) throw new Error(`Timed out waiting for ${lock}`);
 			await new Promise(resolve => setTimeout(resolve, Math.min(5 * 2 ** attempt, 100) + Math.random() * 10));
 		}
 	}
-	try { return await operation(); } finally { await fs.rm(lock, {force: true}); }
+	try { return await operation(); }
+	// Only release our own lock: if it was ever judged stale and replaced, the new holder's lock stays.
+	finally { if (await readToken(lock) === token) await fs.rm(lock, {force: true}); }
 }
 
 let configQueue: Promise<unknown> = Promise.resolve();

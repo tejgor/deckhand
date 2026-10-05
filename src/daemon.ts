@@ -16,7 +16,7 @@ import {isPathInside, sessionMatchesScope} from './sessionScope.js';
 import {errorMessage} from './ui.js';
 import {TerminalPreview} from './terminalPreview.js';
 import type {WorktreeSettings} from './worktreeLinks.js';
-import {loadProjectConfig, isProjectTrusted, projectNeedsReview, resolveDevCommand, resolveSettings, resolveSetupCommand, trustProjectConfig, type LoadedProject} from './projectConfig.js';
+import {loadProjectConfig, isProjectTrusted, readEffectiveSettings, projectNeedsReview, resolveDevCommand, resolveSettings, resolveSetupCommand, trustProjectConfig, type LoadedProject} from './projectConfig.js';
 import {readConfigTargets, saveGlobalDefaultsDocument, saveProjectConfigDocument} from './projectConfigDocument.js';
 import {readCandidateSizes, readWorktreeSetupInfo} from './worktreeSetup.js';
 import {createPullRequest, getHandoffGitContext, getWorkspaceSummary, inspectWorkspaceCleanup, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
@@ -676,6 +676,7 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, saved)); return;
 				}
 				case 'worktree-setup-info': sendMessage(socket, response(message.requestId, await readWorktreeSetupInfo(message.cwd))); return;
+				case 'effective-settings': sendMessage(socket, response(message.requestId, await readEffectiveSettings(message.cwd, await loadAppConfig()))); return;
 				case 'worktree-candidate-sizes': sendMessage(socket, response(message.requestId, await readCandidateSizes(message.cwd, message.paths))); return;
 				case 'project-info': {
 					const config = await loadAppConfig();

@@ -15,7 +15,7 @@ import {
 	isDevRuntime,
 } from './paths.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, ProjectConfigDocument, ConfigTargets, ConfigTargetKind, WorktreeSetupInfo} from './types.js';
+import type {ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, ProjectConfigDocument, ConfigTargets, ConfigTargetKind, WorktreeSetupInfo, EffectiveSettingsInfo} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -402,6 +402,7 @@ export class LiveClient {
 	configTargets(cwd: string): Promise<ConfigTargets> { return this.request({type: 'config-targets', requestId: randomUUID(), cwd}); }
 	saveConfig(target: ConfigTargetKind, cwd: string, raw: string, revision: string | null): Promise<ProjectConfigDocument> { return this.request({type: 'save-config', requestId: randomUUID(), target, cwd, raw, revision}); }
 	worktreeSetupInfo(cwd: string): Promise<WorktreeSetupInfo> { return this.request({type: 'worktree-setup-info', requestId: randomUUID(), cwd}); }
+	effectiveSettings(cwd: string): Promise<EffectiveSettingsInfo> { return this.request({type: 'effective-settings', requestId: randomUUID(), cwd}); }
 	worktreeCandidateSizes(cwd: string, paths: string[]): Promise<Record<string, number | null>> { return this.request({type: 'worktree-candidate-sizes', requestId: randomUUID(), cwd, paths}); }
 	// The repository of `cwd` (its main checkout's deckhand.json), with trust state and effective settings.
 	projectInfo(cwd: string): Promise<ProjectInfo> { return this.request({type: 'project-info', requestId: randomUUID(), cwd}); }

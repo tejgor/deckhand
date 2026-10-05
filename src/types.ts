@@ -1,11 +1,11 @@
 import type {AttentionState} from './agentSignals.js';
 import type {WorkspaceSummary, CleanupInspection, CreatePrResult} from './workspaceGit.js';
-import type {LoadedProject, ProjectConfig} from './projectConfig.js';
+import type {EffectiveSettingsInfo, LoadedProject, ProjectConfig} from './projectConfig.js';
 import type {ConfigTargetKind, ConfigTargets, ProjectConfigDocument} from './projectConfigDocument.js';
 import type {WorktreeSetupInfo} from './worktreeSetup.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 31;
+export const PROTOCOL_VERSION = 32;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -169,6 +169,8 @@ export type ClientRequest =
 	| {type: 'save-config'; requestId: string; target: ConfigTargetKind; cwd: string; raw: string; revision: string | null}
 	/** C → Worktree setup: layers, hook state, candidates and previews. Read-only. */
 	| {type: 'worktree-setup-info'; requestId: string; cwd: string}
+	/** C → Effective settings: each effective setting with its source and any pending (untrusted) repository value. Read-only. */
+	| {type: 'effective-settings'; requestId: string; cwd: string}
 	/** Bounded sizes (KiB, null when unknown) of candidate paths relative to the main checkout. */
 	| {type: 'worktree-candidate-sizes'; requestId: string; cwd: string; paths: string[]}
 	| {type: 'trust-project'; requestId: string; cwd: string; fingerprint: string}
@@ -220,7 +222,7 @@ export interface ProjectInfo extends LoadedProject {trusted: boolean; needsRevie
 // reasons/safe describe data that DELETE (allowDataLoss) may override; structuralBlockers
 // (main/current/shared/missing worktree, protected branch) can never be overridden.
 export type SessionCleanupInspection = CleanupInspection & {structuralBlockers: string[]};
-export type {WorkspaceSummary, CleanupInspection, CreatePrResult, ProjectConfigDocument, ConfigTargets, ConfigTargetKind, WorktreeSetupInfo};
+export type {WorkspaceSummary, CleanupInspection, CreatePrResult, ProjectConfigDocument, ConfigTargets, ConfigTargetKind, WorktreeSetupInfo, EffectiveSettingsInfo};
 
 export type ServerResponse<T = unknown> = {
 	type: 'response';

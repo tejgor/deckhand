@@ -346,7 +346,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v31** (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
+- current protocol version: **v32** (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -393,6 +393,7 @@ Request types:
 
 - `ping`, `shutdown` (dev channel only)
 - `project-info`, `config-targets`, `save-config` (global or repository), `trust-project`, `run-action`
+- `effective-settings` (C → Effective settings: `explainSettings` rows — each effective value with its source, pending untrusted repository values — plus the deckhand.json trust state; read-only)
 - `worktree-setup-info` (C → Worktree setup: layers, hook state, untracked/ignored candidates of the main checkout, previews), `worktree-candidate-sizes` (≤24 relative paths, `du -sk` with a 4s timeout each, null when unknown)
 - `workspace-summary`, `inspect-cleanup`, `archive-session`, `export-handoff`, `cancel-start`
 - `create-pr` (push `-u` without force, then `gh pr create --web` / `gh pr view --web`; refuses detached/main/master/base; optional `branch` must still match; invalidates the summary cache)
@@ -447,7 +448,7 @@ Event types:
 - `src/tabs.tsx` — tab UI.
 - `src/terminalPreview.ts` — headless xterm preview model.
 - `src/ui.ts` — shared theme, glyph, path, truncation, and display helpers.
-- `src/projectConfig.ts` — schema validation, loading the main checkout's `deckhand.json` + hook, fingerprints, trust lookup/update, and `resolveSettings` (the single source of effective settings: setup, Dev, actions, new-session defaults).
+- `src/projectConfig.ts` — schema validation, loading the main checkout's `deckhand.json` + hook, fingerprints, trust lookup/update, and `resolveSettings` (the single source of effective settings: setup, Dev, actions, new-session defaults); `explainSettings` breaks them down per row with sources for C → Effective settings (tested to equal `resolveSettings`).
 - `src/projectConfigDocument.ts` — editor documents: global defaults (inside config.json) and repository targets, revision-checked saves, starter config.
 - `src/configDraft.ts` — pure editor helpers (size limit, JSON formatting).
 - `src/projectConfigFlow.tsx`, `src/configEditorPane.tsx` — config target picker/editor UI state and rendering.
