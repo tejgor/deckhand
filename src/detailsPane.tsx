@@ -1,9 +1,10 @@
 import React, {useMemo} from 'react';
 import {Box, Text, type Key} from 'ink';
-import {DISPLAY_CONTROL_PATTERN, THEME} from './ui.js';
+import {fitHint, type HintPart} from './menu.js';
+import {DISPLAY_CONTROL_PATTERN, THEME, truncate} from './ui.js';
 
-// Border (2) + title + footer + scroll status rows around the scrollable body.
-const DETAILS_CHROME_ROWS = 5;
+// Border (2) + title + hint rows around the scrollable body.
+const DETAILS_CHROME_ROWS = 4;
 // Border (2) + paddingX (2) columns.
 const DETAILS_CHROME_COLUMNS = 4;
 
@@ -57,14 +58,22 @@ export function scrollDetails(scroll: number, input: string, key: Partial<Key>, 
 	return undefined;
 }
 
-export function DetailsPane({title, text, footer, width, height, scroll = 0}: {title: string; text: string; footer: string; width: number; height: number; scroll?: number}) {
+/** A scrollable text pane with one hint line; `footer` lists its keys (each screen's only hint line). */
+export function DetailsPane({title, text, footer, width, height, scroll = 0}: {title: string; text: string; footer: string | Array<string | HintPart>; width: number; height: number; scroll?: number}) {
 	const viewport = useMemo(() => detailsViewport(text, width, height), [text, width, height]);
 	const {lines, rows, max} = viewport;
 	const start = clampScroll(scroll, max);
+	const inner = Math.max(1, width - DETAILS_CHROME_COLUMNS);
+	const scrollable = lines.length > rows;
+	// The position sits at the right of the title; the hint names the scroll keys unless the footer already does.
+	const position = scrollable ? `${Math.min(lines.length, start + rows)}/${lines.length}` : '';
+	const parts = typeof footer === 'string' ? [footer] : footer;
+	const hint = fitHint(scrollable && !parts.some(part => /scroll/.test(typeof part === 'string' ? part : part.text)) ? [...parts, {text: '↑↓/PgUp/PgDn scroll', short: '↑↓ scroll', drop: 1}] : parts, inner);
+	const heading = truncate(title, Math.max(1, inner - (position ? position.length + 2 : 0)));
 	return <Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
-		<Text color={THEME.accent} bold wrap="truncate-end">{title}</Text>
+		<Text wrap="truncate-end"><Text color={THEME.accent} bold>{heading}</Text>{position ? <Text color={THEME.muted}>{' '.repeat(Math.max(2, inner - heading.length - position.length))}{position}</Text> : null}</Text>
 		{lines.slice(start, start + rows).map((line, index) => <Text key={index}>{line}</Text>)}
-		<Text color={THEME.muted} wrap="truncate-end">{footer}</Text>
-		<Text color={THEME.muted} wrap="truncate-end">{lines.length > rows ? `↑↓/PgUp/PgDn scroll (${start + 1}/${lines.length}) · ` : ''}esc return</Text>
+		<Box flexGrow={1} />
+		<Text color={THEME.muted} wrap="truncate-end">{hint}</Text>
 	</Box>;
 }

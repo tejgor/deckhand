@@ -32,7 +32,7 @@ Implemented behavior:
 - Merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing, with merged/externally-pushed sessions markable in the sidebar.
 - Lazy Git tab powered by `lazygit` when installed.
 - Dev tab powered by `devCommand` from effective settings (global defaults, overlaid by a trusted repository `deckhand.json`; legacy `dev_command` fallback).
-- Two-layer configuration: global `defaults` in the user config plus one repository `deckhand.json` in the main checkout (worktree copies ignored) that applies only when trusted, with inline content-fingerprint review, an in-app editor for both layers, archive/search/filter, handoffs, optional lifecycle hooks/notifications, and conservative cleanup inspection. User-facing behaviour: `docs/no-brainers.md`.
+- Two-layer configuration: global `defaults` in the user config plus one repository `deckhand.json` in the main checkout (worktree copies ignored) that applies only when trusted (its defaultAgent/defaultWorkspace preselect the picker regardless), with an inline content-fingerprint review shown only right before repository config would run (lists show everything, untrusted actions marked), one editable Settings grid (C: a Global and a This repo column, the cursor a cell) for both layers, self-edits that keep a trusted file trusted, archive/search/filter, handoffs, optional lifecycle hooks/notifications, and conservative cleanup inspection. User-facing behaviour: `docs/no-brainers.md`.
 - `DECKHAND_HOME` state namespaces and an isolated dev launcher (`scripts/deckhand-dev.mjs`, `docs/dev-build.md`).
 - Per-session persisted Notes tab.
 - Preview-change-based active/idle detection without agent hooks.
@@ -346,7 +346,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v32** (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
+- current protocol version: **v34** (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -392,9 +392,9 @@ Tracked metadata includes:
 Request types:
 
 - `ping`, `shutdown` (dev channel only)
-- `project-info`, `config-targets`, `save-config` (global or repository), `trust-project`, `run-action`
-- `effective-settings` (C → Effective settings: `explainSettings` rows — each effective value with its source, pending untrusted repository values — plus the deckhand.json trust state; read-only)
-- `worktree-setup-info` (C → Worktree setup: layers, hook state, untracked/ignored candidates of the main checkout, previews), `worktree-candidate-sizes` (≤24 relative paths, `du -sk` with a 4s timeout each, null when unknown)
+- `project-info`, `save-config` (global or repository; revision-checked, never runs anything; a repository save returns `trust` and keeps the file trusted when the replaced version was trusted or absent — `savedProjectTrust` in `src/projectConfig.ts`, decided inside the serialized write from exactly the replaced bytes plus the hook as it is now; a hook is never newly trusted by a save), `trust-project`, `run-action`
+- `settings-info` (C → Settings: `explainSettings` rows — each effective value with its source and untrusted repository values (`pending`) — the deckhand.json trust state, both editable documents with revisions (the grid's per-layer cells come from these), hook file, template vars, default/origin branch; read-only)
+- `worktree-candidates` (Settings → Linked items: untracked/ignored entries of the main checkout plus configured links), `worktree-candidate-sizes` (≤24 relative paths, `du -sk` with a 4s timeout each, null when unknown)
 - `workspace-summary`, `inspect-cleanup`, `archive-session`, `export-handoff`, `cancel-start`
 - `create-pr` (push `-u` without force, then `gh pr create --web` / `gh pr view --web`; refuses detached/main/master/base; optional `branch` must still match; invalidates the summary cache)
 - `agent-hook` (token + launch ID authenticated)
@@ -448,11 +448,14 @@ Event types:
 - `src/tabs.tsx` — tab UI.
 - `src/terminalPreview.ts` — headless xterm preview model.
 - `src/ui.ts` — shared theme, glyph, path, truncation, and display helpers.
-- `src/projectConfig.ts` — schema validation, loading the main checkout's `deckhand.json` + hook, fingerprints, trust lookup/update, and `resolveSettings` (the single source of effective settings: setup, Dev, actions, new-session defaults); `explainSettings` breaks them down per row with sources for C → Effective settings (tested to equal `resolveSettings`).
+- `src/menu.tsx` — the one picker selection style (`SelectableRow`: ❯ marker + full-width inverse bold bar; `SelectableCell`: the same bar limited to one grid cell, for the Settings grid), `MenuList` (aligned label column, truncated rows, windowed around the selection), `MenuPane` (menu + details box + one hint line, budgeted to the pane height) and `fitHint` (one hint line that fits the width). Used by Settings (C), the action/program/worktree pickers and the kill/merge confirmations. Screens that replace the right pane show their own single hint line; the app footer hint row stays empty for them.
+- `src/projectConfig.ts` — schema validation, loading the main checkout's `deckhand.json` + hook, fingerprints, trust lookup/update, the self-edit trust rule (`savedProjectTrust`), and `resolveSettings` (the single source of effective settings: setup, Dev, actions, new-session defaults); `explainSettings` breaks them down per row with sources for C → Settings (tested to equal `resolveSettings`).
 - `src/projectConfigDocument.ts` — editor documents: global defaults (inside config.json) and repository targets, revision-checked saves, starter config.
 - `src/configDraft.ts` — pure editor helpers (size limit, JSON formatting).
-- `src/projectConfigFlow.tsx`, `src/configEditorPane.tsx` — config target picker/editor UI state and rendering.
-- `src/worktreeSetup.ts` — Worktree setup model (pure: candidate classification, initial model, `worktreeSection`/`applyWorktreeSection`) and daemon readers (candidates via porcelain v2 `--ignored=matching --untracked-files=normal`, bounded sizes); `src/worktreeSetupFlow.tsx` — the screen (saves through `save-config` with the target's revision).
+- `src/settingsModel.ts` — the Settings screen as pure data (unit-tested): `settingsGrid` (per setting, each layer's own value as written and which one applies, from `explainSettings`; built-in/legacy values in the Global column; `needsTrust` for untrusted repository values), `cellDetail` (the one-line details), `initialColumn`/`columnProblem`, per-layer `layerActions`, choice options, text validation, link selection → `worktree.symlink`, save/trust status wording, and `applyChange` (one key set/removed in one layer's JSON, other keys kept in place, validated).
+- `src/settingsInfo.ts` — daemon readers for Settings: `readSettingsInfo`, link candidates via porcelain v2 `--ignored=matching --untracked-files=normal` with `classifyCandidate`, bounded sizes.
+- `src/settingsFlow.tsx` (state/keys: the selected row and sticky column; saves through `save-config` with the column's revision, reloads after every save or rejection; e/T return here) and `src/settingsPane.tsx` (rendering, full terminal width: the grid — two columns from 64 inner columns, else the selected one with ◂ ▸ — edit controls, one layer's Actions list, link picker, height-budgeted with one hint line).
+- `src/configEditorPane.tsx` — the raw JSON editor (reached with e from Settings).
 - `src/textEditor.ts` — pure multiline text editing and rendering model.
 - `src/terminalKeys.ts`, `src/useTerminalInput.ts` — raw key normalization (DEL/Kitty Backspace vs forward Delete, key releases) and the Ink input hook.
 - `src/workspaceGit.ts` — porcelain-v2 status, workspace summary, optional `gh` PR lookup, `createPullRequest`, handoff Git context (`getHandoffGitContext`: commits/changes/numstat, never diff content), cleanup inspection.
@@ -559,7 +562,7 @@ Typical flow:
 
 ## Validation status
 
-Automated: `npm test` (build, then `node --test` over `tests/`) covers config/trust, editor and key handling, storage, cleanup inspection, a real daemon with fake agents (setup/actions/cleanup/hooks/resume), the dev launcher, and one real-PTY UI run (inline review on n, raw-key config editing, persistence).
+Automated: `npm test` (build, then `node --test` over `tests/`) covers config/trust, editor and key handling, storage, cleanup inspection, a real daemon with fake agents (setup/actions/cleanup/hooks/resume), the dev launcher, and two real-PTY UI runs (inline review on n, raw-key JSON editing via C → e, persistence; the Settings grid: columns, repo/global cell edits, Linked items, x, T, e; self-edits keep trust so d runs without asking until an outside edit).
 
 Validated during this cleanup:
 

@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import {mkdtempSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
@@ -54,7 +55,10 @@ export async function stopDevDaemon(home: string, env: NodeJS.ProcessEnv): Promi
 export type TerminalUi = {screen(text: string): Promise<string>; press(key: string): void; write(data: string): void; ended: Promise<number>};
 /** Runs Deckhand in a real PTY. Cleanup kills it, stops the dev daemon in `home`, then removes `home` and `remove`. */
 export function terminalUi(t: TestContext, options: {args: string[]; cwd: string; home: string; env?: Record<string, string>; remove?: string[]}): {ui: TerminalUi; env: Record<string, string>} {
-	const env = {...process.env, DECKHAND_DEV_HOME: options.home, TERM: 'xterm-256color', ...options.env} as Record<string, string>;
+	// A plain shell and a private HOME (beside, never inside, the dev home), so commands the UI runs (Dev, actions)
+	// never load the user's shell profile.
+	const userHome = mkdtempSync(path.join(os.tmpdir(), 'deckhand-ui-home-'));
+	const env = {...process.env, DECKHAND_DEV_HOME: options.home, HOME: userHome, SHELL: '/bin/sh', TERM: 'xterm-256color', ...options.env} as Record<string, string>;
 	for (const key of ['DECKHAND_SESSION_ID', 'DECKHAND_LAUNCH_ID', 'DECKHAND_HOOK_TOKEN']) delete env[key];
 	const term = pty.spawn(process.execPath, options.args, {cwd: options.cwd, env, cols: 130, rows: 36});
 	let output = '', exited = false;
@@ -63,7 +67,7 @@ export function terminalUi(t: TestContext, options: {args: string[]; cwd: string
 	t.after(async () => {
 		if (!exited) { try { term.kill(); } catch {} }
 		await stopDevDaemon(options.home, env);
-		for (const directory of [options.home, ...options.remove ?? []]) await fs.rm(directory, {recursive: true, force: true});
+		for (const directory of [options.home, userHome, ...options.remove ?? []]) await fs.rm(directory, {recursive: true, force: true});
 	});
 	const ui: TerminalUi = {
 		screen: text => waitFor(async () => output.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, ''), value => value.includes(text)),

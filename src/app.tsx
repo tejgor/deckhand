@@ -5,9 +5,10 @@ import {LiveClient, createLiveClient} from './client.js';
 import {loadAppConfig, updateAppConfig} from './storage.js';
 import {DevPane} from './devPane.js';
 import {DetailsPane, detailsViewport, scrollDetails} from './detailsPane.js';
-import {actionPickerText, cleanupOverrideText, createPrConfirmText, projectActionNames, trustReviewText, workspaceSummaryText} from './detailTexts.js';
+import {cleanupOverrideText, createPrConfirmText, projectActions, trustReviewText, workspaceSummaryText} from './detailTexts.js';
 import {openInEditor, openUrl} from './desktop.js';
-import {isConfigFlowMode, useProjectConfigFlow} from './projectConfigFlow.js';
+import {MenuList, MenuPane, SelectableRow, type HintPart} from './menu.js';
+import {isSettingsFlowMode, useSettingsFlow} from './settingsFlow.js';
 import {HELP_TEXT} from './help.js';
 import {filterSessionList, sessionNeedsAttention, SESSION_FILTERS, type SessionFilter} from './sessionFeatures.js';
 import {GitPane} from './gitPane.js';
@@ -127,7 +128,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'pick-config' | 'edit-project' | 'discard-project' | 'worktree-setup' | 'discard-worktree-setup' | 'effective-settings' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss';
+type Mode = 'browse' | 'preview-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss';
 
 interface AppProps {
 	repoRoot: string;
@@ -232,6 +233,7 @@ function CreatePane({
 	showForkOption?: boolean;
 }) {
 	const forkSelected = mode === 'pick-program' && showForkOption && programIndex === PROGRAMS.length;
+	const contentWidth = Math.max(1, width - 4);
 	const workspaceLabel = parentWorkspaceLabel && worktreeMode === 'none'
 		? parentWorkspaceLabel
 		: WORKTREE_MODES.find(item => item.key === worktreeMode)?.label;
@@ -246,19 +248,8 @@ function CreatePane({
 				{mode === 'pick-program' ? (
 					<>
 						<Text color={THEME.muted}>Choose an agent</Text>
-						{PROGRAMS.map((program, index) => {
-							const selected = index === programIndex;
-							return (
-								<Text key={program.key} inverse={selected} color={selected ? THEME.active : undefined} bold={selected}>
-									{selected ? '›' : ' '} {program.glyph} {program.label}
-								</Text>
-							);
-						})}
-						{showForkOption ? (
-							<Text inverse={forkSelected} color={forkSelected ? THEME.active : undefined} bold={forkSelected}>
-								{forkSelected ? '›' : ' '} ⑂ Fork parent
-							</Text>
-						) : null}
+						{PROGRAMS.map((program, index) => <SelectableRow key={program.key} selected={index === programIndex} text={`${program.glyph} ${program.label}`} width={contentWidth} />)}
+						{showForkOption ? <SelectableRow selected={Boolean(forkSelected)} text="⑂ Fork parent" width={contentWidth} /> : null}
 					</>
 				) : (
 					<>
@@ -290,17 +281,19 @@ function WorktreePickerPane({
 	query,
 	totalCount,
 	width,
+	height,
 }: {
 	worktrees: WorktreeInfoRecord[];
 	selectedIndex: number;
 	query: string;
 	totalCount: number;
 	width: number;
+	height: number;
 }) {
 	const contentWidth = Math.max(1, width - 4);
 	const countLabel = query ? `${worktrees.length}/${totalCount}` : String(totalCount);
 	return (
-		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
+		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
 			<Text color={THEME.accent} bold>Existing worktree</Text>
 			<Text>
 				Search: <Text color={query ? THEME.active : THEME.muted}>{query || 'type to filter'}</Text>{' '}
@@ -309,14 +302,7 @@ function WorktreePickerPane({
 			<Box marginTop={1} flexDirection="column">
 				{totalCount === 0 ? <Text color={THEME.muted}>No worktrees found.</Text> : null}
 				{totalCount > 0 && worktrees.length === 0 ? <Text color={THEME.muted}>No matching worktrees.</Text> : null}
-				{worktrees.map((worktree, index) => {
-					const selected = index === selectedIndex;
-					return (
-						<Text key={worktree.path} inverse={selected} color={selected ? THEME.active : undefined}>
-							{selected ? '›' : ' '} {worktreeLabel(worktree, contentWidth - 2)}
-						</Text>
-					);
-				})}
+				{worktrees.length > 0 ? <MenuList items={worktrees.map(worktree => ({key: worktree.path, label: worktreeLabel(worktree, contentWidth - 2)}))} selected={selectedIndex} width={contentWidth} rows={Math.max(1, height - 7)} /> : null}
 			</Box>
 			<Box marginTop={1}>
 				<Text color={THEME.muted}>type search · enter select · esc back · ↑↓ move · backspace delete</Text>
@@ -339,15 +325,7 @@ function MergeConfirmPane({session, sessions, selectedIndex, width}: {session?: 
 				<Text color={THEME.muted}>{truncate(compactPath(session.worktree.path, contentWidth), contentWidth)}</Text>
 			) : null}
 			<Box marginTop={1} flexDirection="column">
-				{options.map((option, index) => {
-					const selected = index === selectedIndex;
-					const isCancel = option === 'Cancel';
-					return (
-						<Text key={option} inverse={selected} color={selected ? (isCancel ? THEME.muted : THEME.active) : undefined} bold={selected}>
-							{selected ? '›' : ' '} {option}
-						</Text>
-					);
-				})}
+				{options.map((option, index) => <SelectableRow key={option} selected={index === selectedIndex} text={option} width={contentWidth} selectedColor={option === 'Cancel' ? THEME.muted : THEME.active} wrap />)}
 			</Box>
 			<Box marginTop={1}>
 				<Text color={THEME.muted}>enter choose · esc cancel · j/k move</Text>
@@ -415,22 +393,46 @@ function KillConfirmPane({session, sessions, options, selectedIndex, force, widt
 				<Text color={THEME.muted}>{truncate(compactPath(session.worktree.path, contentWidth), contentWidth)}</Text>
 			) : null}
 			<Box marginTop={1} flexDirection="column">
-				{options.map((option, index) => {
-					const selected = index === selectedIndex;
-					const isCancel = option.kind === 'cancel';
-					const color = selected ? (isCancel ? THEME.muted : THEME.error) : undefined;
-					return (
-						<Text key={option.kind} inverse={selected} color={color} bold={selected}>
-							{selected ? '›' : ' '} {option.label}
-						</Text>
-					);
-				})}
+				{options.map((option, index) => <SelectableRow key={option.kind} selected={index === selectedIndex} text={option.label} width={contentWidth} selectedColor={option.kind === 'cancel' ? THEME.muted : THEME.error} wrap />)}
 			</Box>
 			<Box marginTop={1}>
 				<Text color={THEME.muted}>enter choose · esc cancel · j/k move</Text>
 			</Box>
 		</Box>
 	);
+}
+
+interface ReviewLabels {enter?: string | HintPart; skip?: string | HintPart}
+/** What creating a new worktree would take from an untrusted repository config (empty: nothing to review). */
+function untrustedCreationParts(project: ProjectInfo): string[] {
+	const {setupCommand, worktree = {}} = project.config;
+	const fields = (['location', 'branchFrom', 'branchName', 'symlink', 'files'] as const).filter(field => worktree[field] !== undefined);
+	return [
+		...setupCommand ? [`setupCommand (${setupCommand})`] : [],
+		...project.creationHook ? [`creation hook (${project.creationHook.file})`] : [],
+		...fields.length ? [`worktree settings (${fields.join(', ')})`] : [],
+	];
+}
+
+function ActionPickerPane({project, selectedIndex, width, height}: {project?: ProjectInfo; selectedIndex: number; width: number; height: number}) {
+	const actions = projectActions(project);
+	const selected = actions[selectedIndex];
+	const untrusted = actions.some(action => action.needsTrust);
+	return <MenuPane
+		title="Actions"
+		subtitle={[untrusted ? {text: '"needs trust": from deckhand.json, reviewed first', color: THEME.warn} : {text: 'Global defaults and repository actions'}]}
+		items={actions.map(action => ({key: action.name, label: action.name, description: action.command, ...action.needsTrust ? {status: {text: '· needs trust', color: THEME.warn}} : {}}))}
+		selected={selectedIndex}
+		empty="No actions configured (C → Settings › Actions adds one)"
+		details={selected ? {title: 'Selected command', lines: [
+			{text: selected.command, color: THEME.active, nowrap: true},
+			...selected.needsTrust ? [{text: `From this repo's deckhand.json, not trusted yet: Enter shows it for review before anything runs${selected.fallback ? ` (s runs the global ${selected.name} instead: ${selected.fallback})` : ''}.`, color: THEME.warn}] : [],
+			{text: 'Actions share the Dev pane; stop the previous command before running another.'},
+		]} : undefined}
+		hint={[{text: 'j/k choose', drop: 1}, 'enter run in Dev pane', 'esc cancel']}
+		width={width}
+		height={height}
+	/>;
 }
 
 function hasMergedMarker(session?: SessionRecord): boolean {
@@ -443,28 +445,17 @@ function mergedTargetBranch(session: SessionRecord): string | undefined {
 
 function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true): string {
 	switch (mode) {
-		case 'help': return 'help & workflows • j/k/arrows/PgUp/PgDn scroll • Home/End jump • esc/? close';
-		case 'pick-config': return 'j/k/arrows choose global defaults, repository, worktree setup or effective settings • enter open • esc cancel';
-		case 'effective-settings': return 'effective settings • ↑↓ move • enter/e open the file that sets it • T review/trust • esc back';
-		case 'worktree-setup': return 'worktree setup • ↑↓ move • space link/skip • ←→ option • t target • h hook • Ctrl+S save • e JSON • esc cancel';
-		case 'discard-worktree-setup': return 'enter discard unsaved worktree setup • esc keep editing';
-		case 'edit-project': return 'config editor • Ctrl+S save • Ctrl+F format • Ctrl+A select all • esc cancel';
-		case 'discard-project': return 'enter discard unsaved draft • esc keep editing';
+		// Every other mode replaces the right pane with a screen that shows its own (single) hint line.
+		case 'help': case 'settings':
+		case 'edit-project': case 'discard-project': case 'workspace-info': case 'review-project': case 'confirm-loss':
+		case 'pick-action': case 'pick-program': case 'enter-name': case 'pick-worktree': case 'confirm-kill': case 'confirm-merge':
+			return '';
 		case 'preview-focus': {
 			const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
 			return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k scroll • g/G top/bottom • esc/v return`;
 		}
 		case 'notes-focus': return 'notes edit • type to edit • enter newline • esc stop editing';
 		case 'search': return 'type to search • enter keep search • esc clear';
-		case 'workspace-info': return 'workspace overview • P PR status • b open PR • c create PR • g lazygit • j/k/PgUp/PgDn scroll • esc close';
-		case 'review-project': return 'review repository config • ↑↓/PgUp/PgDn scroll';
-		case 'confirm-loss': return 'type DELETE then enter to authorize data loss • ↑↓/PgUp/PgDn scroll • esc cancel';
-		case 'pick-action': return 'j/k choose action • enter run in Dev pane • esc cancel';
-		case 'pick-program': return 'enter continue • esc cancel • j/k switch';
-		case 'enter-name': return 'tab worktree mode • enter create • esc back • backspace delete';
-		case 'pick-worktree': return 'type search • enter select • esc back • ↑↓ move • backspace delete';
-		case 'confirm-kill':
-		case 'confirm-merge': return 'enter choose • esc cancel • j/k move';
 		case 'browse': {
 			// Keep this short; everything else is listed in ? help.
 			const running = session?.status === 'running';
@@ -475,7 +466,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, session?: SessionRecord
 			const lifecycle = session?.status === 'exited'
 				? (session.worktree?.deletedAt ? 'backspace remove' : 's resume • S fresh')
 				: running ? 'x kill' : session?.status === 'starting' ? 'x cancel start' : undefined;
-			return [attach, pane, lifecycle, '? help', 'n new', 'C config', 'T trust', 'i info', 'e actions', '/ search', 'f filter', 'q quit'].filter(Boolean).join(' • ');
+			return [attach, pane, lifecycle, '? help', 'n new', 'C settings', 'i info', 'e actions', '/ search', 'f filter', 'q quit'].filter(Boolean).join(' • ');
 		}
 	}
 }
@@ -487,12 +478,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [sessionQuery, setSessionQuery] = useState(initialSessionQuery ?? '');
 	// The inline repository-config review: what it shows, the cwd it was resolved for, and the action it gates
 	// (resumed after Enter trusts or s skips; none for an explicit T review).
-	// back: where closing the review returns (Effective settings' T); otherwise browse.
-	const [review, setReview] = useState<{project: ProjectInfo; cwd: string; resume?: (project: ProjectInfo) => void; back?: () => void}>();
+	// back: where closing the review returns (Settings' T); otherwise browse.
+	// skip: what s does (default: resume with the override ignored; null: s cancels). labels/purpose describe the gated step.
+	const [review, setReview] = useState<{project: ProjectInfo; cwd: string; resume?: (project: ProjectInfo) => void; skip?: ((project: ProjectInfo) => void) | null; labels?: ReviewLabels; purpose?: string; back?: () => void}>();
 	// The project (and session) the action picker was opened for.
-	const [actionProject, setActionProject] = useState<{project: ProjectInfo; sessionId?: string}>();
-	// The repository config fingerprint reviewed for the session being created (see CreateSessionInput).
-	const [createProjectFingerprint, setCreateProjectFingerprint] = useState<string>();
+	const [actionProject, setActionProject] = useState<{project: ProjectInfo; cwd: string; sessionId?: string}>();
 	// Async results are keyed by session (and a request counter) so a late
 	// response for one session never renders in, or authorizes, another.
 	const [workspaceInfo, setWorkspaceInfo] = useState<{sessionId: string; summary?: WorkspaceSummary; prLoading?: boolean; confirmPr?: boolean; creatingPr?: boolean}>();
@@ -1243,22 +1233,36 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 	}, [selectedSession]);
 
-	const configFlow = useProjectConfigFlow({client, mode, setMode, setBusy, setError, setStatusMessage, onReview: (reviewCwd, back) => reviewThen(reviewCwd, undefined, {back})});
+	const settingsFlow = useSettingsFlow({client, mode, setMode, setBusy, setError, setStatusMessage, onReview: (reviewCwd, back) => reviewThen(reviewCwd, undefined, {back})});
 
 	// Resolves the repository config for `targetCwd` and runs `resume` with it, showing the inline review first when
 	// `gate` says the action depends on an untrusted override. If the config cannot be read, the error is shown and
 	// `resume` still runs without it (the daemon enforces trust and reports problems) unless `required`.
 	// Without `resume` (T) the review is shown on its own.
-	const reviewThen = (targetCwd: string, resume: ((project?: ProjectInfo) => void) | undefined, {gate = (project: ProjectInfo) => project.needsReview, required = false, back}: {gate?: (project: ProjectInfo) => boolean; required?: boolean; back?: () => void} = {}) => {
+	// Trust gates running, not choosing: callers review right before something from the repository would run.
+	const reviewThen = (targetCwd: string, resume: ((project?: ProjectInfo) => void) | undefined, {gate = (project: ProjectInfo) => project.needsReview, required = false, back, skip, labels, purpose}: {gate?: (project: ProjectInfo) => boolean; required?: boolean; back?: () => void; skip?: ((project: ProjectInfo) => void) | null; labels?: ReviewLabels | ((project: ProjectInfo) => ReviewLabels); purpose?: (project: ProjectInfo) => string} = {}) => {
 		if (!client) return;
 		setBusy(true); setError(undefined);
 		void client.projectInfo(targetCwd).then(project => {
 			setBusy(false);
 			if (resume && !gate(project)) { resume(project); return; }
-			setReview({project, cwd: targetCwd, resume, back}); setDetailsScroll(0); setMode('review-project');
+			setReview({project, cwd: targetCwd, resume, skip, labels: typeof labels === 'function' ? labels(project) : labels, purpose: purpose?.(project), back}); setDetailsScroll(0); setMode('review-project');
 		}, error => {
 			setBusy(false); setError(errorMessage(error));
 			if (!required) resume?.(undefined);
+		});
+	};
+
+	// Creating a new worktree reviews the untrusted repository parts it would use (setup, creation hook, worktree
+	// settings) right before creating; s creates with global settings only, Esc returns to the form.
+	const confirmCreate = () => {
+		if (!draftName.trim()) { setError('title cannot be empty'); return; }
+		const parent = createParentId ? sessions.find(session => session.id === createParentId) : undefined;
+		reviewThen(parent?.cwd ?? cwd, () => void submitCreate(), {
+			gate: project => project.needsReview && untrustedCreationParts(project).length > 0,
+			back: () => setMode('enter-name'), skip: project => void submitCreate(undefined, project.fingerprint),
+			labels: {enter: {text: 'enter trust & create', short: 'enter trust'}, skip: {text: "s create without the repo's settings (global only)", short: 's without them'}},
+			purpose: project => `About to create a new worktree using this repository's ${untrustedCreationParts(project).join(', ')}.`,
 		});
 	};
 
@@ -1268,24 +1272,22 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 	// Title, text and footer for the scrollable details modes. Built only when
 	// one of those modes is active (render and key handling).
-	const detailsContent = (): {title: string; text: string; footer: string; scroll: number} | undefined => {
+	const detailsContent = (): {title: string; text: string; footer: Array<string | HintPart>; scroll: number} | undefined => {
 		switch (mode) {
 			case 'help':
-				return {title: 'Help & workflows', text: HELP_TEXT, footer: 'j/k/arrows/PgUp/PgDn scroll · Home/End jump · ? close', scroll: detailsScroll};
+				return {title: 'Help & workflows', text: HELP_TEXT, footer: ['j/k/PgUp/PgDn scroll', {text: 'Home/End jump', drop: 1}, 'esc/? close'], scroll: detailsScroll};
 			case 'workspace-info':
-				if (currentWorkspaceInfo?.confirmPr && currentWorkspaceInfo.summary) return {title: 'Create pull request', text: createPrConfirmText(currentWorkspaceInfo.summary), footer: 'enter push & open PR form · esc cancel', scroll: detailsScroll};
-				return {title: 'Workspace overview', text: workspaceSummaryText(currentWorkspaceInfo?.summary, currentWorkspaceInfo?.prLoading, {creatingPr: currentWorkspaceInfo?.creatingPr, links: selectedSession?.worktree?.links}), footer: 'P fetch PR status · b open PR · c create PR · g lazygit', scroll: detailsScroll};
+				if (currentWorkspaceInfo?.confirmPr && currentWorkspaceInfo.summary) return {title: 'Create pull request', text: createPrConfirmText(currentWorkspaceInfo.summary), footer: ['enter push & open PR form', 'esc cancel'], scroll: detailsScroll};
+				return {title: 'Workspace overview', text: workspaceSummaryText(currentWorkspaceInfo?.summary, currentWorkspaceInfo?.prLoading, {creatingPr: currentWorkspaceInfo?.creatingPr, links: selectedSession?.worktree?.links}), footer: [{text: 'P fetch PR status', short: 'P PR status'}, 'b open PR', 'c create PR', 'g lazygit', 'esc close'], scroll: detailsScroll};
 			case 'review-project':
 				return {
 					title: 'Review repository configuration',
-					text: review ? trustReviewText(review.project) : 'No repository configuration loaded.',
-					footer: review?.resume ? 'enter trust & continue • s continue without it (global defaults only) • esc cancel' : review?.project.needsReview ? 'enter trust • esc close' : 'esc close',
+					text: review ? trustReviewText(review.project, review.purpose) : 'No repository configuration loaded.',
+					footer: review?.resume ? [review.labels?.enter ?? {text: 'enter trust & continue', short: 'enter trust'}, review.labels?.skip ?? (review.skip === null ? 's cancel' : {text: 's continue without it (global defaults only)', short: 's continue without it'}), review.back ? 'esc back' : 'esc cancel'] : review?.project.needsReview ? ['enter trust', 'esc close'] : ['esc close'],
 					scroll: detailsScroll,
 				};
 			case 'confirm-loss':
-				return {title: 'Destructive cleanup override', text: cleanupOverrideText(cleanupInspectionFor(pendingDeleteBranch)?.reasons), footer: `Type DELETE then enter: ${confirmationDraft}`, scroll: detailsScroll};
-			case 'pick-action':
-				return {title: 'Actions', text: actionPickerText(actionProject?.project, actionIndex), footer: 'j/k choose · enter run in Dev pane', scroll: Math.max(0, actionIndex - 1)};
+				return {title: 'Destructive cleanup override', text: cleanupOverrideText(cleanupInspectionFor(pendingDeleteBranch)?.reasons), footer: [`Type DELETE then enter: ${confirmationDraft}`, 'esc cancel'], scroll: detailsScroll};
 			default:
 				return undefined;
 		}
@@ -1329,7 +1331,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 	}, [client, dev.live, dev.sessionId, layout.previewCols, layout.previewRows, selectedSession]);
 
-	const submitCreate = useCallback(async (existingWorktreePath?: string) => {
+	// projectFingerprint: the repository config reviewed and skipped for this creation (see CreateSessionInput).
+	const submitCreate = useCallback(async (existingWorktreePath?: string, projectFingerprint?: string) => {
 		const title = draftName.trim();
 		if (!title) {
 			setError('title cannot be empty');
@@ -1357,7 +1360,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				parentSessionId: createParentId,
 				subSessionKind: createParentId ? createSubSessionKind ?? 'clean' : undefined,
 				handoffFromSessionId: handoffFromId,
-				projectFingerprint: createProjectFingerprint,
+				projectFingerprint,
 			});
 			setDraftName('');
 			setCreateParentId(undefined);
@@ -1372,7 +1375,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		} finally {
 			setBusy(false);
 		}
-	}, [client, createParentId, createSubSessionKind, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, sessions, worktreeMode, handoffFromId, createProjectFingerprint]);
+	}, [client, createParentId, createSubSessionKind, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, sessions, worktreeMode, handoffFromId]);
 
 	const killSelected = useCallback(async (deleteWorktree = false, deleteBranch = false, force = false, allowDataLoss = false) => {
 		if (!client || !selectedSession || selectedSession.status !== 'running') {
@@ -1482,11 +1485,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 	useTerminalInput((input, key) => {
 		// Ink's exitOnCtrlC is disabled (see cli.ts) so a first Ctrl+C acts like Esc
-		// in the config editor (asking before discarding a draft). Ctrl+C at the
+		// while a Settings edit or JSON draft is open (asking before discarding it). Ctrl+C at the
 		// discard prompt, while a save is in flight, or anywhere else quits like q.
 		if (key.ctrl && input === 'c') {
-			if ((mode === 'edit-project' || mode === 'worktree-setup') && !busy) {
-				configFlow.handleInput('', {escape: true});
+			if (settingsFlow.cancelable() && !busy) {
+				settingsFlow.handleInput('', {escape: true});
 				return;
 			}
 			quit();
@@ -1497,8 +1500,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 
-		if (isConfigFlowMode(mode)) {
-			configFlow.handleInput(input, key);
+		if (isSettingsFlowMode(mode)) {
+			settingsFlow.handleInput(input, key);
 			return;
 		}
 		if (mode === 'help') {
@@ -1590,11 +1593,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (mode === 'review-project') {
 			// Enter trusts these exact bytes and resumes the gated action; s resumes it with the override ignored.
 			if (!review) { setMode('browse'); return; }
-			const {project, cwd: reviewCwd, resume, back} = review;
+			const {project, cwd: reviewCwd, resume, skip, back} = review;
 			const close = () => { setReview(undefined); setMode('browse'); back?.(); };
 			if (key.escape) { close(); return; }
 			if (scrollDetailsPane(input, key)) return;
-			if (input === 's') { close(); resume?.(project); return; }
+			if (input === 's') { close(); if (skip !== null) (skip ?? resume)?.(project); return; }
 			if (!key.return || !client) return;
 			if (!project.needsReview) { close(); setStatusMessage(project.trusted ? 'Already trusted' : 'Nothing to trust'); resume?.(project); return; }
 			setBusy(true); setError(undefined);
@@ -1670,18 +1673,28 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 		if (mode === 'pick-action') {
-			const actions = projectActionNames(actionProject?.project);
+			const actions = projectActions(actionProject?.project);
 			const reviewSessionId = actionProject?.sessionId;
 			if (key.escape) { setMode('browse'); return; }
 			if (key.upArrow || input === 'k') setActionIndex(index => Math.max(0, index - 1));
 			if (key.downArrow || input === 'j') setActionIndex(index => Math.min(Math.max(0, actions.length - 1), index + 1));
-			if (key.return && actions[actionIndex]) {
+			const action = actions[actionIndex];
+			if (key.return && action && actionProject) {
 				if (!client || !reviewSessionId) { setError('select a running session to run project actions'); return; }
-				setBusy(true);
-				void client.runAction(reviewSessionId, actions[actionIndex]!, layout.previewCols, layout.previewRows).then(record => {
-					setDev(record); setActiveTab('dev');
-					setMode(current => (current === 'pick-action' ? 'browse' : current));
-				}).catch(error => setError(errorMessage(error))).finally(() => setBusy(false));
+				const run = () => {
+					setBusy(true);
+					void client.runAction(reviewSessionId, action.name, layout.previewCols, layout.previewRows).then(record => {
+						setDev(record); setActiveTab('dev');
+						setMode(current => (current === 'pick-action' ? 'browse' : current));
+					}).catch(error => setError(errorMessage(error))).finally(() => setBusy(false));
+				};
+				if (!action.needsTrust) { run(); return; }
+				// An untrusted repository action is reviewed now, right before it would run; Esc returns to the list.
+				reviewThen(actionProject.cwd, run, {
+					back: () => setMode('pick-action'), skip: action.fallback === undefined ? null : run,
+					labels: {enter: {text: 'enter trust & run', short: 'enter trust'}, skip: action.fallback === undefined ? {text: 's cancel this run', short: 's cancel'} : {text: `s run the global ${action.name} instead`, short: 's run global'}},
+					purpose: () => `About to run the repository action ${action.name}: ${action.command}`,
+				});
 			}
 			return;
 		}
@@ -1746,20 +1759,16 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === 'C' && client) {
-				configFlow.open(selectedSession?.cwd ?? cwd);
-				return;
-			}
-			if (input === 'T') {
-				reviewThen(selectedSession?.cwd ?? cwd, undefined);
+				settingsFlow.open(selectedSession?.cwd ?? cwd);
 				return;
 			}
 			if (input === 'e') {
-				// Actions come from the session's repository: global defaults, plus repository actions once trusted.
-				const sessionId = selectedSession?.id;
-				reviewThen(selectedSession?.cwd ?? cwd, project => {
+				// Every action of the session's repository is listed; untrusted repository ones are reviewed when chosen.
+				const sessionId = selectedSession?.id, actionCwd = selectedSession?.cwd ?? cwd;
+				reviewThen(actionCwd, project => {
 					if (!project) return;
-					setActionProject({project, sessionId}); setActionIndex(0); setMode('pick-action');
-				}, {required: true});
+					setActionProject({project, cwd: actionCwd, sessionId}); setActionIndex(0); setMode('pick-action');
+				}, {required: true, gate: () => false});
 				return;
 			}
 			if (input === 'H' && client && selectedSession) {
@@ -1772,19 +1781,16 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if (input === 'F' && selectedSession) {
 				if (!selectedSession.handoffPath) { setError('Export and review a handoff with H before creating a handoff child'); return; }
 				const parent = selectedSession;
-				reviewThen(parent.cwd, project => {
-					setSessionFilter('active'); setSessionQuery('');
-					setHandoffFromId(parent.id); setCreateParentId(parent.id); setCreateSubSessionKind('clean'); setDraftName(''); setWorktreeMode('none');
-					setCreateProjectFingerprint(project?.fingerprint);
-					setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)));
-					setMode('pick-program');
-				});
+				setSessionFilter('active'); setSessionQuery('');
+				setHandoffFromId(parent.id); setCreateParentId(parent.id); setCreateSubSessionKind('clean'); setDraftName(''); setWorktreeMode('none');
+				setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)));
+				setMode('pick-program');
 				return;
 			}
 			if ((input === 'x' || input === 'X') && selectedSession?.status === 'starting' && client) { void client.cancelStart(selectedSession.id).catch(error => setError(errorMessage(error))); return; }
 			if (input === 'n' || input === 'N') {
-				// Review first: the repository override can set the defaults and the new worktree's setup.
-				// Children keep their parent's agent and directory.
+				// No review here: the repository's defaults only preselect the picker (trusted or not). Creating a new
+				// worktree reviews whatever it would run (see confirmCreate). Children keep their parent's agent and directory.
 				const parent = input === 'N' ? selectedSession : undefined;
 				reviewThen(parent?.cwd ?? cwd, project => {
 					const defaults = parent ? undefined : project?.effective;
@@ -1794,10 +1800,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					setDraftName('');
 					setCreateParentId(parent?.id);
 					setCreateSubSessionKind(parent ? 'clean' : undefined);
-					setCreateProjectFingerprint(project?.fingerprint);
 					setWorktreeMode(defaults?.defaultWorkspace ?? 'none');
 					setMode('pick-program');
-				});
+				}, {gate: () => false});
 				return;
 			}
 			if (input === 'r') {
@@ -1840,7 +1845,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				if (selectedSession?.status === 'running') {
 					// Starting Dev reviews an untrusted repository devCommand first (skipping uses the global one).
 					if (selectedSession.devRunning || (dev.sessionId === selectedSession.id && dev.live)) void toggleDevSelected();
-					else reviewThen(selectedSession.cwd, () => void toggleDevSelected(), {gate: project => project.needsReview && Boolean(project.config.devCommand)});
+					else reviewThen(selectedSession.cwd, () => void toggleDevSelected(), {
+						gate: project => project.needsReview && Boolean(project.config.devCommand),
+						// Skipping starts what applies until trusted: the global (or legacy) Dev command, else the built-in `dev`.
+						labels: project => ({enter: {text: 'enter trust & start', short: 'enter trust'}, skip: {text: `s start ${project.effective.devCommand?.trim() || 'dev'} instead`, short: 's start fallback'}}),
+						purpose: project => `About to start Dev with the repository devCommand: ${project.config.devCommand} (until trusted, d runs ${project.effective.devCommand?.trim() ? `the global ${project.effective.devCommand.trim()}` : 'the built-in fallback dev'})`,
+					});
 				} else {
 					setError('session must be running to start dev');
 				}
@@ -1918,7 +1928,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if ((input === 's' || input === 'S') && selectedSession?.status === 'exited') {
 				const restartMode = input === 'S' ? 'fresh' : 'resume';
 				// Setup still owed (failed, cancelled or refused as untrusted) depends on the repository config.
-				if (selectedSession.setup && selectedSession.setup.state !== 'complete') reviewThen(selectedSession.cwd, project => void restartSelected(restartMode, project?.fingerprint));
+				if (selectedSession.setup && selectedSession.setup.state !== 'complete') reviewThen(selectedSession.cwd, project => void restartSelected(restartMode, project?.fingerprint), {
+					gate: project => project.needsReview && Boolean(project.config.setupCommand),
+					labels: {enter: {text: 'enter trust & retry setup', short: 'enter trust'}, skip: {text: "s retry without the repo's setup", short: 's without it'}},
+					purpose: project => `About to run the repository setupCommand: ${project.config.setupCommand}`,
+				});
 				else void restartSelected(restartMode);
 				return;
 			}
@@ -2009,6 +2023,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						.finally(() => setBusy(false));
 					return;
 				}
+				if (worktreeMode === 'new') { confirmCreate(); return; }
 				void submitCreate();
 				return;
 			}
@@ -2138,7 +2153,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Exactly FOOTER_ROWS rows, each truncated, so the layout above never shifts.
 	const footerRows = [
 		<Text key="hint" color={mode === 'search' ? THEME.active : THEME.muted} wrap="truncate-end">
-			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : mode === 'workspace-info' && currentWorkspaceInfo?.confirmPr ? 'create pull request • enter push & open PR form • esc cancel' : footerHint(mode, activeTab, selectedSession, previewScrollSensitivity, activePaneReadyForAttach)}
+			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : footerHint(mode, activeTab, selectedSession, previewScrollSensitivity, activePaneReadyForAttach)}
 		</Text>,
 		<Text key="messages" wrap="truncate-end">
 			{footerMessages.length > 0
@@ -2147,6 +2162,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		</Text>,
 	];
 	const details = detailsContent();
+	// Settings (C) take the full width: the grid shows both layers side by side.
+	const settingsOpen = isSettingsFlowMode(mode) && !details;
 
 	return (
 		<Box flexDirection="column">
@@ -2159,6 +2176,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				<Text color={THEME.muted} wrap="truncate-end">{visibilityLabel}</Text>
 			</Box>
 			<Box flexDirection="row">
+				{settingsOpen ? settingsFlow.render(terminalSize.cols, layout.contentHeight) : <>
 				<Sidebar
 					sessions={visibleSessions}
 					allSessions={sessions}
@@ -2208,8 +2226,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					</Box>
 				) : details ? (
 					<DetailsPane title={details.title} text={details.text} footer={details.footer} width={layout.previewWidth} height={layout.contentHeight} scroll={details.scroll} />
-				) : isConfigFlowMode(mode) ? (
-					configFlow.render(layout.previewWidth, layout.contentHeight)
+				) : mode === 'pick-action' ? (
+					<ActionPickerPane project={actionProject?.project} selectedIndex={actionIndex} width={layout.previewWidth} height={layout.contentHeight} />
 				) : mode === 'pick-worktree' ? (
 					<WorktreePickerPane
 						worktrees={filteredWorktrees}
@@ -2217,6 +2235,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						query={worktreeQuery}
 						totalCount={worktrees.length}
 						width={layout.previewWidth}
+						height={layout.contentHeight}
 					/>
 				) : mode === 'confirm-kill' ? (
 					<KillConfirmPane
@@ -2243,6 +2262,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						showForkOption={createParentId && !handoffFromId ? supportsForkedSubSession(sessions.find(session => session.id === createParentId)) : false}
 					/>
 				) : null}
+				</>}
 			</Box>
 			{footerRows}
 		</Box>

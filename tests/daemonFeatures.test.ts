@@ -10,7 +10,8 @@ import type {ClientRequest, SessionRecord, ProjectInfo, DevRecord, SessionCleanu
 import type {WorktreeInfo} from '../src/git.js';
 import {cli, repo, git, waitFor, withEnv, isAlive} from './helpers.js';
 import {loadAppConfig, loadState, saveState, updateAppConfig} from '../src/storage.js';
-import {applyWorktreeSection, initialSetupModel, worktreeSection, type WorktreeSetupInfo} from '../src/worktreeSetup.js';
+import type {SettingsInfo, WorktreeCandidates} from '../src/settingsInfo.js';
+import {applyChange, initialLinks, linkSelection, infoLayer} from '../src/settingsModel.js';
 const fakeAgent = `#!/usr/bin/env node
 const fs = require('fs');
 const cp = require('child_process');
@@ -233,27 +234,32 @@ test('daemon features operate in isolated state with fake agents', {timeout: 600
 		await fs.rm(path.join(root, 'deps')); await updateAppConfig(current => ({...current, defaults: undefined}));
 	});
 
-	await t.test('worktree setup lists main-checkout candidates and sizes, and saves its section through save-config keeping other keys', async () => {
+	await t.test('Settings reads sources and both documents, lists main-checkout link candidates and sizes, and saves single keys through save-config keeping other keys', async () => {
 		await fs.mkdir(path.join(root, 'node_modules', 'pkg'), {recursive: true}); await fs.writeFile(path.join(root, 'node_modules', 'pkg', 'index.js'), 'x'.repeat(8192));
 		await fs.writeFile(path.join(root, 'notes.txt'), 'n'); await fs.writeFile(path.join(root, 'deckhand.json'), '{"devCommand":"printf keep"}');
-		const info = await call<WorktreeSetupInfo>({type: 'worktree-setup-info', cwd: root} as any);
-		const byPath = new Map(info.candidates.map(candidate => [candidate.path, candidate]));
+		const info = await call<SettingsInfo>({type: 'settings-info', cwd: root} as any);
+		assert.equal(info.repository.state, 'untrusted'); assert.equal(info.originBranch, 'main'); assert.equal(info.hookFile, undefined);
+		assert.deepEqual(info.rows.find(row => row.key === 'devCommand')?.pending?.value, 'printf keep');
+		const {candidates} = await call<WorktreeCandidates>({type: 'worktree-candidates', cwd: root} as any);
+		const byPath = new Map(candidates.map(candidate => [candidate.path, candidate]));
 		assert.equal(byPath.get('node_modules')?.suggestion, 'link'); assert.equal(byPath.get('node_modules')?.kind, 'dir'); assert.equal(byPath.get('notes.txt')?.suggestion, 'skip');
-		assert.equal(byPath.has('deckhand.json'), false); assert.equal(info.originBranch, 'main'); assert.equal(info.hook, undefined);
+		assert.equal(byPath.has('deckhand.json'), false);
 		const sizes = await call<Record<string, number | null>>({type: 'worktree-candidate-sizes', cwd: root, paths: ['node_modules', 'notes.txt']} as any);
 		assert.ok((sizes.node_modules ?? 0) >= 8, JSON.stringify(sizes)); assert.equal(sizes['notes.txt'], 1);
 		await assert.rejects(call({type: 'worktree-candidate-sizes', cwd: root, paths: ['../escape']} as any), /relative/);
-		const model = {...initialSetupModel(info), location: 'inside' as const, branchFrom: 'default' as const};
-		const expected = {location: '{repoRoot}/.worktrees/{name}', symlink: ['node_modules'], branchFrom: 'default'};
+		const symlink = linkSelection(infoLayer(info, 'repository'), infoLayer(info, 'global'), candidates, initialLinks(candidates)).symlink;
+		assert.deepEqual(symlink, ['node_modules']);
 		const document = info.targets.repository!;
-		const raw = applyWorktreeSection(document, worktreeSection(model, info));
-		await call({type: 'save-config', target: 'repository', cwd: root, raw, revision: document.revision} as any);
-		assert.deepEqual(JSON.parse(await fs.readFile(path.join(root, 'deckhand.json'), 'utf8')), {devCommand: 'printf keep', worktree: expected});
+		const raw = applyChange(document, {path: ['worktree', 'symlink'], value: symlink});
+		// Saved over bytes nobody reviewed (written outside Deckhand): the file still needs review.
+		const saved = await call<{trust?: string}>({type: 'save-config', target: 'repository', cwd: root, raw, revision: document.revision} as any);
+		assert.equal(saved.trust, 'unreviewed'); assert.equal((await call<ProjectInfo>({type: 'project-info', cwd: root} as any)).trusted, false);
+		assert.deepEqual(JSON.parse(await fs.readFile(path.join(root, 'deckhand.json'), 'utf8')), {devCommand: 'printf keep', worktree: {symlink: ['node_modules']}});
 		await assert.rejects(call({type: 'save-config', target: 'repository', cwd: root, raw, revision: document.revision} as any), /changed on disk/);
 		const trusted = (await loadAppConfig()).trustedProjects;
-		await call({type: 'save-config', target: 'global', cwd: root, raw: applyWorktreeSection(info.targets.global!, worktreeSection({...model, target: 'global'}, info)), revision: info.targets.global!.revision} as any);
+		await call({type: 'save-config', target: 'global', cwd: root, raw: applyChange(info.targets.global!, {path: ['worktree', 'branchFrom'], value: 'default'}), revision: info.targets.global!.revision} as any);
 		const config = await loadAppConfig();
-		assert.deepEqual(config.defaults, {worktree: expected}); assert.deepEqual(config.trustedProjects, trusted);
+		assert.deepEqual(config.defaults, {worktree: {branchFrom: 'default'}}); assert.deepEqual(config.trustedProjects, trusted);
 		await fs.rm(path.join(root, 'node_modules'), {recursive: true}); await fs.rm(path.join(root, 'notes.txt')); await fs.writeFile(path.join(root, 'deckhand.json'), '{}');
 		await updateAppConfig(current => ({...current, defaults: undefined}));
 	});
@@ -272,7 +278,7 @@ test('daemon features operate in isolated state with fake agents', {timeout: 600
 		const realClaude = await fs.readFile(path.join(bin, 'claude'), 'utf8');
 		await fs.writeFile(path.join(bin, 'claude'), `#!/usr/bin/env node\nconsole.log('No conversation found with session ID: ' + process.argv[process.argv.indexOf('--resume') + 1]);\nsetTimeout(() => process.exit(1), 200);\n`, {mode: 0o755});
 		await call({type: 'restart', sessionId: claude.id, cols: 80, rows: 24} as any);
-		const missing = await waitFor(() => state(claude.id), item => item.status === 'exited' && Boolean(item.lastPreview));
+		const missing = await waitFor(() => state(claude.id), item => item.status === 'exited' && /Press S/.test(item.lastPreview ?? ''));
 		assert.equal(missing.exitReason, 'failed'); assert.match(missing.lastPreview!, /Press S to start a fresh conversation/);
 		await assert.rejects(call({type: 'restart', sessionId: claude.id, cols: 80, rows: 24} as any), /no saved conversation.*Use S/);
 		await fs.writeFile(path.join(bin, 'claude'), realClaude, {mode: 0o755});

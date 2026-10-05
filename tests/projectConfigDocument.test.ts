@@ -3,8 +3,9 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {readProjectConfigDocument, saveProjectConfigDocument, STARTER_PROJECT_CONFIG} from '../src/projectConfigDocument.js';
-import {loadProjectConfig} from '../src/projectConfig.js';
-import {git, repo} from './helpers.js';
+import {isProjectTrusted, loadProjectConfig, trustProjectConfig} from '../src/projectConfig.js';
+import {loadAppConfig, updateAppConfig} from '../src/storage.js';
+import {git, repo, tempDir, withEnv} from './helpers.js';
 
 test('opening a missing config is side-effect free; explicit save creates a valid starter', async t => {
 	const cwd = await repo(); t.after(() => fs.rm(cwd, {recursive: true, force: true}));
@@ -74,4 +75,47 @@ test('symlinked and oversized configs are rejected without modifying their targe
 	await fs.rm(file); await fs.writeFile(file, ' '.repeat(65537));
 	await assert.rejects(readProjectConfigDocument(cwd), /64 KiB/);
 	await assert.rejects(saveProjectConfigDocument(cwd, ' '.repeat(65537), null), /64 KiB/);
+});
+
+test('saves through Deckhand keep a trusted (or new) deckhand.json trusted; unreviewed bytes, outside edits and creation hooks still need review', async t => {
+	const home = await tempDir(t, 'deckhand-save-trust-'); withEnv(t, {DECKHAND_HOME: home});
+	const cwd = await repo(); t.after(() => fs.rm(cwd, {recursive: true, force: true}));
+	const keepTrust = {keepTrust: true};
+	const trusted = async () => { const user = await loadAppConfig(); return isProjectTrusted(await loadProjectConfig(cwd, user), user); };
+	const save = async (raw: string) => saveProjectConfigDocument(cwd, raw, (await readProjectConfigDocument(cwd)).revision, keepTrust);
+	const trustNow = async () => { const project = await loadProjectConfig(cwd, await loadAppConfig()); await updateAppConfig(config => trustProjectConfig(project, config)); };
+	// No file and no hook: nothing to review, so the created file is trusted; saving over trusted bytes keeps it.
+	const absent = await readProjectConfigDocument(cwd);
+	let saved = await saveProjectConfigDocument(cwd, '{"devCommand":"one"}\n', absent.revision, keepTrust);
+	assert.equal(saved.trust, 'created'); assert.equal(await trusted(), true);
+	saved = await saveProjectConfigDocument(cwd, '{"devCommand":"two"}\n', saved.revision, keepTrust);
+	assert.equal(saved.trust, 'kept'); assert.equal(await trusted(), true);
+	// A stale revision is still rejected, and grants nothing.
+	await assert.rejects(saveProjectConfigDocument(cwd, '{"devCommand":"stale"}\n', absent.revision, keepTrust), /changed on disk/);
+	// An edit from outside Deckhand needs review again; a Deckhand save over those unreviewed bytes still does.
+	await fs.writeFile(saved.path, '{"devCommand":"outside"}\n');
+	assert.equal(await trusted(), false);
+	assert.equal((await save('{"devCommand":"three"}\n')).trust, 'unreviewed'); assert.equal(await trusted(), false);
+	// Without keepTrust (not a Deckhand edit) trust is untouched.
+	await updateAppConfig(config => ({...config, trustedProjects: undefined}));
+	assert.equal((await saveProjectConfigDocument(cwd, '{}\n', (await readProjectConfigDocument(cwd)).revision)).trust, undefined);
+
+	// Creation hook. Trusted without the hook (hook: false), a save that enables the hook needs review.
+	const hook = path.join(cwd, '.claude', 'scripts', 'create-worktree.sh'); await fs.mkdir(path.dirname(hook), {recursive: true}); await fs.writeFile(hook, '#!/bin/bash\necho one\n');
+	await saveProjectConfigDocument(cwd, '{"worktree":{"hook":false}}\n', (await readProjectConfigDocument(cwd)).revision);
+	await trustNow();
+	assert.equal(await trusted(), true);
+	assert.equal((await save('{"devCommand":"hooked"}\n')).trust, 'hook'); assert.equal(await trusted(), false);
+	// Once the file and hook are trusted together, settings saves keep them trusted (the hook's bytes are unchanged).
+	await trustNow();
+	assert.equal((await save('{"devCommand":"four"}\n')).trust, 'kept'); assert.equal(await trusted(), true);
+	// The hook edited since that trust: the bundle needs review, and a settings save never trusts the new hook.
+	await fs.writeFile(hook, '#!/bin/bash\necho changed\n');
+	assert.equal((await save('{"devCommand":"five"}\n')).trust, 'unreviewed'); assert.equal(await trusted(), false);
+	// No file yet but an untrusted hook: creating the file does not trust the hook.
+	const other = await repo(); t.after(() => fs.rm(other, {recursive: true, force: true}));
+	await fs.mkdir(path.join(other, '.claude', 'scripts'), {recursive: true}); await fs.writeFile(path.join(other, '.claude', 'scripts', 'create-worktree.sh'), 'echo x\n');
+	assert.equal((await saveProjectConfigDocument(other, '{}\n', null, keepTrust)).trust, 'hook');
+	const user = await loadAppConfig();
+	assert.equal(isProjectTrusted(await loadProjectConfig(other, user), user), false);
 });

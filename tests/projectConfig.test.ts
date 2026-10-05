@@ -9,10 +9,11 @@ test('strict project schema rejects malformed/unknown commands and defaults', ()
 	for (const value of ['[]', '{"unknown":true}', '{"defaultAgent":["pi"]}', '{"defaultWorkspace":null}', '{"setupCommand":""}', '{"actions":{"bad/name":"echo ok"}}', '{"actions":{"__proto__":"echo bad"}}']) assert.throws(() => parseProjectConfig(value));
 	assert.deepEqual(parseProjectConfig('{"defaultAgent":"codex","actions":{"test":"npm test"}}'), {defaultAgent: 'codex', actions: {test: 'npm test'}});
 });
-test('effective settings: global defaults overlaid by the repository override only while trusted; actions merge by name', () => {
+test('effective settings: global defaults overlaid by the repository override only while trusted (its agent/workspace suggestions always); actions merge by name', () => {
 	const project = {root: '/r', trustRoot: '/r', path: '/r/deckhand.json', exists: true, fingerprint: 'f', config: {defaultAgent: 'pi', devCommand: 'repo dev', setupCommand: 'repo setup', actions: {test: 'repo test', lint: 'repo lint'}}} as LoadedProject;
 	const user = {dev_command: 'legacy', defaults: {defaultAgent: 'codex', defaultWorkspace: 'new', setupCommand: 'npm ci', actions: {test: 'global test', fmt: 'global fmt'}}};
-	assert.deepEqual(resolveSettings(project, user), {defaultAgent: 'codex', defaultWorkspace: 'new', setupCommand: 'npm ci', devCommand: 'legacy', actions: {test: 'global test', fmt: 'global fmt'}});
+	// Untrusted: only the repository's defaultAgent applies (it preselects the picker and runs nothing).
+	assert.deepEqual(resolveSettings(project, user), {defaultAgent: 'pi', defaultWorkspace: 'new', setupCommand: 'npm ci', devCommand: 'legacy', actions: {test: 'global test', fmt: 'global fmt'}});
 	const trusted = trustProjectConfig(project, user);
 	assert.deepEqual(resolveSettings(project, trusted), {defaultAgent: 'pi', defaultWorkspace: 'new', setupCommand: 'repo setup', devCommand: 'repo dev', actions: {test: 'repo test', fmt: 'global fmt', lint: 'repo lint'}});
 	assert.equal(resolveDevCommand(undefined, {}), 'dev');
@@ -56,13 +57,21 @@ test('explainSettings: sources per row, pending untrusted values, list merges, l
 	// Global only (repository untrusted): legacy dev_command, repo values pending; the repository's hook: false applies anyway.
 	const pending = explainSettings(project, user, context).rows;
 	assert.deepEqual([find(pending, 'devCommand').source, find(pending, 'devCommand').value, find(pending, 'devCommand').pending?.value], ['legacy dev_command', 'legacy dev', 'cd frontend && npm run dev']);
-	assert.deepEqual([find(pending, 'defaultWorkspace').source, find(pending, 'defaultWorkspace').pending?.value], ['built-in default', 'new']);
+	// The repository's suggestions apply without trust, so they are not pending.
+	assert.deepEqual([find(pending, 'defaultWorkspace').source, find(pending, 'defaultWorkspace').value, find(pending, 'defaultWorkspace').pending], ['repo', 'new', undefined]);
+	assert.match(find(pending, 'defaultWorkspace').note ?? '', /applies without trust/);
 	assert.deepEqual([find(pending, 'actions', 'lint').source, find(pending, 'actions', 'lint').pending?.value], ['global', 'repo lint']);
 	assert.deepEqual([find(pending, 'actions', 'test').source, find(pending, 'actions', 'test').pending?.value], ['not set', 'pytest']);
 	assert.deepEqual([find(pending, 'worktree.symlink', 'frontend/node_modules').source, find(pending, 'worktree.symlink', 'node_modules').source], ['not set', 'global']);
 	assert.deepEqual([find(pending, 'worktree.hook').value, find(pending, 'worktree.hook').source, find(pending, 'worktree.hook').pending], ['off', 'repo', undefined]);
 	assert.deepEqual([find(pending, 'worktree.branchName').value, find(pending, 'worktree.branchName').raw], ['tejas/<name>', '{user}/{name}']);
 	assert.equal(find(pending, 'worktree.location').pending?.value, '/dev/worktrees/<name>');
+	assert.ok(pending.every(row => !row.pending?.same));
+	// An untrusted value equal to the one in effect (here the built-in dev and a global action) is marked `same`.
+	const same = explainSettings({...project, config: {devCommand: 'dev', actions: {lint: 'npm run lint'}}}, user, context).rows;
+	assert.deepEqual([find(same, 'devCommand').source, find(same, 'devCommand').pending], ['legacy dev_command', {value: 'dev', raw: 'dev'}]);
+	assert.deepEqual(find(explainSettings({...project, config: {devCommand: 'dev'}}, {}, context).rows, 'devCommand').pending, {value: 'dev', raw: 'dev', same: true});
+	assert.deepEqual(find(same, 'actions', 'lint').pending, {value: 'npm run lint', raw: 'npm run lint', same: true});
 
 	// Trusted: repository wins field by field and per entry, global entries it does not override stay.
 	const merged = explainSettings(project, trusted, context).rows;
