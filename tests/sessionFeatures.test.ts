@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {tempDir, withEnv} from './helpers.js';
-import {filterSessionList, handoffMarkdown} from '../src/sessionFeatures.js';
+import {filterCycleMessage, filterSessionList, handoffMarkdown, nextSessionFilter} from '../src/sessionFeatures.js';
 import {normalizeHook, codexResumeFromOutput, needsAttention, integrationArgs} from '../src/agentSignals.js';
 import type {SessionRecord} from '../src/types.js';
 const root = {id: 'root', title: 'Parent', cwd: '/repo', program: 'claude', status: 'running', notes: '', repoRoot: '/repo'} as SessionRecord;
@@ -14,6 +14,12 @@ test('filters retain ancestry/order and distinguish archive, running, attention 
 	assert.deepEqual(filterSessionList([root, child], 'all', 'not found'), []);
 	assert.deepEqual(filterSessionList([{...root, attention: {state: 'needs-input', event: 'PermissionRequest', at: 'now'}}], 'attention', '').map(item => item.id), ['root']);
 	assert.deepEqual(filterSessionList([{...root, status: 'exited', exitReason: 'interrupted'}], 'attention', '').map(item => item.id), ['root']);
+});
+test('f cycles every filter and its message lists the rest in visiting order', () => {
+	assert.equal(nextSessionFilter('active'), 'archived');
+	assert.equal(nextSessionFilter('exited'), 'active');
+	assert.equal(filterCycleMessage('archived'), 'Filter: archived · f → all › attention › running › exited › active');
+	assert.equal(filterCycleMessage('active'), 'Filter: active · f → archived › all › attention › running › exited');
 });
 test('handoffs include notes by default, and clearly label optional terminal excerpts', () => {
 	const session = {...root, notes: 'Implement the feature', lastPreview: 'sensitive terminal output'};

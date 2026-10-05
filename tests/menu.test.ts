@@ -10,6 +10,11 @@ test('fitHint keeps one line: full texts, then short forms, then drops the least
 	assert.ok(fitHint(parts, 5).length <= 5);
 });
 
+test('fitHint can join with another separator', () => {
+	assert.equal(fitHint(['o attach', {text: 'f filter', drop: 2}, '? help'], 80, ' • '), 'o attach • f filter • ? help');
+	assert.equal(fitHint(['o attach', {text: 'f filter', drop: 2}, '? help'], 20, ' • '), 'o attach • ? help');
+});
+
 test('menuWindowStart keeps the selection visible', () => {
 	assert.equal(menuWindowStart(0, 3, 5), 0);
 	assert.equal(menuWindowStart(9, 10, 4), 6);

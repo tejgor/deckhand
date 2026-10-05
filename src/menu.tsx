@@ -114,9 +114,9 @@ export function MenuDetails({title, lines, width, rows}: {title: string; lines: 
 
 export interface HintPart {text: string; short?: string; /** Higher numbers are dropped first when the hint does not fit. */ drop?: number}
 /** One key-hint line that fits `width`: full texts, then short forms, then dropping the least important parts. */
-export function fitHint(parts: Array<string | HintPart>, width: number): string {
+export function fitHint(parts: Array<string | HintPart>, width: number, separator = ' · '): string {
 	let current = parts.map((part, order) => typeof part === 'string' ? {text: part, order} : {...part, order});
-	const join = (list: typeof current, short: boolean) => list.map(part => short ? part.short ?? part.text : part.text).join(' · ');
+	const join = (list: typeof current, short: boolean) => list.map(part => short ? part.short ?? part.text : part.text).join(separator);
 	if (join(current, false).length <= width) return join(current, false);
 	while (current.length > 1 && join(current, true).length > width) {
 		const victim = current.reduce((worst, part) => (part.drop ?? 0) > (worst.drop ?? 0) || ((part.drop ?? 0) === (worst.drop ?? 0) && part.order > worst.order) ? part : worst);

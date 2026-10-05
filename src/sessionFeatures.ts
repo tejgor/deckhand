@@ -7,6 +7,15 @@ import type {SessionRecord} from './types.js';
 import type {HandoffGitContext} from './workspaceGit.js';
 export type SessionFilter = 'active' | 'archived' | 'all' | 'attention' | 'running' | 'exited';
 export const SESSION_FILTERS: SessionFilter[] = ['active', 'archived', 'all', 'attention', 'running', 'exited'];
+export function nextSessionFilter(filter: SessionFilter): SessionFilter {
+	return SESSION_FILTERS[(SESSION_FILTERS.indexOf(filter) + 1) % SESSION_FILTERS.length]!;
+}
+/** Shown when f switches filters: the current one, then the rest of the cycle in the order f visits them. */
+export function filterCycleMessage(filter: SessionFilter): string {
+	const rest: SessionFilter[] = [];
+	for (let next = nextSessionFilter(filter); next !== filter; next = nextSessionFilter(next)) rest.push(next);
+	return `Filter: ${filter} · f → ${rest.join(' › ')}`;
+}
 export function sessionNeedsAttention(session: SessionRecord): boolean {
 	return needsAttention(session.attention?.state) || session.exitReason === 'failed' || session.exitReason === 'interrupted';
 }
