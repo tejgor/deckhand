@@ -5,9 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import {launcher, terminalUi} from './helpers.js';
 
-test('C → Settings in the sandbox: a grid with a Global and a This repo column; ←→ picks the cell\'s layer (sticky across rows), Enter edits that layer, Linked items writes its worktree.symlink, x clears, T trusts and e opens the raw JSON', {timeout: 30000}, async t => {
+test('C → Settings in the sandbox: a grid with a Global and a This repo column; ←→ picks the cell\'s layer (sticky across rows), Enter edits that layer, Linked items writes its worktree.symlink, x clears, T trusts, e opens the raw JSON; Agents rows are global only', {timeout: 30000}, async t => {
 	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-ui-'));
-	const {ui} = terminalUi(t, {args: [launcher, '--sandbox'], cwd: home, home});
+	const codexHome = path.join(home, 'codex'); await fs.mkdir(codexHome);
+	const {ui} = terminalUi(t, {args: [launcher, '--sandbox'], cwd: home, home, env: {CODEX_HOME: codexHome}});
 	const {screen, press} = ui;
 	await screen('DEV (isolated)'); await screen('● ready');
 	const sandbox = path.join(home, 'sandbox'), file = path.join(sandbox, 'deckhand.json');
@@ -16,6 +17,12 @@ test('C → Settings in the sandbox: a grid with a Global and a This repo column
 	await fs.mkdir(path.join(sandbox, 'node_modules', 'pkg'), {recursive: true}); await fs.writeFile(path.join(sandbox, 'node_modules', 'pkg', 'index.js'), 'module.exports = 1;\n');
 	await fs.writeFile(path.join(sandbox, 'notes.txt'), 'local notes\n');
 	await fs.writeFile(path.join(home, 'config.json'), JSON.stringify({defaults: {actions: {fmt: 'npm run fmt'}}}));
+
+	// ? : topics on the left, j/k (or a number) switch, / searches every topic, Esc steps back out.
+	press('?'); await screen('Help · Start here'); await screen('8 Agent signals');
+	press('j'); await screen('Help · Sessions'); press('7'); await screen('Help · Settings');
+	press('/'); await screen('type to search'); press('lazygit'); await screen('6  Git & PRs');
+	press('\x1b'); await screen('Help · Settings'); press('\x1b'); await screen('C settings');
 
 	// One grid, grouped by section; the cursor starts on the This repo column. The sandbox's untrusted Dev command is
 	// in its cell (needs trust) while the built-in applies.
@@ -38,7 +45,7 @@ test('C → Settings in the sandbox: a grid with a Global and a This repo column
 	press('j'); await screen('No setup command'); press('\r'); await screen('Setup command · Global'); press('\x1b'); await screen('No setup command');
 
 	// → back to This repo; Linked items picks what new worktrees link, saved as this repo's worktree.symlink.
-	press('\x1b[C'); await screen('This repo · '); press('\x1b[F'); await screen('❯ Creation hook'); press('k'); await screen('❯ Linked items'); press('\r'); await screen('Settings › Linked items · This repo'); await screen('[link] node_modules/');
+	press('\x1b[C'); await screen('This repo · '); press('\x1b[F'); await screen('❯ Notifications'); press('k'); await screen('❯ Agent signals'); press('k'); await screen('❯ Creation hook'); press('k'); await screen('❯ Linked items'); press('\r'); await screen('Settings › Linked items · This repo'); await screen('[link] node_modules/');
 	press('j'); await screen('❯ [skip] notes.txt');
 	press(' '); await screen('❯ [link] notes.txt');
 	press('\r'); await screen('Saved Linked items to this repo · review required');
@@ -52,6 +59,15 @@ test('C → Settings in the sandbox: a grid with a Global and a This repo column
 	assert.deepEqual(await readJson(file), {...original, defaultAgent: 'codex'});
 	press('e'); await screen('Repository config · deckhand.json');
 	press('\x1b'); await screen('Settings · sandbox');
+
+	// Agents: global-only config.json flags. The repo cell says so and the cursor selects Global on these rows (from
+	// the This repo column too); Agent signals saves agent_hooks and hints that Codex (its home exists here) has no
+	// Deckhand hooks yet. Leaving the row returns to This repo.
+	press('\x1b[F'); await screen('❯ Notifications'); press('k'); await screen('❯ Agent signals'); await screen('Off: attention (! and the session markers)');
+	press('\r'); await screen('Agent signals · Global'); press('k'); await screen('❯ ○ on');
+	press('\r'); await screen('Agent signals on (global)'); await screen('on ⚠ Codex'); await screen('Codex hooks not set up: node scripts/deckhand-dev.mjs hooks codex >');
+	assert.equal((await readJson(path.join(home, 'config.json'))).agent_hooks, true);
+	press('k'); await screen('❯ Creation hook'); await screen('This repo · ');
 	press('\x1b'); await screen('C settings');
 });
 

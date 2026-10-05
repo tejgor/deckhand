@@ -6,7 +6,8 @@ import {DetailsPane} from './detailsPane.js';
 import {formatConfigJson} from './configDraft.js';
 import {editText, type EditorState} from './textEditor.js';
 import type {ConfigTargetKind, ProjectConfigDocument, SavedConfigDocument, SettingsInfo} from './types.js';
-import {ACTION_COMMAND_EXAMPLES, ACTION_COMMAND_HELP, ACTION_NAME_EXAMPLES, ACTION_NAME_RULES, SETTINGS, actionNameCheck, actionNameProblem, actionSavedMessage, applyChange, columnProblem, commandProblem, choiceChange, choiceOptions, currentChoice, infoLayer, inheritedHint, initialColumn, initialLinks, initialText, layerActions, layerSets, linkSelection, otherTarget, ownValue, previewLocation, savedMessage, settingPath, targetName, textChange, trustNote, type SettingChange} from './settingsModel.js';
+import {updateAppConfig} from './storage.js';
+import {ACTION_COMMAND_EXAMPLES, ACTION_COMMAND_HELP, ACTION_NAME_EXAMPLES, ACTION_NAME_RULES, APP_FLAG, SETTINGS, isAppFlag, type AppFlagId, actionNameCheck, actionNameProblem, actionSavedMessage, applyChange, columnProblem, commandProblem, choiceChange, choiceOptions, currentChoice, infoLayer, inheritedHint, initialColumn, initialLinks, initialText, layerActions, layerSets, linkSelection, otherTarget, ownValue, previewLocation, savedMessage, settingPath, targetName, textChange, trustNote, type SettingChange} from './settingsModel.js';
 import {SettingsPane, type LinksState, type Notice, type SettingsEdit, type SettingsView} from './settingsPane.js';
 import type {DetailLine} from './menu.js';
 import {THEME, errorMessage} from './ui.js';
@@ -52,7 +53,7 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 	const [view, setView] = useState<SettingsView>('main');
 	const [row, setRow] = useState(0);
 	const [actionRow, setActionRow] = useState(0);
-	// The selected column (layer); it stays put while the row changes.
+	// The selected column (layer); it stays put while the row changes (global-only rows select Global; see cellColumn).
 	const [column, setColumn] = useState<ConfigTargetKind>('repository');
 	const [edit, setEdit] = useState<SettingsEdit>();
 	const [links, setLinks] = useState<LinksState>();
@@ -86,6 +87,9 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 
 	const actions = info ? layerActions(info, column).own : [];
 	const def = SETTINGS[Math.min(row, SETTINGS.length - 1)]!;
+	// The cell the cursor is on: a global-only row has nothing to edit in This repo, so it always selects Global,
+	// while `column` keeps the picked column for the rows around it.
+	const cellColumn: ConfigTargetKind = def.globalOnly ? 'global' : column;
 	const action = view === 'actions' ? actions[actionRow] : undefined;
 
 	/** Writes `change` into `layer` and reloads; a concurrent change reloads too and says what was not saved. */
@@ -108,6 +112,15 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 			const text = /changed on disk/.test(message) ? `${capitalize(targetName(layer))} changed on disk, so ${label} was not saved (${attempt}). Reloaded; try again.` : `${label} was not saved (${attempt}): ${message}`;
 			load(cwd, () => setNotice({text, error: true}));
 		});
+	};
+	/** A global-only setting is stored in config.json itself (like the attach scroll setting), not in a layer. */
+	const saveFlag = (id: AppFlagId, label: string, value: boolean) => {
+		setBusy(true);
+		void updateAppConfig({[APP_FLAG[id]]: value}).then(() => {
+			setBusy(false); setNotice(undefined);
+			// The Codex hint (if any) shows under the row, which stays selected.
+			load(cwd, () => setStatusMessage(`${label} ${value ? 'on' : 'off'} (global)${value ? ' · applies to new and restarted sessions' : ''}`));
+		}, error => { setBusy(false); setNotice({text: `${label} was not saved: ${errorMessage(error)}`, error: true}); });
 	};
 	const editJson = (kind: ConfigTargetKind) => {
 		if (!client) return;
@@ -170,7 +183,8 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 					return;
 				}
 				const change = choiceChange(info, current.id, current.target, option);
-				if (!change) { setEdit(undefined); setNotice({text: `${current.label} unchanged: ${targetName(current.target)} already has it`}); return; }
+				if (!change) { setEdit(undefined); setNotice({text: `${current.label} unchanged: ${isAppFlag(current.id) ? 'it is already' : `${targetName(current.target)} already has it`}`}); return; }
+				if (isAppFlag(current.id)) { saveFlag(current.id, current.label, option.value === true); return; }
 				save(current.target, change, current.label, {cleared: change.value === undefined});
 			}
 			return;
@@ -294,10 +308,15 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 		if (moved !== undefined) { setRow(moved); setNotice(undefined); return; }
 		if (key.escape) { close(); return; }
 		if (key.leftArrow || key.rightArrow || key.tab) { pickColumn(key.tab ? otherTarget(column) : key.leftArrow ? 'global' : 'repository'); return; }
-		if (input === 'e') { editJson(column); return; }
+		if (input === 'e') { editJson(cellColumn); return; }
 		if (input === 'T') { onReview(cwd, () => load(cwd)); return; }
 		setNotice(undefined);
 		if (input !== 'x' && !key.return) return;
+		if (isAppFlag(def.id)) {
+			if (input === 'x') setNotice({text: `${def.label}: Enter switches it on or off`});
+			else { const options = choiceOptions(info, def.id, 'global'); setEdit({kind: 'choice', id: def.id, label: def.label, target: 'global', options, ...currentChoice(info, def.id, 'global', options)}); }
+			return;
+		}
 		const problem = columnProblem(info, column);
 		if (problem) { setNotice({text: problem, error: true}); return; }
 		if (input === 'x') {
@@ -347,7 +366,7 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 		if (mode === 'edit-project' && document) return <ConfigEditorPane document={document} state={editor} error={editorError} width={width} height={height} />;
 		if (mode === 'discard-project') return <DetailsPane title="Discard unsaved configuration?" text={`${document?.path ?? ''}\n\nYour draft has unsaved changes. Discarding closes this draft without writing it and returns to Settings; earlier saves are not undone.\n\nEnter discards the draft. Escape returns to editing.`} footer="enter discard · esc keep editing" width={width} height={height} />;
 		if (mode !== 'settings' || !info) return null;
-		return <SettingsPane info={info} view={view} row={row} actionRow={actionRow} column={column} edit={edit} editHelp={editHelp()} links={links} sizes={sizes} notice={notice} width={width} height={height} />;
+		return <SettingsPane info={info} view={view} row={row} actionRow={actionRow} column={cellColumn} edit={edit} editHelp={editHelp()} links={links} sizes={sizes} notice={notice} width={width} height={height} />;
 	};
 
 	return {open, handleInput, cancelable, render};

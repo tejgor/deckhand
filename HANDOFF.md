@@ -346,7 +346,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v34** (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
+- current protocol version: **v35** (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -466,7 +466,7 @@ Event types:
 - `src/uiState.ts` — `ui-state.json` normalization and persistence.
 - `src/detailTexts.ts`, `src/detailsPane.tsx` — text for review/inspection panes and their scrolling renderer.
 - `src/desktop.ts` — editor/URL opening helpers.
-- `src/help.ts` — in-app `?` guide text.
+- `src/help.ts` — in-app `?` guide content (topics of key → description rows and notes); `src/helpPane.tsx` renders it (topic list, aligned key column, `/` search).
 - `scripts/deckhand-dev.mjs` — isolated dev launcher and sandbox.
 - `tests/` — `node:test` suite (`npm test`); `tests/helpers.ts` holds fixture repos, env/temp helpers and the PTY harness.
 - `scripts/fix-node-pty.js` — install-time macOS `node-pty` fixup.

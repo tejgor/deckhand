@@ -86,6 +86,7 @@ The creation hook (below) remains the escape hatch for anything these settings c
 - **General**: Default agent, Default workspace.
 - **Commands**: Dev command, Setup command, Actions (the names).
 - **Worktrees**: Location, Branch from, Branch name, Linked items (`worktree.symlink` plus `worktree.files`, as a count), Creation hook (on/off).
+- **Agents**: Agent signals (`agent_hooks`) and Notifications (`notifications`), on/off. These are **global only**: they describe your machine and your agent CLIs, not a project, so they are stored in `config.json` itself (not under `defaults`) and a repository can never switch them on. The This repo cell says *global only* and can't be selected: on these rows the cursor moves to Global, then returns to This repo when you leave the row. See [Lifecycle signals and notifications](#lifecycle-signals-and-notifications).
 
 Each cell shows **that layer's own stored value** (`—` when it sets none); templates show their expansion for this repository, with the template in the details box. **●** marks the value in effect (what `resolveSettings` uses, via `explainSettings`), shown bold; a value the other layer overrides is dimmed. When neither layer sets a value, the Global column shows the built-in default in italics, e.g. *dev (built-in)*. A value this repository's `deckhand.json` sets while the file is untrusted stays in its cell with **⚠** (*⚠ needs trust* when there is room): the emphasis stays on what applies now, and it applies once you trust the file — you're asked the first time it runs, or press **T**. `defaultAgent`, `defaultWorkspace` and `worktree.hook: false` apply untrusted too. Lists show a compact summary per layer: action names, or a count of linked items.
 
@@ -172,15 +173,17 @@ After a daemon crash, sessions are marked interrupted and keep their conversatio
 
 ## Lifecycle signals and notifications
 
-Opt in through the user config (`~/.deckhand/config.json`, or `~/.deckhand-dev/config.json` for the dev build), keeping existing settings:
+Both default off. Switch them on in Settings (**C** → the **Agents** rows in the Global column), or in the user config (`~/.deckhand/config.json`, or `~/.deckhand-dev/config.json` for the dev build), keeping existing settings:
 
 ```json
 {"agent_hooks": true, "notifications": true}
 ```
 
+Notifications on its own still notifies when a session exits; Agent signals adds *needs input* and *done*.
+
 - Supported hooks report **working**, **needs-input**, **response-ended**, **failed** and **limited**; everything else stays unknown or activity-based. **Response-ended is not task success**, and silence is not completion. **!** jumps to the next session with known attention, including failed or interrupted exits.
 - Claude: with `agent_hooks` on, new launches check `claude --help` and pass hook settings for the supported events with `--settings`. Repository and user provider config is not modified.
-- Codex: with `agent_hooks` on, launches add `--no-daemon` when the installed version supports it, so callback identity is not shared through a native daemon. The isolated dev build requires it even with hooks off and refuses Codex versions without it. Configure Codex's own hook settings from `deckhand hooks codex` (`node scripts/deckhand-dev.mjs hooks codex` for the dev build); check your version's [Codex hooks reference](https://developers.openai.com/codex/hooks) for which events it supports.
+- Codex: with `agent_hooks` on, launches add `--no-daemon` when the installed version supports it, so callback identity is not shared through a native daemon. The isolated dev build requires it even with hooks off and refuses Codex versions without it. Codex hooks can't be passed at launch, so set them up once in Codex's own config: save the output of `deckhand hooks codex` (`node scripts/deckhand-dev.mjs hooks codex` for the dev build) as `~/.codex/hooks.json` (merge it into the `hooks` object if the file exists), then trust it with `/hooks` in Codex. While Agent signals is on and a Codex home exists, Settings shows **⚠ Codex** on the row with this command when no hook there calls this Deckhand, or when one calls another install of it (a different Node or Deckhand path: regenerate it). Check your version's [Codex hooks reference](https://developers.openai.com/codex/hooks) for which events it supports.
 - Pi has no automatic adapter.
 - Callbacks must carry the launch's secret token and launch ID; stale and unauthorized callbacks are rejected and native-subagent events are ignored. The `deckhand hook` bridge reads bounded input, forwards only lifecycle fields (event name, session/agent IDs, notification and error types) and never starts a daemon. It always prints `{}`, so it never approves, blocks or alters an agent action.
 - Notifications are sent by the daemon on attention changes and process exits via `osascript` (macOS) or `notify-send` (Linux), best effort. They contain no terminal output or approval payloads.

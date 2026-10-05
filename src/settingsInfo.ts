@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
+import {hookCommand} from './agentSignals.js';
 import {git, optionalGit, resolveCreateScript, resolveDefaultBranch, resolveRepoContext, worktreeTemplateVars, type RepoContext} from './git.js';
 import {explainSettings, isProjectTrusted, loadProjectConfig, projectNeedsReview, validateProjectConfig, PROJECT_CONFIG_FILE, type LoadedProject, type SettingRow} from './projectConfig.js';
 import {readConfigTargets, type ConfigTargetKind, type ConfigTargets} from './projectConfigDocument.js';
@@ -35,6 +37,43 @@ export interface SettingsInfo {
 	/** origin's default branch name when an origin remote exists. */
 	originBranch?: string;
 	user: string;
+	/** User config.json flags (global only): agent_hooks and notifications. */
+	agentHooks: boolean;
+	notifications: boolean;
+	/** Codex is used here but its hooks don't call this Deckhand (see codexHookState); absent when fine or irrelevant. */
+	codexHooks?: CodexHookStatus;
+}
+
+/** Codex's own hook config lacks this Deckhand's bridge ('missing') or calls another install of it ('other'). */
+export interface CodexHookStatus {state: 'missing' | 'other'; /** ~/.codex/hooks.json (or $CODEX_HOME's). */ file: string; fileExists: boolean; /** What prints the hook config. */ command: string}
+/** Every hook `command` in Codex's hooks.json and config.toml texts (TOML strings read loosely; this is only a hint). */
+export function codexHookCommands(hooksJson: string | undefined, configToml: string | undefined): string[] {
+	const commands: string[] = [];
+	const walk = (value: unknown): void => {
+		if (Array.isArray(value)) value.forEach(walk);
+		else if (value && typeof value === 'object') for (const [key, child] of Object.entries(value)) { if (key === 'command' && typeof child === 'string') commands.push(child); else walk(child); }
+	};
+	try { if (hooksJson) walk(JSON.parse(hooksJson)); } catch {}
+	for (const match of (configToml ?? '').matchAll(/^\s*command\s*=\s*("(?:[^"\\]|\\.)*"|'[^']*')/gm)) {
+		const quoted = match[1]!;
+		try { commands.push(quoted.startsWith("'") ? quoted.slice(1, -1) : JSON.parse(quoted) as string); } catch {}
+	}
+	return commands;
+}
+/** Pure: whether `commands` include `expected` (this Deckhand's bridge), another Deckhand bridge, or none. */
+export function codexHookState(commands: string[], expected: string): CodexHookStatus['state'] | undefined {
+	if (commands.includes(expected)) return undefined;
+	return commands.some(command => /deckhand/i.test(command) && /\bhook'?\s*$/.test(command)) ? 'other' : 'missing';
+}
+async function readCodexHooks(): Promise<CodexHookStatus | undefined> {
+	const dir = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+	// No Codex home: Codex isn't used here, so there is nothing to hint.
+	if (!await fs.stat(dir).then(stat => stat.isDirectory(), () => false)) return undefined;
+	const file = path.join(dir, 'hooks.json');
+	const [hooksJson, configToml] = await Promise.all([file, path.join(dir, 'config.toml')].map(name => fs.readFile(name, 'utf8').catch(() => undefined)));
+	const state = codexHookState(codexHookCommands(hooksJson, configToml), hookCommand());
+	const command = process.env.DECKHAND_CHANNEL === 'dev' ? 'node scripts/deckhand-dev.mjs hooks codex' : 'deckhand hooks codex';
+	return state && {state, file, fileExists: hooksJson !== undefined, command};
 }
 
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -52,6 +91,7 @@ export async function readSettingsInfo(cwd: string): Promise<SettingsInfo> {
 		checkout ? resolveDefaultBranch(checkout).catch(() => undefined) : Promise.resolve(undefined),
 		checkout ? optionalGit(checkout, ['remote']) : Promise.resolve(undefined),
 	]);
+	const codexHooks = user.agent_hooks ? await readCodexHooks().catch(() => undefined) : undefined;
 	const originBranch = checkout && remotes?.split('\n').includes('origin') ? await resolveDefaultBranch(checkout, 'origin', 'remote').catch(() => undefined) : undefined;
 	const {rows, globalError} = explainSettings(project, user, {...vars ? {vars} : {}, user: userSlug(), ...hookFile ? {hookFile} : {}});
 	const state: SettingsInfo['repository']['state'] = !context ? 'none' : error ? 'invalid' : !project?.path ? 'bare' : !project.exists ? 'absent' : isProjectTrusted(project, user) ? 'trusted' : 'untrusted';
@@ -62,6 +102,7 @@ export async function readSettingsInfo(cwd: string): Promise<SettingsInfo> {
 		needsReview: Boolean(project && projectNeedsReview(project, user)), ...globalError ? {globalError} : {}, rows, targets,
 		...hookFile ? {hookFile} : {}, ...vars ? {vars} : {}, defaultLocation: path.join(getConfigDir(), 'worktrees', '<name>'), insideIgnored,
 		...defaultBranch ? {defaultBranch} : {}, ...originBranch ? {originBranch} : {}, user: userSlug(),
+		agentHooks: user.agent_hooks === true, notifications: user.notifications === true, ...codexHooks ? {codexHooks} : {},
 	};
 }
 

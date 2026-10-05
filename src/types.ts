@@ -5,7 +5,7 @@ import type {ConfigTargetKind, ConfigTargets, ProjectConfigDocument, SavedConfig
 import type {SettingsInfo, WorktreeCandidates} from './settingsInfo.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 34;
+export const PROTOCOL_VERSION = 35;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
