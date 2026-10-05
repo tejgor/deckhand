@@ -7,9 +7,9 @@ import {worktreeLocation, type TemplateVars} from './worktreeLinks.js';
 // this repo's deckhand.json), each cell that layer's own value and whether it applies (from explainSettings); the
 // options of each control; and the edits as JSON written into the selected column's document.
 
-export type SettingId = 'defaultAgent' | 'defaultWorkspace' | 'devCommand' | 'setupCommand' | 'actions' | 'worktree.location' | 'worktree.branchFrom' | 'worktree.branchName' | 'worktree.links' | 'worktree.hook';
+export type SettingId = 'defaultAgent' | 'defaultWorkspace' | 'devCommand' | 'setupCommand' | 'actions' | 'worktree.location' | 'worktree.branchFrom' | 'worktree.branchName' | 'worktree.links' | 'worktree.hook' | 'agentHooks' | 'notifications';
 export type SettingControl = 'choice' | 'text' | 'actions' | 'links';
-export interface SettingDef {id: SettingId; label: string; section: 'General' | 'Commands' | 'Worktrees'; control: SettingControl}
+export interface SettingDef {id: SettingId; label: string; section: 'General' | 'Commands' | 'Worktrees' | 'Agents'; control: SettingControl; /** Stored in config.json itself (not a layer): about this machine, never set by a repository. */ globalOnly?: boolean}
 export const SETTINGS: readonly SettingDef[] = [
 	{id: 'defaultAgent', label: 'Default agent', section: 'General', control: 'choice'},
 	{id: 'defaultWorkspace', label: 'Default workspace', section: 'General', control: 'choice'},
@@ -21,7 +21,14 @@ export const SETTINGS: readonly SettingDef[] = [
 	{id: 'worktree.branchName', label: 'Branch name', section: 'Worktrees', control: 'text'},
 	{id: 'worktree.links', label: 'Linked items', section: 'Worktrees', control: 'links'},
 	{id: 'worktree.hook', label: 'Creation hook', section: 'Worktrees', control: 'choice'},
+	{id: 'agentHooks', label: 'Agent signals', section: 'Agents', control: 'choice', globalOnly: true},
+	{id: 'notifications', label: 'Notifications', section: 'Agents', control: 'choice', globalOnly: true},
 ];
+/** The config.json key of a global-only setting. */
+export const APP_FLAG = {agentHooks: 'agent_hooks', notifications: 'notifications'} as const;
+export type AppFlagId = keyof typeof APP_FLAG;
+export const isAppFlag = (id: SettingId): id is AppFlagId => Object.hasOwn(APP_FLAG, id);
+const appFlag = (info: Pick<SettingsInfo, 'agentHooks' | 'notifications'>, id: AppFlagId) => info[id] === true;
 const LOCATION_PRESETS = {next: '{repoParent}/worktrees/{name}', inside: '{repoRoot}/.worktrees/{name}'} as const;
 const WORKSPACE_LABELS: Record<string, string> = {none: 'no worktree', new: 'new worktree', existing: 'existing worktree'};
 
@@ -124,8 +131,12 @@ export interface GridCell {
 	legacy?: boolean;
 	/** A repository value that applies only once deckhand.json is trusted. */
 	needsTrust?: boolean;
+	/** A global-only setting's This repo cell. */
+	globalOnly?: boolean;
+	/** A short warning shown beside the value (e.g. Codex hooks not set up); the row note explains it. */
+	warning?: string;
 }
-export interface GridRow {def: SettingDef; cells: Record<ConfigTargetKind, GridCell>; /** Why the value is ignored, or the hook file's state. */ note?: string}
+export interface GridRow {def: SettingDef; cells: Record<ConfigTargetKind, GridCell>; /** Why the value is ignored, or the hook file's state. */ note?: string; /** The note is a warning (shown in yellow). */ warn?: boolean}
 export function homePath(value: string, home?: string): string {
 	return home && (value === home || value.startsWith(`${home}/`)) ? `~${value.slice(home.length)}` : value;
 }
@@ -135,7 +146,13 @@ function branchFromLabel(value: string, info: Pick<SettingsInfo, 'defaultBranch'
 	return 'current checkout';
 }
 const BUILT_IN_VALUE: Partial<Record<SettingId, string | boolean>> = {defaultAgent: 'claude', defaultWorkspace: 'none', devCommand: 'dev', 'worktree.branchFrom': 'current', 'worktree.branchName': '{name}', 'worktree.hook': true};
-type GridInfo = Pick<SettingsInfo, 'rows' | 'targets' | 'vars' | 'defaultBranch' | 'originBranch' | 'defaultLocation' | 'hookFile'>;
+type GridInfo = Pick<SettingsInfo, 'rows' | 'targets' | 'vars' | 'defaultBranch' | 'originBranch' | 'defaultLocation' | 'hookFile' | 'agentHooks' | 'notifications' | 'codexHooks'>;
+/** The hint under Agent signals when Codex's own hook config doesn't call this Deckhand (one line, so it stays short). */
+export function codexHookNote(status: NonNullable<SettingsInfo['codexHooks']>, home?: string): string {
+	const file = homePath(status.file, home);
+	if (status.state === 'other') return `Codex hooks call another Deckhand install: redo ${status.command}, then /hooks in Codex`;
+	return `Codex hooks not set up: ${status.command} ${status.fileExists ? `→ merge into ${file}` : `> ${file}`}, then /hooks in Codex`;
+}
 
 /**
  * The Settings grid in screen order: per setting, each layer's own value as written (trusted or not) and which one
@@ -156,6 +173,12 @@ export function settingsGrid(info: GridInfo): GridRow[] {
 	};
 	const hookRow = info.rows.find(row => row.key === 'worktree.hook');
 	return SETTINGS.map(def => {
+		if (isAppFlag(def.id)) {
+			const on = appFlag(info, def.id);
+			const codex = def.id === 'agentHooks' && on ? info.codexHooks : undefined;
+			const global: GridCell = {text: on ? 'on' : 'off', set: on, effective: true, ...on ? {} : {builtIn: true}, ...codex ? {warning: 'Codex'} : {}};
+			return {def, cells: {global, repository: {text: 'global only', set: false, effective: false, globalOnly: true}}, ...codex ? {note: codexHookNote(codex, home), warn: true} : {}};
+		}
 		if (def.control === 'actions' || def.control === 'links') {
 			const keys = def.control === 'actions' ? ['actions'] : ['worktree.symlink', 'worktree.files'];
 			const rows = info.rows.filter(row => keys.includes(row.key) && row.entry !== undefined);
@@ -199,11 +222,23 @@ const BUILT_IN: Record<SettingId, string> = {
 	'worktree.branchName': 'Nothing sets it: new branches are named after the session.',
 	'worktree.links': 'Nothing linked: new worktrees start without untracked files.',
 	'worktree.hook': 'On by default: a trusted create-worktree.sh makes worktrees.',
+	agentHooks: 'Off: attention (! and the session markers) comes from terminal activity only.',
+	notifications: 'Off: no desktop notifications.',
 };
+/** What a global-only setting does when on (Notifications also says what Agent signals adds). */
+function appFlagDetail(info: Pick<SettingsInfo, 'agentHooks' | 'notifications'>, id: AppFlagId): string {
+	if (!appFlag(info, id)) return BUILT_IN[id];
+	if (id === 'agentHooks') return 'new sessions report working / needs input / done · Claude automatically, Codex via its own hooks';
+	return info.agentHooks ? 'a desktop notification when a session needs you or exits' : 'a desktop notification when a session exits (Agent signals adds needs input / done)';
+}
 export const NEEDS_TRUST_DETAIL = "Applies once trusted — you'll be asked the first time it runs (or press T)";
 /** The details line of the selected cell: its layer (or "Built-in default") and how it relates to the other layer. */
 export interface CellDetail {head: string; layer?: ConfigTargetKind; relation: string; warn?: boolean; error?: boolean}
-export function cellDetail(info: Pick<SettingsInfo, 'targets' | 'repository'>, row: GridRow, column: ConfigTargetKind): CellDetail {
+export function cellDetail(info: Pick<SettingsInfo, 'targets' | 'repository' | 'agentHooks' | 'notifications'>, row: GridRow, column: ConfigTargetKind): CellDetail {
+	if (isAppFlag(row.def.id)) {
+		if (column === 'repository') return {head: 'This repo', layer: column, relation: 'global only: it is about your machine, not the repo'};
+		return {head: 'Global', layer: column, relation: appFlagDetail(info, row.def.id)};
+	}
 	const problem = columnProblem(info, column);
 	if (problem) return {head: layerName(column), layer: column, relation: problem, error: true};
 	if (column === 'repository' && info.repository.state === 'invalid') return {head: layerName(column), layer: column, relation: `invalid (${info.repository.error ?? 'unknown error'}): e repairs it`, error: true};
@@ -255,6 +290,14 @@ export function choiceOptions(info: SettingsInfo, id: SettingId, target: ConfigT
 		case 'defaultAgent': return ['claude', 'pi', 'codex'].map(value => ({label: value, value}));
 		case 'defaultWorkspace': return ['none', 'new', 'existing'].map(value => ({label: WORKSPACE_LABELS[value]!, value}));
 		case 'worktree.branchFrom': return ['current', 'default', 'origin'].map(value => ({label: branchFromLabel(value, info), value}));
+		case 'agentHooks': return [
+			{label: 'on', value: true, detail: 'Claude: automatic · Codex: needs its hooks set up'},
+			{label: 'off', value: false, detail: 'attention from terminal activity only'},
+		];
+		case 'notifications': return [
+			{label: 'on', value: true, detail: 'desktop notification when a session needs you or exits'},
+			{label: 'off', value: false},
+		];
 		case 'worktree.hook': return [
 			{label: 'on', value: true, detail: info.hookFile ? 'create-worktree.sh runs once trusted' : 'no create-worktree.sh found'},
 			{label: 'off', value: false, detail: 'Deckhand creates worktrees itself'},
@@ -279,6 +322,7 @@ export function choiceOptions(info: SettingsInfo, id: SettingId, target: ConfigT
  * the layer's own value, else the value in effect. The location's first option (inherit) is current when unset.
  */
 export function currentChoice(info: SettingsInfo, id: SettingId, target: ConfigTargetKind, options: ChoiceOption[]): {index: number; current: number} {
+	if (isAppFlag(id)) { const index = options.findIndex(option => option.value === appFlag(info, id)); return {index, current: appFlag(info, id) ? index : -1}; }
 	const own = ownValue(infoLayer(info, target), id);
 	if (id === 'worktree.location') {
 		if (own === undefined) return {index: 0, current: 0};
@@ -293,6 +337,7 @@ export function currentChoice(info: SettingsInfo, id: SettingId, target: ConfigT
 }
 /** Choosing an option: the change to save, or undefined when the target already has exactly that value. */
 export function choiceChange(info: SettingsInfo, id: SettingId, target: ConfigTargetKind, option: ChoiceOption): SettingChange | undefined {
+	if (isAppFlag(id)) return appFlag(info, id) === option.value ? undefined : {path: [APP_FLAG[id]], value: option.value};
 	const own = ownValue(infoLayer(info, target), id);
 	return own === option.value ? undefined : {path: settingPath(id), value: option.value};
 }

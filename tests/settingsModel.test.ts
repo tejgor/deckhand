@@ -4,9 +4,9 @@ import React from 'react';
 import {renderToString} from 'ink';
 import {explainSettings, parseProjectConfig, trustProjectConfig, type LoadedProject, type UserSettings} from '../src/projectConfig.js';
 import type {ProjectConfigDocument} from '../src/projectConfigDocument.js';
-import {classifyCandidate, type SettingsInfo, type WorktreeCandidate} from '../src/settingsInfo.js';
+import {classifyCandidate, codexHookCommands, codexHookState, type SettingsInfo, type WorktreeCandidate} from '../src/settingsInfo.js';
 import {SettingsPane} from '../src/settingsPane.js';
-import {MAX_ACTIONS, actionNameCheck, actionNameProblem, actionSavedMessage, applyChange, cellDetail, choiceChange, choiceOptions, columnProblem, commandProblem, currentChoice, infoLayer, inheritedHint, initialColumn, initialLinks, initialText, layerActions, linkSelection, savedMessage, settingsGrid, textChange} from '../src/settingsModel.js';
+import {MAX_ACTIONS, actionNameCheck, codexHookNote, actionNameProblem, actionSavedMessage, applyChange, cellDetail, choiceChange, choiceOptions, columnProblem, commandProblem, currentChoice, infoLayer, inheritedHint, initialColumn, initialLinks, initialText, layerActions, linkSelection, savedMessage, settingsGrid, textChange} from '../src/settingsModel.js';
 
 const vars = {name: '<name>', repo: 'mono', repoParent: '/dev', repoRoot: '/dev/mono', home: '/home/me'};
 // A SettingsInfo as the daemon builds it: explainSettings rows plus both documents as written.
@@ -19,7 +19,7 @@ function settingsInfo(repoRaw: string | undefined, defaults: Record<string, unkn
 		cwd: '/dev/mono', repo: 'mono', repository: {state: repoRaw === undefined ? 'absent' : trusted ? 'trusted' : 'untrusted', path: '/dev/mono/deckhand.json'}, needsReview: !trusted && repoRaw !== undefined,
 		rows: explainSettings(project, user, {vars, user: 'me', configDir: '/state'}).rows,
 		targets: {global: document('global', defaults && JSON.stringify(defaults)), repository: document('repository', repoRaw)},
-		vars, defaultLocation: '/state/worktrees/<name>', insideIgnored: false, user: 'me',
+		vars, defaultLocation: '/state/worktrees/<name>', insideIgnored: false, user: 'me', agentHooks: false, notifications: false,
 	};
 }
 const REPO = '{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}}';
@@ -29,7 +29,7 @@ test('settings grid: each cell is that layer\'s own value; the one in effect (ex
 	const grid = (info: SettingsInfo) => Object.fromEntries(settingsGrid(info).map(row => [row.def.id, row]));
 	const cell = (info: SettingsInfo, id: string, kind: 'global' | 'repository') => grid(info)[id]!.cells[kind];
 	const info = settingsInfo(REPO, GLOBAL);
-	assert.deepEqual(settingsGrid(info).map(row => `${row.def.section}/${row.def.label}`), ['General/Default agent', 'General/Default workspace', 'Commands/Dev command', 'Commands/Setup command', 'Commands/Actions', 'Worktrees/Location', 'Worktrees/Branch from', 'Worktrees/Branch name', 'Worktrees/Linked items', 'Worktrees/Creation hook']);
+	assert.deepEqual(settingsGrid(info).map(row => `${row.def.section}/${row.def.label}`), ['General/Default agent', 'General/Default workspace', 'Commands/Dev command', 'Commands/Setup command', 'Commands/Actions', 'Worktrees/Location', 'Worktrees/Branch from', 'Worktrees/Branch name', 'Worktrees/Linked items', 'Worktrees/Creation hook', 'Agents/Agent signals', 'Agents/Notifications']);
 	// Untrusted: the repository's Dev command sits in its cell (needs trust) while the built-in dev applies.
 	assert.deepEqual(cell(info, 'devCommand', 'repository'), {text: 'npm run dev', full: 'npm run dev', set: true, effective: false, needsTrust: true});
 	assert.deepEqual(cell(info, 'devCommand', 'global'), {text: 'dev', full: 'dev', set: false, effective: true, builtIn: true});
@@ -67,6 +67,33 @@ test('settings grid: each cell is that layer\'s own value; the one in effect (ex
 	// Clearing a repository value: the global one takes over.
 	const cleared = settingsInfo(applyChange(trusted.targets.repository!, {path: ['devCommand']}), {...GLOBAL, devCommand: 'printf global'}, {trusted: true});
 	assert.deepEqual([cell(cleared, 'devCommand', 'repository').text, cell(cleared, 'devCommand', 'global').effective], ['—', true]);
+});
+
+test('Agent signals and Notifications are global only (config.json flags); Agent signals warns when Codex\'s hooks do not call this Deckhand', () => {
+	const row = (info: SettingsInfo, id: string) => settingsGrid(info).find(entry => entry.def.id === id)!;
+	const off = settingsInfo(REPO, GLOBAL);
+	assert.deepEqual(row(off, 'agentHooks').cells, {global: {text: 'off', set: false, effective: true, builtIn: true}, repository: {text: 'global only', set: false, effective: false, globalOnly: true}});
+	assert.match(cellDetail(off, row(off, 'agentHooks'), 'repository').relation, /^global only/);
+	assert.deepEqual(currentChoice(off, 'agentHooks', 'global', choiceOptions(off, 'agentHooks', 'global')), {index: 1, current: -1});
+	assert.deepEqual(choiceChange(off, 'agentHooks', 'global', {label: 'on', value: true}), {path: ['agent_hooks'], value: true});
+	assert.equal(choiceChange(off, 'notifications', 'global', {label: 'off', value: false}), undefined);
+
+	const codex = {state: 'missing' as const, file: '/home/me/.codex/hooks.json', fileExists: false, command: 'deckhand hooks codex'};
+	const on = {...off, agentHooks: true, codexHooks: codex};
+	assert.deepEqual(row(on, 'agentHooks').cells.global, {text: 'on', set: true, effective: true, warning: 'Codex'});
+	assert.deepEqual([row(on, 'agentHooks').note, row(on, 'agentHooks').warn], ['Codex hooks not set up: deckhand hooks codex > ~/.codex/hooks.json, then /hooks in Codex', true]);
+	assert.equal(codexHookNote({...codex, fileExists: true}, '/home/me'), 'Codex hooks not set up: deckhand hooks codex → merge into ~/.codex/hooks.json, then /hooks in Codex');
+	// Notifications alone cover exits; Agent signals adds needs input / done.
+	assert.match(cellDetail({...off, notifications: true}, row(off, 'notifications'), 'global').relation, /exits \(Agent signals adds/);
+
+	// Detection: hooks.json command strings and config.toml command keys; this bridge, another Deckhand's, or none.
+	const bridge = "'/node' '/opt/deckhand/dist/cli.js' 'hook'";
+	const json = JSON.stringify({hooks: {Stop: [{hooks: [{type: 'command', command: bridge}]}], PreToolUse: [{matcher: 'Bash', hooks: [{type: 'command', command: 'python3 policy.py'}]}]}});
+	assert.deepEqual(codexHookCommands(json, `[[hooks.Stop.hooks]]\ncommand = "echo \\"hi\\""\n  command = 'other'\n`), [bridge, 'python3 policy.py', 'echo "hi"', 'other']);
+	assert.deepEqual(codexHookCommands('{not json', undefined), []);
+	assert.equal(codexHookState([bridge], bridge), undefined);
+	assert.equal(codexHookState(["'/old-node' '/opt/deckhand/dist/cli.js' 'hook'"], bridge), 'other');
+	assert.equal(codexHookState(['python3 policy.py'], bridge), 'missing');
 });
 
 test('the grid opens on This repo when there is a repository layer, else Global; each layer\'s Actions list shows the other layer\'s as context', () => {

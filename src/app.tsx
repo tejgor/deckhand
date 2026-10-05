@@ -9,7 +9,7 @@ import {cleanupOverrideText, createPrConfirmText, projectActions, trustReviewTex
 import {openInEditor, openUrl} from './desktop.js';
 import {MenuList, MenuPane, SelectableRow, type HintPart} from './menu.js';
 import {isSettingsFlowMode, useSettingsFlow} from './settingsFlow.js';
-import {HELP_TEXT} from './help.js';
+import {useHelp} from './helpPane.js';
 import {filterSessionList, sessionNeedsAttention, SESSION_FILTERS, type SessionFilter} from './sessionFeatures.js';
 import {GitPane} from './gitPane.js';
 import {NotesPane} from './notesPane.js';
@@ -1233,6 +1233,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 	}, [selectedSession]);
 
+	const help = useHelp();
 	const settingsFlow = useSettingsFlow({client, mode, setMode, setBusy, setError, setStatusMessage, onReview: (reviewCwd, back) => reviewThen(reviewCwd, undefined, {back})});
 
 	// Resolves the repository config for `targetCwd` and runs `resume` with it, showing the inline review first when
@@ -1274,8 +1275,6 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// one of those modes is active (render and key handling).
 	const detailsContent = (): {title: string; text: string; footer: Array<string | HintPart>; scroll: number} | undefined => {
 		switch (mode) {
-			case 'help':
-				return {title: 'Help & workflows', text: HELP_TEXT, footer: ['j/k/PgUp/PgDn scroll', {text: 'Home/End jump', drop: 1}, 'esc/? close'], scroll: detailsScroll};
 			case 'workspace-info':
 				if (currentWorkspaceInfo?.confirmPr && currentWorkspaceInfo.summary) return {title: 'Create pull request', text: createPrConfirmText(currentWorkspaceInfo.summary), footer: ['enter push & open PR form', 'esc cancel'], scroll: detailsScroll};
 				return {title: 'Workspace overview', text: workspaceSummaryText(currentWorkspaceInfo?.summary, currentWorkspaceInfo?.prLoading, {creatingPr: currentWorkspaceInfo?.creatingPr, links: selectedSession?.worktree?.links}), footer: [{text: 'P fetch PR status', short: 'P PR status'}, 'b open PR', 'c create PR', 'g lazygit', 'esc close'], scroll: detailsScroll};
@@ -1505,8 +1504,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 		if (mode === 'help') {
-			if (key.escape || input === '?') { setMode('browse'); return; }
-			scrollDetailsPane(input, key);
+			if (help.handleInput(input, key) === 'close') setMode('browse');
 			return;
 		}
 
@@ -1735,7 +1733,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === '?') {
-				setDetailsScroll(0); setMode('help');
+				help.open(); setMode('help');
 				return;
 			}
 			if (input === '/') { setMode('search'); return; }
@@ -2176,7 +2174,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				<Text color={THEME.muted} wrap="truncate-end">{visibilityLabel}</Text>
 			</Box>
 			<Box flexDirection="row">
-				{settingsOpen ? settingsFlow.render(terminalSize.cols, layout.contentHeight) : <>
+				{settingsOpen ? settingsFlow.render(terminalSize.cols, layout.contentHeight) : mode === 'help' ? help.render(terminalSize.cols, layout.contentHeight) : <>
 				<Sidebar
 					sessions={visibleSessions}
 					allSessions={sessions}

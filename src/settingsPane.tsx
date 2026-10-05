@@ -101,13 +101,14 @@ function cellParts(cell: GridCell, width: number, path: boolean): {parts: Detail
 	const lead: DetailPart = cell.effective ? {text: '● ', color: THEME.active, bold: true} : {text: '  '};
 	const room = Math.max(1, width - 2);
 	const text = visible(cell.text);
-	const [long, short] = cell.needsTrust ? [' ⚠ needs trust', ' ⚠'] : cell.builtIn ? [' (built-in)', ' (built-in)'] : cell.legacy ? [' (legacy)', ' (legacy)'] : ['', ''];
+	const warn = cell.needsTrust || Boolean(cell.warning);
+	const [long, short] = cell.needsTrust ? [' ⚠ needs trust', ' ⚠'] : cell.warning ? [` ⚠ ${cell.warning}`, ' ⚠'] : cell.builtIn ? [' (built-in)', ' (built-in)'] : cell.legacy ? [' (legacy)', ' (legacy)'] : ['', ''];
 	// The long form when the value fits beside it. Otherwise ⚠ always stays (cutting the value); "(built-in)" goes when
 	// the value alone fits (its style and the details line still say so), else stays while the value keeps 8 columns.
-	const suffix = text.length + long.length <= room ? long : cell.needsTrust ? short : text.length <= room || room - short.length < 8 ? '' : short;
+	const suffix = text.length + long.length <= room ? long : warn ? short : text.length <= room || room - short.length < 8 ? '' : short;
 	const body = (path ? tail : truncate)(text, Math.max(1, room - suffix.length));
-	const style: Partial<DetailPart> = cell.needsTrust ? {color: THEME.warn} : cell.builtIn || cell.legacy ? {color: THEME.muted, italic: true} : cell.set && cell.effective ? {bold: true} : {color: THEME.muted};
-	return {parts: [lead, {text: body, ...style}, ...suffix ? [{text: suffix, ...cell.needsTrust ? {color: THEME.warn} : {color: THEME.muted, italic: true}}] : []], cut: body.length < text.length};
+	const style: Partial<DetailPart> = cell.needsTrust ? {color: THEME.warn} : cell.builtIn || cell.legacy || cell.globalOnly ? {color: THEME.muted, italic: true} : cell.set && cell.effective ? {bold: true} : {color: THEME.muted};
+	return {parts: [lead, {text: body, ...style}, ...suffix ? [{text: suffix, ...warn ? {color: THEME.warn} : {color: THEME.muted, italic: true}}] : []], cut: body.length < text.length};
 }
 const isPath = (row: GridRow) => row.def.id === 'worktree.location';
 function gridRowElement(row: GridRow, selected: boolean, column: ConfigTargetKind, layout: GridLayout): React.ReactNode {
@@ -159,7 +160,7 @@ function gridDetails(info: SettingsInfo, row: GridRow, column: ConfigTargetKind,
 	const cut = cellParts(cell, layout.cell, isPath(row)).cut || (row.def.control === 'links' && cell.set);
 	const extra = cell.template && cell.template !== cell.text ? `Template: ${cell.template}` : cut && cell.full ? cell.full : row.note;
 	// A second line only while the first did not wrap: the box stays at two lines.
-	if (extra && (lines[0]!.parts || wrapWords(lines[0]!.text, width).length === 1)) lines.push({text: visible(extra), nowrap: true, color: THEME.muted});
+	if (extra && (lines[0]!.parts || wrapWords(lines[0]!.text, width).length === 1)) lines.push({text: visible(extra), nowrap: true, color: extra === row.note && row.warn ? THEME.warn : THEME.muted});
 	return lines;
 }
 

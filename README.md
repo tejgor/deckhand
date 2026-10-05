@@ -160,7 +160,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `H` / `F` | Export/open handoff (notes plus commits and changed files, no diff content) / create a clean child from the reviewed document |
 | `!` | Next known attention session |
 | `x` / `X` *(while starting)* | Cancel startup/setup, retaining its worktree |
-| `?` | Scrollable help and workflow guide; j/k/arrows/Page keys scroll, Home/End jump |
+| `?` | Help: topics on the left (↑↓ or 1-9 switch), each a table of keys; `/` searches every topic, PgUp/PgDn scroll, Esc closes |
 | `q` | Quit the UI; running sessions continue in the daemon |
 
 > *Deletion is conservative: unknown/unsafe Git state requires typing `DELETE`. `X` does not authorize data loss. Main/current/actively shared worktree protections cannot be overridden.*
@@ -229,7 +229,7 @@ Deckhand reads configuration from `~/.deckhand/config.json`. `DECKHAND_HOME` sel
 
 Session defaults, a Dev command, a setup command and layout/symlinks for new worktrees, and named actions come from two layers, both edited in place from the **C** Settings screen: global `defaults` in your user `config.json` (never need trust), overridden per repository by one `deckhand.json` in the main checkout. The repository file applies only once you trust its exact contents; Deckhand asks inline (Enter trusts, `s` continues with global defaults only) when you create a session, open actions, start Dev or retry setup. Edits you make in Deckhand keep the file trusted if it was trusted (or new); changes from outside need review — see [project configuration, trust and cleanup](docs/no-brainers.md) for the full behaviour.
 
-Optional `agent_hooks` and `notifications` in user config enable capability-gated lifecycle integration and best-effort desktop notifications. They default off; native approvals stay in agent terminals. A response ending is **not task success**.
+Optional **Agent signals** and **Notifications** (Settings → Agents, global only; `agent_hooks`/`notifications` in user config) enable capability-gated lifecycle integration and best-effort desktop notifications. They default off. Claude needs nothing else; Codex needs `deckhand hooks codex` in `~/.codex/hooks.json` (Settings warns when it's missing). Native approvals stay in agent terminals. A response ending is **not task success**.
 
 ### Dev Command
 
