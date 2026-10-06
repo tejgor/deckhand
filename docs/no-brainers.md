@@ -155,7 +155,7 @@ Review and stage changes in the Git tab (**g**, see [Git changes](#git-changes))
 ## Organizing and inspecting sessions
 
 - **A** archives or unarchives a session without stopping it. The footer offers it for exited and archived sessions; archiving from the active view says where the session went.
-- **f** cycles active, archived, all, attention, running and exited, and briefly shows the current filter and what the next presses select. Active means unarchived, not necessarily running. Any other filter (or a search) is highlighted in the top-right session count.
+- **f** cycles active, archived, all, attention, running and exited, and briefly shows the current filter and what the next presses select. Active means unarchived, not necessarily running. The sidebar header names any other filter (or a search) in cyan with its `shown/total` count, and shows `! N` when N sessions need attention.
 - **/** searches title, notes, agent, branch and path. Enter keeps the query; Esc clears it. Matching children keep their ancestors visible for context, and searches and filters show matches inside collapsed trees.
 - Selection, per-session tabs, sidebar width, collapsed and hidden sessions, filter and search persist per repository in `ui-state.json`.
 - **i** shows the workspace's branch and HEAD, changed and untracked counts, diff size, the base comparison and the cached upstream ahead/behind. Inside it, **P** asks the optional `gh` CLI for PR and check status, **b** opens the PR (https URLs only), **c** creates a PR and **g** opens the Git tab. Missing tools, auth or network are reported without blocking local use. Reopen **i** to refresh.

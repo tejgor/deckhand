@@ -18,6 +18,7 @@ import {PreviewPane} from './preview.js';
 import {sessionMatchesScope} from './sessionScope.js';
 import {noWorkspaceReason, workspaceKey} from './workspace.js';
 import {Sidebar} from './sidebar.js';
+import {msUntilAgeChanges, statusSince} from './sidebarModel.js';
 import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
@@ -810,6 +811,18 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 	// Only a visible session is actionable; a hidden selection is kept for later.
 	const selectedSession = selectedId ? visibleSessions.find(session => session.id === selectedId) : undefined;
+
+	// The sidebar details show the selected session's age. Every render reads the clock; while nothing else
+	// re-renders (no spinner), one render exactly when the shown age would change keeps it current.
+	const [clockTick, setClockTick] = useState(0);
+	const selectedSince = selectedSession ? statusSince(selectedSession) : undefined;
+	useEffect(() => {
+		const since = selectedSince ? Date.parse(selectedSince) : NaN;
+		if (shouldAnimateStatus || !Number.isFinite(since)) return;
+		const timer = setTimeout(() => setClockTick(tick => tick + 1), msUntilAgeChanges(Date.now() - since));
+		return () => clearTimeout(timer);
+	}, [clockTick, selectedSince, shouldAnimateStatus]);
+
 	const currentWorkspaceInfo = workspaceInfo && workspaceInfo.sessionId === selectedSession?.id ? workspaceInfo : undefined;
 	const currentCleanupCheck = cleanupCheck && cleanupCheck.sessionId === selectedSession?.id ? cleanupCheck : undefined;
 	const cleanupInspectionFor = (deleteBranch: boolean) => (deleteBranch ? currentCleanupCheck?.branch : currentCleanupCheck?.worktree);
@@ -2198,8 +2211,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 	});
 
-	const visibilityLabel = truncate(`${sessionFilter}${sessionQuery ? ` · /${sessionQuery}` : ''} · ${visibleSessions.length}/${sessions.length} sessions`, Math.max(10, Math.floor(terminalSize.cols / 2)));
-	const repoLabelWidth = Math.max(1, terminalSize.cols - visibilityLabel.length - 1);
+	// The sidebar header shows the filter, search and counts, so the repo path gets the whole row.
+	const repoLabelWidth = Math.max(1, terminalSize.cols);
 	const candidateMessages: Array<FooterMessage | undefined> = [
 		error ? {text: `Error: ${error}`, color: THEME.error} : undefined,
 		busy ? {text: 'Working…', color: THEME.warn} : undefined,
@@ -2229,10 +2242,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				<Text color={THEME.accent} bold>{process.env.DECKHAND_CHANNEL === 'dev' ? 'deckhand · DEV (isolated)' : 'deckhand'}</Text>
 				<Text color={connectionColor(client)}>● {describeConnection(client)}</Text>
 			</Box>
-			<Box justifyContent="space-between" width={terminalSize.cols}>
+			<Box width={terminalSize.cols}>
 				<Text color={THEME.muted} wrap="truncate-end">{truncate(compactPath(repoRoot, repoLabelWidth), repoLabelWidth)}</Text>
-				{/* A non-default filter is highlighted: some sessions are hidden from this view. */}
-				<Text color={sessionFilter === 'active' && !sessionQuery ? THEME.muted : THEME.active} wrap="truncate-end">{visibilityLabel}</Text>
 			</Box>
 			<Box flexDirection="row">
 				{settingsOpen ? settingsFlow.render(terminalSize.cols, layout.contentHeight) : mode === 'help' ? help.render(terminalSize.cols, layout.contentHeight) : <>
@@ -2246,6 +2257,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					collapsedSessionIds={collapseApplied ? collapsedSessionIds : EMPTY_ID_SET}
 					hiddenSessionIds={collapseApplied ? hiddenExitedSessionIds : EMPTY_ID_SET}
 					loaded={sessionsLoaded}
+					filter={sessionFilter}
+					query={sessionQuery}
+					now={Date.now()}
 				/>
 				<Box width={1} />
 				{mode === 'browse' || mode === 'preview-focus' || mode === 'changes-focus' || mode === 'notes-focus' || mode === 'search' ? (

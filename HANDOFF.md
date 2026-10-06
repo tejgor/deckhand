@@ -153,22 +153,23 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 
 ### Layout and indicators
 
-- Sidebar glyphs:
-  - Claude: `✶`
-  - Pi: `π`
-  - Codex: `◇`
-- Sidebar status indicators:
-  - spinner for starting/active
-  - green `●` for idle running sessions
-  - yellow `◌` for unknown running sessions
-  - gray `○` for exited sessions
-- Trailing sidebar suffixes: `▣` archived, `!` cleanup error, `✓` merged (the worktree's marker, or the session's own in the main checkout), then the sub-session count.
-- Sub-session rows are indented. Clean children show `↳`; forked children show `⑂`.
-- Parent sessions with children show `▾` / `▸` and can be expanded/collapsed.
-- Dev-running indicators (shown on every session of the workspace while its shared Dev runs, including exited sessions):
-  - selected session: green `●` suffix on Dev tab
-  - all sessions: prominent `▶` near the left side of the sidebar row, after lifecycle status and before agent glyph
-- Sidebar row markers are numeric (`[1]`, `[2]`, ...). With 10 or fewer visible sessions, single digits jump immediately and `0` selects row 10; with more than 10, numeric input is briefly buffered for multi-digit selection.
+- Sidebar layout (`src/sidebarModel.ts`, pure and unit-tested; `src/sidebar.tsx` renders): a row is `<cursor><number> <tree><status> <title> … <markers> <agent>`. The cursor column is the frame's left padding column (`›` on the selected row). Numbers carry no brackets, are right-aligned to the widest and dim unless selected. Example (width 34):
+  ```
+  │ Sessions         all 7/7 · ! 2 │
+  │╎ 1 ▾ ⠋ auth refactor       ▶ ✶ │
+  │› 2   ↳ ● write tests         π │
+  │╎ 3   ⑂ ○ try alt approach    ✶ │
+  │  4 ? fix flaky checkout e2e… ◇ │
+  ```
+- Status glyph before the title (`statusGlyph`): spinner for starting/active/working, green `●` idle, yellow `◌` running with unknown activity, gray `○` exited; with agent signals `?` needs input, `◆` response ended, `!` failed (also failed/interrupted exits), `⌛` rate-limited.
+- Tree: sub-session rows are indented two columns per level (up to 4); clean children show `↳`, forked `⑂`; parents show `▾` / `▸` (expanded/collapsed, `c`). Rows without children carry no placeholder column.
+- Right-hand suffix, in order: `▶` Dev running, `▣` archived, `!` cleanup error, `✓` merged (the worktree's marker, or the session's own in the main checkout), `+N` collapsed/hidden sub-sessions, then the agent glyph (`✶` Claude, `π` Pi, `◇` Codex) last. When the title would get fewer than 4 columns (or fewer than it needs), `+N`, `✓`, `▣`, `!` and `▶` are dropped in that order; the agent glyph stays.
+- Workspace awareness: `devRunning` mirrors the workspace, so `▶` is shown once per workspace (`workspaceKey`), on its first row on screen; sessions without a workspace key keep their own. Rows on screen sharing the selected session's workspace (its Terminal/Git/Dev) get a dim cyan `╎` in the cursor column. The selected session's Dev tab still shows the green `●` suffix.
+- Dimming: archived rows are dimmed (title and glyphs; `▣` stays readable) in every filter except `archived`; there the non-archived ancestors shown only for tree context are dimmed instead. The selected row is never dimmed.
+- Header (`sidebarHeader`): `Sessions` left; right the plain row count in the default view, otherwise the filter and/or `/query` with `shown/total` highlighted in cyan; then `· ! N` (yellow) when N non-archived sessions need attention (`sessionNeedsAttention`, the ones `!` cycles). Narrow widths drop the title first, then cut the filter/search, keeping the count and `! N`. The app header no longer repeats filter/count: its second row is the repo path at full width (the transient `f` message stays in the footer).
+- Details block (`sessionDetails`): pinned to the bottom of the sidebar in the rows the list leaves free (the list has priority): a separator, the full title (wrapped, two lines with five free rows, else one, ending in `…`), `<agent glyph> <agent> · <state in words> · <age>` (`statusWords` mirrors `statusGlyph`; the age counts from the attention signal while running, else `agentStatusUpdatedAt`, which is also set at exit; `now`/`12m`/`3h`/`2d`; narrow widths drop the agent name, then the age), and the location: `⎇ <branch>` (a sub-session without its own branch takes one from a session sharing the workspace), `main checkout`, `worktree deleted` or `preparing worktree`, plus `shared with N`, `▶ dev`, `merged`, `archived` (cut at whole markers, ` …` for the rest). With three free rows the location goes; below three, or without a selection, the block is hidden. Only session data is used (no daemon requests, no Git). The age needs a clock: App passes `Date.now()` on every render and, when no spinner is animating, schedules one render exactly when the shown age would change (`msUntilAgeChanges`).
+- Sidebar row numbers are positions in the list. With 10 or fewer visible sessions, single digits jump immediately and `0` selects row 10; with more than 10, numeric input is briefly buffered for multi-digit selection.
+- The in-app help (`?`) has a Sidebar topic listing every glyph.
 - Right pane is one rounded bordered frame with a tab bar; sub-panes are borderless content containers.
 
 ### Main controls
@@ -482,7 +483,7 @@ Event types:
 - `src/types.ts` — shared session/protocol/UI types.
 - `src/nodePty.ts` — macOS `node-pty` helper repair logic.
 - `src/terminalState.ts` — terminal escape reset helpers used before/after UI and attach transitions.
-- `src/sidebar.tsx` — session sidebar rendering.
+- `src/sidebarModel.ts` — the sidebar as pure data (unit-tested): rows (prefix/suffix layout and truncation, `▶` once per workspace, shared-workspace marker, archived dimming), header text, the selected session's details block (`statusWords`, `statusSince`, `formatAge`, `locationText`). `src/sidebar.tsx` — its rendering.
 - `src/preview.tsx` — Preview pane rendering.
 - `src/terminalPane.tsx`, `src/devPane.tsx` — rendering of the workspace's shared Terminal and Dev panes (unavailable/exited messages).
 - `src/changesModel.ts` — the Git tab's Changes view as pure data (groups, rows, selection, first changed line, diff classification; unit-tested). `src/changesGit.ts` — its Git I/O (status + numstat read, bounded diff, validated stage/unstage). `src/changesFlow.tsx` — selection, diff fetch and focus keys. `src/changesPane.tsx` — rendering (list, diff, layout).
@@ -604,7 +605,7 @@ Typical flow:
 
 ## Validation status
 
-Automated: `npm test` (build, then `node --test` over `tests/`) covers config/trust, editor and key handling, storage, cleanup inspection, a real daemon with fake agents (setup/actions/cleanup/hooks/resume; one Dev shared per worktree, its lifetime and stop on worktree deletion/last-session removal; one shell and one (fake) lazygit shared per worktree, fan-out to watchers, attach with bracketed-paste mirroring and one attacher, use from an exited session, lazygit restart on view, Dev stop not retiring a worker in use, teardown on kill-with-delete and last-session removal; the Changes view: watch delivers groups, polling pushes to a second session of the worktree, stage/unstage/stage-all/unstage-all, refused unlisted paths, unstaging without HEAD, unwatching stops pushes; worktree records: merge from one session marks its attached sibling and sub-session with `session-updated` broadcasts, `M` from either toggles all, main-checkout sessions keep their own markers, kill-with-delete makes every session of the worktree non-restartable/non-mergeable without a workspace, a new worktree at the same path is a new incarnation (also after an outside removal), the last referencing session's removal drops the record), the worktree-record migration of legacy state (incarnations split at deletions, sub-sessions, restarted sessions, main checkout untouched, repair, idempotence, write-back at daemon start), the Changes model and its Git I/O against fixture repos (spaces, glob-like names, renames, binary, untracked, conflicts, no HEAD), the workspace key, the dev launcher, a real-PTY Git tab run (browse list, `v` focus, diff preview, `space` stages, `esc`), and two more real-PTY UI runs (inline review on n, raw-key JSON editing via C → e, persistence; the Settings grid: columns, repo/global cell edits, Linked items, x, T, e; self-edits keep trust so d runs without asking until an outside edit).
+Automated: `npm test` (build, then `node --test` over `tests/`) covers config/trust, editor and key handling, storage, cleanup inspection, a real daemon with fake agents (setup/actions/cleanup/hooks/resume; one Dev shared per worktree, its lifetime and stop on worktree deletion/last-session removal; one shell and one (fake) lazygit shared per worktree, fan-out to watchers, attach with bracketed-paste mirroring and one attacher, use from an exited session, lazygit restart on view, Dev stop not retiring a worker in use, teardown on kill-with-delete and last-session removal; the Changes view: watch delivers groups, polling pushes to a second session of the worktree, stage/unstage/stage-all/unstage-all, refused unlisted paths, unstaging without HEAD, unwatching stops pushes; worktree records: merge from one session marks its attached sibling and sub-session with `session-updated` broadcasts, `M` from either toggles all, main-checkout sessions keep their own markers, kill-with-delete makes every session of the worktree non-restartable/non-mergeable without a workspace, a new worktree at the same path is a new incarnation (also after an outside removal), the last referencing session's removal drops the record), the worktree-record migration of legacy state (incarnations split at deletions, sub-sessions, restarted sessions, main checkout untouched, repair, idempotence, write-back at daemon start), the Changes model and its Git I/O against fixture repos (spaces, glob-like names, renames, binary, untracked, conflicts, no HEAD), the workspace key, the sidebar model (row layout and truncation at 24 and 48 columns, `▶` once per workspace, the shared-workspace marker, archived dimming in both views, header text, the details block and its shrinking, ages) plus one rendered sidebar, the dev launcher, a real-PTY Git tab run (browse list, `v` focus, diff preview, `space` stages, `esc`), and two more real-PTY UI runs (inline review on n, raw-key JSON editing via C → e, persistence; the Settings grid: columns, repo/global cell edits, Linked items, x, T, e; self-edits keep trust so d runs without asking until an outside edit).
 
 Validated during the workbench refactor (shared workspace panes, the Changes view, worktree records):
 
@@ -688,7 +689,6 @@ Near term:
 
 Later:
 
-- Add richer sidebar branch/worktree metadata.
 - Add terminal/git/dev scrollback controls.
 - Add dev stop confirmation or persisted dev state if useful.
 - Monitor long-running macOS `node-pty` behavior under repeated spawn/exit churn.
