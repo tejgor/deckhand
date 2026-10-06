@@ -45,6 +45,11 @@ export function getStatePath(): string {
 	return path.join(getConfigDir(), 'state.json');
 }
 
+/** Notes files: `sessions/<session id>.md`, `worktrees/<worktree record id>.md`, `repos/<hash of the main checkout root>.md`. */
+export function getNotesDir(): string {
+	return path.join(getConfigDir(), 'notes');
+}
+
 export function getConfigPath(): string {
 	return path.join(getConfigDir(), 'config.json');
 }

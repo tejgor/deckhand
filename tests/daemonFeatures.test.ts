@@ -36,7 +36,7 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 	const relaunch = async (id: string, mode: 'resume' | 'fresh' = 'resume') => {
 		const before = (await trace(id))?.launchId;
 		await call({type: 'restart', sessionId: id, cols: 80, rows: 24, mode} as any);
-		return (await waitFor(() => trace(id), item => item?.launchId !== before)).args as string[];
+		return (await waitFor(() => trace(id), item => Boolean(item) && item.launchId !== before)).args as string[];
 	};
 
 	await t.test('hook bridge records the Codex identity, callbacks are authenticated, and a crashed daemon resumes the exact conversation', async () => {
@@ -125,7 +125,7 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		await git(root, 'add', 'deckhand.json'); await git(root, 'commit', '-m', 'no setup');
 		const parent = await create('shared-feature', 'claude', 'new');
 		await waitFor(() => state(parent.id), item => item.status === 'running');
-		await call({type: 'update-session-notes', sessionId: parent.id, notes: 'Review this work'} as any);
+		await call({type: 'save-note', sessionId: parent.id, section: 'session', text: 'Review this work', revision: (await state(parent.id)).notesFile!.revision} as any);
 		const handoff = await call<string>({type: 'export-handoff', sessionId: parent.id} as any);
 		assert.match(await fs.readFile(handoff, 'utf8'), /Review this work[\s\S]*## Workspace changes\n\nBase: main/);
 		const parentState = await state(parent.id);

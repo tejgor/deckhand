@@ -25,8 +25,10 @@ import {normalizeHook, integrationArgs, needsAttention} from './agentSignals.js'
 import {AGENTS, agentSpec, launchArgs, newAgentRef, relaunchPlan, sameAgentSessionRef, type LaunchPlan} from './agents.js';
 import {AgentVersionChecker, findOnPath} from './agentVersionCheck.js';
 import {exportHandoff} from './sessionFeatures.js';
+import {NotesStore, noteFilePath, noteFileStem, type NoteId, type NoteKind} from './notesStore.js';
+import {sharedNoteIdentity} from './notes.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, TerminalRecord, WorktreeMarkers, WorktreeRecord} from './types.js';
+import type {AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, ClientRequest, CreateSessionInput, DevRecord, GitRecord, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TerminalRecord, WorktreeMarkers, WorktreeRecord} from './types.js';
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_PREVIEW_COLS = 80;
@@ -286,19 +288,42 @@ async function isLinkedWorktreeRoot(root: string): Promise<boolean> {
 	return worktrees.some(item => !item.isMain && path.resolve(item.path) === path.resolve(root));
 }
 
+/** The session's own note and the note shared by its worktree (or main checkout), as the daemon projects them. */
+function projectNotes(session: SessionRecord, worktrees: ReadonlyMap<string, WorktreeRecord>, notes: NotesStore): SessionRecord {
+	const ownId: NoteId = {kind: 'session', id: session.id};
+	const own = notes.get(ownId);
+	const identity = sharedNoteIdentity(session);
+	let sharedNotes: SharedNote | undefined;
+	if (identity) {
+		const shared = notes.get(identity);
+		const record = identity.kind === 'worktree' ? worktrees.get(identity.id) : undefined;
+		sharedNotes = {...identity, path: noteFilePath(identity), text: shared.text, revision: shared.revision, ...shared.tooLarge ? {tooLarge: true} : {}, ...identity.kind === 'worktree' && (!record || record.deletedAt) ? {readOnly: true} : {}};
+	}
+	return {...session, notes: own.text, notesFile: {path: noteFilePath(ownId), revision: own.revision, ...own.tooLarge ? {tooLarge: true} : {}}, sharedNotes};
+}
+
+/** The session as state.json stores it: no projected markers (their record holds them) and no notes (files hold them). */
+function persistedSession(session: SessionRecord): SessionRecord {
+	const {notes: _notes, notesFile: _file, sharedNotes: _shared, ...stored} = storedSession(session);
+	return stored;
+}
+
 // Sessions as the daemon holds and sends them: setting one projects its worktree record's markers into it (merged,
-// deleted; src/worktreeRecords.ts), so every reader sees the markers its worktree's sessions share. persist() strips them.
+// deleted; src/worktreeRecords.ts), so every reader sees the markers its worktree's sessions share, and its notes from
+// the notes files (src/notesStore.ts). persist() strips both.
 class SessionMap extends Map<string, SessionRecord> {
-	constructor(private readonly worktrees: ReadonlyMap<string, WorktreeRecord>) { super(); }
+	constructor(private readonly worktrees: ReadonlyMap<string, WorktreeRecord>, private readonly notes: NotesStore) { super(); }
 	override set(id: string, session: SessionRecord): this {
-		return super.set(id, projectWorktree(session, this.worktrees));
+		return super.set(id, projectNotes(projectWorktree(session, this.worktrees), this.worktrees, this.notes));
 	}
 }
 
 export class InkDaemon {
 	/** Linked worktree incarnations by ID (persisted with the sessions); the only copy of their merge/deleted markers. */
 	private readonly worktrees = new Map<string, WorktreeRecord>();
-	private readonly sessions = new SessionMap(this.worktrees);
+	/** Every note's text (the files are the only copy); edits made outside Deckhand are re-read and broadcast. */
+	private readonly notes = new NotesStore((kind, stem) => this.notesChanged(kind, stem));
+	private readonly sessions = new SessionMap(this.worktrees, this.notes);
 	private readonly workers = new Map<string, WorkerRuntime>();
 	private readonly workspaces = new Map<string, WorkspaceRuntime>();
 	private readonly workspaceStarts = new Map<string, Promise<WorkspaceRuntime>>();
@@ -327,15 +352,20 @@ export class InkDaemon {
 		// exited as crash/restart recovery, not as normal frontend quit behavior.
 		const stored = await markAllNonExitedSessionsExited();
 		for (const record of stored.worktrees) this.worktrees.set(record.id, record);
+		// Notes live in files: ones older versions kept in state.json move there first (idempotent), then all are read.
+		const legacyNotes = await this.notes.migrate(stored.sessions);
+		await this.notes.load();
 		for (const session of stored.sessions) {
 			this.sessions.set(session.id, session);
 		}
+		if (legacyNotes) await this.persist();
 
 		await this.prepareSocket();
 		await this.listen();
 		await fs.chmod(getSocketPath(), 0o600);
 		await this.writePidFile();
 		this.setupProcessHandlers();
+		this.notes.watch();
 		await this.log(`daemon ready socket=${getSocketPath()}`);
 		// Latest agent releases: looked up in the background now, then again once they are LATEST_MAX_AGE_MS old.
 		void this.refreshAgentVersions(false);
@@ -461,6 +491,7 @@ export class InkDaemon {
 		}
 		this.shuttingDown = true;
 		if (this.agentVersionsTimer) clearInterval(this.agentVersionsTimer);
+		this.notes.close();
 		for (const child of this.setupProcesses.values()) { try { if (child.pid) process.kill(-child.pid, 'SIGTERM'); } catch {} }
 		await this.log('cleanup start');
 		for (const socket of this.clients.keys()) {
@@ -806,8 +837,11 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, {ok: true}));
 					return;
 				}
-				case 'update-session-notes':
-					sendMessage(socket, response(message.requestId, await this.updateSessionNotes(message.sessionId, message.notes)));
+				case 'save-note':
+					sendMessage(socket, response(message.requestId, await this.saveNote(message)));
+					return;
+				case 'open-note':
+					sendMessage(socket, response(message.requestId, await this.notes.ensureFile(this.noteOf(this.requireSession(message.sessionId), message.section))));
 					return;
 				case 'create': {
 					const session = await this.createSession(message.input);
@@ -1404,10 +1438,38 @@ export class InkDaemon {
 		}
 	}
 
-	private async updateSessionNotes(sessionId: string, notes: string): Promise<SessionRecord> {
-		const session = this.sessions.get(sessionId);
-		if (!session) throw new Error('session not found');
-		return this.saveSession({...session, notes: notes.slice(0, 50_000), updatedAt: new Date().toISOString()});
+	/** The note a session's Notes section edits: its own, or the one its worktree (main checkout) shares. */
+	private noteOf(session: SessionRecord, section: 'session' | 'shared'): NoteId {
+		if (section === 'session') return {kind: 'session', id: session.id};
+		const shared = session.sharedNotes;
+		if (!shared) throw new Error('This session has no worktree note yet: its worktree is not ready');
+		return {kind: shared.kind, id: shared.id};
+	}
+
+	// Revision-checked: a file changed since the UI read it (an editor) is never overwritten; the UI gets it back instead.
+	private async saveNote(message: Extract<ClientRequest, {type: 'save-note'}>): Promise<NoteSaveResult> {
+		const session = this.requireSession(message.sessionId);
+		if (typeof message.text !== 'string' || typeof message.revision !== 'string') throw new Error('Invalid note');
+		const note = this.noteOf(session, message.section);
+		if (message.section === 'shared') {
+			if (message.noteId !== undefined && message.noteId !== `${note.kind}:${note.id}`) throw new Error('This session now shares another note; nothing was saved');
+			if (session.sharedNotes?.readOnly) throw new Error('Its worktree was deleted: the worktree note is read-only');
+		}
+		const result = await this.notes.save(note, message.text, message.revision);
+		if (result.changed) this.notesChanged(note.kind, noteFileStem(note.id));
+		return {saved: result.saved, session: this.requireSession(session.id)};
+	}
+
+	// A note changed (saved, or edited outside Deckhand): every session showing it is re-projected and broadcast.
+	// Notes are not in state.json, so nothing is persisted.
+	private notesChanged(kind: NoteKind, stem: string): void {
+		for (const session of [...this.sessions.values()]) {
+			const shared = sharedNoteIdentity(session);
+			const shows = kind === 'session' ? noteFileStem(session.id) === stem : shared?.kind === kind && noteFileStem(shared.id) === stem;
+			if (!shows) continue;
+			this.sessions.set(session.id, session);
+			this.broadcastSessionUpdated(session);
+		}
 	}
 
 	private buildPreviewRecord(session: SessionRecord, content: string, scrollOffset = 0, maxScrollOffset = 0): PreviewRecord {
@@ -2215,8 +2277,12 @@ export class InkDaemon {
 		this.sessions.delete(sessionId);
 		// A worktree record lives as long as a session references it.
 		const worktreeId = existing.worktree?.id;
-		if (worktreeId && ![...this.sessions.values()].some(session => session.worktree?.id === worktreeId)) this.worktrees.delete(worktreeId);
+		const dropped = worktreeId && ![...this.sessions.values()].some(session => session.worktree?.id === worktreeId) ? worktreeId : undefined;
+		if (dropped) this.worktrees.delete(dropped);
 		await this.persist();
+		// A session's note goes with it, a worktree's with its record; the main checkout's note is never deleted.
+		await this.notes.remove({kind: 'session', id: sessionId}).catch(error => this.log(`removing notes of ${sessionId} failed: ${errorMessage(error)}`));
+		if (dropped) await this.notes.remove({kind: 'worktree', id: dropped}).catch(error => this.log(`removing worktree notes ${dropped} failed: ${errorMessage(error)}`));
 		this.broadcastSessionRemoved(existing);
 		this.syncChangeWatches();
 		// Workspace panes outlive agents but not their workspace's sessions: with the last one gone, nothing could show
@@ -2228,12 +2294,12 @@ export class InkDaemon {
 
 	// Coalesced: at most one write in flight plus one queued. Every caller arriving before the
 	// queued write snapshots the sessions shares it, so bursts of updates cost one write. Worktree markers are written
-	// only in their records (storedSession drops the projection).
+	// only in their records and notes only in their files (persistedSession drops both projections).
 	private persist(): Promise<void> {
 		if (this.persistQueued) return this.persistQueued;
 		const operation = this.persistInFlight.catch(() => {}).then(() => {
 			this.persistQueued = undefined;
-			return saveState({sessions: sortSessionsNewestFirst([...this.sessions.values()]).map(storedSession), worktrees: [...this.worktrees.values()]});
+			return saveState({sessions: sortSessionsNewestFirst([...this.sessions.values()]).map(persistedSession), worktrees: [...this.worktrees.values()]});
 		});
 		this.persistQueued = operation;
 		this.persistInFlight = operation;

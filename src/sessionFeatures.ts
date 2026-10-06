@@ -25,7 +25,7 @@ export function filterSessionList(sessions: SessionRecord[], filter: SessionFilt
 	const ids = new Set<string>();
 	for (const session of sessions) {
 		const matchesState = filter === 'all' || (filter === 'archived' ? Boolean(session.archivedAt) : !session.archivedAt && (filter === 'active' || (filter === 'attention' ? sessionNeedsAttention(session) : filter === 'running' ? session.status !== 'exited' : session.status === 'exited')));
-		const haystack = `${session.title} ${session.notes ?? ''} ${session.program} ${session.worktree?.branch ?? ''} ${session.cwd}`.toLowerCase();
+		const haystack = `${session.title} ${session.notes ?? ''} ${session.sharedNotes?.text ?? ''} ${session.program} ${session.worktree?.branch ?? ''} ${session.cwd}`.toLowerCase();
 		if (!matchesState || !terms.every(term => haystack.includes(term))) continue;
 		ids.add(session.id);
 		let parentId = session.parentSessionId;
@@ -60,7 +60,7 @@ export function handoffGitLines(context: HandoffGitContext): string[] {
 }
 /** Pure; `git` is gathered by the daemon at export time (omitted for sessions outside a repository). */
 export function handoffMarkdown(session: SessionRecord, includeOutput = false, git?: HandoffGitContext): string {
-	const lines = ['# Deckhand handoff', '', `Task: ${session.title}`, `Provider: ${session.program}`, `Workspace: ${session.cwd}`, `Branch: ${session.worktree?.branch ?? '(current checkout)'}`, `Source session: ${session.id}`, '', '## Notes', '', session.notes?.trim() || '(No notes recorded.)'];
+	const lines = ['# Deckhand handoff', '', `Task: ${session.title}`, `Provider: ${session.program}`, `Workspace: ${session.cwd}`, `Branch: ${session.worktree?.branch ?? '(current checkout)'}`, `Source session: ${session.id}`, '', '## Notes', '', session.notes?.trim() || '(No notes recorded.)', '', '## Worktree notes', '', session.sharedNotes?.text.trim() || '(No worktree notes recorded.)'];
 	if (git) lines.push(...handoffGitLines(git));
 	if (includeOutput) {
 		const excerpt = (session.lastPreview ?? '').slice(-20000);

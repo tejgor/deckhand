@@ -35,7 +35,7 @@ Implemented behavior:
 - Dev tab, shared by every session in the same workspace (worktree) and independent of their agents, powered by `devCommand` from effective settings (global defaults, overlaid by a trusted repository `deckhand.json`; legacy `dev_command` fallback).
 - Two-layer configuration: global `defaults` in the user config plus one repository `deckhand.json` in the main checkout (worktree copies ignored) that applies only when trusted (its defaultAgent/defaultWorkspace preselect the picker regardless), with an inline content-fingerprint review shown only right before repository config would run (lists show everything, untrusted actions marked), one editable Settings grid (C: a Global and a This repo column, the cursor a cell) for both layers, self-edits that keep a trusted file trusted, archive/search/filter, handoffs, optional lifecycle hooks/notifications, and conservative cleanup inspection. User-facing behaviour: `docs/no-brainers.md`.
 - `DECKHAND_HOME` state namespaces and an isolated dev launcher (`scripts/deckhand-dev.mjs`, `docs/dev-build.md`).
-- Per-session persisted Notes tab.
+- Notes tab: Markdown files per session plus one per worktree (and one for the main checkout) shared by its sessions, a cursor editor with checklists (`☐`/`☑`, Ctrl+X), autosave that never overwrites edits made in an editor, and live pickup of those edits (see *Notes*).
 - Preview-change-based active/idle detection without agent hooks.
 - Frozen last preview frame for exited sessions.
 - Stale-session cleanup after daemon restart.
@@ -79,6 +79,7 @@ Responsibilities:
 - broadcast session, preview, terminal, git, dev, and changes events
 - read Git status/diffs and stage/unstage for the Git tab's Changes view (`src/changesGit.ts`), polling watched workspaces
 - manage worktree creation/deletion/merge safety and the per-worktree merge/deleted records
+- own the notes files (`notes/`): load, migrate, project into sessions, revision-checked saves, watch for outside edits
 - manage daemon PID, socket lifecycle, and logging
 
 The daemon owns no PTYs. The agent PTY lives in the session worker; Terminal, Git (lazygit) and Dev live in the session's workspace worker, which does not depend on the session's worker, so they work the same for starting (once the worktree is prepared, e.g. during setup), running and exited sessions. A session whose worktree is still being prepared has no workspace, and its Terminal/Git/Dev panes say *unavailable: its worktree is not ready yet* until it has one.
@@ -122,6 +123,21 @@ Merge and deletion markers describe a worktree, not a session, so every session 
 - **Lifetime**: `removeSession` drops the record once no session references it; loading drops unreferenced records too.
 - **Migration** (`migrateWorktreeRecords`, run by `loadState`; `markAllNonExitedSessionsExited` writes a migrated state back at daemon start): sessions without `worktree.id` are grouped by worktree root (their own linked worktree; for mode `none`, the launch root when some session owns a linked worktree there). Each recorded `deletedAt` ends one incarnation: the session that deleted it belongs to it, any other session to the first deletion at or after its last launch (`agentStartedAt`, else `createdAt`), and the rest to the live incarnation (joining an existing live record at that path). Each incarnation takes the most recent merge marker of its sessions (a mode-`none` sub-session's top-level `M` marker included, then removed from the session). Main-checkout markers stay as they are. It also repairs stored state: stray markers on sessions with an ID are dropped, a missing referenced record is rebuilt from the session. Idempotent; unit-tested (`tests/worktreeRecords.test.ts`).
 
+### Notes (`src/notes.ts`, `src/notesStore.ts`, `src/notesFlow.tsx`, `src/notesPane.tsx`)
+
+Two notes per session, both plain Markdown files under `notes/` in the state directory, the single source of truth:
+
+- **Session note**: `notes/sessions/<session id>.md`. Deleted when the session is removed (`removeSession`).
+- **Shared note** (`sharedNoteIdentity`): a session with a worktree record (`worktree.id`, i.e. a linked worktree incarnation, mode-`none` sub-sessions in it included) shares `notes/worktrees/<record id>.md` with every session of that incarnation; a new worktree at the same path is a new record, so it starts empty. A session without a record but with a workspace (the main checkout: mode `none` there, or attached to the main worktree) shares the repository note `notes/repos/<sha256(workspaceKey)[:16]>.md` (`repoNoteId`, lexical like workspace keys). A session still preparing its worktree has none. A deleted worktree's note stays visible, read-only (`sharedNotes.readOnly`), while its record exists; it is deleted when the record is dropped (last referencing session removed). Repository notes are never deleted. Nothing is deleted at startup (orphan files are left alone, so a reset state.json never costs notes).
+- **Daemon** (`NotesStore`, one per daemon): `load` reads every file into memory at start (after `migrate`, below); `SessionMap.set` projects `notes` (the session note's text, for the existing readers: search, handoff, merge screen, sidebar), `notesFile` (`path`, `revision`, `tooLarge`) and `sharedNotes` (`kind` `worktree`/`repo`, `id`, `path`, `text`, `revision`, `tooLarge`, `readOnly`) into every session, and `persistedSession` strips them (and the worktree markers) before `saveState`. A note change re-sets and broadcasts `session-updated` for every session showing it (`notesChanged`); notes changes never write state.json or bump `updatedAt`.
+- **Revisions and conflicts**: a revision is a content hash (`noteRevision`, sha256[:16]; a missing file is the empty text). `save-note` names the revision the UI edited; the store re-reads the file from disk inside a per-note queue and writes only when it still has that revision (atomically: temp file `.<name>.tmp-…` in the same directory, then rename, 0600). Otherwise nothing is written and the response is `{saved: false, session}` with the file as it is. Shared saves also name the note (`noteId` = `kind:id`) so a session that moved to another note is refused. Text is cut at 50 000 characters (`MAX_NOTES_CHARS`); a file longer than that (or over 1 MB) is projected cut with `tooLarge` and refused for saving (edit it in the editor). Saving the same text writes nothing; saving `''` to a missing file creates nothing.
+- **Watching**: `fs.watch` on each of the three directories (non-recursive, so editors that save via rename are seen), per-file debounce of 120 ms, then a re-read in the same per-note queue; a changed revision updates the cache and broadcasts. A watcher event without a file name rescans the directory; a watcher error retries after 1 s. Deckhand's own writes re-read as unchanged, so they never echo. Hidden/temporary files (leading `.`, not `.md`) are ignored.
+- **Migration** (`NotesStore.migrate`, daemon start, before `load`): every stored session with a `notes` string gets its file written if missing (an existing file wins, so a re-run or a later edit is never overwritten); when any stored session still had `notes`, state.json is written again without them. Idempotent; covered by `tests/notesDaemon.test.ts`.
+- **`open-note`** creates the file (empty, `wx`) if missing and returns its path; the UI opens it with `openInEditor`.
+- **UI** (`useNotesFlow`): one draft per note key (`session:<id>`, `worktree:<id>`, `repo:<hash>`; a shared note is one draft for every session showing it, so its cursor and unsaved text follow it) holding text, cursor, the last known file text and revision, the save in flight and the editor's scroll. Edits schedule a save 300 ms later; one save per note is in flight at a time (typing during it is saved after it returns); leaving notes focus saves at once, and E/Ctrl+O save before opening. An incoming record with a new revision is applied silently when nothing is unsaved (an editor's edit shows up), its own save's echo only updates the revision, and anything else reloads the file and says so (*changed outside Deckhand … your last unsaved edit was not saved*); a refused save does the same. Notes focus turns bracketed paste on (`?2004h`, off on leaving): between the markers Tab and Enter are text.
+- **Editor** (`src/textEditor.ts`, shared with the JSON editor): `editText` gained word jumps (Alt/Ctrl+←→, Alt+B/F), word deletion (Alt+Backspace via `normalizeTerminalKey`'s ESC DEL, Ctrl+Backspace, Ctrl+W, Alt+Delete) and, through `EditOptions`, a character limit, Ctrl+A/Ctrl+E as line start/end instead of select-all, Tab left to the caller, and Up/Down/PageUp/PageDown by soft-wrapped rows (`wrapRows`: word wrap at the last fitting space, mid-word otherwise, one column per code point; `moveVisual`, `wrappedEditorLines`, `scrollTopFor`). Checklists (`src/notes.ts`): `- [ ]`/`* [x]`/`+ [X]`, indented or not (`parseChecklistLine`); Ctrl+X `toggleChecklist` (adds `- [ ] `, or `[ ] ` after a plain bullet), Ctrl+T `insertChecklistItem` (not Ctrl+N: editors commonly bind it in their integrated terminal, e.g. new terminal), Enter `continueChecklist` (an empty item ends the list).
+- **Layout** (`notesLayout`, pure): the shared section (header `Worktree · <branch | main checkout> (shared by N sessions)` with `☐ N open`/`☑ N done`, then `deleted, read-only`/`too large` flags), a rule, `This session · <title>`. `budgetSections` gives each body its need when both fit (the session section the rest), else at least 3 rows each and the rest in proportion to what is missing, the focused section's share counting double; tiny panes favour the focused one. An empty section not being edited is one muted line (`No worktree notes · tab to add`). Read mode renders `☐`/`☑` items (checked muted, hanging indent) and bold headings, cut with a muted `+N more lines`; the edited section shows the raw text with an inverse cursor, scrolled to keep it visible. Sidebar details add `☐ 3 open (2 worktree)` (`openChecklistText`; shortened to `(2 wt)`, then without the split) as the first line to go.
+
 ### Git tab: the Changes view (`src/changesModel.ts`, `src/changesGit.ts`, `src/changesFlow.tsx`, `src/changesPane.tsx`)
 
 The Git tab shows the workspace's changes like VS Code's Source Control panel; lazygit is only attached (`o`). No worker or PTY: the daemon runs Git in the workspace root.
@@ -140,6 +156,7 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 - Do not overload lifecycle status to mean activity.
 - Terminal, Git and Dev belong to the workspace, not the session: gate them on "has a workspace" (`workspaceKey`, plus the daemon's *not ready* record), never on "is running"; agent exit must not stop or detach them.
 - Merge/deleted markers of a linked worktree belong to its worktree record: write them with `saveWorktreeRecord`, never onto a session (the session copy is a projection and is not persisted).
+- Notes live only in their files (`notes/` in the state directory): `notes`, `notesFile` and `sharedNotes` on a session are projections the daemon recomputes on every set and strips before persisting. Write notes with `NotesStore.save` (revision-checked), never by setting them on a session.
 - Resize-only redraws must not mark idle agents active.
 - Preview is a rendered plain-text snapshot, not a full embedded terminal emulator.
 - Preview/pane snapshots are read-only; attach mode is required for direct interaction.
@@ -196,6 +213,7 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
   - Git => the workspace's shared lazygit (started on this attach; the tab itself shows the Changes view)
   - Dev => the workspace's shared dev command PTY
   - Notes => enter notes edit/focus mode
+- `E` on the Notes tab opens the active note (the session's; the worktree's after editing that) in Cursor / VS Code, creating the file if missing (`e` is the actions picker and `O` the worktree, so neither could be reused)
 - `O` opens selected session directory/worktree in Cursor if available, otherwise Code (`cursor`/`code` CLI; macOS fallback is `open -a Cursor`)
 - `m` opens merge/squash/cancel confirmation for worktree-backed sessions
 - `M` toggles the manual merged marker, useful after resolving conflicted merges or after pushing/integrating a non-worktree session: for a session in a linked worktree it toggles the worktree's marker (every session of it), in the main checkout only the selected session's
@@ -213,10 +231,10 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 
 ### Notes
 
-- Notes are persisted per session in `~/.deckhand/state.json`.
-- Selecting the Notes tab is read-only until `o` enters notes edit/focus mode.
-- `esc` exits notes editing.
-- Notes autosave through `update-session-notes` as text changes.
+- Two sections: the worktree's shared note (the main checkout's repository note for sessions there) above the session's own; see *Notes* under Architecture for storage and sync.
+- Selecting the Notes tab is read mode (rendered checklists, from the top, `+N more lines` when cut); `o` enters notes focus (the section last edited, the session's by default), `esc` leaves it (and saves at once).
+- In notes focus: type anywhere, arrows, Home/End and Ctrl+A/Ctrl+E (line), Ctrl+Home/End (note), Alt/Ctrl+←→ and Alt+B/F (words), Alt+Backspace/Ctrl+W (delete word), Up/Down and PageUp/PageDown by soft-wrapped rows, Enter (continues a checklist), paste (bracketed: Tab/Enter inside are text), `tab` switches section (cursor kept per note; a deleted worktree's note is read-only and skipped), Ctrl+X toggles the line's checkbox (adding `- [ ] ` if none), Ctrl+T inserts an item below, Ctrl+O opens the edited note in the editor. Ctrl+X/T/O/W are plain control bytes (CAN, DC4, SI, ETB), which raw mode delivers — unless the host terminal keeps the key: an editor's integrated terminal can bind Ctrl keys (one user's Cursor binds Ctrl+N/E/W/R with `terminalFocus`), so every line/word key keeps a non-Ctrl alternative.
+- Notes autosave (300 ms debounce) with the revision they were based on; an edit made in an editor meanwhile wins and the UI reloads it with a message.
 
 ### Preview focus and scrolling
 
@@ -404,7 +422,8 @@ Cross-directory forks (why Codex forks stay in the parent's worktree):
 
 Deckhand writes under `~/.deckhand`:
 
-- `state.json` — persisted sessions plus `worktrees` (one merge/deleted record per linked worktree incarnation, see *Worktree records*)
+- `state.json` — persisted sessions plus `worktrees` (one merge/deleted record per linked worktree incarnation, see *Worktree records*); no notes (older ones are migrated into `notes/`)
+- `notes/sessions/<session id>.md`, `notes/worktrees/<worktree record id>.md`, `notes/repos/<sha256(main checkout root)[:16]>.md` — the notes (0600 files, 0700 directories; see *Notes*)
 - `config.json` — app config, including `defaults` (global deckhand.json-schema settings) and `trustedProjects` (trust root → up to 20 fingerprints, newest first); written under a lockfile shared by UI and daemon
 - `ui-state.json` — per-repository UI preferences (selection, tabs, width, collapse/hidden, filter/search)
 - `handoffs/` — exported Markdown handoffs (0600 files in a 0700 directory)
@@ -431,7 +450,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v37** (v37: `agent-versions`, `update-agent`, `agent-versions-updated`, `SessionRecord.agentVersion`; v36: Terminal, Git and Dev are shared per workspace; `TerminalRecord`/`GitRecord`/`DevRecord.workspace`; the Git tab's Changes view: `watch-changes`, `changes-diff`, `change-stage`, `changes-updated`; `SessionWorktreeRecord.id`, with merge/deleted markers shared per worktree) (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
+- current protocol version: **v38** (v38: notes in files: `save-note` (revision-checked, `{saved, session}`) and `open-note` replace `update-session-notes`; `SessionRecord.notesFile` and `sharedNotes` are projected beside `notes`; v37: `agent-versions`, `update-agent`, `agent-versions-updated`, `SessionRecord.agentVersion`; v36: Terminal, Git and Dev are shared per workspace; `TerminalRecord`/`GitRecord`/`DevRecord.workspace`; the Git tab's Changes view: `watch-changes`, `changes-diff`, `change-stage`, `changes-updated`; `SessionWorktreeRecord.id`, with merge/deleted markers shared per worktree) (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -464,7 +483,7 @@ Tracked metadata includes:
 - lifecycle `status`
 - activity `agentStatus`, `agentStatusUpdatedAt`
 - timestamps, `pid`, exit details, `lastPreview`
-- `notes`
+- not `notes`: the daemon projects `notes`, `notesFile` and `sharedNotes` from the notes files and never stores them (state from older versions is migrated)
 - `devRunning` (mirrors the workspace's shared Dev on every session in it)
 - `agentVersion` (x.y.z the agent last launched with; outdated while running and older than the installed version)
 - `parentSessionId`, `subSessionKind`, `forkedFromSessionId`, `forkedFromAgentSessionRef`
@@ -489,7 +508,7 @@ Request types:
 - `watch-preview`, `watch-terminal`, `watch-git`, `watch-dev` (the last three, the start/stop and the terminal/git/dev paths below take a `sessionId` and act on that session's workspace pane)
 - `start-dev`, `stop-dev`
 - `watch-changes` (optional `sessionId`; none stops watching), `changes-diff` (`sessionId`, `group`, `path` of a listed entry), `change-stage` (`sessionId`, `mode: stage|unstage`, optional `group`+`path`; none = everything) — the Git tab's Changes view
-- `update-session-notes`
+- `save-note` (`sessionId`, `section: session|shared`, `noteId` for shared, `text`, `revision`; refused while the file has another revision: `{saved: false, session}`), `open-note` (`sessionId`, `section`; creates the file if missing, responds with its path)
 - `create`, `reorder-session`, `restart`, `kill`, `merge-worktree`, `mark-session-merged`, `remove`
 - agent attach path: `attach`, `input`, `resize`, `detach`
 - terminal path: `attach-terminal`, `terminal-input`, `terminal-resize`, `terminal-detach`
@@ -498,7 +517,7 @@ Request types:
 
 Event types:
 
-- `session-updated`, `session-removed`
+- `session-updated` (also when a note changes: saved, or edited in a file; sent for every session showing it), `session-removed`
 - `preview-updated`, `terminal-updated`, `git-updated`, `dev-updated`, `changes-updated`
 - `agent-versions-updated` (every subscribed client, on change)
 - `output`, `terminal-output`, `git-output`, `dev-output`
@@ -533,7 +552,7 @@ Event types:
 - `src/preview.tsx` — Preview pane rendering.
 - `src/terminalPane.tsx`, `src/devPane.tsx` — rendering of the workspace's shared Terminal and Dev panes (unavailable/exited messages).
 - `src/changesModel.ts` — the Git tab's Changes view as pure data (groups, rows, selection, first changed line, diff classification; unit-tested). `src/changesGit.ts` — its Git I/O (status + numstat read, bounded diff, validated stage/unstage). `src/changesFlow.tsx` — selection, diff fetch and focus keys. `src/changesPane.tsx` — rendering (list, diff, layout).
-- `src/notesPane.tsx` — per-session Notes pane rendering.
+- `src/notes.ts` — notes as pure data (unit-tested): limits, revisions, shared-note identity (`sharedNoteIdentity`, `repoNoteId`), checklist parsing/toggling/insertion/continuation and counts, read-mode rows (`noteReadRows`, `fitReadRows`), the two-section height budget (`budgetSections`), header/sidebar texts (`checklistLabel`, `openChecklistText`). `src/notesStore.ts` — the daemon's note files (load, legacy migration, revision-checked atomic saves, `ensureFile`, removal, directory watchers). `src/notesFlow.tsx` — the Notes tab's drafts, debounced saves, conflict reloads and notes-focus keys. `src/notesPane.tsx` — its layout (`notesLayout`, pure) and rendering.
 - `src/tabs.tsx` — tab UI.
 - `src/terminalPreview.ts` — headless xterm preview model.
 - `src/ui.ts` — shared theme, glyph, path, truncation, and display helpers.
@@ -545,7 +564,7 @@ Event types:
 - `src/settingsInfo.ts` — daemon readers for Settings: `readSettingsInfo`, link candidates via porcelain v2 `--ignored=matching --untracked-files=normal` with `classifyCandidate`, bounded sizes.
 - `src/settingsFlow.tsx` (state/keys: the selected row and sticky column; saves through `save-config` with the column's revision, reloads after every save or rejection; e/T return here) and `src/settingsPane.tsx` (rendering, full terminal width: the grid — two columns from 64 inner columns, else the selected one with ◂ ▸ — edit controls, one layer's Actions list, link picker, height-budgeted with one hint line).
 - `src/configEditorPane.tsx` — the raw JSON editor (reached with e from Settings).
-- `src/textEditor.ts` — pure multiline text editing and rendering model.
+- `src/textEditor.ts` — pure multiline text editing and rendering model: `editText` (with `EditOptions` for notes), word jumps, soft-wrapped rows (`wrapRows`, `moveVisual`, `wrappedEditorLines`) and `scrollTopFor`; used by the JSON editor and Notes.
 - `src/terminalKeys.ts`, `src/useTerminalInput.ts` — raw key normalization (DEL/Kitty Backspace vs forward Delete, key releases) and the Ink input hook (one stable listener calling the latest handler, so no key reaches a stale render's handler).
 - `src/workspaceGit.ts` — porcelain-v2 status (`parseStatus`, including the `entries` the Changes view groups), workspace summary, optional `gh` PR lookup, `createPullRequest`, handoff Git context (`getHandoffGitContext`: commits/changes/numstat, never diff content), cleanup inspection.
 - `src/worktreeLinks.ts` — worktree settings schema/merge, location template expansion, and link application.
@@ -638,7 +657,7 @@ Typical flow:
 2. Ink UI starts in alternate screen.
 3. Client pings daemon.
 4. Daemon auto-starts if missing/stale.
-5. Daemon loads persisted state (lifting legacy per-session worktree markers into worktree records) and marks previously running sessions exited if this is a daemon restart.
+5. Daemon loads persisted state (lifting legacy per-session worktree markers into worktree records, and legacy `notes` into `notes/` files), reads every note file, starts watching the notes directories, and marks previously running sessions exited if this is a daemon restart.
 6. Ink subscribes to repo sessions.
 7. Ink watches preview/pane for selected session.
 8. User creates a session and chooses worktree mode.
@@ -654,6 +673,8 @@ Typical flow:
 ## Validation status
 
 Automated: `npm test` (build, then `node --test` over `tests/`) covers config/trust, editor and key handling, storage, cleanup inspection, a real daemon with fake agents (setup/actions/cleanup/hooks/resume; one Dev shared per worktree, its lifetime and stop on worktree deletion/last-session removal; one shell and one (fake) lazygit shared per worktree, fan-out to watchers, attach with bracketed-paste mirroring and one attacher, use from an exited session, lazygit restart on view, Dev stop not retiring a worker in use, teardown on kill-with-delete and last-session removal; the Changes view: watch delivers groups, polling pushes to a second session of the worktree, stage/unstage/stage-all/unstage-all, refused unlisted paths, unstaging without HEAD, unwatching stops pushes; worktree records: merge from one session marks its attached sibling and sub-session with `session-updated` broadcasts, `M` from either toggles all, main-checkout sessions keep their own markers, kill-with-delete makes every session of the worktree non-restartable/non-mergeable without a workspace, a new worktree at the same path is a new incarnation (also after an outside removal), the last referencing session's removal drops the record), the worktree-record migration of legacy state (incarnations split at deletions, sub-sessions, restarted sessions, main checkout untouched, repair, idempotence, write-back at daemon start), the Changes model and its Git I/O against fixture repos (spaces, glob-like names, renames, binary, untracked, conflicts, no HEAD), the workspace key, the sidebar model (row layout and truncation at 24 and 48 columns, `▶` once per workspace, the shared-workspace marker, archived dimming in both views, header text, the details block and its shrinking, ages) plus one rendered sidebar, the dev launcher, a real-PTY Git tab run (browse list, `v` focus, diff preview, `space` stages, `esc`), and two more real-PTY UI runs (inline review on n, raw-key JSON editing via C → e, persistence; the Settings grid: columns, repo/global cell edits, Linked items, x, T, e; self-edits keep trust so d runs without asking until an outside edit).
+
+Notes (`tests/notesDaemon.test.ts`, its own daemon and state directory; `tests/notes.test.ts`, `tests/textEditor.test.ts`, `tests/notesUi.test.ts`): legacy `session.notes` migrated into its file and dropped from state.json, a re-run with a stale copy in state.json keeping the (edited) file; a save broadcast and written; an in-place write and a rename-save made outside picked up and broadcast; a stale-revision save refused without writing; the 50 000-character cap, a too-large file shown cut and refused; three sessions of one worktree (new, attached, mode-none child) sharing its note, a save naming another note refused; handoff `## Worktree notes`; `open-note` creating the file; main-checkout sessions sharing the repository note, which outlives them, while a session's note goes with it; a deleted worktree's note read-only, a new worktree at the path starting empty, the note deleted with the record. Unit: cursor moves, word jumps and deletion, insert/delete mid-text, the character limit, soft wrap and visual Up/Down/PageDown, scroll-to-cursor, checklist parsing (indented, `*`, `+`, `[X]`), toggling/inserting/continuing and counts, read rows with `+N more lines`, the section budget, the rendered layout in read and edit mode, the sidebar `☐` line and its drop order, shared-note identity, search and handoff. Real PTY: `o`, typing, ← and Alt+← (ESC b) then typing mid-line, Ctrl+X, `tab` to the worktree note, a bracketed paste with a Tab, `esc`, the rendered `☐` item and sidebar count, the files, an outside edit appearing. Not exercised: opening the editor (E / Ctrl+O would launch a real Cursor/VS Code); the `CSI 1;3D`/`CSI 1;5D` Alt/Ctrl+arrow sequences only as Ink's parsed key flags (ESC b went through the real PTY).
 
 Agent versions (`tests/agentUpdates.test.ts`, its own daemon whose PATH holds only the fakes, node and the system directories, so no real agent can run; plus `tests/agentVersions.test.ts`): `agent-versions` reads the fakes' `--version` and the stubbed latest (one unknown), a session records `agentVersion` at launch, `update-agent` runs `claude update` with stdin closed, reports before/after/output, broadcasts `updating` then the new version, leaves the running session alone and makes it outdated; a later launch and a restart are current, exited sessions never outdated, `agentVersion` persisted; concurrent updates share one run; a failing `pi update --self` returns its exit code and output; not installed and unknown agents are refused. Unit: parsing of each agent's format, numeric comparison, statuses, `sessionOutdated`, header hint, sidebar `↑` placement and drop order, the details line's version forms, a rendered sidebar and the Agents screen (rows, details, confirmation, working, success, failure). The real updaters were never run.
 

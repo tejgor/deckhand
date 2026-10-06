@@ -47,7 +47,7 @@ Tools for running coding agents in parallel typically rely on [`tmux`](https://g
 - **Keyboard Reordering** — Move sessions up and down among their siblings from the keyboard.
 - **Sub-sessions** — Group related work under a parent session, indented in the sidebar; each one starts clean in the parent's directory, or forks the parent's Claude, Pi or Codex conversation.
 - **Resumable Agents** — Claude/Pi retain native identities; Codex resumes when its native ID is captured. Unknown IDs never silently become a blank conversation. Fresh restart remains explicit.
-- **Per-session Notes** — Keep persisted scratch notes alongside each session.
+- **Notes with checklists** — Each session's notes plus one note per worktree shared by every session in it, as Markdown files you can also edit in VS Code; `- [ ]` items render as ☐/☑ and their open count shows in the sidebar.
 - **Safer Cleanup** — Check uncommitted, untracked and valuable ignored files, and commits that deleting a branch would lose, before deletion; force kill and data-loss authorization are separate.
 - **Merge Helpers** — Merge or squash-merge a session's worktree into the current branch, staged for review rather than committed.
 - **Git Changes** — The Git tab lists the worktree's changes like VS Code's Source Control panel (merge conflicts, staged, unstaged, untracked, with line counts), previews each file's diff, stages/unstages files and opens them in your editor at the first change; `lazygit` (optional) is one key away for everything else.
@@ -146,11 +146,12 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `tab` | Cycle the Preview / Terminal / Git / Dev / Notes tabs |
 | `p` / `t` / `g` / `d` / `a` | Jump directly to Preview / Terminal / Git / Dev / Notes |
 | `d` *(on Dev tab)* | Start or stop the Dev command of the selected session's worktree (shared by every session in it) |
-| `o` | Attach to the selected session (opens current tab; Terminal, Git and Dev also for exited sessions; on Git it opens lazygit); on Notes, enter edit mode |
+| `o` | Attach to the selected session (opens current tab; Terminal, Git and Dev also for exited sessions; on Git it opens lazygit); on Notes, edit them (see [Notes](#notes)) |
+| `E` *(on Notes tab)* | Open the note (the session's, or the worktree's after you edited that) in Cursor / VS Code |
 | `O` | Open the selected session directory/worktree in Cursor (if available) or VS Code |
 | `v` *(on Preview tab)* | Focus preview scrolling (`j`/`k` scroll, `g`/`G` jump, `esc` exits focus) |
 | `v` *(on Git tab)* | Focus the Changes list (see [Git Changes](#git-changes)) |
-| `esc` *(in Notes)* | Stop editing notes |
+| `esc` *(in Notes)* | Stop editing notes (saves at once) |
 | `[` / `]` | Decrease / increase the scroll multiplier and save it to config |
 | `m` | Merge the selected worktree into the current branch (on success every session of that worktree shows `✓`) |
 | `M` | Toggle the merged/pushed marker: for the whole worktree in a linked worktree, for just the selected session in the main checkout |
@@ -198,6 +199,22 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | *(most keys)* | Sent directly to the attached pane/session |
 | `Ctrl+Space` | Detach and return to Deckhand |
 | `Ctrl+]` | Detach and return to Deckhand |
+
+### Notes Editing
+
+The Notes tab shows two notes: the worktree's, shared by every session in that worktree (sessions in the main checkout share one for it), above the selected session's own. Press `o` to edit:
+
+| Key | Action |
+| --- | --- |
+| *(typing)*, `enter`, `backspace`, `delete`, paste | Edit at the cursor (multi-line paste works; Enter on a `- [ ]` item starts the next one) |
+| arrows, `home` / `end`, `ctrl+a` / `ctrl+e` | Move (up/down follow wrapped lines; `ctrl+a`/`ctrl+e` are line start/end) |
+| `alt+←` / `alt+→` (or `ctrl+`, or Option on macOS) | Jump a word; `alt+backspace` or `ctrl+w` deletes one |
+| `pgup` / `pgdn`, `ctrl+home` / `ctrl+end` | Move a screen / to the start or end |
+| `tab` | Switch between the worktree's note and this session's |
+| `ctrl+x` | Check/uncheck the line's checklist item, or make the line a `- [ ]` item |
+| `ctrl+t` | New checklist item below |
+| `ctrl+o` | Open the note you are editing in Cursor / VS Code |
+| `esc` | Back to browsing |
 
 ### Git Changes
 
@@ -294,7 +311,7 @@ The older top-level `dev_command` still works when no `devCommand` is set.
 
 ### Notes
 
-The Notes tab stores per-session text in `~/.deckhand/state.json`. Select Notes with `a` or by cycling tabs, press `o` to edit, and press `esc` to leave notes edit mode. Notes autosave while you type.
+Notes are Markdown files in `~/.deckhand/notes/`: `sessions/<session>.md` for each session's own, `worktrees/<id>.md` for each worktree (shared by every session in it, sub-sessions and attached ones included; a new worktree later created at the same path starts with a fresh note) and `repos/<hash>.md` for the main checkout. They autosave while you type. Edit them in VS Code too (`E` opens one): changes show up in Deckhand within a second, and Deckhand never overwrites them: if a file changed while you were typing, it reloads the file and says so. A session's note is deleted with the session, a worktree's when its last session is removed; the main checkout's is kept. Older notes stored in `state.json` move into these files on the first start. Checklist items (`- [ ]`, `- [x]`, also `*`, indented) render as ☐/☑, the sidebar shows `☐ N open` for the selected session, and handoffs (`H`), the merge confirmation and `/` search include the worktree's note. Each note holds up to 50 000 characters (a longer file is shown cut and edited in your editor).
 
 ### Attach Scroll Sensitivity
 
@@ -313,6 +330,7 @@ Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0`
 | Path | Purpose |
 | --- | --- |
 | `~/.deckhand/state.json` | Persisted session list and per-worktree merged/deleted markers |
+| `~/.deckhand/notes/` | Notes as Markdown files: per session, per worktree, and the main checkout's |
 | `~/.deckhand/config.json` | User configuration, global `defaults` and exact repository trust fingerprints |
 | `~/.deckhand/ui-state.json` | Per-repository selection, tabs, width, tree/filter/search preferences |
 | `~/.deckhand/handoffs/` | Private, inspectable Markdown handoffs |

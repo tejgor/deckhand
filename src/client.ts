@@ -15,7 +15,8 @@ import {
 	isDevRuntime,
 } from './paths.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {AgentUpdateResult, AgentVersions, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
+import type {NoteSection} from './notes.js';
+import type {AgentUpdateResult, AgentVersions, NoteSaveResult, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -403,8 +404,14 @@ export class LiveClient {
 		return this.request({type: 'remove', requestId: randomUUID(), sessionId});
 	}
 
-	updateSessionNotes(sessionId: string, notes: string): Promise<SessionRecord> {
-		return this.request<SessionRecord>({type: 'update-session-notes', requestId: randomUUID(), sessionId, notes});
+	/** Saves a note if its file still has `revision`; `saved` false (and the file as it is in `session`) when it changed. */
+	saveNote(sessionId: string, section: NoteSection, text: string, revision: string, noteId?: string): Promise<NoteSaveResult> {
+		return this.request<NoteSaveResult>({type: 'save-note', requestId: randomUUID(), sessionId, section, noteId, text, revision});
+	}
+
+	/** The note's file (created if missing), to open it in an editor. */
+	openNote(sessionId: string, section: NoteSection): Promise<string> {
+		return this.request<string>({type: 'open-note', requestId: randomUUID(), sessionId, section});
 	}
 
 	saveConfig(target: ConfigTargetKind, cwd: string, raw: string, revision: string | null): Promise<SavedConfigDocument> { return this.request({type: 'save-config', requestId: randomUUID(), target, cwd, raw, revision}); }
