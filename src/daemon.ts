@@ -280,6 +280,13 @@ function handoffPrompt(handoffPath: string): string {
 	return `Read the handoff document at ${handoffPath}. Use it as task context, inspect the workspace, and continue the work described there. Keep all normal permission checks.`;
 }
 
+// A fork copies the parent's conversation, whose paths all point into the parent's worktree. When the child runs in
+// another worktree, its first message says where it now is so it does not keep working on the parent's files.
+function movedForkPrompt(child: SessionRecord, parentRoot: string, childRoot: string): string {
+	const branch = child.worktree?.branch ? ` on branch ${child.worktree.branch}` : '';
+	return `Deckhand note: this conversation was forked from another session into a different worktree. You are now in ${childRoot}${branch}. Earlier messages refer to files under ${parentRoot}, which is the parent session's worktree: do not read or edit anything there. Work only in ${childRoot}. Changes the parent had not committed are not in this worktree. Reply briefly to confirm, then wait for instructions.`;
+}
+
 async function realpathOrResolve(target: string): Promise<string> {
 	return fs.realpath(target).catch(() => path.resolve(target));
 }
@@ -1962,7 +1969,7 @@ export class InkDaemon {
 			}
 		}
 		this.assertCurrentLaunch(sessionId, startingSession.launchId);
-		preparedSession.args = [...(preparedSession.args ?? []), ...await integrationArgs(preparedSession.program, preparedSession.command, appConfig.agent_hooks === true), ...(preparedSession.handoffPath ? ['--', handoffPrompt(preparedSession.handoffPath)] : [])];
+		preparedSession.args = [...(preparedSession.args ?? []), ...await integrationArgs(preparedSession.program, preparedSession.command, appConfig.agent_hooks === true), ...this.firstMessageArgs(preparedSession, plan, true)];
 		const launchSession = {...this.requireSession(sessionId), args: preparedSession.args, handoffPath: preparedSession.handoffPath};
 		this.sessions.set(sessionId, launchSession);
 		const runningSession = await this.startWorker(launchSession, input.cols, input.rows);
@@ -1984,6 +1991,15 @@ export class InkDaemon {
 			lastPreview: `Failed to start session: ${errorMessage(error)}${session.setup?.output ? `\n${session.setup.output}` : ''}`,
 			exitReason: 'failed',
 		});
+	}
+
+	/** The first message a launch sends: a handoff child's document (first launch only), or the note for a fork into another worktree (every fork). */
+	private firstMessageArgs(session: SessionRecord, plan: LaunchPlan, firstLaunch: boolean): string[] {
+		if (firstLaunch && session.handoffPath) return ['--', handoffPrompt(session.handoffPath)];
+		if (plan.kind !== 'fork') return [];
+		const parent = session.forkedFromSessionId ? this.sessions.get(session.forkedFromSessionId) : undefined;
+		const parentRoot = parent && workspaceKey(parent), childRoot = workspaceKey(session);
+		return parentRoot && childRoot && parentRoot !== childRoot ? ['--', movedForkPrompt(session, parentRoot, childRoot)] : [];
 	}
 
 	private async restartSession(sessionId: string, cols: number, rows: number, mode: RestartMode = 'resume', projectFingerprint?: string): Promise<SessionRecord> {
@@ -2044,7 +2060,7 @@ export class InkDaemon {
 				else await this.runSetup(sessionId, setupCommand);
 			}
 			this.assertCurrentLaunch(sessionId, starting.launchId);
-			starting.args = [...(starting.args ?? []), ...await integrationArgs(starting.program, starting.command, config.agent_hooks === true), ...(neverStarted && starting.handoffPath ? ['--', handoffPrompt(starting.handoffPath)] : [])];
+			starting.args = [...(starting.args ?? []), ...await integrationArgs(starting.program, starting.command, config.agent_hooks === true), ...this.firstMessageArgs(starting, plan, neverStarted)];
 			await prepareAgentSessionRef(starting.agentSessionRef);
 			const runningSession = await this.startWorker({...this.requireSession(sessionId), args: starting.args}, cols, rows);
 			return await this.saveSession({...runningSession, ...this.requireSession(sessionId), status: 'running', pid: runningSession.pid});

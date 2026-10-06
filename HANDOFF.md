@@ -353,6 +353,8 @@ Final argv (before integration args):
 - `S` on a forked child starts a fresh conversation and drops `forkedFromAgentSessionRef`, so a later `s` never re-forks the parent over it.
 - Legacy: Claude children stored with their `/branch` `name` ref resume by name; children still holding the parent's ref (the `/branch` never reported) fork again with `--fork-session`; legacy `name`-ref parents fork with `--resume <name> --fork-session` (Claude's `--resume` accepts a name). Pi path refs unchanged.
 
+Forks into another worktree: every fork launch (create, or `s` forking again) whose workspace differs from the parent's appends `-- <note>` (`movedForkPrompt` via `firstMessageArgs` in `src/daemon.ts`, the same first-message mechanism as handoff children): it names the child's worktree and branch, says earlier paths under the parent's worktree belong to the parent and must not be read or edited, that the parent's uncommitted changes are not there, and asks the agent to confirm and wait. Forks in the parent's worktree (the default) send nothing.
+
 Cross-directory forks (why Codex forks stay in the parent's worktree):
 
 - Claude: verified by running Claude Code 2.1.287 against a throwaway conversation: `--resume <parent> --fork-session --session-id <child>` from another cwd stores the child under the child's cwd project, with the parent's history and nothing written to the parent. Plain `--resume <id> --session-id <uuid>` is rejected without `--fork-session`.
