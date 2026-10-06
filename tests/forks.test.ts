@@ -50,6 +50,7 @@ test('forked sub-sessions with fake agents', {timeout: 120000}, async t => {
 		const childRef = started.agentSessionRef!;
 		assert.equal(childRef.kind, 'id'); assert.notEqual(childRef.value, parentRef.value); // Assigned at launch; the hook's ID was not adopted.
 		assert.deepEqual((await trace(child.id)).args.slice(0, 7), ['--resume', parentRef.value, '--fork-session', '--session-id', childRef.value, '--name', `dh-fork-parent-child-${child.id.slice(0, 8)}`]);
+		assert.ok(!(await trace(child.id)).args.includes('--'), 'a fork in the parent\'s worktree sends no first message');
 		await new Promise(resolve => setTimeout(resolve, 800)); // Past the old /branch keystroke delay.
 		assert.equal(await fs.readFile(path.join(home, `input-${child.id}`), 'utf8').catch(() => ''), '');
 		await killAndWait(child.id);
@@ -76,7 +77,11 @@ test('forked sub-sessions with fake agents', {timeout: 120000}, async t => {
 		const elsewhere = await forkOf(parent, 'elsewhere', 'new');
 		const moved = await waitFor(() => state(elsewhere.id), item => item.status === 'running');
 		assert.notEqual(moved.cwd, root); assert.equal(moved.worktree?.mode, 'managed');
-		assert.deepEqual((await waitFor(() => trace(elsewhere.id), Boolean)).args.slice(0, 3), ['--resume', parentRef.value, '--fork-session']);
+		const movedArgs = (await waitFor(() => trace(elsewhere.id), Boolean)).args as string[];
+		assert.deepEqual(movedArgs.slice(0, 3), ['--resume', parentRef.value, '--fork-session']);
+		// Its first message says where it now is, since the copied conversation's paths point at the parent's worktree.
+		const note = movedArgs[movedArgs.indexOf('--') + 1] ?? '';
+		assert.ok(movedArgs.includes('--') && note.includes(`You are now in ${moved.cwd}`) && note.includes('do not read or edit anything there'), note);
 		await killAndWait(elsewhere.id); await killAndWait(parent.id);
 
 		// Legacy children: a /branch name resumes by name; one still holding the parent's ref forks again. A legacy

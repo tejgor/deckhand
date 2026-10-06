@@ -234,7 +234,7 @@ Press `N` on a selected session to create a sub-session for related follow-up wo
 
 - Choosing `claude`, `pi`, or `codex` creates a **clean** sub-session — a fresh agent context in the parent's directory or worktree.
 - Choosing **`⑂ Fork parent`** forks the parent's conversation into a new one (Claude `--fork-session`, Pi `--fork`, `codex fork`); nothing is typed into the agent. A fork copies the conversation **as saved at that moment**: a turn still in progress in the parent isn't included.
-- Claude and Pi forks can go into a new or existing worktree (`tab` in the create form). Codex forks always stay in the parent's worktree, because Codex may reopen a fork in the directory it was recorded in.
+- Forks start in the parent's worktree. Claude and Pi forks can go into a new or existing worktree instead (`tab` in the create form); the child's first message then tells it where it now is, because the copied conversation's paths point at the parent's worktree, and the parent's uncommitted changes aren't there. Codex forks always stay in the parent's worktree, because Codex may reopen a fork in the directory it was recorded in.
 - A Codex parent can be forked once its conversation ID is known (from Codex's SessionStart hook or its exit hint).
 
 ### Agent Identity and Restarts
