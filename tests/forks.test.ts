@@ -32,7 +32,7 @@ test('forked sub-sessions with fake agents', {timeout: 120000}, async t => {
 	const relaunch = async (id: string) => {
 		const before = (await trace(id))?.launchId;
 		await call({type: 'restart', sessionId: id, cols: 80, rows: 24, mode: 'resume'} as any);
-		return (await waitFor(() => trace(id), item => item?.launchId !== before)).args as string[];
+		return (await waitFor(() => trace(id), item => Boolean(item) && item.launchId !== before)).args as string[];
 	};
 	const restartDaemonWith = async (edit: (sessions: SessionRecord[]) => SessionRecord[]) => {
 		await stop(daemon);

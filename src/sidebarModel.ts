@@ -6,6 +6,7 @@ import {countHiddenSessionDescendants, countSessionDescendants, sessionDepth, se
 import {THEME, displaySessionTitle, programGlyph, statusColor, statusGlyph, truncate} from './ui.js';
 import {wrapWords} from './menu.js';
 import {workspaceKey} from './workspace.js';
+import {openChecklistText} from './notes.js';
 
 // Pure layout of the session sidebar (rendered by sidebar.tsx): rows, header and the selected session's details.
 
@@ -243,7 +244,8 @@ function titleLines(title: string, width: number, max: number): string[] {
 
 /**
  * The selected session's details in the `freeRows` rows the list leaves: a separator, the full title (two lines
- * with five free rows, else one), `agent · state · age`, and where it runs. Fewer rows drop the location, and
+ * with five free rows, else one), `agent · state · age`, where it runs, and open checklist items of its notes
+ * (`☐ 3 open (2 worktree)`) when there are any. Fewer rows drop the checklist line first, then the location, and
  * fewer than three hide it.
  */
 export function sessionDetails(session: SessionRecord | undefined, allSessions: SessionRecord[], width: number, freeRows: number, now: number, installedVersions: Partial<Record<ProgramKey, string>> = {}): DetailLine[] {
@@ -260,6 +262,9 @@ export function sessionDetails(session: SessionRecord | undefined, allSessions: 
 		stateLine(session, state, age, width, installedVersions[session.program]),
 	];
 	if (freeRows - lines.length >= 1) lines.push([{text: locationText(session, allSessions, width), color: THEME.muted}]);
+	// Open checklist items of its notes and its worktree's: the first line to go when rows are short.
+	const checklist = openChecklistText(session, width);
+	if (checklist && freeRows - lines.length >= 1) lines.push([{text: checklist, color: THEME.muted}]);
 	return lines;
 }
 

@@ -15,7 +15,7 @@ import {installedVersions, updateHint} from './agentVersions.js';
 import {filterCycleMessage, filterSessionList, nextSessionFilter, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
 import {useChangesFlow} from './changesFlow.js';
 import {emptyChanges, type ChangesRecord} from './changesModel.js';
-import {NotesPane} from './notesPane.js';
+import {useNotesFlow} from './notesFlow.js';
 import {PreviewPane} from './preview.js';
 import {sessionMatchesScope} from './sessionScope.js';
 import {noWorkspaceReason, workspaceKey} from './workspace.js';
@@ -327,8 +327,11 @@ function MergeConfirmPane({session, sessions, selectedIndex, width}: {session?: 
 	const contentWidth = Math.max(1, width - 4);
 	const noteSessions = session ? [session, ...sessionDescendants(session.id, sessions)] : [];
 	const noteEntries = noteSessions
-		.map(noteSession => ({session: noteSession, lines: (noteSession.notes?.trim() ?? '').split('\n').filter(Boolean)}))
+		.map(noteSession => ({key: noteSession.id, title: displaySessionTitle(noteSession, sessions), lines: (noteSession.notes?.trim() ?? '').split('\n').filter(Boolean)}))
 		.filter(entry => entry.lines.length > 0);
+	// The worktree's shared note comes first: it describes the worktree being merged.
+	const worktreeLines = (session?.sharedNotes?.text.trim() ?? '').split('\n').filter(Boolean);
+	if (session && worktreeLines.length) noteEntries.unshift({key: 'worktree', title: `Worktree notes${session.worktree?.branch ? ` · ${session.worktree.branch}` : ''}`, lines: worktreeLines});
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
 			<Text color={THEME.accent} bold>Merge {session ? `"${displaySessionTitle(session, sessions)}"` : 'worktree'}?</Text>
@@ -344,14 +347,14 @@ function MergeConfirmPane({session, sessions, selectedIndex, width}: {session?: 
 			<Box marginTop={1} flexDirection="column">
 				<Text color={THEME.accentSoft} bold>Notes</Text>
 				{noteEntries.length > 0 ? noteEntries.map(entry => (
-					<Box key={entry.session.id} flexDirection="column">
-						<Text color={THEME.muted} bold>{truncate(displaySessionTitle(entry.session, sessions), contentWidth)}</Text>
+					<Box key={entry.key} flexDirection="column">
+						<Text color={THEME.muted} bold>{truncate(entry.title, contentWidth)}</Text>
 						{entry.lines.map((line, index) => (
-							<Text key={`${entry.session.id}-${index}`} color={THEME.muted}>{truncate(`  ${line}`, contentWidth)}</Text>
+							<Text key={`${entry.key}-${index}`} color={THEME.muted}>{truncate(`  ${line}`, contentWidth)}</Text>
 						))}
 					</Box>
 				)) : (
-					<Text color={THEME.muted}>No notes for this session or its sub-sessions.</Text>
+					<Text color={THEME.muted}>No notes for this worktree, this session or its sub-sessions.</Text>
 				)}
 			</Box>
 		</Box>
@@ -454,7 +457,7 @@ function mergedTargetBranch(session: SessionRecord): string | undefined {
 	return session.worktree?.mergeTargetBranch ?? session.mergeTargetBranch;
 }
 
-function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true): string {
+function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true, notesHint?: string): string {
 	switch (mode) {
 		// Every other mode replaces the right pane with a screen that shows its own (single) hint line.
 		case 'help': case 'settings': case 'agents':
@@ -466,7 +469,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 			return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k scroll • g/G top/bottom • esc/v return`;
 		}
 		case 'changes-focus': return 'changes • esc/v back • j/k select • space stage/unstage • a/A stage/unstage all • enter/e open in editor • J/K scroll diff • o lazygit';
-		case 'notes-focus': return 'notes edit • type to edit • enter newline • esc stop editing';
+		case 'notes-focus': return notesHint ?? 'notes edit • esc done';
 		case 'search': return 'type to search • enter keep search • esc clear';
 		case 'browse': {
 			// Keep this short; everything else is listed in ? help.
@@ -477,7 +480,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 				: activeTab === 'git' ? (hasWorkspace ? (attachReady ? 'v changes • o lazygit' : 'loading…') : undefined)
 				: activeTab === 'terminal' ? (hasWorkspace ? (attachReady ? 'o attach' : 'loading…') : undefined)
 					: running && activeTab === 'preview' ? (attachReady ? 'o attach' : 'loading…') : undefined;
-			const pane = activeTab === 'notes' ? (session ? 'o edit notes' : undefined)
+			const pane = activeTab === 'notes' ? (session ? 'o edit notes • E open in editor' : undefined)
 				: activeTab === 'dev' && session && workspaceKey(session) ? 'd start/stop'
 					: activeTab === 'preview' && running ? 'v scroll' : undefined;
 			const lifecycle = session?.status === 'exited'
@@ -539,8 +542,6 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		...(initialSelectedId && initialActiveTab ? {[initialSelectedId]: initialActiveTab} : {}),
 	});
 	const [activeTab, setActiveTab] = useState<RightPaneTab>(initialSelectedId ? sessionTabsRef.current[initialSelectedId] ?? 'preview' : initialActiveTab ?? 'preview');
-	const [notesDraft, setNotesDraft] = useState('');
-	const lastSavedNotesRef = useRef<Record<string, string>>({});
 	const [previewScrollOffset, setPreviewScrollOffset] = useState(0);
 	const [previewScrollSensitivity, setPreviewScrollSensitivity] = useState(DEFAULT_SCROLL_SENSITIVITY);
 	const previewWheelAccumulatorRef = useRef(0);
@@ -643,6 +644,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			setMode(current => (current === 'changes-focus' ? 'browse' : current));
 		}
 	}, [activeTab, onActiveTabChange, onSessionTabChange]);
+
+	// Notes focus: bracketed paste, so a multi-line paste (Tab and Enter included) arrives as text.
+	useEffect(() => {
+		if (mode !== 'notes-focus' || !process.stdout.isTTY) return;
+		process.stdout.write('\u001B[?2004h');
+		return () => { process.stdout.write('\u001B[?2004l'); };
+	}, [mode]);
 
 	useEffect(() => {
 		if (mode !== 'preview-focus') {
@@ -857,33 +865,6 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Workspace panes are watched again when the selected session gains (or loses) its workspace, e.g. once its
 	// worktree is prepared, and on lifecycle changes (the daemon reports a session still preparing as having none).
 	const selectedPaneScope = selectedSession ? `${selectedWorkspace ?? ''}\0${selectedSession.status}` : undefined;
-
-	useEffect(() => {
-		const notes = selectedSession?.notes ?? '';
-		if (selectedSession && lastSavedNotesRef.current[selectedSession.id] === undefined) {
-			lastSavedNotesRef.current[selectedSession.id] = notes;
-		}
-		setNotesDraft(notes);
-	}, [selectedSession?.id]);
-
-	useEffect(() => {
-		if (!client || !selectedSession) {
-			return;
-		}
-		const sessionId = selectedSession.id;
-		if ((lastSavedNotesRef.current[sessionId] ?? '') === notesDraft) {
-			return;
-		}
-		const timer = setTimeout(() => {
-			void client.updateSessionNotes(sessionId, notesDraft).then(updated => {
-				lastSavedNotesRef.current[sessionId] = updated.notes ?? '';
-				setSessions(current => upsertSession(current, updated));
-			}).catch(nextError => {
-				setError(errorMessage(nextError));
-			});
-		}, 300);
-		return () => clearTimeout(timer);
-	}, [client, notesDraft, selectedSession?.id]);
 
 	const filteredWorktrees = useMemo(() => {
 		const terms = worktreeQuery
@@ -1261,20 +1242,6 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		};
 	}, [activeTab, client, layout.previewCols, layout.previewRows, selectedId, selectedPaneScope]);
 
-	const updateNotesDraft = useCallback((updater: (current: string) => string) => {
-		if (!selectedSession) {
-			return;
-		}
-		setNotesDraft(current => {
-			const next = updater(current).slice(0, 50_000);
-			setSessions(sessions => {
-				const currentSession = sessions.find(session => session.id === selectedSession.id) ?? selectedSession;
-				return upsertSession(sessions, {...currentSession, notes: next});
-			});
-			return next;
-		});
-	}, [selectedSession]);
-
 	const openSelectedInEditor = useCallback(() => {
 		if (!selectedSession) {
 			setError('no session selected');
@@ -1297,6 +1264,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		onAttach: () => { if (selectedSession) attachTo(selectedSession, 'git'); },
 		setBusy, setError, setStatusMessage,
 	});
+	const notesFlow = useNotesFlow({client, session: selectedSession, sessions, focused: mode === 'notes-focus', onExit: () => setMode('browse'), setError, setStatusMessage});
 	const attachTo = (session: SessionRecord, target: AttachTarget) => exit({
 		kind: 'attach',
 		sessionId: session.id,
@@ -1637,28 +1605,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 
 		if (mode === 'notes-focus') {
-			if (key.escape) {
-				setMode('browse');
-				return;
-			}
-			if (key.ctrl || key.meta) {
-				return;
-			}
-			if (key.backspace || key.delete) {
-				updateNotesDraft(value => value.slice(0, -1));
-				return;
-			}
-			if (key.return) {
-				updateNotesDraft(value => `${value}\n`);
-				return;
-			}
-			if (input) {
-				const cleaned = input.replace(/\r\n?|\n/g, '\n').replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '');
-				if (cleaned) {
-					updateNotesDraft(value => value + cleaned);
-				}
-				return;
-			}
+			notesFlow.handleInput(input, key);
 			return;
 		}
 
@@ -2040,7 +1987,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === 'o' && activeTab === 'notes' && selectedSession) {
+				notesFlow.focus();
 				setMode('notes-focus');
+				return;
+			}
+			// The Notes tab's active section (the session's, or the worktree's after editing that) in Cursor / VS Code.
+			if (input === 'E' && activeTab === 'notes' && selectedSession) {
+				notesFlow.openActiveInEditor();
 				return;
 			}
 			const workspaceTab = activeTab === 'terminal' || activeTab === 'git' || activeTab === 'dev';
@@ -2252,7 +2205,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Exactly FOOTER_ROWS rows, each truncated, so the layout above never shifts.
 	const footerRows = [
 		<Text key="hint" color={mode === 'search' ? THEME.active : THEME.muted} wrap="truncate-end">
-			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach)}
+			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach, mode === 'notes-focus' ? notesFlow.hint(terminalSize.cols) : undefined)}
 		</Text>,
 		<Text key="messages" wrap="truncate-end">
 			{footerMessages.length > 0
@@ -2328,7 +2281,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						) : activeTab === 'dev' ? (
 							<DevPane session={selectedSession} dev={dev} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
 						) : (
-							<NotesPane session={selectedSession} notes={notesDraft} width={layout.paneInnerWidth} height={layout.paneInnerHeight} focused={mode === 'notes-focus'} />
+							notesFlow.render(layout.paneInnerWidth, layout.paneInnerHeight)
 						)}
 					</Box>
 				) : details ? (

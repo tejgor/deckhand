@@ -6,7 +6,7 @@ import type {SettingsInfo, WorktreeCandidates} from './settingsInfo.js';
 import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 37;
+export const PROTOCOL_VERSION = 38;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -106,7 +106,15 @@ export interface SessionRecord {
 	exitCode?: number | null;
 	exitSignal?: number | null;
 	lastPreview?: string;
+	/**
+	 * The session's own note (`notes/sessions/<id>.md` in the state directory). Projected by the daemon from the file,
+	 * never stored in state.json (older state that still has it is migrated into the file).
+	 */
 	notes?: string;
+	/** The session note's file and revision (projected, like `notes`). */
+	notesFile?: NoteFile;
+	/** The note shared by every session of the session's worktree (or main checkout), projected by the daemon. */
+	sharedNotes?: SharedNote;
 	/** The session's workspace Dev is running (mirrored on every session in that worktree; never survives a daemon restart). */
 	devRunning?: boolean;
 	mergedAt?: string;
@@ -130,6 +138,29 @@ export interface SessionRecord {
 	/** The agent version (x.y.z) the session's agent last launched with; it stays outdated until restarted. */
 	agentVersion?: string;
 }
+
+/** A note file as the daemon last read it (see src/notesStore.ts). */
+export interface NoteFile {
+	/** The Markdown file; created on the first save or when opened in the editor. */
+	path: string;
+	/** Hash of the file's text (`noteRevision`); a save names the revision it edited and is refused when the file changed. */
+	revision: string;
+	/** Longer than MAX_NOTES_CHARS on disk: shown cut, edited only in an editor. */
+	tooLarge?: boolean;
+}
+
+/** A worktree's (or the main checkout's) note shared by its sessions. */
+export interface SharedNote extends NoteFile {
+	/** `worktree`: one linked worktree incarnation (`id` = its record ID); `repo`: the main checkout (`id` = hash of its root). */
+	kind: 'worktree' | 'repo';
+	id: string;
+	text: string;
+	/** Its worktree was deleted: shown, but not editable. */
+	readOnly?: boolean;
+}
+
+/** `save-note`: `saved` false when the file changed since `revision` (nothing written; `session` carries the file as it is). */
+export interface NoteSaveResult {saved: boolean; session: SessionRecord}
 
 /** One agent's versions (`agent-versions`): installed (`<command> --version`), latest (npm), and its sessions. */
 export interface AgentVersionInfo {
@@ -267,7 +298,13 @@ export type ClientRequest =
 	| {type: 'change-stage'; requestId: string; sessionId: string; mode: 'stage' | 'unstage'; group?: ChangeGroup; path?: string}
 	| {type: 'start-dev'; requestId: string; sessionId: string; cols: number; rows: number}
 	| {type: 'stop-dev'; requestId: string; sessionId: string}
-	| {type: 'update-session-notes'; requestId: string; sessionId: string; notes: string}
+	/**
+	 * Saves the session's own note or its shared note (`noteId`: `sharedNotes.kind:sharedNotes.id`, so it is the note the
+	 * UI edited) when the file still has `revision`; text is cut to MAX_NOTES_CHARS.
+	 */
+	| {type: 'save-note'; requestId: string; sessionId: string; section: 'session' | 'shared'; noteId?: string; text: string; revision: string}
+	/** Creates the note's file if missing and responds with its path (for the editor). */
+	| {type: 'open-note'; requestId: string; sessionId: string; section: 'session' | 'shared'}
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
 	| {type: 'reorder-session'; requestId: string; sessionId: string; direction: 'up' | 'down'}
 	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number; mode?: RestartMode; projectFingerprint?: string}
