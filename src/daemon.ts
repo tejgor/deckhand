@@ -1,5 +1,4 @@
 import fs from 'node:fs/promises';
-import {constants as fsConstants} from 'node:fs';
 import path from 'node:path';
 import net from 'node:net';
 import {execFile, fork, spawn, type ChildProcess} from 'node:child_process';
@@ -23,10 +22,11 @@ import {createPullRequest, getHandoffGitContext, getWorkspaceSummary, inspectWor
 import {applyStage, readChangeDiff, readChanges, type ChangesSnapshot, type UntrackedCounts} from './changesGit.js';
 import {emptyChanges, findChange, type ChangesRecord} from './changesModel.js';
 import {normalizeHook, integrationArgs, needsAttention} from './agentSignals.js';
-import {agentSpec, launchArgs, newAgentRef, relaunchPlan, sameAgentSessionRef, type LaunchPlan} from './agents.js';
+import {AGENTS, agentSpec, launchArgs, newAgentRef, relaunchPlan, sameAgentSessionRef, type LaunchPlan} from './agents.js';
+import {AgentVersionChecker, findOnPath} from './agentVersionCheck.js';
 import {exportHandoff} from './sessionFeatures.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {AgentActivityStatus, AgentSessionRef, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, TerminalRecord, WorktreeMarkers, WorktreeRecord} from './types.js';
+import type {AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, TerminalRecord, WorktreeMarkers, WorktreeRecord} from './types.js';
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_PREVIEW_COLS = 80;
@@ -41,6 +41,8 @@ const WORKSPACE_SHUTDOWN_TIMEOUT_MS = 3000;
 const CHANGES_POLL_MS = 2000;
 // A diff request reuses the last status read when it is this recent instead of reading again.
 const CHANGES_FRESH_MS = 2500;
+// How often the daemon asks whether the latest agent releases are due for a lookup (they are every LATEST_MAX_AGE_MS).
+const AGENT_VERSIONS_TICK_MS = 30 * 60_000;
 
 interface ClientSubscription {
 	repoRoot?: string;
@@ -178,23 +180,10 @@ async function resolveProgramCommand(program: SessionRecord['program']): Promise
 		return program;
 	}
 
-	const pathValue = process.env.PATH || '';
-	for (const directory of pathValue.split(path.delimiter)) {
-		if (!directory) {
-			continue;
-		}
-		const candidate = path.join(directory, program);
-		try {
-			await fs.access(candidate, fsConstants.X_OK);
-			programCommandCache.set(program, candidate);
-			return candidate;
-		} catch {
-			// Try the next PATH entry.
-		}
-	}
-
-	programCommandCache.set(program, program);
-	return program;
+	// Only a found binary is cached, so an agent installed while the daemon runs is found by the next launch.
+	const found = await findOnPath(program);
+	if (found) programCommandCache.set(program, found);
+	return found ?? program;
 }
 
 function buildDeckhandAgentName(title: string, sessionId: string, suffix?: string): string {
@@ -323,6 +312,10 @@ export class InkDaemon {
 	private readonly preparingSessions = new Set<string>();
 	private readonly summaries = new Map<string, {key: string; at: number; result: Promise<WorkspaceSummary>}>();
 	private readonly changeWatches = new Map<string, ChangesWatch>();
+	private readonly agentVersions = new AgentVersionChecker();
+	/** The last `agent-versions-updated` sent (JSON), so only changes are broadcast. */
+	private publishedAgentVersions?: string;
+	private agentVersionsTimer?: NodeJS.Timeout;
 
 	async start(): Promise<void> {
 		await ensureConfigDir();
@@ -344,6 +337,10 @@ export class InkDaemon {
 		await this.writePidFile();
 		this.setupProcessHandlers();
 		await this.log(`daemon ready socket=${getSocketPath()}`);
+		// Latest agent releases: looked up in the background now, then again once they are LATEST_MAX_AGE_MS old.
+		void this.refreshAgentVersions(false);
+		this.agentVersionsTimer = setInterval(() => void this.refreshAgentVersions(false), AGENT_VERSIONS_TICK_MS);
+		this.agentVersionsTimer.unref();
 	}
 
 	private async log(message: string): Promise<void> {
@@ -463,6 +460,7 @@ export class InkDaemon {
 			return;
 		}
 		this.shuttingDown = true;
+		if (this.agentVersionsTimer) clearInterval(this.agentVersionsTimer);
 		for (const child of this.setupProcesses.values()) { try { if (child.pid) process.kill(-child.pid, 'SIGTERM'); } catch {} }
 		await this.log('cleanup start');
 		for (const socket of this.clients.keys()) {
@@ -705,6 +703,12 @@ export class InkDaemon {
 					if (this.workspaceDevLive(key)) throw new Error('Stop the current Dev/action command before starting another');
 					sendMessage(socket, response(message.requestId, await this.startWorkspaceDev(session.id, key, command, message.cols, message.rows))); return;
 				}
+				case 'agent-versions': {
+					if (message.refresh) await this.agentVersions.refreshLatest(true);
+					sendMessage(socket, response(message.requestId, await this.publishAgentVersions()));
+					return;
+				}
+				case 'update-agent': sendMessage(socket, response(message.requestId, await this.updateAgent(message.program))); return;
 				case 'list':
 					sendMessage(socket, response(message.requestId, sortSessionsForSidebar([...this.sessions.values()])));
 					return;
@@ -1125,6 +1129,8 @@ export class InkDaemon {
 		this.assertWorkspaceAvailable(session.cwd);
 		this.assertCurrentLaunch(session.id, launchId);
 		const hookToken = randomUUID();
+		// The version this launch runs (read beside the spawn; cached per binary, so usually instant).
+		const launchVersion = this.agentVersions.versionOf(session.command).then(result => result.version, () => undefined);
 		const child = fork(getCliEntryPath(), ['--session-worker'], {
 			env: {...process.env, DECKHAND_SESSION_ID: session.id, DECKHAND_LAUNCH_ID: launchId, DECKHAND_HOOK_TOKEN: hookToken},
 			stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -1160,7 +1166,11 @@ export class InkDaemon {
 			this.stopWorker(worker);
 			throw new Error('Startup cancelled');
 		}
-		return started;
+		const agentVersion = await launchVersion;
+		this.patchSession(session.id, {agentVersion});
+		// A launch may be the first to see a new installed version (updated outside Deckhand).
+		void this.publishAgentVersions();
+		return {...started, agentVersion};
 	}
 
 	private stopWorker(worker: WorkerRuntime): void {
@@ -1340,6 +1350,36 @@ export class InkDaemon {
 		for (const [socket, client] of this.clients.entries()) {
 			if (client.watchedPreviewSessionId === sessionId) sendMessage(socket, {type: 'preview-updated', preview: this.buildPreviewRecord(updated, updated.lastPreview ?? '')});
 		}
+	}
+
+	/** Every agent's versions; broadcast to subscribed clients when they changed since the last broadcast. */
+	private async publishAgentVersions(): Promise<AgentVersions> {
+		const versions = await this.agentVersions.snapshot(this.sessions.values());
+		const json = JSON.stringify(versions);
+		if (json !== this.publishedAgentVersions) {
+			this.publishedAgentVersions = json;
+			for (const [socket, client] of this.clients.entries()) {
+				if (client.repoRoot) sendMessage(socket, {type: 'agent-versions-updated', versions});
+			}
+		}
+		return versions;
+	}
+
+	private async refreshAgentVersions(force: boolean): Promise<void> {
+		try {
+			await this.agentVersions.refreshLatest(force);
+			await this.publishAgentVersions();
+		} catch (error) {
+			await this.log(`agent version check failed: ${errorMessage(error)}`);
+		}
+	}
+
+	/** Runs the agent's update command and reports the new versions; sessions are never touched (they keep running their version). */
+	private async updateAgent(program: SessionRecord['program']): Promise<AgentUpdateResult> {
+		if (!Object.hasOwn(AGENTS, program)) throw new Error(`Unknown agent ${String(program)}`);
+		const outcome = await this.agentVersions.update(program, () => void this.publishAgentVersions());
+		await this.log(`agent update ${outcome.command}: exit ${outcome.exitCode} (${outcome.before ?? '?'} -> ${outcome.after ?? '?'})`);
+		return {program, ...outcome, versions: await this.publishAgentVersions()};
 	}
 
 	private sessionsForRepo(repoRoot: string): SessionRecord[] {

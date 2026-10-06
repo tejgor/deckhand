@@ -6,7 +6,7 @@ import type {SettingsInfo, WorktreeCandidates} from './settingsInfo.js';
 import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 36;
+export const PROTOCOL_VERSION = 37;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -127,6 +127,41 @@ export interface SessionRecord {
 	setup?: {command: string; state: 'pending' | 'running' | 'failed' | 'cancelled' | 'complete'; output: string; exitCode?: number | null};
 	handoffPath?: string;
 	requestedWorktreeMode?: WorktreeMode;
+	/** The agent version (x.y.z) the session's agent last launched with; it stays outdated until restarted. */
+	agentVersion?: string;
+}
+
+/** One agent's versions (`agent-versions`): installed (`<command> --version`), latest (npm), and its sessions. */
+export interface AgentVersionInfo {
+	program: ProgramKey;
+	/** x.y.z of the binary found on the daemon's PATH; absent when not installed or unreadable. */
+	installed?: string;
+	/** x.y.z of the npm `latest` dist-tag; absent while unknown (never checked, offline, npm missing). */
+	latest?: string;
+	/** The resolved binary. */
+	path?: string;
+	/** When `latest` was last looked up (ISO). */
+	checkedAt?: string;
+	/** Why a version is unknown (shown as a note, never as an error). */
+	error?: string;
+	/** Its update command is running. */
+	updating?: boolean;
+	/** Running sessions of this agent, and how many of them launched with an older version than the installed one. */
+	running: number;
+	outdated: number;
+}
+export type AgentVersions = Record<ProgramKey, AgentVersionInfo>;
+export interface AgentUpdateResult {
+	program: ProgramKey;
+	ok: boolean;
+	exitCode: number | null;
+	/** The command that ran, for display. */
+	command: string;
+	/** The last part of its combined output. */
+	output: string;
+	before?: string;
+	after?: string;
+	versions: AgentVersions;
 }
 
 export interface PreviewRecord {
@@ -214,6 +249,10 @@ export type ClientRequest =
 	| {type: 'cancel-start'; requestId: string; sessionId: string}
 	| {type: 'run-action'; requestId: string; sessionId: string; action: string; cols: number; rows: number}
 	| {type: 'list'; requestId: string}
+	/** Installed and latest version of every agent; `refresh` looks the latest up again (bounded) before answering. */
+	| {type: 'agent-versions'; requestId: string; refresh?: boolean}
+	/** Runs the agent's own update command (one at a time per agent); never touches sessions. */
+	| {type: 'update-agent'; requestId: string; program: ProgramKey}
 	| {type: 'subscribe'; requestId: string; repoRoot: string}
 	| {type: 'list-worktrees'; requestId: string; cwd: string}
 	| {type: 'watch-preview'; requestId: string; sessionId?: string; cols: number; rows: number; scrollOffset?: number}
@@ -277,6 +316,7 @@ export type ServerEvent =
 	| {type: 'git-updated'; git: GitRecord}
 	| {type: 'dev-updated'; dev: DevRecord}
 	| {type: 'changes-updated'; changes: ChangesRecord}
+	| {type: 'agent-versions-updated'; versions: AgentVersions}
 	| {type: 'terminal-output'; sessionId: string; data: string}
 	| {type: 'git-output'; sessionId: string; data: string}
 	| {type: 'dev-output'; sessionId: string; data: string}

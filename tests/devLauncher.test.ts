@@ -30,7 +30,7 @@ test('dev sandbox does not overwrite existing work and is built aside', async t 
 test('dev status/stop control only the isolated dev daemon; source helpers resolve outside the checkout', {timeout: 15000}, async t => {
 	// HOME is a temp dir, so "production" (~/.deckhand) is a throwaway stable daemon, never the user's.
 	const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'dh-home-')), devHome = path.join(fakeHome, 'dev'), stableHome = path.join(fakeHome, '.deckhand');
-	const base = {...process.env, HOME: fakeHome, DECKHAND_DEV: '0'} as NodeJS.ProcessEnv;
+	const base = {...process.env, HOME: fakeHome, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}'} as NodeJS.ProcessEnv;
 	for (const key of ['DECKHAND_HOME', 'DECKHAND_CHANNEL', 'DECKHAND_SESSION_ID', 'DECKHAND_LAUNCH_ID', 'DECKHAND_HOOK_TOKEN']) delete base[key];
 	const env = {...base, DECKHAND_DEV_HOME: devHome};
 	const daemons: ChildProcess[] = [];

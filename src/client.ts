@@ -15,7 +15,7 @@ import {
 	isDevRuntime,
 } from './paths.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
+import type {AgentUpdateResult, AgentVersions, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -217,6 +217,7 @@ interface LiveClientHandlers {
 	onTerminalUpdated?: (terminal: TerminalRecord) => void;
 	onChangesUpdated?: (changes: ChangesRecord) => void;
 	onDevUpdated?: (dev: DevRecord) => void;
+	onAgentVersionsUpdated?: (versions: AgentVersions) => void;
 	onError?: (error: Error) => void;
 	onClose?: () => void;
 }
@@ -265,6 +266,9 @@ export class LiveClient {
 						return;
 					case 'dev-updated':
 						this.handlers.onDevUpdated?.(message.dev);
+						return;
+					case 'agent-versions-updated':
+						this.handlers.onAgentVersionsUpdated?.(message.versions);
 						return;
 					default:
 						return;
@@ -417,6 +421,10 @@ export class LiveClient {
 	exportHandoff(sessionId: string, includeOutput = false): Promise<string> { return this.request({type: 'export-handoff', requestId: randomUUID(), sessionId, includeOutput}); }
 	runAction(sessionId: string, action: string, cols: number, rows: number): Promise<DevRecord> { return this.request({type: 'run-action', requestId: randomUUID(), sessionId, action, cols, rows}); }
 	cancelStart(sessionId: string): Promise<void> { return this.request({type: 'cancel-start', requestId: randomUUID(), sessionId}); }
+	/** Installed and latest version of every agent; `refresh` looks the latest up again first (up to ~10 s). */
+	agentVersions(refresh = false): Promise<AgentVersions> { return this.request({type: 'agent-versions', requestId: randomUUID(), refresh}); }
+	/** Runs the agent's own update command (may take minutes); resolves with its exit code and output. */
+	updateAgent(program: ProgramKey): Promise<AgentUpdateResult> { return this.request({type: 'update-agent', requestId: randomUUID(), program}); }
 
 	sendAgentInput(sessionId: string, data: string): void {
 		if (this.closed || this.socket.destroyed) {

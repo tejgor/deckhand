@@ -35,5 +35,5 @@ test('help search matches keys, descriptions and notes across topics; the pane s
 test('help: the Sidebar topic explains every row glyph, the gutter marker, the header and the details', () => {
 	const topic = HELP_TOPICS.find(entry => entry.title === 'Sidebar')!;
 	const text = topic.lines.map(line => 'keys' in line ? `${line.keys} ${line.text}` : 'note' in line ? line.note : line.heading).join('\n');
-	for (const glyph of ['⠋', '●', '◌', '○', '!', '?', '◆', '⌛', '▾', '▸', '↳', '⑂', '▶', '▣', '✓', '+N', '✶', 'π', '◇', '╎', '! N', 'Below the list']) assert.ok(text.includes(glyph), glyph);
+	for (const glyph of ['⠋', '●', '◌', '○', '!', '?', '◆', '⌛', '▾', '▸', '↳', '⑂', '▶', '▣', '✓', '+N', '✶', 'π', '◇', '↑', '╎', '! N', 'Below the list']) assert.ok(text.includes(glyph), glyph);
 });

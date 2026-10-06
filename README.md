@@ -92,10 +92,14 @@ deckhand setup
 
 The setup helper installs:
 - **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`
-- **Pi**: `npm install -g --ignore-scripts @earendil-works/pi-coding-agent`
-- **Codex**: `npm install -g @openai/codex`
+- **Pi**: `curl -fsSL https://pi.dev/install.sh | sh` (a managed install that pins its dependencies; an older npm install of Pi can be migrated by running the same command)
+- **Codex**: `curl -fsSL https://chatgpt.com/codex/install.sh | sh` (OpenAI's standalone installer: a native binary in `~/.local/bin`, releases under `~/.codex/packages/standalone`). To move an existing npm install over, run `npm uninstall -g @openai/codex` first, otherwise the installer adds a PATH block to your shell profile so its copy wins
 
 > Use `deckhand setup --check` for a read-only check, or `deckhand setup --yes` to accept the agent install prompts automatically.
+
+### Keeping Agents Up to Date
+
+Press `U` in Deckhand to see each agent's installed version beside its latest release (from npm), and press Enter to run that agent's own updater (`claude update`, `codex update`, `pi update --self`). Running sessions are never restarted: they keep the version they launched with until you restart them, and the sidebar marks them with a dim `↑`. When an update is available the header says so quietly (e.g. `codex update · U`). Installing a missing agent is still `deckhand setup`'s job.
 
 ### Optional: Lazygit
 
@@ -160,6 +164,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `i` | Workspace Git summary; `P` queries PR, `b` opens it, `c` pushes and opens GitHub's new-PR form (after confirmation), `g` opens the Git tab |
 | `C` | Settings: a grid of every setting with a Global and a This repo column (● in effect, ⚠ needs trust); ↑↓ setting, ←→ column, Enter edits that cell's layer, x clears it, e that column's raw JSON, T reviews/trusts the repo file (you're also asked inline right before anything from it runs) |
 | `e` | Choose an action (global, plus trusted repository actions) for the shared Dev pane |
+| `U` | Agents: installed vs latest version of Claude, Pi and Codex; Enter runs the selected agent's own updater (asks first when it has running sessions, which keep their version until restarted), `r` re-checks, Esc back |
 | `H` / `F` | Export/open handoff (notes plus commits and changed files, no diff content) / create a clean child from the reviewed document |
 | `!` | Next known attention session |
 | `x` / `X` *(while starting)* | Cancel startup/setup, retaining its worktree |
@@ -183,7 +188,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 ```
 
 - **Before the title:** status — spinner starting/working, `●` idle, `◌` activity unknown, `○` exited; with agent signals `?` needs input, `◆` response ended (not task success), `!` failed or failed/interrupted exit, `⌛` rate-limited. Tree — `▾`/`▸` expanded/collapsed parent, `↳` clean and `⑂` forked sub-session.
-- **After the title:** `▶` Dev running (once per worktree), `▣` archived, `!` cleanup error, `✓` merged, `+N` hidden sub-sessions, then the agent: `✶` Claude, `π` Pi, `◇` Codex.
+- **After the title:** `▶` Dev running (once per worktree), `▣` archived, `!` cleanup error, `✓` merged, `+N` hidden sub-sessions, `↑` running an older agent version than the one now installed (restart it to update; the details line then shows both versions, e.g. `✶ claude 2.1.287 · 2.1.290 installed`), then the agent: `✶` Claude, `π` Pi, `◇` Codex.
 - Archived rows are dimmed; in the archived view the parents shown for context are dimmed instead. `?` → Sidebar lists all of this in the app.
 
 ### Attach Mode

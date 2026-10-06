@@ -74,6 +74,7 @@ test('C → Settings in the sandbox: a grid with a Global and a This repo column
 // A stand-in agent (never a real one): stays alive and prints a marker.
 const fakeAgent = `#!/usr/bin/env node
 if (process.argv.includes('--help')) { console.log('PROMPT --settings --no-daemon resume'); process.exit(0); }
+if (process.argv.includes('--version')) { console.log('1.0.0'); process.exit(0); }
 console.log('fake agent ready');
 process.stdin.resume();
 setInterval(() => {}, 10000);

@@ -10,6 +10,8 @@ import {openInEditor, openUrl} from './desktop.js';
 import {MenuList, MenuPane, SelectableRow, fitHint, type HintPart} from './menu.js';
 import {isSettingsFlowMode, useSettingsFlow} from './settingsFlow.js';
 import {useHelp} from './helpPane.js';
+import {useAgentsFlow} from './agentsFlow.js';
+import {installedVersions, updateHint} from './agentVersions.js';
 import {filterCycleMessage, filterSessionList, nextSessionFilter, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
 import {useChangesFlow} from './changesFlow.js';
 import {emptyChanges, type ChangesRecord} from './changesModel.js';
@@ -23,7 +25,7 @@ import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSes
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
 import {AGENTS} from './agents.js';
-import type {AttachTarget, DevRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
+import type {AgentVersions, AttachTarget, DevRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
 import {THEME, compactPath, displaySessionTitle, errorMessage, stripTerminalControls, truncate} from './ui.js';
 
 const RIGHT_TABS: RightPaneTab[] = ['preview', 'terminal', 'git', 'dev', 'notes'];
@@ -129,7 +131,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss';
+type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss' | 'agents';
 
 interface AppProps {
 	repoRoot: string;
@@ -455,7 +457,7 @@ function mergedTargetBranch(session: SessionRecord): string | undefined {
 function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true): string {
 	switch (mode) {
 		// Every other mode replaces the right pane with a screen that shows its own (single) hint line.
-		case 'help': case 'settings':
+		case 'help': case 'settings': case 'agents':
 		case 'edit-project': case 'discard-project': case 'workspace-info': case 'review-project': case 'confirm-loss':
 		case 'pick-action': case 'pick-program': case 'enter-name': case 'pick-worktree': case 'confirm-kill': case 'confirm-merge':
 			return '';
@@ -548,6 +550,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Whether this UI asked the daemon to watch (poll) a workspace's changes, so leaving the Git tab stops it.
 	const changesWatchedRef = useRef(false);
 	const [dev, setDev] = useState<DevRecord>(EMPTY_DEV);
+	// Every agent's installed/latest version (agent-versions, then agent-versions-updated): the ↑ marker, the header hint, U.
+	const [agentVersions, setAgentVersions] = useState<AgentVersions>();
 	const [error, setError] = useState<string | undefined>();
 	const [statusMessage, setStatusMessage] = useState<string | undefined>();
 	const [numericSelection, setNumericSelection] = useState('');
@@ -750,6 +754,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						}
 						setDev(nextDev);
 					},
+					onAgentVersionsUpdated: setAgentVersions,
 					onError: nextError => {
 						setError(nextError.message);
 					},
@@ -772,6 +777,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setSessions(sortSessions(initialSessions));
 				setSessionsLoaded(true);
 				setError(undefined);
+				// The daemon's cached versions; it looks the latest releases up in the background.
+				void nextClient.agentVersions().then(versions => { if (!cancelled) setAgentVersions(versions); }).catch(() => {});
 			} catch (nextError) {
 				if (!cancelled) {
 					setError(errorMessage(nextError));
@@ -1281,6 +1288,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	}, [selectedSession]);
 
 	const help = useHelp();
+	const agents = useAgentsFlow({client, versions: agentVersions, setVersions: setAgentVersions, setMode, setStatusMessage});
+	const sidebarVersions = useMemo(() => installedVersions(agentVersions), [agentVersions]);
 	const changesFlow = useChangesFlow({
 		client, session: selectedSession, changes, focused: mode === 'changes-focus',
 		onChanges: next => { if (next.sessionId === selectedIdRef.current) setChanges(next); },
@@ -1566,6 +1575,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			settingsFlow.handleInput(input, key);
 			return;
 		}
+		if (mode === 'agents') {
+			agents.handleInput(input, key);
+			return;
+		}
 		if (mode === 'help') {
 			if (help.handleInput(input, key) === 'close') setMode('browse');
 			return;
@@ -1836,6 +1849,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			}
 			if (input === 'C' && client) {
 				settingsFlow.open(selectedSession?.cwd ?? cwd);
+				return;
+			}
+			if (input === 'U' && client) {
+				agents.open();
 				return;
 			}
 			if (input === 'e') {
@@ -2246,18 +2263,23 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const details = detailsContent();
 	// Settings (C) take the full width: the grid shows both layers side by side.
 	const settingsOpen = isSettingsFlowMode(mode) && !details;
+	// Muted, only when an installed agent has a newer release (nothing while all are current or the latest is unknown).
+	const agentUpdateHint = updateHint(agentVersions);
 
 	return (
 		<Box flexDirection="column">
 			<Box justifyContent="space-between" width={terminalSize.cols}>
 				<Text color={THEME.accent} bold>{process.env.DECKHAND_CHANNEL === 'dev' ? 'deckhand · DEV (isolated)' : 'deckhand'}</Text>
-				<Text color={connectionColor(client)}>● {describeConnection(client)}</Text>
+				<Text wrap="truncate-start">
+					{agentUpdateHint ? <Text color={THEME.muted}>{agentUpdateHint}   </Text> : null}
+					<Text color={connectionColor(client)}>● {describeConnection(client)}</Text>
+				</Text>
 			</Box>
 			<Box width={terminalSize.cols}>
 				<Text color={THEME.muted} wrap="truncate-end">{truncate(compactPath(repoRoot, repoLabelWidth), repoLabelWidth)}</Text>
 			</Box>
 			<Box flexDirection="row">
-				{settingsOpen ? settingsFlow.render(terminalSize.cols, layout.contentHeight) : mode === 'help' ? help.render(terminalSize.cols, layout.contentHeight) : <>
+				{settingsOpen ? settingsFlow.render(terminalSize.cols, layout.contentHeight) : mode === 'help' ? help.render(terminalSize.cols, layout.contentHeight) : mode === 'agents' ? agents.render(terminalSize.cols, layout.contentHeight) : <>
 				<Sidebar
 					sessions={visibleSessions}
 					allSessions={sessions}
@@ -2271,6 +2293,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					filter={sessionFilter}
 					query={sessionQuery}
 					now={Date.now()}
+					installedVersions={sidebarVersions}
 				/>
 				<Box width={1} />
 				{mode === 'browse' || mode === 'preview-focus' || mode === 'changes-focus' || mode === 'notes-focus' || mode === 'search' ? (
