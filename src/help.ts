@@ -21,7 +21,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		key('q', 'Quit the UI (agents and the daemon keep running)'),
 	]},
 	{title: 'Sessions', lines: [
-		key('N', 'Child session in the selected one\'s workspace (can fork a Claude/Pi conversation)'),
+		key('N', 'Child of the selected session: clean, or a ⑂ fork of it'),
 		key('x  X', 'Stop / force-stop; while starting, cancel setup (the worktree is kept)'),
 		key('s', 'Resume an exited session\'s conversation, or retry a failed setup'),
 		key('S', 'Restart with a fresh conversation (needed when its ID is unknown)'),
@@ -30,6 +30,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		key('M', 'Mark as merged/pushed (your own marker, not checked; ✓ on every session of the worktree)'),
 		key('H', 'Export a Markdown handoff (notes, commits, changed files, diff stat) and open it'),
 		key('F', 'New clean child session that starts from that handoff (not a conversation fork)'),
+		note('A fork copies the conversation as saved then, not a turn in progress.'),
 		note('Deleting a worktree on stop is blocked by uncommitted work or unpushed commits unless you type DELETE.'),
 	]},
 	{title: 'Find & organize', lines: [

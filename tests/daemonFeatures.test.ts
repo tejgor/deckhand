@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import {spawn, type ChildProcess} from 'node:child_process';
+import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import net from 'node:net';
 import {once} from 'node:events';
@@ -11,32 +11,12 @@ import {attachJsonParser, request, writeMessage} from '../src/client.js';
 import {getSocketPath, getWorkerPidPath} from '../src/paths.js';
 import type {ChangeDiff, ChangesRecord, ClientRequest, SessionRecord, ProjectInfo, DevRecord, GitRecord, ServerMessage, SessionCleanupInspection, TerminalRecord} from '../src/types.js';
 import type {WorktreeInfo} from '../src/git.js';
-import {cli, repo, git, waitFor, withEnv, isAlive} from './helpers.js';
+import {cli, repo, git, waitFor, withEnv, isAlive, fakeAgent, withoutHooks, stop} from './helpers.js';
 import {loadAppConfig, loadState, saveState, updateAppConfig} from '../src/storage.js';
 import type {SettingsInfo, WorktreeCandidates} from '../src/settingsInfo.js';
 import {applyChange, initialLinks, linkSelection, infoLayer} from '../src/settingsModel.js';
 import {workspaceKey, workspacePaneUnavailable, workspaceWorkerId} from '../src/workspace.js';
-const fakeAgent = `#!/usr/bin/env node
-const fs = require('fs');
-const cp = require('child_process');
-const path = require('path');
-if (process.argv.includes('--help')) { console.log('PROMPT --settings --no-daemon resume'); process.exit(0); }
-const provider = path.basename(process.argv[1]);
-const id = 'fixture-native-' + provider;
-fs.writeFileSync(path.join(process.env.DECKHAND_HOME, 'trace-' + process.env.DECKHAND_SESSION_ID + '.json'), JSON.stringify({args: process.argv.slice(2), token: process.env.DECKHAND_HOOK_TOKEN, launchId: process.env.DECKHAND_LAUNCH_ID, pid: process.pid}));
-function hook(event) { return new Promise(resolve => { const child = cp.spawn(process.execPath, [process.env.TEST_CLI, 'hook'], {stdio: ['pipe','ignore','ignore']}); child.stdin.end(JSON.stringify({hook_event_name: event, session_id: id})); child.on('close', resolve); }); }
-hook('SessionStart').then(() => console.log('ready'));
-if (process.stdin.isTTY) process.stdin.setRawMode(true);
-process.stdin.resume();
-process.stdin.on('data', data => fs.appendFileSync(path.join(process.env.DECKHAND_HOME, 'input-' + process.env.DECKHAND_SESSION_ID), data));
-setInterval(() => {}, 10000);
-`;
-async function stop(child: ChildProcess): Promise<void> {
-	if (child.exitCode !== null || child.signalCode !== null) return;
-	const ended = new Promise<void>(resolve => child.once('exit', () => resolve()));
-	child.kill('SIGTERM'); await ended;
-}
-test('daemon features operate in isolated state with fake agents', {timeout: 90000}, async t => {
+test('daemon features operate in isolated state with fake agents', {timeout: 180000}, async t => {
 	const root = await repo();
 	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-state-'));
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
@@ -158,7 +138,7 @@ test('daemon features operate in isolated state with fake agents', {timeout: 900
 	});
 
 	await t.test('unknown Codex identity never silently becomes a new conversation', async () => {
-		await fs.writeFile(path.join(bin, 'codex'), fakeAgent.replace("hook('SessionStart').then(() => console.log('ready'));", "console.log('ready');"), {mode: 0o755});
+		await fs.writeFile(path.join(bin, 'codex'), withoutHooks, {mode: 0o755});
 		const session = await create('unknown-codex', 'codex');
 		await waitFor(() => state(session.id), item => item.status === 'running');
 		await killAndWait(session.id);

@@ -22,6 +22,7 @@ import {msUntilAgeChanges, statusSince} from './sidebarModel.js';
 import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
+import {AGENTS} from './agents.js';
 import type {AttachTarget, DevRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
 import {THEME, compactPath, displaySessionTitle, errorMessage, stripTerminalControls, truncate} from './ui.js';
 
@@ -196,7 +197,12 @@ function connectionColor(client: LiveClient | undefined): string {
 }
 
 function supportsForkedSubSession(session: SessionRecord | undefined): boolean {
-	return session?.program === 'claude' || session?.program === 'pi';
+	return Boolean(session && AGENTS[session.program].forks);
+}
+
+// Forks of an agent that may reopen them in the parent's directory always run there (the daemon refuses other modes).
+function forkStaysInParent(program: ProgramKey | undefined, subSessionKind: SubSessionKind | undefined): boolean {
+	return subSessionKind === 'forked' && Boolean(program) && !AGENTS[program!].forksAcrossDirectories;
 }
 
 function parentWorkspaceLabel(session: SessionRecord | undefined, width: number): string | undefined {
@@ -234,7 +240,9 @@ function CreatePane({
 }) {
 	const forkSelected = mode === 'pick-program' && showForkOption && programIndex === PROGRAMS.length;
 	const contentWidth = Math.max(1, width - 4);
-	const workspaceLabel = parentWorkspaceLabel && worktreeMode === 'none'
+	const program = PROGRAMS[programIndex]?.key;
+	const staysInParent = forkStaysInParent(program, subSessionKind);
+	const workspaceLabel = parentWorkspaceLabel && (worktreeMode === 'none' || staysInParent)
 		? parentWorkspaceLabel
 		: WORKTREE_MODES.find(item => item.key === worktreeMode)?.label;
 	return (
@@ -255,13 +263,14 @@ function CreatePane({
 					<>
 						<Text>Name: <Text color={draftName ? THEME.active : THEME.muted}>{draftName || '█'}</Text></Text>
 						<Text>Workspace: <Text color={THEME.accent}>{workspaceLabel}</Text></Text>
+						{staysInParent ? <Text color={THEME.muted}>{truncate(`${PROGRAMS[programIndex]!.label} forks stay in the parent's worktree`, contentWidth)}</Text> : null}
 					</>
 				)}
 			</Box>
 			{parentTitle ? <Text color={THEME.muted}>Parent: {truncate(parentTitle, Math.max(8, width - 12))}</Text> : null}
 			<Box marginTop={1}>
 				<Text color={THEME.muted}>
-					{mode === 'pick-program' ? 'enter continue · esc cancel · ↑↓ switch' : 'tab worktree · enter create · esc back'}
+					{mode === 'pick-program' ? 'enter continue · esc cancel · ↑↓ switch' : staysInParent ? 'enter create · esc back' : 'tab worktree · enter create · esc back'}
 				</Text>
 			</Box>
 		</Box>
@@ -2057,6 +2066,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				if (parent && !handoffFromId && supportsForkedSubSession(parent) && programIndex === PROGRAMS.length) {
 					setCreateSubSessionKind('forked');
 					setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)));
+					if (forkStaysInParent(parent.program, 'forked')) setWorktreeMode('none');
 				} else {
 					setCreateSubSessionKind(parent ? 'clean' : undefined);
 				}
@@ -2103,6 +2113,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (key.tab) {
+				if (forkStaysInParent(PROGRAMS[programIndex]?.key, createSubSessionKind)) return;
 				setWorktreeMode(current => {
 					const index = WORKTREE_MODES.findIndex(item => item.key === current);
 					return WORKTREE_MODES[(index + 1) % WORKTREE_MODES.length]!.key;
