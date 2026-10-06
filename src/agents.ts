@@ -26,6 +26,15 @@ export interface AgentSpec {
 	missingConversation?(output: string): string | undefined;
 	/** The agent's exit screen says a fork found no parent conversation to copy. */
 	forkFailed?(output: string): boolean;
+	/** Versions: `<command> --version` (parsed to x.y.z by parseVersion), the latest from npm, and the agent's own updater. */
+	version: AgentVersionSource;
+}
+
+export interface AgentVersionSource {
+	/** npm package whose `latest` dist-tag is the newest release (`npm view <package> version`). */
+	npmPackage: string;
+	/** Arguments of the agent's own non-interactive update command. */
+	updateArgs: string[];
 }
 
 const plain = (output: string) => output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
@@ -52,6 +61,9 @@ export const AGENTS: Record<ProgramKey, AgentSpec> = {
 			return value ? {provider: 'claude', kind: UUID_PATTERN.test(value) ? 'id' : 'name', value} : undefined;
 		},
 		missingConversation: output => plain(output).match(/No conversation found with session ID:\s*([0-9a-f-]{36})/i)?.[1],
+		// `claude --version` prints `2.1.287 (Claude Code)`. The native builds are published to npm under the same
+		// numbers; `latest` (not `stable`) is the channel `claude update` follows by default.
+		version: {npmPackage: '@anthropic-ai/claude-code', updateArgs: ['update']},
 	},
 	// pi --session-id <uuid> --name <label> · --session-id <uuid> (opens it, or creates it if absent) · --fork <parent> --session-id <child>.
 	// Legacy path refs use --session <path>. --fork copies the parent before the TUI starts, from any directory.
@@ -69,6 +81,8 @@ export const AGENTS: Record<ProgramKey, AgentSpec> = {
 			return plan.kind === 'new' ? ['--session-id', ref.value, '--name', plan.name] : ['--session-id', ref.value];
 		},
 		forkFailed: output => /No session found matching/.test(output),
+		// `pi --version` prints `1.0.2`; `pi update --self` updates pi only (not its packages or model catalogs).
+		version: {npmPackage: '@earendil-works/pi-coding-agent', updateArgs: ['update', '--self']},
 	},
 	// codex · codex resume <id> · codex fork <parent id>. Codex picks every ID itself (also a fork's): Deckhand learns it
 	// from an authenticated SessionStart hook or the `codex resume <id>` exit hint.
@@ -84,6 +98,8 @@ export const AGENTS: Record<ProgramKey, AgentSpec> = {
 			return plan.kind === 'resume' && plan.ref.kind === 'id' ? ['resume', plan.ref.value] : [];
 		},
 		exitRef: codexResumeFromOutput,
+		// `codex --version` prints `codex-cli 0.157.0`.
+		version: {npmPackage: '@openai/codex', updateArgs: ['update']},
 	},
 };
 

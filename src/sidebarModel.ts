@@ -1,5 +1,6 @@
 import path from 'node:path';
-import type {SessionRecord} from './types.js';
+import type {ProgramKey, SessionRecord} from './types.js';
+import {sessionOutdated} from './agentVersions.js';
 import {sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
 import {countHiddenSessionDescendants, countSessionDescendants, sessionDepth, sessionHasChildren} from './sessionOrder.js';
 import {THEME, displaySessionTitle, programGlyph, statusColor, statusGlyph, truncate} from './ui.js';
@@ -9,7 +10,7 @@ import {workspaceKey} from './workspace.js';
 // Pure layout of the session sidebar (rendered by sidebar.tsx): rows, header and the selected session's details.
 
 /** What a row segment is; sidebar.tsx maps roles to colors. */
-export type RowRole = 'cursor' | 'gutter' | 'number' | 'tree' | 'status' | 'title' | 'gap' | 'dev' | 'archived' | 'cleanup' | 'merged' | 'count' | 'agent';
+export type RowRole = 'cursor' | 'gutter' | 'number' | 'tree' | 'status' | 'title' | 'gap' | 'dev' | 'archived' | 'cleanup' | 'merged' | 'count' | 'outdated' | 'agent';
 export interface RowPart {text: string; role: RowRole}
 export interface SidebarRow {
 	id: string;
@@ -24,7 +25,8 @@ export interface SidebarRow {
 export const GUTTER_MARKER = '╎';
 // While the title would get fewer columns than this (or than it needs), suffix markers go in DROP_ORDER; the agent stays.
 const MIN_TITLE = 4;
-const DROP_ORDER: RowRole[] = ['count', 'merged', 'archived', 'cleanup', 'dev'];
+const DROP_ORDER: RowRole[] = ['outdated', 'count', 'merged', 'archived', 'cleanup', 'dev'];
+export const OUTDATED_MARKER = '↑';
 
 export interface SidebarRowsInput {
 	/** The rows on screen, in order. */
@@ -41,6 +43,8 @@ export interface SidebarRowsInput {
 	filter: SessionFilter;
 	collapsedSessionIds?: ReadonlySet<string>;
 	hiddenSessionIds?: ReadonlySet<string>;
+	/** Installed agent versions: a running session launched with an older one gets ↑ (restart to update). */
+	installedVersions?: Partial<Record<ProgramKey, string>>;
 }
 
 function isMerged(session: SessionRecord): boolean {
@@ -52,7 +56,7 @@ export function rowDimmed(session: SessionRecord, filter: SessionFilter): boolea
 	return filter === 'archived' ? !session.archivedAt : Boolean(session.archivedAt);
 }
 
-export function sidebarRows({rows, allSessions, firstNumber, numberWidth, selectedId, width, spinnerFrame, filter, collapsedSessionIds = new Set(), hiddenSessionIds = new Set()}: SidebarRowsInput): SidebarRow[] {
+export function sidebarRows({rows, allSessions, firstNumber, numberWidth, selectedId, width, spinnerFrame, filter, collapsedSessionIds = new Set(), hiddenSessionIds = new Set(), installedVersions = {}}: SidebarRowsInput): SidebarRow[] {
 	const keys = new Map(rows.map(session => [session.id, workspaceKey(session)]));
 	const selectedKey = rows.find(session => session.id === selectedId) ? keys.get(selectedId!) : undefined;
 	// Dev belongs to the workspace: ▶ once, on its first row on screen.
@@ -85,6 +89,7 @@ export function sidebarRows({rows, allSessions, firstNumber, numberWidth, select
 			...(session.cleanupError ? [{text: '!', role: 'cleanup' as const}] : []),
 			...(isMerged(session) ? [{text: '✓', role: 'merged' as const}] : []),
 			...(childCount > 0 ? [{text: `+${childCount}`, role: 'count' as const}] : []),
+			...(sessionOutdated(session, installedVersions[session.program]) ? [{text: OUTDATED_MARKER, role: 'outdated' as const}] : []),
 			{text: programGlyph(session.program), role: 'agent'},
 		];
 		const used = (parts: RowPart[]) => parts.reduce((sum, part) => sum + part.text.length, 0);
@@ -241,7 +246,7 @@ function titleLines(title: string, width: number, max: number): string[] {
  * with five free rows, else one), `agent · state · age`, and where it runs. Fewer rows drop the location, and
  * fewer than three hide it.
  */
-export function sessionDetails(session: SessionRecord | undefined, allSessions: SessionRecord[], width: number, freeRows: number, now: number): DetailLine[] {
+export function sessionDetails(session: SessionRecord | undefined, allSessions: SessionRecord[], width: number, freeRows: number, now: number, installedVersions: Partial<Record<ProgramKey, string>> = {}): DetailLine[] {
 	if (!session || freeRows < 3 || width < 1) return [];
 	const title = displaySessionTitle(session, allSessions) || '(untitled)';
 	const titles = titleLines(title, width, freeRows >= 5 ? 2 : 1);
@@ -252,19 +257,31 @@ export function sessionDetails(session: SessionRecord | undefined, allSessions: 
 	const lines: DetailLine[] = [
 		[{text: '─'.repeat(width), color: THEME.border}],
 		...titles.map(text => [{text, color: THEME.accentSoft}]),
-		stateLine(session, state, age, width),
+		stateLine(session, state, age, width, installedVersions[session.program]),
 	];
 	if (freeRows - lines.length >= 1) lines.push([{text: locationText(session, allSessions, width), color: THEME.muted}]);
 	return lines;
 }
 
-/** `<glyph> <agent> · <state> · <age>`; when too wide, the agent's name goes first (its glyph stays), then the age. */
-function stateLine(session: SessionRecord, state: string, age: string, width: number): DetailLine {
+/**
+ * `<glyph> <agent> · <state> · <age>`; when too wide, the agent's name goes first (its glyph stays), then the age.
+ * An outdated session names both versions first (`claude 2.1.287 · 2.1.290 installed`, then `2.1.287 → 2.1.290`).
+ */
+function stateLine(session: SessionRecord, state: string, age: string, width: number, installed?: string): DetailLine {
 	const glyph = programGlyph(session.program);
 	const sep = {text: ' · ', color: THEME.muted, dim: true};
 	const stateText = {text: state, color: statusColor(session)};
 	const ageParts = age ? [sep, {text: age, color: THEME.muted}] : [];
+	const outdated = sessionOutdated(session, installed);
+	const launched = session.agentVersion!;
+	const versioned: DetailLine[] = outdated ? [
+		[{text: `${glyph} ${session.program} ${launched}`, color: THEME.muted}, sep, {text: `${installed} installed`, color: THEME.muted}, sep, stateText, ...ageParts],
+		[{text: `${glyph} ${session.program} ${launched} → ${installed}`, color: THEME.muted}, sep, stateText, ...ageParts],
+		[{text: `${glyph} ${launched} → ${installed}`, color: THEME.muted}, sep, stateText, ...ageParts],
+		[{text: `${glyph} ${launched} → ${installed}`, color: THEME.muted}, sep, stateText],
+	] : [];
 	const candidates: DetailLine[] = [
+		...versioned,
 		[{text: `${glyph} ${session.program}`, color: THEME.muted}, sep, stateText, ...ageParts],
 		[{text: `${glyph} `, color: THEME.muted}, stateText, ...ageParts],
 		[{text: `${glyph} `, color: THEME.muted}, stateText],

@@ -31,14 +31,14 @@ const AGENT_TOOLS: ToolInstall[] = [
 		key: 'pi',
 		label: 'Pi',
 		command: 'pi',
-		installCommand: 'npm install -g --ignore-scripts @earendil-works/pi-coding-agent',
+		installCommand: 'curl -fsSL https://pi.dev/install.sh | sh',
 		description: 'Pi coding agent',
 	},
 	{
 		key: 'codex',
 		label: 'Codex',
 		command: 'codex',
-		installCommand: 'npm install -g @openai/codex',
+		installCommand: 'curl -fsSL https://chatgpt.com/codex/install.sh | sh',
 		description: 'OpenAI Codex CLI agent',
 	},
 ];

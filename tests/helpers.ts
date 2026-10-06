@@ -65,7 +65,8 @@ export function terminalUi(t: TestContext, options: {args: string[]; cwd: string
 	// A plain shell and a private HOME (beside, never inside, the dev home), so commands the UI runs (Dev, actions)
 	// never load the user's shell profile.
 	const userHome = mkdtempSync(path.join(os.tmpdir(), 'deckhand-ui-home-'));
-	const env = {...process.env, DECKHAND_DEV_HOME: options.home, HOME: userHome, SHELL: '/bin/sh', TERM: 'xterm-256color', ...options.env} as Record<string, string>;
+	// DECKHAND_AGENT_LATEST: the daemon never asks npm for the latest agent releases in tests.
+	const env = {...process.env, DECKHAND_DEV_HOME: options.home, HOME: userHome, SHELL: '/bin/sh', TERM: 'xterm-256color', DECKHAND_AGENT_LATEST: '{}', ...options.env} as Record<string, string>;
 	for (const key of ['DECKHAND_SESSION_ID', 'DECKHAND_LAUNCH_ID', 'DECKHAND_HOOK_TOKEN']) delete env[key];
 	const term = pty.spawn(process.execPath, options.args, {cwd: options.cwd, env, cols: 130, rows: 36});
 	let output = '', exited = false;
@@ -85,13 +86,28 @@ export function terminalUi(t: TestContext, options: {args: string[]; cwd: string
 	};
 	return {ui, env};
 }
-/** A fake claude/pi/codex: records its argv and input under the state directory and reports SessionStart through `deckhand hook`. */
+/**
+ * A fake claude/pi/codex: records its argv and input under the state directory and reports SessionStart through
+ * `deckhand hook`. `--version` prints FAKE_VERSION in the agent's own format; its update command (`claude update`,
+ * `codex update`, `pi update --self`) rewrites this file with the next patch version, like a real updater replacing
+ * the binary, and logs the call to updates.log.
+ */
 export const fakeAgent = `#!/usr/bin/env node
 const fs = require('fs');
 const cp = require('child_process');
 const path = require('path');
+const FAKE_VERSION = '1.0.0';
 if (process.argv.includes('--help')) { console.log('PROMPT --settings --no-daemon resume'); process.exit(0); }
 const provider = path.basename(process.argv[1]);
+if (process.argv[2] === '--version') { console.log(provider === 'claude' ? FAKE_VERSION + ' (Claude Code)' : provider === 'codex' ? 'codex-cli ' + FAKE_VERSION : FAKE_VERSION); process.exit(0); }
+if (process.argv[2] === 'update') {
+	const [major, minor, patch] = FAKE_VERSION.split('.').map(Number), next = major + '.' + minor + '.' + (patch + 1);
+	const self = fs.readFileSync(process.argv[1], 'utf8');
+	fs.writeFileSync(process.argv[1], self.replace("const FAKE_VERSION = '" + FAKE_VERSION + "'", "const FAKE_VERSION = '" + next + "'"));
+	fs.appendFileSync(path.join(process.env.DECKHAND_HOME, 'updates.log'), JSON.stringify({provider, args: process.argv.slice(2), stdin: fs.fstatSync(0).isFIFO() ? 'pipe' : fs.fstatSync(0).isCharacterDevice() ? 'tty-or-null' : 'other'}) + '\\n');
+	console.log('Updating ' + provider + '...'); console.log('Updated ' + FAKE_VERSION + ' -> ' + next);
+	process.exit(0);
+}
 // \`codex fork <parent>\` reports its own ID, but first and last also the parent's (a child must never adopt it).
 const forkOf = provider === 'codex' && process.argv[2] === 'fork' ? process.argv[3] : undefined;
 const id = forkOf ? 'fixture-child-codex' : 'fixture-native-' + provider;

@@ -1,6 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {SessionRecord} from './types.js';
+import type {ProgramKey, SessionRecord} from './types.js';
 import type {SessionFilter} from './sessionFeatures.js';
 import {sessionDetails, sidebarHeader, sidebarRows, type RowPart, type SidebarRow} from './sidebarModel.js';
 import {THEME, truncate} from './ui.js';
@@ -20,6 +20,8 @@ interface SidebarProps {
 	query?: string;
 	/** Clock for the details block's age (ms). */
 	now?: number;
+	/** Installed agent versions, for the outdated marker (↑) and the details line. */
+	installedVersions?: Partial<Record<ProgramKey, string>>;
 }
 
 function visibleSessions(sessions: SessionRecord[], selectedIndex: number, availableRows: number): SessionRecord[] {
@@ -43,7 +45,7 @@ function partStyle(part: RowPart, row: SidebarRow): {color?: string; dimColor?: 
 	if (row.dimmed) return part.role === 'archived' ? {color: THEME.muted} : {color: THEME.muted, dimColor: true};
 	switch (part.role) {
 		case 'gutter': return {color: THEME.active, dimColor: true};
-		case 'number': case 'archived': case 'merged': case 'count': return {color: THEME.muted, dimColor: true};
+		case 'number': case 'archived': case 'merged': case 'count': case 'outdated': return {color: THEME.muted, dimColor: true};
 		case 'dev': return {color: THEME.success};
 		case 'cleanup': return {color: THEME.error};
 		case 'agent': return {color: THEME.muted};
@@ -52,7 +54,7 @@ function partStyle(part: RowPart, row: SidebarRow): {color?: string; dimColor?: 
 	}
 }
 
-export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>(), loaded = true, filter = 'active', query = '', now = Date.now()}: SidebarProps) {
+export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>(), loaded = true, filter = 'active', query = '', now = Date.now(), installedVersions}: SidebarProps) {
 	const selectedIndex = Math.max(0, sessions.findIndex(session => session.id === selectedId));
 	const contentWidth = Math.max(1, width - 4);
 	// Rows start in the left padding column: it holds the cursor (›) and the shared-workspace marker.
@@ -64,10 +66,10 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 	const header = sidebarHeader({width: contentWidth, filter, query, shown: sessions.length, total: allSessions.length, allSessions});
 	const rows = sidebarRows({
 		rows: visible, allSessions, firstNumber: visibleStart + 1, numberWidth: String(Math.max(1, sessions.length)).length,
-		selectedId, width: rowWidth, spinnerFrame, filter, collapsedSessionIds, hiddenSessionIds,
+		selectedId, width: rowWidth, spinnerFrame, filter, collapsedSessionIds, hiddenSessionIds, installedVersions,
 	});
 	// The list has priority: the details block only takes the rows it leaves free.
-	const details = sessions.length ? sessionDetails(sessions.find(session => session.id === selectedId), allSessions, contentWidth, rowsForSessions - visible.length, now) : [];
+	const details = sessions.length ? sessionDetails(sessions.find(session => session.id === selectedId), allSessions, contentWidth, rowsForSessions - visible.length, now, installedVersions) : [];
 
 	return (
 		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.border} paddingRight={1}>

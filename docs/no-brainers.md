@@ -188,6 +188,14 @@ After a daemon crash, sessions are marked interrupted and keep their conversatio
 
 **Workspace changes** is gathered from Git when the handoff is exported. It contains the base ref, commits since the base (up to 30, then "+N more"), uncommitted files with their status (up to 50) and a committed diff stat against the base (`<base>...HEAD`: files changed, insertions, deletions and per-file counts). It lists only file names and numbers, never diff content. If Git fails, the section says *Git information unavailable* and the export still succeeds. Sessions outside a Git repository, or whose worktree was deleted, have no such section.
 
+## Agent versions and updates
+
+**U** opens the Agents screen (full width, like Settings): one row per agent with its installed version (`<agent> --version`, found on the daemon's PATH, the one sessions launch with), its latest release (the npm `latest` dist-tag of `@anthropic-ai/claude-code`, `@openai/codex` and `@earendil-works/pi-coding-agent`), a status (`up to date`, `update available`, `not installed`, `latest unknown`) and how many running sessions use an older version. Opening it looks the latest releases up again (up to ~10 s each; **r** repeats that); the daemon also checks in the background when it starts and at most every 6 hours. Offline, or without npm, the latest is just unknown: there is no error.
+
+**Enter** runs the selected agent's own updater, non-interactively (stdin closed, the daemon's environment, at most 5 minutes): `claude update`, `codex update` or `pi update --self` (pi itself, not its packages). If the agent has running sessions you are asked first. The details box shows the running state, then the new version or the updater's exit code and the last lines of its output; leaving the screen does not stop it, and the footer says when it finished. Only one update per agent runs at a time. Agents that are not installed are left to `deckhand setup`.
+
+Updating never restarts or touches sessions. Each launch (create, **s**, **S**) records the version it started with; a running session whose version is older than the one now installed shows a dim **↑** before its agent glyph (the first marker dropped on a narrow sidebar), and its details line names both versions (`claude 2.1.287 · 2.1.290 installed`). Restart it (**x**, then **s**) to pick up the new build. Exited sessions are never marked: their next start uses the installed version. When any installed agent has a newer release, the header's right side says so quietly (`codex update · U`, `2 agent updates · U`).
+
 ## Lifecycle signals and notifications
 
 Both default off. Switch them on in Settings (**C** → the **Agents** rows in the Global column), or in the user config (`~/.deckhand/config.json`, or `~/.deckhand-dev/config.json` for the dev build), keeping existing settings:

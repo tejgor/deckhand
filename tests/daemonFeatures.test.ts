@@ -22,7 +22,7 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const provider of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, provider), fakeAgent, {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
-	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli};
+	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli};
 	const launch = () => { const child = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); child.stderr?.on('data', () => {}); return child; };
 	let daemon = launch();
 	t.after(async () => { await stop(daemon); await fs.rm(root, {recursive: true, force: true}); await fs.rm(home, {recursive: true, force: true}); });
