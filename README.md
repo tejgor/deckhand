@@ -41,7 +41,7 @@ Tools for running coding agents in parallel typically rely on [`tmux`](https://g
 
 ## ✨ Features
 
-- **Split View** — A numbered session sidebar beside Preview, Terminal, Git, Dev, and Notes tabs.
+- **Split View** — A numbered session sidebar beside Preview, Terminal, Git, Dev, and Notes tabs; it marks the sessions sharing the selected one's worktree and shows the selected session's full title, state, age and branch below the list.
 - **Live Previews** — Watch a session's output without attaching to it, with read-only preview focus/scrolling.
 - **Persistent Sessions** — The daemon owns sessions, so they survive UI quits and UI crashes. Daemon crashes preserve conversation references, not live processes.
 - **Keyboard Reordering** — Move sessions up and down among their siblings from the keyboard.
@@ -168,6 +168,24 @@ Press `o` to attach to the selected session's active pane. To branch off related
 
 > *Deletion is conservative: unknown/unsafe Git state requires typing `DELETE`. `X` does not authorize data loss. Main/current/actively shared worktree protections cannot be overridden.*
 
+### Sidebar
+
+```
+│ Sessions         all 7/7 · ! 2 │   filter/search and count; ! N need attention
+│╎ 1 ▾ ⠋ auth refactor       ▶ ✶ │   ╎ shares the selected session's worktree
+│› 2   ↳ ● write tests         π │   › selected
+│╎ 3   ⑂ ○ try alt approach    ✶ │
+│  4 ? fix flaky checkout e2e… ◇ │
+│ ────────────────────────────── │
+│ write tests                    │   the selected session, when there is room
+│ π pi · idle · 7m               │
+│ ⎇ feat/auth · shared with 2 …  │
+```
+
+- **Before the title:** status — spinner starting/working, `●` idle, `◌` activity unknown, `○` exited; with agent signals `?` needs input, `◆` response ended (not task success), `!` failed or failed/interrupted exit, `⌛` rate-limited. Tree — `▾`/`▸` expanded/collapsed parent, `↳` clean and `⑂` forked sub-session.
+- **After the title:** `▶` Dev running (once per worktree), `▣` archived, `!` cleanup error, `✓` merged, `+N` hidden sub-sessions, then the agent: `✶` Claude, `π` Pi, `◇` Codex.
+- Archived rows are dimmed; in the archived view the parents shown for context are dimmed instead. `?` → Sidebar lists all of this in the app.
+
 ### Attach Mode
 
 | Key | Action |
@@ -256,7 +274,7 @@ Terminal (your `$SHELL`), Git (the Changes view, plus `lazygit` on `o`) and Dev 
 
 ### Dev Command
 
-Focus the Dev tab with `d`, then press `d` again while it is focused to start or stop the command. Dev belongs to the session's **worktree**, not to the session: every session in the same worktree (or in the same checkout, for sessions without a worktree) sees the same Dev pane and output, and starting or stopping it from any of them acts on that one process. It keeps running after the agents exit (exited sessions still show, attach to and stop it) until you stop it, delete the worktree, remove the worktree's last session, or the daemon stops; every session in the worktree shows `▶` in the sidebar while it runs. Set the command globally (or per repository as `devCommand` in `deckhand.json`):
+Focus the Dev tab with `d`, then press `d` again while it is focused to start or stop the command. Dev belongs to the session's **worktree**, not to the session: every session in the same worktree (or in the same checkout, for sessions without a worktree) sees the same Dev pane and output, and starting or stopping it from any of them acts on that one process. It keeps running after the agents exit (exited sessions still show, attach to and stop it) until you stop it, delete the worktree, remove the worktree's last session, or the daemon stops; the sidebar shows `▶` on the worktree's first row while it runs. Set the command globally (or per repository as `devCommand` in `deckhand.json`):
 
 ```json
 {
