@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import {mkdtempSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {execFile} from 'node:child_process';
+import {execFile, type ChildProcess} from 'node:child_process';
 import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
 import type {TestContext} from 'node:test';
@@ -84,4 +84,30 @@ export function terminalUi(t: TestContext, options: {args: string[]; cwd: string
 		ended,
 	};
 	return {ui, env};
+}
+/** A fake claude/pi/codex: records its argv and input under the state directory and reports SessionStart through `deckhand hook`. */
+export const fakeAgent = `#!/usr/bin/env node
+const fs = require('fs');
+const cp = require('child_process');
+const path = require('path');
+if (process.argv.includes('--help')) { console.log('PROMPT --settings --no-daemon resume'); process.exit(0); }
+const provider = path.basename(process.argv[1]);
+// \`codex fork <parent>\` reports its own ID, but first and last also the parent's (a child must never adopt it).
+const forkOf = provider === 'codex' && process.argv[2] === 'fork' ? process.argv[3] : undefined;
+const id = forkOf ? 'fixture-child-codex' : 'fixture-native-' + provider;
+fs.writeFileSync(path.join(process.env.DECKHAND_HOME, 'trace-' + process.env.DECKHAND_SESSION_ID + '.json'), JSON.stringify({args: process.argv.slice(2), token: process.env.DECKHAND_HOOK_TOKEN, launchId: process.env.DECKHAND_LAUNCH_ID, pid: process.pid}));
+function hook(event, sessionId = id) { return new Promise(resolve => { const child = cp.spawn(process.execPath, [process.env.TEST_CLI, 'hook'], {stdio: ['pipe','ignore','ignore']}); child.stdin.end(JSON.stringify({hook_event_name: event, session_id: sessionId})); child.on('close', resolve); }); }
+const startHooks = () => forkOf ? hook('SessionStart', forkOf).then(() => hook('SessionStart')).then(() => hook('SessionStart', forkOf)) : hook('SessionStart');
+startHooks().then(() => { fs.writeFileSync(path.join(process.env.DECKHAND_HOME, 'ready-' + process.env.DECKHAND_LAUNCH_ID), ''); console.log('ready'); });
+if (process.stdin.isTTY) process.stdin.setRawMode(true);
+process.stdin.resume();
+process.stdin.on('data', data => fs.appendFileSync(path.join(process.env.DECKHAND_HOME, 'input-' + process.env.DECKHAND_SESSION_ID), data));
+setInterval(() => {}, 10000);
+`;
+// The fake agent without lifecycle hooks: Deckhand never learns a Codex ID from it.
+export const withoutHooks = fakeAgent.replace('startHooks().then(', 'Promise.resolve().then(');
+export async function stop(child: ChildProcess): Promise<void> {
+	if (child.exitCode !== null || child.signalCode !== null) return;
+	const ended = new Promise<void>(resolve => child.once('exit', () => resolve()));
+	child.kill('SIGTERM'); await ended;
 }

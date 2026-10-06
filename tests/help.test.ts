@@ -21,7 +21,7 @@ test('help search matches keys, descriptions and notes across topics; the pane s
 	assert.deepEqual(searchHelp('  '), []);
 	const wide = pane({topic: 1}, 110);
 	assert.match(wide[1]!, /Help · Sessions/);
-	assert.ok(wide.some(line => /❯ 2 Sessions +│ +conversation\)/.test(line)));
+	assert.ok(wide.some(line => /❯ 2 Sessions +│ x  X +Stop/.test(line)));
 	// Every topic fits a 24-row pane at 100 columns, so none needs scrolling there.
 	for (const topic of HELP_TOPICS.keys()) assert.doesNotMatch(pane({topic}, 100).join('\n'), /PgDn|↓ \d/, HELP_TOPICS[topic]!.title);
 	const narrow = pane({topic: 1}, 56, 14);

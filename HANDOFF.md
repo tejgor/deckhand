@@ -22,7 +22,7 @@ Implemented behavior:
 - One worker process per running session (the agent PTY), plus one workspace worker per worktree whose shared Terminal/Git/Dev panes are in use; workers own the live PTYs.
 - Supported agents: `claude`, `pi`, `codex`.
 - Session create/restart/kill/remove flows, including resume/fresh restart where supported.
-- Sub-sessions under parent sessions, with clean and forked variants for Claude/Pi parents.
+- Sub-sessions under parent sessions, with clean and forked variants (Claude `--fork-session`, Pi `--fork`, `codex fork`).
 - Repo-scoped session list with persisted manual ordering among siblings and collapsible subtrees.
 - Worker-side terminal preview rendering with `@xterm/headless`.
 - Read-only Preview focus mode with scrollback; Claude gets synthetic wheel input because its TUI behaves differently.
@@ -332,22 +332,46 @@ Claude and Pi get an exact native conversation ID (a UUID Deckhand generates) at
 
 Child session titles inherit parent context daemon-side as `parent title / child title` (trimmed to 64 chars). The UI strips that parent prefix for nested sidebar display because the sidebar already shows the hierarchy.
 
+### Per-agent table (`src/agents.ts`)
+
+`AGENTS` holds, per agent: `idAtLaunch` (Deckhand picks the conversation ID, Claude/Pi; Codex reports its own), `forks`, `forksAcrossDirectories`, `args(plan)` and the exit-screen readers (`exitRef`, `missingConversation`, `forkFailed`). A `LaunchPlan` is `new` (create, clean child, `S`), `resume` or `fork`; `launchArgs(program, plan)` turns it into argv. `relaunchPlan` decides what `s`/`S` launch (`forksParentAgain`: a forked child without its own conversation forks its parent again); the daemon only adds integration args (`agentSignals.integrationArgs`, appended after the plan's argv for every plan, so `codex fork <id> --no-daemon` like `codex resume <id> --no-daemon`) and handoff prompts. `readAgentExit` (daemon) applies the exit readers: the ref to keep, `failed`, and the note appended to the preview.
+
+Final argv (before integration args):
+
+| | create / clean child | `s` resume | fork (create, or `s` re-fork) | `S` fresh |
+| --- | --- | --- | --- | --- |
+| Claude | `--session-id <uuid> --name <label>` | `--resume <uuid>` (legacy name refs `--resume <name>`) | `--resume <parent uuid or legacy name> --fork-session --session-id <child uuid> --name <label>` | `--session-id <new uuid> --name <label>-fresh-<ts>` |
+| Pi | `--session-id <uuid> --name <label>` | `--session-id <uuid>` (legacy `--session <path>`) | `--fork <parent id or legacy path> --session-id <child uuid> --name <label>` | `--session-id <new uuid> --name <label>-fresh-<ts>` |
+| Codex | (no args) | `resume <id>` | `fork <parent id>` | (no args) |
+
+### Forks
+
+- A fork copies the parent's conversation as saved at that moment (all three agents read the saved transcript); a turn still in progress in the parent is not included. Nothing is typed into the PTY (the old Claude `/branch` keystrokes, `branchCommandInput` and its 500 ms timer, and the interim `name` ref are gone).
+- Create (`createSession`): the parent's agent must have `forks`; the child uses the parent's program; the parent needs an agent ref (Codex: *has not reported the parent's conversation ID yet*); an agent without `forksAcrossDirectories` refuses any worktree mode but `none` and any cwd other than the parent's (*Codex forks stay in the parent's worktree*), so it never fails at launch. `forkedFromAgentSessionRef` is the parent's ref at that moment. The child's `id` ref is stored at launch for Claude/Pi; Codex children start without one.
+- Identity: `acceptedNativeRef` never replaces an `id` ref Deckhand assigned (Claude/Pi, forks included) and never lets a forked child adopt its parent's ID (stored `forkedFromAgentSessionRef` or the parent session's current ref) from a hook; `readAgentExit` ignores an exit hint naming the parent.
+- `s` on a forked child (`relaunchPlan`): resumes its own ref; forks the parent again with a new child ID when it never launched, has no ref (Codex never reported one: the exit note says so), or holds the parent's ref (fork failed, or a legacy child). Fork failure: Pi prints `No session found matching` (parent has no saved session); Claude prints `No conversation found with session ID: <id>` for the parent, or for the child's own new ID (nothing was saved for it); either way `readAgentExit` stores the parent's ref, marks the exit failed and notes *Press s to fork the parent again, or S…*. It never starts fresh silently. A missing conversation on a non-fork still refuses `s` (*Use S*).
+- `S` on a forked child starts a fresh conversation and drops `forkedFromAgentSessionRef`, so a later `s` never re-forks the parent over it.
+- Legacy: Claude children stored with their `/branch` `name` ref resume by name; children still holding the parent's ref (the `/branch` never reported) fork again with `--fork-session`; legacy `name`-ref parents fork with `--resume <name> --fork-session` (Claude's `--resume` accepts a name). Pi path refs unchanged.
+
+Cross-directory forks (why Codex forks stay in the parent's worktree):
+
+- Claude: verified by running Claude Code 2.1.287 against a throwaway conversation: `--resume <parent> --fork-session --session-id <child>` from another cwd stores the child under the child's cwd project, with the parent's history and nothing written to the parent. Plain `--resume <id> --session-id <uuid>` is rejected without `--fork-session`.
+- Pi (1.0.2, read from `dist/main.js` and `dist/core/session-manager.js` of the installed package, not run): `--fork <arg>` uses a path as is; an ID is looked up in the cwd's project (`findById`, then prefix `list`), then across every project (`SessionManager.listAll` over `~/.pi/agent/sessions/*`). `SessionManager.forkFrom(source, cwd)` copies the entries into a new file in the target cwd's project with `cwd` set to the target, and `--session-id` later finds it there. So Pi forks work from another worktree.
+- Codex (0.157, from `codex fork --help` and strings in the installed native binary; no Rust source ships in the npm package; not run): sessions are rollout files under `$CODEX_HOME/sessions/%Y/%m/%d`, found by ID with `find_thread_path_by_id_str_in_subdir` (not cwd-scoped: cwd filtering applies to the picker, `--all` disables it). But resuming or forking a session recorded in another directory goes through the TUI's `cwd_prompt` (*Use session directory (…) / Use current directory (…)*, with *Always use …* stored as `tui.resume_cwd`), so a cross-directory fork could prompt or run in the parent's directory. That could not be established without a real run, so `forksAcrossDirectories` is false: the create form shows the fork staying in the parent's worktree (`tab` does nothing, a note says so) and the daemon refuses other modes. `codex fork` accepts the same `--no-daemon` as launches/`resume`. Its exit hint is the same `To continue this session, run: codex resume <id>` (no fork-specific hint in the binary), naming the current thread, which `codexResumeFromOutput` parses.
+
 ### Claude
 
 - create and clean sub-session: `--session-id <uuid> --name dh-{sanitized-title}-{short-id}`
-- resume restart: `--resume <uuid>` (never `--session-id`: Claude rejects it with `--resume` unless `--fork-session`, and refuses an ID already in use); legacy `name` refs use `--resume <name>`
-- unknown ID: Claude prints `No conversation found with session ID: <uuid>` and exits; Deckhand marks the exit failed, appends a "press S" hint to the preview and refuses `s` for that ID — it never starts fresh silently
-- SessionStart hooks cannot replace an assigned `id` ref (e.g. after `/clear`); forked children follow the fork rules below
-- forked sub-session create: `--resume <parent ref>`, then send `/branch <dh-name>`; the child is stored as that `name` ref until a SessionStart hook or exit hint reports the branch's ID (never the parent's)
-- branch input includes a small insert-mode safeguard: `a`, backspace, then `/branch...`, for Claude users in vim normal mode
+- resume restart: `--resume <uuid>` (never `--session-id` without `--fork-session`: Claude rejects it, and refuses an ID already in use); legacy `name` refs use `--resume <name>`
+- unknown ID: Claude prints `No conversation found with session ID: <uuid>` and exits; Deckhand marks the exit failed, appends a "press S" hint to the preview and refuses `s` for that ID — it never starts fresh silently (forks: see above)
+- SessionStart hooks cannot replace an assigned `id` ref (e.g. after `/clear`)
 - on exit, parse Claude Code's printed `claude --resume "..."` command from final preview and persist it (`id` kind for UUIDs, `name` otherwise); restart also re-parses `lastPreview`
 - fresh restart: new UUID, labelled `dh-{sanitized-title}-{short-id}-fresh-{timestamp}`
 
 ### Pi
 
 - create: `--session-id <uuid> --name dh-{sanitized-title}-{short-id}`; resume: `--session-id <uuid>` (Pi opens the exact project session ID, or creates it if absent)
-- forked sub-session: `--fork <parent id or legacy path> --session-id <child uuid> --name ...` — Pi copies the parent before its TUI starts, so nothing is typed into the terminal; resume then uses the child's own ID
-- a fork that never launched, or whose `--fork` failed (`No session found matching`, e.g. the parent had no saved messages), forks again with a new child ID on `s`
+- forked sub-session: `--fork <parent id or legacy path> --session-id <child uuid> --name ...` — Pi copies the parent before its TUI starts; resume then uses the child's own ID
 - legacy `path` refs keep `--session <path>`; legacy forked children (stored with the parent's path) fork again with `--fork <path>`
 - fresh restart: new UUID
 
@@ -355,7 +379,7 @@ Child session titles inherit parent context daemon-side as `parent title / child
 
 - launches normally; the native ID is captured from an authenticated SessionStart hook or the `codex resume <id>` exit hint
 - resume uses `codex resume <id>`; an unknown ID refuses resume (use `S`) rather than guessing `--last`
-- no fork support
+- forked sub-session: `codex fork <parent id>` in the parent's worktree; the child's ID is captured the same way (never the parent's); without one, `s` forks the parent again
 
 ## Persistence, socket, PID, and logs
 
@@ -505,13 +529,14 @@ Event types:
 - `src/worktreeLinks.ts` — worktree settings schema/merge, location template expansion, and link application.
 - `src/sessionFeatures.ts` — filters/search and handoff Markdown/export (pure; the daemon passes the Git context in).
 - `src/sessionScope.ts` — which sessions belong to the current repo/worktree.
+- `src/agents.ts` — the per-agent table: capabilities (ID at launch, forks, forks across directories), create/resume/fork/fresh argv (`LaunchPlan`, `launchArgs`), exit-screen readers, `relaunchPlan` (unit-tested in `tests/agents.test.ts`).
 - `src/agentSignals.ts` — hook normalization, Claude/Codex integration args, Codex resume parsing.
 - `src/uiState.ts` — `ui-state.json` normalization and persistence.
 - `src/detailTexts.ts`, `src/detailsPane.tsx` — text for review/inspection panes and their scrolling renderer.
 - `src/desktop.ts` — editor/URL opening helpers (`openInEditor` takes an optional line: `-g file:line`).
 - `src/help.ts` — in-app `?` guide content (topics of key → description rows and notes); `src/helpPane.tsx` renders it (topic list, aligned key column, `/` search).
 - `scripts/deckhand-dev.mjs` — isolated dev launcher and sandbox.
-- `tests/` — `node:test` suite (`npm test`); `tests/helpers.ts` holds fixture repos, env/temp helpers and the PTY harness (`terminalUi`: condition-based screen waits with a generous ceiling, `UI_WAIT_MS`, since the suite runs files in parallel).
+- `tests/` — `node:test` suite (`npm test`); `tests/helpers.ts` holds fixture repos, env/temp helpers, the fake agent (`fakeAgent`: records argv/input, reports SessionStart; `codex fork` reports the parent's ID around its own; `withoutHooks` reports nothing) and the PTY harness (`terminalUi`: condition-based screen waits with a generous ceiling, `UI_WAIT_MS`, since the suite runs files in parallel).
 - `scripts/fix-node-pty.js` — install-time macOS `node-pty` fixup.
 
 ## File-specific notes
@@ -607,6 +632,8 @@ Typical flow:
 
 Automated: `npm test` (build, then `node --test` over `tests/`) covers config/trust, editor and key handling, storage, cleanup inspection, a real daemon with fake agents (setup/actions/cleanup/hooks/resume; one Dev shared per worktree, its lifetime and stop on worktree deletion/last-session removal; one shell and one (fake) lazygit shared per worktree, fan-out to watchers, attach with bracketed-paste mirroring and one attacher, use from an exited session, lazygit restart on view, Dev stop not retiring a worker in use, teardown on kill-with-delete and last-session removal; the Changes view: watch delivers groups, polling pushes to a second session of the worktree, stage/unstage/stage-all/unstage-all, refused unlisted paths, unstaging without HEAD, unwatching stops pushes; worktree records: merge from one session marks its attached sibling and sub-session with `session-updated` broadcasts, `M` from either toggles all, main-checkout sessions keep their own markers, kill-with-delete makes every session of the worktree non-restartable/non-mergeable without a workspace, a new worktree at the same path is a new incarnation (also after an outside removal), the last referencing session's removal drops the record), the worktree-record migration of legacy state (incarnations split at deletions, sub-sessions, restarted sessions, main checkout untouched, repair, idempotence, write-back at daemon start), the Changes model and its Git I/O against fixture repos (spaces, glob-like names, renames, binary, untracked, conflicts, no HEAD), the workspace key, the sidebar model (row layout and truncation at 24 and 48 columns, `▶` once per workspace, the shared-workspace marker, archived dimming in both views, header text, the details block and its shrinking, ages) plus one rendered sidebar, the dev launcher, a real-PTY Git tab run (browse list, `v` focus, diff preview, `space` stages, `esc`), and two more real-PTY UI runs (inline review on n, raw-key JSON editing via C → e, persistence; the Settings grid: columns, repo/global cell edits, Linked items, x, T, e; self-edits keep trust so d runs without asking until an outside edit).
 
+Forks (`tests/forks.test.ts`, its own daemon with the shared fake agent from `tests/helpers.ts`, beside `tests/daemonFeatures.test.ts`; plus `tests/agents.test.ts`): Claude fork argv `--resume <parent> --fork-session --session-id <child> --name …` with the child ID stored at launch and nothing typed; `s` resumes the child; a fork whose parent has no saved conversation fails with a note and `s` forks again with a new ID; a Claude fork into a new worktree; legacy `/branch` name-ref children resume by name, parent-ref children fork again, name-ref parents fork by name; Pi fork argv unchanged; `codex fork <parent id>`, the child's ID from a hook while the parent's ID (reported before and after it) is never adopted, `codex resume <child>` on `s`, re-fork when no child ID was reported, refusal of other worktrees/directories and of a parent without an ID; the per-agent argv table and `relaunchPlan`. Not run against the real agents through Deckhand: Claude `--fork-session` was verified directly (see *Forks*), Pi and Codex forks only from their help and package contents.
+
 Validated during the workbench refactor (shared workspace panes, the Changes view, worktree records):
 
 - `npm run build`; `npm test` repeatedly, also two suites at once. The real-PTY UI tests had flaked under load: a key typed right after a screen change reached Ink's previous-render listener (Ink re-subscribes `useInput` in a passive effect) and was lost; `useTerminalInput` now keeps one stable listener calling the latest handler, and UI waits are condition-based with a 30 s ceiling (`UI_WAIT_MS`).
@@ -617,7 +644,7 @@ Historically validated during development, but not exhaustively rechecked recent
 
 - daemon autostart, PID/log/socket handling, and protocol mismatch refusal
 - Pi and Claude session creation/resume paths; Codex launch compiles cleanly
-- Claude exit resume-handle parsing, named `/branch <dh-name>`, and forked restart paths (exact `--session-id`/`--fork` launch argv is covered by the fake-agent daemon test)
+- Claude exit resume-handle parsing (exact `--session-id`/`--fork`/`--fork-session`/`codex fork` launch argv and forked restart paths are covered by the fake-agent daemon test)
 - fresh restart/no-resume mode and parent-inherited child titles
 - leftover directory cleanup after worktree deletion
 - worktree sanitizer and `git worktree list --porcelain` parsing
@@ -629,7 +656,7 @@ Historically validated during development, but not exhaustively rechecked recent
 
 Not fully manually validated recently:
 
-- Codex session creation
+- Codex session creation, and `codex fork` (argv and the Codex cwd prompt were read from help/binary, never run)
 - setup/doctor install flows beyond build-level coverage
 - real hook-script worktree creation from main worktree
 - real hook-script worktree creation from linked worktree
@@ -650,7 +677,7 @@ Not fully manually validated recently:
 - Attach mode temporarily exits Ink by design.
 - Create/worktree picker/kill confirmation are pane replacements, not true modals.
 - Worktree support exists but still needs more real-world exercise.
-- Codex resume depends on capturing its native ID; there is no Codex fork.
+- Codex resume and fork depend on capturing its native ID; Codex forks stay in the parent's worktree (see *Forks*).
 - Terminal/Dev scrollback controls are still future work.
 - The Changes diff preview refetches when the record changes (status or line counts); an edit that keeps a file's `+/−` counts identical is shown after the next change or reselecting the file. Untracked line counts stop after 500 files (or files over 1 MB).
 - The Changes view does no hunk staging, commits, discards or branch operations by design: lazygit (`o`) covers them.
@@ -688,6 +715,8 @@ Near term:
 6. Add stronger daemon health/protocol compatibility handling.
 
 Later:
+
+- Run a real `codex fork` from another worktree: if `-C <cwd>` or `tui.resume_cwd` reliably keeps the child in the current directory without the cwd prompt, set Codex `forksAcrossDirectories` (`src/agents.ts`) and pass it.
 
 - Add terminal/git/dev scrollback controls.
 - Add dev stop confirmation or persisted dev state if useful.

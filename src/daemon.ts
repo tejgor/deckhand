@@ -22,7 +22,8 @@ import {readCandidateSizes, readSettingsInfo, readWorktreeCandidates} from './se
 import {createPullRequest, getHandoffGitContext, getWorkspaceSummary, inspectWorkspaceCleanup, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
 import {applyStage, readChangeDiff, readChanges, type ChangesSnapshot, type UntrackedCounts} from './changesGit.js';
 import {emptyChanges, findChange, type ChangesRecord} from './changesModel.js';
-import {normalizeHook, integrationArgs, codexResumeFromOutput, needsAttention} from './agentSignals.js';
+import {normalizeHook, integrationArgs, needsAttention} from './agentSignals.js';
+import {agentSpec, launchArgs, newAgentRef, relaunchPlan, sameAgentSessionRef, type LaunchPlan} from './agents.js';
 import {exportHandoff} from './sessionFeatures.js';
 import {PROTOCOL_VERSION} from './types.js';
 import type {AgentActivityStatus, AgentSessionRef, ClientRequest, CreateSessionInput, DevRecord, GitRecord, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, TerminalRecord, WorktreeMarkers, WorktreeRecord} from './types.js';
@@ -204,12 +205,6 @@ function buildDeckhandAgentName(title: string, sessionId: string, suffix?: strin
 	return `dh-${safeTitle}-${sessionId.slice(0, 8)}${suffix ? `-${suffix}` : ''}`;
 }
 
-// Claude and Pi accept an exact conversation ID chosen at launch, so resume never depends on
-// name lookup (ambiguous after renames, duplicates or forks) or on Pi's private file layout.
-function buildAgentSessionRef(program: SessionRecord['program']): AgentSessionRef | undefined {
-	return program === 'claude' || program === 'pi' ? {provider: program, kind: 'id', value: randomUUID()} : undefined;
-}
-
 function truncateSessionTitle(value: string, maxLength: number): string {
 	if (value.length <= maxLength) {
 		return value;
@@ -237,77 +232,24 @@ function inheritedChildTitle(parentTitle: string, childTitle: string): string {
 	return `${prefix}${separator}${child}`;
 }
 
-function supportsForkedSubSession(program: SessionRecord['program']): boolean {
-	return program === 'claude' || program === 'pi';
-}
-
-function branchCommandInput(name: string): string {
-	// Claude Code users may be in vim normal mode. `a` enters insert mode, and
-	// backspace removes the inserted `a` when already in insert mode.
-	return `a\x7f/branch ${name}\r`;
-}
-
-// `name` labels a new conversation; `forkFrom` (create mode) makes Pi copy that session into the new ID before
-// its TUI starts. Claude forks resume the parent and type /branch instead (see branchCommandInput).
-function buildAgentArgs(session: Pick<SessionRecord, 'program' | 'agentSessionRef'>, mode: 'create' | 'resume', name?: string, forkFrom?: AgentSessionRef): string[] {
-	const ref = session.agentSessionRef;
-	if (!ref) {
-		return [];
+// What an exited agent's last screen says about its conversation: the ref to keep (`ref`), whether the launch failed,
+// and a note appended to the preview saying what s/S will do. A forked child never takes its parent's identity; a fork
+// whose parent (or whose own new conversation) the agent cannot find stores the parent's ref, so s forks it again.
+function readAgentExit(session: SessionRecord, output: string): {ref?: AgentSessionRef; failed: boolean; note?: string} {
+	const agent = agentSpec(session.program);
+	const forkParent = session.subSessionKind === 'forked' ? session.forkedFromAgentSessionRef : undefined;
+	const missing = agent.missingConversation?.(output);
+	if (forkParent && (agent.forkFailed?.(output) || (missing && (missing === forkParent.value || missing === session.agentSessionRef?.value)))) {
+		return {ref: forkParent, failed: true, note: `${agent.label} found no saved conversation to fork (a conversation is saved once it has a message). Press s to fork the parent again, or S to start a fresh conversation.`};
 	}
-	const label = mode === 'create' && name ? ['--name', name] : [];
-	if (session.program === 'claude' && (ref.kind === 'name' || ref.kind === 'id')) {
-		// Never --session-id on resume: Claude rejects it with --resume and refuses an ID already in use.
-		if (mode === 'resume') return ['--resume', ref.value];
-		return ref.kind === 'id' ? ['--session-id', ref.value, ...label] : ['--name', ref.value];
+	// Never start fresh behind the user's back: say how to (S) instead.
+	if (missing) return {failed: true, note: `${agent.label} has no saved conversation ${missing}. Press S to start a fresh conversation.`};
+	const ref = agent.exitRef?.(output);
+	if (ref && forkParent && ref.value === forkParent.value) return {failed: false};
+	if (!ref && forkParent && !session.agentSessionRef && !agent.idAtLaunch) {
+		return {failed: false, note: `${agent.label} did not report this fork's conversation ID, so it cannot be reopened. Press s to fork the parent again, or S to start a fresh conversation.`};
 	}
-	if (session.program === 'pi' && ref.kind === 'id') {
-		return [...(forkFrom ? ['--fork', forkFrom.value] : []), '--session-id', ref.value, ...label];
-	}
-	if (session.program === 'pi' && ref.kind === 'path') {
-		return ['--session', ref.value];
-	}
-	if (session.program === 'codex' && ref.kind === 'id' && mode === 'resume') return ['resume', ref.value];
-	return [];
-}
-
-function sameAgentSessionRef(left: AgentSessionRef | undefined, right: AgentSessionRef | undefined): boolean {
-	return Boolean(left && right && left.provider === right.provider && left.kind === right.kind && left.value === right.value);
-}
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function parseClaudeResumeRef(output: string): AgentSessionRef | undefined {
-	const text = output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
-	const match = text.match(/(?:^|\n)\s*claude\s+--resume(?:=|\s+)(?:"([^"]+)"|'([^']+)'|(\S+))/i);
-	const value = (match?.[1] ?? match?.[2] ?? match?.[3])?.trim();
-	return value ? {provider: 'claude', kind: UUID_PATTERN.test(value) ? 'id' : 'name', value} : undefined;
-}
-
-// Claude prints this and exits when `--resume <uuid>` names no saved conversation.
-function missingClaudeConversation(session: SessionRecord, output: string | undefined): string | undefined {
-	if (session.program !== 'claude' || !output) return undefined;
-	return output.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').match(/No conversation found with session ID:\s*([0-9a-f-]{36})/i)?.[1];
-}
-
-function refFromExitOutput(session: SessionRecord, output: string): AgentSessionRef | undefined {
-	if (session.program === 'claude') {
-		return parseClaudeResumeRef(output);
-	}
-	if (session.program === 'codex') return codexResumeFromOutput(output);
-	// `pi --fork` exits before creating the child when the parent has no saved session yet; forget the
-	// unused child ID so the next resume forks again instead of opening an empty conversation.
-	if (session.program === 'pi' && session.subSessionKind === 'forked' && /No session found matching/.test(output)) return session.forkedFromAgentSessionRef;
-	return undefined;
-}
-
-function restartRefForSession(session: SessionRecord): {ref: AgentSessionRef | undefined; shouldForkParent: boolean} {
-	if (session.subSessionKind !== 'forked') {
-		return {ref: session.agentSessionRef, shouldForkParent: false};
-	}
-	if (session.agentSessionRef && !sameAgentSessionRef(session.agentSessionRef, session.forkedFromAgentSessionRef)) {
-		return {ref: session.agentSessionRef, shouldForkParent: false};
-	}
-	return {ref: session.forkedFromAgentSessionRef ?? session.agentSessionRef, shouldForkParent: true};
+	return {ref, failed: false};
 }
 
 async function prepareAgentSessionRef(ref: AgentSessionRef | undefined): Promise<void> {
@@ -1108,10 +1050,10 @@ export class InkDaemon {
 		if (!ref || sameAgentSessionRef(ref, session.agentSessionRef)) return undefined;
 		// Identity is established at SessionStart; later events may only fill in a missing ref.
 		if (event !== 'SessionStart' && session.agentSessionRef) return undefined;
-		// Deckhand chose this Claude conversation's ID at launch; another ID (e.g. after /clear) is not its identity.
-		if (session.program === 'claude' && session.agentSessionRef?.kind === 'id' && session.subSessionKind !== 'forked') return undefined;
+		// Deckhand chose this conversation's ID at launch (forks included); another ID (e.g. after /clear) is not its identity.
+		if (agentSpec(session.program).idAtLaunch && session.agentSessionRef?.kind === 'id') return undefined;
 		if (session.subSessionKind === 'forked') {
-			// A fork first runs as its parent before branching; never adopt the parent's identity.
+			// A fork (e.g. a Codex child, which reports its own ID, or a legacy /branch child) never adopts its parent's identity.
 			const parent = session.forkedFromSessionId ? this.sessions.get(session.forkedFromSessionId) : undefined;
 			if (ref.value === session.forkedFromAgentSessionRef?.value || ref.value === parent?.agentSessionRef?.value) return undefined;
 		}
@@ -1340,13 +1282,12 @@ export class InkDaemon {
 		const worker = this.workers.get(sessionId);
 		this.workers.delete(sessionId);
 		const now = new Date().toISOString();
-		const parsedAgentSessionRef = refFromExitOutput(existing, lastPreview);
-		const missingConversation = missingClaudeConversation(existing, lastPreview);
+		const agentExit = readAgentExit(existing, lastPreview);
 		// node-pty reports a signal death (e.g. SIGKILL) as {exitCode: 0, signal: 9}: that is not a completion.
-		const exitReason = existing.exitReason === 'stopped' ? 'stopped' : missingConversation ? 'failed' : exitCode === null || exitSignal ? 'interrupted' : exitCode !== 0 ? 'failed' : 'completed';
+		const exitReason = existing.exitReason === 'stopped' ? 'stopped' : agentExit.failed ? 'failed' : exitCode === null || exitSignal ? 'interrupted' : exitCode !== 0 ? 'failed' : 'completed';
 		this.sessions.set(sessionId, {
 			...existing,
-			...(parsedAgentSessionRef ? {agentSessionRef: parsedAgentSessionRef} : {}),
+			...(agentExit.ref ? {agentSessionRef: agentExit.ref} : {}),
 			status: 'exited',
 			agentStatus: 'idle',
 			agentStatusUpdatedAt: now,
@@ -1354,8 +1295,7 @@ export class InkDaemon {
 			pid: undefined,
 			exitCode,
 			exitSignal,
-			// Never start fresh behind the user's back: say how to (S) instead.
-			lastPreview: missingConversation ? `${lastPreview}\n\nClaude has no saved conversation ${missingConversation}. Press S to start a fresh conversation.` : lastPreview,
+			lastPreview: agentExit.note ? `${lastPreview}\n\n${agentExit.note}` : lastPreview,
 			exitReason,
 		});
 		await fs.rm(getWorkerPidPath(sessionId), {force: true}).catch(() => {});
@@ -1834,14 +1774,21 @@ export class InkDaemon {
 			if (!parentSession) {
 				throw new Error('forked sub-session requires a parent session');
 			}
-			if (!supportsForkedSubSession(parentSession.program)) {
-				throw new Error('forked sub-sessions are only supported for Claude and Pi');
+			const agent = agentSpec(parentSession.program);
+			if (!agent.forks) {
+				throw new Error(`forked sub-sessions are not supported for ${agent.label}`);
 			}
 			if (input.program !== parentSession.program) {
 				throw new Error('forked sub-session must use the parent session program');
 			}
 			if (!parentSession.agentSessionRef) {
-				throw new Error('parent session does not have a resumable agent reference');
+				throw new Error(agent.idAtLaunch
+					? 'parent session does not have a resumable agent reference'
+					: `${agent.label} has not reported the parent's conversation ID yet (it comes from the SessionStart hook or the exit hint), so it cannot be forked`);
+			}
+			// Checked here so a fork never fails at agent launch: this agent may reopen the fork in the parent's directory.
+			if (!agent.forksAcrossDirectories && ((input.worktreeMode ?? 'none') !== 'none' || path.resolve(input.cwd) !== path.resolve(parentSession.cwd))) {
+				throw new Error(`${agent.label} forks stay in the parent's worktree; create a clean sub-session to work in another one`);
 			}
 		}
 		const conflict = [...this.sessions.values()].find(
@@ -1962,13 +1909,12 @@ export class InkDaemon {
 			};
 		}
 
-		const forkParent = input.subSessionKind === 'forked' && input.parentSessionId ? this.sessions.get(input.parentSessionId) : undefined;
 		const program = startingSession.program;
 		const agentName = buildDeckhandAgentName(title, sessionId);
-		// Claude's /branch picks the child's ID, so a forked Claude child is known by the name it branches to
-		// until a SessionStart hook or exit hint reports that ID. Everything else gets an exact ID now.
-		const branchesClaude = Boolean(forkParent) && program === 'claude';
-		const agentSessionRef = startingSession.agentSessionRef ?? (branchesClaude ? {provider: program, kind: 'name', value: agentName} : buildAgentSessionRef(program));
+		// A fork copies the parent's conversation as saved when the child launches (a turn in progress is not included).
+		const forkFrom = startingSession.subSessionKind === 'forked' ? startingSession.forkedFromAgentSessionRef : undefined;
+		const agentSessionRef = startingSession.agentSessionRef ?? newAgentRef(program);
+		const plan: LaunchPlan = forkFrom ? {kind: 'fork', parent: forkFrom, ref: agentSessionRef, name: agentName} : {kind: 'new', ref: agentSessionRef, name: agentName};
 		const baseRef = worktree.baseRef ?? (await currentBranch(launchWorktreeRoot) || await headSha(launchWorktreeRoot));
 		// The linked worktree the session runs in shares its markers with every session there: its own, or for a session
 		// without one (e.g. a sub-session) the linked worktree it was launched in. The main checkout has none.
@@ -1976,12 +1922,8 @@ export class InkDaemon {
 		const preparedSession: SessionRecord = {
 			...startingSession,
 			cwd: sessionCwd,
-			args: branchesClaude
-				? buildAgentArgs({program, agentSessionRef: forkParent?.agentSessionRef}, 'resume')
-				: buildAgentArgs({program, agentSessionRef}, 'create', agentName, forkParent?.agentSessionRef),
+			args: launchArgs(program, plan),
 			agentSessionRef,
-			forkedFromSessionId: forkParent?.id ?? startingSession.forkedFromSessionId,
-			forkedFromAgentSessionRef: forkParent?.agentSessionRef ?? startingSession.forkedFromAgentSessionRef,
 			launchWorktreeRoot,
 			worktree: {...worktree, baseRef},
 			updatedAt: new Date().toISOString(),
@@ -2024,9 +1966,6 @@ export class InkDaemon {
 		const launchSession = {...this.requireSession(sessionId), args: preparedSession.args, handoffPath: preparedSession.handoffPath};
 		this.sessions.set(sessionId, launchSession);
 		const runningSession = await this.startWorker(launchSession, input.cols, input.rows);
-		if (branchesClaude) {
-			setTimeout(() => { if (this.sessions.get(sessionId)?.launchId === preparedSession.launchId) this.sendWorkerEvent(sessionId, {type: 'input', target: 'agent', data: branchCommandInput(agentName)}); }, 500).unref?.();
-		}
 		await this.saveSession({...runningSession, ...this.requireSession(sessionId), status: 'running', pid: runningSession.pid});
 	}
 
@@ -2061,20 +2000,17 @@ export class InkDaemon {
 		}
 
 		const now = new Date().toISOString();
-		const parsedAgentSessionRef = mode === 'resume' && existing.lastPreview ? refFromExitOutput(existing, existing.lastPreview) : undefined;
+		const parsedAgentSessionRef = mode === 'resume' && existing.lastPreview ? readAgentExit(existing, existing.lastPreview).ref : undefined;
 		const restartSource = parsedAgentSessionRef ? {...existing, agentSessionRef: parsedAgentSessionRef} : existing;
 		const neverStarted = Boolean(existing.launchId) && !existing.agentStartedAt;
 		if (neverStarted && existing.requestedWorktreeMode && existing.requestedWorktreeMode !== 'none' && !existing.worktree?.path) throw new Error('Worktree preparation did not complete. Create a new session to retry instead of launching in the original checkout.');
-		if (mode === 'resume' && existing.program === 'codex' && !restartSource.agentSessionRef && !neverStarted) throw new Error('Codex conversation ID is unknown. Use S for a fresh session, or enable trusted Codex hooks before starting new sessions.');
-		const missingConversation = mode === 'resume' ? missingClaudeConversation(existing, existing.lastPreview) : undefined;
-		if (missingConversation && missingConversation === restartSource.agentSessionRef?.value) throw new Error(`Claude has no saved conversation ${missingConversation}. Use S for a fresh session.`);
+		const agent = agentSpec(existing.program);
 		const agentName = buildDeckhandAgentName(existing.title, existing.id, mode === 'fresh' ? `fresh-${Date.now().toString(36)}` : undefined);
-		const restartRef = mode === 'fresh' ? {ref: buildAgentSessionRef(existing.program), shouldForkParent: false} : restartRefForSession(restartSource);
-		// A fork that never launched, or never got its own conversation, forks its parent again.
-		const forkSource = mode !== 'fresh' && existing.subSessionKind === 'forked' && (restartRef.shouldForkParent || neverStarted) ? existing.forkedFromAgentSessionRef : undefined;
-		const branchesClaude = Boolean(forkSource) && existing.program === 'claude';
-		// Pi forks copy the parent into a new exact ID; a Claude fork keeps the existing reference until /branch reports one.
-		const startingAgentSessionRef = forkSource && !branchesClaude ? buildAgentSessionRef(existing.program) : restartRef.ref;
+		// s resumes the session's own conversation; a fork without one forks its parent again (new child ID); S starts fresh.
+		const plan = relaunchPlan(restartSource, mode === 'fresh' ? 'fresh' : 'resume', neverStarted, agentName);
+		if (!plan) throw new Error(`${agent.label} conversation ID is unknown. Use S for a fresh session${agent.idAtLaunch ? '' : `, or enable trusted ${agent.label} hooks before starting new sessions`}.`);
+		const missingConversation = agent.missingConversation?.(existing.lastPreview ?? '');
+		if (plan.kind === 'resume' && missingConversation && missingConversation === plan.ref.value) throw new Error(`${agent.label} has no saved conversation ${missingConversation}. Use S for a fresh session.`);
 		const starting: SessionRecord = {
 			...restartSource,
 			launchId: randomUUID(),
@@ -2083,10 +2019,10 @@ export class InkDaemon {
 			attention: undefined,
 			exitReason: undefined,
 			cleanupError: undefined,
-			args: branchesClaude
-				? buildAgentArgs({program: existing.program, agentSessionRef: forkSource}, 'resume')
-				: buildAgentArgs({program: existing.program, agentSessionRef: startingAgentSessionRef}, mode === 'fresh' || neverStarted || forkSource ? 'create' : 'resume', agentName, forkSource),
-			agentSessionRef: startingAgentSessionRef,
+			args: launchArgs(existing.program, plan),
+			agentSessionRef: plan.ref,
+			// A fresh conversation is no longer a copy of the parent's, so s never forks the parent for it.
+			...(mode === 'fresh' ? {forkedFromAgentSessionRef: undefined} : {}),
 			status: 'starting',
 			agentStatus: 'unknown',
 			agentStatusUpdatedAt: now,
@@ -2111,10 +2047,6 @@ export class InkDaemon {
 			starting.args = [...(starting.args ?? []), ...await integrationArgs(starting.program, starting.command, config.agent_hooks === true), ...(neverStarted && starting.handoffPath ? ['--', handoffPrompt(starting.handoffPath)] : [])];
 			await prepareAgentSessionRef(starting.agentSessionRef);
 			const runningSession = await this.startWorker({...this.requireSession(sessionId), args: starting.args}, cols, rows);
-			if (branchesClaude) {
-				const forkName = buildDeckhandAgentName(starting.title, starting.id);
-				setTimeout(() => { if (this.sessions.get(sessionId)?.launchId === starting.launchId) this.sendWorkerEvent(sessionId, {type: 'input', target: 'agent', data: branchCommandInput(forkName)}); }, 500).unref?.();
-			}
 			return await this.saveSession({...runningSession, ...this.requireSession(sessionId), status: 'running', pid: runningSession.pid});
 		} catch (error) {
 			if (this.sessions.get(sessionId)?.status === 'starting') await this.failStartingSession(sessionId, error, starting.launchId);

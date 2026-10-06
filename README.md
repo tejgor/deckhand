@@ -45,7 +45,7 @@ Tools for running coding agents in parallel typically rely on [`tmux`](https://g
 - **Live Previews** — Watch a session's output without attaching to it, with read-only preview focus/scrolling.
 - **Persistent Sessions** — The daemon owns sessions, so they survive UI quits and UI crashes. Daemon crashes preserve conversation references, not live processes.
 - **Keyboard Reordering** — Move sessions up and down among their siblings from the keyboard.
-- **Sub-sessions** — Group related work under a parent session, indented in the sidebar; each one starts clean in the parent's directory, or forks the parent's Claude/Pi conversation.
+- **Sub-sessions** — Group related work under a parent session, indented in the sidebar; each one starts clean in the parent's directory, or forks the parent's Claude, Pi or Codex conversation.
 - **Resumable Agents** — Claude/Pi retain native identities; Codex resumes when its native ID is captured. Unknown IDs never silently become a blank conversation. Fresh restart remains explicit.
 - **Per-session Notes** — Keep persisted scratch notes alongside each session.
 - **Safer Cleanup** — Check uncommitted, untracked and valuable ignored files, and commits that deleting a branch would lose, before deletion; force kill and data-loss authorization are separate.
@@ -233,7 +233,9 @@ New worktrees use an explicitly trusted [project hook](#-worktree-hooks); otherw
 Press `N` on a selected session to create a sub-session for related follow-up work. Sub-sessions render indented under their parent in the sidebar; press `c` on a parent to collapse or expand its subtree.
 
 - Choosing `claude`, `pi`, or `codex` creates a **clean** sub-session — a fresh agent context in the parent's directory or worktree.
-- For Claude and Pi parents, choosing **`Fork parent`** forks the parent's conversation: Claude resumes it and sends `/branch`; Pi launches with `--fork`. *(Claude's branch input includes an insert-mode safeguard for users with vim mode enabled.)*
+- Choosing **`⑂ Fork parent`** forks the parent's conversation into a new one (Claude `--fork-session`, Pi `--fork`, `codex fork`); nothing is typed into the agent. A fork copies the conversation **as saved at that moment**: a turn still in progress in the parent isn't included.
+- Claude and Pi forks can go into a new or existing worktree (`tab` in the create form). Codex forks always stay in the parent's worktree, because Codex may reopen a fork in the directory it was recorded in.
+- A Codex parent can be forked once its conversation ID is known (from Codex's SessionStart hook or its exit hint).
 
 ### Agent Identity and Restarts
 
@@ -241,9 +243,9 @@ Claude and Pi sessions get an exact conversation ID (a UUID) chosen by Deckhand 
 
 | Agent | Create | Restart | Forked sub-sessions |
 | --- | --- | --- | --- |
-| **Claude** | `claude --session-id <uuid> --name dh-{name}-{short-id}` | `claude --resume <uuid>`; an unknown ID asks for `S`, which creates a fresh ID | Resume parent, then send `/branch dh-{name}-{short-id}` |
-| **Pi** | `pi --session-id <uuid> --name dh-{name}-{short-id}` | Same `--session-id`; `S` creates a fresh ID | `pi --fork <parent> --session-id <child-uuid>` |
-| **Codex** | Normal launch; capture native ID via supported hook/exit hint | `codex resume <id>` when known; otherwise explicit `S` required | Not supported yet |
+| **Claude** | `claude --session-id <uuid> --name dh-{name}-{short-id}` | `claude --resume <uuid>`; an unknown ID asks for `S`, which creates a fresh ID | `claude --resume <parent> --fork-session --session-id <child-uuid> --name dh-{name}-{short-id}`, any worktree |
+| **Pi** | `pi --session-id <uuid> --name dh-{name}-{short-id}` | Same `--session-id`; `S` creates a fresh ID | `pi --fork <parent> --session-id <child-uuid> --name dh-{name}-{short-id}`, any worktree |
+| **Codex** | Normal launch; capture native ID via supported hook/exit hint | `codex resume <id>` when known; otherwise explicit `S` required | `codex fork <parent-id>` (parent's ID must be known), parent's worktree only |
 
 <details>
 <summary><strong>More details on Agent Identity</strong></summary>
@@ -252,7 +254,8 @@ Pi session files live in Pi's normal session tree at `~/.pi/agent/sessions/`, no
 
 - Claude prints a `claude --resume "..."` command when it exits; Deckhand parses that final preview and persists the parsed handle when available. If Claude reports `No conversation found with session ID`, Deckhand shows a hint to press `S` instead of starting fresh silently.
 - `S` fresh-restarts an exited session without using the prior resume handle.
-- Forked sub-sessions store the parent agent reference. Claude children send `/branch` at startup; Pi children are created by `pi --fork` before the TUI starts, so nothing is typed into Pi.
+- Forked sub-sessions store the parent agent reference. Claude and Pi children get their own exact ID at launch; a Codex child's ID is captured like any Codex session's, never the parent's. `s` resumes the child's own conversation. A fork that never launched, whose fork failed (the parent had no saved conversation yet: a conversation is saved once it has a message), or whose Codex ID was never reported forks the parent again with a new child ID on `s`.
+- Children recorded before `--fork-session` keep working: one stored with its `/branch` name resumes by that name; one still holding the parent's reference forks again.
 
 </details>
 
