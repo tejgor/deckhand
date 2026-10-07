@@ -3,7 +3,7 @@ import os from 'node:os';
 import {getConfigDir} from './paths.js';
 import path from 'node:path';
 import {execFile, spawn} from 'node:child_process';
-import type {WorktreeMergeMode, WorktreeMergeResult} from './types.js';
+import type {TargetOperation, WorktreeMergeMode, WorktreeMergeResult} from './types.js';
 import {promisify} from 'node:util';
 import {applyWorktreeLinks, branchNameProblem, expandBranchName, userSlug, worktreeLocation, type BranchFrom, type LinkResult, type TemplateVars, type WorktreeSettings} from './worktreeLinks.js';
 
@@ -372,15 +372,73 @@ async function countCommitsToMerge(targetRoot: string, sourceRef: string): Promi
 	return Number.parseInt(await git(targetRoot, ['rev-list', '--count', `HEAD..${sourceRef}`]), 10) || 0;
 }
 
-async function hasUnmergedFiles(cwd: string): Promise<boolean> {
-	return (await git(cwd, ['diff', '--name-only', '--diff-filter=U'])).trim().length > 0;
+/** At most this many conflicted paths are returned (the count is exact). */
+export const MAX_CONFLICT_PATHS = 200;
+/** Files with unresolved conflicts (unmerged index entries), repository-relative. */
+export async function unmergedFiles(cwd: string): Promise<string[]> {
+	return (await git(cwd, ['diff', '--name-only', '-z', '--diff-filter=U'])).split('\0').filter(Boolean);
 }
 
+const exists = (file: string) => fs.access(file).then(() => true, () => false);
+/**
+ * The operation in progress in a worktree, which a merge must not start on top of: a merge (MERGE_HEAD), rebase,
+ * cherry-pick or revert, or unresolved conflicts left by one (a kept squash merge has no MERGE_HEAD). Per worktree:
+ * `--git-path` resolves inside a linked worktree's own Git directory.
+ */
+export async function operationInProgress(cwd: string): Promise<TargetOperation | undefined> {
+	const [merge = '', rebaseMerge = '', rebaseApply = '', cherryPick = '', revert = ''] = (await git(cwd, ['rev-parse', '--path-format=absolute', '--git-path', 'MERGE_HEAD', '--git-path', 'rebase-merge', '--git-path', 'rebase-apply', '--git-path', 'CHERRY_PICK_HEAD', '--git-path', 'REVERT_HEAD'])).split('\n');
+	if (await exists(rebaseMerge) || await exists(rebaseApply)) return 'rebase';
+	if (await exists(merge)) return 'merge';
+	if (await exists(cherryPick)) return 'cherry-pick';
+	if (await exists(revert)) return 'revert';
+	return (await unmergedFiles(cwd)).length ? 'conflicts' : undefined;
+}
+/** Why a merge must not start on top of what the target is doing. */
+export function operationProblem(operation: TargetOperation): string {
+	return operation === 'conflicts' ? 'The target has unresolved conflicts: resolve and commit them first' : `A ${operation} is in progress in the target: finish or abort it first`;
+}
+
+const output = (error: unknown) => {
+	const err = error as Error & {stdout?: string; stderr?: string};
+	return [err.stdout, err.stderr].filter(Boolean).join('\n').trim() || err.message;
+};
+/** Uncommitted (changed or untracked, not ignored) files of a worktree. */
+export async function uncommittedFiles(cwd: string): Promise<number> {
+	const records = (await git(cwd, ['--no-optional-locks', 'status', '--porcelain=v1', '-z', '--untracked-files=all'], {maxBuffer: 32 * 1024 * 1024})).split('\0');
+	let files = 0;
+	for (let i = 0; i < records.length; i++) {
+		if (records[i]!.length < 4) continue;
+		files++;
+		if (/[RC]/.test(records[i]![0]!)) i++; // A rename's or copy's original path follows.
+	}
+	return files;
+}
+/**
+ * Commits everything uncommitted in the worktree (`git add -A`, then `git commit -m <message>`; hooks run as usual).
+ * Nothing to commit: undefined. A failed commit throws with Git's (and the hooks') output; what `add` staged stays staged.
+ */
+export async function commitWorktreeChanges(cwd: string, message: string): Promise<{files: number; sha: string} | undefined> {
+	const files = await uncommittedFiles(cwd);
+	if (!files) return undefined;
+	try {
+		await git(cwd, ['add', '-A'], SLOW);
+		await git(cwd, ['commit', '--no-edit', '-m', message], {...SLOW, env: {...process.env, GIT_EDITOR: 'true'}});
+	} catch (error) {
+		throw new Error(`Commit failed in the worktree, so nothing was merged:\n${output(error).split('\n').slice(-12).join('\n')}`);
+	}
+	return {files, sha: await headSha(cwd)};
+}
+
+export interface MergeOptions {
+	/** Commit the source worktree's uncommitted changes with this message before merging. */
+	commitFirst?: string;
+}
 export async function mergeWorktreeIntoCurrent(
 	worktreePath: string,
 	targetCwd: string,
 	mode: WorktreeMergeMode,
-): Promise<WorktreeMergeResult> {
+	options: MergeOptions = {},
+): Promise<WorktreeMergeResult & {targetRoot: string; targetHead?: string; indexClean?: boolean}> {
 	const sourceRoot = path.resolve(await findRepoRoot(worktreePath));
 	const targetRoot = path.resolve(await findRepoRoot(targetCwd));
 	if (sourceRoot === targetRoot) {
@@ -388,45 +446,104 @@ export async function mergeWorktreeIntoCurrent(
 	}
 
 	const sourceBranch = await currentBranch(sourceRoot);
-	const sourceRef = sourceBranch || await headSha(sourceRoot);
 	const targetBranch = await currentBranch(targetRoot);
 	if (!targetBranch) {
 		throw new Error('target worktree is detached; checkout a branch before merging');
 	}
+	const operation = await operationInProgress(targetRoot);
+	if (operation) throw new Error(operationProblem(operation));
+	const committed = options.commitFirst ? await commitWorktreeChanges(sourceRoot, options.commitFirst) : undefined;
+	const sourceRef = sourceBranch || await headSha(sourceRoot);
+	// Recorded with the marker: the branch moves on, the commit does not (squash merges leave the branch "unmerged").
+	const sourceSha = await git(sourceRoot, ['rev-parse', '--verify', `${sourceRef}^{commit}`]);
 
-	const commitsToMerge = await countCommitsToMerge(targetRoot, sourceRef);
+	const commitsToMerge = await countCommitsToMerge(targetRoot, sourceSha);
 	if (commitsToMerge === 0) {
 		return {
 			mode,
 			sourceRef,
+			sourceSha,
 			targetBranch,
+			targetRoot,
 			skipped: true,
 			reason: 'No new commits to merge',
+			...(committed ? {committed} : {}),
 			stdout: '',
 			stderr: '',
 		};
 	}
 
+	// A conflicted squash has no MERGE_HEAD; it can be undone (`git reset --merge`) only when the index was clean before,
+	// which ort guarantees for a merge it started (it refuses with any staged change). Checked anyway.
+	const [targetHead, indexClean] = await Promise.all([headSha(targetRoot), optionalGit(targetRoot, ['diff', '--cached', '--quiet']).then(result => result !== undefined)]);
 	const args = mode === 'squash'
 		? ['merge', '--squash', sourceRef]
 		: ['merge', '--no-commit', '--no-ff', sourceRef];
 	try {
 		const {stdout, stderr} = await gitOutput(targetRoot, args, SLOW);
-		return {mode, sourceRef, targetBranch, stdout, stderr};
+		return {mode, sourceRef, sourceSha, targetBranch, targetRoot, ...(committed ? {committed} : {}), stdout, stderr};
 	} catch (error) {
 		const err = error as Error & {stdout?: string; stderr?: string};
-		const output = [err.message, err.stdout, err.stderr].filter(Boolean).join('\n').trim();
-		if (await hasUnmergedFiles(targetRoot)) {
+		const message = [err.message, err.stdout, err.stderr].filter(Boolean).join('\n').trim();
+		const conflicts = await unmergedFiles(targetRoot).catch(() => []);
+		if (conflicts.length) {
 			return {
 				mode,
 				sourceRef,
+				sourceSha,
 				targetBranch,
+				targetRoot,
+				targetHead,
+				indexClean,
 				conflicted: true,
+				conflicts: conflicts.slice(0, MAX_CONFLICT_PATHS),
+				conflictCount: conflicts.length,
+				...(committed ? {committed} : {}),
 				reason: 'Merge has conflicts to resolve',
 				stdout: err.stdout ?? '',
-				stderr: err.stderr ?? output,
+				stderr: err.stderr ?? message,
 			};
 		}
-		throw new Error(output || `${mode === 'squash' ? 'squash merge' : 'merge'} failed`);
+		throw new Error(message || `${mode === 'squash' ? 'squash merge' : 'merge'} failed`);
 	}
+}
+
+/** What Deckhand knows about a conflicted merge it started (to undo a squash, which has no MERGE_HEAD). */
+export interface ConflictedMerge {mode: WorktreeMergeMode; targetHead?: string; indexClean?: boolean}
+/**
+ * Undoes a conflicted merge in `targetRoot`. With MERGE_HEAD: `git merge --abort`. A squash merge has none, so
+ * `git reset --merge` (what `merge --abort` runs) restores the index and the files the merge changed while keeping
+ * unrelated unstaged edits and untracked files; that is only safe for a squash Deckhand started on a clean index
+ * whose HEAD has not moved since, otherwise it refuses.
+ */
+export async function abortMerge(targetRoot: string, started?: ConflictedMerge): Promise<void> {
+	const mergeHead = await git(targetRoot, ['rev-parse', '--path-format=absolute', '--git-path', 'MERGE_HEAD']);
+	if (await exists(mergeHead)) {
+		await git(targetRoot, ['merge', '--abort'], SLOW);
+		return;
+	}
+	if (started?.mode !== 'squash' || !started.indexClean || !started.targetHead || started.targetHead !== await headSha(targetRoot).catch(() => undefined)) {
+		throw new Error('Cannot abort this squash merge safely (Deckhand did not start it on a clean index, or the target changed since); undo it in Git');
+	}
+	await git(targetRoot, ['reset', '--merge'], SLOW);
+	await fs.rm(await git(targetRoot, ['rev-parse', '--path-format=absolute', '--git-path', 'SQUASH_MSG']), {force: true});
+}
+
+/**
+ * The commit a branch was created at, from its reflog's oldest entry when that is the creation (`branch: Created
+ * from …`); undefined when the reflog is gone or starts later.
+ */
+export async function branchCreationCommit(cwd: string, branch: string): Promise<string | undefined> {
+	if (!branch || branch.startsWith('-')) return undefined;
+	const lines = (await optionalGit(cwd, ['log', '-g', '--format=%H %gs', `refs/heads/${branch}`, '--']))?.split('\n').filter(Boolean) ?? [];
+	const oldest = lines.at(-1)?.match(/^([0-9a-f]{40,64}) branch: Created from /);
+	return oldest?.[1];
+}
+
+/** Whether the branch's reflog shows at least one commit made on it (`commit`, `commit (amend)`, `commit (merge)`, …). */
+export async function branchHasOwnCommits(cwd: string, branch: string): Promise<boolean | undefined> {
+	const subjects = await optionalGit(cwd, ['log', '-g', '--format=%gs', `refs/heads/${branch}`, '--']);
+	if (subjects === undefined || !subjects.trim()) return undefined;
+	// A fast-forward, reset or rebase moves the branch without a commit of its own (e.g. a fresh branch brought up to date).
+	return subjects.split('\n').some(subject => /^(commit|cherry-pick)\b/.test(subject) || /^(merge|pull)\b.*: Merge made by/.test(subject));
 }

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import React from 'react';
 import {renderToString} from 'ink';
-import {formatAge, locationText, msUntilAgeChanges, sessionDetails, sidebarHeader, sidebarRows, statusSince, statusWords, type SidebarRowsInput} from '../src/sidebarModel.js';
-import {Sidebar} from '../src/sidebar.js';
+import {doneText, formatAge, locationText, msUntilAgeChanges, sessionDetails, sidebarHeader, sidebarRows, statusSince, statusWords, type SidebarRowsInput} from '../src/sidebarModel.js';
+import {Sidebar, partStyle} from '../src/sidebar.js';
 import {sortSessionsForSidebar} from '../src/sessionOrder.js';
 import type {SessionRecord} from '../src/types.js';
 
@@ -186,4 +186,48 @@ test('Sidebar renders the cursor in the padding column and pins the details to t
 		'│ main checkout                  │',
 		'╰────────────────────────────────╯',
 	]);
+});
+
+test('sidebar done marker: ☑ after ✓ in the suffix, dropped after ✓ when narrow; done rows slightly dimmed; details say done 2d ago', () => {
+	// A worktree session merged and done, a main-checkout session only done, an archived done one, and a plain one.
+	const both = session('both', {title: 'ship auth', cwd: '/wt/auth', worktree: {...auth, mergedAt: ago(10)}, doneAt: ago(3000), status: 'exited', exitReason: 'completed'});
+	const main = session('main', {title: 'tidy readme', doneAt: ago(30)});
+	const archived = session('old', {title: 'old idea', doneAt: ago(60), archivedAt: ago(50), status: 'exited'});
+	const plainRow = session('plain', {title: 'plain'});
+	const list = [both, main, archived, plainRow];
+	assert.deepEqual(texts({rows: list, width: 34}), [
+		'  1 ○ ship auth              ✓ ☑ ✶',
+		'  2 ● tidy readme              ☑ ✶',
+		'  3 ○ old idea               ▣ ☑ ✶',
+		'  4 ● plain                      ✶',
+	]);
+	assert.ok(rows({rows: [main]})[0]!.parts.some(part => part.role === 'done' && part.text === '☑'));
+	// Narrow: ✓ goes first, then ☑, then ▣; the agent glyph stays.
+	assert.deepEqual(texts({rows: [both], width: 14}), ['  1 ○ shi… ☑ ✶']);
+	assert.deepEqual(texts({rows: [both], width: 12}), ['  1 ○ shi… ✶']);
+	assert.deepEqual(texts({rows: [archived], width: 14}), ['  1 ○ old… ▣ ✶']);
+	// Dimming: done rows are `done` (muted title), never archive-dimmed for it; archived rules win, the selected row is neither.
+	const flags = (filter: SidebarRowsInput['filter'], selectedId?: string) => rows({rows: list, filter, selectedId}).map(row => `${row.dimmed ? 'dim' : ''}${row.done ? 'done' : ''}` || '-');
+	assert.deepEqual(flags('all'), ['done', 'done', 'dim', '-']);
+	assert.deepEqual(flags('archived'), ['dim', 'dim', 'done', 'dim']);
+	assert.deepEqual(flags('all', 'main'), ['done', '-', 'dim', '-']);
+	// Details: `done 2d ago` after merged, before archived; `done now` within a minute.
+	const detail = (item: SessionRecord) => sessionDetails(item, [item], 48, 10, NOW).map(line => line.map(part => part.text).join('')).at(-1);
+	assert.equal(detail(both), '⎇ feat/auth · merged · done 2d ago');
+	assert.equal(detail(main), 'main checkout · done 30m ago');
+	assert.equal(detail(archived), 'main checkout · done 1h ago · archived');
+	assert.equal(doneText(session('x', {doneAt: ago(0)}), NOW), 'done now');
+	assert.equal(doneText(main), 'done');
+	assert.equal(locationText(both, [both], 30, NOW), '⎇ feat/auth · merged …');
+	// Styles: a done row's title is muted, not dim; its ☑ readable; the status glyph keeps its color. Archived ones stay dim.
+	const [, mainRow, archivedRow] = rows({rows: list, filter: 'all'});
+	const style = (row: typeof mainRow, role: string) => partStyle(row!.parts.find(part => part.role === role)!, row!);
+	assert.deepEqual(style(mainRow, 'title'), {color: 'gray'});
+	assert.deepEqual(style(mainRow, 'done'), {color: 'gray'});
+	assert.deepEqual(style(mainRow, 'status'), {color: 'green'});
+	assert.deepEqual(style(archivedRow, 'title'), {color: 'gray', dimColor: true});
+	assert.deepEqual(style(archivedRow, 'done'), {color: 'gray'});
+	const out = renderToString(React.createElement(Sidebar, {sessions: [main, plainRow], allSessions: [main, plainRow], selectedId: 'plain', width: 30, height: 6, spinnerFrame: '⠋', filter: 'active', query: '', now: NOW}), {columns: 30});
+	const doneLine = out.split('\n').find(line => line.includes('tidy readme'))!;
+	assert.match(plain(doneLine), /☑ ✶/);
 });

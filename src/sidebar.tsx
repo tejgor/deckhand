@@ -39,13 +39,16 @@ function emptyMessage(allSessions: SessionRecord[], loaded: boolean): [string, s
 	return ['No sessions yet.', 'Press n to create.'];
 }
 
-function partStyle(part: RowPart, row: SidebarRow): {color?: string; dimColor?: boolean} {
+export function partStyle(part: RowPart, row: SidebarRow): {color?: string; dimColor?: boolean} {
 	// The selected row is one inverse highlight; a dimmed row is muted throughout, ▣ kept readable.
 	if (row.selected) return {};
-	if (row.dimmed) return part.role === 'archived' ? {color: THEME.muted} : {color: THEME.muted, dimColor: true};
+	if (row.dimmed) return part.role === 'archived' || part.role === 'done' ? {color: THEME.muted} : {color: THEME.muted, dimColor: true};
+	// Done: the title (and tree) muted, not dim; the status glyph keeps its color, so a signal still shows.
+	if (row.done && (part.role === 'title' || part.role === 'tree')) return {color: THEME.muted};
 	switch (part.role) {
 		case 'gutter': return {color: THEME.active, dimColor: true};
 		case 'number': case 'archived': case 'merged': case 'count': case 'outdated': return {color: THEME.muted, dimColor: true};
+		case 'done': return {color: THEME.muted};
 		case 'dev': return {color: THEME.success};
 		case 'cleanup': return {color: THEME.error};
 		case 'agent': return {color: THEME.muted};

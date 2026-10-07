@@ -16,7 +16,7 @@ import {
 } from './paths.js';
 import {PROTOCOL_VERSION} from './types.js';
 import type {NoteSection} from './notes.js';
-import type {AgentUpdateResult, AgentVersions, NoteSaveResult, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
+import type {AgentUpdateResult, AgentVersions, MergePreview, NoteSaveResult, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -392,8 +392,20 @@ export class LiveClient {
 		return this.request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree, deleteBranch, force, allowDataLoss});
 	}
 
-	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string): Promise<WorktreeMergeResult> {
-		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd});
+	mergePreview(sessionId: string, targetCwd: string): Promise<MergePreview> {
+		return this.request<MergePreview>({type: 'merge-preview', requestId: randomUUID(), sessionId, targetCwd});
+	}
+
+	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false): Promise<WorktreeMergeResult> {
+		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd, commitFirst});
+	}
+
+	resolveMerge(sessionId: string, targetCwd: string, action: 'keep' | 'abort'): Promise<SessionRecord> {
+		return this.request<SessionRecord>({type: 'resolve-merge', requestId: randomUUID(), sessionId, targetCwd, action});
+	}
+
+	setSessionDone(sessionId: string, done: boolean): Promise<SessionRecord> {
+		return this.request<SessionRecord>({type: 'set-session-done', requestId: randomUUID(), sessionId, done});
 	}
 
 	markSessionMerged(sessionId: string, targetCwd: string): Promise<SessionRecord> {

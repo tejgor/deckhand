@@ -21,11 +21,12 @@ import {sessionMatchesScope} from './sessionScope.js';
 import {noWorkspaceReason, workspaceKey} from './workspace.js';
 import {Sidebar} from './sidebar.js';
 import {msUntilAgeChanges, statusSince} from './sidebarModel.js';
+import {conflictView, mergeConfirmLayout, type MergeLine, type MergeNoteEntry} from './mergeModel.js';
 import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane} from './terminalPane.js';
 import {AGENTS} from './agents.js';
-import type {AgentVersions, AttachTarget, DevRecord, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
+import type {AgentVersions, AttachTarget, DevRecord, MergePreview, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
 import {THEME, compactPath, displaySessionTitle, errorMessage, stripTerminalControls, truncate} from './ui.js';
 
 const RIGHT_TABS: RightPaneTab[] = ['preview', 'terminal', 'git', 'dev', 'notes'];
@@ -131,7 +132,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss' | 'agents';
+type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'merge-conflicts' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss' | 'agents';
 
 interface AppProps {
 	repoRoot: string;
@@ -322,40 +323,52 @@ function WorktreePickerPane({
 	);
 }
 
-function MergeConfirmPane({session, sessions, selectedIndex, width}: {session?: SessionRecord; sessions: SessionRecord[]; selectedIndex: number; width: number}) {
-	const options = ['Merge into current branch without committing', 'Squash merge into current branch without committing', 'Cancel'];
-	const contentWidth = Math.max(1, width - 4);
+/** The notes shown on the merge confirmation: the worktree's shared note first, then the session's and its sub-sessions'. */
+function mergeNoteEntries(session: SessionRecord | undefined, sessions: SessionRecord[]): MergeNoteEntry[] {
 	const noteSessions = session ? [session, ...sessionDescendants(session.id, sessions)] : [];
-	const noteEntries = noteSessions
+	const entries = noteSessions
 		.map(noteSession => ({key: noteSession.id, title: displaySessionTitle(noteSession, sessions), lines: (noteSession.notes?.trim() ?? '').split('\n').filter(Boolean)}))
 		.filter(entry => entry.lines.length > 0);
 	// The worktree's shared note comes first: it describes the worktree being merged.
 	const worktreeLines = (session?.sharedNotes?.text.trim() ?? '').split('\n').filter(Boolean);
-	if (session && worktreeLines.length) noteEntries.unshift({key: 'worktree', title: `Worktree notes${session.worktree?.branch ? ` · ${session.worktree.branch}` : ''}`, lines: worktreeLines});
+	if (session && worktreeLines.length) entries.unshift({key: 'worktree', title: `Worktree notes${session.worktree?.branch ? ` · ${session.worktree.branch}` : ''}`, lines: worktreeLines});
+	return entries;
+}
+
+function MergeLines({lines}: {lines: MergeLine[]}) {
+	return <>{lines.map((line, index) => <Text key={index} color={line.color} bold={line.bold} wrap="truncate-end">{line.text}</Text>)}</>;
+}
+
+export function MergeConfirmPane({session, sessions, flow, selectedIndex, width, height}: {session?: SessionRecord; sessions: SessionRecord[]; flow?: MergeFlow; selectedIndex: number; width: number; height: number}) {
+	const contentWidth = Math.max(1, width - 4);
+	const layout = mergeConfirmLayout({
+		title: session ? displaySessionTitle(session, sessions) : 'worktree',
+		preview: flow?.preview, previewError: flow?.previewError, commitFirst: flow?.commitFirst ?? true,
+		commitMessage: session?.title.trim() ?? '', error: flow?.error, notes: mergeNoteEntries(session, sessions), width: contentWidth, height,
+	});
 	return (
-		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
-			<Text color={THEME.accent} bold>Merge {session ? `"${displaySessionTitle(session, sessions)}"` : 'worktree'}?</Text>
-			{session?.worktree?.path ? (
-				<Text color={THEME.muted}>{truncate(compactPath(session.worktree.path, contentWidth), contentWidth)}</Text>
-			) : null}
+		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
+			<Text color={THEME.accent} bold wrap="truncate-end">{layout.title}</Text>
+			<MergeLines lines={layout.details} />
 			<Box marginTop={1} flexDirection="column">
-				{options.map((option, index) => <SelectableRow key={option} selected={index === selectedIndex} text={option} width={contentWidth} selectedColor={option === 'Cancel' ? THEME.muted : THEME.active} wrap />)}
+				{layout.options.map((option, index) => <SelectableRow key={option} selected={index === selectedIndex} text={option} width={contentWidth} selectedColor={option === 'Cancel' ? THEME.muted : THEME.active} />)}
 			</Box>
-			<Box marginTop={1}>
-				<Text color={THEME.muted}>enter choose · esc cancel · j/k move</Text>
-			</Box>
+			<Box marginTop={1}><Text color={THEME.muted} wrap="truncate-end">{layout.hint}</Text></Box>
+			{layout.error.length ? <Box marginTop={1} flexDirection="column"><MergeLines lines={layout.error} /></Box> : null}
+			{layout.notes.length ? <Box marginTop={1} flexDirection="column"><MergeLines lines={layout.notes} /></Box> : null}
+		</Box>
+	);
+}
+
+export function MergeConflictPane({result, width}: {result: WorktreeMergeResult; width: number}) {
+	const contentWidth = Math.max(1, width - 4);
+	const view = conflictView(result, contentWidth);
+	return (
+		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.warn} paddingX={1}>
+			<Text color={THEME.warn} bold wrap="truncate-end">{view.title}</Text>
+			{view.files.map((file, index) => <Text key={index} color={THEME.muted} wrap="truncate-end">{file}</Text>)}
 			<Box marginTop={1} flexDirection="column">
-				<Text color={THEME.accentSoft} bold>Notes</Text>
-				{noteEntries.length > 0 ? noteEntries.map(entry => (
-					<Box key={entry.key} flexDirection="column">
-						<Text color={THEME.muted} bold>{truncate(entry.title, contentWidth)}</Text>
-						{entry.lines.map((line, index) => (
-							<Text key={`${entry.key}-${index}`} color={THEME.muted}>{truncate(`  ${line}`, contentWidth)}</Text>
-						))}
-					</Box>
-				)) : (
-					<Text color={THEME.muted}>No notes for this worktree, this session or its sub-sessions.</Text>
-				)}
+				{view.choices.map(choice => <Text key={choice.key} wrap="truncate-end"><Text color={THEME.active} bold>{choice.key.padEnd(6)}</Text>{truncate(choice.text, Math.max(1, contentWidth - 6))}</Text>)}
 			</Box>
 		</Box>
 	);
@@ -449,6 +462,9 @@ function ActionPickerPane({project, selectedIndex, width, height}: {project?: Pr
 	/>;
 }
 
+/** The merge confirmation (m) of one session: its preview, the commit-first toggle and a failed attempt's output. */
+interface MergeFlow {sessionId: string; preview?: MergePreview; previewError?: string; commitFirst: boolean; error?: string}
+
 function hasMergedMarker(session?: SessionRecord): boolean {
 	return Boolean(session?.worktree?.mergedAt || session?.mergedAt);
 }
@@ -462,7 +478,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 		// Every other mode replaces the right pane with a screen that shows its own (single) hint line.
 		case 'help': case 'settings': case 'agents':
 		case 'edit-project': case 'discard-project': case 'workspace-info': case 'review-project': case 'confirm-loss':
-		case 'pick-action': case 'pick-program': case 'enter-name': case 'pick-worktree': case 'confirm-kill': case 'confirm-merge':
+		case 'pick-action': case 'pick-program': case 'enter-name': case 'pick-worktree': case 'confirm-kill': case 'confirm-merge': case 'merge-conflicts':
 			return '';
 		case 'preview-focus': {
 			const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
@@ -537,6 +553,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [killConfirmIndex, setKillConfirmIndex] = useState(0);
 	const [killConfirmForce, setKillConfirmForce] = useState(false);
 	const [mergeConfirmIndex, setMergeConfirmIndex] = useState(0);
+	const [mergeFlow, setMergeFlow] = useState<MergeFlow>();
+	const mergeRequestRef = useRef(0);
+	// A conflicted merge's result, until it is kept or aborted.
+	const [mergeConflict, setMergeConflict] = useState<{sessionId: string; result: WorktreeMergeResult}>();
 	const sessionTabsRef = useRef<Record<string, RightPaneTab>>({
 		...(initialSessionTabs ?? {}),
 		...(initialSelectedId && initialActiveTab ? {[initialSelectedId]: initialActiveTab} : {}),
@@ -840,12 +860,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// re-renders (no spinner), one render exactly when the shown age would change keeps it current.
 	const [clockTick, setClockTick] = useState(0);
 	const selectedSince = selectedSession ? statusSince(selectedSession) : undefined;
+	const selectedDoneAt = selectedSession?.doneAt;
 	useEffect(() => {
-		const since = selectedSince ? Date.parse(selectedSince) : NaN;
-		if (shouldAnimateStatus || !Number.isFinite(since)) return;
-		const timer = setTimeout(() => setClockTick(tick => tick + 1), msUntilAgeChanges(Date.now() - since));
+		// The state's age and the `done 2d ago` marker: re-render when the first of them changes.
+		const ages = [selectedSince, selectedDoneAt].map(at => (at ? Date.parse(at) : NaN)).filter(Number.isFinite);
+		if (shouldAnimateStatus || !ages.length) return;
+		const timer = setTimeout(() => setClockTick(tick => tick + 1), Math.min(...ages.map(at => msUntilAgeChanges(Date.now() - at))));
 		return () => clearTimeout(timer);
-	}, [clockTick, selectedSince, shouldAnimateStatus]);
+	}, [clockTick, selectedDoneAt, selectedSince, shouldAnimateStatus]);
 
 	const currentWorkspaceInfo = workspaceInfo && workspaceInfo.sessionId === selectedSession?.id ? workspaceInfo : undefined;
 	const currentCleanupCheck = cleanupCheck && cleanupCheck.sessionId === selectedSession?.id ? cleanupCheck : undefined;
@@ -1485,24 +1507,69 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (!client || !selectedSession?.worktree?.path || selectedSession.worktree.mode === 'none') {
 			return;
 		}
+		const sessionId = selectedSession.id;
+		const flow = mergeFlow?.sessionId === sessionId ? mergeFlow : undefined;
+		// The toggle only applies when there is something uncommitted to commit.
+		const commitFirst = Boolean(flow?.preview?.uncommitted) && (flow?.commitFirst ?? true);
 		setBusy(true);
 		setError(undefined);
+		setMergeFlow(current => (current?.sessionId === sessionId ? {...current, error: undefined} : current));
 		try {
-			const result = await client.mergeWorktree(selectedSession.id, mergeMode, cwd);
+			const result = await client.mergeWorktree(sessionId, mergeMode, cwd, commitFirst);
+			const committed = result.committed ? `Committed ${result.committed.files} file${result.committed.files === 1 ? '' : 's'}, then ` : '';
+			if (result.conflicted) {
+				setMergeConflict({sessionId, result});
+				setMode('merge-conflicts');
+				return;
+			}
 			setMode('browse');
 			if (result.skipped) {
 				setStatusMessage(`Skipped merge: no new commits from ${result.sourceRef} into ${result.targetBranch}`);
-			} else if (result.conflicted) {
-				setStatusMessage(`${mergeMode === 'squash' ? 'Squash merge' : 'Merge'} has conflicts to resolve from ${result.sourceRef} into ${result.targetBranch}`);
 			} else {
-				setStatusMessage(`${mergeMode === 'squash' ? 'Squash applied' : 'Merge applied without commit'} from ${result.sourceRef} into ${result.targetBranch}`);
+				const applied = `${mergeMode === 'squash' ? 'squash applied' : 'merge applied without commit'} from ${result.sourceRef} into ${result.targetBranch}`;
+				setStatusMessage(committed ? `${committed}${applied}` : `${applied[0]!.toUpperCase()}${applied.slice(1)}`);
 			}
+		} catch (nextError) {
+			// Shown on the confirmation (a failed commit's hook output can be long); nothing was merged.
+			setMergeFlow(current => (current?.sessionId === sessionId ? {...current, error: errorMessage(nextError)} : current));
+		} finally {
+			setBusy(false);
+		}
+	}, [client, cwd, mergeFlow, selectedSession]);
+
+	const resolveConflictedMerge = useCallback(async (action: 'keep' | 'abort') => {
+		if (!client || !mergeConflict) return;
+		const {sessionId, result} = mergeConflict;
+		setBusy(true);
+		setError(undefined);
+		try {
+			const updated = await client.resolveMerge(sessionId, cwd, action);
+			setSessions(current => upsertSession(current, updated));
+			setMergeConflict(undefined);
+			setMode('browse');
+			const count = result.conflictCount ?? result.conflicts?.length ?? 0;
+			setStatusMessage(action === 'keep'
+				? `Merge kept with conflicts in ${count} file${count === 1 ? '' : 's'} into ${result.targetBranch}: resolve them, then commit (marked merged)`
+				: `Merge aborted; ${result.targetBranch} is as it was`);
 		} catch (nextError) {
 			setError(errorMessage(nextError));
 		} finally {
 			setBusy(false);
 		}
-	}, [client, cwd, selectedSession]);
+	}, [client, cwd, mergeConflict]);
+
+	const toggleSelectedDone = useCallback(async () => {
+		if (!client || !selectedSession) return;
+		const done = !selectedSession.doneAt;
+		setError(undefined);
+		try {
+			const updated = await client.setSessionDone(selectedSession.id, done);
+			setSessions(current => upsertSession(current, updated));
+			setStatusMessage(done ? `Marked done: ${displaySessionTitle(updated, sessionsRef.current)}` : `No longer done: ${displaySessionTitle(updated, sessionsRef.current)}`);
+		} catch (nextError) {
+			setError(errorMessage(nextError));
+		}
+	}, [client, selectedSession]);
 
 	const markSelectedMerged = useCallback(async () => {
 		if (!client || !selectedSession) {
@@ -1935,12 +2002,27 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === 'm' && selectedSession?.worktree?.path && selectedSession.worktree.mode !== 'none' && !selectedSession.worktree.deletedAt) {
+				const sessionId = selectedSession.id;
+				const requestId = ++mergeRequestRef.current;
 				setMergeConfirmIndex(0);
+				setMergeFlow({sessionId, commitFirst: true});
 				setMode('confirm-merge');
+				// What would be merged, checked fresh each time the confirmation opens.
+				client?.mergePreview(sessionId, cwd).then(preview => {
+					if (mergeRequestRef.current === requestId) setMergeFlow(current => (current?.sessionId === sessionId ? {...current, preview} : current));
+				}).catch(nextError => {
+					if (mergeRequestRef.current === requestId) setMergeFlow(current => (current?.sessionId === sessionId ? {...current, previewError: errorMessage(nextError)} : current));
+				});
 				return;
 			}
-			if (input === 'M') {
-				void markSelectedMerged();
+			if (input === 'M' && selectedSession) {
+				// Merged belongs to worktrees; a main-checkout session can still be marked done.
+				if (!selectedSession.worktree?.id && !hasMergedMarker(selectedSession)) setStatusMessage(selectedSession.requestedWorktreeMode && selectedSession.requestedWorktreeMode !== 'none' && !workspaceKey(selectedSession) ? 'Its worktree is not ready yet' : 'Not in a worktree, so there is nothing to mark merged. Use D to mark it done');
+				else void markSelectedMerged();
+				return;
+			}
+			if (input === 'D' && selectedSession) {
+				void toggleSelectedDone();
 				return;
 			}
 			if ((input === 'x' || input === 'X') && selectedSession?.status === 'running') {
@@ -2137,10 +2219,21 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 
+		if (mode === 'merge-conflicts') {
+			// Only two choices: keep the merge in progress (marked merged), or abort it.
+			if (key.return) void resolveConflictedMerge('keep');
+			else if (input === 'a') void resolveConflictedMerge('abort');
+			return;
+		}
+
 		if (mode === 'confirm-merge') {
 			const optionCount = 3;
 			if (key.escape) {
 				setMode('browse');
+				return;
+			}
+			if (input === ' ') {
+				if (mergeFlow?.preview?.uncommitted) setMergeFlow(current => (current ? {...current, commitFirst: !current.commitFirst} : current));
 				return;
 			}
 			if (key.upArrow || input === 'k') {
@@ -2152,7 +2245,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (key.return) {
-				if (mergeConfirmIndex === 0) void mergeSelected('merge');
+				// The preview decides what the toggle applies to; until it (or its error) arrives, only Cancel works.
+				const pending = mergeConfirmIndex < 2 && !mergeFlow?.preview && !mergeFlow?.previewError;
+				if (pending) setStatusMessage('Still checking what will be merged…');
+				else if (mergeConfirmIndex === 0) void mergeSelected('merge');
 				else if (mergeConfirmIndex === 1) void mergeSelected('squash');
 				else setMode('browse');
 				return;
@@ -2308,7 +2404,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						inspection={killConfirmInspection}
 					/>
 				) : mode === 'confirm-merge' ? (
-					<MergeConfirmPane session={selectedSession} sessions={sessions} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} />
+					<MergeConfirmPane session={selectedSession} sessions={sessions} flow={mergeFlow?.sessionId === selectedSession?.id ? mergeFlow : undefined} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} height={layout.contentHeight} />
+				) : mode === 'merge-conflicts' && mergeConflict ? (
+					<MergeConflictPane result={mergeConflict.result} width={layout.previewWidth} />
 				) : mode === 'pick-program' || mode === 'enter-name' ? (
 					<CreatePane
 						mode={mode}
