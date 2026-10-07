@@ -2,6 +2,7 @@ import pty, {type IPty} from 'node-pty';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {ensureNodePtyReady} from './nodePty.js';
+import {killSurvivors, snapshotDescendants, survivors} from './processTree.js';
 import {loadAppConfig} from './storage.js';
 import {TerminalPreview} from './terminalPreview.js';
 import type {ActionRecord, AgentActivityStatus, AttachTarget, DevRecord, GitRecord, PreviewRecord, SessionRecord, TerminalRecord} from './types.js';
@@ -324,13 +325,18 @@ class PaneHost {
 		if (!runtime) return Promise.resolve();
 		delete this.panes[target];
 		if (runtime.broadcastTimer) clearTimeout(runtime.broadcastTimer);
+		// Taken before signalling: once the shell dies its children are reparented and can't be found from it.
+		const descendants = runtime.exited ? new Map() : snapshotDescendants(runtime.term.pid);
 		// Interactive shells (`$SHELL -ic cmd`) ignore SIGTERM; SIGHUP is what a closed terminal sends.
 		signalPtyProcess(runtime.term, 'SIGHUP');
 		runtime.preview.dispose();
 		if (runtime.exited) return Promise.resolve();
+		// After the grace period, SIGKILL the group plus descendants that survived, including jobs the shell moved to
+		// their own process group (which the group signal cannot reach). The shell exiting first ends the wait only when
+		// nothing survived it, so a worker that exits right after stopping its panes still kills them.
 		return new Promise(resolve => {
-			const timer = setTimeout(() => { if (!runtime.exited) signalPtyProcess(runtime.term, 'SIGKILL'); resolve(); }, PANE_KILL_GRACE_MS);
-			runtime.term.onExit(() => { clearTimeout(timer); resolve(); });
+			const timer = setTimeout(() => { if (!runtime.exited) signalPtyProcess(runtime.term, 'SIGKILL'); killSurvivors(descendants); resolve(); }, PANE_KILL_GRACE_MS);
+			runtime.term.onExit(() => { if (survivors(descendants).size === 0) { clearTimeout(timer); resolve(); } });
 		});
 	}
 
