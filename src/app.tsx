@@ -24,9 +24,9 @@ import {msUntilAgeChanges, statusSince} from './sidebarModel.js';
 import {conflictView, mergeConfirmLayout, type MergeLine, type MergeNoteEntry} from './mergeModel.js';
 import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
-import {TerminalPane} from './terminalPane.js';
+import {TerminalPane, actionStatus, hasAction, type TerminalView} from './terminalPane.js';
 import {AGENTS} from './agents.js';
-import type {AgentVersions, AttachTarget, DevRecord, MergePreview, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
+import type {ActionRecord, AgentVersions, AttachTarget, DevRecord, MergePreview, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
 import {THEME, compactPath, displaySessionTitle, errorMessage, stripTerminalControls, truncate} from './ui.js';
 
 const RIGHT_TABS: RightPaneTab[] = ['preview', 'terminal', 'git', 'dev', 'notes'];
@@ -51,6 +51,11 @@ const EMPTY_TERMINAL: TerminalRecord = {
 const EMPTY_CHANGES: ChangesRecord = emptyChanges();
 
 const EMPTY_DEV: DevRecord = {
+	content: '',
+	live: false,
+};
+
+const EMPTY_ACTION: ActionRecord = {
 	content: '',
 	live: false,
 };
@@ -145,6 +150,9 @@ interface AppProps {
 	initialHiddenExitedSessionIds?: string[];
 	initialSessionFilter?: SessionFilter;
 	initialSessionQuery?: string;
+	/** The Terminal tab's view (shell or last action), kept across attaches by the caller. */
+	initialTerminalView?: TerminalView;
+	onTerminalViewChange?: (view: TerminalView) => void;
 	onSelectedIdChange?: (sessionId: string | undefined) => void;
 	onActiveTabChange?: (tab: RightPaneTab) => void;
 	onSessionTabChange?: (sessionId: string, tab: RightPaneTab) => void;
@@ -441,10 +449,11 @@ function untrustedCreationParts(project: ProjectInfo): string[] {
 	];
 }
 
-function ActionPickerPane({project, selectedIndex, width, height}: {project?: ProjectInfo; selectedIndex: number; width: number; height: number}) {
+function ActionPickerPane({project, running, selectedIndex, width, height}: {project?: ProjectInfo; running?: ActionRecord; selectedIndex: number; width: number; height: number}) {
 	const actions = projectActions(project);
 	const selected = actions[selectedIndex];
 	const untrusted = actions.some(action => action.needsTrust);
+	const runningName = running?.live ? running.name ?? 'action' : undefined;
 	return <MenuPane
 		title="Actions"
 		subtitle={[untrusted ? {text: '"needs trust": from deckhand.json, reviewed first', color: THEME.warn} : {text: 'Global defaults and repository actions'}]}
@@ -454,9 +463,10 @@ function ActionPickerPane({project, selectedIndex, width, height}: {project?: Pr
 		details={selected ? {title: 'Selected command', lines: [
 			{text: selected.command, color: THEME.active, nowrap: true},
 			...selected.needsTrust ? [{text: `From this repo's deckhand.json, not trusted yet: Enter shows it for review before anything runs${selected.fallback ? ` (s runs the global ${selected.name} instead: ${selected.fallback})` : ''}.`, color: THEME.warn}] : [],
-			{text: 'Actions share the Dev pane; stop the previous command before running another.'},
+			runningName ? {text: `${runningName} is still running in this worktree: x stops it, then run another.`, color: THEME.warn}
+				: {text: 'Runs on the Terminal tab beside your shell (v switches), one action at a time per worktree; Dev keeps running.'},
 		]} : undefined}
-		hint={[{text: 'j/k choose', drop: 1}, 'enter run in Dev pane', 'esc cancel']}
+		hint={[{text: 'j/k choose', drop: 1}, 'enter run', ...runningName ? [`x stop ${runningName}`] : [], 'esc cancel']}
 		width={width}
 		height={height}
 	/>;
@@ -473,7 +483,7 @@ function mergedTargetBranch(session: SessionRecord): string | undefined {
 	return session.worktree?.mergeTargetBranch ?? session.mergeTargetBranch;
 }
 
-function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true, notesHint?: string): string {
+function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?: SessionRecord, scrollSensitivity = DEFAULT_SCROLL_SENSITIVITY, attachReady = true, notesHint?: string, terminalAction?: {switchHint: string; finished: boolean}): string {
 	switch (mode) {
 		// Every other mode replaces the right pane with a screen that shows its own (single) hint line.
 		case 'help': case 'settings': case 'agents':
@@ -494,10 +504,12 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 			const hasWorkspace = Boolean(session && workspaceKey(session));
 			const attach = activeTab === 'dev' ? (attachReady ? 'o attach' : undefined)
 				: activeTab === 'git' ? (hasWorkspace ? (attachReady ? 'v changes • o lazygit' : 'loading…') : undefined)
-				: activeTab === 'terminal' ? (hasWorkspace ? (attachReady ? 'o attach' : 'loading…') : undefined)
+				// A finished action shown on the Terminal tab cannot be attached (not "loading": it will not become ready).
+				: activeTab === 'terminal' ? (hasWorkspace && !terminalAction?.finished ? (attachReady ? 'o attach' : 'loading…') : undefined)
 					: running && activeTab === 'preview' ? (attachReady ? 'o attach' : 'loading…') : undefined;
 			const pane = activeTab === 'notes' ? (session ? 'o edit notes • E open in editor' : undefined)
 				: activeTab === 'dev' && session && workspaceKey(session) ? 'd start/stop'
+				: activeTab === 'terminal' && terminalAction ? terminalAction.switchHint
 					: activeTab === 'preview' && running ? 'v scroll' : undefined;
 			const lifecycle = session?.status === 'exited'
 				? (session.worktree?.deletedAt ? 'backspace remove' : 's resume • S fresh')
@@ -512,7 +524,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 	}
 }
 
-export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialSidebarWidth, initialSessionTabs, initialCollapsedSessionIds, initialHiddenExitedSessionIds, initialSessionFilter, initialSessionQuery, onSessionVisibilityChange, onSelectedIdChange, onActiveTabChange, onSessionTabChange, onSidebarWidthChange, onCollapsedSessionIdsChange, onHiddenExitedSessionIdsChange}: AppProps) {
+export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialTerminalView, onTerminalViewChange, initialSidebarWidth, initialSessionTabs, initialCollapsedSessionIds, initialHiddenExitedSessionIds, initialSessionFilter, initialSessionQuery, onSessionVisibilityChange, onSelectedIdChange, onActiveTabChange, onSessionTabChange, onSidebarWidthChange, onCollapsedSessionIdsChange, onHiddenExitedSessionIdsChange}: AppProps) {
 	const {exit} = useApp();
 	const [mode, setMode] = useState<Mode>('browse');
 	const [sessionFilter, setSessionFilter] = useState<SessionFilter>(initialSessionFilter ?? 'active');
@@ -571,6 +583,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Whether this UI asked the daemon to watch (poll) a workspace's changes, so leaving the Git tab stops it.
 	const changesWatchedRef = useRef(false);
 	const [dev, setDev] = useState<DevRecord>(EMPTY_DEV);
+	// The workspace's last action and whether the Terminal tab shows it instead of the shell.
+	const [action, setAction] = useState<ActionRecord>(EMPTY_ACTION);
+	const [terminalView, setTerminalView] = useState<TerminalView>(initialTerminalView ?? 'shell');
+	useEffect(() => { onTerminalViewChange?.(terminalView); }, [onTerminalViewChange, terminalView]);
 	// Every agent's installed/latest version (agent-versions, then agent-versions-updated): the ↑ marker, the header hint, U.
 	const [agentVersions, setAgentVersions] = useState<AgentVersions>();
 	const [error, setError] = useState<string | undefined>();
@@ -744,6 +760,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							setTerminal(EMPTY_TERMINAL);
 							setChanges(EMPTY_CHANGES);
 							setDev(EMPTY_DEV);
+							setAction(EMPTY_ACTION);
 						}
 					},
 					onPreviewUpdated: nextPreview => {
@@ -781,6 +798,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							return;
 						}
 						setDev(nextDev);
+					},
+					onActionUpdated: nextAction => {
+						if (nextAction.sessionId !== selectedIdRef.current) {
+							return;
+						}
+						setAction(nextAction);
 					},
 					onAgentVersionsUpdated: setAgentVersions,
 					onError: nextError => {
@@ -872,7 +895,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const currentWorkspaceInfo = workspaceInfo && workspaceInfo.sessionId === selectedSession?.id ? workspaceInfo : undefined;
 	const currentCleanupCheck = cleanupCheck && cleanupCheck.sessionId === selectedSession?.id ? cleanupCheck : undefined;
 	const cleanupInspectionFor = (deleteBranch: boolean) => (deleteBranch ? currentCleanupCheck?.branch : currentCleanupCheck?.worktree);
-	const activeAttachTarget: AttachTarget = activeTab === 'terminal' ? 'terminal' : activeTab === 'git' ? 'git' : activeTab === 'dev' ? 'dev' : 'agent';
+	const showingAction = activeTab === 'terminal' && terminalView === 'action' && hasAction(selectedSession, action);
+	const activeAttachTarget: AttachTarget = showingAction ? 'action' : activeTab === 'terminal' ? 'terminal' : activeTab === 'git' ? 'git' : activeTab === 'dev' ? 'dev' : 'agent';
 	// The workspace's shared panes (Terminal, Git, Dev) may run while this session's agent does not.
 	const selectedWorkspace = selectedSession ? workspaceKey(selectedSession) : undefined;
 	const activePaneReadyForAttach = Boolean(
@@ -881,7 +905,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			(activeAttachTarget === 'terminal' && terminal.sessionId === selectedSession.id && terminal.live) ||
 			// lazygit starts on attach; the Changes record confirms the daemon sees the workspace.
 			(activeAttachTarget === 'git' && changes.sessionId === selectedSession.id && Boolean(changes.workspace)) ||
-			(activeAttachTarget === 'dev' && dev.sessionId === selectedSession.id && dev.live)
+			(activeAttachTarget === 'dev' && dev.sessionId === selectedSession.id && dev.live) ||
+			(activeAttachTarget === 'action' && action.live)
 		),
 	);
 	// Workspace panes are watched again when the selected session gains (or loses) its workspace, e.g. once its
@@ -932,11 +957,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			setTerminal(EMPTY_TERMINAL);
 			setChanges(EMPTY_CHANGES);
 			setDev(EMPTY_DEV);
+			setAction(EMPTY_ACTION);
 			return;
 		}
 		setTerminal(current => (current.sessionId === selectedSession.id ? current : EMPTY_TERMINAL));
 		setChanges(current => (current.sessionId === selectedSession.id ? current : EMPTY_CHANGES));
 		setDev(current => (current.sessionId === selectedSession.id ? current : EMPTY_DEV));
+		setAction(current => (current.sessionId === selectedSession.id ? current : EMPTY_ACTION));
 		setPreview(current => {
 			const sameSession = current.sessionId === selectedSession.id;
 			const content =
@@ -1194,6 +1221,30 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					return;
 				}
 				setTerminal(nextTerminal);
+			})
+			.catch(nextError => {
+				if (!cancelled) {
+					setError(errorMessage(nextError));
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [activeTab, client, layout.previewCols, layout.previewRows, selectedId, selectedPaneScope]);
+
+	// The Terminal tab also shows the workspace's last action (its state in the header, its output on v). Watching it
+	// never starts one.
+	useEffect(() => {
+		if (!client || activeTab !== 'terminal') {
+			return;
+		}
+		let cancelled = false;
+		void client
+			.watchAction(selectedId, layout.previewCols, layout.previewRows)
+			.then(nextAction => {
+				if (!cancelled && nextAction.sessionId === selectedId) {
+					setAction(nextAction);
+				}
 			})
 			.catch(nextError => {
 				if (!cancelled) {
@@ -1475,6 +1526,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			setTerminal(EMPTY_TERMINAL);
 			setChanges(EMPTY_CHANGES);
 			setDev(EMPTY_DEV);
+			setAction(EMPTY_ACTION);
 		} catch (nextError) {
 			setError(errorMessage(nextError));
 		} finally {
@@ -1771,22 +1823,30 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if (key.escape) { setMode('browse'); return; }
 			if (key.upArrow || input === 'k') setActionIndex(index => Math.max(0, index - 1));
 			if (key.downArrow || input === 'j') setActionIndex(index => Math.min(Math.max(0, actions.length - 1), index + 1));
-			const action = actions[actionIndex];
-			if (key.return && action && actionProject) {
-				if (!client || !reviewSessionId) { setError('select a running session to run project actions'); return; }
+			const picked = actions[actionIndex];
+			// x stops the worktree's running action (the picker says which); one runs at a time per worktree.
+			if (input === 'x' && client && reviewSessionId && action.sessionId === reviewSessionId && action.live) {
+				setBusy(true);
+				void client.stopAction(reviewSessionId).then(() => setStatusMessage(`Stopped ${action.name ?? 'the action'}`))
+					.catch(error => setError(errorMessage(error))).finally(() => setBusy(false));
+				return;
+			}
+			if (key.return && picked && actionProject) {
+				if (!client || !reviewSessionId) { setError('select a session to run project actions'); return; }
 				const run = () => {
 					setBusy(true);
-					void client.runAction(reviewSessionId, action.name, layout.previewCols, layout.previewRows).then(record => {
-						setDev(record); setActiveTab('dev');
+					void client.runAction(reviewSessionId, picked.name, layout.previewCols, layout.previewRows).then(record => {
+						// The action runs in its own process; the Terminal tab shows it until v switches back to the shell.
+						setAction(record); setActiveTab('terminal'); setTerminalView('action');
 						setMode(current => (current === 'pick-action' ? 'browse' : current));
 					}).catch(error => setError(errorMessage(error))).finally(() => setBusy(false));
 				};
-				if (!action.needsTrust) { run(); return; }
+				if (!picked.needsTrust) { run(); return; }
 				// An untrusted repository action is reviewed now, right before it would run; Esc returns to the list.
 				reviewThen(actionProject.cwd, run, {
-					back: () => setMode('pick-action'), skip: action.fallback === undefined ? null : run,
-					labels: {enter: {text: 'enter trust & run', short: 'enter trust'}, skip: action.fallback === undefined ? {text: 's cancel this run', short: 's cancel'} : {text: `s run the global ${action.name} instead`, short: 's run global'}},
-					purpose: () => `About to run the repository action ${action.name}: ${action.command}`,
+					back: () => setMode('pick-action'), skip: picked.fallback === undefined ? null : run,
+					labels: {enter: {text: 'enter trust & run', short: 'enter trust'}, skip: picked.fallback === undefined ? {text: 's cancel this run', short: 's cancel'} : {text: `s run the global ${picked.name} instead`, short: 's run global'}},
+					purpose: () => `About to run the repository action ${picked.name}: ${picked.command}`,
 				});
 			}
 			return;
@@ -1872,6 +1932,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if (input === 'e') {
 				// Every action of the session's repository is listed; untrusted repository ones are reviewed when chosen.
 				const sessionId = selectedSession?.id, actionCwd = selectedSession?.cwd ?? cwd;
+				// The picker says whether an action is still running in this worktree (x stops it), whichever tab is shown.
+				if (client && sessionId && selectedWorkspace) void client.watchAction(sessionId, layout.previewCols, layout.previewRows).then(record => { if (record.sessionId === selectedIdRef.current) setAction(record); }).catch(() => {});
 				reviewThen(actionCwd, project => {
 					if (!project) return;
 					setActionProject({project, cwd: actionCwd, sessionId}); setActionIndex(0); setMode('pick-action');
@@ -1965,6 +2027,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			}
 			if (input === 'v' && activeTab === 'preview' && selectedSession?.status === 'running') {
 				setMode('preview-focus');
+				return;
+			}
+			// The Terminal tab switches between the shell and the worktree's last action.
+			if (input === 'v' && activeTab === 'terminal' && selectedSession) {
+				if (hasAction(selectedSession, action)) setTerminalView(view => (view === 'action' && showingAction ? 'shell' : 'action'));
+				else setError('No action has run in this worktree yet; e runs one');
 				return;
 			}
 			if (input === 'v' && activeTab === 'git' && selectedSession) {
@@ -2086,6 +2154,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				}
 				if (activeTab === 'dev' && !selectedSession.devRunning && !(dev.sessionId === selectedSession.id && dev.live)) {
 					setError('start the dev command with d before attaching');
+					return;
+				}
+				if (activeAttachTarget === 'action' && !action.live) {
+					setError(`${action.name ?? 'The action'} has finished; e runs an action again (v shows the shell)`);
 					return;
 				}
 				if (!activePaneReadyForAttach) {
@@ -2301,7 +2373,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Exactly FOOTER_ROWS rows, each truncated, so the layout above never shifts.
 	const footerRows = [
 		<Text key="hint" color={mode === 'search' ? THEME.active : THEME.muted} wrap="truncate-end">
-			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach, mode === 'notes-focus' ? notesFlow.hint(terminalSize.cols) : undefined)}
+			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach, mode === 'notes-focus' ? notesFlow.hint(terminalSize.cols) : undefined, hasAction(selectedSession, action) ? {switchHint: showingAction ? 'v shell' : `v ${action.name ?? 'action'} ${actionStatus(action).text}`, finished: showingAction && !action.live} : undefined)}
 		</Text>,
 		<Text key="messages" wrap="truncate-end">
 			{footerMessages.length > 0
@@ -2369,6 +2441,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							<TerminalPane
 								session={selectedSession}
 								terminal={terminal}
+								action={action}
+								view={terminalView}
 								width={layout.paneInnerWidth}
 								height={layout.paneInnerHeight}
 							/>
@@ -2383,7 +2457,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				) : details ? (
 					<DetailsPane title={details.title} text={details.text} footer={details.footer} width={layout.previewWidth} height={layout.contentHeight} scroll={details.scroll} />
 				) : mode === 'pick-action' ? (
-					<ActionPickerPane project={actionProject?.project} selectedIndex={actionIndex} width={layout.previewWidth} height={layout.contentHeight} />
+					<ActionPickerPane project={actionProject?.project} running={action.sessionId === actionProject?.sessionId ? action : undefined} selectedIndex={actionIndex} width={layout.previewWidth} height={layout.contentHeight} />
 				) : mode === 'pick-worktree' ? (
 					<WorktreePickerPane
 						worktrees={filteredWorktrees}

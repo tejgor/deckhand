@@ -64,7 +64,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 	{title: 'Panes', lines: [
 		key('p t g d a', 'Preview, Terminal, Git, Dev, Notes'),
 		key('o  E', 'In Notes: edit them (see Notes) / open the note in Cursor / VS Code'),
-		key('v', 'Scroll the preview: j/k, g/G top/bottom, Esc returns (on Git: focus the changes)'),
+		key('v', 'Scroll the preview: j/k, g/G top/bottom, Esc returns (on Git: focus the changes; on Terminal: shell or last action)'),
 		key('[ ]', 'Preview scroll speed'),
 		key('O', 'Open the workspace in Cursor / VS Code'),
 		note('Agents ask for approvals in their own terminal: attach (o) to answer.'),
@@ -72,8 +72,10 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 	]},
 	{title: 'Dev & actions', lines: [
 		key('d', 'Select the Dev pane; d again starts / stops the Dev command'),
-		key('e', 'Run an action (a named command) in the Dev pane'),
+		key('e', 'Run an action (a named command); its output shows on the Terminal tab (v: back to the shell)'),
+		key('x', 'In the action list: stop the action still running in this worktree'),
 		note('Dev is shared by every session in the same worktree and keeps running after their agents exit, until stopped (or the worktree is deleted).'),
+		note('An action runs in its own process beside the shell and Dev, one at a time per worktree; o attaches while it runs, and its output and exit code stay until the next one.'),
 		note('Set the Dev command, actions and a setup command for new worktrees in Settings (C).'),
 	]},
 	{title: 'Git & PRs', lines: [

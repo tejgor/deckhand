@@ -6,7 +6,7 @@ import type {SettingsInfo, WorktreeCandidates} from './settingsInfo.js';
 import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 39;
+export const PROTOCOL_VERSION = 40;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -14,7 +14,7 @@ export type SessionStatus = 'starting' | 'running' | 'exited';
 export type AgentActivityStatus = 'unknown' | 'active' | 'idle';
 export type WorktreeMode = 'none' | 'new' | 'existing';
 export type SessionWorktreeMode = 'none' | 'managed' | 'attached';
-export type AttachTarget = 'agent' | 'terminal' | 'git' | 'dev';
+export type AttachTarget = 'agent' | 'terminal' | 'git' | 'dev' | 'action';
 export type RightPaneTab = 'preview' | 'terminal' | 'git' | 'dev' | 'notes';
 export type WorktreeMergeMode = 'merge' | 'squash';
 export type RestartMode = 'resume' | 'fresh';
@@ -287,6 +287,14 @@ export interface DevRecord {
 	exitSignal?: number | null;
 }
 
+/**
+ * The last action (`e`) run in one workspace, shown on the Terminal tab beside the shell: its own PTY, so it never
+ * touches the shell or Dev. `name` is the action's name, `command` what ran; output and exit code stay after it exits.
+ */
+export interface ActionRecord extends DevRecord {
+	name?: string;
+}
+
 export interface CreateSessionInput {
 	title: string;
 	program: ProgramKey;
@@ -335,6 +343,7 @@ export type ClientRequest =
 	| {type: 'watch-terminal'; requestId: string; sessionId?: string; cols: number; rows: number}
 	| {type: 'watch-git'; requestId: string; sessionId?: string; cols: number; rows: number}
 	| {type: 'watch-dev'; requestId: string; sessionId?: string; cols: number; rows: number}
+	| {type: 'watch-action'; requestId: string; sessionId?: string; cols: number; rows: number}
 	/** The Git tab's Changes view of the session's workspace; pushes `changes-updated` while watched. No sessionId stops watching. */
 	| {type: 'watch-changes'; requestId: string; sessionId?: string}
 	/** One listed entry's diff preview (read-only, bounded). */
@@ -343,6 +352,7 @@ export type ClientRequest =
 	| {type: 'change-stage'; requestId: string; sessionId: string; mode: 'stage' | 'unstage'; group?: ChangeGroup; path?: string}
 	| {type: 'start-dev'; requestId: string; sessionId: string; cols: number; rows: number}
 	| {type: 'stop-dev'; requestId: string; sessionId: string}
+	| {type: 'stop-action'; requestId: string; sessionId: string}
 	/**
 	 * Saves the session's own note or its shared note (`noteId`: `sharedNotes.kind:sharedNotes.id`, so it is the note the
 	 * UI edited) when the file still has `revision`; text is cut to MAX_NOTES_CHARS.
@@ -378,7 +388,11 @@ export type ClientRequest =
 	| {type: 'attach-dev'; requestId: string; sessionId: string; cols?: number; rows?: number}
 	| {type: 'dev-input'; sessionId: string; data: string}
 	| {type: 'dev-resize'; sessionId: string; cols: number; rows: number}
-	| {type: 'dev-detach'; sessionId: string};
+	| {type: 'dev-detach'; sessionId: string}
+	| {type: 'attach-action'; requestId: string; sessionId: string; cols?: number; rows?: number}
+	| {type: 'action-input'; sessionId: string; data: string}
+	| {type: 'action-resize'; sessionId: string; cols: number; rows: number}
+	| {type: 'action-detach'; sessionId: string};
 
 /** A repository's override plus what the inline review needs; `effective` is global defaults overlaid by the override only when trusted. */
 export interface ProjectInfo extends LoadedProject {trusted: boolean; needsReview: boolean; effective: ProjectConfig}
@@ -403,11 +417,13 @@ export type ServerEvent =
 	| {type: 'terminal-updated'; terminal: TerminalRecord}
 	| {type: 'git-updated'; git: GitRecord}
 	| {type: 'dev-updated'; dev: DevRecord}
+	| {type: 'action-updated'; action: ActionRecord}
 	| {type: 'changes-updated'; changes: ChangesRecord}
 	| {type: 'agent-versions-updated'; versions: AgentVersions}
 	| {type: 'terminal-output'; sessionId: string; data: string}
 	| {type: 'git-output'; sessionId: string; data: string}
 	| {type: 'dev-output'; sessionId: string; data: string}
+	| {type: 'action-output'; sessionId: string; data: string}
 	| {type: 'attached'; sessionId: string}
 	| {type: 'detached'; sessionId: string}
 	| {type: 'terminal-attached'; sessionId: string}
@@ -415,7 +431,9 @@ export type ServerEvent =
 	| {type: 'git-attached'; sessionId: string}
 	| {type: 'git-detached'; sessionId: string}
 	| {type: 'dev-attached'; sessionId: string}
-	| {type: 'dev-detached'; sessionId: string};
+	| {type: 'dev-detached'; sessionId: string}
+	| {type: 'action-attached'; sessionId: string}
+	| {type: 'action-detached'; sessionId: string};
 
 export type ServerMessage = ServerResponse | ServerEvent;
 

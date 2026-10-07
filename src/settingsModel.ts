@@ -361,7 +361,7 @@ export function inheritedHint(info: Pick<SettingsInfo, 'targets' | 'rows'>, id: 
 // Actions: what they are and what a name and a command accept, in plain words (the rules are validateProjectConfig's).
 export const MAX_ACTIONS = 30;
 export const MAX_ACTION_NAME = 48;
-export const ACTIONS_INTRO = "Named shell commands you run with e on a session; they run in that session's worktree and show in the Dev pane.";
+export const ACTIONS_INTRO = "Named shell commands you run with e on a session; they run in that session's worktree and show on its Terminal tab, beside the shell.";
 export const ACTION_NAME_RULES = 'letters, numbers, spaces, _ . - · starts with a letter or number · up to 48 characters';
 export const ACTION_NAME_EXAMPLES = 'e.g. test · lint frontend · db.migrate';
 export const ACTION_COMMAND_HELP = "Runs with your shell in the session's worktree, like typing it in a terminal · && pipes cd env vars all work";

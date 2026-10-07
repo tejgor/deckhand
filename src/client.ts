@@ -16,7 +16,7 @@ import {
 } from './paths.js';
 import {PROTOCOL_VERSION} from './types.js';
 import type {NoteSection} from './notes.js';
-import type {AgentUpdateResult, AgentVersions, MergePreview, NoteSaveResult, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
+import type {ActionRecord, AgentUpdateResult, AgentVersions, MergePreview, NoteSaveResult, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -218,6 +218,7 @@ interface LiveClientHandlers {
 	onTerminalUpdated?: (terminal: TerminalRecord) => void;
 	onChangesUpdated?: (changes: ChangesRecord) => void;
 	onDevUpdated?: (dev: DevRecord) => void;
+	onActionUpdated?: (action: ActionRecord) => void;
 	onAgentVersionsUpdated?: (versions: AgentVersions) => void;
 	onError?: (error: Error) => void;
 	onClose?: () => void;
@@ -267,6 +268,9 @@ export class LiveClient {
 						return;
 					case 'dev-updated':
 						this.handlers.onDevUpdated?.(message.dev);
+						return;
+					case 'action-updated':
+						this.handlers.onActionUpdated?.(message.action);
 						return;
 					case 'agent-versions-updated':
 						this.handlers.onAgentVersionsUpdated?.(message.versions);
@@ -438,7 +442,9 @@ export class LiveClient {
 	inspectCleanup(sessionId: string, deleteBranch = true): Promise<SessionCleanupInspection> { return this.request({type: 'inspect-cleanup', requestId: randomUUID(), sessionId, deleteBranch}); }
 	archiveSession(sessionId: string, archived: boolean): Promise<SessionRecord> { return this.request({type: 'archive-session', requestId: randomUUID(), sessionId, archived}); }
 	exportHandoff(sessionId: string, includeOutput = false): Promise<string> { return this.request({type: 'export-handoff', requestId: randomUUID(), sessionId, includeOutput}); }
-	runAction(sessionId: string, action: string, cols: number, rows: number): Promise<DevRecord> { return this.request({type: 'run-action', requestId: randomUUID(), sessionId, action, cols, rows}); }
+	runAction(sessionId: string, action: string, cols: number, rows: number): Promise<ActionRecord> { return this.request({type: 'run-action', requestId: randomUUID(), sessionId, action, cols, rows}); }
+	watchAction(sessionId: string | undefined, cols: number, rows: number): Promise<ActionRecord> { return this.request({type: 'watch-action', requestId: randomUUID(), sessionId, cols, rows}); }
+	stopAction(sessionId: string): Promise<void> { return this.request({type: 'stop-action', requestId: randomUUID(), sessionId}); }
 	cancelStart(sessionId: string): Promise<void> { return this.request({type: 'cancel-start', requestId: randomUUID(), sessionId}); }
 	/** Installed and latest version of every agent; `refresh` looks the latest up again first (up to ~10 s). */
 	agentVersions(refresh = false): Promise<AgentVersions> { return this.request({type: 'agent-versions', requestId: randomUUID(), refresh}); }
