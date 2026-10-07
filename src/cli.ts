@@ -36,6 +36,9 @@ function leaveAlternateScreen(): void {
 }
 
 async function runUi(uiState: UiState): Promise<UiExitResult | undefined> {
+	// React picks its build from NODE_ENV when first loaded; the development build's checks roughly double the
+	// UI's CPU per render. Keep it for `npm run dev` (DECKHAND_DEV) and whenever NODE_ENV is set explicitly.
+	if (!process.env.NODE_ENV && process.env.DECKHAND_DEV !== '1') process.env.NODE_ENV = 'production';
 	const [{default: React}, {render}, {App}] = await Promise.all([import('react'), import('ink'), import('./app.js')]);
 	const repoRoot = await ensureGitRepo(process.cwd());
 	let saveTimer: NodeJS.Timeout | undefined;
