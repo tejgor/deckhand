@@ -28,7 +28,7 @@ import {exportHandoff} from './sessionFeatures.js';
 import {NotesStore, noteFilePath, noteFileStem, type NoteId, type NoteKind} from './notesStore.js';
 import {sharedNoteIdentity} from './notes.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, ClientRequest, CreateSessionInput, DevRecord, GitRecord, MergePreview, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TerminalRecord, WorktreeMarkers, WorktreeMergeMode, WorktreeMergeResult, WorktreeRecord} from './types.js';
+import type {ActionRecord, AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, ClientRequest, CreateSessionInput, DevRecord, GitRecord, MergePreview, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TerminalRecord, WorktreeMarkers, WorktreeMergeMode, WorktreeMergeResult, WorktreeRecord} from './types.js';
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_PREVIEW_COLS = 80;
@@ -59,6 +59,7 @@ interface ClientSubscription {
 	watchedTerminalSessionId?: string;
 	watchedGitSessionId?: string;
 	watchedDevSessionId?: string;
+	watchedActionSessionId?: string;
 	watchedChangesSessionId?: string;
 	previewCols: number;
 	previewRows: number;
@@ -69,6 +70,8 @@ interface ClientSubscription {
 	gitRows: number;
 	devCols: number;
 	devRows: number;
+	actionCols: number;
+	actionRows: number;
 }
 
 // An IPC child the daemon sends requests to: a session worker or a workspace worker.
@@ -88,12 +91,13 @@ interface WorkerRuntime extends WorkerChannel {
 	allowDataLoss?: boolean;
 }
 
-// Panes a workspace worker hosts for every session in one worktree (sessionWorker.ts WORKSPACE_PANES).
-type WorkspacePane = 'terminal' | 'git' | 'dev';
-// One record shape serves all three panes (TerminalRecord and GitRecord are DevRecord without `command`).
-type WorkspacePaneRecord = DevRecord;
-const PANE_LABELS: Record<WorkspacePane, string> = {terminal: 'Terminal', git: 'Git', dev: 'Dev'};
-const PANE_ATTACH_NAMES: Record<WorkspacePane, string> = {terminal: 'terminal', git: 'git', dev: 'dev command'};
+// Panes a workspace worker hosts for every session in one worktree (sessionWorker.ts WORKSPACE_PANES); `action` is
+// the last action run, shown on the Terminal tab.
+type WorkspacePane = 'terminal' | 'git' | 'dev' | 'action';
+// One record shape serves every pane (TerminalRecord and GitRecord are DevRecord without `command`, ActionRecord adds `name`).
+type WorkspacePaneRecord = ActionRecord;
+const PANE_LABELS: Record<WorkspacePane, string> = {terminal: 'Terminal', git: 'Git', dev: 'Dev', action: 'Actions'};
+const PANE_ATTACH_NAMES: Record<WorkspacePane, string> = {terminal: 'terminal', git: 'git', dev: 'dev command', action: 'action'};
 
 // The workspace worker of one workspace (workspaceKey: the worktree root), started on demand. Requests name a
 // session; the daemon resolves its workspace, and stamps each viewer's session ID on the shared pane records.
@@ -123,6 +127,7 @@ type WorkspaceEvent =
 	| {type: 'terminal-updated'; terminal: TerminalRecord}
 	| {type: 'git-updated'; git: GitRecord}
 	| {type: 'dev-updated'; dev: DevRecord}
+	| {type: 'action-updated'; action: ActionRecord}
 	| {type: 'output'; target: WorkspacePane; data: string};
 
 // The Git tab's Changes view of one workspace: no worker or PTY, just Git run by the daemon. Polled while any client
@@ -143,13 +148,20 @@ interface ChangesWatch {
 function paneUpdatedMessage(pane: WorkspacePane, record: WorkspacePaneRecord): ServerMessage {
 	if (pane === 'terminal') return {type: 'terminal-updated', terminal: record};
 	if (pane === 'git') return {type: 'git-updated', git: record};
+	if (pane === 'action') return {type: 'action-updated', action: record};
 	return {type: 'dev-updated', dev: record};
 }
 
 function updatedPaneRecord(message: Exclude<WorkspaceEvent, WorkerResponse | {type: 'output'}>): [WorkspacePane, WorkspacePaneRecord] {
 	if (message.type === 'terminal-updated') return ['terminal', message.terminal];
 	if (message.type === 'git-updated') return ['git', message.git];
+	if (message.type === 'action-updated') return ['action', message.action];
 	return ['dev', message.dev];
+}
+
+/** Terminal and Git start on first view or attach; Dev and actions only when started, so viewing them never does. */
+function startsOnView(pane: WorkspacePane): boolean {
+	return pane === 'terminal' || pane === 'git';
 }
 
 function sendMessage(socket: net.Socket, message: ServerMessage): void {
@@ -569,6 +581,8 @@ export class InkDaemon {
 			gitRows: DEFAULT_PREVIEW_ROWS,
 			devCols: DEFAULT_PREVIEW_COLS,
 			devRows: DEFAULT_PREVIEW_ROWS,
+			actionCols: DEFAULT_PREVIEW_COLS,
+			actionRows: DEFAULT_PREVIEW_ROWS,
 		});
 
 		let buffer = '';
@@ -652,6 +666,8 @@ export class InkDaemon {
 				gitRows: DEFAULT_PREVIEW_ROWS,
 				devCols: DEFAULT_PREVIEW_COLS,
 				devRows: DEFAULT_PREVIEW_ROWS,
+				actionCols: DEFAULT_PREVIEW_COLS,
+				actionRows: DEFAULT_PREVIEW_ROWS,
 			};
 			this.clients.set(socket, created);
 			return created;
@@ -747,16 +763,16 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, {ok: true})); return;
 				}
 				case 'run-action': {
-					// Actions run in the workspace's shared Dev pane, so like Dev they need a workspace, not a running agent.
-					const {session, key} = this.requireWorkspace(message.sessionId, 'dev');
+					// Actions run in the workspace's own action PTY (shown on the Terminal tab), beside the shell and Dev; like
+					// them they need a workspace, not a running agent.
+					const {session, key} = this.requireWorkspace(message.sessionId, 'action');
 					// Untrusted repository actions are never run, only global defaults' actions.
 					const config = await loadAppConfig(), project = await loadProjectConfig(session.cwd, config);
 					const actions = resolveSettings(project, config).actions ?? {};
 					const command = Object.hasOwn(actions, message.action) ? actions[message.action] : undefined;
 					if (!command && Object.hasOwn(project.config.actions ?? {}, message.action)) throw new Error('Review and trust deckhand.json first (press e or T)');
 					if (!command) throw new Error('Unknown project action');
-					if (this.workspaceDevLive(key)) throw new Error('Stop the current Dev/action command before starting another');
-					sendMessage(socket, response(message.requestId, await this.startWorkspaceDev(session.id, key, command, message.cols, message.rows))); return;
+					sendMessage(socket, response(message.requestId, await this.startWorkspaceAction(session.id, key, message.action, command, message.cols, message.rows))); return;
 				}
 				case 'agent-versions': {
 					if (message.refresh) await this.agentVersions.refreshLatest(true);
@@ -815,6 +831,15 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, dev));
 					return;
 				}
+				case 'watch-action': {
+					const client = this.getClient(socket);
+					client.watchedActionSessionId = message.sessionId;
+					client.actionCols = clampSize(message.cols, client.actionCols);
+					client.actionRows = clampSize(message.rows, client.actionRows);
+					const action = await this.watchWorkspacePane('action', message.sessionId, client.actionCols, client.actionRows);
+					sendMessage(socket, response(message.requestId, action));
+					return;
+				}
 				// The Git tab's Changes view: computed here from the workspace (no worker), pushed while watched.
 				case 'watch-changes': {
 					this.getClient(socket).watchedChangesSessionId = message.sessionId;
@@ -855,9 +880,10 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, await this.startWorkspaceDev(session.id, key, command, message.cols, message.rows)));
 					return;
 				}
-				case 'stop-dev': {
+				case 'stop-dev':
+				case 'stop-action': {
 					const key = this.workspaceKeyOf(this.requireSession(message.sessionId));
-					if (key) await this.stopWorkspaceDev(key);
+					if (key) await this.stopWorkspacePane(key, message.type === 'stop-dev' ? 'dev' : 'action');
 					sendMessage(socket, response(message.requestId, {ok: true}));
 					return;
 				}
@@ -936,29 +962,33 @@ export class InkDaemon {
 				}
 				case 'attach-terminal':
 				case 'attach-git':
-				case 'attach-dev': {
+				case 'attach-dev':
+				case 'attach-action': {
 					// Workspace pane attaches are released by scanning the workspaces when the socket closes.
-					const pane = message.type === 'attach-terminal' ? 'terminal' : message.type === 'attach-git' ? 'git' : 'dev';
+					const pane = message.type.slice('attach-'.length) as WorkspacePane;
 					await this.attachWorkspacePane(socket, message.requestId, pane, message.sessionId, message.cols, message.rows);
 					return;
 				}
 				case 'terminal-input':
 				case 'git-input':
-				case 'dev-input': {
+				case 'dev-input':
+				case 'action-input': {
 					const workspace = this.workspaceOfSession(message.sessionId);
 					if (workspace) this.sendChannelEvent(workspace, {type: 'input', target: message.type.slice(0, -'-input'.length), data: message.data});
 					return;
 				}
 				case 'terminal-resize':
 				case 'git-resize':
-				case 'dev-resize': {
+				case 'dev-resize':
+				case 'action-resize': {
 					const workspace = this.workspaceOfSession(message.sessionId);
 					if (workspace) this.sendChannelEvent(workspace, {type: 'resize', target: message.type.slice(0, -'-resize'.length), cols: message.cols, rows: message.rows});
 					return;
 				}
 				case 'terminal-detach':
 				case 'git-detach':
-				case 'dev-detach': {
+				case 'dev-detach':
+				case 'action-detach': {
 					const pane = message.type.slice(0, -'-detach'.length) as WorkspacePane;
 					const workspace = this.workspaceOfSession(message.sessionId);
 					if (workspace?.attached[pane]?.socket === socket) {
@@ -1662,7 +1692,7 @@ export class InkDaemon {
 		this.detachWorkspaceClients(workspace);
 		// Viewers keep the last output, marked stopped; viewing Terminal/Git again starts a new worker.
 		for (const [pane, last] of Object.entries(workspace.records) as Array<[WorkspacePane, WorkspacePaneRecord]>) {
-			this.publishWorkspacePane(workspace.key, pane, {content: last.content, live: false, cwd: workspace.key, command: last.command});
+			this.publishWorkspacePane(workspace.key, pane, {content: last.content, live: false, cwd: workspace.key, command: last.command, name: last.name});
 		}
 		await this.syncDevRunning(workspace.key);
 	}
@@ -1698,7 +1728,7 @@ export class InkDaemon {
 	}
 
 	// Terminal and Git start on first view or attach (a shell or lazygit that exited starts again on the next view);
-	// Dev only through start-dev/run-action, so a workspace without a worker has no Dev to show.
+	// Dev only through start-dev and actions through run-action, so a workspace without a worker has neither to show.
 	private async watchWorkspacePane(pane: WorkspacePane, sessionId: string | undefined, cols: number, rows: number): Promise<WorkspacePaneRecord> {
 		if (!sessionId) return {content: '', live: false};
 		const session = this.sessions.get(sessionId);
@@ -1706,7 +1736,7 @@ export class InkDaemon {
 		const key = this.workspaceKeyOf(session);
 		// No `workspace` on the record tells the pane there is none yet (or any more).
 		if (!key) return {sessionId, content: '', live: false, cwd: session.cwd};
-		const workspace = pane === 'dev' ? this.workspaces.get(key) : await this.openWorkspace(key);
+		const workspace = startsOnView(pane) ? await this.openWorkspace(key) : this.workspaces.get(key);
 		if (!workspace) return {sessionId, content: '', live: false, cwd: key, workspace: key};
 		// Last viewer to size the shared pane wins.
 		return {...await this.requestPane<WorkspacePaneRecord>(workspace, {type: 'snapshot', target: pane, cols, rows}), sessionId, workspace: key};
@@ -1715,8 +1745,8 @@ export class InkDaemon {
 	// One attach per workspace pane; output goes to the attaching socket under its session ID.
 	private async attachWorkspacePane(socket: net.Socket, requestId: string, pane: WorkspacePane, sessionId: string, cols?: number, rows?: number): Promise<void> {
 		const {session, key} = this.requireWorkspace(sessionId, pane);
-		const workspace = pane === 'dev' ? this.workspaces.get(key) : await this.openWorkspace(key);
-		if (!workspace) throw new Error('no running dev command; press d to start it');
+		const workspace = startsOnView(pane) ? await this.openWorkspace(key) : this.workspaces.get(key);
+		if (!workspace) throw new Error(pane === 'dev' ? 'no running dev command; press d to start it' : 'no action has run here; press e to run one');
 		const current = workspace.attached[pane];
 		if (current && current.socket !== socket && !current.socket.destroyed) throw new Error(`${PANE_ATTACH_NAMES[pane]} is already attached elsewhere`);
 		const attachData = await this.requestPane<object & {initialFrame?: string}>(workspace, {type: 'attach', target: pane, cols: clampSize(cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
@@ -1738,18 +1768,28 @@ export class InkDaemon {
 		return {...dev, sessionId, workspace: key};
 	}
 
-	private async stopWorkspaceDev(key: string): Promise<void> {
+	private async startWorkspaceAction(sessionId: string, key: string, name: string, command: string, cols: number, rows: number): Promise<ActionRecord> {
+		const workspace = await this.openWorkspace(key);
+		const action = await this.requestPane<ActionRecord>(workspace, {type: 'start-action', name, command, cols: clampSize(cols, DEFAULT_PREVIEW_COLS), rows: clampSize(rows, DEFAULT_PREVIEW_ROWS)});
+		if (this.workspaces.get(key) === workspace) {
+			workspace.records.action = action;
+			this.publishWorkspacePane(key, 'action', action);
+		}
+		return {...action, sessionId, workspace: key};
+	}
+
+	private async stopWorkspacePane(key: string, pane: 'dev' | 'action'): Promise<void> {
 		const workspace = this.workspaces.get(key);
 		if (!workspace) return;
-		const {idle} = await this.requestChannel<{idle: boolean}>(workspace, {type: 'stop-dev'});
-		// Nothing else (Terminal, Git) lives in the worker: retire it (its PTYs were already signalled).
+		const {idle} = await this.requestChannel<{idle: boolean}>(workspace, {type: `stop-${pane}`});
+		// Nothing else (Terminal, Git, Dev, an action) lives in the worker: retire it (its PTYs were already signalled).
 		void this.retireIfIdle(workspace, idle);
 	}
 
 	// Every client watching any session of the workspace sees the one shared pane, stamped with the session it watches.
 	private publishWorkspacePane(key: string, pane: WorkspacePane, record: WorkspacePaneRecord): void {
 		for (const [socket, client] of this.clients.entries()) {
-			const watched = pane === 'terminal' ? client.watchedTerminalSessionId : pane === 'git' ? client.watchedGitSessionId : client.watchedDevSessionId;
+			const watched = pane === 'terminal' ? client.watchedTerminalSessionId : pane === 'git' ? client.watchedGitSessionId : pane === 'action' ? client.watchedActionSessionId : client.watchedDevSessionId;
 			const session = watched ? this.sessions.get(watched) : undefined;
 			if (session && this.workspaceKeyOf(session) === key) sendMessage(socket, paneUpdatedMessage(pane, {...record, sessionId: session.id, workspace: key}));
 		}

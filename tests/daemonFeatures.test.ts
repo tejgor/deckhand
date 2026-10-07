@@ -9,7 +9,7 @@ import net from 'node:net';
 import {once} from 'node:events';
 import {attachJsonParser, request, writeMessage} from '../src/client.js';
 import {getSocketPath, getWorkerPidPath} from '../src/paths.js';
-import type {ChangeDiff, ChangesRecord, ClientRequest, SessionRecord, ProjectInfo, DevRecord, GitRecord, ServerMessage, SessionCleanupInspection, TerminalRecord} from '../src/types.js';
+import type {ActionRecord, ChangeDiff, ChangesRecord, ClientRequest, SessionRecord, ProjectInfo, DevRecord, GitRecord, ServerMessage, SessionCleanupInspection, TerminalRecord} from '../src/types.js';
 import type {WorktreeInfo} from '../src/git.js';
 import {cli, repo, git, waitFor, withEnv, isAlive, fakeAgent, withoutHooks, stop} from './helpers.js';
 import {loadAppConfig, loadState, saveState, updateAppConfig} from '../src/storage.js';
@@ -68,7 +68,7 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 	await t.test('untrusted repository commands never run while global defaults do; setup retries after inline trust; stale trust is refused', async () => {
 		const exists = (file: string) => fs.access(file).then(() => true, () => false);
 		// Global defaults are user-authored: they run without trust.
-		await updateAppConfig(current => ({...current, defaults: {setupCommand: 'touch global-setup', devCommand: 'printf global-dev', actions: {gtest: 'printf global-action'}}}));
+		await updateAppConfig(current => ({...current, defaults: {setupCommand: 'touch global-setup', devCommand: 'printf global-dev', actions: {gtest: 'printf global-action', gsleep: 'sleep 30'}}}));
 		// The repository override (uncommitted, live in the main checkout) and a creation hook that must not run untrusted.
 		const setup = `touch repo-setup; node -e "const fs=require('fs'); if(!fs.existsSync('.attempt')){fs.writeFileSync('.attempt','1');console.log('first attempt');process.exit(1)} console.log('setup complete')"`;
 		await fs.writeFile(path.join(root, 'deckhand.json'), JSON.stringify({setupCommand: setup, devCommand: 'printf repo-dev', actions: {test: 'printf action-output; exit 7'}}));
@@ -87,9 +87,18 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		item = await waitFor(() => state(skipped.id), result => result.status === 'running');
 		assert.equal(await exists(path.join(item.cwd, 'global-setup')), true); assert.equal(await exists(path.join(item.cwd, 'repo-setup')), false);
 		await assert.rejects(call({type: 'run-action', sessionId: skipped.id, action: 'test', cols: 80, rows: 24} as any), /trust/);
-		assert.match((await call<DevRecord>({type: 'run-action', sessionId: skipped.id, action: 'gtest', cols: 80, rows: 24} as any)).command ?? '', /global-action/);
-		await waitFor(() => call<DevRecord>({type: 'watch-dev', sessionId: skipped.id, cols: 80, rows: 24} as any), result => !result.live);
+		const watchAction = (id: string) => call<ActionRecord>({type: 'watch-action', sessionId: id, cols: 80, rows: 24} as any);
+		const ran = await call<ActionRecord>({type: 'run-action', sessionId: skipped.id, action: 'gtest', cols: 80, rows: 24} as any);
+		assert.match(ran.command ?? '', /global-action/); assert.equal(ran.name, 'gtest');
+		assert.equal((await waitFor(() => watchAction(skipped.id), result => !result.live && result.exitCode === 0)).name, 'gtest');
+		// Actions have their own process: they never touch Dev, and one runs at a time per worktree until stopped.
+		assert.equal((await call<DevRecord>({type: 'watch-dev', sessionId: skipped.id, cols: 80, rows: 24} as any)).command, undefined);
+		assert.equal((await call<ActionRecord>({type: 'run-action', sessionId: skipped.id, action: 'gsleep', cols: 80, rows: 24} as any)).live, true);
+		await assert.rejects(call({type: 'run-action', sessionId: skipped.id, action: 'gtest', cols: 80, rows: 24} as any), /gsleep action is still running/);
 		assert.match((await call<DevRecord>({type: 'start-dev', sessionId: skipped.id, cols: 80, rows: 24} as any)).command ?? '', /global-dev/);
+		assert.equal((await watchAction(skipped.id)).live, true);
+		await call({type: 'stop-action', sessionId: skipped.id} as any);
+		await waitFor(() => watchAction(skipped.id), result => !result.live);
 		await call({type: 'stop-dev', sessionId: skipped.id} as any);
 		await killAndWait(skipped.id);
 		// A trust request for bytes that changed after review is refused.
@@ -105,9 +114,9 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		await call({type: 'restart', sessionId: unreviewed.id, cols: 80, rows: 24} as any);
 		item = await waitFor(() => state(unreviewed.id), result => result.status === 'running');
 		assert.equal(item.setup?.state, 'complete'); assert.equal(await exists(path.join(item.cwd, 'global-setup')), false);
-		const run = await call<DevRecord>({type: 'run-action', sessionId: unreviewed.id, action: 'test', cols: 80, rows: 24} as any);
+		const run = await call<ActionRecord>({type: 'run-action', sessionId: unreviewed.id, action: 'test', cols: 80, rows: 24} as any);
 		assert.match(run.command ?? '', /action-output/);
-		const output = await waitFor(() => call<DevRecord>({type: 'watch-dev', sessionId: unreviewed.id, cols: 80, rows: 24} as any), result => result.exitCode === 7);
+		const output = await waitFor(() => watchAction(unreviewed.id), result => result.exitCode === 7);
 		assert.match(output.content, /action-output/);
 		// Editing the live main-checkout file revokes action rights at once.
 		await fs.writeFile(path.join(root, 'deckhand.json'), JSON.stringify({actions: {test: 'printf edited'}}));

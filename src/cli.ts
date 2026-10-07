@@ -35,6 +35,9 @@ function leaveAlternateScreen(): void {
 	}
 }
 
+// The Terminal tab's view (shell or last action) survives attach/detach, not restarts.
+let terminalView: 'shell' | 'action' = 'shell';
+
 async function runUi(uiState: UiState): Promise<UiExitResult | undefined> {
 	// React picks its build from NODE_ENV when first loaded; the development build's checks roughly double the
 	// UI's CPU per render. Keep it for `npm run dev` (DECKHAND_DEV) and whenever NODE_ENV is set explicitly.
@@ -59,6 +62,8 @@ async function runUi(uiState: UiState): Promise<UiExitResult | undefined> {
 			initialHiddenExitedSessionIds: uiState.hiddenExitedSessionIds,
 			initialSessionFilter: uiState.sessionFilter,
 			initialSessionQuery: uiState.sessionQuery,
+			initialTerminalView: terminalView,
+			onTerminalViewChange: view => { terminalView = view; },
 			onSessionVisibilityChange: (filter, query) => { uiState.sessionFilter = filter; uiState.sessionQuery = query; scheduleSave(); },
 			onSelectedIdChange: sessionId => {
 				uiState.selectedId = sessionId;
@@ -193,7 +198,7 @@ async function main(): Promise<void> {
 		}
 		if (result.kind === 'attach') {
 			uiState.selectedId = result.sessionId;
-			uiState.activeTab = result.target === 'terminal' ? 'terminal' : result.target === 'git' ? 'git' : result.target === 'dev' ? 'dev' : 'preview';
+			uiState.activeTab = result.target === 'terminal' || result.target === 'action' ? 'terminal' : result.target === 'git' ? 'git' : result.target === 'dev' ? 'dev' : 'preview';
 			uiState.sessionTabs[result.sessionId] = uiState.activeTab;
 			clearTerminalScreen();
 			try {

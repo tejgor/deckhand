@@ -4,7 +4,7 @@ import {promisify} from 'node:util';
 import {ensureNodePtyReady} from './nodePty.js';
 import {loadAppConfig} from './storage.js';
 import {TerminalPreview} from './terminalPreview.js';
-import type {AgentActivityStatus, AttachTarget, DevRecord, GitRecord, PreviewRecord, SessionRecord, TerminalRecord} from './types.js';
+import type {ActionRecord, AgentActivityStatus, AttachTarget, DevRecord, GitRecord, PreviewRecord, SessionRecord, TerminalRecord} from './types.js';
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_COLS = 80;
@@ -39,6 +39,8 @@ type WorkspaceWorkerCommand =
 	| {type: 'start'; requestId: string; cwd: string}
 	| {type: 'start-dev'; requestId: string; cols: number; rows: number; command: string}
 	| {type: 'stop-dev'; requestId: string}
+	| {type: 'start-action'; requestId: string; cols: number; rows: number; command: string; name: string}
+	| {type: 'stop-action'; requestId: string}
 	| {type: 'idle'; requestId: string}
 	| {type: 'shutdown'; requestId: string};
 
@@ -52,6 +54,7 @@ type WorkerMessage =
 	| {type: 'terminal-updated'; terminal: TerminalRecord}
 	| {type: 'git-updated'; git: GitRecord}
 	| {type: 'dev-updated'; dev: DevRecord}
+	| {type: 'action-updated'; action: ActionRecord}
 	| {type: 'output'; target: AttachTarget; data: string};
 
 interface TerminalModes {
@@ -68,6 +71,8 @@ interface RuntimePty {
 	exitSignal?: number | null;
 	broadcastTimer?: NodeJS.Timeout;
 	command?: string;
+	/** An action's name (the `action` pane). */
+	name?: string;
 }
 
 interface AgentRuntime extends RuntimePty {
@@ -141,14 +146,16 @@ function updateTerminalModes(modes: TerminalModes, output: string): void {
 }
 
 // The companion panes a workspace worker hosts: shared by every session in one worktree and outliving any agent
-// (see src/workspace.ts). A session worker hosts only its agent PTY.
-const WORKSPACE_PANES: ReadonlySet<PaneTarget> = new Set(['terminal', 'git', 'dev']);
+// (see src/workspace.ts). A session worker hosts only its agent PTY. `action` is the last action run (shown on the
+// Terminal tab), a PTY of its own so it never touches the shell or Dev.
+const WORKSPACE_PANES: ReadonlySet<PaneTarget> = new Set(['terminal', 'git', 'dev', 'action']);
 
-type PaneRecord = TerminalRecord & GitRecord & DevRecord;
+type PaneRecord = TerminalRecord & GitRecord & ActionRecord;
 
 function paneUpdated(target: PaneTarget, record: PaneRecord): WorkerMessage {
 	if (target === 'terminal') return {type: 'terminal-updated', terminal: record};
 	if (target === 'git') return {type: 'git-updated', git: record};
+	if (target === 'action') return {type: 'action-updated', action: record};
 	return {type: 'dev-updated', dev: record};
 }
 
@@ -208,7 +215,7 @@ class PaneHost {
 	async startDev(cols: number, rows: number, requestedCommand?: string): Promise<DevRecord> {
 		this.hosted('dev');
 		const reuse = async (runtime: RuntimePty) => {
-			if (requestedCommand?.trim() && requestedCommand.trim() !== runtime.command) throw new Error('Stop the current Dev/action command before starting another');
+			if (requestedCommand?.trim() && requestedCommand.trim() !== runtime.command) throw new Error('Stop the current Dev command before starting another');
 			return this.record('dev', await this.resizeRuntime(runtime, cols, rows));
 		};
 		const existing = this.panes.dev;
@@ -229,6 +236,25 @@ class PaneHost {
 			return this.record('dev', await start);
 		} finally {
 			if (this.startPromises.get('dev') === start) this.startPromises.delete('dev');
+		}
+	}
+
+	// One action at a time per workspace; a finished one is replaced (its output and exit code stay until then).
+	async startAction(cols: number, rows: number, command: string, name: string): Promise<ActionRecord> {
+		this.hosted('action');
+		const existing = this.panes.action;
+		if (this.startPromises.has('action') || (existing && !existing.exited)) throw new Error(`The ${existing?.name ?? 'previous'} action is still running; stop it first (e, then x)`);
+		const start = (async () => {
+			await this.stop('action');
+			const runtime = this.spawnPane('action', shellCommand(), ['-ic', command], this.cwd(), cols, rows, command);
+			runtime.name = name;
+			return runtime;
+		})();
+		this.startPromises.set('action', start);
+		try {
+			return this.record('action', await start);
+		} finally {
+			if (this.startPromises.get('action') === start) this.startPromises.delete('action');
 		}
 	}
 
@@ -256,8 +282,9 @@ class PaneHost {
 		const pane = this.hosted(target);
 		if (pane === 'terminal') return this.record(pane, await this.ensureTerminal(cols, rows));
 		if (pane === 'git') return this.record(pane, await this.ensureGit(cols, rows));
-		const dev = this.panes.dev;
-		return this.record(pane, dev ? await this.resizeRuntime(dev, cols, rows) : undefined);
+		// Dev and actions start only on request; viewing never starts them.
+		const runtime = this.panes[pane];
+		return this.record(pane, runtime ? await this.resizeRuntime(runtime, cols, rows) : undefined);
 	}
 
 	async attach(target: AttachTarget, cols: number, rows: number): Promise<unknown> {
@@ -313,7 +340,7 @@ class PaneHost {
 
 	record(target: PaneTarget, runtime?: RuntimePty): PaneRecord {
 		const owner = this.owner();
-		return {content: runtime?.preview.getCachedSnapshot() ?? '', live: Boolean(runtime && !runtime.exited), cwd: runtime?.cwd ?? owner.cwd, ...(target === 'dev' ? {command: runtime?.command} : {}), exitCode: runtime?.exitCode, exitSignal: runtime?.exitSignal};
+		return {content: runtime?.preview.getCachedSnapshot() ?? '', live: Boolean(runtime && !runtime.exited), cwd: runtime?.cwd ?? owner.cwd, ...(target === 'dev' || target === 'action' ? {command: runtime?.command} : {}), ...(target === 'action' ? {name: runtime?.name} : {}), exitCode: runtime?.exitCode, exitSignal: runtime?.exitSignal};
 	}
 
 	private scheduleBroadcast(target: PaneTarget, runtime: RuntimePty): void {
@@ -498,10 +525,11 @@ export async function runSessionWorker(): Promise<void> {
 	await new Promise(() => {});
 }
 
-// Hosts the panes shared by every session in one workspace (worktree): Terminal, Git and Dev. The daemon starts it
-// on demand (first Terminal/Git view or attach, Dev start) and retires it once nothing is left in it (after a Dev
-// stop or a failed pane start), before the worktree is deleted, when the workspace's last session is removed, or on
-// shutdown. Its own panes never retire it: a shell never exits on its own, and exited panes keep their output.
+// Hosts the panes shared by every session in one workspace (worktree): Terminal, Git, Dev and the last action. The
+// daemon starts it on demand (first Terminal/Git view or attach, Dev start, an action run) and retires it once nothing
+// is left in it (after a Dev or action stop, or a failed pane start), before the worktree is deleted, when the
+// workspace's last session is removed, or on shutdown. Its own panes never retire it: a shell never exits on its own,
+// and exited panes keep their output.
 class WorkspaceWorker {
 	private cwd?: string;
 	private stopping = false;
@@ -521,6 +549,8 @@ class WorkspaceWorker {
 				case 'start': this.cwd = command.cwd; ok(command.requestId, {ok: true}); return;
 				case 'start-dev': ok(command.requestId, await this.panes.startDev(command.cols, command.rows, command.command)); return;
 				case 'stop-dev': await this.stopPane('dev'); ok(command.requestId, {idle: this.panes.idle}); return;
+				case 'start-action': ok(command.requestId, await this.panes.startAction(command.cols, command.rows, command.command, command.name)); return;
+				case 'stop-action': await this.stopPane('action'); ok(command.requestId, {idle: this.panes.idle}); return;
 				case 'idle': ok(command.requestId, {idle: this.panes.idle}); return;
 				case 'shutdown': this.stopping = true; await this.panes.stopAll(); ok(command.requestId, {ok: true}); setTimeout(() => process.exit(0), 25).unref?.(); return;
 			}

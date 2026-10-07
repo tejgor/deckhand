@@ -19,19 +19,19 @@ Implemented behavior:
 
 - Ink dashboard with sidebar plus Preview, Terminal, Git, Dev, and Notes tabs.
 - Local daemon IPC over `~/.deckhand/daemon.sock`.
-- One worker process per running session (the agent PTY), plus one workspace worker per worktree whose shared Terminal/Git/Dev panes are in use; workers own the live PTYs.
+- One worker process per running session (the agent PTY), plus one workspace worker per worktree whose shared Terminal/Git/Dev panes (or an action) are in use; workers own the live PTYs.
 - Supported agents: `claude`, `pi`, `codex`.
 - Session create/restart/kill/remove flows, including resume/fresh restart where supported.
 - Sub-sessions under parent sessions, with clean and forked variants (Claude `--fork-session`, Pi `--fork`, `codex fork`).
 - Repo-scoped session list with persisted manual ordering among siblings and collapsible subtrees.
 - Worker-side terminal preview rendering with `@xterm/headless`.
 - Read-only Preview focus mode with scrollback; Claude gets synthetic wheel input because its TUI behaves differently.
-- External attach/detach for agent, terminal, git, and dev PTYs.
+- External attach/detach for agent, terminal, git, dev, and action PTYs.
 - Worktree modes: no worktree, new managed worktree, existing/attached worktree.
 - Safe worktree deletion, optional branch deletion, and cleanup of leftover directories/remnants.
 - Merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing: a preview (target, commits, diff stat, uncommitted files with a commit-first toggle, target checks), a two-key conflict view (keep / abort), and a merged marker (`✓`) per worktree, shared by every session in it, also set automatically when the branch was merged elsewhere (see *Merge behavior*).
 - A per-session done marker (`D`, `☑`), independent of merged; `M` is worktree-only.
-- Terminal (shell) tab, shared by every session in the same workspace (worktree), started on first view and usable after the agents exit.
+- Terminal (shell) tab, shared by every session in the same workspace (worktree), started on first view and usable after the agents exit. It also shows the worktree's last action (`e`), which runs in a PTY of its own; `v` switches between the shell and the action (see *Actions*).
 - Git tab: a native **Changes** view of the workspace (VS Code-style groups, line counts, diff preview, stage/unstage, open in editor at the first change), polled by the daemon while watched; `o` attaches the workspace's shared `lazygit` (when installed) for everything else.
 - Dev tab, shared by every session in the same workspace (worktree) and independent of their agents, powered by `devCommand` from effective settings (global defaults, overlaid by a trusted repository `deckhand.json`; legacy `dev_command` fallback).
 - Two-layer configuration: global `defaults` in the user config plus one repository `deckhand.json` in the main checkout (worktree copies ignored) that applies only when trusted (its defaultAgent/defaultWorkspace preselect the picker regardless), with an inline content-fingerprint review shown only right before repository config would run (lists show everything, untrusted actions marked), one editable Settings grid (C: a Global and a This repo column, the cursor a cell) for both layers, self-edits that keep a trusted file trusted, archive/search/filter, handoffs, optional lifecycle hooks/notifications, and conservative cleanup inspection. User-facing behaviour: `docs/no-brainers.md`.
@@ -77,7 +77,7 @@ Responsibilities:
 - start/stop session workers and workspace workers
 - route attach/input/resize/snapshot requests to workers
 - receive worker snapshots, output, and lifecycle messages
-- broadcast session, preview, terminal, git, dev, and changes events
+- broadcast session, preview, terminal, git, dev, action, and changes events
 - read Git status/diffs and stage/unstage for the Git tab's Changes view (`src/changesGit.ts`), polling watched workspaces
 - manage worktree creation/deletion/merge safety and the per-worktree merge/deleted records
 - own the notes files (`notes/`): load, migrate, project into sessions, revision-checked saves, watch for outside edits
@@ -89,11 +89,12 @@ The daemon owns no PTYs. The agent PTY lives in the session worker; Terminal, Gi
 
 Each session worker (`--session-worker`) owns the agent PTY of one session and its `@xterm/headless` preview model; it refuses pane commands for any other target. Workers spawn agents with persisted `session.args`, not just the bare command, so restarts can resume supported agents.
 
-Each workspace worker (`--workspace-worker`, `WorkspaceWorker`) owns the companion panes of one workspace in a `PaneHost` (same file): PTY spawn in the workspace root, previews, throttled `<pane>-updated` records, attach/input/resize, and stop (SIGHUP, SIGKILL after a grace period). It hosts `WORKSPACE_PANES` (Terminal, Git, Dev):
+Each workspace worker (`--workspace-worker`, `WorkspaceWorker`) owns the companion panes of one workspace in a `PaneHost` (same file): PTY spawn in the workspace root, previews, throttled `<pane>-updated` records, attach/input/resize, and stop (SIGHUP, SIGKILL after a grace period). It hosts `WORKSPACE_PANES` (Terminal, Git, Dev, and `action`, which has no tab of its own):
 
 - Terminal: `$SHELL` (no args). Git: `lazygit`, resolved per spawn with `$SHELL -ic 'command -v lazygit'` (if missing, the watch/attach fails with *lazygit is not installed or not on PATH*). Both spawn lazily on the first `snapshot`/`attach`; a shell or lazygit that exited is respawned by the next snapshot or attach (restart on view: switching tabs, a resize or a lifecycle change re-watches). The UI does not send `watch-git` (the Git tab shows the daemon's Changes view), so in practice lazygit starts on the first `attach-git` (`o` on the Git tab); `watch-git`/`git-updated` remain in the protocol (the daemon test uses them).
 - Dev: only `start-dev` spawns it; snapshots never restart it, so its output and exit code stay visible.
-- `idle` (no pane runtime, live or exited, and none starting) is reported after `stop-dev` and on the `idle` command; once `shutdown` arrives, the worker refuses every other command (nothing may start in a worktree about to be removed).
+- Action: only `start-action` spawns it (`PaneHost.startAction`, `$SHELL -ic <command>`, the action's name kept on the runtime); it refuses while the previous action is live or starting, and otherwise replaces a finished one. Snapshots never restart it.
+- `idle` (no pane runtime, live or exited, and none starting) is reported after `stop-dev`/`stop-action` and on the `idle` command; once `shutdown` arrives, the worker refuses every other command (nothing may start in a worktree about to be removed).
 
 Worker stdout/stderr are appended to per-worker files under `~/.deckhand/workers/`.
 
@@ -105,11 +106,13 @@ Terminal, Git and Dev are owned by the workspace: one workspace worker per works
 
 Semantics (`InkDaemon` `requireWorkspace`/`openWorkspace`/`watchWorkspacePane`/`attachWorkspacePane`/`requestPane`/`retireIfIdle`/`retireWorkspace`/`publishWorkspacePane`/`syncDevRunning`):
 
-- Every Terminal/Git/Dev request (`watch-*`, `attach-*`, `*-input`, `*-resize`, `*-detach`, `start-dev`, `stop-dev`, `run-action`) still names a session; the daemon resolves its workspace and acts on the one shared pane. Sessions in one worktree share one shell, one lazygit and one Dev; another worktree has its own. Starting Dev from any session starts (or reuses, same command) the shared process; stopping from any stops it. The Dev command is resolved from that session's effective settings (`resolveDevCommand`, trust review in the UI unchanged).
+- Every Terminal/Git/Dev/action request (`watch-*`, `attach-*`, `*-input`, `*-resize`, `*-detach`, `start-dev`, `stop-dev`, `run-action`, `stop-action`) still names a session; the daemon resolves its workspace and acts on the one shared pane. Sessions in one worktree share one shell, one lazygit and one Dev; another worktree has its own. Starting Dev from any session starts (or reuses, same command) the shared process; stopping from any stops it. The Dev command is resolved from that session's effective settings (`resolveDevCommand`, trust review in the UI unchanged).
 - The panes run independently of agents: view/attach (and Dev start/stop, actions) work for starting (once prepared), running and exited sessions alike; the UI gates on "has a workspace", not "is running".
-- Lifetime: the worker is retired (all panes stopped, awaited) when kill-with-delete removes the worktree (after the cleanup checks pass, before `git worktree remove`), when the workspace's last session is removed (nothing could show or stop the panes otherwise; a shell never exits on its own), and when the daemon stops (`cleanup` retires every workspace; on a daemon crash the worker's IPC disconnect stops its panes). It is also retired once it is **idle** and no pane request is in flight (`busy`): after `stop-dev` (no Terminal/Git/exited-Dev left) and after a failed pane request (`requestPane` → `retireIfIdle`, e.g. lazygit is not installed), so a failed view never leaves an empty worker behind. Its own panes never make it idle: a shell or lazygit that exited, like a Dev that exits on its own, keeps its runtime so the output stays visible and the worker stays.
-- Records: the worker's records carry no session; the daemon stamps each watching client's session ID plus `workspace` (`TerminalRecord`/`GitRecord`/`DevRecord`) and sends `<pane>-updated` to every client watching that pane on any session of the workspace (`publishWorkspacePane`). The last record per pane is kept in `WorkspaceRuntime.records`: on an unexpected worker exit viewers get it back marked not live; on retirement they get an empty not-live record (only panes that existed). One attach per workspace pane (`terminal/git/dev command is already attached elsewhere`); output goes to the attaching socket as `<pane>-output` under its session ID; retiring the worker sends `<pane>-detached` to it. Each PTY is sized by the last watch/attach/resize of that pane (last viewer wins).
+- Lifetime: the worker is retired (all panes stopped, awaited) when kill-with-delete removes the worktree (after the cleanup checks pass, before `git worktree remove`), when the workspace's last session is removed (nothing could show or stop the panes otherwise; a shell never exits on its own), and when the daemon stops (`cleanup` retires every workspace; on a daemon crash the worker's IPC disconnect stops its panes). It is also retired once it is **idle** and no pane request is in flight (`busy`): after `stop-dev`/`stop-action` (`stopWorkspacePane`; no Terminal/Git/Dev/action runtime left) and after a failed pane request (`requestPane` → `retireIfIdle`, e.g. lazygit is not installed), so a failed view never leaves an empty worker behind. Its own panes never make it idle: a shell or lazygit that exited, like a Dev that exits on its own, keeps its runtime so the output stays visible and the worker stays.
+- Records: the worker's records carry no session; the daemon stamps each watching client's session ID plus `workspace` (`TerminalRecord`/`GitRecord`/`DevRecord`/`ActionRecord`) and sends `<pane>-updated` to every client watching that pane on any session of the workspace (`publishWorkspacePane`). The last record per pane is kept in `WorkspaceRuntime.records`: on an unexpected worker exit viewers get it back marked not live; on retirement they get an empty not-live record (only panes that existed). One attach per workspace pane (`terminal/git/dev command/action is already attached elsewhere`); output goes to the attaching socket as `<pane>-output` under its session ID; retiring the worker sends `<pane>-detached` to it. Each PTY is sized by the last watch/attach/resize of that pane (last viewer wins).
 - `devRunning` stays on `SessionRecord` (so every response/broadcast carries it) but mirrors the workspace: `syncDevRunning` sets it on every session of the workspace, exited ones included, whenever the worker reports a Dev record, and `saveSession`/`saveWorktreeRecord` re-derive it for sessions that join or leave a workspace (create, worktree deleted). Live PTYs never survive a daemon restart, so `markAllNonExitedSessionsExited` clears it on startup.
+
+**Actions** (`run-action`, `startWorkspaceAction`): an action runs in the workspace's `action` PTY, never in the shell or Dev, and the UI shows it on the Terminal tab. Before protocol v40 actions ran in the Dev PTY: running one was refused while the dev server ran, and its output replaced the server's. Rejected alternatives: typing the command into the shared shell (no exit code, no stop, collides with whatever is typed or running there) and a tab of its own (the user did not want another pane). Trust is unchanged: the daemon resolves the command from effective settings and refuses an untrusted repository action. `ActionRecord` is `DevRecord` plus `name`; `watch-action` never spawns a worker (`startsOnView` is true only for Terminal and Git, so `watch-dev`/`watch-action` and `attach-dev`/`attach-action` never open one). Actions do not touch `devRunning`/`▶`.
 
 Adding another workspace pane: a PTY pane is a `PaneTarget` in `WORKSPACE_PANES` (worker) plus `WorkspacePane`/`WorkspaceEvent`/`paneUpdatedMessage` and the request cases in the daemon. A non-PTY workspace view does not need the worker: compute it in the daemon from the workspace key (like `workspace-summary`, `src/workspaceGit.ts`) or, if it must push updates, keep a per-workspace watcher and fan out like `publishWorkspacePane` — the Git tab's Changes view (below) is that pattern.
 
@@ -170,7 +173,7 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 - Attach mode intentionally exits Ink temporarily and gives stdin/stdout directly to the selected PTY.
 - PTY sizing is per PTY:
   - Preview sizes the agent PTY to the preview viewport.
-  - Terminal/Dev size their shared workspace PTYs to the pane viewport of the last viewer (last watch/resize wins); lazygit is sized by its attach.
+  - Terminal/Dev/action size their shared workspace PTYs to the pane viewport of the last viewer (last watch/resize wins); lazygit is sized by its attach.
   - Attach mode sizes the active PTY to the full terminal.
   - Returning from attach reapplies pane sizing.
 
@@ -213,10 +216,12 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 - `tab` cycles Preview / Terminal / Git / Dev / Notes for selected session
 - `p` / `t` / `g` / `d` / `a` directly focus Preview / Terminal / Git / Dev / Notes
 - switching sessions restores that session's most recently selected tab, defaulting to Preview
+- `v` on the Terminal tab switches between the shell and the worktree's last action (`terminalView`; with no action yet it says *e runs one*). The Terminal header then reads `shell │ <name> ● running` (or `✓ exit 0`, `✗ exit N`, `✗ signal N`, `○ stopped` after a worker crash), the shown view highlighted (`actionStatus`, `hasAction` in `src/terminalPane.tsx`). The view is kept across attach/detach (`initialTerminalView`/`onTerminalViewChange`, a module variable in `src/cli.ts`) but not across UI restarts
+- `e` opens the actions picker; Enter runs the action and switches to Terminal → action view. While an action of the worktree runs, the picker says so and `x` stops it (`stop-action`); running another meanwhile is refused (*The <name> action is still running; stop it first (e, then x)*). Opening the picker re-watches the action (`watchAction`), so this works from any tab
 - `v` enters Preview focus mode for running sessions; on the Git tab it enters Changes focus (`j`/`k`/arrows, `g`/`G` select; `space` stage/unstage; `a`/`A` stage/unstage all; `enter`/`e` open in editor; `J`/`K` scroll the diff by 3, PgUp/PgDn by a page; `o` lazygit; `esc`/`v` back)
 - `o` attaches to selected session's active pane (Terminal/Git/Dev also for exited sessions, as long as the session has a workspace):
   - Preview => agent
-  - Terminal => the workspace's shared shell
+  - Terminal => the workspace's shared shell, or its running action in the action view (a finished action cannot be attached: *e runs an action again*)
   - Git => the workspace's shared lazygit (started on this attach; the tab itself shows the Changes view)
   - Dev => the workspace's shared dev command PTY
   - Notes => enter notes edit/focus mode
@@ -459,7 +464,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v39** (v39: `merge-preview` (`MergePreview`), `merge-worktree` `commitFirst`, `resolve-merge` (`keep`/`abort`), `set-session-done`; `WorktreeMergeResult.sourceSha`/`conflicts`/`conflictCount`/`committed`; `SessionRecord.doneAt`; `SessionWorktreeRecord.mergeSourceSha`/`mergeDetected`; `WorkspaceSummary.pr.headSha`/`baseBranch`; v38: notes in files: `save-note` (revision-checked, `{saved, session}`) and `open-note` replace `update-session-notes`; `SessionRecord.notesFile` and `sharedNotes` are projected beside `notes`; v37: `agent-versions`, `update-agent`, `agent-versions-updated`, `SessionRecord.agentVersion`; v36: Terminal, Git and Dev are shared per workspace; `TerminalRecord`/`GitRecord`/`DevRecord.workspace`; the Git tab's Changes view: `watch-changes`, `changes-diff`, `change-stage`, `changes-updated`; `SessionWorktreeRecord.id`, with merge/deleted markers shared per worktree) (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
+- current protocol version: **v40** (v40: actions get their own workspace pane: `watch-action`, `stop-action`, `attach-action`/`action-input`/`action-resize`/`action-detach`, `action-updated`, `action-output`, `action-attached`/`action-detached`, `ActionRecord`; `run-action` returns an `ActionRecord` and no longer uses Dev; v39: `merge-preview` (`MergePreview`), `merge-worktree` `commitFirst`, `resolve-merge` (`keep`/`abort`), `set-session-done`; `WorktreeMergeResult.sourceSha`/`conflicts`/`conflictCount`/`committed`; `SessionRecord.doneAt`; `SessionWorktreeRecord.mergeSourceSha`/`mergeDetected`; `WorkspaceSummary.pr.headSha`/`baseBranch`; v38: notes in files: `save-note` (revision-checked, `{saved, session}`) and `open-note` replace `update-session-notes`; `SessionRecord.notesFile` and `sharedNotes` are projected beside `notes`; v37: `agent-versions`, `update-agent`, `agent-versions-updated`, `SessionRecord.agentVersion`; v36: Terminal, Git and Dev are shared per workspace; `TerminalRecord`/`GitRecord`/`DevRecord.workspace`; the Git tab's Changes view: `watch-changes`, `changes-diff`, `change-stage`, `changes-updated`; `SessionWorktreeRecord.id`, with merge/deleted markers shared per worktree) (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -515,8 +520,8 @@ Request types:
 - `agent-hook` (token + launch ID authenticated)
 - `list`, `subscribe`
 - `list-worktrees`
-- `watch-preview`, `watch-terminal`, `watch-git`, `watch-dev` (the last three, the start/stop and the terminal/git/dev paths below take a `sessionId` and act on that session's workspace pane)
-- `start-dev`, `stop-dev`
+- `watch-preview`, `watch-terminal`, `watch-git`, `watch-dev`, `watch-action` (all but the first, the start/stop and the terminal/git/dev/action paths below take a `sessionId` and act on that session's workspace pane)
+- `start-dev`, `stop-dev`, `stop-action` (an action starts with `run-action`)
 - `watch-changes` (optional `sessionId`; none stops watching), `changes-diff` (`sessionId`, `group`, `path` of a listed entry), `change-stage` (`sessionId`, `mode: stage|unstage`, optional `group`+`path`; none = everything) — the Git tab's Changes view
 - `save-note` (`sessionId`, `section: session|shared`, `noteId` for shared, `text`, `revision`; refused while the file has another revision: `{saved: false, session}`), `open-note` (`sessionId`, `section`; creates the file if missing, responds with its path)
 - `create`, `reorder-session`, `restart`, `kill`, `merge-preview` (read-only: what `m` would merge), `merge-worktree` (optional `commitFirst`), `resolve-merge` (`action: keep|abort` after a conflicted merge), `mark-session-merged` (worktrees only), `set-session-done` (`done: boolean`), `remove`
@@ -524,17 +529,19 @@ Request types:
 - terminal path: `attach-terminal`, `terminal-input`, `terminal-resize`, `terminal-detach`
 - git path: `attach-git`, `git-input`, `git-resize`, `git-detach`
 - dev path: `attach-dev`, `dev-input`, `dev-resize`, `dev-detach`
+- action path: `attach-action`, `action-input`, `action-resize`, `action-detach`
 
 Event types:
 
 - `session-updated` (also when a note changes: saved, or edited in a file; sent for every session showing it), `session-removed`
-- `preview-updated`, `terminal-updated`, `git-updated`, `dev-updated`, `changes-updated`
+- `preview-updated`, `terminal-updated`, `git-updated`, `dev-updated`, `action-updated`, `changes-updated`
 - `agent-versions-updated` (every subscribed client, on change)
-- `output`, `terminal-output`, `git-output`, `dev-output`
+- `output`, `terminal-output`, `git-output`, `dev-output`, `action-output`
 - `attached`, `detached`
 - `terminal-attached`, `terminal-detached`
 - `git-attached`, `git-detached`
 - `dev-attached`, `dev-detached`
+- `action-attached`, `action-detached`
 
 ## File map
 
@@ -561,7 +568,7 @@ Event types:
 - `src/terminalState.ts` — terminal escape reset helpers used before/after UI and attach transitions.
 - `src/sidebarModel.ts` — the sidebar as pure data (unit-tested): rows (prefix/suffix layout and truncation, `▶` once per workspace, shared-workspace marker, archived dimming, the done marker and done rows), header text, the selected session's details block (`statusWords`, `statusSince`, `formatAge`, `locationText`). `src/sidebar.tsx` — its rendering.
 - `src/preview.tsx` — Preview pane rendering.
-- `src/terminalPane.tsx`, `src/devPane.tsx` — rendering of the workspace's shared Terminal and Dev panes (unavailable/exited messages).
+- `src/terminalPane.tsx`, `src/devPane.tsx` — rendering of the workspace's shared Terminal (shell or last action, `TerminalView`) and Dev panes (unavailable/exited messages).
 - `src/changesModel.ts` — the Git tab's Changes view as pure data (groups, rows, selection, first changed line, diff classification; unit-tested). `src/changesGit.ts` — its Git I/O (status + numstat read, bounded diff, validated stage/unstage). `src/changesFlow.tsx` — selection, diff fetch and focus keys. `src/changesPane.tsx` — rendering (list, diff, layout).
 - `src/notes.ts` — notes as pure data (unit-tested): limits, revisions, shared-note identity (`sharedNoteIdentity`, `repoNoteId`), checklist parsing/toggling/insertion/continuation and counts, read-mode rows (`noteReadRows`, `fitReadRows`), the two-section height budget (`budgetSections`), header/sidebar texts (`checklistLabel`, `openChecklistText`). `src/notesStore.ts` — the daemon's note files (load, legacy migration, revision-checked atomic saves, `ensureFile`, removal, directory watchers). `src/notesFlow.tsx` — the Notes tab's drafts, debounced saves, conflict reloads and notes-focus keys. `src/notesPane.tsx` — its layout (`notesLayout`, pure) and rendering.
 - `src/tabs.tsx` — tab UI.
@@ -620,7 +627,7 @@ Event types:
 
 - Clears Ink UI and resets inherited terminal modes.
 - Opens persistent daemon connection.
-- Attaches to agent/terminal/git/dev based on active pane; only an agent attach ends when the session exits (Terminal/Git/Dev belong to the workspace).
+- Attaches to agent/terminal/git/dev/action based on active pane; only an agent attach ends when the session exits (Terminal/Git/Dev/action belong to the workspace).
 - Sets/reasserts terminal/window title with OSC 0/2 and best-effort `process.title`.
 - Puts stdin in raw mode.
 - Dampens matched vertical mouse wheel events using `attach_scroll_sensitivity`.
@@ -693,6 +700,8 @@ Agent versions (`tests/agentUpdates.test.ts`, its own daemon whose PATH holds on
 
 Forks (`tests/forks.test.ts`, its own daemon with the shared fake agent from `tests/helpers.ts`, beside `tests/daemonFeatures.test.ts`; plus `tests/agents.test.ts`): Claude fork argv `--resume <parent> --fork-session --session-id <child> --name …` with the child ID stored at launch and nothing typed; `s` resumes the child; a fork whose parent has no saved conversation fails with a note and `s` forks again with a new ID; a Claude fork into a new worktree; legacy `/branch` name-ref children resume by name, parent-ref children fork again, name-ref parents fork by name; Pi fork argv unchanged; `codex fork <parent id>`, the child's ID from a hook while the parent's ID (reported before and after it) is never adopted, `codex resume <child>` on `s`, re-fork when no child ID was reported, refusal of other worktrees/directories and of a parent without an ID; the per-agent argv table and `relaunchPlan`. Not run against the real agents through Deckhand: Claude `--fork-session` was verified directly (see *Forks*), Pi and Codex forks only from their help and package contents.
 
+Actions in their own pane (protocol v40, uncommitted on `feat/no-brainer-workbench`): `tsc --noEmit` passes, and `tests/help.test.ts` and `tests/settingsModel.test.ts` pass. Not run yet: `tests/daemonFeatures.test.ts`, which needs `npm run build` first. It now covers a global action's name and exit code via `watch-action`, Dev untouched by an action, a second action refused while `gsleep` runs, Dev starting meanwhile, and `stop-action`. The UI (`v`, header, picker `x`, `o` on an action) has not been run, by hand or in a real-PTY test.
+
 Validated during the workbench refactor (shared workspace panes, the Changes view, worktree records):
 
 - `npm run build`; `npm test` repeatedly, also two suites at once. The real-PTY UI tests had flaked under load: a key typed right after a screen change reached Ink's previous-render listener (Ink re-subscribes `useInput` in a passive effect) and was lost; `useTerminalInput` now keeps one stable listener calling the latest handler, and UI waits are condition-based with a 30 s ceiling (`UI_WAIT_MS`).
@@ -738,6 +747,7 @@ Not fully manually validated recently:
 - Worktree support exists but still needs more real-world exercise.
 - Codex resume and fork depend on capturing its native ID; Codex forks stay in the parent's worktree (see *Forks*).
 - Terminal/Dev scrollback controls are still future work.
+- Only the last action per worktree is kept; stopping one is only in the `e` picker (`x`), not on the Terminal tab, because `x` there kills the session.
 - The Changes diff preview refetches when the record changes (status or line counts); an edit that keeps a file's `+/−` counts identical is shown after the next change or reselecting the file. Untracked line counts stop after 500 files (or files over 1 MB).
 - The Changes view does no hunk staging, commits, discards or branch operations by design: lazygit (`o`) covers them.
 - A workspace worker (and its shell) lives as long as the workspace has sessions, even exited/archived ones, unless nothing is left in it; remove sessions to free it. There is no idle timeout (a shell may run a long job).
@@ -749,6 +759,7 @@ Not fully manually validated recently:
 
 Near term:
 
+0. Finish the actions change: `npm run build`, then `node --import tsx --test tests/daemonFeatures.test.ts` (and the full `npm test`), then try it in the isolated sandbox (`docs/dev-build.md` step 3: `e` → `test` with Dev running, `v`, `o`, `x` in the picker). Consider a real-PTY UI test for the Terminal action view.
 1. Manually exercise worktree flows in disposable repos:
    - hook creation from main worktree
    - hook creation from linked worktree

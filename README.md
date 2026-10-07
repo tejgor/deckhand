@@ -165,7 +165,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `f` / `/` | Cycle filters / search title, notes, provider, branch, path |
 | `i` | Workspace Git summary; `P` queries PR, `b` opens it, `c` pushes and opens GitHub's new-PR form (after confirmation), `g` opens the Git tab |
 | `C` | Settings: a grid of every setting with a Global and a This repo column (● in effect, ⚠ needs trust); ↑↓ setting, ←→ column, Enter edits that cell's layer, x clears it, e that column's raw JSON, T reviews/trusts the repo file (you're also asked inline right before anything from it runs) |
-| `e` | Choose an action (global, plus trusted repository actions) for the shared Dev pane |
+| `e` | Choose an action (global, plus trusted repository actions); it runs beside the shell on the worktree's Terminal tab (`v` switches) |
 | `U` | Agents: installed vs latest version of Claude, Pi and Codex; Enter runs the selected agent's own updater (asks first when it has running sessions, which keep their version until restarted), `r` re-checks, Esc back |
 | `H` / `F` | Export/open handoff (notes plus commits and changed files, no diff content) / create a clean child from the reviewed document |
 | `!` | Next known attention session |

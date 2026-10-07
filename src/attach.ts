@@ -38,6 +38,16 @@ function targetRequestNames(target: AttachTarget) {
 			detached: 'git-detached',
 		} as const;
 	}
+	if (target === 'action') {
+		return {
+			attach: 'attach-action',
+			input: 'action-input',
+			resize: 'action-resize',
+			detach: 'action-detach',
+			output: 'action-output',
+			detached: 'action-detached',
+		} as const;
+	}
 	if (target === 'dev') {
 		return {
 			attach: 'attach-dev',
@@ -177,7 +187,7 @@ function createAttachInputNormalizer(program: ProgramKey | undefined, scrollSens
 }
 
 function attachTargetTitleLabel(target: AttachTarget): string {
-	return target === 'terminal' ? 'term' : target === 'git' ? 'git' : target === 'dev' ? 'dev' : 'agent';
+	return target === 'terminal' ? 'term' : target === 'git' ? 'git' : target === 'dev' ? 'dev' : target === 'action' ? 'action' : 'agent';
 }
 
 function compactTerminalTitle(value: string, maxLength = 32): string {
@@ -263,7 +273,7 @@ export async function attachSession(sessionId: string, target: AttachTarget = 'a
 	const names = targetRequestNames(target);
 	const normalizeAttachInput = createAttachInputNormalizer(options.program, normalizeScrollSensitivity(options.scrollSensitivity));
 	const filterTerminalTitleOutput = createTerminalTitleOutputFilter();
-	const useAttachScreen = target !== 'terminal' && target !== 'dev' && (target !== 'agent' || options.program === 'claude' || options.program === undefined);
+	const useAttachScreen = target !== 'terminal' && target !== 'dev' && target !== 'action' && (target !== 'agent' || options.program === 'claude' || options.program === undefined);
 	const originalProcessTitle = process.title || 'deckhand';
 	let attached = false;
 	let cleanedUp = false;
