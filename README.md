@@ -49,7 +49,7 @@ Tools for running coding agents in parallel typically rely on [`tmux`](https://g
 - **Resumable Agents** — Claude/Pi retain native identities; Codex resumes when its native ID is captured. Unknown IDs never silently become a blank conversation. Fresh restart remains explicit.
 - **Notes with checklists** — Each session's notes plus one note per worktree shared by every session in it, as Markdown files you can also edit in VS Code; `- [ ]` items render as ☐/☑ and their open count shows in the sidebar.
 - **Safer Cleanup** — Check uncommitted, untracked and valuable ignored files, and commits that deleting a branch would lose, before deletion; force kill and data-loss authorization are separate.
-- **Merge Helpers** — Merge or squash-merge a session's worktree into the current branch, staged for review rather than committed.
+- **Merge Helpers** — Merge or squash-merge a session's worktree into the current branch, staged for review rather than committed: a preview shows the target, commits and diff stat first, uncommitted work can be committed first, conflicts are kept to resolve or aborted in one key, and worktrees merged elsewhere (into the default branch, or a merged PR) are marked by themselves.
 - **Git Changes** — The Git tab lists the worktree's changes like VS Code's Source Control panel (merge conflicts, staged, unstaged, untracked, with line counts), previews each file's diff, stages/unstages files and opens them in your editor at the first change; `lazygit` (optional) is one key away for everything else.
 - **Optional Tabs** — A configurable Dev tab for a command such as `npm run dev`.
 - **Shared Worktree Panes** — Terminal, Git and Dev belong to the worktree, not the session: sessions in one worktree share one shell, one Changes view and lazygit, and one Dev command, which stay available after their agents exit.
@@ -153,8 +153,9 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `v` *(on Git tab)* | Focus the Changes list (see [Git Changes](#git-changes)) |
 | `esc` *(in Notes)* | Stop editing notes (saves at once) |
 | `[` / `]` | Decrease / increase the scroll multiplier and save it to config |
-| `m` | Merge the selected worktree into the current branch (on success every session of that worktree shows `✓`) |
-| `M` | Toggle the merged/pushed marker: for the whole worktree in a linked worktree, for just the selected session in the main checkout |
+| `m` | Merge the selected worktree into the current branch, uncommitted: the confirmation shows `Into <branch> · <path>` (yellow when it is not the main checkout's default branch), the commits and diff stat, and for uncommitted files a `space` toggle (on by default) that commits them first with the session's title as the message. On conflicts: `enter` keeps the merge in progress for you to resolve (marked merged), `a` aborts it. Every session of the worktree then shows `✓` |
+| `M` | Toggle the worktree's merged marker (every session of it); worktrees only — in the main checkout use `D` |
+| `D` | Mark the selected session done / not done (`☑`; any session, independent of merged) |
 | `h` / `l` | Resize the sidebar |
 | `x` / `X` | Kill the selected running session / force kill |
 | `s` / `S` | Resume / fresh-restart the selected exited session |
@@ -189,8 +190,8 @@ Press `o` to attach to the selected session's active pane. To branch off related
 ```
 
 - **Before the title:** status — spinner starting/working, `●` idle, `◌` activity unknown, `○` exited; with agent signals `?` needs input, `◆` response ended (not task success), `!` failed or failed/interrupted exit, `⌛` rate-limited. Tree — `▾`/`▸` expanded/collapsed parent, `↳` clean and `⑂` forked sub-session.
-- **After the title:** `▶` Dev running (once per worktree), `▣` archived, `!` cleanup error, `✓` merged, `+N` hidden sub-sessions, `↑` running an older agent version than the one now installed (restart it to update; the details line then shows both versions, e.g. `✶ claude 2.1.287 · 2.1.290 installed`), then the agent: `✶` Claude, `π` Pi, `◇` Codex.
-- Archived rows are dimmed; in the archived view the parents shown for context are dimmed instead. `?` → Sidebar lists all of this in the app.
+- **After the title:** `▶` Dev running (once per worktree), `▣` archived, `!` cleanup error, `✓` merged (by `m`, `M`, or found merged elsewhere), `☑` done (`D`), `+N` hidden sub-sessions, `↑` running an older agent version than the one now installed (restart it to update; the details line then shows both versions, e.g. `✶ claude 2.1.287 · 2.1.290 installed`), then the agent: `✶` Claude, `π` Pi, `◇` Codex.
+- Archived rows are dimmed; in the archived view the parents shown for context are dimmed instead. Done rows have a muted title (their markers and status stay readable), and the details say `done 2d ago`. `?` → Sidebar lists all of this in the app.
 
 ### Attach Mode
 
@@ -329,7 +330,7 @@ Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0`
 
 | Path | Purpose |
 | --- | --- |
-| `~/.deckhand/state.json` | Persisted session list and per-worktree merged/deleted markers |
+| `~/.deckhand/state.json` | Persisted session list (with done markers) and per-worktree merged/deleted markers |
 | `~/.deckhand/notes/` | Notes as Markdown files: per session, per worktree, and the main checkout's |
 | `~/.deckhand/config.json` | User configuration, global `defaults` and exact repository trust fingerprints |
 | `~/.deckhand/ui-state.json` | Per-repository selection, tabs, width, tree/filter/search preferences |

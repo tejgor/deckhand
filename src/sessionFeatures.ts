@@ -60,7 +60,7 @@ export function handoffGitLines(context: HandoffGitContext): string[] {
 }
 /** Pure; `git` is gathered by the daemon at export time (omitted for sessions outside a repository). */
 export function handoffMarkdown(session: SessionRecord, includeOutput = false, git?: HandoffGitContext): string {
-	const lines = ['# Deckhand handoff', '', `Task: ${session.title}`, `Provider: ${session.program}`, `Workspace: ${session.cwd}`, `Branch: ${session.worktree?.branch ?? '(current checkout)'}`, `Source session: ${session.id}`, '', '## Notes', '', session.notes?.trim() || '(No notes recorded.)', '', '## Worktree notes', '', session.sharedNotes?.text.trim() || '(No worktree notes recorded.)'];
+	const lines = ['# Deckhand handoff', '', `Task: ${session.title}`, `Provider: ${session.program}`, `Workspace: ${session.cwd}`, `Branch: ${session.worktree?.branch ?? '(current checkout)'}`, ...session.doneAt ? [`Status: marked done ${session.doneAt}`] : [], `Source session: ${session.id}`, '', '## Notes', '', session.notes?.trim() || '(No notes recorded.)', '', '## Worktree notes', '', session.sharedNotes?.text.trim() || '(No worktree notes recorded.)'];
 	if (git) lines.push(...handoffGitLines(git));
 	if (includeOutput) {
 		const excerpt = (session.lastPreview ?? '').slice(-20000);

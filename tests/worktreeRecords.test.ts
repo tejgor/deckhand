@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test, type TestContext} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {migrateWorktreeRecords, projectWorktree, storedSession} from '../src/worktreeRecords.js';
+import {migrateDoneMarkers, migrateWorktreeRecords, projectWorktree, storedSession} from '../src/worktreeRecords.js';
 import {loadState, markAllNonExitedSessionsExited} from '../src/storage.js';
 import {workspaceKey} from '../src/workspace.js';
 import type {SessionRecord, WorktreeRecord} from '../src/types.js';
@@ -97,4 +97,37 @@ test('a legacy state.json is migrated on daemon start and written back with reco
 	assert.equal(written.worktrees.length, 3);
 	assert.ok(written.sessions.every(item => !item.worktree?.id || (!item.worktree.mergedAt && !item.worktree.deletedAt)));
 	assert.deepEqual(await loadState(), recovered);
+});
+
+test('done migration: main-checkout merge markers become doneAt and go; worktree records and their sessions are untouched; idempotent', async t => {
+	let next = 0;
+	const lifted = migrateWorktreeRecords(legacySessions(), [], () => `w${++next}`);
+	const {sessions, changed} = migrateDoneMarkers(lifted.sessions);
+	assert.equal(changed, true);
+	const byId = new Map(sessions.map(item => [item.id, item]));
+	// Top-level M markers (mode none in the main checkout) and a main-worktree attach's markers become done markers.
+	const mainNone = byId.get('main-none')!, mainAttached = byId.get('main-attached')!;
+	assert.equal(mainNone.doneAt, at(9)); assert.equal(mainAttached.doneAt, at(9));
+	for (const key of ['mergedAt', 'mergeTargetBranch', 'mergeSourceRef', 'mergeMarkedManually'] as const) { assert.equal(mainNone[key], undefined, key); assert.equal(mainAttached[key], undefined, key); }
+	assert.deepEqual(mainAttached.worktree, {mode: 'attached', path: '/repo', isMain: true});
+	// Sessions of linked worktrees (their markers already in records) and everyone else: unchanged, never done.
+	for (const item of lifted.sessions.filter(item => !['main-none', 'main-attached'].includes(item.id))) assert.deepEqual(byId.get(item.id), item, item.id);
+	assert.ok(sessions.filter(item => item.worktree?.id).every(item => !item.doneAt));
+	// A session already done keeps its own time; a second run changes nothing.
+	const kept = migrateDoneMarkers([session('both', 1, {mode: 'none'}, {mergedAt: at(5), doneAt: at(7), mergeMarkedManually: true})]).sessions[0]!;
+	assert.equal(kept.doneAt, at(7)); assert.equal(kept.mergedAt, undefined);
+	const again = migrateDoneMarkers(sessions);
+	assert.equal(again.changed, false); assert.deepEqual(again.sessions, sessions);
+
+	// Through the state file: production-like state (nine main-checkout sessions marked with M) is migrated on load and written back at daemon start.
+	const home = await isolatedHome(t), file = path.join(home, 'state.json');
+	const nine = Array.from({length: 9}, (_, index) => session(`m${index}`, index, {mode: 'none'}, {mergedAt: at(index), mergeTargetBranch: 'main', mergeSourceRef: 'main', mergeMarkedManually: true}));
+	await fs.writeFile(file, JSON.stringify({sessions: [...nine, ...legacySessions()]}));
+	const loaded = await loadState();
+	assert.deepEqual(loaded.sessions.filter(item => item.id.match(/^m\d$/)).map(item => [item.doneAt, item.mergedAt]), nine.map((_, index) => [at(index), undefined]));
+	await markAllNonExitedSessionsExited();
+	const written = JSON.parse(await fs.readFile(file, 'utf8')) as {sessions: SessionRecord[]; worktrees: WorktreeRecord[]};
+	assert.ok(written.sessions.every(item => item.mergedAt === undefined && (item.worktree?.id || !item.worktree?.mergedAt)));
+	assert.equal(written.sessions.filter(item => item.doneAt).length, 11);
+	assert.ok(written.worktrees.some(record => record.mergedAt === at(20)));
 });

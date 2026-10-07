@@ -6,10 +6,10 @@ import type {SessionRecord, SessionWorktreeRecord, WorktreeMarkers, WorktreeReco
 // They live in one WorktreeRecord per worktree incarnation (state.json `worktrees`); each session in it stores only the
 // record's ID (`worktree.id`). The daemon projects the record's markers into the sessions it holds and sends
 // (`projectWorktree`) and strips them again before saving (`storedSession`), so the record is the only persisted copy.
-// Sessions in the main checkout have no record: their markers stay per session (top-level, or under `worktree` when
-// attached to the main worktree).
+// Sessions in the main checkout have no record and no merge marker: `M` is worktree-only, and their old per-session
+// markers became the done marker (`migrateDoneMarkers`).
 
-export const WORKTREE_MARKERS = ['mergedAt', 'mergeMode', 'mergeTargetBranch', 'mergeSourceRef', 'mergeMarkedManually', 'deletedAt'] as const satisfies readonly (keyof WorktreeMarkers)[];
+export const WORKTREE_MARKERS = ['mergedAt', 'mergeMode', 'mergeTargetBranch', 'mergeSourceRef', 'mergeSourceSha', 'mergeMarkedManually', 'mergeDetected', 'deletedAt'] as const satisfies readonly (keyof WorktreeMarkers)[];
 export const MERGE_MARKERS = WORKTREE_MARKERS.filter(key => key !== 'deletedAt');
 
 /** The markers set on `source`. */
@@ -137,4 +137,30 @@ export function migrateWorktreeRecords(sessions: SessionRecord[], worktrees: Wor
 	const referenced = new Set(migrated.flatMap(session => session.worktree?.id ? [session.worktree.id] : []));
 	for (const id of records.keys()) if (!referenced.has(id)) { records.delete(id); changed = true; }
 	return {sessions: migrated, worktrees: [...records.values()], changed};
+}
+
+const SESSION_MERGE_FIELDS = ['mergedAt', 'mergeTargetBranch', 'mergeSourceRef', 'mergeMarkedManually'] as const;
+
+/**
+ * Before `D`, `M` doubled as "this task is done" for sessions without a worktree record (the main checkout). Such a
+ * session's own merge marker (top-level, or under `worktree` when attached to the main worktree) becomes `doneAt`
+ * (kept if already set) and is removed. Run after migrateWorktreeRecords, which has lifted the markers of sessions in
+ * a linked worktree into their records; worktree records are untouched. Idempotent.
+ */
+export function migrateDoneMarkers(sessions: SessionRecord[]): {sessions: SessionRecord[]; changed: boolean} {
+	let changed = false;
+	const migrated = sessions.map(session => {
+		if (session.worktree?.id) return session;
+		const nested = session.worktree && session.worktree.mode !== 'none' ? session.worktree : undefined;
+		const mergedAt = session.mergedAt ?? nested?.mergedAt;
+		const leftovers = SESSION_MERGE_FIELDS.some(key => session[key] !== undefined) || Boolean(nested && MERGE_MARKERS.some(key => nested[key] !== undefined));
+		if (!leftovers) return session;
+		changed = true;
+		const next: SessionRecord = {...session};
+		for (const key of SESSION_MERGE_FIELDS) delete next[key];
+		if (nested) next.worktree = withoutMarkers(nested, MERGE_MARKERS);
+		if (mergedAt && !next.doneAt) next.doneAt = mergedAt;
+		return next;
+	});
+	return {sessions: migrated, changed};
 }

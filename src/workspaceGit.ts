@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {findRepoRoot, git, optionalGit} from './git.js';
+import {branchHasOwnCommits, currentBranch, findRepoRoot, git, operationInProgress, optionalGit, resolveDefaultBranch, resolveRepoContext} from './git.js';
+import type {MergePreview} from './types.js';
 const exec = promisify(execFile);
 export interface WorkspaceSummary {
 	cwd: string; branch: string; head: string; baseRef?: string;
@@ -10,9 +11,16 @@ export interface WorkspaceSummary {
 	ahead?: number; behind?: number; commitsAheadOfBase?: number;
 	/** Where create-pr would push the branch: its upstream remote, else `origin` when it exists. */
 	pushRemote?: string;
-	pr?: {number: number; url: string; state: string; checks: 'passing' | 'pending' | 'failing' | 'unknown'};
+	pr?: PullRequestInfo;
 	prError?: string;
 }
+export interface PullRequestInfo {
+	number: number; url: string; state: string; checks: 'passing' | 'pending' | 'failing' | 'unknown';
+	/** The PR's head commit and base branch, as GitHub reports them (merge detection). */
+	headSha?: string; baseBranch?: string;
+}
+/** Looks up the branch's PR in `cwd` (`gh pr view`); injectable so tests never reach GitHub. */
+export type PullRequestLookup = (cwd: string) => Promise<PullRequestInfo>;
 export interface CleanupInspection {
 	safe: boolean; reasons: string[]; dirtyFiles: number; untrackedFiles: number; ignoredFiles: number;
 	/** Informational: commits ahead of the cached upstream / comparison base. Only `reasons` decide safety. */
@@ -86,7 +94,7 @@ function numstat(raw: string): {additions: number; deletions: number} {
 	}
 	return {additions, deletions};
 }
-export async function getWorkspaceSummary(cwd: string, baseRef?: string, includePr = false): Promise<WorkspaceSummary> {
+export async function getWorkspaceSummary(cwd: string, baseRef?: string, includePr = false, lookupPr: PullRequestLookup = ghPullRequest): Promise<WorkspaceSummary> {
 	if (baseRef) validateRef(baseRef);
 	const status = await readWorkspaceStatus(cwd, false);
 	const head = status.oid ?? '';
@@ -96,24 +104,26 @@ export async function getWorkspaceSummary(cwd: string, baseRef?: string, include
 	const [aheadOfBase, remote] = await Promise.all([
 		resolvedBase && head ? git(cwd, ['rev-list', '--count', `${resolvedBase}..HEAD`]) : undefined,
 		status.branch ? pushRemote(cwd, status.branch) : undefined,
-		includePr ? pullRequest(cwd, result) : undefined,
+		includePr ? lookupPr(cwd).then(pr => { result.pr = pr; }, error => { result.prError = (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'Install gh for PR status' : 'No PR status available; check gh authentication and branch'; }) : undefined,
 	]);
 	if (aheadOfBase !== undefined) result.commitsAheadOfBase = Number(aheadOfBase) || 0;
 	if (remote) result.pushRemote = remote;
 	return result;
 }
-async function pullRequest(cwd: string, result: WorkspaceSummary): Promise<void> {
-	try {
-		const {stdout} = await exec('gh', ['pr', 'view', '--json', 'number,url,state,statusCheckRollup'], {cwd, timeout: 8000, maxBuffer: 1024 * 1024});
-		const pr = JSON.parse(stdout);
-		if (!Number.isInteger(pr.number) || typeof pr.url !== 'string' || !/^https:\/\//.test(pr.url)) throw new Error('Invalid PR response');
-		const checks = Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : [];
-		const failed = checks.some((check: any) => ['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE'].includes(check.conclusion || check.state));
-		const pending = checks.some((check: any) => ['PENDING', 'QUEUED', 'IN_PROGRESS', 'WAITING', 'REQUESTED'].includes(check.state || check.status));
-		result.pr = {number: pr.number, url: pr.url, state: String(pr.state), checks: failed ? 'failing' : pending ? 'pending' : checks.length > 0 && checks.every((check: any) => ['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(check.conclusion || check.state)) ? 'passing' : 'unknown'};
-	} catch (error) {
-		result.prError = (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'Install gh for PR status' : 'No PR status available; check gh authentication and branch';
-	}
+/** The current branch's PR from `gh pr view` (bounded; throws when gh is missing, unauthenticated or finds none). */
+export async function ghPullRequest(cwd: string): Promise<PullRequestInfo> {
+	const {stdout} = await exec('gh', ['pr', 'view', '--json', 'number,url,state,statusCheckRollup,headRefOid,baseRefName'], {cwd, timeout: 8000, maxBuffer: 1024 * 1024, env: {...process.env, GH_PROMPT_DISABLED: '1'}});
+	const pr = JSON.parse(stdout);
+	if (!Number.isInteger(pr.number) || typeof pr.url !== 'string' || !/^https:\/\//.test(pr.url)) throw new Error('Invalid PR response');
+	const checks = Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : [];
+	const failed = checks.some((check: any) => ['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE'].includes(check.conclusion || check.state));
+	const pending = checks.some((check: any) => ['PENDING', 'QUEUED', 'IN_PROGRESS', 'WAITING', 'REQUESTED'].includes(check.state || check.status));
+	return {
+		number: pr.number, url: pr.url, state: String(pr.state),
+		checks: failed ? 'failing' : pending ? 'pending' : checks.length > 0 && checks.every((check: any) => ['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(check.conclusion || check.state)) ? 'passing' : 'unknown',
+		...typeof pr.headRefOid === 'string' && /^[0-9a-f]{40,64}$/.test(pr.headRefOid) ? {headSha: pr.headRefOid} : {},
+		...typeof pr.baseRefName === 'string' && pr.baseRefName && !pr.baseRefName.startsWith('-') ? {baseBranch: pr.baseRefName} : {},
+	};
 }
 const disposableIgnored = (file: string) => file.split('/').includes('node_modules');
 const MAX_SYMLINK_CHECKS = 2000;
@@ -132,7 +142,7 @@ async function symlinkCheck(cwd: string, entries: number): Promise<(file: string
  * so they only matter when the branch is deleted too or HEAD is detached; then only commits reachable from no
  * other local or remote-tracking branch count. Upstream/base comparisons are informational.
  */
-export async function inspectWorkspaceCleanup(cwd: string, baseRef?: string, options: {deleteBranch?: boolean} = {}): Promise<CleanupInspection> {
+export async function inspectWorkspaceCleanup(cwd: string, baseRef?: string, options: {deleteBranch?: boolean; integrated?: string} = {}): Promise<CleanupInspection> {
 	if (baseRef) validateRef(baseRef);
 	let status: WorkspaceStatus;
 	try { status = await readWorkspaceStatus(cwd, true); }
@@ -150,9 +160,12 @@ export async function inspectWorkspaceCleanup(cwd: string, baseRef?: string, opt
 	if (ignored.length) reasons.push(`${ignored.length} valuable ignored file(s), including ${ignored.slice(0, 3).join(', ')}`);
 	const checkCommits = Boolean(status.oid) && (options.deleteBranch || !status.branch);
 	const exclusive = status.branch ? [`--exclude=${status.branch}`] : []; // --exclude patterns for --branches omit refs/heads/.
+	// A squash merge (Deckhand's or a PR's) leaves the branch unmerged as far as Git knows: the commit recorded at merge
+	// time and its ancestors are integrated; commits made after it still count.
+	const integrated = checkCommits && options.integrated && /^[0-9a-f]{40,64}$/.test(options.integrated) && await optionalGit(cwd, ['rev-parse', '--verify', '--quiet', `${options.integrated}^{commit}`]) ? [options.integrated] : [];
 	const [merged, lost] = await Promise.all([
 		base(cwd, baseRef).then(resolved => resolved && status.oid ? optionalGit(cwd, ['rev-list', '--count', `${resolved}..HEAD`]) : undefined),
-		checkCommits ? optionalGit(cwd, ['rev-list', '--count', 'HEAD', '--not', ...exclusive, '--branches', '--remotes']) : undefined,
+		checkCommits ? optionalGit(cwd, ['rev-list', '--count', 'HEAD', '--not', ...exclusive, '--branches', '--remotes', ...integrated]) : undefined,
 	]);
 	if (checkCommits) {
 		const where = status.branch ? `only on branch ${status.branch}` : 'only on the detached HEAD';
@@ -282,4 +295,82 @@ export async function getHandoffGitContext(cwd: string, baseRef?: string): Promi
 	} catch (error) {
 		return {baseRef, commits: [], moreCommits: 0, changes: [], moreChanges: 0, error: firstLine(error)};
 	}
+}
+
+/** Commit subjects shown by a merge preview (the count is exact). */
+export const MERGE_PREVIEW_COMMITS = 6;
+const MAX_OVERLAP = 200;
+/** Every path a numstat -z output names (both sides of a rename). */
+function numstatPaths(raw: string): string[] {
+	const records = raw.split('\0'), paths: string[] = [];
+	for (let i = 0; i < records.length; i++) {
+		const match = records[i]!.match(/^(\d+|-)\t(\d+|-)\t([\s\S]*)$/);
+		if (!match) continue;
+		if (match[3]) paths.push(match[3]);
+		else { paths.push(records[i + 1] ?? '', records[i + 2] ?? ''); i += 2; }
+	}
+	return paths.filter(Boolean);
+}
+const statusPaths = (status: WorkspaceStatus) => status.entries.flatMap(entry => entry.origPath ? [entry.path, entry.origPath] : [entry.path]);
+/**
+ * What merging the source worktree into the target would bring (`merge-preview`): commits in `target..source` (count,
+ * first subjects), the committed diff stat of `target...source`, the source's uncommitted files, an operation in
+ * progress in the target, and the target's uncommitted files the merge would touch. Read-only, bounded.
+ */
+export async function getMergePreview(sourceCwd: string, targetCwd: string): Promise<MergePreview> {
+	const [sourceRoot, targetContext] = await Promise.all([findRepoRoot(sourceCwd), resolveRepoContext(targetCwd)]);
+	const targetRoot = targetContext.root;
+	if (path.resolve(sourceRoot) === path.resolve(targetRoot)) throw new Error('cannot merge a worktree into itself');
+	const [sourceStatus, targetStatus, targetBranch, defaultBranch, inProgress] = await Promise.all([
+		readWorkspaceStatus(sourceRoot, false), readWorkspaceStatus(targetRoot, false), currentBranch(targetRoot),
+		resolveDefaultBranch(targetRoot), operationInProgress(targetRoot).catch(() => undefined),
+	]);
+	const sourceSha = sourceStatus.oid;
+	const sourceRef = sourceStatus.branch ?? sourceSha ?? 'HEAD';
+	const preview: MergePreview = {
+		sourceRef, sourceSha, targetRoot, targetBranch: targetBranch || undefined,
+		targetIsMain: Boolean(targetContext.mainRoot) && path.resolve(targetContext.mainRoot!) === path.resolve(targetRoot),
+		defaultBranch, commitCount: 0, commits: [], diff: {files: 0, insertions: 0, deletions: 0},
+		uncommitted: sourceStatus.dirtyFiles + sourceStatus.untracked.length, overlap: {committed: [], uncommitted: []},
+		...inProgress ? {inProgress} : {},
+	};
+	const dirty = new Set(statusPaths(targetStatus));
+	const touched = (paths: string[]) => [...new Set(paths.filter(file => dirty.has(file)))].slice(0, MAX_OVERLAP);
+	preview.overlap.uncommitted = touched(statusPaths(sourceStatus));
+	if (!sourceSha || !targetStatus.oid) return preview;
+	const [count, log, diff] = await Promise.all([
+		git(targetRoot, ['rev-list', '--count', `HEAD..${sourceSha}`]),
+		git(targetRoot, ['log', '--no-decorate', '--no-color', `--max-count=${MERGE_PREVIEW_COMMITS}`, '--format=%s', `HEAD..${sourceSha}`, '--']),
+		git(targetRoot, ['--no-optional-locks', 'diff', '--no-color', '--no-ext-diff', '--numstat', '-z', '-M', `HEAD...${sourceSha}`, '--'], {maxBuffer: 16 * 1024 * 1024}),
+	]);
+	preview.commitCount = Number(count) || 0;
+	preview.commits = log ? log.split('\n') : [];
+	const files = numstatFiles(diff);
+	preview.diff = {files: files.length, insertions: files.reduce((sum, file) => sum + (file.additions ?? 0), 0), deletions: files.reduce((sum, file) => sum + (file.deletions ?? 0), 0)};
+	preview.overlap.committed = touched(numstatPaths(diff));
+	return preview;
+}
+
+export interface AncestryCheck {
+	/** Any worktree of the repository. */
+	cwd: string;
+	/** The branch's tip, its name ('' when detached) and the commit it started from. */
+	tip: string; branch: string; start: string;
+	/** Fully qualified refs of the default branch, local and `origin/` (whichever exist). */
+	defaults: string[];
+}
+/**
+ * Whether the branch was merged outside Deckhand: its tip is reachable from the default branch (local or
+ * `origin/<default>`, never fetched) **and** it has a commit of its own beyond its starting point. A fresh branch (no
+ * commits: trivially an ancestor of main) never counts, nor one only fast-forwarded or reset to a newer main (its
+ * reflog shows no commit made on it). One Git call; the second and third only once the tip looks merged.
+ */
+export async function mergedIntoDefault({cwd, tip, branch, start, defaults}: AncestryCheck): Promise<boolean> {
+	const sha = /^[0-9a-f]{40,64}$/;
+	if (!defaults.length || !sha.test(tip) || !sha.test(start) || tip === start) return false;
+	const unmerged = await optionalGit(cwd, ['rev-list', '--max-count=1', tip, '--not', start, ...defaults, '--'], {timeout: 5000});
+	if (unmerged === undefined || unmerged.trim()) return false;
+	// A commit beyond the start: tip descends from it (and differs). A tip reset behind its start does not.
+	if (await optionalGit(cwd, ['merge-base', '--is-ancestor', start, tip], {timeout: 5000}) === undefined) return false;
+	return branch ? await branchHasOwnCommits(cwd, branch) !== false : true;
 }

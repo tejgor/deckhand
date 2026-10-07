@@ -6,7 +6,7 @@ import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import {StringDecoder} from 'node:string_decoder';
 import {getConfigDir, getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
-import {createWorktreeForSession, currentBranch, deleteLocalBranch, findGitCommonDir, findRepoRoot, headSha, listWorktrees, mergeWorktreeIntoCurrent, removeWorktree, sanitizeWorktreeName} from './git.js';
+import {abortMerge, branchCreationCommit, createWorktreeForSession, currentBranch, deleteLocalBranch, findGitCommonDir, findRepoRoot, headSha, listWorktrees, mergeWorktreeIntoCurrent, optionalGit, removeWorktree, resolveDefaultBranch, sanitizeWorktreeName, type ConflictedMerge} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, type AppConfig, markAllNonExitedSessionsExited, saveState, sortSessionsNewestFirst, updateAppConfig} from './storage.js';
 import {liveWorktreeRecord, MERGE_MARKERS, ownWorktreePath, projectWorktree, storedSession, withoutMarkers} from './worktreeRecords.js';
@@ -18,7 +18,7 @@ import type {WorktreeSettings} from './worktreeLinks.js';
 import {loadProjectConfig, isProjectTrusted, projectNeedsReview, resolveDevCommand, resolveSettings, resolveSetupCommand, trustProjectConfig, type LoadedProject} from './projectConfig.js';
 import {saveGlobalDefaultsDocument, saveProjectConfigDocument} from './projectConfigDocument.js';
 import {readCandidateSizes, readSettingsInfo, readWorktreeCandidates} from './settingsInfo.js';
-import {createPullRequest, getHandoffGitContext, getWorkspaceSummary, inspectWorkspaceCleanup, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
+import {createPullRequest, getHandoffGitContext, getMergePreview, getWorkspaceSummary, inspectWorkspaceCleanup, mergedIntoDefault, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
 import {applyStage, readChangeDiff, readChanges, type ChangesSnapshot, type UntrackedCounts} from './changesGit.js';
 import {emptyChanges, findChange, type ChangesRecord} from './changesModel.js';
 import {normalizeHook, integrationArgs, needsAttention} from './agentSignals.js';
@@ -28,7 +28,7 @@ import {exportHandoff} from './sessionFeatures.js';
 import {NotesStore, noteFilePath, noteFileStem, type NoteId, type NoteKind} from './notesStore.js';
 import {sharedNoteIdentity} from './notes.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, ClientRequest, CreateSessionInput, DevRecord, GitRecord, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TerminalRecord, WorktreeMarkers, WorktreeRecord} from './types.js';
+import type {AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, ClientRequest, CreateSessionInput, DevRecord, GitRecord, MergePreview, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TerminalRecord, WorktreeMarkers, WorktreeMergeMode, WorktreeMergeResult, WorktreeRecord} from './types.js';
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_PREVIEW_COLS = 80;
@@ -45,6 +45,13 @@ const CHANGES_POLL_MS = 2000;
 const CHANGES_FRESH_MS = 2500;
 // How often the daemon asks whether the latest agent releases are due for a lookup (they are every LATEST_MAX_AGE_MS).
 const AGENT_VERSIONS_TICK_MS = 30 * 60_000;
+// Merges done outside Deckhand (a branch now in the default branch, a merged PR) are looked for this often, plus at start.
+const MERGE_DETECT_MS = 5 * 60_000;
+// At most this many worktree records are checked per run (Git calls are bounded; the rest wait for the next run).
+const MERGE_DETECT_MAX = 50;
+
+/** A conflicted merge Deckhand started and left in progress, until it is kept or aborted (`resolve-merge`). */
+interface PendingMerge extends ConflictedMerge {sessionId: string; sourceRef: string; sourceSha?: string; targetBranch: string}
 
 interface ClientSubscription {
 	repoRoot?: string;
@@ -341,6 +348,12 @@ export class InkDaemon {
 	/** The last `agent-versions-updated` sent (JSON), so only changes are broadcast. */
 	private publishedAgentVersions?: string;
 	private agentVersionsTimer?: NodeJS.Timeout;
+	/** Conflicted merges by target worktree root (see PendingMerge). */
+	private readonly pendingMerges = new Map<string, PendingMerge>();
+	private mergeDetectTimer?: NodeJS.Timeout;
+	private mergeDetection?: Promise<void>;
+	/** Records whose starting commit could not be established (no reflog): their ancestry is never checked. */
+	private readonly noBaseSha = new Set<string>();
 
 	async start(): Promise<void> {
 		await ensureConfigDir();
@@ -371,6 +384,9 @@ export class InkDaemon {
 		void this.refreshAgentVersions(false);
 		this.agentVersionsTimer = setInterval(() => void this.refreshAgentVersions(false), AGENT_VERSIONS_TICK_MS);
 		this.agentVersionsTimer.unref();
+		void this.detectMerges();
+		this.mergeDetectTimer = setInterval(() => void this.detectMerges(), MERGE_DETECT_MS);
+		this.mergeDetectTimer.unref();
 	}
 
 	private async log(message: string): Promise<void> {
@@ -491,6 +507,7 @@ export class InkDaemon {
 		}
 		this.shuttingDown = true;
 		if (this.agentVersionsTimer) clearInterval(this.agentVersionsTimer);
+		if (this.mergeDetectTimer) clearInterval(this.mergeDetectTimer);
 		this.notes.close();
 		for (const child of this.setupProcesses.values()) { try { if (child.pid) process.kill(-child.pid, 'SIGTERM'); } catch {} }
 		await this.log('cleanup start');
@@ -687,6 +704,8 @@ export class InkDaemon {
 						const entry = {key, at: now, result: getWorkspaceSummary(session.cwd, session.worktree?.baseRef, message.includePr)};
 						this.summaries.set(slot, entry);
 						entry.result.catch(() => { if (this.summaries.get(slot) === entry) this.summaries.delete(slot); });
+						// A fresh look at the workspace (and its PR) also tells whether it was merged elsewhere.
+						void entry.result.then(summary => this.detectMergeFromSummary(session.id, summary), () => {}).catch(error => this.log(`merge detection failed: ${errorMessage(error)}`));
 						cached = entry;
 					}
 					sendMessage(socket, response(message.requestId, await cached.result)); return;
@@ -701,6 +720,11 @@ export class InkDaemon {
 					return;
 				}
 				case 'inspect-cleanup': sendMessage(socket, response(message.requestId, await this.inspectSessionCleanup(message.sessionId, message.deleteBranch ?? true))); return;
+				case 'set-session-done': {
+					// Independent of merged (worktree) and archived: any session, sub-sessions in a worktree included.
+					const session = this.requireSession(message.sessionId);
+					sendMessage(socket, response(message.requestId, await this.saveSession({...session, doneAt: message.done ? session.doneAt ?? new Date().toISOString() : undefined, updatedAt: new Date().toISOString()}))); return;
+				}
 				case 'archive-session': {
 					const session = this.requireSession(message.sessionId);
 					sendMessage(socket, response(message.requestId, await this.saveSession({...session, archivedAt: message.archived ? new Date().toISOString() : undefined}))); return;
@@ -860,8 +884,14 @@ export class InkDaemon {
 					await this.killSession(message.sessionId, message.deleteWorktree ?? false, message.deleteBranch ?? false, message.force ?? false, message.allowDataLoss ?? false);
 					sendMessage(socket, response(message.requestId, {ok: true}));
 					return;
+				case 'merge-preview':
+					sendMessage(socket, response(message.requestId, await this.mergePreview(message.sessionId, message.targetCwd)));
+					return;
 				case 'merge-worktree':
-					sendMessage(socket, response(message.requestId, await this.mergeSessionWorktree(message.sessionId, message.mode, message.targetCwd)));
+					sendMessage(socket, response(message.requestId, await this.mergeSessionWorktree(message.sessionId, message.mode, message.targetCwd, message.commitFirst)));
+					return;
+				case 'resolve-merge':
+					sendMessage(socket, response(message.requestId, await this.resolveMerge(message.sessionId, message.targetCwd, message.action)));
 					return;
 				case 'mark-session-merged':
 					sendMessage(socket, response(message.requestId, await this.markSessionMerged(message.sessionId, message.targetCwd)));
@@ -1000,10 +1030,10 @@ export class InkDaemon {
 	 * path was then removed outside Deckhand: it is marked deleted, so its sessions never share the new worktree.
 	 * Synchronous from lookup to the caller's set, so the record cannot be dropped as unreferenced in between.
 	 */
-	private joinWorktree(worktreePath: string, created: boolean): {id: string; superseded?: WorktreeRecord} {
+	private joinWorktree(worktreePath: string, created: boolean, baseSha?: string): {id: string; superseded?: WorktreeRecord} {
 		const live = liveWorktreeRecord(this.worktrees.values(), worktreePath);
 		if (live && !created) return {id: live.id};
-		const record: WorktreeRecord = {id: randomUUID(), path: path.resolve(worktreePath), createdAt: new Date().toISOString()};
+		const record: WorktreeRecord = {id: randomUUID(), path: path.resolve(worktreePath), createdAt: new Date().toISOString(), ...baseSha ? {baseSha} : {}};
 		this.worktrees.set(record.id, record);
 		const superseded = live && {...live, deletedAt: record.createdAt};
 		// Marked at once (the caller saves and broadcasts it), so there is never a second live record at the path.
@@ -1059,8 +1089,10 @@ export class InkDaemon {
 		const worktree = this.requireSession(sessionId).worktree;
 		let inspection: CleanupInspection = {safe: false, reasons: [], dirtyFiles: 0, untrackedFiles: 0, ignoredFiles: 0};
 		if (worktree?.path && worktree.mode !== 'none' && !worktree.deletedAt) {
+			// Commits up to the one recorded when the worktree was merged (a squash leaves them "unmerged") are integrated.
+			const integrated = worktree.mergedAt ? worktree.mergeSourceSha : undefined;
 			// A failed inspection is a data-loss reason (overridable), never a silent pass.
-			try { inspection = await inspectWorkspaceCleanup(worktree.path, worktree.baseRef, {deleteBranch}); }
+			try { inspection = await inspectWorkspaceCleanup(worktree.path, worktree.baseRef, {deleteBranch, integrated}); }
 			catch (error) { inspection = {...inspection, reasons: [`Workspace safety could not be verified: ${errorMessage(error)}`]}; }
 		}
 		// Structural checks run after the slow git inspection, against the latest record.
@@ -2037,11 +2069,14 @@ export class InkDaemon {
 			worktree: {...worktree, baseRef},
 			updatedAt: new Date().toISOString(),
 		};
+		// Where the worktree's branch started (merge detection needs a commit beyond it): its creation in the reflog, else HEAD now.
+		const linkedBranch = linkedRoot ? (worktree.mode !== 'none' ? worktree.branch : await currentBranch(linkedRoot).catch(() => '')) : undefined;
+		const baseSha = linkedRoot ? (linkedBranch && await branchCreationCommit(linkedRoot, linkedBranch)) || (worktree.mode !== 'none' ? worktree.head : undefined) || await headSha(linkedRoot).catch(() => undefined) : undefined;
 		const current = this.sessions.get(sessionId);
 		const cancelled = current?.status !== 'starting';
 		if (cancelled && !(current && worktree.path)) return;
 		// No await from joining the incarnation until the session that references it is set.
-		const joined = linkedRoot ? this.joinWorktree(linkedRoot, worktree.origin === 'created') : undefined;
+		const joined = linkedRoot ? this.joinWorktree(linkedRoot, worktree.origin === 'created', baseSha) : undefined;
 		if (joined) preparedSession.worktree = {...preparedSession.worktree!, id: joined.id};
 		if (cancelled) await this.saveSession({...current!, cwd: sessionCwd, launchWorktreeRoot, worktree: preparedSession.worktree, updatedAt: new Date().toISOString()});
 		else {
@@ -2172,7 +2207,8 @@ export class InkDaemon {
 		}
 	}
 
-	private async mergeSessionWorktree(sessionId: string, mode: 'merge' | 'squash', targetCwd: string) {
+	/** The session's linked worktree to merge from, or why there is none. */
+	private mergeSource(sessionId: string): {session: SessionRecord; worktreePath: string} {
 		const session = this.sessions.get(sessionId);
 		if (!session) {
 			throw new Error('session does not exist');
@@ -2185,30 +2221,76 @@ export class InkDaemon {
 		if (worktree.deletedAt) {
 			throw new Error('cannot merge session because its worktree was deleted');
 		}
-		const result = await mergeWorktreeIntoCurrent(worktreePath, targetCwd, mode);
+		return {session, worktreePath};
+	}
+
+	private async mergePreview(sessionId: string, targetCwd: string): Promise<MergePreview> {
+		const {worktreePath} = this.mergeSource(sessionId);
+		return getMergePreview(worktreePath, targetCwd);
+	}
+
+	private async mergeSessionWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false): Promise<WorktreeMergeResult> {
+		const {session, worktreePath} = this.mergeSource(sessionId);
+		const {targetRoot, targetHead, indexClean, ...result} = await mergeWorktreeIntoCurrent(worktreePath, targetCwd, mode, commitFirst ? {commitFirst: session.title.trim() || 'Deckhand session'} : {});
+		if (result.committed) await this.log(`committed ${result.committed.files} file(s) in ${session.title} before merging (${result.committed.sha})`);
 		if (result.skipped) {
 			await this.log(`${mode} merge skipped for ${session.title} (${result.sourceRef}) into ${result.targetBranch}: ${result.reason ?? 'no new commits'}`);
 		} else if (result.conflicted) {
-			await this.log(`${mode} merge for ${session.title} (${result.sourceRef}) into ${result.targetBranch} has conflicts to resolve`);
+			// Left in progress until the user keeps it (marked merged) or aborts it (resolve-merge).
+			this.pendingMerges.set(targetRoot, {sessionId, mode, sourceRef: result.sourceRef, sourceSha: result.sourceSha, targetBranch: result.targetBranch, targetHead, indexClean});
+			await this.log(`${mode} merge for ${session.title} (${result.sourceRef}) into ${result.targetBranch} has conflicts in ${result.conflictCount ?? 0} file(s)`);
 		} else {
 			await this.saveMergeMarkers(sessionId, {
 				mergedAt: new Date().toISOString(),
 				mergeMode: mode,
 				mergeTargetBranch: result.targetBranch,
 				mergeSourceRef: result.sourceRef,
+				mergeSourceSha: result.sourceSha,
 			});
 			await this.log(`${mode} merged ${session.title} (${result.sourceRef}) into ${result.targetBranch}`);
 		}
 		return result;
 	}
 
+	/**
+	 * After a conflicted merge: `keep` leaves it in progress (conflict markers for the user to resolve) and marks the
+	 * worktree merged now; `abort` undoes it (`git merge --abort`, or for a squash Deckhand started, `git reset --merge`).
+	 */
+	private async resolveMerge(sessionId: string, targetCwd: string, action: 'keep' | 'abort'): Promise<SessionRecord> {
+		const targetRoot = path.resolve(await findRepoRoot(targetCwd));
+		const pending = this.pendingMerges.get(targetRoot);
+		const started = pending?.sessionId === sessionId ? pending : undefined;
+		if (action === 'abort') {
+			await abortMerge(targetRoot, started);
+			if (pending) this.pendingMerges.delete(targetRoot);
+			await this.log(`aborted the conflicted merge into ${targetRoot}`);
+			return this.requireSession(sessionId);
+		}
+		const {session, worktreePath} = this.mergeSource(sessionId);
+		// Without a record of it (e.g. the daemon restarted), the source is described as it is now (no commit is vouched for).
+		const sourceRef = started?.sourceRef ?? (await currentBranch(worktreePath) || await headSha(worktreePath));
+		const updated = await this.saveMergeMarkers(sessionId, {
+			mergedAt: new Date().toISOString(),
+			...started ? {mergeMode: started.mode} : {},
+			mergeTargetBranch: started?.targetBranch ?? await currentBranch(targetRoot),
+			mergeSourceRef: sourceRef,
+			// Only the commit Deckhand merged counts as integrated; without its record, none does.
+			...started?.sourceSha ? {mergeSourceSha: started.sourceSha} : {},
+		});
+		if (started) this.pendingMerges.delete(targetRoot);
+		await this.log(`kept the conflicted merge of ${session.title} (${sourceRef}) into ${targetRoot}`);
+		return updated;
+	}
+
 	// Replaces the merge markers (undefined: clears them) where they live: on the worktree record of a linked worktree
-	// (every session of it changes), else on the session (under `worktree` for the main worktree, else top-level).
-	private async saveMergeMarkers(sessionId: string, markers: WorktreeMarkers | undefined): Promise<SessionRecord> {
+	// (every session of it changes), else on the session (under `worktree` for the main worktree, else top-level; only
+	// ever cleared there: `M` is worktree-only).
+	private async saveMergeMarkers(sessionId: string, markers: WorktreeMarkers | undefined, dismissedTip?: string): Promise<SessionRecord> {
 		const session = this.requireSession(sessionId);
 		const record = this.worktreeRecordOf(session);
 		if (record) {
-			await this.saveWorktreeRecord({...withoutMarkers(record, MERGE_MARKERS), ...markers});
+			const {mergeDismissedTip: _dismissed, ...rest} = withoutMarkers(record, MERGE_MARKERS);
+			await this.saveWorktreeRecord({...rest, ...markers, ...!markers && dismissedTip ? {mergeDismissedTip: dismissedTip} : {}});
 			return this.requireSession(sessionId);
 		}
 		const updated: SessionRecord = {...withoutMarkers(session, MERGE_MARKERS), updatedAt: new Date().toISOString()};
@@ -2226,13 +2308,18 @@ export class InkDaemon {
 		const worktree = session.worktree;
 		const worktreePath = worktree?.mode !== 'none' ? worktree?.path : undefined;
 		if (worktree?.mergedAt || session.mergedAt) {
-			const updated = await this.saveMergeMarkers(sessionId, undefined);
+			// A detected merge stays cleared until the branch moves on (merge detection would set it again otherwise).
+			const root = worktree?.id ? this.worktrees.get(worktree.id)?.path : undefined;
+			const tip = root && !worktree?.deletedAt ? await headSha(root).catch(() => undefined) : undefined;
+			const updated = await this.saveMergeMarkers(sessionId, undefined, tip);
 			await this.log(`unmarked ${session.title} as merged`);
 			return updated;
 		}
 		if (worktree?.deletedAt) {
 			throw new Error('cannot mark session merged because its worktree was deleted');
 		}
+		// Merged describes a worktree; a session in the main checkout has nothing to merge, but can be done (D).
+		if (!this.worktreeRecordOf(session)) throw new Error('Not in a worktree, so there is nothing to mark merged. Use D to mark it done');
 		const sourceRoot = await findRepoRoot(worktreePath ?? session.cwd);
 		const targetRoot = await findRepoRoot(targetCwd);
 		const sourceRef = await currentBranch(sourceRoot) || await headSha(sourceRoot);
@@ -2240,9 +2327,94 @@ export class InkDaemon {
 		if (!targetBranch) {
 			throw new Error('target worktree is detached; checkout a branch before marking merged');
 		}
+		// No mergeSourceSha: a manual marker is a claim Deckhand did not verify, so it never relaxes deletion safety.
 		const updated = await this.saveMergeMarkers(sessionId, {mergedAt: new Date().toISOString(), mergeTargetBranch: targetBranch, mergeSourceRef: sourceRef, mergeMarkedManually: true});
 		await this.log(`manually marked ${session.title} (${sourceRef}) merged into ${targetBranch}`);
 		return updated;
+	}
+
+	/**
+	 * Marks linked worktrees merged that were merged outside Deckhand: the branch tip is in the default branch (local or
+	 * `origin/`, never fetched) and the branch has a commit of its own beyond where it started (mergedIntoDefault).
+	 * Only live, unmarked records whose directory Git still lists; never unmarks. One run at a time, bounded.
+	 */
+	private detectMerges(onlyIds?: ReadonlySet<string>): Promise<void> {
+		if (this.mergeDetection) return this.mergeDetection;
+		const run = this.runMergeDetection(onlyIds).catch(error => this.log(`merge detection failed: ${errorMessage(error)}`)).finally(() => { this.mergeDetection = undefined; });
+		this.mergeDetection = run;
+		return run;
+	}
+
+	private async runMergeDetection(onlyIds?: ReadonlySet<string>): Promise<void> {
+		// Records grouped by repository (a session's repoRoot): one worktree listing and default-branch lookup each.
+		const repos = new Map<string, WorktreeRecord[]>();
+		let count = 0;
+		for (const record of this.worktrees.values()) {
+			if (record.deletedAt || record.mergedAt || (onlyIds && !onlyIds.has(record.id)) || count >= MERGE_DETECT_MAX) continue;
+			const owner = [...this.sessions.values()].find(session => session.worktree?.id === record.id);
+			if (!owner || this.cleanupWorktrees.has(path.resolve(record.path))) continue;
+			repos.set(owner.repoRoot, [...repos.get(owner.repoRoot) ?? [], record]);
+			count++;
+		}
+		for (const [repoRoot, records] of repos) {
+			if (this.shuttingDown) return;
+			const listed = await listWorktrees(repoRoot).catch(() => undefined);
+			if (!listed) continue;
+			const defaultBranch = await resolveDefaultBranch(repoRoot);
+			if (!defaultBranch) continue;
+			const defaults = [`refs/heads/${defaultBranch}`];
+			if (await optionalGit(repoRoot, ['show-ref', '--verify', '--quiet', `refs/remotes/origin/${defaultBranch}`]) !== undefined) defaults.push(`refs/remotes/origin/${defaultBranch}`);
+			for (const record of records) {
+				const entry = listed.find(item => path.resolve(item.path) === path.resolve(record.path));
+				// Missing worktrees, the default branch itself and dismissed tips are left alone.
+				if (!entry || entry.isMain || entry.branch === defaultBranch || !entry.head || record.mergeDismissedTip === entry.head) continue;
+				if (!await fs.access(record.path).then(() => true, () => false)) continue;
+				let baseSha = record.baseSha;
+				if (!baseSha && !this.noBaseSha.has(record.id)) {
+					// Records from before baseSha: the branch's creation in its reflog, once.
+					baseSha = await branchCreationCommit(record.path, entry.branch);
+					if (baseSha) await this.updateWorktreeRecord(record.id, {baseSha}, false);
+					else this.noBaseSha.add(record.id);
+				}
+				if (!baseSha) continue;
+				if (!await mergedIntoDefault({cwd: record.path, tip: entry.head, branch: entry.branch, start: baseSha, defaults})) continue;
+				await this.markDetectedMerge(record.id, 'ancestor', {targetBranch: defaultBranch, sourceRef: entry.branch || entry.head, sourceSha: entry.head, tip: entry.head});
+			}
+		}
+	}
+
+	/** After a workspace summary: its PR merged (GitHub squash merges included), or its branch now in the default branch. */
+	private async detectMergeFromSummary(sessionId: string, summary: WorkspaceSummary): Promise<void> {
+		const session = this.sessions.get(sessionId);
+		const record = session && this.worktreeRecordOf(session);
+		if (!record || record.deletedAt || record.mergedAt) return;
+		if (summary.pr?.state === 'MERGED' && record.mergeDismissedTip !== summary.head) {
+			const sourceSha = summary.pr.headSha && await optionalGit(record.path, ['rev-parse', '--verify', '--quiet', `${summary.pr.headSha}^{commit}`]) ? summary.pr.headSha : undefined;
+			await this.markDetectedMerge(record.id, 'pr', {targetBranch: summary.pr.baseBranch, sourceRef: summary.branch, sourceSha, tip: summary.head});
+			return;
+		}
+		await this.detectMerges(new Set([record.id]));
+	}
+
+	private async markDetectedMerge(recordId: string, kind: 'ancestor' | 'pr', found: {targetBranch?: string; sourceRef: string; sourceSha?: string; tip: string}): Promise<void> {
+		const record = this.worktrees.get(recordId);
+		// Re-read after the Git calls: it may have been marked, unmarked (dismissed) or deleted meanwhile.
+		if (!record || record.deletedAt || record.mergedAt || record.mergeDismissedTip === found.tip) return;
+		const {mergeDismissedTip: _dismissed, ...rest} = record;
+		await this.saveWorktreeRecord({
+			...rest, mergedAt: new Date().toISOString(), mergeDetected: kind,
+			...found.targetBranch ? {mergeTargetBranch: found.targetBranch} : {}, mergeSourceRef: found.sourceRef, ...found.sourceSha ? {mergeSourceSha: found.sourceSha} : {},
+		});
+		await this.log(`detected that worktree ${record.path} (${found.sourceRef}) was merged${kind === 'pr' ? ' (PR merged)' : ` into ${found.targetBranch}`}`);
+	}
+
+	/** Patches a record's own fields (not markers) without touching its sessions, unless `broadcast`. */
+	private async updateWorktreeRecord(id: string, patch: Partial<WorktreeRecord>, broadcast: boolean): Promise<void> {
+		const record = this.worktrees.get(id);
+		if (!record) return;
+		if (broadcast) { await this.saveWorktreeRecord({...record, ...patch}); return; }
+		this.worktrees.set(id, {...record, ...patch});
+		await this.persist();
 	}
 
 	private async killSession(sessionId: string, deleteWorktree: boolean, deleteBranch: boolean, force: boolean, allowDataLoss = false): Promise<void> {

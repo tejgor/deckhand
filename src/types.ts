@@ -6,7 +6,7 @@ import type {SettingsInfo, WorktreeCandidates} from './settingsInfo.js';
 import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 38;
+export const PROTOCOL_VERSION = 39;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -38,7 +38,11 @@ export interface SessionWorktreeRecord {
 	mergeMode?: WorktreeMergeMode;
 	mergeTargetBranch?: string;
 	mergeSourceRef?: string;
+	/** The source commit at merge time (`mergeSourceRef` is a branch that moves): commits up to it count as integrated. */
+	mergeSourceSha?: string;
 	mergeMarkedManually?: boolean;
+	/** The marker was set because the branch was found merged outside Deckhand (`ancestor` of the default branch, or a merged `pr`). */
+	mergeDetected?: 'ancestor' | 'pr';
 	baseRef?: string;
 	deletedAt?: string;
 	/** Worktree settings links applied when the worktree was created; notes list skipped/failed entries. */
@@ -46,7 +50,7 @@ export interface SessionWorktreeRecord {
 }
 
 /** The merge and deletion markers of a worktree (see WorktreeRecord). */
-export type WorktreeMarkers = Pick<SessionWorktreeRecord, 'mergedAt' | 'mergeMode' | 'mergeTargetBranch' | 'mergeSourceRef' | 'mergeMarkedManually' | 'deletedAt'>;
+export type WorktreeMarkers = Pick<SessionWorktreeRecord, 'mergedAt' | 'mergeMode' | 'mergeTargetBranch' | 'mergeSourceRef' | 'mergeSourceSha' | 'mergeMarkedManually' | 'mergeDetected' | 'deletedAt'>;
 
 /**
  * One incarnation of a linked worktree, shared by every session in it (state.json `worktrees`): created when Deckhand
@@ -57,6 +61,13 @@ export interface WorktreeRecord extends WorktreeMarkers {
 	/** The worktree root, as Git reports it. */
 	path: string;
 	createdAt: string;
+	/**
+	 * The commit its branch started from (the branch's creation in its reflog, else HEAD when the record was created):
+	 * merge detection needs at least one commit beyond it. Never projected into sessions.
+	 */
+	baseSha?: string;
+	/** The branch tip when `M` cleared the marker: merge detection leaves the worktree alone until the tip moves. */
+	mergeDismissedTip?: string;
 }
 
 export interface WorktreeInfoRecord {
@@ -69,13 +80,45 @@ export interface WorktreeInfoRecord {
 export interface WorktreeMergeResult {
 	mode: WorktreeMergeMode;
 	sourceRef: string;
+	/** The commit that was merged (after committing the worktree's changes first). */
+	sourceSha?: string;
 	targetBranch: string;
 	skipped?: boolean;
 	conflicted?: boolean;
+	/** Conflicted files (repository-relative, at most MAX_CONFLICT_PATHS) and their total. */
+	conflicts?: string[];
+	conflictCount?: number;
+	/** The worktree's uncommitted changes were committed first (`commitFirst`). */
+	committed?: {files: number; sha: string};
 	reason?: string;
 	stdout: string;
 	stderr: string;
 }
+
+/** What `m` would merge (`merge-preview`): read-only, bounded. */
+export interface MergePreview {
+	/** The source worktree's branch, or its HEAD commit when detached. */
+	sourceRef: string;
+	sourceSha?: string;
+	/** The worktree the merge goes into (Deckhand's launch checkout) and its branch (undefined: detached). */
+	targetRoot: string;
+	targetBranch?: string;
+	/** The target is the repository's main checkout; `defaultBranch` is the repository's default (origin/HEAD, main or master). */
+	targetIsMain: boolean;
+	defaultBranch?: string;
+	/** Commits in `<target>..<source>`: the count and the first subjects (newest first). */
+	commitCount: number;
+	commits: string[];
+	/** Committed diff stat of `<target>...<source>`. */
+	diff: {files: number; insertions: number; deletions: number};
+	/** Uncommitted (changed or untracked, not ignored) files in the source worktree. */
+	uncommitted: number;
+	/** An operation in progress in the target, which refuses the merge. */
+	inProgress?: TargetOperation;
+	/** Files with uncommitted changes in the target that the merge would touch: by the commits, and by the uncommitted files. */
+	overlap: {committed: string[]; uncommitted: string[]};
+}
+export type TargetOperation = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'conflicts';
 
 export interface AgentSessionRef {
 	provider: ProgramKey;
@@ -137,6 +180,8 @@ export interface SessionRecord {
 	requestedWorktreeMode?: WorktreeMode;
 	/** The agent version (x.y.z) the session's agent last launched with; it stays outdated until restarted. */
 	agentVersion?: string;
+	/** Marked done with `D` (any session; independent of merged). */
+	doneAt?: string;
 }
 
 /** A note file as the daemon last read it (see src/notesStore.ts). */
@@ -309,8 +354,14 @@ export type ClientRequest =
 	| {type: 'reorder-session'; requestId: string; sessionId: string; direction: 'up' | 'down'}
 	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number; mode?: RestartMode; projectFingerprint?: string}
 	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean; deleteBranch?: boolean; force?: boolean; allowDataLoss?: boolean}
-	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string}
+	/** What `m` would merge into the worktree at `targetCwd`; read-only. */
+	| {type: 'merge-preview'; requestId: string; sessionId: string; targetCwd: string}
+	/** `commitFirst`: commit the source worktree's uncommitted changes (`git add -A`, message = session title) before merging. */
+	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string; commitFirst?: boolean}
+	/** After a conflicted merge: `keep` leaves it in progress and marks the worktree merged; `abort` undoes it. */
+	| {type: 'resolve-merge'; requestId: string; sessionId: string; targetCwd: string; action: 'keep' | 'abort'}
 	| {type: 'mark-session-merged'; requestId: string; sessionId: string; targetCwd: string}
+	| {type: 'set-session-done'; requestId: string; sessionId: string; done: boolean}
 	| {type: 'remove'; requestId: string; sessionId: string}
 	| {type: 'attach'; requestId: string; sessionId: string; cols?: number; rows?: number}
 	| {type: 'input'; sessionId: string; data: string}

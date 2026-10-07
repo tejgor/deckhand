@@ -3,7 +3,7 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {getConfigDir, getConfigPath, getStatePath} from './paths.js';
 import type {SessionRecord, WorktreeRecord} from './types.js';
-import {migrateWorktreeRecords} from './worktreeRecords.js';
+import {migrateDoneMarkers, migrateWorktreeRecords} from './worktreeRecords.js';
 
 export interface InkState {
 	sessions: SessionRecord[];
@@ -39,7 +39,7 @@ export async function loadState(): Promise<InkState> {
 	return (await readState()).state;
 }
 
-/** The persisted state; `migrated` when it was written before worktree records (lifted into records here). */
+/** The persisted state; `migrated` when it was written before worktree records or done markers (migrated here). */
 async function readState(): Promise<{state: InkState; migrated: boolean}> {
 	await ensureConfigDir();
 	const statePath = getStatePath();
@@ -50,8 +50,10 @@ async function readState(): Promise<{state: InkState; migrated: boolean}> {
 			return {state: EMPTY_STATE, migrated: false};
 		}
 		const parsed = JSON.parse(raw) as Partial<InkState>;
-		const {sessions, worktrees, changed} = migrateWorktreeRecords(Array.isArray(parsed.sessions) ? parsed.sessions : [], Array.isArray(parsed.worktrees) ? parsed.worktrees : []);
-		return {state: {sessions, worktrees}, migrated: changed};
+		const lifted = migrateWorktreeRecords(Array.isArray(parsed.sessions) ? parsed.sessions : [], Array.isArray(parsed.worktrees) ? parsed.worktrees : []);
+		// Main-checkout sessions' old `M` markers become done markers (after the linked worktrees' moved to their records).
+		const done = migrateDoneMarkers(lifted.sessions);
+		return {state: {sessions: done.sessions, worktrees: lifted.worktrees}, migrated: lifted.changed || done.changed};
 	} catch (error) {
 		const err = error as NodeJS.ErrnoException;
 		if (err.code === 'ENOENT') {

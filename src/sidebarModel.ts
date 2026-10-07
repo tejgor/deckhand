@@ -11,7 +11,7 @@ import {openChecklistText} from './notes.js';
 // Pure layout of the session sidebar (rendered by sidebar.tsx): rows, header and the selected session's details.
 
 /** What a row segment is; sidebar.tsx maps roles to colors. */
-export type RowRole = 'cursor' | 'gutter' | 'number' | 'tree' | 'status' | 'title' | 'gap' | 'dev' | 'archived' | 'cleanup' | 'merged' | 'count' | 'outdated' | 'agent';
+export type RowRole = 'cursor' | 'gutter' | 'number' | 'tree' | 'status' | 'title' | 'gap' | 'dev' | 'archived' | 'cleanup' | 'merged' | 'done' | 'count' | 'outdated' | 'agent';
 export interface RowPart {text: string; role: RowRole}
 export interface SidebarRow {
 	id: string;
@@ -19,6 +19,8 @@ export interface SidebarRow {
 	selected: boolean;
 	/** Archived rows outside the archived view, and context-only ancestors inside it. */
 	dimmed: boolean;
+	/** Marked done (D) and not dimmed: its title is slightly dimmed (muted), its markers stay readable. */
+	done: boolean;
 	/** statusColor of the session (status glyph, tree glyphs and title). */
 	color: string;
 }
@@ -26,7 +28,8 @@ export interface SidebarRow {
 export const GUTTER_MARKER = '╎';
 // While the title would get fewer columns than this (or than it needs), suffix markers go in DROP_ORDER; the agent stays.
 const MIN_TITLE = 4;
-const DROP_ORDER: RowRole[] = ['outdated', 'count', 'merged', 'archived', 'cleanup', 'dev'];
+const DROP_ORDER: RowRole[] = ['outdated', 'count', 'merged', 'done', 'archived', 'cleanup', 'dev'];
+export const DONE_MARKER = '☑';
 export const OUTDATED_MARKER = '↑';
 
 export interface SidebarRowsInput {
@@ -89,6 +92,7 @@ export function sidebarRows({rows, allSessions, firstNumber, numberWidth, select
 			...(session.archivedAt ? [{text: '▣', role: 'archived' as const}] : []),
 			...(session.cleanupError ? [{text: '!', role: 'cleanup' as const}] : []),
 			...(isMerged(session) ? [{text: '✓', role: 'merged' as const}] : []),
+			...(session.doneAt ? [{text: DONE_MARKER, role: 'done' as const}] : []),
 			...(childCount > 0 ? [{text: `+${childCount}`, role: 'count' as const}] : []),
 			...(sessionOutdated(session, installedVersions[session.program]) ? [{text: OUTDATED_MARKER, role: 'outdated' as const}] : []),
 			{text: programGlyph(session.program), role: 'agent'},
@@ -106,7 +110,8 @@ export function sidebarRows({rows, allSessions, firstNumber, numberWidth, select
 		const gap = Math.max(1, width - prefixWidth - title.length - suffixWidth());
 		const parts: RowPart[] = [...prefix, {text: title, role: 'title'}, {text: ' '.repeat(gap), role: 'gap'}];
 		suffix.forEach((part, at) => parts.push(...(at ? [{text: ' ', role: 'gap' as const}] : []), part));
-		return {id: session.id, parts: fitRow(parts, width), selected, dimmed: !selected && rowDimmed(session, filter), color: statusColor(session)};
+		const dimmed = !selected && rowDimmed(session, filter);
+		return {id: session.id, parts: fitRow(parts, width), selected, dimmed, done: !selected && !dimmed && Boolean(session.doneAt), color: statusColor(session)};
 	});
 }
 
@@ -204,8 +209,16 @@ function sessionBranch(session: SessionRecord, sharing: SessionRecord[]): string
 	return session.worktree?.branch || sharing.find(other => other.worktree?.branch && !other.worktree.isMain)?.worktree?.branch;
 }
 
+/** `done 2d ago` (`done now` within a minute; plain `done` without a clock or a readable time). */
+export function doneText(session: SessionRecord, now?: number): string {
+	const at = session.doneAt ? Date.parse(session.doneAt) : NaN;
+	if (now === undefined || !Number.isFinite(at)) return 'done';
+	const age = formatAge(now - at);
+	return age === 'now' ? 'done now' : `done ${age} ago`;
+}
+
 /** Where the session runs plus its workspace markers, from session data only (no Git), cut to `width` at a ` · `. */
-export function locationText(session: SessionRecord, allSessions: SessionRecord[], width = Infinity): string {
+export function locationText(session: SessionRecord, allSessions: SessionRecord[], width = Infinity, now?: number): string {
 	const key = workspaceKey(session);
 	const sharing = key === undefined ? [] : allSessions.filter(other => other.id !== session.id && workspaceKey(other) === key);
 	const worktree = session.worktree;
@@ -222,6 +235,7 @@ export function locationText(session: SessionRecord, allSessions: SessionRecord[
 		sharing.length ? `shared with ${sharing.length}` : '',
 		session.devRunning ? '▶ dev' : '',
 		isMerged(session) ? 'merged' : '',
+		session.doneAt ? doneText(session, now) : '',
 		session.archivedAt ? 'archived' : '',
 	].filter(Boolean);
 	let text = truncate(first!, width);
@@ -261,7 +275,7 @@ export function sessionDetails(session: SessionRecord | undefined, allSessions: 
 		...titles.map(text => [{text, color: THEME.accentSoft}]),
 		stateLine(session, state, age, width, installedVersions[session.program]),
 	];
-	if (freeRows - lines.length >= 1) lines.push([{text: locationText(session, allSessions, width), color: THEME.muted}]);
+	if (freeRows - lines.length >= 1) lines.push([{text: locationText(session, allSessions, width, now), color: THEME.muted}]);
 	// Open checklist items of its notes and its worktree's: the first line to go when rows are short.
 	const checklist = openChecklistText(session, width);
 	if (checklist && freeRows - lines.length >= 1) lines.push([{text: checklist, color: THEME.muted}]);

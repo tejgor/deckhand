@@ -145,12 +145,28 @@ When you stop a worktree session (**x**, or **X** to force), Deckhand inspects t
 - **Structural protections can never be overridden**: the main checkout, the worktree the session was launched from, a worktree used by another active session, sessions without a worktree, a worktree Git no longer lists, and (when deleting the branch) `main`/`master` or a branch that changed since inspection. Deletion is not offered for them.
 - **Data that blocks safe deletion**: modified or staged files, untracked files, and ignored files other than `node_modules` (for example `.env` or build output). Entries that are symlinks (for example links from [worktree settings](#worktree-settings)) do not count. Commits matter only when the branch is deleted too or HEAD is detached; then commits not reachable from any other local branch or remote-tracking ref block deletion. If any of this cannot be determined, deletion is blocked.
 - Typing **DELETE** authorizes data loss and overrides every data check above, including dirty files. Force-stopping with **X** does not authorize data loss.
-- Git evidence is local: there is no implicit fetch, so unknown upstreams and squash merges stay conservative.
+- Git evidence is local: there is no implicit fetch, so unknown upstreams stay conservative. A squash merge leaves the branch's commits "unmerged" as far as Git knows, so the merged marker records the commit that was merged (Deckhand's own merge, a kept conflicted one, or the head of a PR found merged; not a manual **M**, which Deckhand cannot verify): it and its ancestors count as integrated when deleting the branch. Commits made after it still need **DELETE**, and clearing the marker (**M**) makes them all count again.
 - A failed removal is reported as **Worktree retained…** with the Git error; it never silently succeeds.
 
 Deletion applies to the worktree, not just the stopped session: every session that was in it (attached sessions and sub-sessions included) can no longer be resumed or merged, and its Terminal, Git and Dev tabs say the worktree was deleted. A worktree created later at the same path is a new one: those sessions don't join it, and it starts without their markers.
 
-Review and stage changes in the Git tab (**g**, see [Git changes](#git-changes)); attach lazygit there (**o**) for commits and everything else. **M** is a personal merged/pushed marker, not verified remote state. Like the **✓** a successful merge (**m**) sets, it belongs to the worktree: every session in a linked worktree shows it and **M** from any of them toggles it. Sessions in the main checkout each keep their own.
+Review and stage changes in the Git tab (**g**, see [Git changes](#git-changes)); attach lazygit there (**o**) for commits and everything else.
+
+## Merging and done
+
+**m** merges (or squash-merges) the selected session's worktree into the branch of the checkout Deckhand was started in, without committing, so you review and commit the result. The confirmation shows, before anything runs:
+
+- `Into <branch> · <path>`: in yellow when the target is not the repository's main checkout or not on its default branch, so a surprising target stands out.
+- The commits that would be merged (count, the first six subjects, `+N more`) and the diff stat of `<target>...<source>`.
+- `N uncommitted files` when the worktree has uncommitted (or untracked, not ignored) files, with a toggle, on by default: `☑ commit them first ("<session title>")`. **Space** switches it; off, they stay in the worktree. On, Deckhand runs `git add -A` and `git commit -m "<session title>"` in the worktree first (your hooks run); if that fails, its output is shown and nothing is merged. A worktree with only uncommitted work is merged this way.
+- A warning when the target has uncommitted changes in files the merge would touch (Git would refuse or mix them); unrelated uncommitted files are fine. A merge, rebase, cherry-pick or revert in progress in the target (or unresolved conflicts) is named, and the merge refused until it is finished.
+- The notes, which give way first when the pane is short.
+
+On conflicts, one small view lists the conflicted files and offers two keys: **Enter** keeps the merge in progress (conflict markers in the files; resolve them in your editor or the Git tab's Merge Conflicts group, then commit) and marks the worktree merged now; **a** aborts it (`git merge --abort`; for a squash, which Git does not track as a merge, Deckhand restores the target with `git reset --merge`, keeping your unrelated uncommitted edits, and only for a squash it started itself on an unchanged HEAD — otherwise it refuses and says so).
+
+**✓** (merged) belongs to the worktree: every session in a linked worktree shows it, and **M** from any of them sets or clears it. It is also set by itself when the branch was merged outside Deckhand: its tip is in the default branch (local, or `origin/<default>` as last fetched; Deckhand never fetches) and it has at least one commit of its own beyond where it started (a fresh branch, or one only fast-forwarded to a newer main, never counts), or `i` → **P** finds its PR merged (GitHub squash merges included). This is checked at daemon start, every five minutes and whenever `i` runs; it never unmarks, and after **M** clears a found marker it stays cleared until the branch gets new commits. Sessions in the main checkout have nothing to merge: **M** says so and points at **D**.
+
+**D** marks any session done (or not done): `☑` in its row, a muted title, and `done 2d ago` in the details. It is independent of merged (a worktree session can be both) and of archiving; handoffs mention it. Main-checkout sessions that an older version marked with **M** are shown as done.
 
 ## Organizing and inspecting sessions
 

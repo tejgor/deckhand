@@ -556,16 +556,16 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		assert.equal(stored.worktrees.find(record => record.id === worktreeId)?.mergedAt, marked.worktree?.mergedAt);
 		assert.ok(stored.sessions.every(item => item.worktree?.mergedAt === undefined || !item.worktree.id));
 
-		// Main-checkout sessions keep their own markers.
+		// Main-checkout sessions have no merge marker (M points at D); done is their own, per session.
 		const mainOne = await create('records-main-1'), mainTwo = await create('records-main-2');
 		const main = (await call<WorktreeInfo[]>({type: 'list-worktrees', cwd: root} as any)).find(item => item.isMain)!;
 		const mainAttached = await call<SessionRecord>({type: 'create', input: {title: 'records-main-3', program: 'claude', cwd: root, repoRoot: root, cols: 80, rows: 24, worktreeMode: 'existing', existingWorktreePath: main.path}} as any);
 		for (const session of [mainOne, mainTwo, mainAttached]) await waitFor(() => state(session.id), item => item.status === 'running');
-		const mainMarked = await call<SessionRecord>({type: 'mark-session-merged', sessionId: mainOne.id, targetCwd: root} as any);
-		assert.ok(mainMarked.mergedAt); assert.equal(mainMarked.worktree?.id, undefined);
-		assert.ok((await call<SessionRecord>({type: 'mark-session-merged', sessionId: mainAttached.id, targetCwd: root} as any)).worktree?.mergedAt);
+		for (const session of [mainOne, mainAttached]) await assert.rejects(call({type: 'mark-session-merged', sessionId: session.id, targetCwd: root} as any), /Use D to mark it done/);
+		const mainDone = await call<SessionRecord>({type: 'set-session-done', sessionId: mainOne.id, done: true} as any);
+		assert.ok(mainDone.doneAt); assert.equal(mainDone.mergedAt, undefined); assert.equal(mainDone.worktree?.id, undefined);
 		const mainOther = await state(mainTwo.id);
-		assert.equal(mainOther.mergedAt, undefined); assert.equal(mainOther.worktree?.mergedAt, undefined); assert.equal((await state(mainAttached.id)).worktree?.id, undefined);
+		assert.equal(mainOther.doneAt, undefined); assert.equal(mainOther.mergedAt, undefined); assert.equal((await state(mainAttached.id)).worktree?.id, undefined);
 		for (const session of [mainOne, mainTwo, mainAttached]) { await killAndWait(session.id); await call({type: 'remove', sessionId: session.id} as any); }
 
 		// Kill-with-delete marks the worktree deleted: every session of it loses its workspace, restart and merge.

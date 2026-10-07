@@ -25,6 +25,10 @@ test('handoffs include notes by default, and clearly label optional terminal exc
 	const session = {...root, notes: 'Implement the feature', lastPreview: 'sensitive terminal output'};
 	assert.match(handoffMarkdown(session), /Implement the feature/); assert.doesNotMatch(handoffMarkdown(session), /sensitive terminal output/);
 	assert.match(handoffMarkdown(session, true), /not a complete transcript/);
+	// The done marker (D) is stated; search ignores it.
+	assert.match(handoffMarkdown({...session, doneAt: '2026-10-05T12:00:00.000Z'}), /\nStatus: marked done 2026-10-05T12:00:00\.000Z\n/);
+	assert.doesNotMatch(handoffMarkdown(session), /Status: marked done/);
+	assert.deepEqual(filterSessionList([{...root, doneAt: '2026-10-05T12:00:00.000Z'}], 'active', 'done').map(item => item.id), []);
 });
 test('lifecycle evidence is advisory, version tolerant, and excludes native subagents', () => {
 	assert.equal(normalizeHook('claude', {hook_event_name: 'PermissionRequest'})?.state, 'needs-input');
