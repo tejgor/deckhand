@@ -19,9 +19,13 @@ test('kills a SIGHUP-ignoring job that an interactive shell moved to its own pro
 	// Compound command, so zsh cannot exec it and runs it as a job in a separate process group.
 	const term = pty.spawn('/bin/zsh', ['-f', '-ic', `sh -c 'trap "" HUP; exec sleep 60'; echo done`], {cols: 80, rows: 24, cwd: '/tmp'});
 	try {
-		await sleep(500);
-		const descendants = snapshotDescendants(term.pid);
-		const sleeper = [...descendants.keys()].find(pid => commandOf(pid) === 'sleep 60');
+		// Poll: under a loaded test run the shell can take well over 500ms to start the job.
+		let descendants = snapshotDescendants(term.pid);
+		let sleeper: number | undefined;
+		for (const deadline = Date.now() + 5000; !sleeper && Date.now() < deadline; await sleep(100)) {
+			descendants = snapshotDescendants(term.pid);
+			sleeper = [...descendants.keys()].find(pid => commandOf(pid) === 'sleep 60');
+		}
 		assert.ok(sleeper, 'expected to find the sleep descendant');
 
 		process.kill(-term.pid, 'SIGHUP');
