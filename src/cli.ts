@@ -41,8 +41,12 @@ let terminalView: 'shell' | 'action' = 'shell';
 async function runUi(uiState: UiState): Promise<UiExitResult | undefined> {
 	// React picks its build from NODE_ENV when first loaded; the development build's checks roughly double the
 	// UI's CPU per render. Keep it for `npm run dev` (DECKHAND_DEV) and whenever NODE_ENV is set explicitly.
-	if (!process.env.NODE_ENV && process.env.DECKHAND_DEV !== '1') process.env.NODE_ENV = 'production';
+	// Set only while the modules load: the daemon this UI may start inherits its environment, and with it every agent,
+	// shell, Dev command and action, where NODE_ENV=production makes npm skip devDependencies.
+	const setNodeEnv = !process.env.NODE_ENV && process.env.DECKHAND_DEV !== '1';
+	if (setNodeEnv) process.env.NODE_ENV = 'production';
 	const [{default: React}, {render}, {App}] = await Promise.all([import('react'), import('ink'), import('./app.js')]);
+	if (setNodeEnv) delete process.env.NODE_ENV;
 	const repoRoot = await ensureGitRepo(process.cwd());
 	let saveTimer: NodeJS.Timeout | undefined;
 	const scheduleSave = () => {
