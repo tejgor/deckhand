@@ -231,3 +231,18 @@ test('sidebar done marker: ☑ after ✓ in the suffix, dropped after ✓ when n
 	const doneLine = out.split('\n').find(line => line.includes('tidy readme'))!;
 	assert.match(plain(doneLine), /☑ ✶/);
 });
+
+test('Sidebar with more sessions than fit keeps rows for the details and scrolls the list around the selection', () => {
+	const many = Array.from({length: 40}, (_, index) => session(`s${index}`, {title: `session number ${index}`}));
+	const lines = plain(renderToString(React.createElement(Sidebar, {sessions: many, allSessions: many, selectedId: 's20', width: 34, height: 24, spinnerFrame: '⠋', filter: 'all', query: '', now: NOW}), {columns: 34})).split('\n');
+	const listRows = lines.filter(line => /^│.\s*\d+ /.test(line));
+	// 24 rows: border, header and border leave 21; six of them stay with the details.
+	assert.equal(listRows.length, 15);
+	assert.ok(listRows.some(line => line.includes('› 21 ● session number 20')), 'the selection stays in view');
+	assert.ok(lines.some(line => line.includes('──────')), 'the details rule is shown');
+	assert.ok(lines.some(line => line.includes('✶ claude · idle')), 'the details state line is shown');
+	// A short list still leaves the details only what it does not use.
+	const few = many.slice(0, 3);
+	const short = plain(renderToString(React.createElement(Sidebar, {sessions: few, allSessions: few, selectedId: 's1', width: 34, height: 24, spinnerFrame: '⠋', filter: 'all', query: '', now: NOW}), {columns: 34})).split('\n');
+	assert.equal(short.filter(line => /^│.\s*\d+ /.test(line)).length, 3);
+});

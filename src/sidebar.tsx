@@ -27,6 +27,9 @@ interface SidebarProps {
 	taskOf?: (session: SessionRecord) => Pick<Task, 'title' | 'done'> | undefined;
 }
 
+// The details block's rows (a rule, the title, state, location, task or checklist) when the list would fill the sidebar.
+const DETAIL_ROWS = 6;
+
 function visibleSessions(sessions: SessionRecord[], selectedIndex: number, availableRows: number): SessionRecord[] {
 	if (availableRows <= 0 || sessions.length <= availableRows) return sessions;
 	const half = Math.floor(availableRows / 2);
@@ -66,7 +69,10 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 	// Rows start in the left padding column: it holds the cursor (›) and the shared-workspace marker.
 	const rowWidth = contentWidth + 1;
 	const rowsForSessions = Math.max(1, height - 3);
-	const visible = visibleSessions(sessions, selectedIndex, rowsForSessions);
+	// A list longer than the sidebar keeps rows for the selected session's details (and scrolls in the rest);
+	// a short one leaves them whatever it does not use.
+	const detailRows = sessions.length > rowsForSessions - DETAIL_ROWS && rowsForSessions >= DETAIL_ROWS * 3 ? DETAIL_ROWS : 0;
+	const visible = visibleSessions(sessions, selectedIndex, rowsForSessions - detailRows);
 	const visibleStart = Math.max(0, sessions.indexOf(visible[0] ?? sessions[0]));
 	const [emptyTitle, emptyHint] = emptyMessage(allSessions, loaded);
 	const header = sidebarHeader({width: contentWidth, filter, query, shown: sessions.length, total: allSessions.length, allSessions});
