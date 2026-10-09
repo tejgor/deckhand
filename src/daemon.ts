@@ -205,11 +205,20 @@ function failure(requestId: string, error: unknown): ServerResponse {
 
 const programCommandCache = new Map<SessionRecord['program'], string>();
 
+/** What an exited session shows when its agent printed nothing at all (it failed to start), instead of a blank pane. */
+function silentExitNote(session: SessionRecord, exitCode: number | null, exitSignal: number | null): string {
+	const how = exitSignal ? `was stopped by signal ${exitSignal}` : `exited with code ${exitCode ?? 'unknown'}`;
+	return `${session.program} ${how} before showing anything: it failed to start.\nCommand: ${[session.command, ...session.args ?? []].join(' ')}\nCheck that it runs in a terminal; s or S tries again.`;
+}
+
 async function resolveProgramCommand(program: SessionRecord['program']): Promise<string> {
 	const cached = programCommandCache.get(program);
-	if (cached) {
+	// A cached path is used only while it still exists: an agent reinstalled elsewhere (e.g. moved from an npm global
+	// to its own installer) is looked up again.
+	if (cached && (cached === program || await fs.access(cached).then(() => true, () => false))) {
 		return cached;
 	}
+	programCommandCache.delete(program);
 
 	if (program.includes('/')) {
 		programCommandCache.set(program, program);
@@ -1491,7 +1500,7 @@ export class InkDaemon {
 			pid: undefined,
 			exitCode,
 			exitSignal,
-			lastPreview: agentExit.note ? `${lastPreview}\n\n${agentExit.note}` : lastPreview,
+			lastPreview: agentExit.note ? `${lastPreview}\n\n${agentExit.note}` : lastPreview.trim() ? lastPreview : silentExitNote(existing, exitCode, exitSignal),
 			exitReason,
 		});
 		await fs.rm(getWorkerPidPath(sessionId), {force: true}).catch(() => {});
@@ -2438,8 +2447,13 @@ export class InkDaemon {
 		if (!plan) throw new Error(`${agent.label} conversation ID is unknown. Use S for a fresh session${agent.idAtLaunch ? '' : `, or enable trusted ${agent.label} hooks before starting new sessions`}.`);
 		const missingConversation = agent.missingConversation?.(existing.lastPreview ?? '');
 		if (plan.kind === 'resume' && missingConversation && missingConversation === plan.ref.value) throw new Error(`${agent.label} has no saved conversation ${missingConversation}. Use S for a fresh session.`);
+		// The agent is looked up on PATH again: the path stored at its first launch may be gone (reinstalled or moved),
+		// and launching it would fail at once without a word.
+		const command = await resolveProgramCommand(existing.program);
+		if (!command.includes('/')) throw new Error(`${agent.label} (${existing.program}) is not installed or not on PATH; install it (deckhand setup) and press s again`);
 		const starting: SessionRecord = {
 			...restartSource,
+			command,
 			launchId: randomUUID(),
 			agentStartedAt: mode === 'fresh' ? undefined : existing.agentStartedAt,
 			archivedAt: undefined,
