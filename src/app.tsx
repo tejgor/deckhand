@@ -17,14 +17,14 @@ import {useChangesFlow} from './changesFlow.js';
 import {emptyChanges, type ChangesRecord} from './changesModel.js';
 import {useNotesFlow} from './notesFlow.js';
 import {TaskBanner, useTasksFlow} from './tasksFlow.js';
-import {parseTasks, type Task} from './tasks.js';
-import {linkedTask, openItemsRemovedWith, taskCountLabel} from './tasksBoard.js';
+import {isAssigned, parseTasks, type Task} from './tasks.js';
+import {linkedTask, linkedTasks, openItemsRemovedWith, otherOpenTasks, taskCountLabel, workKeyOf} from './tasksBoard.js';
 import {PreviewPane} from './preview.js';
 import {sessionMatchesScope} from './sessionScope.js';
 import {noWorkspaceReason, workspaceKey} from './workspace.js';
 import {Sidebar} from './sidebar.js';
 import {msUntilAgeChanges, statusSince} from './sidebarModel.js';
-import {conflictView, mergeConfirmLayout, type MergeLine, type MergeNoteEntry} from './mergeModel.js';
+import {MERGE_FOLLOW_UPS, conflictView, mergeConfirmLayout, type MergeLine, type MergeNoteEntry} from './mergeModel.js';
 import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane, actionStatus, hasAction, type TerminalView} from './terminalPane.js';
@@ -404,19 +404,24 @@ function MergeLines({lines}: {lines: MergeLine[]}) {
 	return <>{lines.map((line, index) => <Text key={index} color={line.color} bold={line.bold} wrap="truncate-end">{line.text}</Text>)}</>;
 }
 
-export function MergeConfirmPane({session, sessions, flow, selectedIndex, width, height, tasks}: {session?: SessionRecord; sessions: SessionRecord[]; flow?: MergeFlow; selectedIndex: number; width: number; height: number; tasks?: string[]}) {
+export function MergeConfirmPane({session, sessions, flow, selectedIndex, width, height, tasks = []}: {session?: SessionRecord; sessions: SessionRecord[]; flow?: MergeFlow; selectedIndex: number; width: number; height: number; tasks?: Task[]}) {
 	const contentWidth = Math.max(1, width - 4);
+	const {started, followUps} = mergeTasks(tasks, session);
 	const layout = mergeConfirmLayout({
 		title: session ? displaySessionTitle(session, sessions) : 'worktree',
 		preview: flow?.preview, previewError: flow?.previewError, commitFirst: flow?.commitFirst ?? true,
-		commitMessage: session?.title.trim() ?? '', error: flow?.error, notes: mergeNoteEntries(session, sessions), tasks, width: contentWidth, height,
+		commitMessage: session?.title.trim() ?? '', error: flow?.error, notes: mergeNoteEntries(session, sessions),
+		tasks: started.map(task => task.title), followUps: followUps.map(task => ({title: task.title, ticked: Boolean(flow?.ticks?.includes(task.id))})),
+		width: contentWidth, height,
 	});
+	const onTask = flow?.taskCursor !== undefined;
 	return (
 		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
 			<Text color={THEME.accent} bold wrap="truncate-end">{layout.title}</Text>
 			<MergeLines lines={layout.details} />
+			{layout.followUps.map((text, index) => <SelectableRow key={`follow-${index}`} selected={flow?.taskCursor === index} text={text} width={contentWidth} color={text.startsWith('☑') ? THEME.success : THEME.muted} />)}
 			<Box marginTop={1} flexDirection="column">
-				{layout.options.map((option, index) => <SelectableRow key={option} selected={index === selectedIndex} text={option} width={contentWidth} selectedColor={option === 'Cancel' ? THEME.muted : THEME.active} />)}
+				{layout.options.map((option, index) => <SelectableRow key={option} selected={!onTask && index === selectedIndex} text={option} width={contentWidth} selectedColor={option === 'Cancel' ? THEME.muted : THEME.active} />)}
 			</Box>
 			<Box marginTop={1}><Text color={THEME.muted} wrap="truncate-end">{layout.hint}</Text></Box>
 			{layout.error.length ? <Box marginTop={1} flexDirection="column"><MergeLines lines={layout.error} /></Box> : null}
@@ -539,7 +544,13 @@ function ActionPickerPane({project, running, dev, selectedIndex, width, height}:
 }
 
 /** The merge confirmation (m) of one session: its preview, the commit-first toggle and a failed attempt's output. */
-interface MergeFlow {sessionId: string; preview?: MergePreview; previewError?: string; commitFirst: boolean; error?: string}
+interface MergeFlow {sessionId: string; preview?: MergePreview; previewError?: string; commitFirst: boolean; error?: string; /** Follow-ups ticked to be done with this merge. */ ticks?: string[]; /** The selection is on this follow-up (else on the options). */ taskCursor?: number}
+
+/** The worktree's open tasks a merge confirmation lists: the ones it was started for (ticked by the merge) and its assigned follow-ups. */
+function mergeTasks(tasks: Task[], session?: SessionRecord): {started: Task[]; followUps: Task[]} {
+	const open = tasks.filter(task => !task.done && task.meta.wt && task.meta.wt === session?.worktree?.id);
+	return {started: open.filter(task => !isAssigned(task)), followUps: open.filter(task => isAssigned(task))};
+}
 
 function hasMergedMarker(session?: SessionRecord): boolean {
 	return Boolean(session?.worktree?.mergedAt || session?.mergedAt);
@@ -687,14 +698,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const collapseApplied = !sessionQuery && sessionFilter === 'active';
 	const visibleSessions = useMemo(
 		() => {
-			const filtered = filterSessionList(sessions, sessionFilter, sessionQuery, session => linkedTask(tasks, session)?.title);
+			const filtered = filterSessionList(sessions, sessionFilter, sessionQuery, session => linkedTasks(tasks, session).map(task => task.title).join(' '));
 			return collapseApplied ? filterCollapsedSessions(filtered, collapsedSessionIds, hiddenExitedSessionIds) : filtered;
 		},
 		[collapseApplied, collapsedSessionIds, hiddenExitedSessionIds, sessions, sessionFilter, sessionQuery, tasks],
 	);
 
 	// Only while the filter menu is open: it shows how many rows each filter would list.
-	const filterMenuCounts = useMemo(() => (mode === 'pick-filter' ? sessionFilterCounts(sessions, sessionQuery, session => linkedTask(tasks, session)?.title) : undefined),
+	const filterMenuCounts = useMemo(() => (mode === 'pick-filter' ? sessionFilterCounts(sessions, sessionQuery, session => linkedTasks(tasks, session).map(task => task.title).join(' ')) : undefined),
 		[mode, sessions, sessionQuery, tasks]);
 	useEffect(() => { onSessionVisibilityChange?.(sessionFilter, sessionQuery); }, [onSessionVisibilityChange, sessionFilter, sessionQuery]);
 
@@ -1762,11 +1773,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		const flow = mergeFlow?.sessionId === sessionId ? mergeFlow : undefined;
 		// The toggle only applies when there is something uncommitted to commit.
 		const commitFirst = Boolean(flow?.preview?.uncommitted) && (flow?.commitFirst ?? true);
+		const followUpIds = new Set(mergeTasks(tasks, selectedSession).followUps.map(task => task.id));
+		const ticks = (flow?.ticks ?? []).filter(id => followUpIds.has(id));
 		setBusy(true);
 		setError(undefined);
 		setMergeFlow(current => (current?.sessionId === sessionId ? {...current, error: undefined} : current));
 		try {
-			const result = await client.mergeWorktree(sessionId, mergeMode, cwd, commitFirst);
+			const result = await client.mergeWorktree(sessionId, mergeMode, cwd, commitFirst, ticks);
 			const committed = result.committed ? `Committed ${result.committed.files} file${result.committed.files === 1 ? '' : 's'}, then ` : '';
 			if (result.conflicted) {
 				setMergeConflict({sessionId, result});
@@ -1786,7 +1799,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		} finally {
 			setBusy(false);
 		}
-	}, [client, cwd, mergeFlow, selectedSession]);
+	}, [client, cwd, mergeFlow, selectedSession, tasks]);
 
 	const resolveConflictedMerge = useCallback(async (action: 'keep' | 'abort') => {
 		if (!client || !mergeConflict) return;
@@ -2177,7 +2190,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === 'b') {
-				tasksFlow.open();
+				tasksFlow.open(selectedSession ? workKeyOf(selectedSession) : undefined);
 				setMode('tasks');
 				return;
 			}
@@ -2545,16 +2558,25 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setMode('browse');
 				return;
 			}
+			// The follow-ups (listed once the preview is in) come before the options in one j/k cycle; space or enter on
+			// one ticks it, space elsewhere toggles commit-first.
+			const followUps = mergeFlow?.preview ? mergeTasks(tasks, selectedSession).followUps.slice(0, MERGE_FOLLOW_UPS) : [];
+			const taskCursor = mergeFlow?.taskCursor !== undefined && mergeFlow.taskCursor < followUps.length ? mergeFlow.taskCursor : undefined;
+			if ((input === ' ' || key.return) && taskCursor !== undefined) {
+				const id = followUps[taskCursor]!.id;
+				setMergeFlow(current => (current ? {...current, ticks: current.ticks?.includes(id) ? current.ticks.filter(other => other !== id) : [...current.ticks ?? [], id]} : current));
+				return;
+			}
 			if (input === ' ') {
 				if (mergeFlow?.preview?.uncommitted) setMergeFlow(current => (current ? {...current, commitFirst: !current.commitFirst} : current));
 				return;
 			}
-			if (key.upArrow || input === 'k') {
-				setMergeConfirmIndex(index => (index - 1 + optionCount) % optionCount);
-				return;
-			}
-			if (key.downArrow || input === 'j') {
-				setMergeConfirmIndex(index => (index + 1) % optionCount);
+			const step = key.upArrow || input === 'k' ? -1 : key.downArrow || input === 'j' ? 1 : 0;
+			if (step) {
+				const count = followUps.length + optionCount;
+				const at = ((taskCursor ?? followUps.length + mergeConfirmIndex) + step + count) % count;
+				setMergeFlow(current => (current ? {...current, taskCursor: at < followUps.length ? at : undefined} : current));
+				if (at >= followUps.length) setMergeConfirmIndex(at - followUps.length);
 				return;
 			}
 			if (key.return) {
@@ -2660,7 +2682,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					query={sessionQuery}
 					now={Date.now()}
 					installedVersions={sidebarVersions}
-					taskOf={session => linkedTask(tasks, session)}
+					taskOf={session => { const task = linkedTask(tasks, session); return task && {title: task.title, done: task.done, more: otherOpenTasks(tasks, session)}; }}
 					filterMenu={filterMenuCounts && {selected: sessionFilter, counts: filterMenuCounts}}
 				/>
 				<Box width={1} />
@@ -2699,7 +2721,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							<DevPane session={selectedSession} dev={dev} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
 						) : selectedTask ? (
 							<Box flexDirection="column">
-								<TaskBanner task={selectedTask} sessions={sessions} spinnerFrame={spinnerFrame} width={layout.paneInnerWidth} />
+								<TaskBanner task={selectedTask} more={otherOpenTasks(tasks, selectedSession)} sessions={sessions} spinnerFrame={spinnerFrame} width={layout.paneInnerWidth} />
 								{notesFlow.render(layout.paneInnerWidth, Math.max(1, layout.paneInnerHeight - 2))}
 							</Box>
 						) : (
@@ -2734,7 +2756,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						inspection={killConfirmInspection}
 					/>
 				) : mode === 'confirm-merge' ? (
-					<MergeConfirmPane session={selectedSession} sessions={sessions} flow={mergeFlow?.sessionId === selectedSession?.id ? mergeFlow : undefined} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} height={layout.contentHeight} tasks={tasks.filter(task => !task.done && task.meta.wt && task.meta.wt === selectedSession?.worktree?.id).map(task => task.title)} />
+					<MergeConfirmPane session={selectedSession} sessions={sessions} flow={mergeFlow?.sessionId === selectedSession?.id ? mergeFlow : undefined} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} height={layout.contentHeight} tasks={tasks} />
 				) : mode === 'merge-conflicts' && mergeConflict ? (
 					<MergeConflictPane result={mergeConflict.result} width={layout.previewWidth} />
 				) : mode === 'pick-program' || mode === 'enter-name' ? (

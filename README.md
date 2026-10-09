@@ -47,7 +47,7 @@ Tools for running coding agents in parallel typically rely on [`tmux`](https://g
 - **Keyboard Reordering** — Move sessions up and down among their siblings from the keyboard.
 - **Sub-sessions** — Group related work under a parent session, indented in the sidebar; each one starts clean in the parent's directory, or forks the parent's Claude, Pi or Codex conversation.
 - **Resumable Agents** — Claude/Pi retain native identities; Codex resumes when its native ID is captured. Unknown IDs never silently become a blank conversation. Fresh restart remains explicit.
-- **Tasks** — One task list per repository (`b`), beside the notes: in progress (with the live state of the session doing it), backlog and done. `n` starts a session for a task in a new worktree (you pick the base branch); merging that worktree ticks the task off, and work dropped unmerged goes back to the backlog.
+- **Tasks** — One task list per repository (`b`), beside the notes, grouped by the worktree each open task is on (with the live state of its sessions), then backlog and done; `v` shows only the current worktree's. `n` starts a session for a task in a new worktree (you pick the base branch); `w` assigns a task to a worktree as a follow-up. Merging that worktree ticks the task it was started for, asks about its follow-ups, and work dropped unmerged goes back to the backlog.
 - **Notes with checklists** — Each session's notes plus one note per worktree shared by every session in it, as Markdown files you can also edit in VS Code; `- [ ]` items render as ☐/☑ and their open count shows in the sidebar.
 - **Safer Cleanup** — Check uncommitted, untracked and valuable ignored files, and commits that deleting a branch would lose, before deletion; force kill and data-loss authorization are separate.
 - **Merge Helpers** — Merge or squash-merge a session's worktree into the current branch, staged for review rather than committed: a preview shows the target, commits and diff stat first, uncommitted work can be committed first, conflicts are kept to resolve or aborted in one key, and worktrees merged elsewhere (into the default branch, or a merged PR) are marked by themselves.
@@ -216,13 +216,15 @@ The Notes tab shows two notes: the worktree's, shared by every session in that w
 
 ### Tasks
 
-`b` opens the repository's task list in the right pane (every worktree of the repository shares it). Notes stay scratch space: a note's checkbox only becomes a task when you send it (`ctrl+p` while editing, or `p` in the board's note list).
+`b` opens the repository's task list in the right pane (every worktree of the repository shares it). Open tasks on a worktree are grouped under it (`⎇ branch`, with the state of its sessions): `◆` the task the worktree was started for, `☐` follow-ups assigned to it. The backlog and done tasks follow. The board opens on the selected session's worktree. Notes stay scratch space: a note's checkbox only becomes a task when you send it (`ctrl+p` while editing, or `a` in the board's note list); it lands on the note's worktree (the main checkout's shared note: the backlog).
 
 | Key | Action |
 | --- | --- |
 | `j` / `k` (`↑`/`↓`), `g` / `G` | Select a task / the first / the last |
-| `a` / `enter` | Add a task / edit the selected one: title, then `tab` for its details (typed into the agent's input with the title when a session starts from it); `enter` saves the title, `ctrl+s` saves from the details |
-| `n` | Start a session for a backlog task: the usual new-session form, named after it, in a new worktree; `↑`/`↓` pick the base branch |
+| `a` / `enter` | Add a task (to the group the selection is in: a worktree's, as a follow-up, or the backlog) / edit the selected one: title, then `tab` for its details (typed into the agent's input with the title when a session starts from it); `enter` saves the title, `ctrl+s` saves from the details |
+| `n` | Start a session for a backlog task or a follow-up (it moves to the new worktree): the usual new-session form, named after it, in a new worktree; `↑`/`↓` pick the base branch |
+| `w` | Move the task to a worktree (or a main-checkout session) as a follow-up, or back to the backlog |
+| `v` | Only the tasks of the worktree you opened the board from / every task |
 | `space` | Tick a task done, or reopen it |
 | `o` | Open (select) the session doing it |
 | `J` / `K` | Reorder within its group |
@@ -231,7 +233,7 @@ The Notes tab shows two notes: the worktree's, shared by every session in that w
 | `E` | Open the task list in Cursor / VS Code |
 | `esc` | Back |
 
-A task started with `n` is linked to its session's worktree (or, in the main checkout, to the session): the board shows the most urgent state of the sessions there (needs you, working, idle, exited), the session's Notes tab and sidebar details name the task, and the task (`title: details`, one line) is typed into the agent's input once it has started, not sent: edit it and press Enter yourself. Deckhand waits until the agent's screen settles, never types into a menu or question (a folder-trust prompt, for example), and skips it if you start typing first or the agent doesn't settle within two minutes. Merging the worktree (`m`, `M`, or found merged) ticks it, and the merge screen says so; `D` ticks it once every session there is done; undoing either reopens it. Work removed or deleted without merging puts the task back in the backlog, marked with the branch it was tried in. Done tasks fold away after a week.
+A task started with `n` is linked to its session's worktree (or, in the main checkout, to the session): the board shows the most urgent state of the sessions there (needs you, working, idle, exited), the session's Notes tab and sidebar details name the task (and count the worktree's other open tasks), and the task (`title: details`, one line) is typed into the agent's input once it has started, not sent: edit it and press Enter yourself. Deckhand waits until the agent's screen settles, never types into a menu or question (a folder-trust prompt, for example), and skips it if you start typing first or the agent doesn't settle within two minutes. Merging the worktree (`m`, `M`, or found merged) ticks it, and the merge screen says so; `D` ticks it once every session there is done; undoing either reopens it. Follow-ups are never ticked on their own: `m` lists them (up to five) and `space` ticks the ones you finished, and any left open go back to the backlog marked *left open in ⎇ branch* (unmarking the merge puts them back). Work removed or deleted without merging puts its tasks back in the backlog, marked with the branch they were tried in or left open in. Handoffs (`H`) list a worktree's open follow-ups. Done tasks fold away after a week.
 
 ### Git Changes
 
@@ -332,7 +334,7 @@ Notes are Markdown files in `~/.deckhand/notes/`: `sessions/<session>.md` for ea
 
 ### Task Lists
 
-Each repository's tasks are one Markdown file, `~/.deckhand/notes/tasks/<hash>.md`, beside the notes: a task is a top-level `- [ ]` item, the indented lines under it its details, and anything else (headings, prose) is kept as you wrote it. Deckhand's bookkeeping (the task's ID, its linked worktree or session, when it was added or done) sits in a `<!-- dh:… -->` comment at the end of the item's line. Edit the file in your editor too (`E` on the board): Deckhand applies each change to the file as it is on disk, so your edits are never overwritten, and items you add there get an ID on Deckhand's next change.
+Each repository's tasks are one Markdown file, `~/.deckhand/notes/tasks/<hash>.md`, beside the notes: a task is a top-level `- [ ]` item, the indented lines under it its details, and anything else (headings, prose) is kept as you wrote it. Deckhand's bookkeeping (the task's ID, its linked worktree or session and whether it was assigned there, when it was added or done) sits in a `<!-- dh:… -->` comment at the end of the item's line. Edit the file in your editor too (`E` on the board): Deckhand applies each change to the file as it is on disk, so your edits are never overwritten, and items you add there get an ID on Deckhand's next change.
 
 ### Attach Scroll Sensitivity
 

@@ -405,8 +405,8 @@ export class LiveClient {
 		return this.request<MergePreview>({type: 'merge-preview', requestId: randomUUID(), sessionId, targetCwd});
 	}
 
-	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false): Promise<WorktreeMergeResult> {
-		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd, commitFirst});
+	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false, tickTaskIds: string[] = []): Promise<WorktreeMergeResult> {
+		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd, commitFirst, ...tickTaskIds.length ? {tickTaskIds} : {}});
 	}
 
 	resolveMerge(sessionId: string, targetCwd: string, action: 'keep' | 'abort'): Promise<SessionRecord> {

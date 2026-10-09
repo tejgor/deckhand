@@ -31,6 +31,9 @@ test('handoffs include notes by default, and clearly label optional terminal exc
 	// The done marker (D) is stated; search ignores it.
 	assert.match(handoffMarkdown({...session, doneAt: '2026-10-05T12:00:00.000Z'}), /\nStatus: marked done 2026-10-05T12:00:00\.000Z\n/);
 	assert.doesNotMatch(handoffMarkdown(session), /Status: marked done/);
+	// The worktree's open follow-ups are listed with its task (or alone).
+	assert.match(handoffMarkdown(session, false, undefined, {title: 'Add OAuth', body: '', done: false}, ['Add tests']), /## Task\n\n\[ \] Add OAuth\n\nAlso open here:\n\n- \[ \] Add tests\n\n## Notes/);
+	assert.match(handoffMarkdown(session, false, undefined, undefined, ['Add tests']), /## Task\n\nOpen tasks here:\n\n- \[ \] Add tests\n\n## Notes/);
 	assert.deepEqual(filterSessionList([{...root, doneAt: '2026-10-05T12:00:00.000Z'}], 'active', 'done').map(item => item.id), []);
 });
 test('lifecycle evidence is advisory, version tolerant, and excludes native subagents', () => {
