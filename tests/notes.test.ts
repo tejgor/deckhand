@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import React from 'react';
 import {renderToString} from 'ink';
-import {budgetSections, checklistCounts, checklistLabel, continueChecklist, fitReadRows, insertChecklistItem, noteReadRows, openChecklistText, parseChecklistLine, repoNoteId, sharedNoteIdentity, toggleChecklist} from '../src/notes.js';
+import {budgetSections, checklistCounts, checklistLabel, continueChecklist, fitReadRows, insertChecklistItem, mergeIntoWorktreeNote, noteReadRows, openChecklistText, parseChecklistLine, repoNoteId, sharedNoteIdentity, showsOwnNote, toggleChecklist} from '../src/notes.js';
 import {NotesRows, notesLayout, type NotesSectionInput} from '../src/notesPane.js';
+import {trashFileName} from '../src/notesStore.js';
 import {sessionDetails} from '../src/sidebarModel.js';
 import {filterSessionList, handoffMarkdown} from '../src/sessionFeatures.js';
 import type {SessionRecord} from '../src/types.js';
@@ -105,7 +106,19 @@ test('Notes tab layout: worktree section, a rule, the session section; empty sec
 	assert.equal(renderLayout({shared, session: own, width: 24, height: 9})[0], 'Worktree · f… · ☐ 1 open');
 	assert.deepEqual(renderLayout({shared: section({...shared, text: ''}), session: own, width: 30, height: 6}).slice(0, 4), ['Worktree · feat/x', 'No worktree notes · tab to add', '─'.repeat(30), 'This session · fix login']);
 	// Without a shared note (worktree not ready), only the session's.
-	assert.deepEqual(renderLayout({session: section({titles: ['This session'], text: 'only'}), width: 20, height: 3}), ['This session', 'only', '']);
+	assert.deepEqual(renderLayout({session: section({titles: ['This session'], text: 'only'}), width: 20, height: 3}), ['This session', 'only', '']);	// A session in a worktree: only the worktree's note, with the whole height.
+	assert.deepEqual(renderLayout({shared: section({titles: ['Worktree · feat/x'], text: 'plan\n- [ ] one'}), width: 40, height: 4}), ['Worktree · feat/x · ☐ 1 open', 'plan', '☐ one', '']);
+});
+
+test('one note per worktree: a session there shows only the worktree\'s (unless it still has its own); merging keeps every word', () => {
+	const at = {worktree: {mode: 'managed', id: 'w1', path: '/wt'}} as Partial<SessionRecord>;
+	assert.equal(showsOwnNote({} as SessionRecord), true, 'main checkout');
+	assert.equal(showsOwnNote(at as SessionRecord), false);
+	assert.equal(showsOwnNote({...at, notes: 'left over'} as SessionRecord), true, 'a leftover note is never hidden');
+	assert.equal(mergeIntoWorktreeNote('', [{title: 'only', text: '- [ ] a\n'}]), '- [ ] a');
+	assert.equal(mergeIntoWorktreeNote('plan\n', [{title: 'one', text: 'x'}, {title: 'two', text: '  '}, {title: 'three', text: 'y\n'}]), 'plan\n\n## one\nx\n\n## three\ny');
+	assert.equal(mergeIntoWorktreeNote('', [{title: 'one', text: 'x'}, {title: 'two', text: 'y'}]), '## one\nx\n\n## two\ny');
+	assert.equal(mergeIntoWorktreeNote('kept', []), 'kept');
 });
 
 test('Notes tab layout while editing: the focused section shows the raw text with the cursor and scrolls to keep it visible', () => {
@@ -155,4 +168,9 @@ test('search matches worktree notes too; handoffs have a Worktree notes section'
 	const markdown = handoffMarkdown(sessions[0]!);
 	assert.match(markdown, /## Notes\n\n\(No notes recorded\.\)\n\n## Worktree notes\n\nRollout checklist\n- \[ \] flip the flag/);
 	assert.match(handoffMarkdown(sessions[2]!), /## Worktree notes\n\n\(No worktree notes recorded\.\)/);
+});
+
+test('a removed note goes to the trash under a name that says when and what it belonged to', () => {
+	assert.equal(trashFileName('session', 'school-doc-upload / prompt-audit', 'af7fc4e8', new Date('2026-10-09T14:02:11.500Z')), '2026-10-09T14-02-11_session_school-doc-upload-prompt-audit_af7fc4e8.md');
+	assert.equal(trashFileName('worktree', undefined, 'w1', new Date('2026-10-09T14:02:11Z')), '2026-10-09T14-02-11_worktree_note_w1.md');
 });

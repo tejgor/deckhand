@@ -66,6 +66,11 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	// A note item sent from a worktree session lands on that worktree; w moves it to the backlog.
 	press('b'); await screen('☐ Follow up on review');
 	assert.match(await tasksFile(), /- \[ \] Follow up on review <!-- dh:t=[0-9a-f]{8} wt=[0-9a-f-]{36} assigned=\d{4}-\d\d-\d\d added=/);
+	// tab: every note, by worktree; f: only open checklist items (here none: the item became a task).
+	press('\t'); await screen('✎ Notes'); await screen('Worktree note'); await screen('↗ Follow up on review · in Tasks');
+	press('f'); await screen('No open checklist items in these notes');
+	press('f'); await screen('↗ Follow up on review · in Tasks');
+	press('\t'); await screen('☐ Tasks');
 	// w: the backlog and the way back to its note come first, then the worktrees (Tab: main-checkout sessions); typing searches.
 	press('G'); await screen('› ☐ Follow up on review');
 	press('w'); await screen('Move “Follow up on review” to'); await screen('↩ Back to its note'); await screen('› ⎇ write');

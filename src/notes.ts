@@ -34,6 +34,26 @@ export function sharedNoteIdentity(session: Pick<SessionRecord, 'cwd' | 'launchW
 	return key ? {kind: 'repo', id: repoNoteId(key)} : undefined;
 }
 
+/**
+ * Whether a session has a note of its own besides its shared one: a session in a worktree has one note, the worktree's
+ * (it outlives any one session there); a main-checkout session keeps its own (each is a separate job). A leftover note
+ * of a worktree session (one not merged yet) is still shown, never hidden.
+ */
+export function showsOwnNote(session: Pick<SessionRecord, 'worktree' | 'notes' | 'notesFile'>): boolean {
+	return !session.worktree?.id || Boolean(session.notes?.trim()) || Boolean(session.notesFile?.tooLarge);
+}
+
+/**
+ * The worktree's note with its sessions' own notes merged in: a lone note into an empty worktree note as it is, else
+ * each under a `## <session title>` heading after what the worktree note already says.
+ */
+export function mergeIntoWorktreeNote(worktreeText: string, notes: Array<{title: string; text: string}>): string {
+	const parts = notes.map(note => ({title: note.title, text: note.text.replace(/\s+$/, '')})).filter(note => note.text.trim());
+	if (!parts.length) return worktreeText;
+	if (!worktreeText.trim() && parts.length === 1) return parts[0]!.text;
+	return [worktreeText.replace(/\s+$/, ''), ...parts.map(note => `## ${note.title}\n${note.text}`)].filter(Boolean).join('\n\n');
+}
+
 /** The UI's draft key of a note (shared notes are the same draft for every session showing them). */
 export function noteKey(session: SessionRecord, section: NoteSection): string | undefined {
 	if (section === 'session') return `session:${session.id}`;

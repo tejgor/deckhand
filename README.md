@@ -199,7 +199,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 
 ### Notes Editing
 
-The Notes tab shows two notes: the worktree's, shared by every session in that worktree (sessions in the main checkout share one for it), above the selected session's own. Press `enter` (or `→`) to edit:
+The Notes tab shows the note of the place you work. A session in a worktree has one note, the worktree's, shared by every session there (it lives as long as the worktree). A session in the main checkout has its own note, above which sits the main checkout's note, shared by the sessions there. Removed notes are never deleted: they move to `~/.deckhand/notes/trash/`, named by date and what they belonged to. Press `enter` (or `→`) to edit:
 
 | Key | Action |
 | --- | --- |
@@ -207,7 +207,7 @@ The Notes tab shows two notes: the worktree's, shared by every session in that w
 | arrows, `home` / `end`, `ctrl+a` / `ctrl+e` | Move (up/down follow wrapped lines; `ctrl+a`/`ctrl+e` are line start/end) |
 | `alt+←` / `alt+→` (or `ctrl+`, or Option on macOS) | Jump a word; `alt+backspace` or `ctrl+w` deletes one |
 | `pgup` / `pgdn`, `ctrl+home` / `ctrl+end` | Move a screen / to the start or end |
-| `tab` | Switch between the worktree's note and this session's |
+| `tab` | In the main checkout: switch between this session's note and the main checkout's |
 | `ctrl+x` | Check/uncheck the line's checklist item, or make the line a `- [ ]` item |
 | `ctrl+t` | New checklist item below |
 | `ctrl+o` | Open the note you are editing in Cursor / VS Code |
@@ -229,7 +229,7 @@ The Notes tab shows two notes: the worktree's, shared by every session in that w
 | `o` | Open (select) the session doing it |
 | `J` / `K` | Reorder within its group |
 | `x` | Delete (press twice) |
-| `tab` | Open checklist items in every session's notes that are not tasks yet, grouped by worktree (then the main checkout); `a` adds one as a task, `enter` opens its note |
+| `tab` | The Notes view: every note in full, grouped by worktree (then the main checkout), checklist items actionable: `a` adds one as a task, `enter` opens the note, `f` shows only open items, `v` only this worktree's |
 | `E` | Open the task list in Cursor / VS Code |
 | `esc` | Back |
 

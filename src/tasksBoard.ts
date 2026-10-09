@@ -37,10 +37,16 @@ export type BoardRow =
 	| {kind: 'task'; task: Task; group: TaskGroup; section: string}
 	| {kind: 'older'; count: number; shown: boolean}
 	| {kind: 'empty'; text: string}
-	| {kind: 'note'; item: NoteItem};
+	/** The Notes view (tab): a note's heading (its open items counted), then each line of it. */
+	| {kind: 'notehead'; block: NoteBlock; open: number}
+	| {kind: 'noteline'; block: NoteBlock; line: number; text: string; style: NoteLineStyle; item?: NoteItem};
 
-export const selectableRow = (row: BoardRow) => row.kind === 'task' || row.kind === 'older' || row.kind === 'note';
-export const rowKey = (row: BoardRow): string | undefined => row.kind === 'task' ? `task:${row.task.id}` : row.kind === 'older' ? 'older' : row.kind === 'note' ? `note:${row.item.key}` : undefined;
+/** How a note's line shows: an open item (actionable), a ticked one, a ↗ link to a task, a heading, or text. */
+export type NoteLineStyle = 'open' | 'done' | 'link' | 'heading' | 'text';
+
+export const selectableRow = (row: BoardRow) => row.kind === 'task' || row.kind === 'older' || row.kind === 'notehead' || row.kind === 'noteline';
+export const rowKey = (row: BoardRow): string | undefined => row.kind === 'task' ? `task:${row.task.id}` : row.kind === 'older' ? 'older'
+	: row.kind === 'notehead' ? `notehead:${row.block.key}` : row.kind === 'noteline' ? `noteline:${row.block.key}:${row.line}` : undefined;
 
 /**
  * The board's rows: a group per worktree (or main-checkout session) with open tasks, in the order its first task
@@ -224,33 +230,105 @@ export function workState(section: string, sessions: SessionRecord[], spinnerFra
 	return {glyph: statusGlyph(lead, spinnerFrame), color: statusColor(lead), text: urgency(lead) === 3 ? 'needs you' : statusWords(lead), where};
 }
 
+/** One note the Notes view (tab) lists: a worktree's, the main checkout's, or a session's own. */
+export interface NoteBlock {
+	/** The note's draft key (`worktree:<id>`, `repo:<id>`, `session:<id>`). */
+	key: string;
+	/** Its group: the worktree (`wt:<record id>`) or `main` (the main checkout). */
+	group: string;
+	/** `worktree note`, `main checkout note`, or the session's title. */
+	label: string;
+	/** A session showing it, which saves, sends items and opens it (the first not archived, in sidebar order). */
+	sessionId: string;
+	section: 'session' | 'shared';
+	/** A shared note's `kind:id`. */
+	noteId?: string;
+	text: string;
+	revision: string;
+}
+
+/**
+ * Every note with text, grouped by worktree in sidebar order (its note first, then any session note left in it), then
+ * the main checkout (its note, then each session's own). Deleted worktrees' (read-only) notes are left out.
+ */
+export function noteBlocks(sessions: SessionRecord[]): NoteBlock[] {
+	const ordered = sortSessionsForSidebar(sessions);
+	const preferred = [...ordered.filter(session => !session.archivedAt), ...ordered.filter(session => session.archivedAt)];
+	const blocks: NoteBlock[] = [];
+	const seen = new Set<string>();
+	const groupOf = (session: SessionRecord) => (session.worktree?.id ? `wt:${session.worktree.id}` : 'main');
+	for (const session of preferred) {
+		const shared = session.sharedNotes, key = noteKey(session, 'shared');
+		if (!shared || shared.readOnly || !key || seen.has(key) || !shared.text.trim()) continue;
+		seen.add(key);
+		blocks.push({key, group: groupOf(session), label: shared.kind === 'repo' ? 'main checkout note' : 'worktree note', sessionId: session.id, section: 'shared', noteId: `${shared.kind}:${shared.id}`, text: shared.text, revision: shared.revision});
+	}
+	for (const session of ordered) {
+		const key = noteKey(session, 'session');
+		if (!key || !session.notes?.trim() || !session.notesFile) continue;
+		blocks.push({key, group: groupOf(session), label: displaySessionTitle(session, sessions) || 'session', sessionId: session.id, section: 'session', text: session.notes, revision: session.notesFile.revision});
+	}
+	// Worktrees in sidebar order, the main checkout last; within a group, shared notes first.
+	const groups = [...new Set([...ordered.filter(session => session.worktree?.id).map(session => `wt:${session.worktree!.id}`), 'main'])];
+	return groups.flatMap(group => blocks.filter(block => block.group === group));
+}
+
+/** The open checklist items of a note (not ↗ links to tasks), as items the board can send to Tasks. */
+export function blockItems(block: NoteBlock, sessions: SessionRecord[]): NoteItem[] {
+	const items: NoteItem[] = [];
+	block.text.split('\n').forEach((line, index) => {
+		const item = parseChecklistLine(line);
+		if (!item || item.checked || !item.text.trim() || parseNoteTaskLink(line)) return;
+		items.push({key: `${block.key}:${index}`, title: item.text.trim(), sessionId: block.sessionId, section: block.section, line: index, revision: block.revision, ...block.noteId ? {noteId: block.noteId} : {}, source: block.label, group: block.group});
+	});
+	return items;
+}
+
 /**
  * Open checklist items of every session's notes (each shared note once), not linked to tasks yet, grouped by worktree
  * (its shared note first, then its sessions' notes) and then the main checkout, groups in sidebar order.
  */
 export function noteItems(sessions: SessionRecord[]): NoteItem[] {
-	const items: NoteItem[] = [];
-	const seen = new Set<string>();
-	const add = (session: SessionRecord, section: 'session' | 'shared', text: string | undefined, revision: string | undefined, source: string, noteId?: string) => {
-		const key = noteKey(session, section);
-		if (!key || !text || !revision || seen.has(key)) return;
-		seen.add(key);
-		const group = session.worktree?.id ? `wt:${session.worktree.id}` : 'main';
-		text.split('\n').forEach((line, index) => {
-			const item = parseChecklistLine(line);
-			if (!item || item.checked || !item.text.trim() || parseNoteTaskLink(line)) return;
-			items.push({key: `${key}:${index}`, title: item.text.trim(), sessionId: session.id, section, line: index, revision, ...noteId ? {noteId} : {}, source, group});
+	return noteBlocks(sessions).flatMap(block => blockItems(block, sessions));
+}
+
+/** A note's line as the Notes view shows it (blank lines are left out: undefined). */
+export function noteLine(line: string): {text: string; style: NoteLineStyle} | undefined {
+	if (!line.trim()) return undefined;
+	const link = parseNoteTaskLink(line);
+	if (link) return {text: `${link.indent}↗ ${link.title} · in Tasks`, style: 'link'};
+	const item = parseChecklistLine(line);
+	if (item) return {text: `${item.indent}${item.checked ? '☑' : '☐'} ${item.text.trim()}`, style: item.checked ? 'done' : 'open'};
+	const heading = /^#{1,6}[ \t]+(.*)$/.exec(line);
+	if (heading) return {text: heading[1]!.trim(), style: 'heading'};
+	return {text: line.replace(/\s+$/, ''), style: 'text'};
+}
+
+/**
+ * The Notes view's rows: per group (worktree, then main checkout) its heading, then each note's heading and lines.
+ * `itemsOnly` (f): only open checklist items. `scope` (v): one worktree (`wt:<id>`), or a main-checkout session
+ * (`s:<id>`: its own note and the main checkout's).
+ */
+export function notesViewRows(sessions: SessionRecord[], {itemsOnly = false, scope}: {itemsOnly?: boolean; scope?: string} = {}): BoardRow[] {
+	const inScope = (block: NoteBlock) => !scope || (scope.startsWith('wt:') ? block.group === scope : block.group === 'main' && (block.section === 'shared' || block.sessionId === scope.slice(2)));
+	const blocks = noteBlocks(sessions).filter(inScope).map(block => {
+		const items = blockItems(block, sessions);
+		const lines = block.text.split('\n').flatMap((raw, line): BoardRow[] => {
+			const shown = noteLine(raw);
+			if (!shown || (itemsOnly && shown.style !== 'open')) return [];
+			const item = shown.style === 'open' ? items.find(candidate => candidate.line === line) : undefined;
+			return [{kind: 'noteline', block, line, text: shown.text, style: shown.style, ...item ? {item} : {}}];
 		});
-	};
-	const ordered = sortSessionsForSidebar(sessions);
-	for (const session of ordered) {
-		const shared = session.sharedNotes;
-		if (shared && !shared.readOnly) add(session, 'shared', shared.text, shared.revision, shared.kind === 'repo' ? 'main checkout note' : 'worktree note', `${shared.kind}:${shared.id}`);
-	}
-	for (const session of ordered) add(session, 'session', session.notes, session.notesFile?.revision, displaySessionTitle(session, sessions) || 'session');
-	// Worktrees in sidebar order, the main checkout last; within a group, shared notes first.
-	const groups = [...new Set([...ordered.filter(session => session.worktree?.id).map(session => `wt:${session.worktree!.id}`), 'main'])];
-	return groups.flatMap(group => items.filter(item => item.group === group));
+		return {block, open: items.length, lines};
+	}).filter(entry => entry.lines.length);
+	if (!blocks.length) return [{kind: 'empty', text: itemsOnly ? 'No open checklist items in these notes · f shows every note' : scope ? 'No notes here yet · write one in a session’s Notes tab (a)' : 'No notes yet · write one in a session’s Notes tab (a)'}];
+	return [...new Set(blocks.map(entry => entry.block.group))].flatMap(group => {
+		const inGroup = blocks.filter(entry => entry.block.group === group);
+		return [
+			{kind: 'work', section: group, count: inGroup.reduce((sum, entry) => sum + entry.open, 0), label: noteGroupLabel(group, sessions)} as BoardRow,
+			...inGroup.flatMap(({block, open, lines}): BoardRow[] => [{kind: 'notehead', block, open}, ...lines]),
+		];
+	});
 }
 
 /** A note group's heading: `⎇ <branch>`, or `main checkout`. */

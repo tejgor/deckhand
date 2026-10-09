@@ -28,6 +28,15 @@ const WATCH_RETRY_MS = 1000;
 const EMPTY: StoredNote = {text: '', revision: noteRevision('')};
 
 /** The file name (without `.md`) of a note: its ID when that is file-name-safe (UUIDs, hashes), else a hash of it. */
+/** Removed notes, never read back by Deckhand (`notes/trash/`). */
+export const TRASH_DIRECTORY = 'trash';
+/** `2026-10-09T14-02-11_session_school-doc-upload_<stem>.md`: sorted by date, findable by what it belonged to. */
+export function trashFileName(kind: NoteKind, label: string | undefined, stem: string, now = new Date()): string {
+	const date = now.toISOString().slice(0, 19).replace(/:/g, '-');
+	const slug = (label ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'note';
+	return `${date}_${kind}_${slug}_${stem}.md`;
+}
+
 export function noteFileStem(id: string): string {
 	return /^[A-Za-z0-9_-]{1,128}$/.test(id) ? id : `x-${createHash('sha256').update(id).digest('hex').slice(0, 32)}`;
 }
@@ -167,12 +176,22 @@ export class NotesStore {
 		return file;
 	}
 
-	/** Deletes the note's file (its session was removed, or its worktree record dropped). */
-	remove(note: NoteId): Promise<void> {
+	/**
+	 * Takes the note away (its session was removed, its worktree record dropped, or it was merged into another note):
+	 * a note with text moves to `notes/trash/` as `<date>_<kind>_<label>_<stem>.md`, so it can always be found and
+	 * restored by hand; an empty one is deleted. `label`: what it belonged to (a session's title, a branch).
+	 */
+	remove(note: NoteId, label?: string): Promise<void> {
 		const stem = noteFileStem(note.id);
 		return this.serialized(note.kind, stem, async () => {
 			this.cache.delete(cacheKey(note.kind, stem));
-			await fs.rm(noteFilePath(note), {force: true});
+			const file = noteFilePath(note);
+			const text = await fs.readFile(file, 'utf8').catch(() => '');
+			if (!text.trim()) { await fs.rm(file, {force: true}); return; }
+			const trash = path.join(getNotesDir(), TRASH_DIRECTORY);
+			await fs.mkdir(trash, {recursive: true, mode: 0o700});
+			const target = path.join(trash, trashFileName(note.kind, label, stem));
+			await fs.rename(file, target).catch(async () => { await fs.copyFile(file, target); await fs.rm(file, {force: true}); });
 		});
 	}
 
