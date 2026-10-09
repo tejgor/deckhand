@@ -2,6 +2,7 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import type {ProgramKey, SessionRecord} from './types.js';
 import type {SessionFilter} from './sessionFeatures.js';
+import type {Task} from './tasks.js';
 import {sessionDetails, sidebarHeader, sidebarRows, type RowPart, type SidebarRow} from './sidebarModel.js';
 import {THEME, truncate} from './ui.js';
 
@@ -22,6 +23,8 @@ interface SidebarProps {
 	now?: number;
 	/** Installed agent versions, for the outdated marker (↑) and the details line. */
 	installedVersions?: Partial<Record<ProgramKey, string>>;
+	/** The task a session works on, for the details block. */
+	taskOf?: (session: SessionRecord) => Pick<Task, 'title' | 'done'> | undefined;
 }
 
 function visibleSessions(sessions: SessionRecord[], selectedIndex: number, availableRows: number): SessionRecord[] {
@@ -57,7 +60,7 @@ export function partStyle(part: RowPart, row: SidebarRow): {color?: string; dimC
 	}
 }
 
-export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>(), loaded = true, filter = 'active', query = '', now = Date.now(), installedVersions}: SidebarProps) {
+export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>(), loaded = true, filter = 'active', query = '', now = Date.now(), installedVersions, taskOf}: SidebarProps) {
 	const selectedIndex = Math.max(0, sessions.findIndex(session => session.id === selectedId));
 	const contentWidth = Math.max(1, width - 4);
 	// Rows start in the left padding column: it holds the cursor (›) and the shared-workspace marker.
@@ -72,7 +75,8 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 		selectedId, width: rowWidth, spinnerFrame, filter, collapsedSessionIds, hiddenSessionIds, installedVersions,
 	});
 	// The list has priority: the details block only takes the rows it leaves free.
-	const details = sessions.length ? sessionDetails(sessions.find(session => session.id === selectedId), allSessions, contentWidth, rowsForSessions - visible.length, now, installedVersions) : [];
+	const selected = sessions.find(session => session.id === selectedId);
+	const details = sessions.length ? sessionDetails(selected, allSessions, contentWidth, rowsForSessions - visible.length, now, installedVersions, selected && taskOf?.(selected)) : [];
 
 	return (
 		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.border} paddingRight={1}>

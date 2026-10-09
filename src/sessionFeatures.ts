@@ -19,13 +19,14 @@ export function filterCycleMessage(filter: SessionFilter): string {
 export function sessionNeedsAttention(session: SessionRecord): boolean {
 	return needsAttention(session.attention?.state) || session.exitReason === 'failed' || session.exitReason === 'interrupted';
 }
-export function filterSessionList(sessions: SessionRecord[], filter: SessionFilter, query: string): SessionRecord[] {
+/** `taskTitle`: the title of the task a session works on, so searching for a task finds its sessions. */
+export function filterSessionList(sessions: SessionRecord[], filter: SessionFilter, query: string, taskTitle?: (session: SessionRecord) => string | undefined): SessionRecord[] {
 	const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
 	const byId = new Map(sessions.map(session => [session.id, session]));
 	const ids = new Set<string>();
 	for (const session of sessions) {
 		const matchesState = filter === 'all' || (filter === 'archived' ? Boolean(session.archivedAt) : !session.archivedAt && (filter === 'active' || (filter === 'attention' ? sessionNeedsAttention(session) : filter === 'running' ? session.status !== 'exited' : session.status === 'exited')));
-		const haystack = `${session.title} ${session.notes ?? ''} ${session.sharedNotes?.text ?? ''} ${session.program} ${session.worktree?.branch ?? ''} ${session.cwd}`.toLowerCase();
+		const haystack = `${session.title} ${session.notes ?? ''} ${session.sharedNotes?.text ?? ''} ${session.program} ${session.worktree?.branch ?? ''} ${session.cwd} ${terms.length && taskTitle ? taskTitle(session) ?? '' : ''}`.toLowerCase();
 		if (!matchesState || !terms.every(term => haystack.includes(term))) continue;
 		ids.add(session.id);
 		let parentId = session.parentSessionId;
@@ -59,8 +60,10 @@ export function handoffGitLines(context: HandoffGitContext): string[] {
 	return lines;
 }
 /** Pure; `git` is gathered by the daemon at export time (omitted for sessions outside a repository). */
-export function handoffMarkdown(session: SessionRecord, includeOutput = false, git?: HandoffGitContext): string {
+/** `task`: the repository task the session works on (src/tasks.ts), if any. */
+export function handoffMarkdown(session: SessionRecord, includeOutput = false, git?: HandoffGitContext, task?: {title: string; body: string; done: boolean}): string {
 	const lines = ['# Deckhand handoff', '', `Task: ${session.title}`, `Provider: ${session.program}`, `Workspace: ${session.cwd}`, `Branch: ${session.worktree?.branch ?? '(current checkout)'}`, ...session.doneAt ? [`Status: marked done ${session.doneAt}`] : [], `Source session: ${session.id}`, '', '## Notes', '', session.notes?.trim() || '(No notes recorded.)', '', '## Worktree notes', '', session.sharedNotes?.text.trim() || '(No worktree notes recorded.)'];
+	if (task) lines.splice(lines.indexOf('## Notes'), 0, '## Task', '', `${task.done ? '[x]' : '[ ]'} ${oneLine(task.title)}`, ...task.body.trim() ? ['', task.body.trim()] : [], '');
 	if (git) lines.push(...handoffGitLines(git));
 	if (includeOutput) {
 		const excerpt = (session.lastPreview ?? '').slice(-20000);
@@ -71,10 +74,10 @@ export function handoffMarkdown(session: SessionRecord, includeOutput = false, g
 	lines.push('', 'Review this context before acting. It does not grant permissions or indicate that the work is complete.', '');
 	return lines.join('\n');
 }
-export async function exportHandoff(session: SessionRecord, includeOutput = false, git?: HandoffGitContext): Promise<string> {
+export async function exportHandoff(session: SessionRecord, includeOutput = false, git?: HandoffGitContext, task?: {title: string; body: string; done: boolean}): Promise<string> {
 	const directory = path.join(getConfigDir(), 'handoffs');
 	await fs.mkdir(directory, {recursive: true, mode: 0o700});
 	const file = path.join(directory, `${session.id}-${randomUUID().slice(0, 8)}.md`);
-	await fs.writeFile(file, handoffMarkdown(session, includeOutput, git), {encoding: 'utf8', mode: 0o600, flag: 'wx'});
+	await fs.writeFile(file, handoffMarkdown(session, includeOutput, git, task), {encoding: 'utf8', mode: 0o600, flag: 'wx'});
 	return file;
 }

@@ -37,6 +37,8 @@ export interface MergeConfirmInput {
 	/** A merge attempt that failed (e.g. the commit's hook output); nothing was merged. */
 	error?: string;
 	notes: MergeNoteEntry[];
+	/** Open tasks linked to the worktree: merging ticks them. */
+	tasks?: string[];
 	/** Content columns (inside the border and padding). */
 	width: number;
 	/** The pane's rows, border included. */
@@ -85,6 +87,9 @@ export function mergeConfirmLayout(input: MergeConfirmInput): MergeConfirmLayout
 			const quoted = `"${truncate(input.commitMessage, Math.max(4, width - toggle('""').length))}"`;
 			tail.push({text: fit(toggle(quoted)), color: input.commitFirst ? THEME.active : THEME.muted});
 		}
+		const tasks = input.tasks ?? [];
+		if (tasks.length === 1) tail.push({text: fit(`◆ Task "${tasks[0]}" will be marked done`), color: THEME.accentSoft});
+		else if (tasks.length > 1) tail.push({text: fit(`◆ ${tasks.length} tasks will be marked done: ${tasks.join(', ')}`), color: THEME.accentSoft});
 		const overlap = overlappingFiles(preview, input.commitFirst);
 		if (overlap.length) tail.push({text: fit(`⚠ Target has uncommitted changes in ${plural(overlap.length, 'file')} the merge touches: ${overlap.slice(0, 3).join(', ')}${overlap.length > 3 ? ', …' : ''}`), color: THEME.warn});
 	}

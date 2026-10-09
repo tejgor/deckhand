@@ -107,7 +107,7 @@ export function continueChecklist(state: EditorState): EditorState | undefined {
 // ── Read mode ─────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** One row of a note as the Notes tab shows it outside editing. */
-export interface NoteRow {text: string; kind?: 'open' | 'done' | 'heading' | 'more'}
+export interface NoteRow {text: string; kind?: 'open' | 'done' | 'heading' | 'more' | 'link'}
 
 /** Display text: tabs become spaces, other controls `?`. */
 export function visibleText(text: string): string {
@@ -123,6 +123,12 @@ export function noteReadRows(text: string, width: number): NoteRow[] {
 	const columns = Math.max(1, width);
 	const rows: NoteRow[] = [];
 	for (const raw of visibleText(text).split('\n')) {
+		// A line sent to Tasks (`- ↗ <title> <!-- dh:t=<id> -->`): shown without its bookkeeping.
+		const link = /^([ \t]*)[-*+][ \t]+↗[ \t]+(.*?)[ \t]*(?:<!--[ \t]*dh:[^>]*?-->)?[ \t]*$/.exec(raw);
+		if (link) {
+			for (const line of wrapped(`${link[1]}↗ ${link[2]} · in Tasks`, columns)) rows.push({text: line, kind: 'link'});
+			continue;
+		}
 		const item = parseChecklistLine(raw);
 		if (item) {
 			const marker = `${item.indent}${item.checked ? '☑' : '☐'} `;
