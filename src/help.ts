@@ -16,7 +16,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		key('Enter  o', 'Open it full screen: the agent, or what the tab shows (shell, Git, Dev); on Notes, edit them'),
 		key('Ctrl+]', 'Back to Deckhand from full screen (Ctrl+Space works too)'),
 		key('Tab  [ ]', 'Next / previous tab: Preview, Terminal, Git, Dev, Notes (Shift+Tab goes back too)'),
-		key('b', 'Tasks: the repository\'s task list (start a session from one with n)'),
+		key('b  W', 'Tasks: the repository\'s task list (n starts a session from one) / Worktrees: what is merged, delete them'),
 		key('C  U', 'Settings / Agents: versions and updates (Enter updates, r re-checks)'),
 		key('?', 'This guide (↑↓ or 1-9 pick a topic, / searches, Esc closes)'),
 		key('q', 'Quit the UI (agents and the daemon keep running); everywhere else Esc goes back'),
@@ -123,5 +123,14 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		key('Ctrl+P', 'Send the line\'s checklist item to Tasks (the note keeps a ↗ link)'),
 		key('Ctrl+O', 'Open the note you are editing in Cursor / VS Code'),
 		note('☐ N open below the sidebar counts open items of both notes. A worktree\'s note goes when its last session is removed (open items ask first: m moves them to Tasks).'),
+	]},
+	{title: 'Worktrees', lines: [
+		note('W lists every worktree of the repository (Deckhand\'s or not) by what to do with it: merged and safe to delete, merged with leftovers, in progress, idle (nothing running for 14 days), missing (directory gone), and the main checkout.'),
+		key('x', 'Delete it, asking first: keep or delete its branch; its running sessions are stopped first (named before you confirm)'),
+		key('x', 'On the "Merged · safe to delete" heading: delete all of them and their branches, one confirmation'),
+		key('Enter  o', 'Select its session in the sidebar'),
+		key('M  E', 'Mark it merged or clear the marker / open it in your editor'),
+		key('R  j k  g G', 'Check them all again / move'),
+		note('Same safety as x on a session: uncommitted work or commits only on the branch need DELETE typed; the main checkout and the one this Deckhand runs in are never deleted. Its sessions are archived afterwards (f A shows them).'),
 	]},
 ];

@@ -6,10 +6,10 @@ import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import {StringDecoder} from 'node:string_decoder';
 import {getConfigDir, getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
-import {abortMerge, branchCreationCommit, createWorktreeForSession, currentBranch, deleteLocalBranch, findGitCommonDir, findRepoRoot, headSha, listWorktrees, mergeWorktreeIntoCurrent, optionalGit, listLocalBranches, removeWorktree, resolveDefaultBranch, resolveRepoContext, sanitizeWorktreeName, type ConflictedMerge} from './git.js';
+import {abortMerge, branchCreationCommit, createWorktreeForSession, currentBranch, deleteLocalBranch, findGitCommonDir, findRepoRoot, headSha, listWorktrees, mergeWorktreeIntoCurrent, optionalGit, listLocalBranches, pruneWorktrees, removeWorktree, resolveDefaultBranch, resolveRepoContext, sanitizeWorktreeName, type ConflictedMerge} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
 import {ensureConfigDir, loadAppConfig, type AppConfig, markAllNonExitedSessionsExited, saveState, sortSessionsNewestFirst, updateAppConfig} from './storage.js';
-import {liveWorktreeRecord, MERGE_MARKERS, ownWorktreePath, projectWorktree, storedSession, withoutMarkers} from './worktreeRecords.js';
+import {liveWorktreeRecord, MERGE_MARKERS, ownWorktreePath, projectWorktree, storedSession, withoutMarkers, worktreeMarkers} from './worktreeRecords.js';
 import {compareSessionOrder, sortSessionsForSidebar} from './sessionOrder.js';
 import {isPathInside, sessionMatchesScope} from './sessionScope.js';
 import {noWorkspaceReason, workspaceKey, workspaceWorkerId} from './workspace.js';
@@ -18,7 +18,7 @@ import type {WorktreeSettings} from './worktreeLinks.js';
 import {loadProjectConfig, isProjectTrusted, projectNeedsReview, resolveDevCommand, resolveSettings, resolveSetupCommand, trustProjectConfig, type LoadedProject} from './projectConfig.js';
 import {saveGlobalDefaultsDocument, saveProjectConfigDocument} from './projectConfigDocument.js';
 import {readCandidateSizes, readSettingsInfo, readWorktreeCandidates} from './settingsInfo.js';
-import {createPullRequest, getHandoffGitContext, getMergePreview, getWorkspaceSummary, inspectWorkspaceCleanup, mergedIntoDefault, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
+import {createPullRequest, getHandoffGitContext, getMergePreview, getWorkspaceSummary, inspectWorkspaceCleanup, mergedIntoDefault, worktreeActivity, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
 import {applyStage, readChangeDiff, readChanges, type ChangesSnapshot, type UntrackedCounts} from './changesGit.js';
 import {emptyChanges, findChange, type ChangesRecord} from './changesModel.js';
 import {normalizeHook, integrationArgs, needsAttention} from './agentSignals.js';
@@ -29,7 +29,8 @@ import {NotesStore, noteFilePath, noteFileStem, type NoteId, type NoteKind} from
 import {MAX_NOTES_CHARS, mergeIntoWorktreeNote, repoNoteId, sharedNoteIdentity, showsOwnNote} from './notes.js';
 import {applyTaskOp, clientTaskOp, findNoteTaskLink, isAssigned, isLinked, linkMatches, newTaskId, openNoteItems, parseTasks, promoteNoteLine, returnTaskToNote, taskPrompt, type Task, type TaskLink, type TaskOp} from './tasks.js';
 import {PROTOCOL_VERSION} from './types.js';
-import type {ActionRecord, AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, BranchList, ClientRequest, CreateSessionInput, DevRecord, GitRecord, MergePreview, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TasksDoc, TerminalRecord, WorktreeMarkers, WorktreeMergeMode, WorktreeMergeResult, WorktreeRecord} from './types.js';
+import type {ActionRecord, AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, BranchList, ClientRequest, CreateSessionInput, DevRecord, GitRecord, MergePreview, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TasksDoc, TerminalRecord, WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeMarkers, WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview, WorktreeOverviewEntry, WorktreeRecord} from './types.js';
+import type {WorktreeInfo} from './git.js';
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_PREVIEW_COLS = 80;
@@ -50,6 +51,15 @@ const AGENT_VERSIONS_TICK_MS = 30 * 60_000;
 const MERGE_DETECT_MS = 5 * 60_000;
 // At most this many worktree records are checked per run (Git calls are bounded; the rest wait for the next run).
 const MERGE_DETECT_MAX = 50;
+// W (the worktree manager): at most this many linked worktrees get Git details per overview, this many at a time (the
+// status scan with ignored files is the slow part).
+const WORKTREE_OVERVIEW_MAX = 60;
+const WORKTREE_OVERVIEW_CONCURRENCY = 4;
+// How long deleting a worktree waits for each session it stops to exit.
+const STOP_FOR_DELETE_MS = 10_000;
+
+/** A worktree W acts on: its repository's checkout root, Git's entry (none: only Deckhand's record is left), its live record and sessions. */
+interface WorktreeTarget {root: string; key: string; item?: WorktreeInfo; record?: WorktreeRecord; sessions: SessionRecord[]}
 
 /** A conflicted merge Deckhand started and left in progress, until it is kept or aborted (`resolve-merge`). */
 interface PendingMerge extends ConflictedMerge {sessionId: string; sourceRef: string; sourceSha?: string; targetBranch: string; tickTaskIds?: string[]}
@@ -321,6 +331,21 @@ function handoffPrompt(handoffPath: string): string {
 function movedForkPrompt(child: SessionRecord, parentRoot: string, childRoot: string): string {
 	const branch = child.worktree?.branch ? ` on branch ${child.worktree.branch}` : '';
 	return `Deckhand note: this conversation was forked from another session into a different worktree. You are now in ${childRoot}${branch}. Earlier messages refer to files under ${parentRoot}, which is the parent session's worktree: do not read or edit anything there. Work only in ${childRoot}. Changes the parent had not committed are not in this worktree. Reply briefly to confirm, then wait for instructions.`;
+}
+
+/** The default branch's fully qualified refs that exist: local, and `origin/` when fetched (never fetched here). */
+async function defaultBranchRefs(repoRoot: string, defaultBranch: string): Promise<string[]> {
+	const refs = [`refs/heads/${defaultBranch}`];
+	if (await optionalGit(repoRoot, ['show-ref', '--verify', '--quiet', `refs/remotes/origin/${defaultBranch}`]) !== undefined) refs.push(`refs/remotes/origin/${defaultBranch}`);
+	return refs;
+}
+
+/** Runs `work` over `items`, at most `limit` at a time. */
+async function forEachLimited<T>(items: T[], limit: number, work: (item: T) => Promise<void>): Promise<void> {
+	let next = 0;
+	await Promise.all(Array.from({length: Math.min(limit, items.length)}, async () => {
+		while (next < items.length) await work(items[next++]!);
+	}));
 }
 
 async function realpathOrResolve(target: string): Promise<string> {
@@ -828,6 +853,12 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, await listWorktrees(message.cwd)));
 					return;
 				}
+				case 'worktree-overview': sendMessage(socket, response(message.requestId, await this.worktreeOverview(message.cwd, socket))); return;
+				case 'inspect-worktree': {
+					const {inspection} = await this.inspectWorktree(message.cwd, message.path, message.deleteBranch ?? false, socket);
+					sendMessage(socket, response(message.requestId, inspection)); return;
+				}
+				case 'delete-worktree': sendMessage(socket, response(message.requestId, await this.deleteWorktree(message, socket))); return;
 				case 'watch-preview': {
 					const client = this.getClient(socket);
 					client.watchedPreviewSessionId = message.sessionId;
@@ -2794,8 +2825,7 @@ export class InkDaemon {
 			if (!listed) continue;
 			const defaultBranch = await resolveDefaultBranch(repoRoot);
 			if (!defaultBranch) continue;
-			const defaults = [`refs/heads/${defaultBranch}`];
-			if (await optionalGit(repoRoot, ['show-ref', '--verify', '--quiet', `refs/remotes/origin/${defaultBranch}`]) !== undefined) defaults.push(`refs/remotes/origin/${defaultBranch}`);
+			const defaults = await defaultBranchRefs(repoRoot, defaultBranch);
 			for (const record of records) {
 				const entry = listed.find(item => path.resolve(item.path) === path.resolve(record.path));
 				// Missing worktrees, the default branch itself and dismissed tips are left alone.
@@ -2847,6 +2877,210 @@ export class InkDaemon {
 		if (broadcast) { await this.saveWorktreeRecord({...record, ...patch}); return; }
 		this.worktrees.set(id, {...record, ...patch});
 		await this.persist();
+	}
+
+	// W, the worktree manager: every worktree of a repository (Git's list, plus Deckhand records whose worktree Git no
+	// longer lists), with its sessions, merge state and what deleting it would lose; and deletion that does not need a
+	// session to be stopped through x. The safety rules are the kill-with-delete ones (cleanupBlockers,
+	// inspectWorkspaceCleanup): structural blockers never give way, data reasons only to a typed DELETE.
+
+	/** Every session of the repository the checkout `root` belongs to, whichever checkout it was started from. */
+	private async repositorySessions(root: string): Promise<SessionRecord[]> {
+		const key = await this.tasksKeyFor(root).catch(() => undefined);
+		await Promise.all([...new Set([...this.sessions.values()].map(session => path.resolve(session.repoRoot)))].map(item => this.learnRepoKey(item)));
+		return [...this.sessions.values()].filter(session => sessionMatchesScope(session, root) || (key !== undefined && this.repoKeys.get(path.resolve(session.repoRoot)) === key));
+	}
+
+	/**
+	 * The sessions in the worktree at `worktreePath`: its live record's and those whose workspace it is; with `inside`, also
+	 * any not exited whose directory is in it (deleting it would pull the floor from under them). A deleted incarnation's
+	 * sessions are never in a later worktree at the same path.
+	 */
+	private async sessionsInWorktree(worktreePath: string, candidates: SessionRecord[], inside: boolean): Promise<SessionRecord[]> {
+		const key = path.resolve(worktreePath);
+		const record = liveWorktreeRecord(this.worktrees.values(), key);
+		const target = inside ? await realpathOrResolve(key) : key;
+		const found: SessionRecord[] = [];
+		for (const session of candidates) {
+			if (record && session.worktree?.id === record.id) found.push(session);
+			else if (session.worktree?.deletedAt) continue;
+			else if (this.workspaceKeyOf(session) === key) found.push(session);
+			else if (inside && session.status !== 'exited' && isPathInside(target, await realpathOrResolve(session.cwd))) found.push(session);
+		}
+		return found;
+	}
+
+	private async worktreeOverview(cwd: string, socket: net.Socket): Promise<WorktreeOverview> {
+		const root = await findRepoRoot(cwd);
+		const sessions = await this.repositorySessions(root);
+		// Merges done elsewhere first, so the list says what is merged now (bounded, like the periodic run).
+		const ids = new Set(sessions.flatMap(session => session.worktree?.id && !session.worktree.mergedAt && !session.worktree.deletedAt ? [session.worktree.id] : []));
+		if (ids.size) await this.detectMerges(ids);
+		const listed = await listWorktrees(root);
+		const mainRoot = listed.find(item => item.isMain)?.path;
+		const defaultBranch = await resolveDefaultBranch(root);
+		const defaults = defaultBranch ? await defaultBranchRefs(root, defaultBranch) : [];
+		const here = await realpathOrResolve(root);
+		const others = new Set<string>();
+		for (const [other, client] of this.clients) if (other !== socket && client.repoRoot) others.add(await realpathOrResolve(client.repoRoot));
+		const entries: WorktreeOverviewEntry[] = [];
+		const describe = (record: WorktreeRecord | undefined, inWorktree: SessionRecord[]) => ({
+			...record ? {recordId: record.id, createdAt: record.createdAt, markers: worktreeMarkers(record)} : {},
+			sessionIds: inWorktree.map(session => session.id),
+			runningIds: inWorktree.filter(session => session.status !== 'exited').map(session => session.id),
+		});
+		for (const item of listed) {
+			const record = item.isMain ? undefined : liveWorktreeRecord(this.worktrees.values(), item.path);
+			const real = await realpathOrResolve(item.path);
+			entries.push({
+				path: item.path, branch: item.branch, head: item.head, isMain: item.isMain,
+				...item.locked ? {locked: true} : {}, ...item.prunable ? {missing: 'prunable' as const} : {},
+				...describe(record, await this.sessionsInWorktree(item.path, sessions, !item.isMain)),
+				...real === here ? {inUse: 'this' as const} : others.has(real) ? {inUse: 'other' as const} : {},
+			});
+		}
+		// Worktrees removed outside Deckhand: their records are still live until forgotten.
+		const listedPaths = new Set(listed.map(item => path.resolve(item.path)));
+		const recordIds = new Set(sessions.flatMap(session => session.worktree?.id ? [session.worktree.id] : []));
+		for (const record of this.worktrees.values()) {
+			if (record.deletedAt || !recordIds.has(record.id) || listedPaths.has(path.resolve(record.path))) continue;
+			const inWorktree = sessions.filter(session => session.worktree?.id === record.id);
+			const branch = inWorktree.find(session => session.worktree?.branch)?.worktree?.branch ?? '';
+			entries.push({path: record.path, branch, head: '', isMain: false, missing: 'unlisted', ...describe(record, inWorktree)});
+		}
+		const linked = entries.filter(entry => !entry.isMain && !entry.missing);
+		await forEachLimited(linked.slice(0, WORKTREE_OVERVIEW_MAX), WORKTREE_OVERVIEW_CONCURRENCY, async entry => {
+			if (this.cleanupWorktrees.has(path.resolve(entry.path))) { entry.error = 'being deleted'; return; }
+			try {
+				// The categories ask: would deleting it and its branch lose anything? (A detached HEAD's commits count either way.)
+				const integrated = entry.markers?.mergedAt ? entry.markers.mergeSourceSha : undefined;
+				const [inspection, activity] = await Promise.all([
+					inspectWorkspaceCleanup(entry.path, undefined, {deleteBranch: true, integrated}),
+					worktreeActivity(entry.path, defaults),
+				]);
+				Object.assign(entry, activity, {inspection});
+			} catch (error) { entry.error = errorMessage(error); }
+		});
+		const unchecked = Math.max(0, linked.length - WORKTREE_OVERVIEW_MAX);
+		return {...mainRoot ? {mainRoot} : {}, ...defaultBranch ? {defaultBranch} : {}, entries, ...unchecked ? {unchecked} : {}, checkedAt: new Date().toISOString()};
+	}
+
+	/** One worktree of the repository `cwd` belongs to, as `inspectWorktree`/`deleteWorktree` act on it. */
+	private async worktreeTarget(cwd: string, worktreePath: string): Promise<WorktreeTarget> {
+		if (typeof worktreePath !== 'string' || !path.isAbsolute(worktreePath)) throw new Error('Invalid worktree path');
+		const root = await findRepoRoot(cwd);
+		const key = path.resolve(worktreePath);
+		const item = (await listWorktrees(root)).find(entry => path.resolve(entry.path) === key);
+		const record = item?.isMain ? undefined : liveWorktreeRecord(this.worktrees.values(), key);
+		const repository = await this.repositorySessions(root);
+		// A record Git no longer lists must belong to this repository to be forgotten from here.
+		if (!item && !(record && repository.some(session => session.worktree?.id === record.id))) throw new Error('This worktree is not listed by Git any more; refresh (R)');
+		return {root, key, item, record, sessions: await this.sessionsInWorktree(key, repository, !item?.isMain)};
+	}
+
+	// Reasons no DELETE may bypass, for a worktree deleted from W (the kill path's are cleanupBlockers).
+	private async worktreeBlockers({root, key, item, sessions}: WorktreeTarget, deleteBranch: boolean, socket: net.Socket, expectedBranch?: string, deleting = false): Promise<string[]> {
+		// Missing: only its administrative entry or Deckhand's record goes; nothing on disk.
+		if (!item || item.prunable) return [];
+		if (item.isMain) return ['cannot delete the main checkout'];
+		const blockers: string[] = [];
+		const real = await realpathOrResolve(key);
+		if (await realpathOrResolve(root) === real) blockers.push('this Deckhand runs in that worktree; delete it from another checkout');
+		else for (const [other, client] of this.clients) {
+			if (other !== socket && client.repoRoot && isPathInside(real, await realpathOrResolve(client.repoRoot))) { blockers.push('another Deckhand is open in that worktree'); break; }
+		}
+		if (item.locked) blockers.push('worktree is locked (git worktree unlock it first)');
+		if (!deleting && this.cleanupWorktrees.has(key)) blockers.push('worktree is already being deleted');
+		if (expectedBranch !== undefined && item.branch !== expectedBranch) blockers.push('Worktree branch changed; refresh before deletion');
+		if (deleteBranch) {
+			const protectedBranches = new Set(['main', 'master', await resolveDefaultBranch(root) ?? 'main']);
+			if (!item.branch) blockers.push('worktree is not on a local branch');
+			else if (protectedBranches.has(item.branch)) blockers.push(`refusing to delete protected branch ${item.branch}`);
+		}
+		const starting = sessions.find(session => session.status === 'starting');
+		if (starting) blockers.push(`session "${starting.title}" is starting; wait for it or cancel it`);
+		return blockers;
+	}
+
+	private async inspectWorktree(cwd: string, worktreePath: string, deleteBranch: boolean, socket: net.Socket, expectedBranch?: string, deleting = false): Promise<{inspection: WorktreeCleanupInspection; target: WorktreeTarget}> {
+		const target = await this.worktreeTarget(cwd, worktreePath);
+		let inspection: CleanupInspection = {safe: true, reasons: [], dirtyFiles: 0, untrackedFiles: 0, ignoredFiles: 0};
+		if (target.item && !target.item.isMain && !target.item.prunable) {
+			// Commits up to the one recorded when it was merged (a squash leaves them "unmerged") are integrated.
+			const integrated = target.record?.mergedAt ? target.record.mergeSourceSha : undefined;
+			// A failed inspection is a data-loss reason (overridable), never a silent pass.
+			try { inspection = await inspectWorkspaceCleanup(target.key, undefined, {deleteBranch, integrated}); }
+			catch (error) { inspection = {safe: false, reasons: [`Workspace safety could not be verified: ${errorMessage(error)}`], dirtyFiles: 0, untrackedFiles: 0, ignoredFiles: 0}; }
+		}
+		const structuralBlockers = await this.worktreeBlockers(target, deleteBranch, socket, expectedBranch, deleting);
+		const running = target.sessions.filter(session => session.status === 'running').map(session => ({id: session.id, title: session.title}));
+		return {inspection: {...inspection, safe: inspection.safe && structuralBlockers.length === 0, structuralBlockers, running}, target};
+	}
+
+	/**
+	 * Deletes a worktree from W: checks, stops its running sessions when asked (and checks again, since they may have
+	 * written files), stops its Terminal/Git/Dev, removes it (and its branch), then marks its record deleted and archives
+	 * its sessions. A worktree whose directory is gone is pruned (Git) or forgotten (Deckhand's record only).
+	 */
+	private async deleteWorktree(message: Extract<ClientRequest, {type: 'delete-worktree'}>, socket: net.Socket): Promise<WorktreeDeleteResult> {
+		const deleteBranch = Boolean(message.deleteBranch);
+		const check = async (deleting: boolean) => {
+			const result = await this.inspectWorktree(message.cwd, message.path, deleteBranch, socket, message.branch, deleting);
+			const {structuralBlockers, safe, reasons} = result.inspection;
+			if (structuralBlockers.length) throw new Error(structuralBlockers.join('; '));
+			if (!safe && !message.allowDataLoss) throw new Error(`Deletion blocked: ${reasons.join('; ')}. An explicit data-loss override is required.`);
+			return result;
+		};
+		const {inspection, target} = await check(false);
+		if (inspection.running.length && !message.stopSessions) throw new Error(`${inspection.running.length} session(s) still running in it (${inspection.running.map(session => session.title).join(', ')}); confirm stopping them`);
+		const {key, item, root} = target;
+		// Checked again after the awaits above: two deletions of one worktree never both proceed.
+		if (this.cleanupWorktrees.has(key)) throw new Error('worktree is already being deleted');
+		this.cleanupWorktrees.add(key);
+		let stopped = 0, removed: WorktreeDeleteResult['removed'], branchDeleted: string | undefined;
+		try {
+			if (!item) removed = 'forgotten';
+			else if (item.prunable) { await pruneWorktrees(root); removed = 'pruned'; }
+			else {
+				for (const session of inspection.running) { await this.stopForDeletion(session.id); stopped++; }
+				// The agents may have written files until they stopped: check again (nothing is deleted on a new reason).
+				if (stopped) await check(true);
+				this.stopChangesWatch(key);
+				await this.retireWorkspace(key);
+				const name = target.sessions.find(session => session.worktree?.name)?.worktree?.name;
+				await removeWorktree(key, root, name);
+				removed = 'deleted';
+				if (deleteBranch && item.branch) { await deleteLocalBranch(root, item.branch); branchDeleted = item.branch; }
+			}
+		} finally { this.cleanupWorktrees.delete(key); }
+		const now = new Date().toISOString();
+		const record = target.record && this.worktrees.get(target.record.id);
+		if (record && !record.deletedAt) await this.saveWorktreeRecord({...record, deletedAt: now});
+		// Its sessions cannot be resumed any more: out of the active list (their notes stay readable under f A).
+		let archived = 0;
+		for (const {id} of target.sessions) {
+			const session = this.sessions.get(id);
+			if (!session || session.status !== 'exited' || session.archivedAt) continue;
+			await this.saveSession({...session, archivedAt: now});
+			archived++;
+		}
+		await this.log(`worktree ${key} ${removed} from W${branchDeleted ? `, branch ${branchDeleted} deleted` : ''}${stopped ? `, ${stopped} session(s) stopped` : ''}`);
+		return {removed, ...branchDeleted ? {branchDeleted} : {}, stopped, archived};
+	}
+
+	/** Stops a running session as x does (its worktree kept by this kill) and waits until it has exited. */
+	private async stopForDeletion(sessionId: string): Promise<void> {
+		const title = this.sessions.get(sessionId)?.title ?? sessionId;
+		if (this.sessions.get(sessionId)?.status === 'running') await this.killSession(sessionId, false, false, false).catch(error => {
+			if (!/not running/.test(errorMessage(error))) throw error;
+		});
+		const deadline = Date.now() + STOP_FOR_DELETE_MS;
+		for (;;) {
+			const session = this.sessions.get(sessionId);
+			if (!session || session.status === 'exited') return;
+			if (Date.now() > deadline) throw new Error(`Session "${title}" did not stop; nothing was deleted`);
+			await new Promise(resolve => setTimeout(resolve, 100));
+		}
 	}
 
 	private async killSession(sessionId: string, deleteWorktree: boolean, deleteBranch: boolean, force: boolean, allowDataLoss = false): Promise<void> {

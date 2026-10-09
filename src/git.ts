@@ -27,6 +27,10 @@ export interface WorktreeInfo {
 	branch: string;
 	head: string;
 	isMain: boolean;
+	/** `git worktree lock`ed: Git refuses to remove it without a second --force. */
+	locked?: boolean;
+	/** Listed, but its directory is gone (`git worktree prune` drops it). */
+	prunable?: boolean;
 }
 
 export interface CreatedWorktreeInfo {
@@ -84,32 +88,34 @@ export async function resolveRepoContext(cwd: string): Promise<RepoContext> {
 	return {root, commonDir, mainRoot, trustRoot};
 }
 
-async function worktreeEntries(cwd: string): Promise<Array<{path: string; branch: string; head: string; bare: boolean}>> {
-	const stdout = await git(cwd, ['worktree', 'list', '--porcelain']);
-	const entries: Array<{path: string; branch: string; head: string; bare: boolean}> = [];
-	let currentPath = '';
-	let currentBranch = '';
-	let currentHead = '';
-	let isBare = false;
+interface WorktreeEntry {path: string; branch: string; head: string; bare: boolean; locked: boolean; prunable: boolean}
 
+async function worktreeEntries(cwd: string): Promise<WorktreeEntry[]> {
+	const stdout = await git(cwd, ['worktree', 'list', '--porcelain']);
+	const entries: WorktreeEntry[] = [];
+	let current: WorktreeEntry | undefined;
 	const flush = () => {
-		if (currentPath) entries.push({path: currentPath, branch: currentBranch, head: currentHead, bare: isBare});
-		currentPath = '';
-		currentBranch = '';
-		currentHead = '';
-		isBare = false;
+		if (current?.path) entries.push(current);
+		current = undefined;
 	};
 
 	for (const line of stdout.split('\n')) {
 		if (line.startsWith('worktree ')) {
 			flush();
-			currentPath = line.slice('worktree '.length);
+			current = {path: line.slice('worktree '.length), branch: '', head: '', bare: false, locked: false, prunable: false};
+		} else if (!current) {
+			continue;
 		} else if (line.startsWith('HEAD ')) {
-			currentHead = line.slice('HEAD '.length);
+			current.head = line.slice('HEAD '.length);
 		} else if (line.startsWith('branch ')) {
-			currentBranch = line.slice('branch refs/heads/'.length);
+			current.branch = line.slice('branch refs/heads/'.length);
 		} else if (line === 'bare') {
-			isBare = true;
+			current.bare = true;
+		} else if (line === 'locked' || line.startsWith('locked ')) {
+			current.locked = true;
+		} else if (line === 'prunable' || line.startsWith('prunable ')) {
+			// Git still lists it but its directory is gone.
+			current.prunable = true;
 		} else if (line === '') {
 			flush();
 		}
@@ -120,7 +126,10 @@ async function worktreeEntries(cwd: string): Promise<Array<{path: string; branch
 
 export async function listWorktrees(cwd: string): Promise<WorktreeInfo[]> {
 	// The first entry is the main worktree; a bare repository's first entry is not a checkout.
-	return (await worktreeEntries(cwd)).flatMap((entry, index) => entry.bare ? [] : [{path: entry.path, branch: entry.branch, head: entry.head, isMain: index === 0}]);
+	return (await worktreeEntries(cwd)).flatMap((entry, index) => entry.bare ? [] : [{
+		path: entry.path, branch: entry.branch, head: entry.head, isMain: index === 0,
+		...entry.locked ? {locked: true} : {}, ...entry.prunable ? {prunable: true} : {},
+	}]);
 }
 
 export function sanitizeWorktreeName(title: string): string {
@@ -363,6 +372,11 @@ export async function removeWorktree(worktreePath: string, repoCwd: string, name
 	// directories, or parent folders behind after Git unregisters the worktree.
 	await fs.rm(absolutePath, {recursive: true, force: true, maxRetries: 3, retryDelay: 100});
 	await cleanupEmptyWorktreeParents(absolutePath, name);
+	await git(repoCwd, ['worktree', 'prune'], SLOW);
+}
+
+/** Drops the administrative entries of worktrees whose directories are gone (every such one in the repository). */
+export async function pruneWorktrees(repoCwd: string): Promise<void> {
 	await git(repoCwd, ['worktree', 'prune'], SLOW);
 }
 
