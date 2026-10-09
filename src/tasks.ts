@@ -254,9 +254,13 @@ export function groupTasks(tasks: Task[], now = new Date()): TaskGroups {
 
 export const openTaskCount = (tasks: Task[]) => tasks.filter(task => !task.done).length;
 
-/** The first message a session started from a task gets: its title and body. */
+/**
+ * What a session started from a task finds typed into its agent's input (not sent): the title, then the details on
+ * the same line. One line, so every agent shows it in full in its input box, ready to edit.
+ */
 export function taskPrompt(task: Pick<Task, 'title' | 'body'>): string {
-	return [`Task: ${task.title}`, ...task.body.trim() ? ['', task.body.trim()] : []].join('\n');
+	const body = task.body.trim().replace(/\s*\n\s*/g, ' ');
+	return body ? `${task.title}: ${body}` : task.title;
 }
 
 // ── Links from notes ─────────────────────────────────────────────────────────────────────────────────────────────

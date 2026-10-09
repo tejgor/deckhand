@@ -18,7 +18,7 @@ import {cli, git, repo, waitFor, withEnv, fakeAgent, stop} from './helpers.js';
 const daemonLogTail = (home: string) => { try { return readFileSync(path.join(home, 'daemon.log'), 'utf8').split('\n').slice(-40).join('\n'); } catch (error) { return String(error); } };
 
 // The repository task list against a real daemon with fake agents: ops, editor edits, starting a session from a task
-// (link, first message, base branch), merged/done ticking and reopening, abandoned work, notes sent to Tasks.
+// (link, its text typed into the agent's input but not sent, base branch), merged/done ticking and reopening, abandoned work, notes sent to Tasks.
 test('tasks: one list per repository, linked to the work started from it', {timeout: 150000}, async t => {
 	const root = await repo();
 	await git(root, 'branch', 'release');
@@ -73,7 +73,7 @@ test('tasks: one list per repository, linked to the work started from it', {time
 		assert.equal((await call<TasksDoc>({type: 'watch-tasks', cwd: other} as any)).key, doc.key);
 	});
 
-	await t.test('branches to start from; a session started from a task links it, gets it as its first message and starts at the chosen base', async () => {
+	await t.test('branches to start from; a session started from a task links it, finds the task typed (not sent) in its agent\'s input and starts at the chosen base', async () => {
 		const branches = await call<BranchList>({type: 'list-branches', cwd: root} as any);
 		assert.equal(branches.current, 'main'); assert.equal(branches.defaultBranch, 'main'); assert.equal(branches.branchFrom, 'current');
 		assert.ok(branches.branches.includes('release'));
@@ -82,9 +82,12 @@ test('tasks: one list per repository, linked to the work started from it', {time
 		const session = await create('First task', 'new', {taskId: first.id, baseBranch: 'release'});
 		await running(session.id);
 		const started = await state(session.id);
-		assert.equal(started.startPrompt, 'Task: First task\n\nwhy it matters');
 		const trace = JSON.parse(await waitFor(() => fs.readFile(path.join(home, `trace-${session.id}.json`), 'utf8').catch(() => ''), Boolean)) as {args: string[]};
-		assert.deepEqual(trace.args.slice(-2), ['--', 'Task: First task\n\nwhy it matters']);
+		assert.ok(!trace.args.includes('--'), 'nothing is passed as a first message');
+		// Once the agent's screen settles (idle), the task arrives as one bracketed paste, without Enter.
+		const typed = await waitFor(() => fs.readFile(path.join(home, `input-${session.id}`), 'utf8').catch(() => ''), Boolean, 20000);
+		assert.equal(typed, '\x1b[200~First task: why it matters\x1b[201~');
+		await waitFor(() => state(session.id), next => next.startPrompt === undefined);
 		assert.equal(started.worktree?.baseRef, 'release');
 		await assert.rejects(fs.access(path.join(started.cwd, 'main-only.txt')));
 		assert.deepEqual((await byTitle('First task')).meta.wt, started.worktree?.id);
@@ -123,6 +126,11 @@ test('tasks: one list per repository, linked to the work started from it', {time
 		const second = await byTitle('Second task');
 		const plain = await create('Second task', 'none', {taskId: second.id});
 		await running(plain.id);
+		// Typing into the agent before it settles wins: the draft is dropped, never mixed into your text.
+		writeMessage(socket, {type: 'input', sessionId: plain.id, data: 'my own words'});
+		await waitFor(() => state(plain.id), next => next.startPrompt === undefined, 20000);
+		await new Promise(resolve => setTimeout(resolve, 6500));
+		assert.equal(await fs.readFile(path.join(home, `input-${plain.id}`), 'utf8'), 'my own words');
 		await waitFor(() => byTitle('Second task'), next => next.meta.s === plain.id);
 		await call({type: 'kill', sessionId: plain.id} as any); await waitFor(() => state(plain.id), next => next.status === 'exited');
 		await call({type: 'remove', sessionId: plain.id} as any);

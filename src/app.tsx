@@ -320,7 +320,7 @@ function CreatePane({
 						<Text>Name: <Text color={draftName ? THEME.active : THEME.muted}>{draftName || '█'}</Text></Text>
 						<Text>Workspace: <Text color={THEME.accent}>{workspaceLabel}</Text></Text>
 						{base && worktreeMode === 'new' && !staysInParent ? <Text wrap="truncate-end">Base: <Text color={THEME.active}>{base.label}</Text>{base.count > 1 ? <Text color={THEME.muted}>{`  ↑↓ ${base.index + 1}/${base.count}`}</Text> : null}</Text> : null}
-						{taskTitle ? <Text color={THEME.muted} wrap="truncate-end">The agent starts with the task as its first message.</Text> : null}
+						{taskTitle ? <Text color={THEME.muted} wrap="truncate-end">The task is typed into the agent's input once it's ready; edit it there and send it yourself.</Text> : null}
 						{staysInParent ? <Text color={THEME.muted}>{truncate(`${PROGRAMS[programIndex]!.label} forks stay in the parent's worktree`, contentWidth)}</Text> : null}
 					</>
 				)}
@@ -1448,7 +1448,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	};
 
 	// n on a backlog task: the usual new-session form (agent, then name and workspace), filled in from the task, in a
-	// new worktree by default; the session it creates is linked to the task and gets it as its first message.
+	// new worktree by default; the session it creates is linked to the task, whose text is typed (not sent) into its agent's input.
 	const startFromTask = (task: Task) => {
 		reviewThen(cwd, project => {
 			const defaults = project?.effective;

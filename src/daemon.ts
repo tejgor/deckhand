@@ -92,7 +92,19 @@ interface WorkerRuntime extends WorkerChannel {
 	hookToken: string;
 	launchId: string;
 	allowDataLoss?: boolean;
+	/** The agent's screen as last broadcast by the worker (scroll offset 0), for typing a task's draft. */
+	screen?: string;
+	/** A task's text waiting to be typed (not sent) into the agent's input once it first settles (`typeDraft`). */
+	draft?: {text: string; timer: NodeJS.Timeout; settle?: NodeJS.Timeout};
 }
+
+// How long a task's draft waits for the agent to settle at its input (a trust prompt answered meanwhile included).
+const DRAFT_WAIT_MS = 120_000;
+// The agent's screen has settled for a draft once it has not changed for this long: much shorter than the activity
+// status's idle (IDLE_AFTER_MS in sessionWorker.ts, 5 s, tuned against flicker), which made the draft arrive late.
+const DRAFT_SETTLE_MS = 700;
+// A menu or question on the agent's screen (Claude's and Codex's folder-trust prompts, update offers): never type there.
+const AGENT_PROMPT_PATTERN = /do you trust|trust (?:the files|the contents|this folder|this directory)|press enter to continue|^\s*[❯›>]\s*1\.\s/im;
 
 // Panes a workspace worker hosts for every session in one worktree (sessionWorker.ts WORKSPACE_PANES); `action` is
 // the last action run, shown on the Terminal tab.
@@ -971,9 +983,13 @@ export class InkDaemon {
 					}
 					throw new Error('session is not running');
 				}
-				case 'input':
+				case 'input': {
+					// Text typed into the agent first wins over a task's draft (answering a menu with Enter or a digit does not).
+					const worker = this.workers.get(message.sessionId);
+					if (worker?.draft && /\p{L}/u.test(message.data.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\x1b./g, ''))) this.dropDraft(message.sessionId, 'you typed first');
 					this.sendWorkerEvent(message.sessionId, {type: 'input', target: 'agent', data: message.data});
 					return;
+				}
 				case 'resize':
 					this.sendWorkerEvent(message.sessionId, {type: 'resize', target: 'agent', cols: message.cols, rows: message.rows});
 					return;
@@ -1381,6 +1397,12 @@ export class InkDaemon {
 			return;
 		}
 		if (message.type === 'preview-updated') {
+			worker.screen = message.preview.content;
+			// A draft is typed once the screen stops changing (each update restarts the wait).
+			if (worker.draft) {
+				clearTimeout(worker.draft.settle);
+				worker.draft.settle = setTimeout(() => void this.typeDraft(sessionId).catch(error => this.log(`typing the task draft failed: ${errorMessage(error)}`)), DRAFT_SETTLE_MS);
+			}
 			for (const [socket, client] of this.clients.entries()) {
 				if (client.watchedPreviewSessionId !== sessionId) continue;
 				const preview = client.previewScrollOffset > 0
@@ -1417,11 +1439,41 @@ export class InkDaemon {
 		const session = this.sessions.get(sessionId);
 		if (!session || session.status === 'exited' || session.agentStatus === agentStatus) return;
 		await this.saveSession({...session, agentStatus, agentStatusUpdatedAt: new Date().toISOString()});
+		if (agentStatus === 'idle') await this.typeDraft(sessionId);
+	}
+
+	/**
+	 * A session started from a task gets the task typed into its agent's input, not sent: once the agent's screen first
+	 * settles (unchanged for DRAFT_SETTLE_MS, or activity idle) with no menu or question on it, as one bracketed paste (so no character is taken as a
+	 * shortcut and nothing submits). It waits through prompts (e.g. folder trust) for DRAFT_WAIT_MS at most.
+	 */
+	private async typeDraft(sessionId: string): Promise<void> {
+		const worker = this.workers.get(sessionId);
+		const draft = worker?.draft;
+		if (!worker || !draft || worker.exited) return;
+		if (worker.screen === undefined || !worker.screen.trim() || AGENT_PROMPT_PATTERN.test(worker.screen)) return;
+		this.dropDraft(sessionId);
+		this.sendWorkerEvent(sessionId, {type: 'input', target: 'agent', data: `\x1b[200~${draft.text}\x1b[201~`});
+		await this.log(`typed the task draft into ${sessionId}`);
+	}
+
+	/** Forgets a session's draft (typed, given up, or its agent exited); `reason` is logged when it was not typed. */
+	private dropDraft(sessionId: string, reason?: string, save = true): void {
+		const worker = this.workers.get(sessionId);
+		if (!worker?.draft) return;
+		clearTimeout(worker.draft.timer);
+		clearTimeout(worker.draft.settle);
+		worker.draft = undefined;
+		const session = this.sessions.get(sessionId);
+		if (save && session?.startPrompt) void this.saveSession({...session, startPrompt: undefined}).catch(() => {});
+		if (reason) void this.log(`task draft for ${sessionId} not typed: ${reason}`);
 	}
 
 	private async handleWorkerSessionExit(sessionId: string, exitCode: number | null, exitSignal: number | null, lastPreview: string): Promise<void> {
 		const existing = this.sessions.get(sessionId);
 		if (!existing || existing.status === 'exited') return;
+		// The exit record below drops startPrompt itself (a save here would race it with the running record).
+		this.dropDraft(sessionId, 'the agent exited', false);
 		const worker = this.workers.get(sessionId);
 		this.workers.delete(sessionId);
 		const now = new Date().toISOString();
@@ -1431,6 +1483,7 @@ export class InkDaemon {
 		this.sessions.set(sessionId, {
 			...existing,
 			...(agentExit.ref ? {agentSessionRef: agentExit.ref} : {}),
+			startPrompt: undefined,
 			status: 'exited',
 			agentStatus: 'idle',
 			agentStatusUpdatedAt: now,
@@ -2329,6 +2382,9 @@ export class InkDaemon {
 		this.sessions.set(sessionId, launchSession);
 		const runningSession = await this.startWorker(launchSession, input.cols, input.rows);
 		await this.saveSession({...runningSession, ...this.requireSession(sessionId), status: 'running', pid: runningSession.pid});
+		// Started from a task: its text waits to be typed into the agent's input (typeDraft), never sent.
+		const worker = this.workers.get(sessionId);
+		if (worker && launchSession.startPrompt) worker.draft = {text: launchSession.startPrompt, timer: setTimeout(() => this.dropDraft(sessionId, 'the agent did not settle at its input in time'), DRAFT_WAIT_MS)};
 	}
 
 	private async failStartingSession(sessionId: string, error: unknown, launchId?: string): Promise<void> {
@@ -2351,7 +2407,6 @@ export class InkDaemon {
 	/** The first message a launch sends: a handoff child's document (first launch only), or the note for a fork into another worktree (every fork). */
 	private firstMessageArgs(session: SessionRecord, plan: LaunchPlan, firstLaunch: boolean): string[] {
 		if (firstLaunch && session.handoffPath) return ['--', handoffPrompt(session.handoffPath)];
-		if (firstLaunch && session.startPrompt) return ['--', session.startPrompt];
 		if (plan.kind !== 'fork') return [];
 		const parent = session.forkedFromSessionId ? this.sessions.get(session.forkedFromSessionId) : undefined;
 		const parentRoot = parent && workspaceKey(parent), childRoot = workspaceKey(session);

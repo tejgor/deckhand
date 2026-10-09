@@ -227,7 +227,7 @@ The Notes tab shows two notes: the worktree's, shared by every session in that w
 | Key | Action |
 | --- | --- |
 | `j` / `k` (`↑`/`↓`), `g` / `G` | Select a task / the first / the last |
-| `a` / `enter` | Add a task / edit the selected one: title, then `tab` for its details (sent to the agent when a session starts from it); `enter` saves the title, `ctrl+s` saves from the details |
+| `a` / `enter` | Add a task / edit the selected one: title, then `tab` for its details (typed into the agent's input with the title when a session starts from it); `enter` saves the title, `ctrl+s` saves from the details |
 | `n` | Start a session for a backlog task: the usual new-session form, named after it, in a new worktree; `↑`/`↓` pick the base branch |
 | `space` | Tick a task done, or reopen it |
 | `o` | Open (select) the session doing it |
@@ -237,7 +237,7 @@ The Notes tab shows two notes: the worktree's, shared by every session in that w
 | `E` | Open the task list in Cursor / VS Code |
 | `esc` | Back |
 
-A task started with `n` is linked to its session's worktree (or, in the main checkout, to the session): the board shows the most urgent state of the sessions there (needs you, working, idle, exited), the session's Notes tab and sidebar details name the task, and the agent starts with the task as its first message. Merging the worktree (`m`, `M`, or found merged) ticks it, and the merge screen says so; `D` ticks it once every session there is done; undoing either reopens it. Work removed or deleted without merging puts the task back in the backlog, marked with the branch it was tried in. Done tasks fold away after a week.
+A task started with `n` is linked to its session's worktree (or, in the main checkout, to the session): the board shows the most urgent state of the sessions there (needs you, working, idle, exited), the session's Notes tab and sidebar details name the task, and the task (`title: details`, one line) is typed into the agent's input once it has started, not sent: edit it and press Enter yourself. Deckhand waits until the agent's screen settles, never types into a menu or question (a folder-trust prompt, for example), and skips it if you start typing first or the agent doesn't settle within two minutes. Merging the worktree (`m`, `M`, or found merged) ticks it, and the merge screen says so; `D` ticks it once every session there is done; undoing either reopens it. Work removed or deleted without merging puts the task back in the backlog, marked with the branch it was tried in. Done tasks fold away after a week.
 
 ### Git Changes
 

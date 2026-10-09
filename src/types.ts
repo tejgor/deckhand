@@ -183,7 +183,7 @@ export interface SessionRecord {
 	agentVersion?: string;
 	/** Marked done with `D` (any session; independent of merged). */
 	doneAt?: string;
-	/** Started from a task: its first launch sends this (the task's title and body) as the first message. */
+	/** Started from a task: typed (not sent) into the agent's input once it first settles; cleared once typed or given up. */
 	startPrompt?: string;
 }
 
