@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type {ProgramKey, SessionRecord} from './types.js';
 import {sessionOutdated} from './agentVersions.js';
-import {sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
+import {SESSION_FILTER_KEYS, SESSION_FILTERS, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
 import {countHiddenSessionDescendants, countSessionDescendants, sessionDepth, sessionHasChildren} from './sessionOrder.js';
 import {THEME, displaySessionTitle, programGlyph, statusColor, statusGlyph, truncate} from './ui.js';
 import {wrapWords} from './menu.js';
@@ -162,6 +162,20 @@ export function sidebarHeader({width, filter, query, shown, total, allSessions}:
 	}
 	// The title goes first when the label needs its columns.
 	return {title: room - label.length - 1 >= 'Sessions'.length ? 'Sessions' : '', label, attention, highlighted};
+}
+
+/** One line of the filter menu (f): `› a  active      12`, the cursor in the sidebar's cursor column. */
+export interface FilterMenuLine {filter: SessionFilter; selected: boolean; cursor: string; key: string; label: string; count: string}
+
+/** The filter menu at `width` columns (the session rows' width): the label is cut before the count. */
+export function filterMenuLines(selected: SessionFilter, counts: Record<SessionFilter, number>, width: number): FilterMenuLine[] {
+	return SESSION_FILTERS.map(filter => {
+		const cursor = filter === selected ? '›' : ' ', key = SESSION_FILTER_KEYS[filter], count = String(counts[filter]);
+		// `› a  ` before the label, one column before the count.
+		const room = width - 5 - count.length - 1;
+		const label = room >= filter.length ? filter.padEnd(room) : truncate(filter, Math.max(0, room));
+		return {filter, selected: filter === selected, cursor, key, label, count: room >= 0 ? ` ${count}` : ''};
+	});
 }
 
 export interface DetailPart {text: string; color?: string; dim?: boolean}

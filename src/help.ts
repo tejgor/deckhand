@@ -35,7 +35,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 	{title: 'Find & organize', lines: [
 		key('1-9  0', 'Select by number (0 is 10; with more than 10, type the number: Enter or a short pause selects, Esc clears)'),
 		key('/', 'Search titles, notes, tasks, agent, branch and path (Enter keeps it, Esc clears)'),
-		key('f', 'Filter: active, archived, all, attention, running, exited (the sidebar header names it)'),
+		key('f', 'Filter menu: a active · r running · ! attention · e exited · A archived · * all; f f back to active (the sidebar header names any other)'),
 		key('!', 'Next session that needs attention'),
 		key('J K', 'Move the session down / up among its siblings'),
 		key('c', 'Hide exited children → collapse → expand'),

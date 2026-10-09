@@ -6,15 +6,12 @@ import {needsAttention} from './agentSignals.js';
 import type {SessionRecord} from './types.js';
 import type {HandoffGitContext} from './workspaceGit.js';
 export type SessionFilter = 'active' | 'archived' | 'all' | 'attention' | 'running' | 'exited';
-export const SESSION_FILTERS: SessionFilter[] = ['active', 'archived', 'all', 'attention', 'running', 'exited'];
-export function nextSessionFilter(filter: SessionFilter): SessionFilter {
-	return SESSION_FILTERS[(SESSION_FILTERS.indexOf(filter) + 1) % SESSION_FILTERS.length]!;
-}
-/** Shown when f switches filters: the current one, then the rest of the cycle in the order f visits them. */
-export function filterCycleMessage(filter: SessionFilter): string {
-	const rest: SessionFilter[] = [];
-	for (let next = nextSessionFilter(filter); next !== filter; next = nextSessionFilter(next)) rest.push(next);
-	return `Filter: ${filter} · f → ${rest.join(' › ')}`;
+/** In the order the filter menu (f) lists them: the everyday views first. */
+export const SESSION_FILTERS: SessionFilter[] = ['active', 'running', 'attention', 'exited', 'archived', 'all'];
+/** The key that picks each filter in the filter menu; `!` and `A` match the attention and archive keys of the session list. */
+export const SESSION_FILTER_KEYS: Record<SessionFilter, string> = {active: 'a', running: 'r', attention: '!', exited: 'e', archived: 'A', all: '*'};
+export function filterForKey(input: string): SessionFilter | undefined {
+	return SESSION_FILTERS.find(filter => SESSION_FILTER_KEYS[filter] === input);
 }
 export function sessionNeedsAttention(session: SessionRecord): boolean {
 	return needsAttention(session.attention?.state) || session.exitReason === 'failed' || session.exitReason === 'interrupted';
@@ -36,6 +33,10 @@ export function filterSessionList(sessions: SessionRecord[], filter: SessionFilt
 		}
 	}
 	return sessions.filter(session => ids.has(session.id));
+}
+/** How many rows each filter would list with this search (ancestors shown for context included, collapse not applied). */
+export function sessionFilterCounts(sessions: SessionRecord[], query: string, taskTitle?: (session: SessionRecord) => string | undefined): Record<SessionFilter, number> {
+	return Object.fromEntries(SESSION_FILTERS.map(filter => [filter, filterSessionList(sessions, filter, query, taskTitle).length])) as Record<SessionFilter, number>;
 }
 // File names and subjects can contain control characters or newlines; quote those so each stays one line.
 const oneLine = (text: string) => /[\u0000-\u001f\u007f\u2028\u2029]/.test(text) ? JSON.stringify(text) : text;

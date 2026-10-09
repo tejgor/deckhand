@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import React from 'react';
 import {renderToString} from 'ink';
-import {doneText, formatAge, locationText, msUntilAgeChanges, sessionDetails, sidebarHeader, sidebarRows, statusSince, statusWords, type SidebarRowsInput} from '../src/sidebarModel.js';
+import {doneText, filterMenuLines, formatAge, locationText, msUntilAgeChanges, sessionDetails, sidebarHeader, sidebarRows, statusSince, statusWords, type SidebarRowsInput} from '../src/sidebarModel.js';
 import {Sidebar, moreText, partStyle} from '../src/sidebar.js';
 import {sortSessionsForSidebar} from '../src/sessionOrder.js';
 import type {SessionRecord} from '../src/types.js';
@@ -265,4 +265,22 @@ test('a scrolling list keeps the same rows whichever session is selected: the de
 	assert.equal(shape(withTask).rule, shape(withTask).more + 1);
 	assert.ok(withTask.some(line => line.includes('◆ Fix the footer')));
 	assert.ok(!without.some(line => line.includes('◆')));
+});
+
+test('Sidebar with the filter menu open lists every filter with its key and count above the sessions', () => {
+	const few = Array.from({length: 3}, (_, index) => session(`s${index}`, {title: `session number ${index}`}));
+	const counts = {active: 3, running: 3, attention: 0, exited: 0, archived: 0, all: 12};
+	const lines = plain(renderToString(React.createElement(Sidebar, {sessions: few, allSessions: few, selectedId: 's1', width: 34, height: 24, spinnerFrame: '⠋', filter: 'running', query: '', now: NOW, filterMenu: {selected: 'running', counts}}), {columns: 34})).split('\n');
+	assert.deepEqual(lines.slice(2, 9), [
+		'│  a  active                   3 │',
+		'│› r  running                  3 │',
+		'│  !  attention                0 │',
+		'│  e  exited                   0 │',
+		'│  A  archived                 0 │',
+		'│  *  all                     12 │',
+		'│ ────────────────────────────── │',
+	]);
+	assert.match(lines[9]!, /1 ● session number 0/);
+	// Narrow: the label is cut before the count.
+	assert.deepEqual(filterMenuLines('active', counts, 9).map(line => `${line.cursor} ${line.key}  ${line.label}${line.count}`).slice(4), ['  A  a… 0', '  *  a 12']);
 });

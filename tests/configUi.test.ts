@@ -83,7 +83,16 @@ test('isolated terminal UI asks for trust only when repository config is about t
 	assert.equal(await fs.readFile(file, 'utf8'), '{"devCommand":"d"}');
 
 	const preferences = async () => Object.values(await readJson('ui-state.json'))[0] as {sessionFilter?: string; sessionQuery?: string} | undefined;
-	press('f'); await waitFor(preferences, state => state?.sessionFilter === 'archived', UI_WAIT_MS);
+	// f opens the filter menu and a key picks one; `fA` typed fast arrives as one chunk.
+	press('fA'); await waitFor(preferences, state => state?.sessionFilter === 'archived', UI_WAIT_MS);
+	// j shows the next filter at once; Esc restores the one the menu was opened on; f f goes back to active.
+	press('f'); await screen('f back to active');
+	press('j'); await waitFor(preferences, state => state?.sessionFilter === 'all', UI_WAIT_MS);
+	press('\x1b'); await waitFor(preferences, state => state?.sessionFilter === 'archived', UI_WAIT_MS);
+	press('f'); await screen('f back to active');
+	press('f'); await waitFor(preferences, state => state?.sessionFilter === 'active', UI_WAIT_MS);
+	press('f'); await screen('f back to active');
+	press('A'); await waitFor(preferences, state => state?.sessionFilter === 'archived', UI_WAIT_MS);
 	press('/'); await screen('Search: /');
 	press('marker'); await waitFor(preferences, state => state?.sessionQuery === 'marker', UI_WAIT_MS);
 	press('\r'); await screen('C settings');
