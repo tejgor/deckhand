@@ -396,6 +396,8 @@ export type ClientRequest =
 	| {type: 'open-tasks'; requestId: string; cwd: string}
 	/** Sends the open checklist item on `line` of a note (at `revision`) to the repository's tasks; the line becomes a link. */
 	| {type: 'promote-note-item'; requestId: string; sessionId: string; section: 'session' | 'shared'; noteId?: string; line: number; revision: string}
+	/** The reverse: a task sent from a note goes back there as a checklist item (its `↗` line), and leaves the list. Responds with the TasksDoc. */
+	| {type: 'return-task-to-note'; requestId: string; cwd: string; taskId: string}
 	| {type: 'list-branches'; requestId: string; cwd: string}
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
 	| {type: 'reorder-session'; requestId: string; sessionId: string; direction: 'up' | 'down'}

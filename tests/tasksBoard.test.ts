@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {parseTasks} from '../src/tasks.js';
-import {boardRows, linkedTask, otherOpenTasks, workKeyOf, workLabel, workOptions, type BoardRow} from '../src/tasksBoard.js';
+import {boardRows, linkedTask, noteGroupLabel, noteItems, otherOpenTasks, pickerCounts, pickerRows, pickerViewOf, taskOrigin, workKeyOf, workLabel, workOptions, type BoardRow} from '../src/tasksBoard.js';
 import type {SessionRecord} from '../src/types.js';
 
 const NOW = new Date('2026-10-09T12:00:00Z');
@@ -58,4 +58,56 @@ test('a session\'s task: the open one it was started for, then a follow-up; the 
 	assert.equal(linkedTask(followUpOnly, sessions[1])?.title, 'Later');
 	assert.equal(otherOpenTasks(followUpOnly, sessions[1]), 0);
 	assert.equal(linkedTask(tasks, sessions[0]), undefined);
+});
+
+test('the w menu: backlog and the way back to the note pinned, then one view (worktrees or main-checkout sessions), searchable', () => {
+	const many = [...sessions, session('notes', {title: 'triage notes'}), session('spike', {title: 'perf spike'})];
+	const options = workOptions(many, 'wt:w1');
+	const labels = (rows: ReturnType<typeof pickerRows>) => rows.map(row => row.label);
+	assert.deepEqual(labels(pickerRows(options, 'worktrees', '')), ['Backlog · no worktree', '⎇ feat/auth', '⎇ fix/e2e']);
+	assert.deepEqual(labels(pickerRows(options, 'sessions', '', 'triage notes')), ['Backlog · no worktree', '↩ Back to its note · triage notes', 'main checkout · main', 'main checkout · triage notes', 'main checkout · perf spike']);
+	// Search matches every word, in labels and in the titles of a worktree's sessions; the pinned rows stay.
+	assert.deepEqual(labels(pickerRows(options, 'worktrees', 'tests')), ['Backlog · no worktree', '⎇ feat/auth']);
+	assert.deepEqual(labels(pickerRows(options, 'sessions', 'PERF spike')), ['Backlog · no worktree', 'main checkout · perf spike']);
+	assert.deepEqual(pickerCounts(options, ''), {worktrees: 2, sessions: 3});
+	assert.deepEqual(pickerCounts(options, 'e2e'), {worktrees: 1, sessions: 0});
+	assert.equal(pickerViewOf('s:main'), 'sessions');
+	assert.equal(pickerViewOf('wt:w1'), 'worktrees');
+	assert.equal(pickerViewOf(undefined), 'worktrees');
+});
+
+test('a task\'s origin: the note (session\'s or shared) still holding its ↗ line, unless done, started, or read-only', () => {
+	const withNotes = [
+		session('a', {title: 'notes holder', notes: '- ↗ From a session <!-- dh:t=11111111 -->'}),
+		inWorktree('b', 'w1', 'feat/auth', {sharedNotes: {kind: 'worktree', id: 'w1', text: '- ↗ From the worktree <!-- dh:t=22222222 -->', revision: 'r'}} as Partial<SessionRecord>),
+		inWorktree('c', 'w9', 'gone', {sharedNotes: {kind: 'worktree', id: 'w9', text: '- ↗ Deleted <!-- dh:t=33333333 -->', revision: 'r', readOnly: true}} as Partial<SessionRecord>),
+	];
+	const [one, two, three, started, done] = parseTasks([
+		'- [ ] From a session <!-- dh:t=11111111 -->', '- [ ] From the worktree <!-- dh:t=22222222 wt=w1 assigned=2026-10-09 -->', '- [ ] Deleted <!-- dh:t=33333333 -->',
+		'- [ ] Started <!-- dh:t=11111111 wt=w1 -->', '- [x] Done <!-- dh:t=22222222 -->',
+	].join('\n'));
+	assert.equal(taskOrigin(one!, withNotes), 'notes holder');
+	assert.equal(taskOrigin(two!, withNotes), '⎇ feat/auth');
+	assert.equal(taskOrigin(three!, withNotes), undefined);
+	assert.equal(taskOrigin(started!, withNotes), undefined);
+	assert.equal(taskOrigin(done!, withNotes), undefined);
+});
+
+test('note items: every session\'s notes, grouped by worktree (its shared note first) in sidebar order, the main checkout last', () => {
+	const shared = (id: string, text: string) => ({sharedNotes: {kind: 'worktree', id, text, revision: 'r'}});
+	const notesOf = (text: string) => ({notes: text, notesFile: {path: '/n', revision: 'r'}});
+	const all = [
+		session('triage', {title: 'triage', ...notesOf('- [ ] main one\n- [x] ticked\n- ↗ sent <!-- dh:t=1 -->')} as Partial<SessionRecord>),
+		inWorktree('a1', 'w1', 'feat/auth', {...notesOf('- [ ] from a1'), ...shared('w1', '- [ ] shared auth')} as Partial<SessionRecord>),
+		inWorktree('a2', 'w1', 'feat/auth', {...notesOf(''), ...shared('w1', '- [ ] shared auth')} as Partial<SessionRecord>),
+		inWorktree('e', 'w2', 'fix/e2e', {...notesOf('- [ ] from e2e')} as Partial<SessionRecord>),
+	];
+	const items = noteItems(all);
+	assert.deepEqual(items.map(item => [item.group, item.title, item.source]), [
+		['wt:w1', 'shared auth', 'worktree note'], ['wt:w1', 'from a1', 'a1'],
+		['wt:w2', 'from e2e', 'e'],
+		['main', 'main one', 'triage'],
+	]);
+	assert.equal(noteGroupLabel('wt:w2', all), '⎇ fix/e2e');
+	assert.equal(noteGroupLabel('main', all), 'main checkout');
 });

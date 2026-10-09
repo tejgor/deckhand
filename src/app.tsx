@@ -632,7 +632,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [actionIndex, setActionIndex] = useState(0);
 	const [pendingDeleteBranch, setPendingDeleteBranch] = useState(false);
 	const [handoffFromId, setHandoffFromId] = useState<string>();
-	const [sessions, setSessions] = useState<SessionRecord[]>([]);
+	// Every session of the repository (the daemon sends all its checkouts'), for the Tasks board; the sidebar and the
+	// rest of the UI work with `sessions`, the ones of the checkout this UI was opened in.
+	const [repoSessions, setSessions] = useState<SessionRecord[]>([]);
+	const sessions = useMemo(() => repoSessions.filter(session => sessionMatchesScope(session, repoRoot)), [repoSessions, repoRoot]);
 	const [sessionsLoaded, setSessionsLoaded] = useState(false);
 	const [collapsedSessionIds, setCollapsedSessionIds] = useState<Set<string>>(() => new Set(initialCollapsedSessionIds ?? []));
 	const [hiddenExitedSessionIds, setHiddenExitedSessionIds] = useState<Set<string>>(() => new Set(initialHiddenExitedSessionIds ?? []));
@@ -844,12 +847,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		void (async () => {
 			try {
 				const nextClient = await createLiveClient({
-					onSessionUpdated: session => {
-						if (!sessionMatchesScope(session, repoRoot)) {
-							return;
-						}
-						setSessions(current => upsertSession(current, session));
-					},
+					// Sessions of the repository's other checkouts too (the board's); `sessions` keeps the sidebar to this one.
+					onSessionUpdated: session => setSessions(current => upsertSession(current, session)),
 					onSessionRemoved: sessionId => {
 						setSessions(current => current.filter(session => session.id !== sessionId));
 						if (selectedIdRef.current === sessionId) {
@@ -1201,7 +1200,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setError(undefined);
 		try {
 			const reordered = await client.reorderSession(selectedSession.id, direction);
-			setSessions(sortSessions(reordered));
+			setSessions(current => sortSessions(reordered.reduce(upsertSession, current)));
 		} catch (nextError) {
 			setError(errorMessage(nextError));
 		} finally {
@@ -1439,11 +1438,19 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setBusy, setError, setStatusMessage,
 	});
 	const notesFlow = useNotesFlow({client, session: selectedSession, sessions, focused: mode === 'notes-focus', onExit: () => setMode('browse'), setError, setStatusMessage, onTasks: setTasksDoc});
+	// The board spans the repository; a session of another checkout is in the sidebar of the Deckhand opened there.
+	const elsewhere = (sessionId: string) => {
+		const target = repoSessions.find(session => session.id === sessionId);
+		if (!target || sessions.some(session => session.id === sessionId)) return false;
+		setStatusMessage(`${displaySessionTitle(target, repoSessions)} is in the sidebar of the Deckhand opened in ${compactPath(target.repoRoot, 60)}`);
+		return true;
+	};
 	const tasksFlow = useTasksFlow({
-		client, repoRoot, doc: tasksDoc, tasks, sessions, spinnerFrame,
+		client, repoRoot, doc: tasksDoc, tasks, sessions: repoSessions, spinnerFrame,
 		onExit: () => setMode('browse'),
 		onStart: task => startFromTask(task),
 		onGoTo: sessionId => {
+			if (elsewhere(sessionId)) return;
 			const target = sessions.find(session => session.id === sessionId);
 			if (target?.archivedAt) setSessionFilter('all');
 			setSessionQuery('');
@@ -1451,6 +1458,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			setMode('browse');
 		},
 		onOpenNote: sessionId => {
+			if (elsewhere(sessionId)) return;
 			sessionTabsRef.current[sessionId] = 'notes';
 			setSelectedId(sessionId);
 			setActiveTab('notes');
@@ -1539,7 +1547,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 	// Backspace: removing a session deletes its note (and its worktree's, when it is the last there); open items ask first.
 	const requestRemove = () => {
-		const items = selectedSession?.status === 'exited' ? openItemsRemovedWith(selectedSession, sessions) : [];
+		const items = selectedSession?.status === 'exited' ? openItemsRemovedWith(selectedSession, repoSessions) : [];
 		if (!items.length) { void removeSelected(); return; }
 		setRemoveItems(items);
 		setMode('confirm-remove');
@@ -2721,7 +2729,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							<DevPane session={selectedSession} dev={dev} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
 						) : selectedTask ? (
 							<Box flexDirection="column">
-								<TaskBanner task={selectedTask} more={otherOpenTasks(tasks, selectedSession)} sessions={sessions} spinnerFrame={spinnerFrame} width={layout.paneInnerWidth} />
+								<TaskBanner task={selectedTask} more={otherOpenTasks(tasks, selectedSession)} sessions={repoSessions} spinnerFrame={spinnerFrame} width={layout.paneInnerWidth} />
 								{notesFlow.render(layout.paneInnerWidth, Math.max(1, layout.paneInnerHeight - 2))}
 							</Box>
 						) : (

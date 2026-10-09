@@ -223,13 +223,13 @@ The Notes tab shows two notes: the worktree's, shared by every session in that w
 | `j` / `k` (`↑`/`↓`), `g` / `G` | Select a task / the first / the last |
 | `a` / `enter` | Add a task (to the group the selection is in: a worktree's, as a follow-up, or the backlog) / edit the selected one: title, then `tab` for its details (typed into the agent's input with the title when a session starts from it); `enter` saves the title, `ctrl+s` saves from the details |
 | `n` | Start a session for a backlog task or a follow-up (it moves to the new worktree): the usual new-session form, named after it, in a new worktree; `↑`/`↓` pick the base branch |
-| `w` | Move the task to a worktree (or a main-checkout session) as a follow-up, or back to the backlog |
+| `w` | Move the task: to the backlog, back to the note it was sent from (`↩`, when a note still links it), or to a worktree / main-checkout session as a follow-up. `tab` switches between the Worktrees and Sessions lists, typing searches (names, branches and session titles), `↑`/`↓` choose, `esc` clears the search, then cancels |
 | `v` | Only the tasks of the worktree you opened the board from / every task |
 | `space` | Tick a task done, or reopen it |
 | `o` | Open (select) the session doing it |
 | `J` / `K` | Reorder within its group |
 | `x` | Delete (press twice) |
-| `tab` | Open checklist items in notes that are not tasks yet; `a` adds one as a task, `enter` opens its note |
+| `tab` | Open checklist items in every session's notes that are not tasks yet, grouped by worktree (then the main checkout); `a` adds one as a task, `enter` opens its note |
 | `E` | Open the task list in Cursor / VS Code |
 | `esc` | Back |
 

@@ -66,11 +66,22 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	// A note item sent from a worktree session lands on that worktree; w moves it to the backlog.
 	press('b'); await screen('☐ Follow up on review');
 	assert.match(await tasksFile(), /- \[ \] Follow up on review <!-- dh:t=[0-9a-f]{8} wt=[0-9a-f-]{36} assigned=\d{4}-\d\d-\d\d added=/);
+	// w: the backlog and the way back to its note come first, then the worktrees (Tab: main-checkout sessions); typing searches.
 	press('G'); await screen('› ☐ Follow up on review');
-	press('w'); await screen('Move “Follow up on review” to'); await screen('Backlog · no worktree');
-	press('k'); await screen('› Backlog · no worktree');
+	press('w'); await screen('Move “Follow up on review” to'); await screen('↩ Back to its note'); await screen('› ⎇ write');
+	press('\t'); await screen('No sessions in the main checkout');
+	press('\t'); await screen('› ⎇ write');
+	press('zz'); await screen('Nothing in worktrees matches “zz”');
+	press('\x1b'); await screen('type to search');
+	press('\x1b[A'); await screen('› ↩ Back to its note');
+	press('\x1b[A'); await screen('› Backlog · no worktree');
 	press('\r'); await screen('Moved to the backlog'); await screen('BACKLOG · 1');
 	assert.match(await tasksFile(), /- \[ \] Follow up on review <!-- dh:t=[0-9a-f]{8} added=/);
+	// And back to the note it was sent from: an open item there again, gone from the list.
+	press('w'); await screen('↩ Back to its note');
+	press('\x1b[A'); await screen('› ↩ Back to its note');
+	press('\r'); await screen('Back in the note of'); await screen('Nothing waiting');
+	assert.doesNotMatch(await tasksFile(), /Follow up on review/);
 
 	// Keymap: [ goes to the previous tab (Notes → Dev), x asks before stopping, Esc backs out of it, Space marks done.
 	press('\x1b'); await screen('enter edit notes');
@@ -82,5 +93,7 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('X'); await screen('s resume');
 	press('\x7f'); await screen('Archived Write the docs'); await screen('No sessions match');
 	press('f'); await screen('A  archived'); press('A'); await screen('A unarchive'); await screen('backspace remove');
-	press('\x7f'); await screen('No sessions yet.');
+	// Its note has the open item sent back from Tasks: removing asks first; x removes anyway.
+	press('\x7f'); await screen('Follow up on review');
+	press('x'); await screen('No sessions yet.');
 });
