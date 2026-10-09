@@ -7,7 +7,7 @@ import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 import type {TaskOp} from './tasks.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 41;
+export const PROTOCOL_VERSION = 42;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -76,6 +76,59 @@ export interface WorktreeInfoRecord {
 	branch: string;
 	head: string;
 	isMain: boolean;
+}
+
+/**
+ * W (the worktree manager): one worktree of the repository. Git's list plus Deckhand's live records whose worktree Git no
+ * longer lists (`missing: 'unlisted'`, removed outside Deckhand).
+ */
+export interface WorktreeOverviewEntry {
+	path: string;
+	branch: string;
+	head: string;
+	isMain: boolean;
+	locked?: boolean;
+	/** `prunable`: Git lists it but its directory is gone; `unlisted`: only Deckhand still has a record of it. */
+	missing?: 'prunable' | 'unlisted';
+	/** The live Deckhand worktree record at this path (none: a worktree Deckhand did not create or attach). */
+	recordId?: string;
+	createdAt?: string;
+	/** The record's merge markers (merged by Deckhand, detected, or M). */
+	markers?: WorktreeMarkers;
+	/** Sessions in it (the record's, plus sessions whose workspace is this worktree), and which of them are not exited. */
+	sessionIds: string[];
+	runningIds: string[];
+	/** The checkout the asking Deckhand runs in, or one another open Deckhand runs in: never deleted from here. */
+	inUse?: 'this' | 'other';
+	/** HEAD's last commit (ISO) and its commits the default branch (local or origin/) lacks; absent when unknown. */
+	lastCommitAt?: string;
+	aheadOfDefault?: number;
+	/** Deleting the worktree and its branch: what would be lost (absent for the main checkout and missing worktrees). */
+	inspection?: CleanupInspection;
+	/** Why the Git details could not be read. */
+	error?: string;
+}
+
+export interface WorktreeOverview {
+	/** The main checkout and the default branch it was compared with. */
+	mainRoot?: string;
+	defaultBranch?: string;
+	entries: WorktreeOverviewEntry[];
+	/** Linked worktrees not inspected (beyond WORKTREE_OVERVIEW_MAX); listed without Git details. */
+	unchecked?: number;
+	checkedAt: string;
+}
+
+/** What deleting one worktree would cost: the cleanup inspection, its structural blockers and the sessions it stops. */
+export type WorktreeCleanupInspection = SessionCleanupInspection & {running: Array<{id: string; title: string}>};
+
+export interface WorktreeDeleteResult {
+	/** Removed, or (a missing worktree) only forgotten / pruned. */
+	removed: 'deleted' | 'pruned' | 'forgotten';
+	branchDeleted?: string;
+	/** Sessions stopped first, and exited sessions of it archived after. */
+	stopped: number;
+	archived: number;
 }
 
 export interface WorktreeMergeResult {
@@ -367,6 +420,15 @@ export type ClientRequest =
 	| {type: 'update-agent'; requestId: string; program: ProgramKey}
 	| {type: 'subscribe'; requestId: string; repoRoot: string}
 	| {type: 'list-worktrees'; requestId: string; cwd: string}
+	/** W: every worktree of the repository `cwd` belongs to, with its sessions, merge state and what deleting it would lose. */
+	| {type: 'worktree-overview'; requestId: string; cwd: string}
+	/** The deletion check for one listed worktree (`deleteBranch`: its branch too), right before confirming. */
+	| {type: 'inspect-worktree'; requestId: string; cwd: string; path: string; deleteBranch?: boolean}
+	/**
+	 * Deletes a listed worktree (`branch`: as listed; refused when it changed). Its running sessions are stopped first only
+	 * with `stopSessions`; `allowDataLoss` overrides the data checks (typed DELETE). A missing one is pruned or forgotten.
+	 */
+	| {type: 'delete-worktree'; requestId: string; cwd: string; path: string; branch?: string; deleteBranch?: boolean; stopSessions?: boolean; allowDataLoss?: boolean}
 	| {type: 'watch-preview'; requestId: string; sessionId?: string; cols: number; rows: number; scrollOffset?: number}
 	| {type: 'watch-terminal'; requestId: string; sessionId?: string; cols: number; rows: number}
 	| {type: 'watch-git'; requestId: string; sessionId?: string; cols: number; rows: number}

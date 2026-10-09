@@ -374,3 +374,15 @@ export async function mergedIntoDefault({cwd, tip, branch, start, defaults}: Anc
 	if (await optionalGit(cwd, ['merge-base', '--is-ancestor', start, tip], {timeout: 5000}) === undefined) return false;
 	return branch ? await branchHasOwnCommits(cwd, branch) !== false : true;
 }
+
+/**
+ * When HEAD was last committed, and how many of its commits none of `defaults` (the default branch, local and `origin/`)
+ * has; each absent when Git cannot tell. Bounded: two Git calls.
+ */
+export async function worktreeActivity(cwd: string, defaults: string[]): Promise<{lastCommitAt?: string; aheadOfDefault?: number}> {
+	const [time, ahead] = await Promise.all([
+		optionalGit(cwd, ['log', '-1', '--format=%cI', 'HEAD', '--'], {timeout: 5000}),
+		defaults.length ? optionalGit(cwd, ['rev-list', '--count', 'HEAD', '--not', ...defaults, '--'], {timeout: 5000}) : undefined,
+	]);
+	return {...time ? {lastCommitAt: time} : {}, ...ahead !== undefined && /^\d+$/.test(ahead) ? {aheadOfDefault: Number(ahead)} : {}};
+}

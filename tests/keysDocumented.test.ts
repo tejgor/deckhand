@@ -34,3 +34,11 @@ test('every key the Tasks board handles is in the guide\'s Tasks topic', async (
 	const missing = handledKeys(source, 'const handleInput = ', 'const promote = ').filter(key => !documented.has(key));
 	assert.deepEqual(missing, [], `Tasks keys missing from the Tasks help topic: ${missing.join(' ')}`);
 });
+
+test('every key the worktree manager handles is in the guide\'s Worktrees topic', async () => {
+	const source = await fs.readFile(new URL('../src/worktreesFlow.tsx', import.meta.url), 'utf8');
+	const topic = HELP_TOPICS.find(entry => entry.title === 'Worktrees')!;
+	const documented = new Set(topic.lines.flatMap(line => [...words('keys' in line ? `${line.keys} ${line.text}` : 'note' in line ? line.note : line.heading)]));
+	const missing = handledKeys(source, 'const handleInput = ', 'const render = ').filter(key => !documented.has(key));
+	assert.deepEqual(missing, [], `Worktrees keys missing from the Worktrees help topic: ${missing.join(' ')}`);
+});

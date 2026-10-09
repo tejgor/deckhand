@@ -49,6 +49,7 @@ Tools for running coding agents in parallel typically rely on [`tmux`](https://g
 - **Resumable Agents** — Claude/Pi retain native identities; Codex resumes when its native ID is captured. Unknown IDs never silently become a blank conversation. Fresh restart remains explicit.
 - **Tasks** — One task list per repository (`b`), beside the notes, grouped by the worktree each open task is on (with the live state of its sessions), then backlog and done; `v` shows only the current worktree's. `n` starts a session for a task in a new worktree (you pick the base branch); `w` assigns a task to a worktree as a follow-up. Merging that worktree ticks the task it was started for, asks about its follow-ups, and work dropped unmerged goes back to the backlog.
 - **Notes with checklists** — Each session's notes plus one note per worktree shared by every session in it, as Markdown files you can also edit in VS Code; `- [ ]` items render as ☐/☑ and their open count shows in the sidebar.
+- **Worktree Manager** — `W` lists every worktree of the repository (Deckhand's or made with `git worktree add`) grouped by what to do with it: merged and safe to delete, merged with leftovers, in progress, idle, missing. Each shows its sessions, uncommitted files, commits not in the default branch and last activity. `x` deletes one, stopping the sessions still running in it after one confirmation, and `x` on the safe group deletes them all with their branches.
 - **Safer Cleanup** — Check uncommitted, untracked and valuable ignored files, and commits that deleting a branch would lose, before deletion; force kill and data-loss authorization are separate.
 - **Merge Helpers** — Merge or squash-merge a session's worktree into the current branch, staged for review rather than committed: a preview shows the target, commits and diff stat first, uncommitted work can be committed first, conflicts are kept to resolve or aborted in one key, and worktrees merged elsewhere (into the default branch, or a merged PR) are marked by themselves.
 - **Git Changes** — The Git tab lists the worktree's changes like VS Code's Source Control panel (merge conflicts, staged, unstaged, untracked, with line counts), previews each file's diff, stages/unstages files and opens them in your editor at the first change; `lazygit` (optional) is one key away for everything else.
@@ -163,6 +164,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `H` | Export/open a handoff (notes plus commits and changed files, no diff content); `N` → ↳ then creates a clean child from it |
 | `i` | Workspace Git summary; `P` queries PR, `b` opens it, `c` pushes and opens GitHub's new-PR form (after confirmation), `g` opens the Git tab |
 | `b` | Tasks: the repository's task list (see [Tasks](#tasks)) |
+| `W` | Worktrees: every worktree of the repository, which are merged, and deleting them (see [Worktrees](#worktrees)) |
 | `C` | Settings: a grid of every setting with a Global and a This repo column (● in effect, ⚠ needs trust); ↑↓ (`j`/`k`, PgUp/PgDn, Home/End) setting, ←→ or `tab` column, `enter` edits that cell's layer, `x` clears it, `E` that column's raw JSON (Ctrl+S saves, Ctrl+F formats), `T` reviews/trusts the repo file; in Actions `a` adds and `x` removes, in Linked items `space` toggles and `enter` saves |
 | `U` | Agents: installed vs latest version of Claude, Pi and Codex; `enter` runs the selected agent's own updater (asks first when it has running sessions, which keep their version until restarted), `r` re-checks, `esc` back |
 | `R` | Reload the session list (it updates live; rarely needed) |
@@ -234,6 +236,28 @@ The Notes tab shows the note of the place you work. A session in a worktree has 
 | `esc` | Back |
 
 A task started with `n` is linked to its session's worktree (or, in the main checkout, to the session): the board shows the most urgent state of the sessions there (needs you, working, idle, exited), the session's Notes tab and sidebar details name the task (and count the worktree's other open tasks), and the task (`title: details`, one line) is typed into the agent's input once it has started, not sent: edit it and press Enter yourself. Deckhand waits until the agent's screen settles, never types into a menu or question (a folder-trust prompt, for example), and skips it if you start typing first or the agent doesn't settle within two minutes. Merging the worktree (`m`, `M`, or found merged) ticks it, and the merge screen says so; `D` ticks it once every session there is done; undoing either reopens it. Follow-ups are never ticked on their own: `m` lists them (up to five) and `space` ticks the ones you finished, and any left open go back to the backlog marked *left open in ⎇ branch* (unmarking the merge puts them back). Work removed or deleted without merging puts its tasks back in the backlog, marked with the branch they were tried in or left open in. Handoffs (`H`) list a worktree's open follow-ups. Done tasks fold away after a week.
+
+### Worktrees
+
+`W` opens every worktree of the repository in the right pane, grouped:
+
+- **Merged · safe to delete** — merged (by Deckhand, found merged into the default branch or as a merged PR, or marked with `M`), or with nothing beyond the default branch, and deleting it with its branch loses nothing.
+- **Merged · has leftovers** — merged, but it still has uncommitted files or commits only on its branch.
+- **In progress** / **Idle** — not merged; idle once nothing has run or been committed there for 14 days.
+- **Missing** — its directory is gone (Git still lists it), or Git no longer lists a worktree Deckhand had.
+- **Main checkout** — listed for its sessions, never deleted.
+
+| Key | Action |
+| --- | --- |
+| `j` / `k`, `g` / `G` | Move |
+| `x` | Delete the selected worktree, asking first: keep or delete its branch. Sessions still running in it are named and stopped first; uncommitted work or commits only on the branch need `DELETE` typed, as with `x` on a session. On a missing one: prune (Git's entry) or forget (Deckhand's record) |
+| `x` *(on "Merged · safe to delete")* | Delete every worktree in the group and its branch, after one confirmation |
+| `enter` / `o` | Select its session in the sidebar |
+| `M` / `E` | Mark it merged or clear the marker / open it in Cursor or VS Code |
+| `R` | Check them all again |
+| `esc` | Back |
+
+Deleted worktrees' sessions are archived (`f A` shows them; their notes stay readable). The main checkout, the worktree this Deckhand runs in, and one another Deckhand has open are never deleted from here.
 
 ### Git Changes
 

@@ -17,6 +17,7 @@ import {useChangesFlow} from './changesFlow.js';
 import {emptyChanges, type ChangesRecord} from './changesModel.js';
 import {useNotesFlow} from './notesFlow.js';
 import {TaskBanner, useTasksFlow} from './tasksFlow.js';
+import {useWorktreesFlow} from './worktreesFlow.js';
 import {isAssigned, parseTasks, type Task} from './tasks.js';
 import {linkedTask, linkedTasks, openItemsRemovedWith, otherOpenTasks, taskCountLabel, workKeyOf} from './tasksBoard.js';
 import {PreviewPane} from './preview.js';
@@ -142,7 +143,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'merge-conflicts' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss' | 'agents' | 'tasks' | 'confirm-remove' | 'pick-filter';
+type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'merge-conflicts' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss' | 'agents' | 'tasks' | 'confirm-remove' | 'pick-filter' | 'worktrees';
 
 interface AppProps {
 	repoRoot: string;
@@ -566,7 +567,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 		case 'help': case 'settings': case 'agents':
 		case 'edit-project': case 'discard-project': case 'workspace-info': case 'review-project': case 'confirm-loss':
 		case 'pick-action': case 'pick-program': case 'enter-name': case 'pick-worktree': case 'confirm-kill': case 'confirm-merge': case 'merge-conflicts':
-		case 'tasks': case 'confirm-remove':
+		case 'tasks': case 'confirm-remove': case 'worktrees':
 			return '';
 		case 'preview-focus': {
 			const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
@@ -1445,18 +1446,19 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setStatusMessage(`${displaySessionTitle(target, repoSessions)} is in the sidebar of the Deckhand opened in ${compactPath(target.repoRoot, 60)}`);
 		return true;
 	};
+	const goToSession = (sessionId: string) => {
+		if (elsewhere(sessionId)) return;
+		const target = sessions.find(session => session.id === sessionId);
+		if (target?.archivedAt) setSessionFilter('all');
+		setSessionQuery('');
+		setSelectedId(sessionId);
+		setMode('browse');
+	};
 	const tasksFlow = useTasksFlow({
 		client, repoRoot, doc: tasksDoc, tasks, sessions: repoSessions, spinnerFrame,
 		onExit: () => setMode('browse'),
 		onStart: task => startFromTask(task),
-		onGoTo: sessionId => {
-			if (elsewhere(sessionId)) return;
-			const target = sessions.find(session => session.id === sessionId);
-			if (target?.archivedAt) setSessionFilter('all');
-			setSessionQuery('');
-			setSelectedId(sessionId);
-			setMode('browse');
-		},
+		onGoTo: goToSession,
 		onOpenNote: sessionId => {
 			if (elsewhere(sessionId)) return;
 			sessionTabsRef.current[sessionId] = 'notes';
@@ -1466,6 +1468,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		},
 		onDoc: setTasksDoc,
 		onSession: session => setSessions(current => upsertSession(current, session)),
+		setError, setStatusMessage,
+	});
+	const worktreesFlow = useWorktreesFlow({
+		client, cwd: repoRoot, sessions: repoSessions, spinnerFrame,
+		onExit: () => setMode('browse'),
+		onGoTo: goToSession,
 		setError, setStatusMessage,
 	});
 	const attachTo = (session: SessionRecord, target: AttachTarget) => exit({
@@ -1948,6 +1956,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 
+		if (mode === 'worktrees') {
+			worktreesFlow.handleInput(input, key);
+			return;
+		}
+
 		if (mode === 'confirm-remove') {
 			if (key.escape) { setMode('browse'); return; }
 			// Enter is the safe choice (keep the items as tasks); x removes them with the notes.
@@ -2200,6 +2213,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if (input === 'b') {
 				tasksFlow.open(selectedSession ? workKeyOf(selectedSession) : undefined);
 				setMode('tasks');
+				return;
+			}
+			// W: every worktree of the repository, what is merged, and deleting them (stopping their sessions first).
+			if (input === 'W') {
+				if (!client) { setError('still connecting to daemon'); return; }
+				worktreesFlow.open(selectedSession ? workspaceKey(selectedSession) : undefined);
+				setMode('worktrees');
 				return;
 			}
 			if (input === 'H' && client && selectedSession) {
@@ -2644,7 +2664,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Exactly FOOTER_ROWS rows, each truncated, so the layout above never shifts.
 	const footerRows = [
 		<Text key="hint" color={mode === 'search' ? THEME.active : THEME.muted} wrap="truncate-end">
-			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : mode === 'tasks' ? tasksFlow.hint(terminalSize.cols) : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach, mode === 'notes-focus' ? notesFlow.hint(terminalSize.cols) : undefined, hasAction(selectedSession, action) ? {switchHint: showingAction ? 'v shell' : `v ${action.name ?? 'action'} ${actionStatus(action).text}`, finished: showingAction && !action.live} : undefined)}
+			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : mode === 'tasks' ? tasksFlow.hint(terminalSize.cols) : mode === 'worktrees' ? worktreesFlow.hint(terminalSize.cols) : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach, mode === 'notes-focus' ? notesFlow.hint(terminalSize.cols) : undefined, hasAction(selectedSession, action) ? {switchHint: showingAction ? 'v shell' : `v ${action.name ?? 'action'} ${actionStatus(action).text}`, finished: showingAction && !action.live} : undefined)}
 		</Text>,
 		<Text key="messages" wrap="truncate-end">
 			{footerMessages.length > 0
@@ -2738,6 +2758,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					</Box>
 				) : mode === 'tasks' ? (
 					tasksFlow.render(layout.previewWidth, layout.contentHeight)
+				) : mode === 'worktrees' ? (
+					worktreesFlow.render(layout.previewWidth, layout.contentHeight)
 				) : mode === 'confirm-remove' ? (
 					<RemoveConfirmPane session={selectedSession} items={removeItems} width={layout.previewWidth} />
 				) : details ? (

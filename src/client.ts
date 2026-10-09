@@ -17,7 +17,7 @@ import {
 import {PROTOCOL_VERSION} from './types.js';
 import type {NoteSection} from './notes.js';
 import type {TaskOp} from './tasks.js';
-import type {ActionRecord, AgentUpdateResult, AgentVersions, BranchList, MergePreview, TasksDoc, NoteSaveResult, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
+import type {ActionRecord, AgentUpdateResult, AgentVersions, BranchList, MergePreview, TasksDoc, NoteSaveResult, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates, WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeOverview} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -391,6 +391,19 @@ export class LiveClient {
 
 	listWorktrees(cwd: string): Promise<WorktreeInfoRecord[]> {
 		return this.request<WorktreeInfoRecord[]>({type: 'list-worktrees', requestId: randomUUID(), cwd});
+	}
+
+	/** W: the repository's worktrees with their sessions, merge state and what deleting each would lose. */
+	worktreeOverview(cwd: string): Promise<WorktreeOverview> {
+		return this.request<WorktreeOverview>({type: 'worktree-overview', requestId: randomUUID(), cwd});
+	}
+
+	inspectWorktree(cwd: string, worktreePath: string, deleteBranch: boolean): Promise<WorktreeCleanupInspection> {
+		return this.request<WorktreeCleanupInspection>({type: 'inspect-worktree', requestId: randomUUID(), cwd, path: worktreePath, deleteBranch});
+	}
+
+	deleteWorktree(cwd: string, worktreePath: string, options: {branch?: string; deleteBranch?: boolean; stopSessions?: boolean; allowDataLoss?: boolean}): Promise<WorktreeDeleteResult> {
+		return this.request<WorktreeDeleteResult>({type: 'delete-worktree', requestId: randomUUID(), cwd, path: worktreePath, ...options});
 	}
 
 	restartSession(sessionId: string, cols: number, rows: number, mode: RestartMode = 'resume', projectFingerprint?: string): Promise<SessionRecord> {

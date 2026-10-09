@@ -1,0 +1,62 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {git, launcher, terminalUi, waitFor, UI_TEST_TIMEOUT_MS, UI_WAIT_MS} from './helpers.js';
+
+// A stand-in agent (never a real one): stays alive and prints a marker.
+const fakeAgent = `#!/usr/bin/env node
+if (process.argv.includes('--help')) { console.log('PROMPT --settings --no-daemon resume'); process.exit(0); }
+if (process.argv.includes('--version')) { console.log('1.0.0'); process.exit(0); }
+console.log('fake agent ready');
+process.stdin.resume();
+setInterval(() => {}, 10000);
+`;
+
+test('W in a real PTY: merged worktrees grouped, x on the group deletes them and stops their sessions, DELETE overrides data loss', {timeout: UI_TEST_TIMEOUT_MS}, async t => {
+	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-ui-'));
+	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
+	for (const agent of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, agent), fakeAgent, {mode: 0o755});
+	const {ui} = terminalUi(t, {args: [launcher, '--sandbox'], cwd: home, home, env: {PATH: `${bin}${path.delimiter}${process.env.PATH}`}});
+	const {screen, press} = ui;
+	await screen('DEV (isolated)'); await screen('● ready');
+	// A session in a new worktree whose branch is merged into main by hand while its agent runs.
+	press('n'); await screen('Choose an agent'); press('\r'); await screen('Workspace: new worktree');
+	press('shipped'); await screen('Name: shipped'); press('\r'); await screen('fake agent ready');
+	const worktree = path.join(home, 'worktrees', 'shipped'), sandbox = path.join(home, 'sandbox');
+	const branch = await git(worktree, 'branch', '--show-current');
+	await fs.writeFile(path.join(worktree, 'feature.txt'), 'feature\n');
+	await git(worktree, 'add', '.'); await git(worktree, 'commit', '-m', 'feature');
+	await git(sandbox, 'merge', '--no-ff', '-m', 'merge shipped', branch);
+	// A worktree made with git, with a file only it has.
+	const scratch = path.join(home, 'scratch');
+	await git(sandbox, 'worktree', 'add', '-b', 'scratch', scratch);
+	await fs.writeFile(path.join(scratch, 'notes.txt'), 'only here\n');
+
+	press('W'); await screen('⎇ Worktrees'); await screen('Merged · safe to delete · 1'); await screen('Main checkout');
+	await screen('scratch'); await screen('not from Deckhand');
+	// The selection starts on the selected session's worktree; its details say why it can go.
+	await screen('Clean: deleting it and its branch loses nothing');
+	press('k'); await screen('x deletes them all');
+	press('x'); await screen('Delete 1 merged worktree?'); await screen('Stops the session running there first: shipped');
+	await screen('Stop 1 session, delete 1 worktree and their branches');
+	press('\r'); await screen('Deleted 1 worktree and 1 branch · stopped 1 session');
+	await waitFor(() => fs.access(worktree).then(() => true, () => false), exists => !exists, UI_WAIT_MS);
+	assert.doesNotMatch(await git(sandbox, 'branch', '--list', branch), new RegExp(branch));
+
+	// Not merged, with an untracked file: keeping the branch is offered first, and the file needs DELETE typed.
+	// The main checkout is last; scratch is in progress above it.
+	press('G'); await screen('› ◆ main'); press('k'); await screen('› ○ scratch');
+	press('x'); await screen('Delete scratch?'); await screen('1 untracked file(s) (typing DELETE overrides)');
+	await screen('Delete the worktree, keep its branch');
+	press('\r'); await screen('Destructive cleanup override'); await screen('Type DELETE then enter:');
+	press('DELE'); await screen('Type DELETE then enter: DELE'); press('TE'); await screen('Type DELETE then enter: DELETE');
+	press('\r'); await screen('Deleted scratch');
+	await waitFor(() => fs.access(scratch).then(() => true, () => false), exists => !exists, UI_WAIT_MS);
+	assert.match(await git(sandbox, 'branch', '--list', 'scratch'), /scratch/);
+	await screen('No other worktrees');
+	// Its session was stopped and archived: back in the list, f A shows it.
+	press('\x1b'); await screen('Sessions');
+	press('f'); press('A'); await screen('shipped');
+});

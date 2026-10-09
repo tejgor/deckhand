@@ -152,6 +152,24 @@ Deletion applies to the worktree, not just the stopped session: every session th
 
 Review and stage changes in the Git tab (**g**, see [Git changes](#git-changes)); attach lazygit there (**o**) for commits and everything else.
 
+### Worktrees (W)
+
+**W** lists every worktree of the repository in the right pane: Git's list (worktrees made with `git worktree add` included, marked *not from Deckhand*), plus worktrees Deckhand had that Git no longer lists. It runs merge detection first, then checks each linked worktree (up to 60, four at a time) for what deleting it with its branch would lose (the same inspection as **x**), its last commit, and its commits not in the default branch (local or `origin/`, never fetched). Groups:
+
+- **Merged · safe to delete**: merged (Deckhand's merge, found merged, a merged PR, or **M**), or clean with no commits beyond the default branch, and nothing would be lost.
+- **Merged · has leftovers**: merged, but uncommitted, untracked or valuable ignored files, or commits made after the merge (or not verifiably merged, e.g. a squash marked with **M**), are still there.
+- **In progress** and **Idle** (nothing running, no commit, session or record activity for 14 days).
+- **Missing**: Git lists it but the directory is gone, or only Deckhand's record is left.
+- **Main checkout**, last, never deleted.
+
+Each row shows its sessions (or how many run), changed files, commits of its own and age; the details below the list name the sessions, the path and what deleting it would lose. **Enter** selects its session, **M** sets or clears the merged marker, **E** opens it in your editor, **R** checks again.
+
+**x** asks first: delete the worktree and keep its branch, or delete both (offered first for merged work; never `main`, `master` or the default branch). Sessions still running in it are named in the confirmation and stopped before anything is deleted; Deckhand then checks again, since they may have written files. The data checks are those of [Cleanup](#cleanup): anything that would be lost needs **DELETE** typed. Never deleted from here: the main checkout, the worktree this Deckhand runs in, one another open Deckhand runs in, a locked worktree, one with a session still starting. A missing worktree is pruned (`git worktree prune`; its branch stays) or, when only Deckhand's record is left, forgotten.
+
+**x** on the **Merged · safe to delete** heading deletes every worktree in the group and its branch after one confirmation that lists them and the sessions it stops; each is checked again on its own, and any that fail are named.
+
+After a deletion the worktree is marked deleted for every session of it (as with **x** on a session) and its exited sessions are archived: they can't be resumed, and **f A** shows them with their notes.
+
 ## Merging and done
 
 **m** merges (or squash-merges) the selected session's worktree into the branch of the checkout Deckhand was started in, without committing, so you review and commit the result. The confirmation shows, before anything runs:
