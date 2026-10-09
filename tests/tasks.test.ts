@@ -78,5 +78,6 @@ test('notes: a checklist line becomes a link to its task; open items; display wi
 	assert.deepEqual(openNoteItems('- [ ] a\n- [x] b\n  * [ ] c\n- ↗ d <!-- dh:t=1 -->'), ['a', 'c']);
 	assert.equal(withoutTaskMeta('- [ ] a <!-- dh:t=1 wt=2 -->'), '- [ ] a');
 	assert.equal(cleanTaskTitle('a <!-- b --> c\u0007'), 'a b c');
-	assert.equal(taskPrompt({title: 'Fix it', body: '\nwhy\n'}), 'Task: Fix it\n\nwhy');
+	assert.equal(taskPrompt({title: 'Fix it', body: '\nwhy:\n  - it breaks\n'}), 'Fix it: why: - it breaks');
+	assert.equal(taskPrompt({title: 'Fix it', body: ''}), 'Fix it');
 });

@@ -231,7 +231,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		return [
 			<Text key="head" color={THEME.accent} bold>{state.kind === 'add' ? 'New task' : 'Edit task'}</Text>,
 			<Text key="title" wrap="truncate-end">{label('Title  ', state.field === 'title')}{state.field === 'title' ? cursorOf(titleLine, true) : truncate(state.title.text, titleWidth)}</Text>,
-			<Text key="body-label">{label('Details', state.field === 'body')}<Text color={THEME.muted}>{state.body.text || state.field === 'body' ? '' : ' (optional; sent to the agent when it starts)'}</Text></Text>,
+			<Text key="body-label">{label('Details', state.field === 'body')}<Text color={THEME.muted}>{state.body.text || state.field === 'body' ? '' : " (optional; typed into the agent's input with the title)"}</Text></Text>,
 			...bodyRows.map((line, index) => <Text key={`body-${index}`} wrap="truncate-end">{'  '}{cursorOf(line, state.field === 'body' && start + index === body.cursorRow)}</Text>),
 		];
 	};
