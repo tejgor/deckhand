@@ -27,8 +27,8 @@ interface SidebarProps {
 	taskOf?: (session: SessionRecord) => Pick<Task, 'title' | 'done'> | undefined;
 }
 
-// The details block's rows (a rule, the title, state, location, task or checklist) when the list would fill the sidebar.
-const DETAIL_ROWS = 6;
+// The most rows the details block can use: a rule, the title (two lines), state, location, task and checklist.
+const DETAIL_ROWS = 7;
 
 function visibleSessions(sessions: SessionRecord[], selectedIndex: number, availableRows: number): SessionRecord[] {
 	if (availableRows <= 0 || sessions.length <= availableRows) return sessions;
@@ -86,9 +86,10 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 	// a short one leaves them whatever it does not use.
 	const selected = sessions.find(session => session.id === selectedId);
 	const task = selected && taskOf?.(selected);
-	// Up to DETAIL_ROWS, as many as the selected session's details actually use.
+	// As many rows as the largest details block of any listed session needs (at most DETAIL_ROWS), so the list keeps
+	// its size while the selection moves; sessions with less leave the rest blank.
 	const detailRows = sessions.length > rowsForSessions - DETAIL_ROWS && rowsForSessions >= DETAIL_ROWS * 3
-		? sessionDetails(selected, allSessions, contentWidth, DETAIL_ROWS, now, installedVersions, task).length : 0;
+		? Math.max(0, ...sessions.map(session => sessionDetails(session, allSessions, contentWidth, DETAIL_ROWS, now, installedVersions, taskOf?.(session)).length)) : 0;
 	// A list that scrolls gets a line above and below it saying how many sessions are out of view (and how many of
 	// those need you), kept even when empty so the rows don't jump as the selection moves.
 	const scrolls = sessions.length > rowsForSessions - detailRows && rowsForSessions - detailRows >= 5;
@@ -133,7 +134,8 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 				</>
 			)}
 			{details.length ? <>
-				<Box flexGrow={1} />
+				{/* Under a scrolling list the details sit right below it (their rule never moves); otherwise at the bottom. */}
+				{scrolls ? null : <Box flexGrow={1} />}
 				<Box flexDirection="column" marginLeft={1} width={contentWidth}>
 					{details.map((line, index) => (
 						<Text key={index} wrap="truncate-end">
