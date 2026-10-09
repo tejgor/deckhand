@@ -253,3 +253,16 @@ test('Sidebar with more sessions than fit keeps rows for the details and scrolls
 	assert.equal(moreText('↓', [many[0]!, waiting]), '↓ 2 more · ! 1');
 	assert.equal(moreText('↑', []), '');
 });
+
+test('a scrolling list keeps the same rows whichever session is selected: the details get the largest block any listed session needs', () => {
+	const many = Array.from({length: 40}, (_, index) => session(`s${index}`, {title: `session number ${index}`}));
+	const taskOf = (entry: SessionRecord) => (entry.id === 's21' ? {title: 'Fix the footer', done: false} : undefined);
+	const render = (selectedId: string) => plain(renderToString(React.createElement(Sidebar, {sessions: many, allSessions: many, selectedId, width: 34, height: 24, spinnerFrame: '⠋', filter: 'all', query: '', now: NOW, taskOf}), {columns: 34})).split('\n');
+	const withTask = render('s21'), without = render('s20');
+	const shape = (lines: string[]) => ({list: lines.filter(line => /^│.\s*\d+ /.test(line)).length, more: lines.findIndex(line => line.includes('↓ ')), rule: lines.findIndex(line => line.startsWith('│ ──────'))});
+	assert.deepEqual(shape(without), shape(withTask));
+	// The rule sits right under the "more" line; the session with a task shows it, the other leaves that row blank.
+	assert.equal(shape(withTask).rule, shape(withTask).more + 1);
+	assert.ok(withTask.some(line => line.includes('◆ Fix the footer')));
+	assert.ok(!without.some(line => line.includes('◆')));
+});
