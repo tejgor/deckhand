@@ -63,4 +63,9 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('x'); await screen('Kill only, keep worktree'); press('\x1b'); await screen('r start Dev');
 	press('\x1b[A'); press('\x1b[B'); await screen('x stop');
 	press(' '); await screen('Marked done');
+	// Backspace archives a finished session; in the archived view (f) Backspace removes it for good.
+	press('X'); await screen('s resume');
+	press('\x7f'); await screen('Archived Write the docs'); await screen('No sessions match');
+	press('f'); await screen('archived'); await screen('A unarchive'); await screen('backspace remove');
+	press('\x7f'); await screen('No sessions yet.');
 });

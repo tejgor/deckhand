@@ -578,13 +578,13 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 				: activeTab === 'terminal' && terminalAction ? terminalAction.switchHint
 					: undefined;
 			const lifecycle = session?.status === 'exited'
-				? (session.worktree?.deletedAt ? 'backspace remove' : 's resume • S fresh')
+				? (session.worktree?.deletedAt ? undefined : 's resume • S fresh')
 				: running ? 'x stop' : session?.status === 'starting' ? 'x cancel start' : undefined;
 			// Archiving is offered where it is the likely next step (finished sessions), and undoing it where it applies.
 			const archive: HintPart | undefined = session?.archivedAt ? {text: 'A unarchive', drop: 2}
-				: session?.status === 'exited' ? {text: 'A archive', drop: 2} : undefined;
+				: session?.status === 'exited' ? {text: 'backspace archive', drop: 2} : undefined;
 			// Higher drop numbers go first when the line is too narrow; ? help always stays.
-			const remove: HintPart | undefined = session?.status === 'exited' && !session.worktree?.deletedAt ? {text: 'backspace remove', drop: 3} : undefined;
+			const remove: HintPart | undefined = session?.status === 'exited' && session.archivedAt ? {text: 'backspace remove for good', short: 'backspace remove', drop: 1} : undefined;
 			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, remove, '? help', {text: 'n new', drop: 1}, {text: 'b tasks', drop: 2}, {text: 'C settings', drop: 1}, {text: 'i info', drop: 3}, {text: 'r run', drop: 3}, {text: '/ search', drop: 2}, {text: 'f filter', drop: 2}, {text: 'q quit', drop: 1}];
 			return fitHint(parts.filter((part): part is string | HintPart => Boolean(part)), width, ' • ');
 		}
@@ -2295,8 +2295,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				}
 				return;
 			}
+			// Backspace archives a finished session (hidden, nothing lost); on one already archived (f → archived) it removes it
+			// for good, which deletes its notes (open items ask first).
 			if ((key.backspace || key.delete) && selectedSession?.status === 'exited') {
-				requestRemove();
+				if (selectedSession.archivedAt) { requestRemove(); return; }
+				if (!client) return;
+				const {id} = selectedSession, title = displaySessionTitle(selectedSession, sessions);
+				void client.archiveSession(id, true).then(() => setStatusMessage(`Archived ${title}${sessionFilter === 'active' ? ' · f shows archived sessions, where backspace removes one for good' : ''}`)).catch(error => setError(errorMessage(error)));
 				return;
 			}
 			if ((input === 's' || input === 'S') && selectedSession?.status === 'exited') {
