@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Box, Text, useApp} from 'ink';
+import {Box, Text, useApp, type Key} from 'ink';
 import {useTerminalInput} from './useTerminalInput.js';
 import {LiveClient, createLiveClient} from './client.js';
 import {loadAppConfig, updateAppConfig} from './storage.js';
@@ -12,7 +12,7 @@ import {isSettingsFlowMode, useSettingsFlow} from './settingsFlow.js';
 import {useHelp} from './helpPane.js';
 import {useAgentsFlow} from './agentsFlow.js';
 import {installedVersions, updateHint} from './agentVersions.js';
-import {filterCycleMessage, filterSessionList, nextSessionFilter, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
+import {SESSION_FILTERS, filterForKey, filterSessionList, sessionFilterCounts, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
 import {useChangesFlow} from './changesFlow.js';
 import {emptyChanges, type ChangesRecord} from './changesModel.js';
 import {useNotesFlow} from './notesFlow.js';
@@ -142,7 +142,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'merge-conflicts' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss' | 'agents' | 'tasks' | 'confirm-remove';
+type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'merge-conflicts' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss' | 'agents' | 'tasks' | 'confirm-remove' | 'pick-filter';
 
 interface AppProps {
 	repoRoot: string;
@@ -564,6 +564,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 		case 'changes-focus': return 'changes • ← back • j/k select • space stage/unstage • a/A stage/unstage all • enter/E open in editor • J/K scroll diff • o lazygit';
 		case 'notes-focus': return notesHint ?? 'notes edit • esc done';
 		case 'search': return 'type to search • enter keep search • esc clear';
+		case 'pick-filter': return 'filter • a r ! e A * pick • f back to active • j/k move • enter keep • esc cancel';
 		case 'browse': {
 			// Keep this short; everything else is listed in ? help.
 			const running = session?.status === 'running';
@@ -598,6 +599,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [mode, setMode] = useState<Mode>('browse');
 	const [sessionFilter, setSessionFilter] = useState<SessionFilter>(initialSessionFilter ?? 'active');
 	const [sessionQuery, setSessionQuery] = useState(initialSessionQuery ?? '');
+	// The filter menu (f) shows each filter as it is highlighted; Esc goes back to the filter and selection it was opened on.
+	const [filterMenuBack, setFilterMenuBack] = useState<{filter: SessionFilter; selectedId?: string}>();
 	// The inline repository-config review: what it shows, the cwd it was resolved for, and the action it gates
 	// (resumed after Enter trusts or s skips; none for an explicit T review).
 	// back: where closing the review returns (Settings' T); otherwise browse.
@@ -690,6 +693,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		[collapseApplied, collapsedSessionIds, hiddenExitedSessionIds, sessions, sessionFilter, sessionQuery, tasks],
 	);
 
+	// Only while the filter menu is open: it shows how many rows each filter would list.
+	const filterMenuCounts = useMemo(() => (mode === 'pick-filter' ? sessionFilterCounts(sessions, sessionQuery, session => linkedTask(tasks, session)?.title) : undefined),
+		[mode, sessions, sessionQuery, tasks]);
 	useEffect(() => { onSessionVisibilityChange?.(sessionFilter, sessionQuery); }, [onSessionVisibilityChange, sessionFilter, sessionQuery]);
 
 	useEffect(() => {
@@ -1580,6 +1586,21 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		return true;
 	};
 
+	// The filter menu (f): a filter's key picks it, f goes back to active, j/k show each filter as they move, Enter keeps
+	// the shown one and Esc restores the filter and selection the menu was opened on.
+	const pickFilter = (input: string, key: Pick<Key, 'escape' | 'return' | 'upArrow' | 'downArrow' | 'home' | 'end'>, back?: {filter: SessionFilter; selectedId?: string}) => {
+		const close = (filter?: SessionFilter) => { if (filter) setSessionFilter(filter); setFilterMenuBack(undefined); setMode('browse'); };
+		if (key.escape) { if (back) { setSessionFilter(back.filter); setSelectedId(back.selectedId); } close(); return; }
+		if (key.return) { close(); return; }
+		if (input === 'f') { close('active'); return; }
+		const picked = filterForKey(input);
+		if (picked) { close(picked); return; }
+		const index = SESSION_FILTERS.indexOf(sessionFilter), last = SESSION_FILTERS.length - 1;
+		const next = input === 'g' || key.home ? 0 : input === 'G' || key.end ? last
+			: input === 'j' || key.downArrow ? Math.min(last, index + 1) : input === 'k' || key.upArrow ? Math.max(0, index - 1) : index;
+		setSessionFilter(SESSION_FILTERS[next]!);
+	};
+
 	// Dev is shared by every session in the selected session's workspace; starting/stopping acts on that one process.
 	const toggleDevSelected = useCallback(async () => {
 		if (!client || !selectedSession || !workspaceKey(selectedSession)) {
@@ -1924,6 +1945,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 
+		if (mode === 'pick-filter') {
+			pickFilter(input, key, filterMenuBack);
+			return;
+		}
 		if (mode === 'search') {
 			if (key.escape) { setSessionQuery(''); setMode('browse'); return; }
 			if (key.return) { setMode('browse'); return; }
@@ -2100,16 +2125,18 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === '/') { setMode('search'); return; }
-			if (input === 'f') {
-				const next = nextSessionFilter(sessionFilter);
-				setSessionFilter(next); setStatusMessage(filterCycleMessage(next));
+			// `fr` (or `ff`) can arrive as one chunk when typed fast: the second key picks in the menu.
+			if (input === 'f' || (input.length === 2 && input[0] === 'f')) {
+				const back = {filter: sessionFilter, selectedId};
+				setFilterMenuBack(back); setMode('pick-filter');
+				if (input.length === 2) pickFilter(input[1]!, key, back);
 				return;
 			}
 			if (input === 'A' && client && selectedSession) {
 				const {id, archivedAt} = selectedSession, title = displaySessionTitle(selectedSession, sessions);
 				// Archiving hides the session from the default view, so say where it went.
 				void client.archiveSession(id, !archivedAt).then(() => setStatusMessage(archivedAt ? `Unarchived ${title}`
-					: `Archived ${title}${sessionFilter === 'active' ? ' · hidden here, press f for the archived view' : ''}`)).catch(error => setError(errorMessage(error)));
+					: `Archived ${title}${sessionFilter === 'active' ? ' · hidden here, f A shows archived sessions' : ''}`)).catch(error => setError(errorMessage(error)));
 				return;
 			}
 			if (input === '!') {
@@ -2311,7 +2338,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				if (selectedSession.archivedAt) { requestRemove(); return; }
 				if (!client) return;
 				const {id} = selectedSession, title = displaySessionTitle(selectedSession, sessions);
-				void client.archiveSession(id, true).then(() => setStatusMessage(`Archived ${title}${sessionFilter === 'active' ? ' · f shows archived sessions, where backspace removes one for good' : ''}`)).catch(error => setError(errorMessage(error)));
+				void client.archiveSession(id, true).then(() => setStatusMessage(`Archived ${title}${sessionFilter === 'active' ? ' · f A shows archived sessions, where backspace removes one for good' : ''}`)).catch(error => setError(errorMessage(error)));
 				return;
 			}
 			if ((input === 's' || input === 'S') && selectedSession?.status === 'exited') {
@@ -2634,9 +2661,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					now={Date.now()}
 					installedVersions={sidebarVersions}
 					taskOf={session => linkedTask(tasks, session)}
+					filterMenu={filterMenuCounts && {selected: sessionFilter, counts: filterMenuCounts}}
 				/>
 				<Box width={1} />
-				{mode === 'browse' || mode === 'preview-focus' || mode === 'changes-focus' || mode === 'notes-focus' || mode === 'search' ? (
+				{mode === 'browse' || mode === 'preview-focus' || mode === 'changes-focus' || mode === 'notes-focus' || mode === 'search' || mode === 'pick-filter' ? (
 					<Box
 						flexDirection="column"
 						width={layout.previewWidth}

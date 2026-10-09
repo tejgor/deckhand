@@ -1,9 +1,9 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import type {ProgramKey, SessionRecord} from './types.js';
-import {sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
+import {SESSION_FILTERS, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
 import type {Task} from './tasks.js';
-import {sessionDetails, sidebarHeader, sidebarRows, type RowPart, type SidebarRow} from './sidebarModel.js';
+import {filterMenuLines, sessionDetails, sidebarHeader, sidebarRows, type RowPart, type SidebarRow} from './sidebarModel.js';
 import {THEME, truncate} from './ui.js';
 
 interface SidebarProps {
@@ -25,6 +25,8 @@ interface SidebarProps {
 	installedVersions?: Partial<Record<ProgramKey, string>>;
 	/** The task a session works on, for the details block. */
 	taskOf?: (session: SessionRecord) => Pick<Task, 'title' | 'done'> | undefined;
+	/** The open filter menu (f): the highlighted filter and each filter's row count. */
+	filterMenu?: {selected: SessionFilter; counts: Record<SessionFilter, number>};
 }
 
 // The most rows the details block can use: a rule, the title (two lines), state, location, task and checklist.
@@ -76,12 +78,14 @@ function MoreLine({arrow, hidden, width}: {arrow: string; hidden: SessionRecord[
 	return <Box marginLeft={1} width={width}><Text wrap="truncate-end" color={waiting ? THEME.warn : THEME.muted}>{text || ' '}</Text></Box>;
 }
 
-export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>(), loaded = true, filter = 'active', query = '', now = Date.now(), installedVersions, taskOf}: SidebarProps) {
+export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>(), loaded = true, filter = 'active', query = '', now = Date.now(), installedVersions, taskOf, filterMenu}: SidebarProps) {
 	const selectedIndex = Math.max(0, sessions.findIndex(session => session.id === selectedId));
 	const contentWidth = Math.max(1, width - 4);
 	// Rows start in the left padding column: it holds the cursor (›) and the shared-workspace marker.
 	const rowWidth = contentWidth + 1;
-	const rowsForSessions = Math.max(1, height - 3);
+	// The filter menu sits under the header, a rule below it, and takes its rows from the list.
+	const menuRows = filterMenu ? SESSION_FILTERS.length + 1 : 0;
+	const rowsForSessions = Math.max(1, height - 3 - menuRows);
 	// A list longer than the sidebar keeps rows for the selected session's details (and scrolls in the rest);
 	// a short one leaves them whatever it does not use.
 	const selected = sessions.find(session => session.id === selectedId);
@@ -115,6 +119,16 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 					{header.attention ? <><Text color={THEME.muted}> · </Text><Text color={THEME.warn} bold>{header.attention}</Text></> : null}
 				</Text>
 			</Box>
+			{filterMenu ? <>
+				{filterMenuLines(filterMenu.selected, filterMenu.counts, rowWidth).map(line => (
+					<Box key={line.filter} width={rowWidth}>
+						<Text wrap="truncate-end" inverse={line.selected} color={line.selected ? THEME.active : undefined} bold={line.selected}>
+							{line.cursor} <Text color={line.selected ? undefined : THEME.accent}>{line.key}</Text>  {line.label}<Text color={line.selected ? undefined : THEME.muted}>{line.count}</Text>
+						</Text>
+					</Box>
+				))}
+				<Box marginLeft={1} width={contentWidth}><Text color={THEME.muted} dimColor>{'─'.repeat(contentWidth)}</Text></Box>
+			</> : null}
 			{sessions.length === 0 ? (
 				<Box flexDirection="column" marginTop={1} marginLeft={1}>
 					<Text color={THEME.muted}>{truncate(emptyTitle, contentWidth)}</Text>

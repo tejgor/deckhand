@@ -141,7 +141,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | *The model* | Two places: the session list on the left, the pane on the right. `→`/`l` steps into the pane, `←`/`h` or `esc` steps back out. The same keys mean the same thing on every screen: `enter` opens or chooses, `space` toggles, `a` adds, `x` removes or stops, `E` opens your editor, `o` goes full screen |
 | `j` / `k`, `↑` / `↓` | Move between visible sessions |
 | `1`–`9`, `0` | Jump to that numbered visible session (`0` selects visible session 10). With more than 10, type the number: `enter` or a short pause selects it, `esc` clears it |
-| `/` / `f` / `!` | Search titles, notes, tasks, provider, branch, path / cycle filters / next session that needs you |
+| `/` / `f` / `!` | Search titles, notes, tasks, provider, branch, path / filter menu (`a` active, `r` running, `!` attention, `e` exited, `A` archived, `*` all; `f f` back to active) / next session that needs you |
 | `J` / `K`, `c` | Move the selected session down / up among its siblings (order is persisted); collapse or expand its sub-sessions |
 | `<` / `>` | Narrow / widen the sidebar |
 | `tab` / `]`, `shift+tab` / `[` | Next / previous tab: Preview, Terminal, Git, Dev, Notes |
@@ -159,7 +159,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `m` / `M` | Merge the selected worktree into the current branch, uncommitted: the confirmation shows `Into <branch> · <path>` (yellow when it is not the main checkout's default branch), the commits and diff stat, and for uncommitted files a `space` toggle (on by default) that commits them first with the session's title as the message. On conflicts: `enter` (or `esc`) keeps the merge in progress for you to resolve (marked merged), `x` aborts it. Every session of the worktree then shows `✓` / toggle the worktree's merged marker without merging (worktrees only) |
 | `r` | Run: a list with the worktree's Dev command first (`enter` starts or stops it; its output is on the Dev tab, shared by every session there) and then your actions (global, plus trusted repository actions), which run beside the shell on the Terminal tab (`v` switches) |
 | `A` | Archive/unarchive (does not stop an agent) |
-| `backspace` | Archive the selected exited session (hidden from the default view, nothing lost; `f` shows archived sessions). On an archived session it removes it for good, deleting its notes; when they still have open checklist items it asks: `enter` moves them to Tasks first, `x` drops them |
+| `backspace` | Archive the selected exited session (hidden from the default view, nothing lost; `f A` shows archived sessions). On an archived session it removes it for good, deleting its notes; when they still have open checklist items it asks: `enter` moves them to Tasks first, `x` drops them |
 | `H` | Export/open a handoff (notes plus commits and changed files, no diff content); `N` → ↳ then creates a clean child from it |
 | `i` | Workspace Git summary; `P` queries PR, `b` opens it, `c` pushes and opens GitHub's new-PR form (after confirmation), `g` opens the Git tab |
 | `b` | Tasks: the repository's task list (see [Tasks](#tasks)) |

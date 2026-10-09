@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {tempDir, withEnv} from './helpers.js';
-import {filterCycleMessage, filterSessionList, handoffMarkdown, nextSessionFilter} from '../src/sessionFeatures.js';
+import {SESSION_FILTERS, filterForKey, filterSessionList, handoffMarkdown, sessionFilterCounts} from '../src/sessionFeatures.js';
 import {normalizeHook, codexResumeFromOutput, needsAttention, integrationArgs} from '../src/agentSignals.js';
 import type {SessionRecord} from '../src/types.js';
 const root = {id: 'root', title: 'Parent', cwd: '/repo', program: 'claude', status: 'running', notes: '', repoRoot: '/repo'} as SessionRecord;
@@ -15,11 +15,14 @@ test('filters retain ancestry/order and distinguish archive, running, attention 
 	assert.deepEqual(filterSessionList([{...root, attention: {state: 'needs-input', event: 'PermissionRequest', at: 'now'}}], 'attention', '').map(item => item.id), ['root']);
 	assert.deepEqual(filterSessionList([{...root, status: 'exited', exitReason: 'interrupted'}], 'attention', '').map(item => item.id), ['root']);
 });
-test('f cycles every filter and its message lists the rest in visiting order', () => {
-	assert.equal(nextSessionFilter('active'), 'archived');
-	assert.equal(nextSessionFilter('exited'), 'active');
-	assert.equal(filterCycleMessage('archived'), 'Filter: archived · f → all › attention › running › exited › active');
-	assert.equal(filterCycleMessage('active'), 'Filter: active · f → archived › all › attention › running › exited');
+test('the filter menu picks each filter by one key and counts the rows each would list', () => {
+	assert.deepEqual(SESSION_FILTERS.map(filter => filterForKey(filter === 'archived' ? 'A' : filter === 'attention' ? '!' : filter === 'all' ? '*' : filter[0]!)), SESSION_FILTERS);
+	assert.equal(filterForKey('x'), undefined);
+	assert.equal(filterForKey('f'), undefined);
+	const exited = {...root, id: 'gone', status: 'exited', exitReason: 'failed'} as SessionRecord;
+	// The archived child brings its parent along for context; search narrows every count.
+	assert.deepEqual(sessionFilterCounts([root, child, exited], ''), {active: 2, running: 1, attention: 1, exited: 1, archived: 2, all: 3});
+	assert.deepEqual(sessionFilterCounts([root, child, exited], 'special'), {active: 0, running: 0, attention: 0, exited: 0, archived: 2, all: 2});
 });
 test('handoffs include notes by default, and clearly label optional terminal excerpts', () => {
 	const session = {...root, notes: 'Implement the feature', lastPreview: 'sensitive terminal output'};
