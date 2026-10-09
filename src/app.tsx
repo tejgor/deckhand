@@ -253,18 +253,21 @@ function baseOptions(list?: BranchList): Array<{label: string; value?: string}> 
 	return [{label: setting}, ...list.branches.map(name => ({label: name, value: name}))];
 }
 
+// Removing a session for good always asks (Backspace on an archived one): it cannot be resumed afterwards and its notes
+// go to notes/trash. Open checklist items in them are listed, and Enter sends them to Tasks first.
 function RemoveConfirmPane({session, items, width}: {session?: SessionRecord; items: string[]; width: number}) {
 	const inner = Math.max(10, width - 4);
 	const shown = items.slice(0, 8);
 	return (
-		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
-			<Text color={THEME.accent} bold wrap="truncate-end">Remove “{session?.title ?? 'session'}” from the list?</Text>
+		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderDanger} paddingX={1}>
+			<Text color={THEME.error} bold wrap="truncate-end">Remove “{session?.title ?? 'session'}” for good?</Text>
 			<Box marginTop={1} flexDirection="column">
-				<Text wrap="truncate-end">Its notes have <Text color={THEME.warn}>{items.length} unchecked item{items.length === 1 ? '' : 's'}</Text>, deleted with them:</Text>
+				<Text wrap="truncate-end">It cannot be resumed afterwards; its notes go to notes/trash.</Text>
+				{items.length ? <Text wrap="truncate-end">Its notes have <Text color={THEME.warn}>{items.length} unchecked item{items.length === 1 ? '' : 's'}</Text>:</Text> : null}
 				{shown.map((item, index) => <Text key={index} wrap="truncate-end">{`  ☐ ${truncate(item, inner - 4)}`}</Text>)}
 				{items.length > shown.length ? <Text color={THEME.muted}>{`  +${items.length - shown.length} more`}</Text> : null}
 			</Box>
-			<Box marginTop={1}><Text color={THEME.muted} wrap="truncate-end">enter move them to Tasks, then remove · x remove anyway · esc cancel</Text></Box>
+			<Box marginTop={1}><Text color={THEME.muted} wrap="truncate-end">{items.length ? 'enter move them to Tasks, then remove · x remove anyway · esc cancel' : 'enter remove · esc keep it'}</Text></Box>
 		</Box>
 	);
 }
@@ -1553,10 +1556,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		});
 	};
 
-	// Backspace: removing a session deletes its note (and its worktree's, when it is the last there); open items ask first.
+	// Backspace on an archived session: removing it deletes its note (and its worktree's, when it is the last there), so it
+	// always asks; open items are listed and can go to Tasks first. Before, it asked only when there were open items, so a
+	// second Backspace meant to archive "harder" removed the session at once.
 	const requestRemove = () => {
-		const items = selectedSession?.status === 'exited' ? openItemsRemovedWith(selectedSession, repoSessions) : [];
-		if (!items.length) { void removeSelected(); return; }
+		if (selectedSession?.status !== 'exited') return;
+		const items = openItemsRemovedWith(selectedSession, repoSessions);
 		setRemoveItems(items);
 		setMode('confirm-remove');
 	};
@@ -1963,9 +1968,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 		if (mode === 'confirm-remove') {
 			if (key.escape) { setMode('browse'); return; }
-			// Enter is the safe choice (keep the items as tasks); x removes them with the notes.
-			if (key.return) { setMode('browse'); void removeSelected(true); return; }
-			if (input === 'x') { setMode('browse'); void removeSelected(false); return; }
+			// Enter removes it, keeping open items as tasks (the safe choice when there are any); x removes them with the notes.
+			if (key.return) { setMode('browse'); void removeSelected(removeItems.length > 0); return; }
+			if (input === 'x' && removeItems.length) { setMode('browse'); void removeSelected(false); return; }
 			return;
 		}
 
