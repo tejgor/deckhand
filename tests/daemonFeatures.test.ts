@@ -570,7 +570,7 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		const main = (await call<WorktreeInfo[]>({type: 'list-worktrees', cwd: root} as any)).find(item => item.isMain)!;
 		const mainAttached = await call<SessionRecord>({type: 'create', input: {title: 'records-main-3', program: 'claude', cwd: root, repoRoot: root, cols: 80, rows: 24, worktreeMode: 'existing', existingWorktreePath: main.path}} as any);
 		for (const session of [mainOne, mainTwo, mainAttached]) await waitFor(() => state(session.id), item => item.status === 'running');
-		for (const session of [mainOne, mainAttached]) await assert.rejects(call({type: 'mark-session-merged', sessionId: session.id, targetCwd: root} as any), /Use D to mark it done/);
+		for (const session of [mainOne, mainAttached]) await assert.rejects(call({type: 'mark-session-merged', sessionId: session.id, targetCwd: root} as any), /Use Space to mark it done/);
 		const mainDone = await call<SessionRecord>({type: 'set-session-done', sessionId: mainOne.id, done: true} as any);
 		assert.ok(mainDone.doneAt); assert.equal(mainDone.mergedAt, undefined); assert.equal(mainDone.worktree?.id, undefined);
 		const mainOther = await state(mainTwo.id);

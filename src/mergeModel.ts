@@ -137,7 +137,7 @@ export function conflictView(result: Pick<WorktreeMergeResult, 'conflicts' | 'co
 		files: [...shown.map(file => truncate(`  ${file}`, width)), ...total > shown.length ? [`  +${total - shown.length} more`] : []],
 		choices: [
 			{key: 'enter', text: 'keep it: resolve it in your editor or the Git tab (esc too)'},
-			{key: 'a', text: 'abort the merge'},
+			{key: 'x', text: 'abort the merge'},
 		],
 	};
 }

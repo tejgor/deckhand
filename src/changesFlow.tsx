@@ -102,7 +102,7 @@ export function useChangesFlow({client, session, changes, focused, onChanges, on
 	};
 
 	const handleInput = (input: string, key: Partial<Key>) => {
-		if (key.escape || input === 'v') { onExit(); return; }
+		if (key.escape || key.leftArrow || input === 'h') { onExit(); return; }
 		if (input === 'o') { onAttach(); return; }
 		if (key.downArrow || input === 'j') { move(selected + 1); return; }
 		if (key.upArrow || input === 'k') { move(selected - 1); return; }

@@ -787,7 +787,7 @@ export class InkDaemon {
 					const config = await loadAppConfig(), project = await loadProjectConfig(session.cwd, config);
 					const actions = resolveSettings(project, config).actions ?? {};
 					const command = Object.hasOwn(actions, message.action) ? actions[message.action] : undefined;
-					if (!command && Object.hasOwn(project.config.actions ?? {}, message.action)) throw new Error('Review and trust deckhand.json first (press e or T)');
+					if (!command && Object.hasOwn(project.config.actions ?? {}, message.action)) throw new Error('Review and trust deckhand.json first (r, then the action, or T in Settings)');
 					if (!command) throw new Error('Unknown project action');
 					sendMessage(socket, response(message.requestId, await this.startWorkspaceAction(session.id, key, message.action, command, message.cols, message.rows))); return;
 				}
@@ -1961,7 +1961,7 @@ export class InkDaemon {
 	private async attachWorkspacePane(socket: net.Socket, requestId: string, pane: WorkspacePane, sessionId: string, cols?: number, rows?: number): Promise<void> {
 		const {session, key} = this.requireWorkspace(sessionId, pane);
 		const workspace = startsOnView(pane) ? await this.openWorkspace(key) : this.workspaces.get(key);
-		if (!workspace) throw new Error(pane === 'dev' ? 'no running dev command; press d to start it' : 'no action has run here; press e to run one');
+		if (!workspace) throw new Error(pane === 'dev' ? 'no running dev command; r starts it' : 'no action has run here; r runs one');
 		const current = workspace.attached[pane];
 		if (current && current.socket !== socket && !current.socket.destroyed) throw new Error(`${PANE_ATTACH_NAMES[pane]} is already attached elsewhere`);
 		const attachData = await this.requestPane<object & {initialFrame?: string}>(workspace, {type: 'attach', target: pane, cols: clampSize(cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});
@@ -2593,7 +2593,7 @@ export class InkDaemon {
 			throw new Error('cannot mark session merged because its worktree was deleted');
 		}
 		// Merged describes a worktree; a session in the main checkout has nothing to merge, but can be done (D).
-		if (!this.worktreeRecordOf(session)) throw new Error('Not in a worktree, so there is nothing to mark merged. Use D to mark it done');
+		if (!this.worktreeRecordOf(session)) throw new Error('Not in a worktree, so there is nothing to mark merged. Use Space to mark it done');
 		const sourceRoot = await findRepoRoot(worktreePath ?? session.cwd);
 		const targetRoot = await findRepoRoot(targetCwd);
 		const sourceRef = await currentBranch(sourceRoot) || await headSha(sourceRoot);

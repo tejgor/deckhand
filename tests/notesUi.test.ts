@@ -43,7 +43,7 @@ test('Notes tab: o edits with a real cursor (arrows, word jumps), ctrl+x makes a
 	press('shared plan'); await screen('shared plan');
 	// A bracketed paste is text: its newline and Tab are inserted (Tab does not switch sections).
 	press('\x1b[200~\r\tpasted\x1b[201~'); await screen(' pasted');
-	press('\x1b'); await screen('o edit notes');
+	press('\x1b'); await screen('enter edit notes');
 	// Read mode renders the item; the sidebar counts it.
 	await screen('☐ so hello big world'); await screen('☐ 1 open');
 	await waitFor(() => notesFile('sessions'), text => text === '- [ ] so hello big world', UI_WAIT_MS);

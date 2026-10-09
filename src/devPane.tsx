@@ -17,8 +17,8 @@ function fallbackMessage(session: SessionRecord | undefined, dev: DevRecord): st
 	const unavailable = workspacePaneUnavailable(session, dev);
 	if (unavailable) return `Dev is unavailable: ${unavailable}.`;
 	if (!dev.live && dev.content) return dev.content;
-	if (!dev.live && dev.sessionId === session.id) return 'Dev command exited. Press d to start it again.';
-	return dev.content || 'Press d to start the dev command (shared by every session in this worktree).';
+	if (!dev.live && dev.sessionId === session.id) return 'Dev command exited. r starts it again (Dev is first in the run list).';
+	return dev.content || 'r starts the Dev command (first in the run list; shared by every session in this worktree).';
 }
 
 export function DevPane({session, dev, width, height}: DevPaneProps) {

@@ -14,7 +14,7 @@ process.stdin.resume();
 setInterval(() => {}, 10000);
 `;
 
-test('m in a real PTY: preview, space toggles commit-first, squash; D marks done (☑); a conflict is aborted with a, then kept with enter', {timeout: UI_TEST_TIMEOUT_MS}, async t => {
+test('m in a real PTY: preview, space toggles commit-first, squash; space marks done (☑); a conflict is aborted with x, then kept with enter', {timeout: UI_TEST_TIMEOUT_MS}, async t => {
 	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-ui-'));
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const agent of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, agent), fakeAgent, {mode: 0o755});
@@ -37,14 +37,14 @@ test('m in a real PTY: preview, space toggles commit-first, squash; D marks done
 	assert.equal(await git(worktree, 'log', '-1', '--format=%s'), 'mrg');
 	assert.equal(await git(sandbox, 'diff', '--cached', '--name-only'), 'feature.txt');
 	await git(sandbox, 'commit', '-m', 'squashed mrg');
-	press('D'); await screen('Marked done: mrg'); await screen('✓ ☑ ✶');
+	press(' '); await screen('Marked done: mrg'); await screen('✓ ☑ ✶');
 
-	// Both sides change README.md: the conflict view; a aborts, then enter keeps it (in progress, marked merged).
+	// Both sides change README.md: the conflict view; x aborts, then enter keeps it (in progress, marked merged).
 	await fs.writeFile(path.join(worktree, 'README.md'), 'worktree side\n'); await git(worktree, 'commit', '-am', 'worktree readme');
 	await fs.writeFile(path.join(sandbox, 'README.md'), 'main side\n'); await git(sandbox, 'commit', '-am', 'main readme');
 	press('m'); await screen('2 commits'); press('\r');
-	await screen('Merged with conflicts in 1 file'); await screen('a     abort the merge');
-	press('a'); await screen('Merge aborted');
+	await screen('Merged with conflicts in 1 file'); await screen('x     abort the merge');
+	press('x'); await screen('Merge aborted');
 	assert.equal(await git(sandbox, 'status', '--porcelain'), '');
 	press('m'); await screen('2 commits'); press('\r'); await screen('Merged with conflicts in 1 file');
 	press('\r'); await screen('Merge kept with conflicts in 1 file into main');

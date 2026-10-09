@@ -54,7 +54,7 @@ test('done marker, worktree-only M, merge with commit-first, conflict keep/abort
 	assert.equal((await loadState()).sessions.find(item => item.id === mainSession.id)?.doneAt, done.doneAt);
 	// Marking it done again keeps the first time.
 	assert.equal((await call<SessionRecord>({type: 'set-session-done', sessionId: mainSession.id, done: true} as any)).doneAt, done.doneAt);
-	await assert.rejects(call({type: 'mark-session-merged', sessionId: mainSession.id, targetCwd: root} as any), /Use D to mark it done/);
+	await assert.rejects(call({type: 'mark-session-merged', sessionId: mainSession.id, targetCwd: root} as any), /Use Space to mark it done/);
 	assert.equal((await state(mainSession.id)).mergedAt, undefined);
 	assert.equal((await call<SessionRecord>({type: 'set-session-done', sessionId: mainSession.id, done: false} as any)).doneAt, undefined);
 	await updated(mainSession.id, session => !session.doneAt);

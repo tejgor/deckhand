@@ -114,7 +114,7 @@ test('conflict view: the count, up to five files (+N more) and only the two choi
 	assert.deepEqual(view, {
 		title: 'Merged with conflicts in 3 files',
 		files: ['  src/a.ts', '  src/b.ts', '  README.md'],
-		choices: [{key: 'enter', text: 'keep it: resolve it in your editor or the Git tab (esc too)'}, {key: 'a', text: 'abort the merge'}],
+		choices: [{key: 'enter', text: 'keep it: resolve it in your editor or the Git tab (esc too)'}, {key: 'x', text: 'abort the merge'}],
 	});
 	const many = conflictView({conflicts: Array.from({length: 9}, (_, index) => `f${index}.ts`), conflictCount: 240}, 60);
 	assert.deepEqual(many.files, ['  f0.ts', '  f1.ts', '  f2.ts', '  f3.ts', '  +236 more']);
@@ -138,5 +138,5 @@ test('rendered: the confirmation fills exactly its pane (warn target, toggle, no
 		assert.equal(lines.some(line => line.includes('cookie flags')), height === 30);
 	}
 	const conflict = plain(renderToString(React.createElement(MergeConflictPane, {result: {mode: 'merge', sourceRef: 'auth', targetBranch: 'main', conflicted: true, conflicts: ['src/auth.ts'], conflictCount: 1, stdout: '', stderr: ''}, width: 70}), {columns: 70})).split('\n');
-	assert.deepEqual(conflict.slice(1, -1).map(line => line.slice(2, -1).trimEnd()), ['Merged with conflicts in 1 file', '  src/auth.ts', '', 'enter keep it: resolve it in your editor or the Git tab (esc too)', 'a     abort the merge']);
+	assert.deepEqual(conflict.slice(1, -1).map(line => line.slice(2, -1).trimEnd()), ['Merged with conflicts in 1 file', '  src/auth.ts', '', 'enter keep it: resolve it in your editor or the Git tab (esc too)', 'x     abort the merge']);
 });

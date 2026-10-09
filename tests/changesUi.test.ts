@@ -29,14 +29,14 @@ test('Git tab: the worktree\'s Changes list; v focuses it, space stages the sele
 	await fs.writeFile(path.join(worktree, 'notes.md'), 'scratch\n');
 
 	// Browse: the list only (read-only), grouped like VS Code, with the keys in the footer.
-	press('g'); await screen('v changes • o lazygit');
+	press('g'); await screen('→ changes • enter lazygit');
 	await screen('Changes 1'); await screen('Untracked 1'); await screen('README.md'); await screen('1 changed · 1 untracked');
 	// Focus: the selection starts on the first file; its diff shows below the list.
-	press('v'); await screen('space stage/unstage'); await screen('unstaged · README.md'); await screen('+Edited in the worktree.');
+	press('\x1b[C'); await screen('space stage/unstage'); await screen('unstaged · README.md'); await screen('+Edited in the worktree.');
 	press(' '); await screen('Staged README.md'); await screen('Staged Changes 1');
 	await waitFor(() => git(worktree, 'diff', '--cached', '--name-only'), names => names === 'README.md', UI_WAIT_MS);
 	// The selection moved on to the untracked file; J scrolls nothing it cannot, esc returns to browse.
 	await screen('untracked · notes.md');
-	press('\x1b'); await screen('v changes • o lazygit');
+	press('\x1b'); await screen('→ changes • enter lazygit');
 	assert.equal(await git(worktree, 'status', '--porcelain'), 'M  README.md\n?? notes.md');
 });

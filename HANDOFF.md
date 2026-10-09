@@ -173,7 +173,7 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 
 ## Design rules
 
-- Keys (audited on `feat/tasks`): lowercase is the common action, uppercase the heavier variant of the same letter (`n`/`N`, `x`/`X`, `s`/`S`, `e`/`E`, `o`/`O`). `o` goes into the thing (attach, edit notes, a task's session), `E` opens your editor (Notes, Tasks, a changed file), `x` stops or removes, Esc goes back on every screen and `q` only quits from browse. Arrows work wherever `j`/`k` do; `←`/`→` and Shift+Tab move between tabs (resizing is `h`/`l` only). `g`/`G` are first/last in lists. Destructive single keys ask first, except the explicit force variant (`X`). Ctrl+A/Ctrl+E are line start/end in every one-line field; select-all exists only in the raw JSON editor. `tests/keysDocumented.test.ts` reads the browse and Tasks handlers' `input === 'x'` checks and fails when one has no line in `src/help.ts`; it does not see `key.*` checks (arrows, Enter, Tab).
+- Keys (redesigned on `feat/tasks`; the reasoning and the before/after of every key were reviewed with the user): (1) two places, the session list and the pane: `→`/`l` steps into the pane, `←`/`h`/Esc back out; (2) `enter` does the main thing (on a session: open it full screen, the same as `o`); (3) one verb per key on every screen: `space` toggles or marks done, `a` adds, `x` removes or stops (asking first), `E` opens your editor, `o` goes full screen, `r` runs; (4) uppercase is the stronger variant of its lowercase (`n`/`N`, `x`/`X`, `s`/`S`, `m`/`M`) or a rarely visited screen (`C`, `U`, `H`, `A`, `R`, `T`); (5) tab letters `p t g d a` only switch tabs; (6) lists move with `j`/`k`/arrows, `g`/`G`, PgUp/PgDn; (7) anything that loses work asks first, except the force variant `X`, which never deletes. Exceptions kept on purpose: `J`/`K` scroll the diff in the changes view (nothing to reorder there); `a` is the Notes tab in browse and "add" in lists (they never meet). Ctrl+A/Ctrl+E are line start/end in every one-line field; select-all exists only in the raw JSON editor. `tests/keysDocumented.test.ts` reads the browse and Tasks handlers' `input === 'x'` checks and fails when one has no line in `src/help.ts`; it does not see `key.*` checks (arrows, Enter, Tab).
 
 - Lifecycle and activity are distinct:
   - lifecycle `status`: `starting`, `running`, `exited`
@@ -218,46 +218,23 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 
 ### Main controls
 
-- `n` create top-level session
-- `N` create sub-session under selected session
-- in create program picker, Claude/Pi parents add `⑂ Fork parent`
-- during create name entry, `tab` cycles workspace mode: no/new/existing worktree
-- in existing-worktree picker, type to search, `j`/`k` or arrows move, `enter` selects
-- `j` / `k` or `↑` / `↓` move selected session
-- session numbers jump to matching visible rows; multi-digit input is buffered when needed and `enter` confirms immediately
-- `J` / `K` manually reorder selected session among siblings
-- `c` cycles selected session's subtree: collapse exited sub-sessions only, then collapse all sub-sessions, then expand all
-- `h` / `l` resize sidebar (arrows no longer do: `←` / `→` switch tabs)
-- `[` / `]` decrease/increase `attach_scroll_sensitivity` live and persist it to config
-- `tab` / `→` next tab, `shift+tab` / `←` previous (Preview / Terminal / Git / Dev / Notes)
-- `p` / `t` / `g` / `d` / `a` directly focus Preview / Terminal / Git / Dev / Notes
-- switching sessions restores that session's most recently selected tab, defaulting to Preview
-- `v` on the Terminal tab switches between the shell and the worktree's last action (`terminalView`; with no action yet it says *e runs one*). The Terminal header then reads `shell │ <name> ● running` (or `✓ exit 0`, `✗ exit N`, `✗ signal N`, `○ stopped` after a worker crash), the shown view highlighted (`actionStatus`, `hasAction` in `src/terminalPane.tsx`). The view is kept across attach/detach (`initialTerminalView`/`onTerminalViewChange`, a module variable in `src/cli.ts`) but not across UI restarts
-- `e` opens the actions picker; Enter runs the action and switches to Terminal → action view. While an action of the worktree runs, the picker says so and `x` stops it (`stop-action`); running another meanwhile is refused (*The <name> action is still running; stop it first (e, then x)*). Opening the picker re-watches the action (`watchAction`), so this works from any tab
-- `v` enters Preview focus mode for running sessions; on the Git tab it enters Changes focus (`j`/`k`/arrows, `g`/`G` select; `space` stage/unstage; `a`/`A` stage/unstage all; `enter`/`e` open in editor; `J`/`K` scroll the diff by 3, PgUp/PgDn by a page; `o` lazygit; `esc`/`v` back)
-- `o` attaches to selected session's active pane (Terminal/Git/Dev also for exited sessions, as long as the session has a workspace):
-  - Preview => agent
-  - Terminal => the workspace's shared shell, or its running action in the action view (a finished action cannot be attached: *e runs an action again*)
-  - Git => the workspace's shared lazygit (started on this attach; the tab itself shows the Changes view)
-  - Dev => the workspace's shared dev command PTY
-  - Notes => enter notes edit/focus mode
-- `b` opens the Tasks board (mode `tasks`, right pane); its keys are in *Tasks* above and in `?` → Tasks. Backspace on an exited session whose notes have open items opens `confirm-remove` (`m` moves them to Tasks first)
-- `E` on the Notes tab opens the active note (the session's; the worktree's after editing that) in Cursor / VS Code, creating the file if missing (`e` is the actions picker and `O` the worktree, so neither could be reused)
-- `O` opens selected session directory/worktree in Cursor if available, otherwise Code (`cursor`/`code` CLI; macOS fallback is `open -a Cursor`)
-- `m` opens the merge confirmation for worktree-backed sessions (preview, `space` commit-first toggle, merge/squash/cancel; see *Merge behavior*); a conflicted result opens the conflict view (`enter` keep, `a` abort)
-- `M` toggles the worktree's merged marker (every session of it); worktree-only: in the main checkout it says *Not in a worktree, so there is nothing to mark merged. Use D to mark it done* (the daemon refuses the same way)
-- `D` toggles the selected session's done marker (`set-session-done`; any session, sub-sessions in a worktree included; independent of merged and archived)
-- `x` asks before stopping any running session (`confirm-kill`; a session without a worktree gets just *Kill session* / *Cancel*, no cleanup inspection)
-- `X` force-kills at once without asking and keeps any worktree (deletion is only offered through `x`); workers send SIGTERM first and SIGKILL after a short delay if still alive
-- for worktree-backed sessions, kill confirmation offers keep/delete/delete-branch/cancel when applicable
-- `s` resume/restart selected exited session
-- `S` fresh-restart selected exited session without using prior parsed/persisted resume handle
-- `d` focuses Dev; when already on Dev, starts/stops the Dev command of the selected session's workspace (any session with a workspace, running or not)
-- `backspace` removes selected exited session
-- `r` refreshes/resubscribes
-- `U` opens the Agents screen (versions and updates, see *Agent versions and updates*)
-- `?` opens help
-- `q` quits UI; daemon and running sessions continue. Only from browse: Help and Agents no longer close on `q` (Esc closes every screen)
+The keymap follows the rules under *Design rules* (the session list and the pane; one meaning per key). Browse handler: `useTerminalInput` in `src/app.tsx`, `mode === 'browse'`.
+
+- Moving: `j`/`k` or `↑`/`↓` select; session numbers jump (multi-digit input is buffered when needed, `enter` confirms at once, a short pause too); `J`/`K` reorder among siblings; `c` cycles the subtree (collapse exited sub-sessions, collapse all, expand all); `/` search, `f` filter, `!` next needing attention; `<`/`>` resize the sidebar; `R` reloads (resubscribes)
+- Tabs: `tab`/`]` next, `shift+tab`/`[` previous; `p`/`t`/`g`/`d`/`a` jump to Preview/Terminal/Git/Dev/Notes and do nothing else (`d` on Dev only says that `r` starts it). Switching sessions restores that session's last tab, defaulting to Preview
+- Into the pane (`stepIntoPane`): `→`/`l` scrolls the preview of a running session (mode `preview-focus`: `j`/`k`, arrows, PgUp/PgDn, `g`/`G`, the wheel; `+`/`=`/`-` change `attach_scroll_sensitivity`, saved; `←`/`h`/Esc back), browses the Git changes (`changes-focus`: `j`/`k`/arrows, `g`/`G`/Home/End select; `space` stage/unstage; `a`/`A` stage/unstage all; `enter`/`E` open in editor; `J`/`K` scroll the diff by 3, PgUp/PgDn by a page; `o` lazygit; `←`/`h`/Esc back) or edits the notes (`notes-focus`; Esc back, arrows are the cursor). On Terminal and Dev it says Enter opens them. `←`/`h` in browse do nothing (already out)
+- `enter`/`o` open full screen what the tab shows (Terminal/Git/Dev also for exited sessions with a workspace): Preview → agent; Terminal → the shared shell, or its running action in the action view (a finished action cannot be attached: *r runs an action again*); Git → the shared lazygit (started on this attach); Dev → the shared Dev PTY (*Dev is not running: r starts it* otherwise); Notes → notes edit. A non-running session on Preview says *s resumes it*. `enter` while a session number is being typed confirms the number instead
+- `v` on the Terminal tab switches between the shell and the worktree's last action (`terminalView`; with no action yet it says *r runs one*); that is its only job. The Terminal header reads `shell │ <name> ● running` (or `✓ exit 0`, `✗ exit N`, `✗ signal N`, `○ stopped` after a worker crash), the shown view highlighted (`actionStatus`, `hasAction` in `src/terminalPane.tsx`). The view is kept across attach/detach (`initialTerminalView`/`onTerminalViewChange`, a module variable in `src/cli.ts`) but not across UI restarts
+- `E` opens Cursor / VS Code: on Notes the active note (the session's; the worktree's after editing that), creating the file if missing; elsewhere the session's directory/worktree (`openSelectedInEditor`; `cursor`/`code` CLI, macOS fallback `open -a Cursor`)
+- `r` opens the run list (mode `pick-action`, `ActionPickerPane`): row 0 is the worktree's Dev command when the session has a workspace (`runListHasDev`; Enter, or `x` while it runs, calls `runDev`: stop, or start after reviewing an untrusted repository `devCommand`), then the actions; Enter runs one and switches to Terminal → action view. While an action runs, `x` stops it (`stop-action`) and running another is refused (*The <name> action is still running; stop it first (r, then x)*). Opening the list re-watches the action (`watchAction`)
+- `n` new session; `N` sub-session: the picker lists the agents, then `⑂ Fork parent` (Claude/Pi parents), then `↳ From its handoff (H)` when the parent has `handoffPath`; choosing that sets `handoffFromId` and the picker asks for the agent (Esc returns to the choices). There is no `F` any more. In the name step `tab` cycles workspace mode (none/new/existing) and `↑`/`↓` the new worktree's base; the existing-worktree picker filters by typing, arrows move, `enter` selects
+- `x` asks before stopping any running session (`confirm-kill`; a session without a worktree gets just *Kill session* / *Cancel*, no cleanup inspection; worktree sessions get keep/delete/delete-branch/cancel when applicable); `X` force-kills at once without asking and keeps any worktree (deletion is only offered through `x`); workers send SIGTERM first and SIGKILL after a short delay. `x`/`X` on a starting session cancel startup
+- `s` resume/restart an exited session; `S` fresh restart without the stored resume handle
+- `space` toggles the done marker (`set-session-done`; any session, sub-sessions in a worktree included; independent of merged and archived). It replaced `D`
+- `m` opens the merge confirmation for worktree-backed sessions (preview, `space` commit-first toggle, merge/squash/cancel; see *Merge behavior*); a conflicted result opens the conflict view (`enter` or `esc` keep, `x` abort). `M` toggles the worktree's merged marker (worktree-only; in the main checkout it says to mark it done instead)
+- `A` archive/unarchive; `backspace` removes an exited session; when its notes have open items it opens `confirm-remove` (`enter` moves them to Tasks first, `x` removes anyway, Esc cancels)
+- `H` exports/opens a handoff; `i` workspace info; `b` Tasks board (mode `tasks`, keys in *Tasks* above); `C` Settings (raw JSON on `E`); `U` Agents (see *Agent versions and updates*); `?` help
+- `q` quits the UI (daemon and sessions continue). Only from browse: Esc closes every other screen
 
 ### Notes
 

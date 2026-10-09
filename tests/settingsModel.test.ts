@@ -169,7 +169,7 @@ test('edits become one key in one layer, preserving every other key and its plac
 	assert.deepEqual(json(applyChange(repository, {path: ['actions', 'test'], value: 'pytest'})).actions, {test: 'pytest'});
 	assert.deepEqual(Object.keys(json(applyChange(repository, {path: ['actions', 'test']}))), ['devCommand', 'worktree']);
 	// Saving re-validates the whole layer and refuses to edit through malformed JSON.
-	assert.throws(() => applyChange({...repository, raw: '{'}, codex), /press e to repair/);
+	assert.throws(() => applyChange({...repository, raw: '{'}, codex), /press E to repair/);
 	assert.throws(() => applyChange({...repository, raw: '{"worktree":[]}'}, {path: ['worktree', 'hook'], value: false}), /not an object/);
 });
 
