@@ -252,6 +252,22 @@ async function branchStart(root: string, launchCwd: string, from: BranchFrom = '
 	}
 	return {start: await git(root, ['rev-parse', '--verify', `refs/remotes/${remote}/${name}^{commit}`]), baseRef: `${remote}/${name}`};
 }
+/** Local branches, most recently committed first (at most `limit`). */
+export async function listLocalBranches(cwd: string, limit = 200): Promise<string[]> {
+	const out = await optionalGit(cwd, ['for-each-ref', '--sort=-committerdate', `--count=${limit}`, '--format=%(refname:short)', 'refs/heads']);
+	return (out ?? '').split('\n').filter(Boolean);
+}
+
+/** A chosen base (`baseBranch` of a new session): a local branch, or `origin/<name>` as last fetched (never fetched here). */
+async function chosenStart(root: string, base: string): Promise<{start: string; baseRef: string}> {
+	if (!base || base.startsWith('-') || branchNameProblem(base)) throw new Error(`Invalid base branch ${JSON.stringify(base)}`);
+	const local = await optionalGit(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${base}^{commit}`]);
+	if (local) return {start: local, baseRef: base};
+	const remote = base.startsWith('origin/') ? await optionalGit(root, ['rev-parse', '--verify', '--quiet', `refs/remotes/${base}^{commit}`]) : undefined;
+	if (remote) return {start: remote, baseRef: base};
+	throw new Error(`Base branch ${base} does not exist here`);
+}
+
 /** The new branch's name from `worktree.branchName` (default `{name}`), checked with `git check-ref-format --branch`. */
 export async function worktreeBranchName(cwd: string, name: string, template = '{name}'): Promise<string> {
 	const branch = expandBranchName(template, {name, user: userSlug()});
@@ -260,7 +276,7 @@ export async function worktreeBranchName(cwd: string, name: string, template = '
 	return branch;
 }
 
-async function fallbackCreateWorktree(worktreePath: string, name: string, currentWorktreeRoot: string, launchCwd: string, settings?: WorktreeSettings): Promise<{path: string; baseRef?: string}> {
+async function fallbackCreateWorktree(worktreePath: string, name: string, currentWorktreeRoot: string, launchCwd: string, settings?: WorktreeSettings, baseBranch?: string): Promise<{path: string; baseRef?: string}> {
 	const branch = await worktreeBranchName(currentWorktreeRoot, name, settings?.branchName);
 	try {
 		await fs.access(worktreePath);
@@ -273,7 +289,7 @@ async function fallbackCreateWorktree(worktreePath: string, name: string, curren
 		await git(currentWorktreeRoot, ['worktree', 'add', worktreePath, branch], SLOW);
 		return {path: worktreePath};
 	}
-	const {start, baseRef} = await branchStart(currentWorktreeRoot, launchCwd, settings?.branchFrom);
+	const {start, baseRef} = baseBranch ? await chosenStart(currentWorktreeRoot, baseBranch) : await branchStart(currentWorktreeRoot, launchCwd, settings?.branchFrom);
 	await fs.mkdir(path.dirname(worktreePath), {recursive: true});
 	// --no-track: a remote start point must not become the branch's upstream (create-pr sets that when pushing).
 	await git(currentWorktreeRoot, ['worktree', 'add', '--no-track', '-b', branch, worktreePath, start], SLOW);
@@ -291,9 +307,11 @@ export async function worktreeTemplateVars(name: string, cwd: string): Promise<T
  * `creationHook` must be the trusted, already-verified hook (LoadedProject['creationHook']); exactly its bytes are executed.
  * `settings` are the effective worktree settings: the hook (when present) decides the location and branch, otherwise
  * `settings.location` (default ~/.deckhand/worktrees/{name}), `branchFrom` and `branchName` apply; links apply only
- * to a newly created worktree.
+ * to a newly created worktree. `baseBranch` (chosen in the new-session form) replaces `branchFrom`; a hook decides
+ * the base itself, so it cannot be combined with one.
  */
-export async function createWorktreeForSession(title: string, launchCwd: string, creationHook?: CreationHook, settings?: WorktreeSettings): Promise<CreatedWorktreeInfo> {
+export async function createWorktreeForSession(title: string, launchCwd: string, creationHook?: CreationHook, settings?: WorktreeSettings, baseBranch?: string): Promise<CreatedWorktreeInfo> {
+	if (creationHook && baseBranch) throw new Error("This repository's worktree creation hook decides where new worktrees start, so a base branch cannot be chosen; leave Base on its default");
 	const name = sanitizeWorktreeName(title);
 	const currentWorktreeRoot = await findRepoRoot(launchCwd);
 	const before = pathSet(await listWorktrees(currentWorktreeRoot));
@@ -301,7 +319,7 @@ export async function createWorktreeForSession(title: string, launchCwd: string,
 	const vars = settings?.location || settings?.symlink?.length || Object.keys(settings?.files ?? {}).length ? await worktreeTemplateVars(name, currentWorktreeRoot) : undefined;
 	const {path: worktreePath, baseRef} = creationHook
 		? {path: await runCreateScript(creationHook, name, currentWorktreeRoot, launchCwd), baseRef: undefined}
-		: await fallbackCreateWorktree(settings?.location && vars ? worktreeLocation(settings.location, vars) : path.join(getConfigDir(), 'worktrees', name), name, currentWorktreeRoot, launchCwd, settings);
+		: await fallbackCreateWorktree(settings?.location && vars ? worktreeLocation(settings.location, vars) : path.join(getConfigDir(), 'worktrees', name), name, currentWorktreeRoot, launchCwd, settings, baseBranch);
 	const absolutePath = await fs.realpath(path.resolve(worktreePath));
 	const after = await listWorktrees(currentWorktreeRoot);
 	const metadata = after.find(worktree => path.resolve(worktree.path) === absolutePath);

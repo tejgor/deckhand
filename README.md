@@ -47,6 +47,7 @@ Tools for running coding agents in parallel typically rely on [`tmux`](https://g
 - **Keyboard Reordering** — Move sessions up and down among their siblings from the keyboard.
 - **Sub-sessions** — Group related work under a parent session, indented in the sidebar; each one starts clean in the parent's directory, or forks the parent's Claude, Pi or Codex conversation.
 - **Resumable Agents** — Claude/Pi retain native identities; Codex resumes when its native ID is captured. Unknown IDs never silently become a blank conversation. Fresh restart remains explicit.
+- **Tasks** — One task list per repository (`b`), beside the notes: in progress (with the live state of the session doing it), backlog and done. `n` starts a session for a task in a new worktree (you pick the base branch); merging that worktree ticks the task off, and work dropped unmerged goes back to the backlog.
 - **Notes with checklists** — Each session's notes plus one note per worktree shared by every session in it, as Markdown files you can also edit in VS Code; `- [ ]` items render as ☐/☑ and their open count shows in the sidebar.
 - **Safer Cleanup** — Check uncommitted, untracked and valuable ignored files, and commits that deleting a branch would lose, before deletion; force kill and data-loss authorization are separate.
 - **Merge Helpers** — Merge or squash-merge a session's worktree into the current branch, staged for review rather than committed: a preview shows the target, commits and diff stat first, uncommitted work can be committed first, conflicts are kept to resolve or aborted in one key, and worktrees merged elsewhere (into the default branch, or a merged PR) are marked by themselves.
@@ -137,7 +138,8 @@ Press `o` to attach to the selected session's active pane. To branch off related
 
 | Key | Action |
 | --- | --- |
-| `n` | New top-level session |
+| `n` | New top-level session (in a new worktree, `↑`/`↓` pick the branch it starts from) |
+| `b` | Tasks: the repository's task list (see [Tasks](#tasks)) |
 | `N` | New sub-session under the selected session |
 | `1`–`9`, `0` | Jump to that numbered visible session (`0` selects visible session 10). Multi-digit jumps (e.g. `12`) work via brief buffering. |
 | `j` / `k` | Move between visible sessions |
@@ -159,7 +161,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `h` / `l` | Resize the sidebar |
 | `x` / `X` | Kill the selected running session / force kill |
 | `s` / `S` | Resume / fresh-restart the selected exited session |
-| `backspace` | Drop the selected exited session from the list |
+| `backspace` | Drop the selected exited session from the list (when its notes still have open checklist items, `m` first moves them to Tasks) |
 | `r` | Refresh the session list |
 | `A` | Archive/unarchive (does not stop an agent) |
 | `f` / `/` | Cycle filters / search title, notes, provider, branch, path |
@@ -215,7 +217,27 @@ The Notes tab shows two notes: the worktree's, shared by every session in that w
 | `ctrl+x` | Check/uncheck the line's checklist item, or make the line a `- [ ]` item |
 | `ctrl+t` | New checklist item below |
 | `ctrl+o` | Open the note you are editing in Cursor / VS Code |
+| `ctrl+p` | Send the line's open checklist item to [Tasks](#tasks); the note keeps a `↗` link to it |
 | `esc` | Back to browsing |
+
+### Tasks
+
+`b` opens the repository's task list in the right pane (every worktree of the repository shares it). Notes stay scratch space: a note's checkbox only becomes a task when you send it (`ctrl+p` while editing, or `p` in the board's note list).
+
+| Key | Action |
+| --- | --- |
+| `j` / `k` | Select a task |
+| `a` / `enter` | Add a task / edit the selected one: title, then `tab` for its details (sent to the agent when a session starts from it); `enter` saves the title, `ctrl+s` saves from the details |
+| `n` | Start a session for a backlog task: the usual new-session form, named after it, in a new worktree; `↑`/`↓` pick the base branch |
+| `space` | Tick a task done, or reopen it |
+| `g` | Go to the session doing it |
+| `J` / `K` | Reorder within its group |
+| `x` | Delete (press twice) |
+| `tab` | Open checklist items in notes that are not tasks yet; `p` sends one to Tasks, `enter` opens its note |
+| `E` | Open the task list in Cursor / VS Code |
+| `esc` | Back |
+
+A task started with `n` is linked to its session's worktree (or, in the main checkout, to the session): the board shows the most urgent state of the sessions there (needs you, working, idle, exited), the session's Notes tab and sidebar details name the task, and the agent starts with the task as its first message. Merging the worktree (`m`, `M`, or found merged) ticks it, and the merge screen says so; `D` ticks it once every session there is done; undoing either reopens it. Work removed or deleted without merging puts the task back in the backlog, marked with the branch it was tried in. Done tasks fold away after a week.
 
 ### Git Changes
 
@@ -314,6 +336,10 @@ The older top-level `dev_command` still works when no `devCommand` is set.
 
 Notes are Markdown files in `~/.deckhand/notes/`: `sessions/<session>.md` for each session's own, `worktrees/<id>.md` for each worktree (shared by every session in it, sub-sessions and attached ones included; a new worktree later created at the same path starts with a fresh note) and `repos/<hash>.md` for the main checkout. They autosave while you type. Edit them in VS Code too (`E` opens one): changes show up in Deckhand within a second, and Deckhand never overwrites them: if a file changed while you were typing, it reloads the file and says so. A session's note is deleted with the session, a worktree's when its last session is removed; the main checkout's is kept. Older notes stored in `state.json` move into these files on the first start. Checklist items (`- [ ]`, `- [x]`, also `*`, indented) render as ☐/☑, the sidebar shows `☐ N open` for the selected session, and handoffs (`H`), the merge confirmation and `/` search include the worktree's note. Each note holds up to 50 000 characters (a longer file is shown cut and edited in your editor).
 
+### Task Lists
+
+Each repository's tasks are one Markdown file, `~/.deckhand/notes/tasks/<hash>.md`, beside the notes: a task is a top-level `- [ ]` item, the indented lines under it its details, and anything else (headings, prose) is kept as you wrote it. Deckhand's bookkeeping (the task's ID, its linked worktree or session, when it was added or done) sits in a `<!-- dh:… -->` comment at the end of the item's line. Edit the file in your editor too (`E` on the board): Deckhand applies each change to the file as it is on disk, so your edits are never overwritten, and items you add there get an ID on Deckhand's next change.
+
 ### Attach Scroll Sensitivity
 
 Attached sessions and Preview focus dampen trackpad and mouse-wheel scrolling. Press `[` / `]` in Deckhand to decrease/increase the multiplier immediately and save it, or edit the config directly:
@@ -331,7 +357,7 @@ Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0`
 | Path | Purpose |
 | --- | --- |
 | `~/.deckhand/state.json` | Persisted session list (with done markers) and per-worktree merged/deleted markers |
-| `~/.deckhand/notes/` | Notes as Markdown files: per session, per worktree, and the main checkout's |
+| `~/.deckhand/notes/` | Notes as Markdown files: per session, per worktree, and the main checkout's; `tasks/` holds each repository's task list |
 | `~/.deckhand/config.json` | User configuration, global `defaults` and exact repository trust fingerprints |
 | `~/.deckhand/ui-state.json` | Per-repository selection, tabs, width, tree/filter/search preferences |
 | `~/.deckhand/handoffs/` | Private, inspectable Markdown handoffs |

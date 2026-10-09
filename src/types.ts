@@ -4,9 +4,10 @@ import type {LoadedProject, ProjectConfig} from './projectConfig.js';
 import type {ConfigTargetKind, ConfigTargets, ProjectConfigDocument, SavedConfigDocument} from './projectConfigDocument.js';
 import type {SettingsInfo, WorktreeCandidates} from './settingsInfo.js';
 import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
+import type {TaskOp} from './tasks.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 40;
+export const PROTOCOL_VERSION = 41;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -182,6 +183,8 @@ export interface SessionRecord {
 	agentVersion?: string;
 	/** Marked done with `D` (any session; independent of merged). */
 	doneAt?: string;
+	/** Started from a task: its first launch sends this (the task's title and body) as the first message. */
+	startPrompt?: string;
 }
 
 /** A note file as the daemon last read it (see src/notesStore.ts). */
@@ -202,6 +205,27 @@ export interface SharedNote extends NoteFile {
 	text: string;
 	/** Its worktree was deleted: shown, but not editable. */
 	readOnly?: boolean;
+}
+
+/** A repository's task list (`watch-tasks`, `tasks-updated`): one Markdown file, parsed by src/tasks.ts. */
+export interface TasksDoc {
+	/** Hash of the repository's main checkout (as for its note); the same for every worktree of it. */
+	key: string;
+	path: string;
+	text: string;
+	revision: string;
+	tooLarge?: boolean;
+}
+
+/** `list-branches`: local branches a new worktree can start from, most recently committed first. */
+export interface BranchList {
+	branches: string[];
+	current?: string;
+	defaultBranch?: string;
+	/** The worktree.branchFrom setting in effect, i.e. what "default" means in the new-session form. */
+	branchFrom: 'current' | 'default' | 'origin';
+	/** A trusted creation hook decides where new worktrees start; the base cannot be chosen. */
+	hook?: boolean;
 }
 
 /** `save-note`: `saved` false when the file changed since `revision` (nothing written; `session` carries the file as it is). */
@@ -307,6 +331,10 @@ export interface CreateSessionInput {
 	parentSessionId?: string;
 	subSessionKind?: SubSessionKind;
 	handoffFromSessionId?: string;
+	/** A new worktree's branch starts at this local branch (or `origin/<name>`) instead of worktree.branchFrom. */
+	baseBranch?: string;
+	/** Started from this task of the repository's list: the task is linked to the new session's worktree (or the session). */
+	taskId?: string;
 	/** Fingerprint of the repository configuration the user reviewed; an untrusted one it matches is skipped, not refused. */
 	projectFingerprint?: string;
 }
@@ -360,6 +388,15 @@ export type ClientRequest =
 	| {type: 'save-note'; requestId: string; sessionId: string; section: 'session' | 'shared'; noteId?: string; text: string; revision: string}
 	/** Creates the note's file if missing and responds with its path (for the editor). */
 	| {type: 'open-note'; requestId: string; sessionId: string; section: 'session' | 'shared'}
+	/** The task list of the repository `cwd` belongs to; pushes `tasks-updated` while it is this client's list. */
+	| {type: 'watch-tasks'; requestId: string; cwd: string}
+	/** Applies one change to that list (src/tasks.ts TaskOp) and responds with the TasksDoc. */
+	| {type: 'task-op'; requestId: string; cwd: string; op: TaskOp}
+	/** Creates the task list's file if missing and responds with its path (for the editor). */
+	| {type: 'open-tasks'; requestId: string; cwd: string}
+	/** Sends the open checklist item on `line` of a note (at `revision`) to the repository's tasks; the line becomes a link. */
+	| {type: 'promote-note-item'; requestId: string; sessionId: string; section: 'session' | 'shared'; noteId?: string; line: number; revision: string}
+	| {type: 'list-branches'; requestId: string; cwd: string}
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
 	| {type: 'reorder-session'; requestId: string; sessionId: string; direction: 'up' | 'down'}
 	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number; mode?: RestartMode; projectFingerprint?: string}
@@ -372,7 +409,8 @@ export type ClientRequest =
 	| {type: 'resolve-merge'; requestId: string; sessionId: string; targetCwd: string; action: 'keep' | 'abort'}
 	| {type: 'mark-session-merged'; requestId: string; sessionId: string; targetCwd: string}
 	| {type: 'set-session-done'; requestId: string; sessionId: string; done: boolean}
-	| {type: 'remove'; requestId: string; sessionId: string}
+	/** `moveOpenItems`: first send the open checklist items of the notes removed with it to the repository's tasks. */
+	| {type: 'remove'; requestId: string; sessionId: string; moveOpenItems?: boolean}
 	| {type: 'attach'; requestId: string; sessionId: string; cols?: number; rows?: number}
 	| {type: 'input'; sessionId: string; data: string}
 	| {type: 'resize'; sessionId: string; cols: number; rows: number}
@@ -420,6 +458,7 @@ export type ServerEvent =
 	| {type: 'action-updated'; action: ActionRecord}
 	| {type: 'changes-updated'; changes: ChangesRecord}
 	| {type: 'agent-versions-updated'; versions: AgentVersions}
+	| {type: 'tasks-updated'; tasks: TasksDoc}
 	| {type: 'terminal-output'; sessionId: string; data: string}
 	| {type: 'git-output'; sessionId: string; data: string}
 	| {type: 'dev-output'; sessionId: string; data: string}

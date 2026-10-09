@@ -16,7 +16,8 @@ import {
 } from './paths.js';
 import {PROTOCOL_VERSION} from './types.js';
 import type {NoteSection} from './notes.js';
-import type {ActionRecord, AgentUpdateResult, AgentVersions, MergePreview, NoteSaveResult, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
+import type {TaskOp} from './tasks.js';
+import type {ActionRecord, AgentUpdateResult, AgentVersions, BranchList, MergePreview, TasksDoc, NoteSaveResult, ChangeDiff, ChangeGroup, ChangesRecord, ClientRequest, CreateSessionInput, DevRecord, PreviewRecord, ProgramKey, RestartMode, ServerMessage, SessionRecord, TerminalRecord, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, ProjectInfo, WorkspaceSummary, CreatePrResult, SessionCleanupInspection, SavedConfigDocument, ConfigTargetKind, SettingsInfo, WorktreeCandidates} from './types.js';
 
 function createConnection(): Promise<net.Socket> {
 	const socketPath = getSocketPath();
@@ -220,6 +221,7 @@ interface LiveClientHandlers {
 	onDevUpdated?: (dev: DevRecord) => void;
 	onActionUpdated?: (action: ActionRecord) => void;
 	onAgentVersionsUpdated?: (versions: AgentVersions) => void;
+	onTasksUpdated?: (tasks: TasksDoc) => void;
 	onError?: (error: Error) => void;
 	onClose?: () => void;
 }
@@ -274,6 +276,9 @@ export class LiveClient {
 						return;
 					case 'agent-versions-updated':
 						this.handlers.onAgentVersionsUpdated?.(message.versions);
+						return;
+					case 'tasks-updated':
+						this.handlers.onTasksUpdated?.(message.tasks);
 						return;
 					default:
 						return;
@@ -416,9 +421,19 @@ export class LiveClient {
 		return this.request<SessionRecord>({type: 'mark-session-merged', requestId: randomUUID(), sessionId, targetCwd});
 	}
 
-	removeSession(sessionId: string): Promise<void> {
-		return this.request({type: 'remove', requestId: randomUUID(), sessionId});
+	/** `moveOpenItems`: first send the open checklist items of the notes removed with it to the repository's tasks. */
+	removeSession(sessionId: string, moveOpenItems = false): Promise<void> {
+		return this.request({type: 'remove', requestId: randomUUID(), sessionId, ...moveOpenItems ? {moveOpenItems: true} : {}});
 	}
+
+	/** The task list of `cwd`'s repository; `tasks-updated` follows its changes. */
+	watchTasks(cwd: string): Promise<TasksDoc> { return this.request({type: 'watch-tasks', requestId: randomUUID(), cwd}); }
+	taskOp(cwd: string, op: TaskOp): Promise<TasksDoc> { return this.request({type: 'task-op', requestId: randomUUID(), cwd, op}); }
+	openTasks(cwd: string): Promise<string> { return this.request({type: 'open-tasks', requestId: randomUUID(), cwd}); }
+	promoteNoteItem(sessionId: string, section: NoteSection, line: number, revision: string, noteId?: string): Promise<{session: SessionRecord; tasks: TasksDoc}> {
+		return this.request({type: 'promote-note-item', requestId: randomUUID(), sessionId, section, line, revision, ...noteId ? {noteId} : {}});
+	}
+	listBranches(cwd: string): Promise<BranchList> { return this.request({type: 'list-branches', requestId: randomUUID(), cwd}); }
 
 	/** Saves a note if its file still has `revision`; `saved` false (and the file as it is in `session`) when it changed. */
 	saveNote(sessionId: string, section: NoteSection, text: string, revision: string, noteId?: string): Promise<NoteSaveResult> {

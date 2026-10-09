@@ -10,12 +10,15 @@ import {MAX_NOTES_CHARS, MAX_NOTES_LABEL, noteRevision} from './notes.js';
 // revision-checked against the file as it is on disk, and the directories are watched so edits made in an editor show
 // up in Deckhand (and are never overwritten by it).
 
-export type NoteKind = 'session' | 'worktree' | 'repo';
-/** A note: a session's own (`id` = session ID), a linked worktree incarnation's (record ID), the main checkout's (repo hash). */
+export type NoteKind = 'session' | 'worktree' | 'repo' | 'tasks';
+/**
+ * A note: a session's own (`id` = session ID), a linked worktree incarnation's (record ID), the main checkout's (repo
+ * hash), or a repository's task list (`tasks`, the same repo hash; src/tasks.ts reads and changes it).
+ */
 export interface NoteId {kind: NoteKind; id: string}
 export interface StoredNote {text: string; revision: string; tooLarge?: boolean}
 
-const DIRECTORIES: Record<NoteKind, string> = {session: 'sessions', worktree: 'worktrees', repo: 'repos'};
+const DIRECTORIES: Record<NoteKind, string> = {session: 'sessions', worktree: 'worktrees', repo: 'repos', tasks: 'tasks'};
 const KINDS = Object.keys(DIRECTORIES) as NoteKind[];
 // Bytes read from one file at most; a longer note is shown cut and only edited in an editor.
 const READ_LIMIT = 1024 * 1024;
@@ -128,6 +131,32 @@ export class NotesStore {
 			this.remember(note.kind, stem, {text: next, revision: noteRevision(next)});
 			return {saved: true, changed: true};
 		});
+	}
+
+	/**
+	 * Rewrites the note with `transform` of its text as it is on disk now (no revision to match: the transform is the
+	 * edit, e.g. a task op). Throws what `transform` throws; writes nothing when it returns the same text.
+	 */
+	modify<T>(note: NoteId, transform: (text: string) => {text: string; result: T}): Promise<{result: T; note: StoredNote; changed: boolean}> {
+		return this.serialized(note.kind, noteFileStem(note.id), async () => {
+			const file = noteFilePath(note), stem = noteFileStem(note.id);
+			const current = await readNoteFile(file);
+			const changed = this.remember(note.kind, stem, current);
+			if (current.tooLarge) throw new Error(`This file is longer than ${MAX_NOTES_LABEL}; edit it in your editor`);
+			const {text, result} = transform(current.text);
+			if (text === current.text) return {result, note: current, changed};
+			if (text.length > MAX_NOTES_CHARS) throw new Error(`That would make the file longer than ${MAX_NOTES_LABEL}`);
+			await fs.mkdir(path.dirname(file), {recursive: true, mode: 0o700});
+			await writeAtomically(file, text);
+			const written = {text, revision: noteRevision(text)};
+			this.remember(note.kind, stem, written);
+			return {result, note: written, changed: true};
+		});
+	}
+
+	/** The cached notes of a kind (file stems and contents); empty ones are not cached. */
+	entries(kind: NoteKind): Array<[stem: string, note: StoredNote]> {
+		return [...this.cache].filter(([key]) => key.startsWith(`${kind}:`)).map(([key, note]) => [key.slice(kind.length + 1), note]);
 	}
 
 	/** The note's file, created (empty) if missing, e.g. to open it in an editor. */

@@ -25,7 +25,7 @@ test('help search matches keys, descriptions and notes across topics; the pane s
 	// Every topic fits a 24-row pane at 100 columns, so none needs scrolling there.
 	for (const topic of HELP_TOPICS.keys()) assert.doesNotMatch(pane({topic}, 100).join('\n'), /PgDn|↓ \d/, HELP_TOPICS[topic]!.title);
 	const narrow = pane({topic: 1}, 56, 14);
-	assert.match(narrow[1]!, /Help · ◂ Sessions \(2\/10\) ▸ +↓ \d+\/\d+/);
+	assert.match(narrow[1]!, /Help · ◂ Sessions \(2\/11\) ▸ +↓ \d+\/\d+/);
 	assert.ok(narrow.some(line => /PgDn scroll/.test(line)));
 	const search = pane({query: 'lazygit', typing: true}, 110).join('\n');
 	for (const text of ['Help · search', '/ lazygit', '7  Git & PRs', 'On the Git tab', 'enter done']) assert.ok(search.includes(text), text);

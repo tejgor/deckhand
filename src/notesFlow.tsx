@@ -2,10 +2,10 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import path from 'node:path';
 import type {Key} from 'ink';
 import type {LiveClient} from './client.js';
-import type {SessionRecord} from './types.js';
-import {MAX_NOTES_CHARS, MAX_NOTES_LABEL, continueChecklist, insertChecklistItem, noteKey, toggleChecklist, type NoteSection} from './notes.js';
+import type {SessionRecord, TasksDoc} from './types.js';
+import {MAX_NOTES_CHARS, MAX_NOTES_LABEL, continueChecklist, insertChecklistItem, noteKey, parseChecklistLine, toggleChecklist, type NoteSection} from './notes.js';
 import {NotesMessage, NotesRows, notesLayout, type NotesSectionInput} from './notesPane.js';
-import {cleanInsertedText, editText, replaceRange, type EditOptions, type EditorState} from './textEditor.js';
+import {cleanInsertedText, editText, lineEnd, lineStart, replaceRange, type EditOptions, type EditorState} from './textEditor.js';
 import {openInEditor} from './desktop.js';
 import {fitHint} from './menu.js';
 import {displaySessionTitle, errorMessage} from './ui.js';
@@ -48,6 +48,8 @@ interface NotesFlowOptions {
 	onExit: () => void;
 	setError: (error: string | undefined) => void;
 	setStatusMessage: (message: string | undefined) => void;
+	/** Ctrl+P sent a checklist item to Tasks: the task list as it is now. */
+	onTasks?: (tasks: TasksDoc) => void;
 }
 export interface NotesFlow {
 	/** o: start editing (the section last edited, the session's by default). */
@@ -61,7 +63,7 @@ export interface NotesFlow {
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-export function useNotesFlow({client, session, sessions, focused, onExit, setError, setStatusMessage}: NotesFlowOptions): NotesFlow {
+export function useNotesFlow({client, session, sessions, focused, onExit, setError, setStatusMessage, onTasks}: NotesFlowOptions): NotesFlow {
 	const drafts = useRef(new Map<string, Draft>());
 	const timers = useRef(new Map<string, NodeJS.Timeout>());
 	const [, setVersion] = useState(0);
@@ -152,6 +154,30 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 		}, error => setError(errorMessage(error)));
 	};
 
+	// Ctrl+P: the cursor line's open checklist item becomes a task of the repository; the line becomes a ↗ link to it.
+	// Saved first, so the daemon finds the line as it is shown.
+	const promote = (which: NoteSection) => {
+		const {client: current} = latest.current;
+		if (!current || !session) return;
+		const key = noteKey(session, which);
+		const draft = key ? draftFor(session, which) : undefined;
+		if (!key || !draft) return;
+		const line = draft.text.slice(0, draft.cursor).split('\n').length - 1;
+		const sessionId = session.id;
+		void flush(key).then(() => {
+			if (draft.text !== draft.saved) throw new Error('These notes are not saved yet; try again');
+			const sent = draft.text;
+			return current.promoteNoteItem(sessionId, which, line, draft.revision, draft.noteId).then(result => ({result, sent}));
+		}).then(({result, sent}) => {
+			const doc = docOf(result.session, which);
+			if (doc && draft.text === sent) { draft.text = doc.text; draft.saved = doc.text; draft.revision = doc.revision; draft.cursor = Math.min(draft.cursor, doc.text.length); }
+			else if (doc) reconcile(draft, doc);
+			onTasks?.(result.tasks);
+			setStatusMessage('Sent to Tasks (b shows it); the note keeps a ↗ link');
+			rerender();
+		}, error => setError(errorMessage(error)));
+	};
+
 	const edit = (draft: Draft, key: string, next: EditorState, target: SessionRecord, which: NoteSection) => {
 		if (next.message) { setError(next.message); return; }
 		if (next.text === draft.text && next.cursor === draft.cursor) return;
@@ -186,6 +212,11 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 		}
 		if (key.ctrl && input === 'o') { openSection(which); return; }
 		if (!draft || !draftKey) return;
+		if (key.ctrl && input === 'p') {
+			if (!editable) { setError(doc?.tooLarge ? 'This note is too large to change here' : 'Its worktree was deleted: the worktree note is read-only'); return; }
+			promote(which);
+			return;
+		}
 		const state: EditorState = {text: draft.text, cursor: draft.cursor};
 		const navigation = key.leftArrow || key.rightArrow || key.upArrow || key.downArrow || key.home || key.end || key.pageUp || key.pageDown;
 		if (!editable && !navigation) {
@@ -242,13 +273,21 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 		return <NotesRows rows={layout.rows} width={width} height={height} />;
 	};
 
+	// On an open checklist item, Ctrl+P (send it to Tasks) takes the word keys' place.
+	const onOpenItem = () => {
+		const draft = session ? draftFor(session, activeSection) : undefined;
+		if (!draft) return false;
+		const line = draft.text.slice(lineStart(draft.text, draft.cursor), lineEnd(draft.text, draft.cursor));
+		const item = parseChecklistLine(line);
+		return Boolean(item && !item.checked && item.text.trim());
+	};
 	const hint = (width: number): string => fitHint([
 		'notes edit', 'esc done',
 		...hasShared ? [{text: activeSection === 'shared' ? 'tab this session' : 'tab worktree notes', short: 'tab switch', drop: 1}] : [],
 		{text: 'ctrl+x toggle ☐', short: 'ctrl+x ☐', drop: 1},
 		{text: 'ctrl+t new item', drop: 2},
 		{text: 'ctrl+o open in editor', short: 'ctrl+o editor', drop: 2},
-		{text: 'alt+←/→ words', drop: 3},
+		onOpenItem() ? {text: 'ctrl+p → tasks', drop: 2} : {text: 'alt+←/→ words', drop: 3},
 	], width, ' • ');
 
 	return {

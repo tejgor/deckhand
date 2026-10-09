@@ -16,6 +16,9 @@ import {filterCycleMessage, filterSessionList, nextSessionFilter, sessionNeedsAt
 import {useChangesFlow} from './changesFlow.js';
 import {emptyChanges, type ChangesRecord} from './changesModel.js';
 import {useNotesFlow} from './notesFlow.js';
+import {TaskBanner, useTasksFlow} from './tasksFlow.js';
+import {parseTasks, type Task} from './tasks.js';
+import {linkedTask, openItemsRemovedWith, taskCountLabel} from './tasksBoard.js';
 import {PreviewPane} from './preview.js';
 import {sessionMatchesScope} from './sessionScope.js';
 import {noWorkspaceReason, workspaceKey} from './workspace.js';
@@ -26,7 +29,7 @@ import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSes
 import {TabBar} from './tabs.js';
 import {TerminalPane, actionStatus, hasAction, type TerminalView} from './terminalPane.js';
 import {AGENTS} from './agents.js';
-import type {ActionRecord, AgentVersions, AttachTarget, DevRecord, MergePreview, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
+import type {ActionRecord, AgentVersions, AttachTarget, BranchList, TasksDoc, DevRecord, MergePreview, PreviewRecord, ProgramKey, RestartMode, RightPaneTab, SessionRecord, SubSessionKind, TerminalRecord, UiExitResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeMode, ProjectInfo, WorkspaceSummary, SessionCleanupInspection} from './types.js';
 import {THEME, compactPath, displaySessionTitle, errorMessage, stripTerminalControls, truncate} from './ui.js';
 
 const RIGHT_TABS: RightPaneTab[] = ['preview', 'terminal', 'git', 'dev', 'notes'];
@@ -137,7 +140,7 @@ function sanitizeNameInput(input: string): string {
 	return cleaned.replace(ALLOWED_NAME_INPUT_PATTERN, '');
 }
 
-type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'merge-conflicts' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss' | 'agents';
+type Mode = 'browse' | 'preview-focus' | 'changes-focus' | 'notes-focus' | 'pick-program' | 'enter-name' | 'pick-worktree' | 'confirm-kill' | 'confirm-merge' | 'merge-conflicts' | 'help' | 'settings' | 'edit-project' | 'discard-project' | 'search' | 'workspace-info' | 'review-project' | 'pick-action' | 'confirm-loss' | 'agents' | 'tasks' | 'confirm-remove';
 
 interface AppProps {
 	repoRoot: string;
@@ -228,6 +231,41 @@ function parentWorkspaceLabel(session: SessionRecord | undefined, width: number)
 	return `parent dir: ${compactPath(session.cwd, Math.max(8, width - 12))}`;
 }
 
+/** A session title (at most 64 characters) from a task's: cut at a word where it can be. */
+function sessionTitleFromTask(title: string): string {
+	const clean = sanitizeNameInput(title).replace(/\s+/g, ' ').trim();
+	if (clean.length <= 64) return clean;
+	const cut = clean.slice(0, 64);
+	const space = cut.lastIndexOf(' ');
+	return (space >= 32 ? cut.slice(0, space) : cut).trim();
+}
+
+/** Where a new worktree's branch can start (↑↓ in the form): the worktree.branchFrom setting first, then local branches. */
+function baseOptions(list?: BranchList): Array<{label: string; value?: string}> {
+	if (!list) return [{label: 'loading branches…'}];
+	if (list.hook) return [{label: "decided by the repository's worktree hook"}];
+	const setting = list.branchFrom === 'default' ? `${list.defaultBranch ?? 'the default branch'} (default branch)`
+		: list.branchFrom === 'origin' ? `origin/${list.defaultBranch ?? 'main'} (fetched first)`
+		: `current checkout${list.current ? ` (${list.current})` : ''}`;
+	return [{label: setting}, ...list.branches.map(name => ({label: name, value: name}))];
+}
+
+function RemoveConfirmPane({session, items, width}: {session?: SessionRecord; items: string[]; width: number}) {
+	const inner = Math.max(10, width - 4);
+	const shown = items.slice(0, 8);
+	return (
+		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
+			<Text color={THEME.accent} bold wrap="truncate-end">Remove “{session?.title ?? 'session'}” from the list?</Text>
+			<Box marginTop={1} flexDirection="column">
+				<Text wrap="truncate-end">Its notes have <Text color={THEME.warn}>{items.length} unchecked item{items.length === 1 ? '' : 's'}</Text>, deleted with them:</Text>
+				{shown.map((item, index) => <Text key={index} wrap="truncate-end">{`  ☐ ${truncate(item, inner - 4)}`}</Text>)}
+				{items.length > shown.length ? <Text color={THEME.muted}>{`  +${items.length - shown.length} more`}</Text> : null}
+			</Box>
+			<Box marginTop={1}><Text color={THEME.muted} wrap="truncate-end">m move them to Tasks, then remove · enter remove anyway · esc cancel</Text></Box>
+		</Box>
+	);
+}
+
 function CreatePane({
 	mode,
 	programIndex,
@@ -238,6 +276,8 @@ function CreatePane({
 	parentWorkspaceLabel,
 	subSessionKind,
 	showForkOption,
+	taskTitle,
+	base,
 }: {
 	mode: 'pick-program' | 'enter-name';
 	programIndex: number;
@@ -248,6 +288,10 @@ function CreatePane({
 	parentWorkspaceLabel?: string;
 	subSessionKind?: SubSessionKind;
 	showForkOption?: boolean;
+	/** Started from this task (n on the board). */
+	taskTitle?: string;
+	/** The new worktree's base: the option shown, its position and the number of options. */
+	base?: {label: string; index: number; count: number};
 }) {
 	const forkSelected = mode === 'pick-program' && showForkOption && programIndex === PROGRAMS.length;
 	const contentWidth = Math.max(1, width - 4);
@@ -272,8 +316,11 @@ function CreatePane({
 					</>
 				) : (
 					<>
+						{taskTitle ? <Text wrap="truncate-end">Task: <Text color={THEME.accentSoft}>{taskTitle}</Text></Text> : null}
 						<Text>Name: <Text color={draftName ? THEME.active : THEME.muted}>{draftName || '█'}</Text></Text>
 						<Text>Workspace: <Text color={THEME.accent}>{workspaceLabel}</Text></Text>
+						{base && worktreeMode === 'new' && !staysInParent ? <Text wrap="truncate-end">Base: <Text color={THEME.active}>{base.label}</Text>{base.count > 1 ? <Text color={THEME.muted}>{`  ↑↓ ${base.index + 1}/${base.count}`}</Text> : null}</Text> : null}
+						{taskTitle ? <Text color={THEME.muted} wrap="truncate-end">The agent starts with the task as its first message.</Text> : null}
 						{staysInParent ? <Text color={THEME.muted}>{truncate(`${PROGRAMS[programIndex]!.label} forks stay in the parent's worktree`, contentWidth)}</Text> : null}
 					</>
 				)}
@@ -281,7 +328,7 @@ function CreatePane({
 			{parentTitle ? <Text color={THEME.muted}>Parent: {truncate(parentTitle, Math.max(8, width - 12))}</Text> : null}
 			<Box marginTop={1}>
 				<Text color={THEME.muted}>
-					{mode === 'pick-program' ? 'enter continue · esc cancel · ↑↓ switch' : staysInParent ? 'enter create · esc back' : 'tab worktree · enter create · esc back'}
+					{mode === 'pick-program' ? 'enter continue · esc cancel · ↑↓ switch' : staysInParent ? 'enter create · esc back' : worktreeMode === 'new' && base && base.count > 1 ? 'tab worktree · ↑↓ base · enter create · esc back' : 'tab worktree · enter create · esc back'}
 				</Text>
 			</Box>
 		</Box>
@@ -347,12 +394,12 @@ function MergeLines({lines}: {lines: MergeLine[]}) {
 	return <>{lines.map((line, index) => <Text key={index} color={line.color} bold={line.bold} wrap="truncate-end">{line.text}</Text>)}</>;
 }
 
-export function MergeConfirmPane({session, sessions, flow, selectedIndex, width, height}: {session?: SessionRecord; sessions: SessionRecord[]; flow?: MergeFlow; selectedIndex: number; width: number; height: number}) {
+export function MergeConfirmPane({session, sessions, flow, selectedIndex, width, height, tasks}: {session?: SessionRecord; sessions: SessionRecord[]; flow?: MergeFlow; selectedIndex: number; width: number; height: number; tasks?: string[]}) {
 	const contentWidth = Math.max(1, width - 4);
 	const layout = mergeConfirmLayout({
 		title: session ? displaySessionTitle(session, sessions) : 'worktree',
 		preview: flow?.preview, previewError: flow?.previewError, commitFirst: flow?.commitFirst ?? true,
-		commitMessage: session?.title.trim() ?? '', error: flow?.error, notes: mergeNoteEntries(session, sessions), width: contentWidth, height,
+		commitMessage: session?.title.trim() ?? '', error: flow?.error, notes: mergeNoteEntries(session, sessions), tasks, width: contentWidth, height,
 	});
 	return (
 		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
@@ -489,6 +536,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 		case 'help': case 'settings': case 'agents':
 		case 'edit-project': case 'discard-project': case 'workspace-info': case 'review-project': case 'confirm-loss':
 		case 'pick-action': case 'pick-program': case 'enter-name': case 'pick-worktree': case 'confirm-kill': case 'confirm-merge': case 'merge-conflicts':
+		case 'tasks': case 'confirm-remove':
 			return '';
 		case 'preview-focus': {
 			const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
@@ -589,6 +637,15 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	useEffect(() => { onTerminalViewChange?.(terminalView); }, [onTerminalViewChange, terminalView]);
 	// Every agent's installed/latest version (agent-versions, then agent-versions-updated): the ↑ marker, the header hint, U.
 	const [agentVersions, setAgentVersions] = useState<AgentVersions>();
+	// The repository's task list (watch-tasks, then tasks-updated), parsed once per change.
+	const [tasksDoc, setTasksDoc] = useState<TasksDoc>();
+	const tasks = useMemo(() => parseTasks(tasksDoc?.text ?? ''), [tasksDoc?.text]);
+	// A session started from a task (n on the board), and the new worktree's base branch (↑↓ in the form; 0: the setting).
+	const [taskStart, setTaskStart] = useState<{id: string; title: string}>();
+	const [branchList, setBranchList] = useState<BranchList>();
+	const [baseIndex, setBaseIndex] = useState(0);
+	// Removing a session whose notes still have open items asks first (m moves them to Tasks).
+	const [removeItems, setRemoveItems] = useState<string[]>([]);
 	const [error, setError] = useState<string | undefined>();
 	const [statusMessage, setStatusMessage] = useState<string | undefined>();
 	const [numericSelection, setNumericSelection] = useState('');
@@ -604,10 +661,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const collapseApplied = !sessionQuery && sessionFilter === 'active';
 	const visibleSessions = useMemo(
 		() => {
-			const filtered = filterSessionList(sessions, sessionFilter, sessionQuery);
+			const filtered = filterSessionList(sessions, sessionFilter, sessionQuery, session => linkedTask(tasks, session)?.title);
 			return collapseApplied ? filterCollapsedSessions(filtered, collapsedSessionIds, hiddenExitedSessionIds) : filtered;
 		},
-		[collapseApplied, collapsedSessionIds, hiddenExitedSessionIds, sessions, sessionFilter, sessionQuery],
+		[collapseApplied, collapsedSessionIds, hiddenExitedSessionIds, sessions, sessionFilter, sessionQuery, tasks],
 	);
 
 	useEffect(() => { onSessionVisibilityChange?.(sessionFilter, sessionQuery); }, [onSessionVisibilityChange, sessionFilter, sessionQuery]);
@@ -806,6 +863,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						setAction(nextAction);
 					},
 					onAgentVersionsUpdated: setAgentVersions,
+					onTasksUpdated: next => setTasksDoc(current => (!current || current.key === next.key ? next : current)),
 					onError: nextError => {
 						setError(nextError.message);
 					},
@@ -830,6 +888,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setError(undefined);
 				// The daemon's cached versions; it looks the latest releases up in the background.
 				void nextClient.agentVersions().then(versions => { if (!cancelled) setAgentVersions(versions); }).catch(() => {});
+				void nextClient.watchTasks(repoRoot).then(doc => { if (!cancelled) setTasksDoc(doc); }).catch(() => {});
 			} catch (nextError) {
 				if (!cancelled) {
 					setError(errorMessage(nextError));
@@ -1337,7 +1396,28 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		onAttach: () => { if (selectedSession) attachTo(selectedSession, 'git'); },
 		setBusy, setError, setStatusMessage,
 	});
-	const notesFlow = useNotesFlow({client, session: selectedSession, sessions, focused: mode === 'notes-focus', onExit: () => setMode('browse'), setError, setStatusMessage});
+	const notesFlow = useNotesFlow({client, session: selectedSession, sessions, focused: mode === 'notes-focus', onExit: () => setMode('browse'), setError, setStatusMessage, onTasks: setTasksDoc});
+	const tasksFlow = useTasksFlow({
+		client, repoRoot, doc: tasksDoc, tasks, sessions, spinnerFrame,
+		onExit: () => setMode('browse'),
+		onStart: task => startFromTask(task),
+		onGoTo: sessionId => {
+			const target = sessions.find(session => session.id === sessionId);
+			if (target?.archivedAt) setSessionFilter('all');
+			setSessionQuery('');
+			setSelectedId(sessionId);
+			setMode('browse');
+		},
+		onOpenNote: sessionId => {
+			sessionTabsRef.current[sessionId] = 'notes';
+			setSelectedId(sessionId);
+			setActiveTab('notes');
+			setMode('browse');
+		},
+		onDoc: setTasksDoc,
+		onSession: session => setSessions(current => upsertSession(current, session)),
+		setError, setStatusMessage,
+	});
 	const attachTo = (session: SessionRecord, target: AttachTarget) => exit({
 		kind: 'attach',
 		sessionId: session.id,
@@ -1364,6 +1444,30 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			setBusy(false); setError(errorMessage(error));
 			if (!required) resume?.(undefined);
 		});
+	};
+
+	// n on a backlog task: the usual new-session form (agent, then name and workspace), filled in from the task, in a
+	// new worktree by default; the session it creates is linked to the task and gets it as its first message.
+	const startFromTask = (task: Task) => {
+		reviewThen(cwd, project => {
+			const defaults = project?.effective;
+			setHandoffFromId(undefined); setCreateParentId(undefined); setCreateSubSessionKind(undefined);
+			setSessionFilter('active'); setSessionQuery('');
+			setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === (defaults?.defaultAgent ?? 'claude'))));
+			setDraftName(sessionTitleFromTask(task.title));
+			setTaskStart({id: task.id, title: task.title});
+			setBranchList(undefined); setBaseIndex(0);
+			setWorktreeMode('new');
+			setMode('pick-program');
+		}, {gate: () => false});
+	};
+
+	// Backspace: removing a session deletes its note (and its worktree's, when it is the last there); open items ask first.
+	const requestRemove = () => {
+		const items = selectedSession?.status === 'exited' ? openItemsRemovedWith(selectedSession, sessions) : [];
+		if (!items.length) { void removeSelected(); return; }
+		setRemoveItems(items);
+		setMode('confirm-remove');
 	};
 
 	// Creating a new worktree reviews the untrusted repository parts it would use (setup, creation hook, worktree
@@ -1473,8 +1577,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				subSessionKind: createParentId ? createSubSessionKind ?? 'clean' : undefined,
 				handoffFromSessionId: handoffFromId,
 				projectFingerprint,
+				...worktreeMode === 'new' && baseOptions(branchList)[baseIndex]?.value ? {baseBranch: baseOptions(branchList)[baseIndex]!.value} : {},
+				...taskStart && !createParentId ? {taskId: taskStart.id} : {},
 			});
 			setDraftName('');
+			setTaskStart(undefined);
 			setCreateParentId(undefined);
 			setCreateSubSessionKind(undefined);
 			setHandoffFromId(undefined);
@@ -1487,7 +1594,16 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		} finally {
 			setBusy(false);
 		}
-	}, [client, createParentId, createSubSessionKind, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, sessions, worktreeMode, handoffFromId]);
+	}, [client, createParentId, createSubSessionKind, cwd, draftName, layout.previewCols, layout.previewRows, programIndex, repoRoot, sessions, worktreeMode, handoffFromId, branchList, baseIndex, taskStart]);
+
+	// The new worktree's base branches, loaded once the form shows a new worktree.
+	useEffect(() => {
+		if (mode !== 'enter-name' || worktreeMode !== 'new' || branchList || !client) return;
+		let cancelled = false;
+		const parent = createParentId ? sessions.find(session => session.id === createParentId) : undefined;
+		void client.listBranches(parent?.cwd ?? cwd).then(list => { if (!cancelled) setBranchList(list); }).catch(() => {});
+		return () => { cancelled = true; };
+	}, [mode, worktreeMode, branchList, client, cwd, createParentId, sessions]);
 
 	const killSelected = useCallback(async (deleteWorktree = false, deleteBranch = false, force = false, allowDataLoss = false) => {
 		if (!client || !selectedSession || selectedSession.status !== 'running') {
@@ -1514,14 +1630,15 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 	}, [client, selectedSession]);
 
-	const removeSelected = useCallback(async () => {
+	const removeSelected = useCallback(async (moveOpenItems = false) => {
 		if (!client || !selectedSession || selectedSession.status !== 'exited') {
 			return;
 		}
 		setBusy(true);
 		setError(undefined);
 		try {
-			await client.removeSession(selectedSession.id);
+			await client.removeSession(selectedSession.id, moveOpenItems);
+			if (moveOpenItems) setStatusMessage('Moved its open note items to Tasks (b)');
 			setPreview(EMPTY_PREVIEW);
 			setTerminal(EMPTY_TERMINAL);
 			setChanges(EMPTY_CHANGES);
@@ -1715,6 +1832,18 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				if (!sendClaudeWheel('down', 12)) setPreviewScrollOffset(0);
 				return;
 			}
+			return;
+		}
+
+		if (mode === 'tasks') {
+			tasksFlow.handleInput(input, key);
+			return;
+		}
+
+		if (mode === 'confirm-remove') {
+			if (key.escape) { setMode('browse'); return; }
+			if (input === 'm') { setMode('browse'); void removeSelected(true); return; }
+			if (key.return) { setMode('browse'); void removeSelected(false); return; }
 			return;
 		}
 
@@ -1940,6 +2069,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				}, {required: true, gate: () => false});
 				return;
 			}
+			if (input === 'b') {
+				tasksFlow.open();
+				setMode('tasks');
+				return;
+			}
 			if (input === 'H' && client && selectedSession) {
 				void client.exportHandoff(selectedSession.id).then(file => {
 					setStatusMessage(`Handoff: ${file}`);
@@ -1967,6 +2101,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					setSessionFilter('active'); setSessionQuery('');
 					setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === (parent?.program ?? defaults?.defaultAgent ?? 'claude'))));
 					setDraftName('');
+					setTaskStart(undefined); setBranchList(undefined); setBaseIndex(0);
 					setCreateParentId(parent?.id);
 					setCreateSubSessionKind(parent ? 'clean' : undefined);
 					setWorktreeMode(defaults?.defaultWorkspace ?? 'none');
@@ -2118,7 +2253,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if ((key.backspace || key.delete) && selectedSession?.status === 'exited') {
-				void removeSelected();
+				requestRemove();
 				return;
 			}
 			if ((input === 's' || input === 'S') && selectedSession?.status === 'exited') {
@@ -2173,6 +2308,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if (key.escape) {
 				setCreateParentId(undefined);
 				setCreateSubSessionKind(undefined);
+				if (taskStart) { setTaskStart(undefined); setMode('tasks'); return; }
 				setMode('browse');
 				return;
 			}
@@ -2242,6 +2378,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					const index = WORKTREE_MODES.findIndex(item => item.key === current);
 					return WORKTREE_MODES[(index + 1) % WORKTREE_MODES.length]!.key;
 				});
+				return;
+			}
+			if ((key.upArrow || key.downArrow) && worktreeMode === 'new' && !forkStaysInParent(PROGRAMS[programIndex]?.key, createSubSessionKind)) {
+				const count = baseOptions(branchList).length;
+				if (count > 1) setBaseIndex(index => (index + (key.downArrow ? 1 : count - 1)) % count);
 				return;
 			}
 			if (key.ctrl || key.meta || key.upArrow || key.downArrow || key.leftArrow || key.rightArrow) {
@@ -2373,7 +2514,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Exactly FOOTER_ROWS rows, each truncated, so the layout above never shifts.
 	const footerRows = [
 		<Text key="hint" color={mode === 'search' ? THEME.active : THEME.muted} wrap="truncate-end">
-			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach, mode === 'notes-focus' ? notesFlow.hint(terminalSize.cols) : undefined, hasAction(selectedSession, action) ? {switchHint: showingAction ? 'v shell' : `v ${action.name ?? 'action'} ${actionStatus(action).text}`, finished: showingAction && !action.live} : undefined)}
+			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : mode === 'tasks' ? tasksFlow.hint(terminalSize.cols) : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach, mode === 'notes-focus' ? notesFlow.hint(terminalSize.cols) : undefined, hasAction(selectedSession, action) ? {switchHint: showingAction ? 'v shell' : `v ${action.name ?? 'action'} ${actionStatus(action).text}`, finished: showingAction && !action.live} : undefined)}
 		</Text>,
 		<Text key="messages" wrap="truncate-end">
 			{footerMessages.length > 0
@@ -2386,12 +2527,16 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const settingsOpen = isSettingsFlowMode(mode) && !details;
 	// Muted, only when an installed agent has a newer release (nothing while all are current or the latest is unknown).
 	const agentUpdateHint = updateHint(agentVersions);
+	// Open tasks in the header, so a forgotten backlog stays in sight (the first thing to go when narrow).
+	const taskCount = terminalSize.cols >= 70 ? taskCountLabel(tasks) : '';
+	const selectedTask = linkedTask(tasks, selectedSession);
 
 	return (
 		<Box flexDirection="column">
 			<Box justifyContent="space-between" width={terminalSize.cols}>
 				<Text color={THEME.accent} bold>{process.env.DECKHAND_CHANNEL === 'dev' ? 'deckhand · DEV (isolated)' : 'deckhand'}</Text>
 				<Text wrap="truncate-start">
+					{taskCount ? <Text color={THEME.muted}>{taskCount}   </Text> : null}
 					{agentUpdateHint ? <Text color={THEME.muted}>{agentUpdateHint}   </Text> : null}
 					<Text color={connectionColor(client)}>● {describeConnection(client)}</Text>
 				</Text>
@@ -2415,6 +2560,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					query={sessionQuery}
 					now={Date.now()}
 					installedVersions={sidebarVersions}
+					taskOf={session => linkedTask(tasks, session)}
 				/>
 				<Box width={1} />
 				{mode === 'browse' || mode === 'preview-focus' || mode === 'changes-focus' || mode === 'notes-focus' || mode === 'search' ? (
@@ -2450,10 +2596,19 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							changesFlow.render(layout.paneInnerWidth, layout.paneInnerHeight)
 						) : activeTab === 'dev' ? (
 							<DevPane session={selectedSession} dev={dev} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
+						) : selectedTask ? (
+							<Box flexDirection="column">
+								<TaskBanner task={selectedTask} sessions={sessions} spinnerFrame={spinnerFrame} width={layout.paneInnerWidth} />
+								{notesFlow.render(layout.paneInnerWidth, Math.max(1, layout.paneInnerHeight - 2))}
+							</Box>
 						) : (
 							notesFlow.render(layout.paneInnerWidth, layout.paneInnerHeight)
 						)}
 					</Box>
+				) : mode === 'tasks' ? (
+					tasksFlow.render(layout.previewWidth, layout.contentHeight)
+				) : mode === 'confirm-remove' ? (
+					<RemoveConfirmPane session={selectedSession} items={removeItems} width={layout.previewWidth} />
 				) : details ? (
 					<DetailsPane title={details.title} text={details.text} footer={details.footer} width={layout.previewWidth} height={layout.contentHeight} scroll={details.scroll} />
 				) : mode === 'pick-action' ? (
@@ -2478,7 +2633,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						inspection={killConfirmInspection}
 					/>
 				) : mode === 'confirm-merge' ? (
-					<MergeConfirmPane session={selectedSession} sessions={sessions} flow={mergeFlow?.sessionId === selectedSession?.id ? mergeFlow : undefined} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} height={layout.contentHeight} />
+					<MergeConfirmPane session={selectedSession} sessions={sessions} flow={mergeFlow?.sessionId === selectedSession?.id ? mergeFlow : undefined} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} height={layout.contentHeight} tasks={tasks.filter(task => !task.done && task.meta.wt && task.meta.wt === selectedSession?.worktree?.id).map(task => task.title)} />
 				) : mode === 'merge-conflicts' && mergeConflict ? (
 					<MergeConflictPane result={mergeConflict.result} width={layout.previewWidth} />
 				) : mode === 'pick-program' || mode === 'enter-name' ? (
@@ -2491,6 +2646,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						parentTitle={createParentId ? sessions.find(session => session.id === createParentId)?.title : undefined}
 						parentWorkspaceLabel={parentWorkspaceLabel(createParentId ? sessions.find(session => session.id === createParentId) : undefined, layout.previewWidth)}
 						subSessionKind={createSubSessionKind}
+						taskTitle={taskStart && !createParentId ? taskStart.title : undefined}
+						base={{label: baseOptions(branchList)[Math.min(baseIndex, baseOptions(branchList).length - 1)]!.label, index: Math.min(baseIndex, baseOptions(branchList).length - 1), count: baseOptions(branchList).length}}
 						showForkOption={createParentId && !handoffFromId ? supportsForkedSubSession(sessions.find(session => session.id === createParentId)) : false}
 					/>
 				) : null}

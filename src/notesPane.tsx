@@ -58,7 +58,7 @@ function body(section: NotesSectionInput, width: number, rows: number): {rows: N
 	}
 	if (!section.text.trim()) return {rows: [[{text: truncate(section.empty, width), color: THEME.muted}]]};
 	return {rows: fitReadRows(noteReadRows(section.text, width), rows).map((row): NotesRow => [
-		row.kind === 'done' ? {text: row.text, color: THEME.muted} : row.kind === 'more' ? {text: row.text, color: THEME.muted, dim: true} : row.kind === 'heading' ? {text: row.text, bold: true} : {text: row.text},
+		row.kind === 'done' ? {text: row.text, color: THEME.muted} : row.kind === 'link' ? {text: row.text, color: THEME.accentSoft} : row.kind === 'more' ? {text: row.text, color: THEME.muted, dim: true} : row.kind === 'heading' ? {text: row.text, bold: true} : {text: row.text},
 	])};
 }
 
