@@ -2390,10 +2390,11 @@ export class InkDaemon {
 		const launchSession = {...this.requireSession(sessionId), args: preparedSession.args, handoffPath: preparedSession.handoffPath};
 		this.sessions.set(sessionId, launchSession);
 		const runningSession = await this.startWorker(launchSession, input.cols, input.rows);
-		await this.saveSession({...runningSession, ...this.requireSession(sessionId), status: 'running', pid: runningSession.pid});
-		// Started from a task: its text waits to be typed into the agent's input (typeDraft), never sent.
+		// Started from a task: its text waits to be typed into the agent's input (typeDraft), never sent. Registered
+		// before the session is announced as running, so input typed right away always drops it.
 		const worker = this.workers.get(sessionId);
 		if (worker && launchSession.startPrompt) worker.draft = {text: launchSession.startPrompt, timer: setTimeout(() => this.dropDraft(sessionId, 'the agent did not settle at its input in time'), DRAFT_WAIT_MS)};
+		await this.saveSession({...runningSession, ...this.requireSession(sessionId), status: 'running', pid: runningSession.pid});
 	}
 
 	private async failStartingSession(sessionId: string, error: unknown, launchId?: string): Promise<void> {
