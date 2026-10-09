@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {applyTaskOp, cleanTaskTitle, groupTasks, openNoteItems, parseNoteTaskLink, parseTasks, promoteNoteLine, taskPrompt, withoutTaskMeta} from '../src/tasks.js';
+import {applyTaskOp, cleanTaskTitle, clientTaskOp, groupTasks, openNoteItems, parseNoteTaskLink, parseTasks, promoteNoteLine, taskPrompt, withoutTaskMeta} from '../src/tasks.js';
 
 const NOW = new Date('2026-10-09T12:00:00Z');
 
@@ -80,4 +80,45 @@ test('notes: a checklist line becomes a link to its task; open items; display wi
 	assert.equal(cleanTaskTitle('a <!-- b --> c\u0007'), 'a b c');
 	assert.equal(taskPrompt({title: 'Fix it', body: '\nwhy:\n  - it breaks\n'}), 'Fix it: why: - it breaks');
 	assert.equal(taskPrompt({title: 'Fix it', body: ''}), 'Fix it');
+});
+
+test('assigned follow-ups: added or moved there, never ticked by the work unless asked, back to the backlog on merge', () => {
+	let text = '- [ ] Started <!-- dh:t=a wt=w1 -->\n- [ ] Elsewhere <!-- dh:t=b tried=old -->\n';
+	// Added to a worktree, or moved there with w: assigned (a follow-up), not started.
+	text = applyTaskOp(text, {type: 'add', title: 'Add tests', link: {wt: 'w1'}, id: 'c'}, NOW).text;
+	text = applyTaskOp(text, {type: 'assign', id: 'b', link: {wt: 'w1'}}, NOW).text;
+	assert.deepEqual(parseTasks(text).map(task => task.meta), [{t: 'a', wt: 'w1'}, {t: 'b', wt: 'w1', assigned: '2026-10-09'}, {t: 'c', wt: 'w1', assigned: '2026-10-09', added: '2026-10-09'}]);
+	assert.equal(applyTaskOp(text, {type: 'assign', id: 'b', link: {wt: 'w1'}}, NOW).changed, 0);
+	assert.equal(applyTaskOp(text, {type: 'assign', id: 'a', link: {wt: 'w1'}}, NOW).changed, 0, 'already there (started)');
+	// D ticks only the started task.
+	const done = applyTaskOp(text, {type: 'tick-linked', link: {wt: 'w1'}, auto: 'done'}, NOW);
+	assert.equal(done.changed, 1);
+	// A merge ticks the started task and the follow-ups its confirmation ticked; the rest go back, remembering where from.
+	let merged = applyTaskOp(text, {type: 'tick-linked', link: {wt: 'w1'}, auto: 'merge', also: ['c']}, NOW).text;
+	merged = applyTaskOp(merged, {type: 'release-linked', link: {wt: 'w1'}, from: 'feat/auth'}, NOW).text;
+	assert.deepEqual(parseTasks(merged).map(task => [task.title, task.done, task.meta]), [
+		['Started', true, {t: 'a', wt: 'w1', done: '2026-10-09', auto: 'merge'}],
+		['Elsewhere', false, {t: 'b', from: 'feat/auth', was: 'w1'}],
+		['Add tests', true, {t: 'c', wt: 'w1', assigned: '2026-10-09', done: '2026-10-09', auto: 'merge', added: '2026-10-09'}],
+	]);
+	// Unmerging reopens what the merge ticked and assigns the released follow-up again.
+	const unmerged = applyTaskOp(merged, {type: 'reopen-linked', link: {wt: 'w1'}, auto: 'merge'}, NOW);
+	assert.equal(unmerged.changed, 3);
+	assert.deepEqual(parseTasks(unmerged.text).map(task => [task.done, task.meta.wt, task.meta.assigned]), [[false, 'w1', undefined], [false, 'w1', '2026-10-09'], [false, 'w1', '2026-10-09']]);
+	// Deleted unmerged: the started task was tried there, a follow-up came from there.
+	const abandoned = applyTaskOp(text, {type: 'abandon-linked', link: {wt: 'w1'}, tried: 'feat/auth'}, NOW).text;
+	assert.deepEqual(parseTasks(abandoned).map(task => task.meta), [{t: 'a', tried: 'feat/auth'}, {t: 'b', from: 'feat/auth'}, {t: 'c', from: 'feat/auth', added: '2026-10-09'}]);
+	// Back to the backlog with w; starting a session for a follow-up (n) makes it that work's own task.
+	assert.deepEqual(parseTasks(applyTaskOp(text, {type: 'assign', id: 'c'}, NOW).text)[2]!.meta, {t: 'c', added: '2026-10-09'});
+	assert.deepEqual(parseTasks(applyTaskOp(text, {type: 'link', id: 'c', link: {wt: 'w2'}}, NOW).text)[2]!.meta, {t: 'c', wt: 'w2', added: '2026-10-09'});
+	assert.throws(() => applyTaskOp('- [x] d <!-- dh:t=d -->\n', {type: 'assign', id: 'd', link: {s: 's1'}}), /done/);
+});
+
+test('client ops: add and assign may carry a link; anything else about links is the daemon\'s', () => {
+	assert.deepEqual(clientTaskOp({type: 'add', title: 'x', link: {wt: 'w1'}}), {type: 'add', title: 'x', link: {wt: 'w1'}});
+	assert.deepEqual(clientTaskOp({type: 'assign', id: 'a', link: {s: 's1'}}), {type: 'assign', id: 'a', link: {s: 's1'}});
+	assert.deepEqual(clientTaskOp({type: 'assign', id: 'a'}), {type: 'assign', id: 'a'});
+	assert.throws(() => clientTaskOp({type: 'assign', id: 'a', link: {wt: 'w', s: 's'}}), /link/);
+	assert.throws(() => clientTaskOp({type: 'assign', id: 'a', link: {wt: ''}}), /link/);
+	assert.throws(() => clientTaskOp({type: 'release-linked', link: {wt: 'w'}}), /Unknown task change/);
 });

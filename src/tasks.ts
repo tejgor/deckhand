@@ -7,15 +7,18 @@ import {parseChecklistLine} from './notes.js';
 // body. Deckhand's bookkeeping rides at the end of the item line in a hidden comment:
 //   - [ ] Fix stuck footer <!-- dh:t=3fa9c1d2 wt=<worktree record id> added=2026-10-09 -->
 // t: the task's ID (given on Deckhand's first write of the file); wt / s: the linked worktree incarnation or (main
-// checkout) session doing it; done: when it was ticked; auto: ticked by a merge or by D, so undoing that reopens it;
-// tried: the branch of linked work that was dropped unmerged; added: when it was added.
+// checkout) session; assigned: the task was put there (w, or added there) rather than started there (n), so it is a
+// follow-up the work may not have done: a merge or D ticks only started tasks, and a merge sends open assigned ones
+// back to the backlog; done: when it was ticked; auto: ticked by a merge or by D, so undoing that reopens it; tried:
+// the branch of started work that was dropped unmerged; from / was: the branch (and worktree record) an assigned task
+// went back to the backlog from, so undoing that merge assigns it again; added: when it was added.
 
 export const MAX_TASK_TITLE = 300;
 export const MAX_TASK_BODY = 4000;
 /** Done tasks the board lists in full; older ones fold into one row. */
 export const RECENT_DONE_DAYS = 7;
 
-export interface TaskMeta {t?: string; wt?: string; s?: string; done?: string; auto?: 'merge' | 'done'; tried?: string; added?: string}
+export interface TaskMeta {t?: string; wt?: string; s?: string; assigned?: string; done?: string; auto?: 'merge' | 'done'; tried?: string; from?: string; was?: string; added?: string}
 export interface Task {
 	/** `meta.t`, or (before Deckhand gave it one) a provisional `~<index>:<hash of the title>` ops resolve by position. */
 	id: string;
@@ -28,17 +31,22 @@ export interface Task {
 export type TaskLink = {wt: string} | {s: string};
 
 export type TaskOp =
-	/** `id`: given by the daemon when a note line links to the new task. */
+	/** `id`: given by the daemon when a note line links to the new task; `link`: added already assigned there. */
 	| {type: 'add'; title: string; body?: string; link?: TaskLink; id?: string}
 	| {type: 'edit'; id: string; title: string; body: string}
 	| {type: 'toggle'; id: string}
 	| {type: 'remove'; id: string}
 	/** Moves the task to just before (or `after`) the `target` task. */
 	| {type: 'move'; id: string; target: string; after?: boolean}
+	/** A session was started for the task (n): it is that work's own task. */
 	| {type: 'link'; id: string; link: TaskLink}
-	/** A merge (`merge`) or D (`done`) finished the linked work: its open tasks are ticked. */
-	| {type: 'tick-linked'; link: TaskLink; auto: 'merge' | 'done'}
-	/** That merge or done was undone: the tasks it ticked reopen. */
+	/** w: the task is assigned to that work (a follow-up), or back to the backlog without `link`. */
+	| {type: 'assign'; id: string; link?: TaskLink}
+	/** A merge (`merge`) or D (`done`) finished the linked work: its open started tasks are ticked, and the assigned ones in `also`. */
+	| {type: 'tick-linked'; link: TaskLink; auto: 'merge' | 'done'; also?: string[]}
+	/** A merge left these assigned tasks open: they go back to the backlog, remembering the branch and the worktree. */
+	| {type: 'release-linked'; link: {wt: string}; from?: string}
+	/** That merge or done was undone: the tasks it ticked reopen (and a merge's released tasks are assigned again). */
 	| {type: 'reopen-linked'; link: TaskLink; auto: 'merge' | 'done'}
 	/** The linked work is gone unmerged: its open tasks go back to the backlog, remembering the branch. */
 	| {type: 'abandon-linked'; link: TaskLink; tried?: string};
@@ -46,7 +54,7 @@ export type TaskOp =
 type Block = {kind: 'raw'; lines: string[]} | {kind: 'task'; bullet: string; done: boolean; title: string; body: string[]; meta: TaskMeta};
 
 const META = /[ \t]*<!--[ \t]*dh:([^>]*?)[ \t]*-->[ \t]*$/;
-const META_KEYS = ['t', 'wt', 's', 'done', 'auto', 'tried', 'added'] as const;
+const META_KEYS = ['t', 'wt', 's', 'assigned', 'done', 'auto', 'tried', 'from', 'was', 'added'] as const;
 
 function parseMeta(raw: string): TaskMeta {
 	const meta: TaskMeta = {};
@@ -133,6 +141,19 @@ export function parseTasks(text: string): Task[] {
 
 export const linkMatches = (meta: TaskMeta, link: TaskLink) => ('wt' in link ? meta.wt === link.wt : meta.s === link.s);
 export const isLinked = (task: Pick<Task, 'meta'>) => Boolean(task.meta.wt || task.meta.s);
+/** Assigned to its work (w) rather than started there (n). */
+export const isAssigned = (task: Pick<Task, 'meta'>) => isLinked(task) && Boolean(task.meta.assigned);
+/** `wt:<id>` / `s:<id>`: the work a task is linked to (the board's group), else undefined. */
+export const linkKey = (meta: TaskMeta): string | undefined => (meta.wt ? `wt:${meta.wt}` : meta.s ? `s:${meta.s}` : undefined);
+export const keyOfLink = (link: TaskLink): string => ('wt' in link ? `wt:${link.wt}` : `s:${link.s}`);
+export function linkOfKey(key: string): TaskLink | undefined {
+	if (key.startsWith('wt:') && key.length > 3) return {wt: key.slice(3)};
+	if (key.startsWith('s:') && key.length > 2) return {s: key.slice(2)};
+	return undefined;
+}
+function clearLink(meta: TaskMeta): void {
+	delete meta.wt; delete meta.s; delete meta.assigned; delete meta.tried; delete meta.from; delete meta.was;
+}
 const today = (now: Date) => now.toISOString().slice(0, 10);
 
 /**
@@ -157,7 +178,7 @@ export function applyTaskOp(text: string, op: TaskOp, now = new Date()): {text: 
 			const title = cleanTaskTitle(op.title);
 			if (!title) throw new Error('A task needs a title');
 			if (op.id && ids.includes(op.id)) throw new Error('A task with that ID already exists');
-			target = {kind: 'task', bullet: '-', done: false, title, body: cleanBody(op.body ?? '').map(line => `  ${line}`), meta: {t: op.id ?? newTaskId(), ...op.link, added: date}};
+			target = {kind: 'task', bullet: '-', done: false, title, body: cleanBody(op.body ?? '').map(line => `  ${line}`), meta: {t: op.id ?? newTaskId(), ...op.link && {...op.link, assigned: date}, added: date}};
 			// New tasks go after the last open task (the backlog's end), else at the end of the file.
 			let lastOpen = -1;
 			blocks.forEach((block, index) => { if (block.kind === 'task' && !block.done) lastOpen = index; });
@@ -200,22 +221,53 @@ export function applyTaskOp(text: string, op: TaskOp, now = new Date()): {text: 
 		}
 		case 'link': {
 			target = find(op.id);
-			delete target.meta.wt; delete target.meta.s; delete target.meta.tried;
+			clearLink(target.meta);
 			Object.assign(target.meta, op.link);
 			changed = 1;
 			break;
 		}
+		case 'assign': {
+			target = find(op.id);
+			if (target.done) throw new Error('That task is done; space reopens it');
+			// Already there (started or assigned): nothing to change.
+			if (op.link ? linkMatches(target.meta, op.link) : !(target.meta.wt || target.meta.s)) break;
+			clearLink(target.meta);
+			if (op.link) Object.assign(target.meta, op.link, {assigned: date});
+			changed = 1;
+			break;
+		}
 		case 'tick-linked':
-			for (const block of tasks) if (!block.done && linkMatches(block.meta, op.link)) { block.done = true; block.meta.done = date; block.meta.auto = op.auto; changed++; }
+			for (const block of tasks) {
+				if (block.done || !linkMatches(block.meta, op.link) || (block.meta.assigned && !op.also?.includes(block.meta.t!))) continue;
+				block.done = true; block.meta.done = date; block.meta.auto = op.auto; changed++;
+			}
+			break;
+		case 'release-linked':
+			for (const block of tasks) {
+				if (block.done || !block.meta.assigned || !linkMatches(block.meta, op.link)) continue;
+				clearLink(block.meta);
+				if (op.from) block.meta.from = op.from;
+				block.meta.was = op.link.wt;
+				changed++;
+			}
 			break;
 		case 'reopen-linked':
-			for (const block of tasks) if (block.done && block.meta.auto === op.auto && linkMatches(block.meta, op.link)) { block.done = false; delete block.meta.done; delete block.meta.auto; changed++; }
+			for (const block of tasks) {
+				if (block.done && block.meta.auto === op.auto && linkMatches(block.meta, op.link)) { block.done = false; delete block.meta.done; delete block.meta.auto; changed++; }
+				else if (op.auto === 'merge' && 'wt' in op.link && !block.done && block.meta.was === op.link.wt && !block.meta.wt && !block.meta.s) {
+					clearLink(block.meta);
+					Object.assign(block.meta, {wt: op.link.wt, assigned: date});
+					changed++;
+				}
+			}
 			break;
 		case 'abandon-linked':
 			for (const block of tasks) {
 				if (block.done || !linkMatches(block.meta, op.link)) continue;
-				delete block.meta.wt; delete block.meta.s;
-				if (op.tried) block.meta.tried = op.tried;
+				const assigned = Boolean(block.meta.assigned);
+				clearLink(block.meta);
+				// Started work was tried there; an assigned follow-up merely waited there.
+				if (op.tried) block.meta[assigned ? 'from' : 'tried'] = op.tried;
 				changed++;
 			}
 			break;
@@ -223,12 +275,23 @@ export function applyTaskOp(text: string, op: TaskOp, now = new Date()): {text: 
 	return {text: serializeBlocks(blocks), changed, ...target && op.type !== 'remove' ? {task: taskOf(target, 0)} : {}};
 }
 
-/** The ops a client may send (`task-op`), checked; links and the linked-work ops are the daemon's own. */
+function clientLink(raw: unknown): TaskLink {
+	const link = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+	if (typeof link.wt === 'string' && link.wt && link.s === undefined) return {wt: link.wt};
+	if (typeof link.s === 'string' && link.s && link.wt === undefined) return {s: link.s};
+	throw new Error('Invalid task change: link');
+}
+
+/**
+ * The ops a client may send (`task-op`), checked; the daemon also checks an `add`/`assign` link names work in this
+ * repository. Starting (`link`) and the linked-work ops are the daemon's own.
+ */
 export function clientTaskOp(raw: unknown): TaskOp {
 	const op = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
 	const text = (key: string) => { if (typeof op[key] !== 'string') throw new Error(`Invalid task change: ${key}`); return op[key] as string; };
 	switch (op.type) {
-		case 'add': return {type: 'add', title: text('title'), ...typeof op.body === 'string' ? {body: op.body} : {}};
+		case 'add': return {type: 'add', title: text('title'), ...typeof op.body === 'string' ? {body: op.body} : {}, ...op.link !== undefined ? {link: clientLink(op.link)} : {}};
+		case 'assign': return {type: 'assign', id: text('id'), ...op.link !== undefined ? {link: clientLink(op.link)} : {}};
 		case 'edit': return {type: 'edit', id: text('id'), title: text('title'), body: text('body')};
 		case 'toggle': case 'remove': return {type: op.type, id: text('id')};
 		case 'move': return {type: 'move', id: text('id'), target: text('target'), ...op.after === true ? {after: true} : {}};

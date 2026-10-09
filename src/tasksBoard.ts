@@ -1,11 +1,15 @@
 import type {SessionRecord} from './types.js';
-import {groupTasks, isLinked, openNoteItems, parseNoteTaskLink, type Task} from './tasks.js';
+import {groupTasks, isAssigned, isLinked, linkKey, linkOfKey, openNoteItems, parseNoteTaskLink, type Task} from './tasks.js';
 import {noteKey, parseChecklistLine} from './notes.js';
 import {statusWords} from './sidebarModel.js';
 import {THEME, displaySessionTitle, statusColor, statusGlyph} from './ui.js';
+import {workspaceKey} from './workspace.js';
+import {sortSessionsForSidebar} from './sessionOrder.js';
 
-// The Tasks board (b) as pure data: its rows (groups, tasks, the folded older done ones, and the open note items not
-// yet tasks), each task's linked sessions and the state shown for it. src/tasksFlow.tsx keeps the selection and keys.
+// The Tasks board (b) as pure data: its rows (one group per worktree (or main-checkout session) with open tasks, the
+// backlog, done, the folded older done ones, and the open note items not yet tasks), each task's linked sessions and
+// the state shown for it. A group is keyed by its work (`wt:<record id>` / `s:<session id>`, src/tasks.ts linkKey).
+// src/tasksFlow.tsx keeps the selection and keys.
 
 export type TaskGroup = 'progress' | 'backlog' | 'done';
 
@@ -24,7 +28,10 @@ export interface NoteItem {
 
 export type BoardRow =
 	| {kind: 'heading'; text: string; count?: string}
-	| {kind: 'task'; task: Task; group: TaskGroup}
+	/** The heading of a worktree's (or main-checkout session's) group: `section` is its work's key. */
+	| {kind: 'work'; section: string; count: number}
+	/** `section`: the work's key for tasks in progress, else `backlog` or `done`. */
+	| {kind: 'task'; task: Task; group: TaskGroup; section: string}
 	| {kind: 'older'; count: number; shown: boolean}
 	| {kind: 'empty'; text: string}
 	| {kind: 'note'; item: NoteItem};
@@ -32,22 +39,34 @@ export type BoardRow =
 export const selectableRow = (row: BoardRow) => row.kind === 'task' || row.kind === 'older' || row.kind === 'note';
 export const rowKey = (row: BoardRow): string | undefined => row.kind === 'task' ? `task:${row.task.id}` : row.kind === 'older' ? 'older' : row.kind === 'note' ? `note:${row.item.key}` : undefined;
 
-/** The board's rows: in progress, backlog, done this week (older ones folded unless `showOlder`). */
-export function boardRows(tasks: Task[], showOlder: boolean, now = new Date()): BoardRow[] {
-	const groups = groupTasks(tasks, now);
+/**
+ * The board's rows: a group per worktree (or main-checkout session) with open tasks, in the order its first task
+ * appears in the file, then the backlog and done this week (older ones folded unless `showOlder`). With `scope` (v),
+ * only that work's group (shown even when empty) and its done tasks.
+ */
+export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), scope?: string): BoardRow[] {
+	const groups = groupTasks(scope ? tasks.filter(task => linkKey(task.meta) === scope) : tasks, now);
 	const rows: BoardRow[] = [];
 	const section = (text: string, list: Task[], group: TaskGroup, empty?: string) => {
 		rows.push({kind: 'heading', text, count: list.length ? String(list.length) : undefined});
-		for (const task of list) rows.push({kind: 'task', task, group});
+		for (const task of list) rows.push({kind: 'task', task, group, section: group});
 		if (!list.length && empty) rows.push({kind: 'empty', text: empty});
 	};
-	section('IN PROGRESS', groups.progress, 'progress', 'n on a backlog task starts a session for it');
-	section('BACKLOG', groups.backlog, 'backlog', tasks.length ? 'Nothing waiting' : 'No tasks yet · a adds one');
+	const works = [...new Set(groups.progress.map(task => linkKey(task.meta)!))];
+	if (scope && !works.includes(scope)) works.push(scope);
+	for (const work of works) {
+		const list = groups.progress.filter(task => linkKey(task.meta) === work);
+		rows.push({kind: 'work', section: work, count: list.length});
+		for (const task of list) rows.push({kind: 'task', task, group: 'progress', section: work});
+		if (!list.length) rows.push({kind: 'empty', text: 'No open tasks here · a adds one'});
+	}
+	if (!works.length) section('IN PROGRESS', [], 'progress', 'n on a backlog task starts a session for it · w assigns it to a worktree');
+	if (!scope) section('BACKLOG', groups.backlog, 'backlog', tasks.length ? 'Nothing waiting' : 'No tasks yet · a adds one');
 	if (groups.done.length || groups.olderDone.length) {
 		section('DONE · this week', groups.done, 'done');
 		if (groups.olderDone.length) {
 			rows.push({kind: 'older', count: groups.olderDone.length, shown: showOlder});
-			if (showOlder) for (const task of groups.olderDone) rows.push({kind: 'task', task, group: 'done'});
+			if (showOlder) for (const task of groups.olderDone) rows.push({kind: 'task', task, group: 'done', section: 'done'});
 		}
 	}
 	return rows;
@@ -55,9 +74,58 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date()): 
 
 /** The sessions doing a task: every session of its linked worktree incarnation, or its linked (main checkout) session. */
 export function taskSessions(task: Pick<Task, 'meta'>, sessions: SessionRecord[]): SessionRecord[] {
-	if (task.meta.wt) return sessions.filter(session => session.worktree?.id === task.meta.wt);
-	if (task.meta.s) return sessions.filter(session => session.id === task.meta.s);
-	return [];
+	const section = linkKey(task.meta);
+	return section ? workSessions(section, sessions) : [];
+}
+
+/** The sessions of a work key (`wt:<id>`: every session of that worktree incarnation; `s:<id>`: that session). */
+export function workSessions(section: string, sessions: SessionRecord[]): SessionRecord[] {
+	const link = linkOfKey(section);
+	if (!link) return [];
+	return 'wt' in link ? sessions.filter(session => session.worktree?.id === link.wt) : sessions.filter(session => session.id === link.s);
+}
+
+/** The work key a session's tasks are linked to: its worktree incarnation's, else (main checkout) its own. */
+export function workKeyOf(session: SessionRecord): string {
+	return session.worktree?.id ? `wt:${session.worktree.id}` : `s:${session.id}`;
+}
+
+/** How a work key reads: `⎇ <branch>`, or `main checkout · <session>`. */
+export function workLabel(section: string, sessions: SessionRecord[]): string {
+	const working = workSessions(section, sessions);
+	if (section.startsWith('wt:')) {
+		const branch = working.find(session => session.worktree?.branch)?.worktree?.branch;
+		return branch ? `⎇ ${branch}` : working.length ? '⎇ worktree' : '⎇ a worktree not listed';
+	}
+	return working[0] ? `main checkout · ${displaySessionTitle(working[0], sessions)}` : 'a session not listed';
+}
+
+export interface WorkOption {
+	/** The work's key, or undefined for the backlog. */
+	section?: string;
+	label: string;
+	/** `merged`, `here` (where the task is now), or both. */
+	note: string;
+}
+
+/**
+ * Where w can move a task: the backlog, then every worktree incarnation and main-checkout session in sidebar order
+ * (not deleted worktrees, nor ones whose sessions are all archived).
+ */
+export function workOptions(sessions: SessionRecord[], current?: string): WorkOption[] {
+	const options: WorkOption[] = [{label: 'Backlog · no worktree', note: current ? '' : 'here'}];
+	const seen = new Set<string>();
+	for (const session of sortSessionsForSidebar(sessions)) {
+		if (!workspaceKey(session)) continue;
+		const section = workKeyOf(session);
+		if (seen.has(section)) continue;
+		const working = workSessions(section, sessions);
+		if (working.every(other => other.archivedAt)) continue;
+		seen.add(section);
+		const merged = Boolean(session.worktree?.id && working.some(other => other.worktree?.mergedAt));
+		options.push({section, label: workLabel(section, sessions), note: [merged ? '✓ merged' : '', section === current ? 'here' : ''].filter(Boolean).join(' · ')});
+	}
+	return options;
 }
 
 function urgency(session: SessionRecord): number {
@@ -72,11 +140,22 @@ export function leadSession(sessions: SessionRecord[]): SessionRecord | undefine
 	return sessions.reduce<SessionRecord | undefined>((best, session) => !best || urgency(session) > urgency(best) ? session : best, undefined);
 }
 
-/** The open task linked to the session's work (its worktree incarnation, else the session), else a done one. */
+/** Every task linked to the session's work (its worktree incarnation, else the session), in file order. */
+export function linkedTasks(tasks: Task[], session: SessionRecord | undefined): Task[] {
+	if (!session) return [];
+	return tasks.filter(task => isLinked(task) && (task.meta.wt ? task.meta.wt === session.worktree?.id : task.meta.s === session.id));
+}
+
+/** The task the session's work is about: the open one it was started for, else an open assigned one, else a done one. */
 export function linkedTask(tasks: Task[], session: SessionRecord | undefined): Task | undefined {
-	if (!session) return undefined;
-	const linked = tasks.filter(task => isLinked(task) && (task.meta.wt ? task.meta.wt === session.worktree?.id : task.meta.s === session.id));
-	return linked.find(task => !task.done) ?? linked[0];
+	const linked = linkedTasks(tasks, session);
+	return linked.find(task => !task.done && !isAssigned(task)) ?? linked.find(task => !task.done) ?? linked.find(task => !isAssigned(task)) ?? linked[0];
+}
+
+/** How many other open tasks the session's work has besides `linkedTask`. */
+export function otherOpenTasks(tasks: Task[], session: SessionRecord | undefined): number {
+	const main = linkedTask(tasks, session);
+	return linkedTasks(tasks, session).filter(task => !task.done && task !== main).length;
 }
 
 export interface TaskState {glyph: string; color: string; text: string; where?: string}
@@ -84,9 +163,13 @@ export interface TaskState {glyph: string; color: string; text: string; where?: 
 /** What a task row shows on its right: its work's state and branch, where it came from, or when it was done. */
 export function taskState(task: Task, sessions: SessionRecord[], spinnerFrame: string, allSessions: SessionRecord[] = sessions): TaskState {
 	if (task.done) return {glyph: '✓', color: THEME.success, text: task.meta.auto === 'merge' ? 'merged' : task.meta.auto === 'done' ? 'done (D)' : 'done', ...task.meta.done ? {where: task.meta.done} : {}};
-	if (!isLinked(task)) return {glyph: '○', color: THEME.muted, text: task.meta.tried ? `tried in ⎇ ${task.meta.tried}` : task.meta.added ? `added ${task.meta.added}` : ''};
-	const working = taskSessions(task, sessions);
-	const lead = leadSession(working);
+	if (!isLinked(task)) return {glyph: '○', color: THEME.muted, text: task.meta.tried ? `tried in ⎇ ${task.meta.tried}` : task.meta.from ? `left open in ⎇ ${task.meta.from}` : task.meta.added ? `added ${task.meta.added}` : ''};
+	return workState(linkKey(task.meta)!, sessions, spinnerFrame, allSessions);
+}
+
+/** The state of a worktree's (or main-checkout session's) work: its most urgent session's. */
+export function workState(section: string, sessions: SessionRecord[], spinnerFrame: string, allSessions: SessionRecord[] = sessions): TaskState {
+	const lead = leadSession(workSessions(section, sessions));
 	if (!lead) return {glyph: '◌', color: THEME.muted, text: 'session not shown'};
 	const where = lead.worktree?.branch ? `⎇ ${lead.worktree.branch}` : displaySessionTitle(lead, allSessions);
 	return {glyph: statusGlyph(lead, spinnerFrame), color: statusColor(lead), text: urgency(lead) === 3 ? 'needs you' : statusWords(lead), where};

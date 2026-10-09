@@ -24,7 +24,7 @@ interface SidebarProps {
 	/** Installed agent versions, for the outdated marker (↑) and the details line. */
 	installedVersions?: Partial<Record<ProgramKey, string>>;
 	/** The task a session works on, for the details block. */
-	taskOf?: (session: SessionRecord) => Pick<Task, 'title' | 'done'> | undefined;
+	taskOf?: (session: SessionRecord) => (Pick<Task, 'title' | 'done'> & {more?: number}) | undefined;
 	/** The open filter menu (f): the highlighted filter and each filter's row count. */
 	filterMenu?: {selected: SessionFilter; counts: Record<SessionFilter, number>};
 }

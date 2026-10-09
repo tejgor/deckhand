@@ -276,7 +276,7 @@ function titleLines(title: string, width: number, max: number): string[] {
  * (`☐ 3 open (2 worktree)`) when there are any. Fewer rows drop the checklist line first, then the location, and
  * fewer than three hide it.
  */
-export function sessionDetails(session: SessionRecord | undefined, allSessions: SessionRecord[], width: number, freeRows: number, now: number, installedVersions: Partial<Record<ProgramKey, string>> = {}, task?: {title: string; done: boolean}): DetailLine[] {
+export function sessionDetails(session: SessionRecord | undefined, allSessions: SessionRecord[], width: number, freeRows: number, now: number, installedVersions: Partial<Record<ProgramKey, string>> = {}, task?: {title: string; done: boolean; more?: number}): DetailLine[] {
 	if (!session || freeRows < 3 || width < 1) return [];
 	const title = displaySessionTitle(session, allSessions) || '(untitled)';
 	const titles = titleLines(title, width, freeRows >= 5 ? 2 : 1);
@@ -290,8 +290,11 @@ export function sessionDetails(session: SessionRecord | undefined, allSessions: 
 		stateLine(session, state, age, width, installedVersions[session.program]),
 	];
 	if (freeRows - lines.length >= 1) lines.push([{text: locationText(session, allSessions, width, now), color: THEME.muted}]);
-	// The task it works on (b): kept longer than the checklist line below.
-	if (task && freeRows - lines.length >= 1) lines.push([{text: truncate(`◆ ${task.title}${task.done ? ' ✓' : ''}`, width), color: THEME.accentSoft}]);
+	// The task it works on (b), and how many more are open on its work: kept longer than the checklist line below.
+	if (task && freeRows - lines.length >= 1) {
+		const tail = `${task.done ? ' ✓' : ''}${task.more ? ` +${task.more}` : ''}`;
+		lines.push([{text: `${truncate(`◆ ${task.title}`, Math.max(1, width - tail.length))}${tail}`.slice(0, width), color: THEME.accentSoft}]);
+	}
 	// Open checklist items of its notes and its worktree's: the first line to go when rows are short.
 	const checklist = openChecklistText(session, width);
 	if (checklist && freeRows - lines.length >= 1) lines.push([{text: checklist, color: THEME.muted}]);

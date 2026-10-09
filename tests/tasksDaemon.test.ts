@@ -149,10 +149,41 @@ test('tasks: one list per repository, linked to the work started from it', {time
 		const promoted = await call<{session: SessionRecord; tasks: TasksDoc}>({type: 'promote-note-item', sessionId: session.id, section: 'session', line: 1, revision} as any);
 		const task = tasksOf(promoted.tasks).find(item => item.title === 'Promote me')!;
 		assert.equal(promoted.session.notes, `scratch\n- ↗ Promote me <!-- dh:t=${task.id} -->\n- [x] Ticked\n- [ ] Keep me`);
+		// It lands on the note's work: here a main-checkout session, as a follow-up.
+		assert.equal(task.meta.s, session.id); assert.ok(task.meta.assigned);
 		await call({type: 'kill', sessionId: session.id} as any); await waitFor(() => state(session.id), next => next.status === 'exited');
 		await call({type: 'remove', sessionId: session.id, moveOpenItems: true} as any);
 		const moved = await byTitle('Keep me');
 		assert.equal(moved.body, 'From the notes of notes holder (removed)');
 		assert.equal((await current()).filter(item => item.title === 'Ticked').length, 0);
+		assert.equal((await byTitle('Promote me')).meta.s, undefined, 'back to the backlog with its session');
+	});
+
+	await t.test('follow-ups: assigned only to work in this repository; a merge ticks the started task and the ticked follow-ups, the rest go back', async () => {
+		doc = await op({type: 'add', title: 'Merge me'});
+		const session = await create('Merge me', 'new', {taskId: (await byTitle('Merge me')).id});
+		await running(session.id);
+		const started = await state(session.id);
+		const wt = started.worktree!.id!;
+		doc = await op({type: 'add', title: 'Follow A', link: {wt}});
+		doc = await op({type: 'add', title: 'Follow B'});
+		doc = await op({type: 'assign', id: (await byTitle('Follow B')).id, link: {wt}});
+		assert.deepEqual([(await byTitle('Follow A')).meta.wt, (await byTitle('Follow B')).meta.wt], [wt, wt]);
+		await assert.rejects(op({type: 'assign', id: (await byTitle('Follow B')).id, link: {wt: 'nope'}}), /worktree is gone/);
+		await assert.rejects(op({type: 'add', title: 'x', link: {s: session.id}}), /now works in a worktree/);
+		// n on a follow-up is allowed (it would move to the new worktree); on the started task it is not.
+		await assert.rejects(create('again', 'new', {taskId: (await byTitle('Merge me')).id}), /already being worked on/);
+		await fs.writeFile(path.join(started.cwd, 'feature.txt'), 'feature\n');
+		await git(started.cwd, 'add', '.'); await git(started.cwd, 'commit', '-m', 'feature');
+		const result = await call<{conflicted?: boolean}>({type: 'merge-worktree', sessionId: session.id, mode: 'squash', targetCwd: root, tickTaskIds: [(await byTitle('Follow A')).id]} as any);
+		assert.ok(!result.conflicted);
+		await waitFor(() => byTitle('Merge me'), task => task.done && task.meta.auto === 'merge');
+		assert.deepEqual(await byTitle('Follow A').then(task => [task.done, task.meta.auto, task.meta.wt]), [true, 'merge', wt]);
+		const back = await waitFor(() => byTitle('Follow B'), task => !task.meta.wt);
+		assert.deepEqual([back.done, back.meta.from, back.meta.was], [false, started.worktree!.branch, wt]);
+		// Unmarking the merge undoes both.
+		await call({type: 'mark-session-merged', sessionId: session.id, targetCwd: root} as any);
+		await waitFor(() => byTitle('Follow B'), task => task.meta.wt === wt && Boolean(task.meta.assigned) && !task.meta.was);
+		assert.deepEqual(await Promise.all(['Merge me', 'Follow A'].map(title => byTitle(title).then(task => task.done))), [false, false]);
 	});
 });

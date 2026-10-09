@@ -404,7 +404,8 @@ export type ClientRequest =
 	/** What `m` would merge into the worktree at `targetCwd`; read-only. */
 	| {type: 'merge-preview'; requestId: string; sessionId: string; targetCwd: string}
 	/** `commitFirst`: commit the source worktree's uncommitted changes (`git add -A`, message = session title) before merging. */
-	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string; commitFirst?: boolean}
+	/** `tickTaskIds`: assigned tasks of the worktree the confirmation ticked; the merge marks them done with the task it was started for. */
+	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string; commitFirst?: boolean; tickTaskIds?: string[]}
 	/** After a conflicted merge: `keep` leaves it in progress and marks the worktree merged; `abort` undoes it. */
 	| {type: 'resolve-merge'; requestId: string; sessionId: string; targetCwd: string; action: 'keep' | 'abort'}
 	| {type: 'mark-session-merged'; requestId: string; sessionId: string; targetCwd: string}
