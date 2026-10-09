@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import React from 'react';
 import {renderToString} from 'ink';
 import {doneText, formatAge, locationText, msUntilAgeChanges, sessionDetails, sidebarHeader, sidebarRows, statusSince, statusWords, type SidebarRowsInput} from '../src/sidebarModel.js';
-import {Sidebar, partStyle} from '../src/sidebar.js';
+import {Sidebar, moreText, partStyle} from '../src/sidebar.js';
 import {sortSessionsForSidebar} from '../src/sessionOrder.js';
 import type {SessionRecord} from '../src/types.js';
 
@@ -236,13 +236,20 @@ test('Sidebar with more sessions than fit keeps rows for the details and scrolls
 	const many = Array.from({length: 40}, (_, index) => session(`s${index}`, {title: `session number ${index}`}));
 	const lines = plain(renderToString(React.createElement(Sidebar, {sessions: many, allSessions: many, selectedId: 's20', width: 34, height: 24, spinnerFrame: '⠋', filter: 'all', query: '', now: NOW}), {columns: 34})).split('\n');
 	const listRows = lines.filter(line => /^│.\s*\d+ /.test(line));
-	// 24 rows: border, header and border leave 21; six of them stay with the details.
+	// 24 rows: border, header and border leave 21; the details keep the four they use, the two "more" lines two.
 	assert.equal(listRows.length, 15);
 	assert.ok(listRows.some(line => line.includes('› 21 ● session number 20')), 'the selection stays in view');
+	assert.ok(lines.some(line => line.includes('↑ 13 more')), 'sessions above are counted');
+	assert.ok(lines.some(line => line.includes('↓ 12 more')), 'sessions below are counted');
 	assert.ok(lines.some(line => line.includes('──────')), 'the details rule is shown');
 	assert.ok(lines.some(line => line.includes('✶ claude · idle')), 'the details state line is shown');
 	// A short list still leaves the details only what it does not use.
 	const few = many.slice(0, 3);
 	const short = plain(renderToString(React.createElement(Sidebar, {sessions: few, allSessions: few, selectedId: 's1', width: 34, height: 24, spinnerFrame: '⠋', filter: 'all', query: '', now: NOW}), {columns: 34})).split('\n');
 	assert.equal(short.filter(line => /^│.\s*\d+ /.test(line)).length, 3);
+	assert.ok(!short.some(line => line.includes(' more')), 'a list that fits has no "more" lines');
+	// Hidden sessions that need you are counted on their side.
+	const waiting = session('w', {attention: {state: 'needs-input', event: 'PermissionRequest', at: ago(1)}});
+	assert.equal(moreText('↓', [many[0]!, waiting]), '↓ 2 more · ! 1');
+	assert.equal(moreText('↑', []), '');
 });

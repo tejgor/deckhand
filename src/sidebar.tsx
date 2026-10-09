@@ -1,7 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import type {ProgramKey, SessionRecord} from './types.js';
-import type {SessionFilter} from './sessionFeatures.js';
+import {sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
 import type {Task} from './tasks.js';
 import {sessionDetails, sidebarHeader, sidebarRows, type RowPart, type SidebarRow} from './sidebarModel.js';
 import {THEME, truncate} from './ui.js';
@@ -63,6 +63,19 @@ export function partStyle(part: RowPart, row: SidebarRow): {color?: string; dimC
 	}
 }
 
+/** `↑ 12 more` / `↓ 3 more · ! 1`: sessions out of view on one side of the list, and how many of them need you. */
+export function moreText(arrow: string, hidden: SessionRecord[]): string {
+	if (!hidden.length) return '';
+	const waiting = hidden.filter(session => !session.archivedAt && sessionNeedsAttention(session)).length;
+	return `${arrow} ${hidden.length} more${waiting ? ` · ! ${waiting}` : ''}`;
+}
+
+function MoreLine({arrow, hidden, width}: {arrow: string; hidden: SessionRecord[]; width: number}) {
+	const text = moreText(arrow, hidden);
+	const waiting = text.includes('!');
+	return <Box marginLeft={1} width={width}><Text wrap="truncate-end" color={waiting ? THEME.warn : THEME.muted}>{text || ' '}</Text></Box>;
+}
+
 export function Sidebar({sessions, allSessions = sessions, selectedId, width, height, spinnerFrame, collapsedSessionIds = new Set<string>(), hiddenSessionIds = new Set<string>(), loaded = true, filter = 'active', query = '', now = Date.now(), installedVersions, taskOf}: SidebarProps) {
 	const selectedIndex = Math.max(0, sessions.findIndex(session => session.id === selectedId));
 	const contentWidth = Math.max(1, width - 4);
@@ -71,18 +84,26 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 	const rowsForSessions = Math.max(1, height - 3);
 	// A list longer than the sidebar keeps rows for the selected session's details (and scrolls in the rest);
 	// a short one leaves them whatever it does not use.
-	const detailRows = sessions.length > rowsForSessions - DETAIL_ROWS && rowsForSessions >= DETAIL_ROWS * 3 ? DETAIL_ROWS : 0;
-	const visible = visibleSessions(sessions, selectedIndex, rowsForSessions - detailRows);
+	const selected = sessions.find(session => session.id === selectedId);
+	const task = selected && taskOf?.(selected);
+	// Up to DETAIL_ROWS, as many as the selected session's details actually use.
+	const detailRows = sessions.length > rowsForSessions - DETAIL_ROWS && rowsForSessions >= DETAIL_ROWS * 3
+		? sessionDetails(selected, allSessions, contentWidth, DETAIL_ROWS, now, installedVersions, task).length : 0;
+	// A list that scrolls gets a line above and below it saying how many sessions are out of view (and how many of
+	// those need you), kept even when empty so the rows don't jump as the selection moves.
+	const scrolls = sessions.length > rowsForSessions - detailRows && rowsForSessions - detailRows >= 5;
+	const listRows = rowsForSessions - detailRows - (scrolls ? 2 : 0);
+	const visible = visibleSessions(sessions, selectedIndex, listRows);
 	const visibleStart = Math.max(0, sessions.indexOf(visible[0] ?? sessions[0]));
+	const above = sessions.slice(0, visibleStart), below = sessions.slice(visibleStart + visible.length);
 	const [emptyTitle, emptyHint] = emptyMessage(allSessions, loaded);
 	const header = sidebarHeader({width: contentWidth, filter, query, shown: sessions.length, total: allSessions.length, allSessions});
 	const rows = sidebarRows({
 		rows: visible, allSessions, firstNumber: visibleStart + 1, numberWidth: String(Math.max(1, sessions.length)).length,
 		selectedId, width: rowWidth, spinnerFrame, filter, collapsedSessionIds, hiddenSessionIds, installedVersions,
 	});
-	// The list has priority: the details block only takes the rows it leaves free.
-	const selected = sessions.find(session => session.id === selectedId);
-	const details = sessions.length ? sessionDetails(selected, allSessions, contentWidth, rowsForSessions - visible.length, now, installedVersions, selected && taskOf?.(selected)) : [];
+	// The details take the rows the list leaves free (the ones kept for them when it scrolls).
+	const details = sessions.length ? sessionDetails(selected, allSessions, contentWidth, rowsForSessions - visible.length - (scrolls ? 2 : 0), now, installedVersions, task) : [];
 
 	return (
 		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.border} paddingRight={1}>
@@ -99,13 +120,17 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 					<Text color={THEME.active}>{truncate(emptyHint || ' ', contentWidth)}</Text>
 				</Box>
 			) : (
-				rows.map(row => (
-					<Box key={row.id} width={rowWidth}>
-						<Text wrap="truncate-end" inverse={row.selected} color={row.selected ? THEME.active : undefined} bold={row.selected}>
-							{row.parts.map((part, index) => <Text key={index} {...partStyle(part, row)}>{part.text}</Text>)}
-						</Text>
-					</Box>
-				))
+				<>
+					{scrolls ? <MoreLine arrow="↑" hidden={above} width={contentWidth} /> : null}
+					{rows.map(row => (
+						<Box key={row.id} width={rowWidth}>
+							<Text wrap="truncate-end" inverse={row.selected} color={row.selected ? THEME.active : undefined} bold={row.selected}>
+								{row.parts.map((part, index) => <Text key={index} {...partStyle(part, row)}>{part.text}</Text>)}
+							</Text>
+						</Box>
+					))}
+					{scrolls ? <MoreLine arrow="↓" hidden={below} width={contentWidth} /> : null}
+				</>
 			)}
 			{details.length ? <>
 				<Box flexGrow={1} />
