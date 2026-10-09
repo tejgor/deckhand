@@ -59,7 +59,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		note('Below the list: the selected session\'s full title, agent · state · age (both versions when ↑), branch or main checkout (shared with N, ▶ dev, merged, done 2d ago, archived), ☐ N open checklist items.'),
 	]},
 	{title: 'Panes', lines: [
-		key('p t g d a', 'Jump to Preview, Terminal, Git, Dev, Notes (they only switch tabs)'),
+		key('p t g d a', 'Jump to Preview, Terminal, Git, Dev, Notes (d twice quickly also starts or stops Dev)'),
 		key('→  l', 'Step into the pane: scroll the preview (running), browse Git changes, edit the notes'),
 		key('←  h  Esc', 'Step back out to the session list'),
 		key('v', 'On Terminal: switch between the shell and the last action'),
@@ -71,7 +71,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 	{title: 'Dev & actions', lines: [
 		key('r', 'Run: Dev first (start or stop it), then your actions; Enter runs the selected one'),
 		key('x', 'In the run list: stop the running action (or Dev)'),
-		key('d', 'The Dev tab (its output); Enter opens it full screen while it runs'),
+		key('d  d d', 'The Dev tab (Enter opens it while it runs) / twice quickly: start or stop Dev'),
 		note('Dev is shared by every session in the same worktree and keeps running after their agents exit, until stopped (or the worktree is deleted).'),
 		note('An action runs in its own process beside the shell and Dev, one at a time per worktree, and shows on the Terminal tab (v: back to the shell); Enter opens it while it runs; its output and exit code stay until the next one.'),
 		note('Set the Dev command, actions and a setup command for new worktrees in Settings (C).'),

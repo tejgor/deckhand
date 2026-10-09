@@ -59,8 +59,8 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 
 	// Keymap: [ goes to the previous tab (Notes → Dev), x asks before stopping, Esc backs out of it, Space marks done.
 	press('\x1b'); await screen('enter edit notes');
-	press('['); await screen('r start Dev');
-	press('x'); await screen('Kill only, keep worktree'); press('\x1b'); await screen('r start Dev');
+	press('['); await screen('d d start Dev');
+	press('x'); await screen('Kill only, keep worktree'); press('\x1b'); await screen('d d start Dev');
 	press('\x1b[A'); press('\x1b[B'); await screen('x stop');
 	press(' '); await screen('Marked done');
 	// Backspace archives a finished session; in the archived view (f) Backspace removes it for good.

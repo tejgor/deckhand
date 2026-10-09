@@ -117,7 +117,7 @@ A repository's `deckhand.json` and its optional `.claude/scripts/create-worktree
 
 - **n** and **N** (new sessions) open the picker at once, with the repository's `defaultAgent`/`defaultWorkspace` preselected even untrusted. Only confirming a **new worktree** that would use untrusted repository parts (its `setupCommand`, an enabled creation hook, or `worktree` location/branch/link settings) reviews first: **Enter** trusts and creates, **s** creates with global settings only, **Esc** returns to the form. No-worktree and existing-worktree sessions never ask.
 - **r** lists the worktree's Dev command first, then global and all repository actions; untrusted repository ones are marked *· needs trust*. Choosing one reviews first: **Enter** trusts and runs it, **s** cancels that run (or runs the global action of the same name, if there is one), **Esc** returns to the list. Global and trusted actions run at once.
-- Starting Dev (**r**, then Enter on **Dev**), when the override defines a `devCommand`: **Enter** trusts and starts it, **s** starts the global (or built-in) Dev command instead.
+- Starting Dev (**d** twice quickly, or **r** then Enter on **Dev**), when the override defines a `devCommand`: **Enter** trusts and starts it, **s** starts the global (or built-in) Dev command instead.
 - **s** on a session whose setup has not completed, when the override defines a `setupCommand`: **s** in the review retries without it.
 
 **Esc** always backs out without running anything. In Settings (**C**), **T** opens the same review. Tabs are shown as spaces and invisible or bidirectional characters as `<U+XXXX>`.

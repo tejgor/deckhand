@@ -1970,7 +1970,7 @@ export class InkDaemon {
 	private async attachWorkspacePane(socket: net.Socket, requestId: string, pane: WorkspacePane, sessionId: string, cols?: number, rows?: number): Promise<void> {
 		const {session, key} = this.requireWorkspace(sessionId, pane);
 		const workspace = startsOnView(pane) ? await this.openWorkspace(key) : this.workspaces.get(key);
-		if (!workspace) throw new Error(pane === 'dev' ? 'no running dev command; r starts it' : 'no action has run here; r runs one');
+		if (!workspace) throw new Error(pane === 'dev' ? 'no running dev command; d d starts it' : 'no action has run here; r runs one');
 		const current = workspace.attached[pane];
 		if (current && current.socket !== socket && !current.socket.destroyed) throw new Error(`${PANE_ATTACH_NAMES[pane]} is already attached elsewhere`);
 		const attachData = await this.requestPane<object & {initialFrame?: string}>(workspace, {type: 'attach', target: pane, cols: clampSize(cols ?? DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_COLS), rows: clampSize(rows ?? DEFAULT_PREVIEW_ROWS, DEFAULT_PREVIEW_ROWS)});

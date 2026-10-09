@@ -71,6 +71,8 @@ const WORKTREE_MODES: Array<{key: WorktreeMode; label: string}> = [
 ];
 const DEFAULT_SCROLL_SENSITIVITY = 0.12;
 const SCROLL_SENSITIVITY_STEP = 0.04;
+// Two d presses within this long are a double-tap (start or stop Dev); a slower second d only shows the Dev tab.
+const DEV_DOUBLE_TAP_MS = 500;
 const STATUS_MESSAGE_AUTO_HIDE_MS = 5000;
 const HEADER_ROWS = 2;
 // The footer always renders exactly these rows: the key hint and one combined
@@ -574,7 +576,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 				: activeTab === 'terminal' ? (hasWorkspace && !terminalAction?.finished ? (attachReady ? 'enter open' : 'loading…') : undefined)
 					: running && activeTab === 'preview' ? (attachReady ? '→ scroll • enter open' : 'loading…') : undefined;
 			const pane = activeTab === 'notes' ? (session ? 'enter edit notes • E open in editor' : undefined)
-				: activeTab === 'dev' && session && workspaceKey(session) ? (session.devRunning ? 'r stop Dev' : 'r start Dev')
+				: activeTab === 'dev' && session && workspaceKey(session) ? (session.devRunning ? 'd d stop Dev' : 'd d start Dev')
 				: activeTab === 'terminal' && terminalAction ? terminalAction.switchHint
 					: undefined;
 			const lifecycle = session?.status === 'exited'
@@ -675,6 +677,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [sidebarWidthOverride, setSidebarWidthOverride] = useState<number | undefined>(initialSidebarWidth);
 	const [spinnerIndex, setSpinnerIndex] = useState(0);
 	const selectedIdRef = useRef<string | undefined>(selectedId);
+	// When d was last pressed, for the d-d double-tap that starts or stops Dev.
+	const lastDevTapRef = useRef(0);
 	const sessionsRef = useRef<SessionRecord[]>(sessions);
 	// Search and nondefault filters reveal matches regardless of collapse state.
 	const collapseApplied = !sessionQuery && sessionFilter === 'active';
@@ -1502,12 +1506,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	};
 
 	// The run list's first row: start (after reviewing an untrusted repository devCommand) or stop the worktree's Dev.
-	const runDev = () => {
+	// `back`: where Esc from the trust review returns (the run list when started from there; else the session list).
+	const runDev = (back?: () => void) => {
 		if (!selectedSession) return;
 		if (!workspaceKey(selectedSession)) { setError(`Dev is unavailable: ${noWorkspaceReason(selectedSession)}`); return; }
 		if (selectedSession.devRunning || (dev.sessionId === selectedSession.id && dev.live)) { setMode('browse'); void toggleDevSelected(); return; }
 		reviewThen(selectedSession.cwd, () => { setMode('browse'); void toggleDevSelected(); }, {
-			back: () => setMode('pick-action'),
+			back,
 			gate: project => project.needsReview && Boolean(project.config.devCommand),
 			// Skipping starts what applies until trusted: the global (or legacy) Dev command, else the built-in `dev`.
 			labels: project => ({enter: {text: 'enter trust & start', short: 'enter trust'}, skip: {text: `s start ${project.effective.devCommand?.trim() || 'dev'} instead`, short: 's start fallback'}}),
@@ -1594,7 +1599,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setSessions(current => upsertSession(current, {...(current.find(session => session.id === selectedSession.id) ?? selectedSession), devRunning: nextDev.live}));
 				setActiveTab('dev');
 				// d on the Dev tab starts it, so a quick second d says plainly what it did.
-				setStatusMessage(`Started Dev${nextDev.command ? `: ${nextDev.command}` : ''} · r stops it`);
+				setStatusMessage(`Started Dev${nextDev.command ? `: ${nextDev.command}` : ''} · d d stops it`);
 			}
 		} catch (nextError) {
 			setError(errorMessage(nextError));
@@ -2020,7 +2025,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if (input === 'g' || key.home) setActionIndex(0);
 			if (input === 'G' || key.end) setActionIndex(Math.max(0, rows - 1));
 			if (devRow && actionIndex === 0) {
-				if (key.return || (input === 'x' && (selectedSession?.devRunning || (dev.sessionId === selectedSession?.id && dev.live)))) runDev();
+				if (key.return || (input === 'x' && (selectedSession?.devRunning || (dev.sessionId === selectedSession?.id && dev.live)))) runDev(() => setMode('pick-action'));
 				return;
 			}
 			const picked = actions[actionIndex - devRow];
@@ -2208,10 +2213,15 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			// Tab letters only switch tabs; Dev starts and stops from the run list (r).
-			if (input === 'd') {
+			// d shows the Dev tab; d twice quickly (a deliberate double-tap, not a later second d) starts or stops Dev. A fast
+			// double-tap can arrive as one chunk ("dd").
+			if (input === 'd' || input === 'dd') {
+				const now = Date.now();
+				const doubleTap = input === 'dd' || now - lastDevTapRef.current < DEV_DOUBLE_TAP_MS;
+				lastDevTapRef.current = doubleTap ? 0 : now;
 				setPreviewScrollOffset(0);
-				if (activeTab === 'dev') setStatusMessage(selectedSession?.devRunning ? 'Dev is running · r stops it (Dev is first in the run list)' : 'r starts Dev (it is first in the run list)');
 				setActiveTab('dev');
+				if (doubleTap) runDev();
 				return;
 			}
 			// The Terminal tab switches between the shell and the worktree's last action.
@@ -2339,7 +2349,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					return;
 				}
 				if (activeTab === 'dev' && !selectedSession.devRunning && !(dev.sessionId === selectedSession.id && dev.live)) {
-					setError('Dev is not running: r starts it (it is first in the run list)');
+					setError('Dev is not running: d d starts it (press d twice quickly)');
 					return;
 				}
 				if (activeAttachTarget === 'action' && !action.live) {
