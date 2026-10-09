@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {parseTasks} from '../src/tasks.js';
-import {boardRows, linkedTask, noteGroupLabel, noteItems, otherOpenTasks, pickerCounts, pickerRows, pickerViewOf, taskOrigin, workKeyOf, workLabel, workOptions, type BoardRow} from '../src/tasksBoard.js';
+import {boardRows, linkedTask, noteGroupLabel, noteItems, notesViewRows, otherOpenTasks, pickerCounts, pickerRows, pickerViewOf, taskOrigin, workKeyOf, workLabel, workOptions, type BoardRow} from '../src/tasksBoard.js';
 import type {SessionRecord} from '../src/types.js';
 
 const NOW = new Date('2026-10-09T12:00:00Z');
@@ -110,4 +110,25 @@ test('note items: every session\'s notes, grouped by worktree (its shared note f
 	]);
 	assert.equal(noteGroupLabel('wt:w2', all), '⎇ fix/e2e');
 	assert.equal(noteGroupLabel('main', all), 'main checkout');
+});
+
+test('the Notes view: every note in full by worktree, then the main checkout; f only open items; v one worktree or session', () => {
+	const notesOf = (text: string) => ({notes: text, notesFile: {path: '/n', revision: 'r'}});
+	const all = [
+		session('triage', {title: 'triage', ...notesOf('context only\n\n- [ ] main item'), sharedNotes: {kind: 'repo', id: 'r1', text: '# Repo\n- [x] shipped', revision: 'r', path: '/r'}} as Partial<SessionRecord>),
+		inWorktree('a1', 'w1', 'feat/auth', {...notesOf(''), sharedNotes: {kind: 'worktree', id: 'w1', text: 'plan\n- [ ] add tests\n- ↗ sent <!-- dh:t=1234abcd -->', revision: 'r', path: '/w'}} as Partial<SessionRecord>),
+		inWorktree('e', 'w2', 'fix/e2e', {...notesOf(''), sharedNotes: {kind: 'worktree', id: 'w2', text: '', revision: 'r', path: '/w2'}} as Partial<SessionRecord>),
+	];
+	const shape = (rows: BoardRow[]) => rows.map(row => row.kind === 'work' ? `[${row.label} ${row.count}]` : row.kind === 'notehead' ? `# ${row.block.label} (${row.open})` : row.kind === 'noteline' ? `${row.style}${row.item ? '*' : ''}: ${row.text}` : row.kind === 'empty' ? `(${row.text})` : row.kind);
+	assert.deepEqual(shape(notesViewRows(all)), [
+		'[⎇ feat/auth 1]', '# worktree note (1)', 'text: plan', 'open*: ☐ add tests', 'link: ↗ sent · in Tasks',
+		'[main checkout 1]', '# main checkout note (0)', 'heading: Repo', 'done: ☑ shipped', '# triage (1)', 'text: context only', 'open*: ☐ main item',
+	]);
+	assert.deepEqual(shape(notesViewRows(all, {itemsOnly: true})), ['[⎇ feat/auth 1]', '# worktree note (1)', 'open*: ☐ add tests', '[main checkout 1]', '# triage (1)', 'open*: ☐ main item']);
+	assert.deepEqual(shape(notesViewRows(all, {scope: 'wt:w1'})).slice(0, 2), ['[⎇ feat/auth 1]', '# worktree note (1)']);
+	assert.deepEqual(shape(notesViewRows(all, {scope: 's:triage'})).filter(line => line.startsWith('#')), ['# main checkout note (0)', '# triage (1)']);
+	assert.deepEqual(shape(notesViewRows(all, {scope: 'wt:w2'})), ['(No notes here yet · write one in a session’s Notes tab (a))']);
+	// The open item carries what sending it to Tasks needs.
+	const item = notesViewRows(all).find((row): row is Extract<BoardRow, {kind: 'noteline'}> => row.kind === 'noteline' && Boolean(row.item))!.item!;
+	assert.deepEqual([item.section, item.noteId, item.line, item.title], ['shared', 'worktree:w1', 1, 'add tests']);
 });

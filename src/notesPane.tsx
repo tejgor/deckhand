@@ -63,13 +63,16 @@ function body(section: NotesSectionInput, width: number, rows: number): {rows: N
 }
 
 /**
- * The tab's rows, exactly `height` of them: the shared section (when the session has one), a rule, the session's.
+ * The tab's rows, exactly `height` of them: the shared section (when the session has one), a rule, the session's
+ * (when it shows one: a session in a worktree has only the worktree's note).
  * `scrollTop` is the edited section's first row, for the next render; `bodies` the rows each section's body got.
  */
-export function notesLayout({shared, session, width, height, focus}: {shared?: NotesSectionInput; session: NotesSectionInput; width: number; height: number; focus?: NoteSection}): {rows: NotesRow[]; scrollTop?: number; bodies: {shared: number; session: number}} {
+export function notesLayout({shared, session, width, height, focus}: {shared?: NotesSectionInput; session?: NotesSectionInput; width: number; height: number; focus?: NoteSection}): {rows: NotesRow[]; scrollTop?: number; bodies: {shared: number; session: number}} {
 	const columns = Math.max(1, width);
-	const headers = shared ? 3 : 1;
-	const budget = budgetSections(Math.max(0, height - headers), shared && need(shared, columns), need(session, columns), focus);
+	// A session in a worktree shows only the worktree's note (no session section).
+	const headers = shared && session ? 3 : 1;
+	const budget = shared && !session ? {shared: Math.max(0, height - headers), session: 0}
+		: budgetSections(Math.max(0, height - headers), shared && need(shared, columns), need(session!, columns), focus);
 	const rows: NotesRow[] = [];
 	let scrollTop: number | undefined;
 	const add = (section: NotesSectionInput, which: NoteSection, count: number) => {
@@ -81,9 +84,9 @@ export function notesLayout({shared, session, width, height, focus}: {shared?: N
 	};
 	if (shared) {
 		add(shared, 'shared', budget.shared);
-		rows.push([{text: '─'.repeat(columns), color: THEME.border}]);
+		if (session) rows.push([{text: '─'.repeat(columns), color: THEME.border}]);
 	}
-	add(session, 'session', budget.session);
+	if (session) add(session, 'session', budget.session);
 	return {rows: rows.slice(0, Math.max(1, height)), scrollTop, bodies: budget};
 }
 

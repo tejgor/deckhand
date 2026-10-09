@@ -26,7 +26,7 @@ import {AGENTS, agentSpec, launchArgs, newAgentRef, relaunchPlan, sameAgentSessi
 import {AgentVersionChecker, findOnPath} from './agentVersionCheck.js';
 import {exportHandoff} from './sessionFeatures.js';
 import {NotesStore, noteFilePath, noteFileStem, type NoteId, type NoteKind} from './notesStore.js';
-import {repoNoteId, sharedNoteIdentity} from './notes.js';
+import {MAX_NOTES_CHARS, mergeIntoWorktreeNote, repoNoteId, sharedNoteIdentity, showsOwnNote} from './notes.js';
 import {applyTaskOp, clientTaskOp, findNoteTaskLink, isAssigned, isLinked, linkMatches, newTaskId, openNoteItems, parseTasks, promoteNoteLine, returnTaskToNote, taskPrompt, type Task, type TaskLink, type TaskOp} from './tasks.js';
 import {PROTOCOL_VERSION} from './types.js';
 import type {ActionRecord, AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, BranchList, ClientRequest, CreateSessionInput, DevRecord, GitRecord, MergePreview, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TasksDoc, TerminalRecord, WorktreeMarkers, WorktreeMergeMode, WorktreeMergeResult, WorktreeRecord} from './types.js';
@@ -408,6 +408,8 @@ export class InkDaemon {
 		// Notes live in files: ones older versions kept in state.json move there first (idempotent), then all are read.
 		const legacyNotes = await this.notes.migrate(stored.sessions);
 		await this.notes.load();
+		// Before the sessions project their notes, so they show the merged worktree notes.
+		await this.mergeWorktreeSessionNotes(stored.sessions);
 		for (const session of stored.sessions) {
 			this.sessions.set(session.id, session);
 		}
@@ -1644,9 +1646,34 @@ export class InkDaemon {
 	}
 
 	// Revision-checked: a file changed since the UI read it (an editor) is never overwritten; the UI gets it back instead.
+	/**
+	 * A session in a worktree has one note, the worktree's: own notes of worktree sessions (from before, or written
+	 * while the worktree was being prepared) are merged into it, in sidebar order, each under its session's title when
+	 * there are several; the originals go to the notes trash. A merge that would not fit is left alone (and shown).
+	 */
+	private async mergeWorktreeSessionNotes(sessions: SessionRecord[]): Promise<void> {
+		const byWorktree = new Map<string, SessionRecord[]>();
+		for (const session of sortSessionsForSidebar(sessions)) {
+			const id = session.worktree?.id;
+			if (!id || !this.notes.get({kind: 'session', id: session.id}).text.trim()) continue;
+			byWorktree.set(id, [...byWorktree.get(id) ?? [], session]);
+		}
+		for (const [id, owners] of byWorktree) {
+			const note: NoteId = {kind: 'worktree', id};
+			const stored = this.notes.get(note);
+			const text = mergeIntoWorktreeNote(stored.text, owners.map(session => ({title: session.title, text: this.notes.get({kind: 'session', id: session.id}).text})));
+			if (stored.tooLarge || text.length > MAX_NOTES_CHARS) { await this.log(`not merging ${owners.length} session note(s) into worktree note ${id}: it would be too large`); continue; }
+			const saved = await this.notes.save(note, text, stored.revision).catch(error => { void this.log(`merging into worktree note ${id} failed: ${errorMessage(error)}`); return undefined; });
+			if (!saved?.saved) continue;
+			for (const session of owners) await this.notes.remove({kind: 'session', id: session.id}, `${session.title} (merged into its worktree note)`);
+			await this.log(`merged the notes of ${owners.map(session => session.title).join(', ')} into worktree note ${id}`);
+		}
+	}
+
 	private async saveNote(message: Extract<ClientRequest, {type: 'save-note'}>): Promise<NoteSaveResult> {
 		const session = this.requireSession(message.sessionId);
 		if (typeof message.text !== 'string' || typeof message.revision !== 'string') throw new Error('Invalid note');
+		if (message.section === 'session' && !showsOwnNote(session)) throw new Error('A session in a worktree writes in the worktree’s note (shared by its sessions)');
 		const note = this.noteOf(session, message.section);
 		if (message.section === 'shared') {
 			if (message.noteId !== undefined && message.noteId !== `${note.kind}:${note.id}`) throw new Error('This session now shares another note; nothing was saved');
@@ -2858,8 +2885,8 @@ export class InkDaemon {
 		if (dropped) this.worktrees.delete(dropped);
 		await this.persist();
 		// A session's note goes with it, a worktree's with its record; the main checkout's note is never deleted.
-		await this.notes.remove({kind: 'session', id: sessionId}).catch(error => this.log(`removing notes of ${sessionId} failed: ${errorMessage(error)}`));
-		if (dropped) await this.notes.remove({kind: 'worktree', id: dropped}).catch(error => this.log(`removing worktree notes ${dropped} failed: ${errorMessage(error)}`));
+		await this.notes.remove({kind: 'session', id: sessionId}, existing.title).catch(error => this.log(`removing notes of ${sessionId} failed: ${errorMessage(error)}`));
+		if (dropped) await this.notes.remove({kind: 'worktree', id: dropped}, existing.worktree?.branch || existing.title).catch(error => this.log(`removing worktree notes ${dropped} failed: ${errorMessage(error)}`));
 		// Tasks it was doing go back to the backlog: the session's own link, and its worktree's once nothing refers to it.
 		const tried = existing.worktree?.branch || undefined;
 		await this.changeLinkedTasks({type: 'abandon-linked', link: {s: sessionId}, tried});

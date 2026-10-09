@@ -3,7 +3,7 @@ import path from 'node:path';
 import type {Key} from 'ink';
 import type {LiveClient} from './client.js';
 import type {SessionRecord, TasksDoc} from './types.js';
-import {MAX_NOTES_CHARS, MAX_NOTES_LABEL, continueChecklist, insertChecklistItem, noteKey, parseChecklistLine, toggleChecklist, type NoteSection} from './notes.js';
+import {MAX_NOTES_CHARS, MAX_NOTES_LABEL, continueChecklist, insertChecklistItem, noteKey, parseChecklistLine, showsOwnNote, toggleChecklist, type NoteSection} from './notes.js';
 import {NotesMessage, NotesRows, notesLayout, type NotesSectionInput} from './notesPane.js';
 import {cleanInsertedText, editText, lineEnd, lineStart, replaceRange, type EditOptions, type EditorState} from './textEditor.js';
 import {openInEditor} from './desktop.js';
@@ -78,7 +78,9 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 
 	const hasShared = Boolean(session?.sharedNotes);
 	const sharedEditable = Boolean(session?.sharedNotes && !session.sharedNotes.readOnly);
-	const activeSection: NoteSection = section === 'shared' && hasShared ? 'shared' : 'session';
+	// A session in a worktree has one note, the worktree's; a main-checkout session has its own and the main checkout's.
+	const ownNote = !session || showsOwnNote(session);
+	const activeSection: NoteSection = hasShared && (section === 'shared' || !ownNote) ? 'shared' : 'session';
 
 	// Applies a newer version of the file: silently when nothing is unsaved, else with a message (the daemon refuses the
 	// stale save anyway; external edits are never overwritten).
@@ -205,6 +207,7 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 		}
 		if (key.escape) { onExit(); return; }
 		if (key.tab) {
+			if (!ownNote) { setStatusMessage('In a worktree there is one note, shared by its sessions'); return; }
 			if (!hasShared) { setStatusMessage('This session has no worktree note yet: its worktree is not ready'); return; }
 			if (which === 'session' && !sharedEditable) { setStatusMessage('Its worktree was deleted: the worktree note is read-only'); return; }
 			setSection(which === 'shared' ? 'session' : 'shared');
@@ -249,15 +252,15 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 			const where = sharedNote.kind === 'repo' ? 'main checkout' : branch || (session.worktree?.path ? path.basename(session.worktree.path) : 'worktree');
 			const what = sharedNote.kind === 'repo' ? 'No main checkout notes' : 'No worktree notes';
 			sharedInput = {
-				titles: [`Worktree · ${where} (shared by ${plural(count, 'session')})`, `Worktree · ${where}`, 'Worktree'],
+				titles: sharedNote.kind === 'repo' ? [`Main checkout (shared by ${plural(count, 'session')})`, 'Main checkout'] : [`Worktree · ${where} (shared by ${plural(count, 'session')})`, `Worktree · ${where}`, 'Worktree'],
 				text: shared.text,
-				empty: sharedNote.readOnly ? `${what} (its worktree was deleted)` : focused ? `${what} · tab to add` : `${what} · o, then tab to add`,
+				empty: sharedNote.readOnly ? `${what} (its worktree was deleted)` : !ownNote ? (focused ? `${what} · type to add` : `${what} · o to add`) : focused ? `${what} · tab to add` : `${what} · o, then tab to add`,
 				flag: sharedNote.readOnly ? 'deleted, read-only' : sharedNote.tooLarge ? 'too large, E to edit' : undefined,
 				editing: editingSection === 'shared' ? {cursor: shared.cursor, scrollTop: shared.scrollTop} : undefined,
 				active: !focused && activeSection === 'shared',
 			};
 		}
-		const sessionInput: NotesSectionInput = {
+		const sessionInput: NotesSectionInput | undefined = !ownNote ? undefined : {
 			titles: [`This session · ${titleOf(session)}`, 'This session'],
 			text: own?.text ?? '',
 			empty: focused ? 'No notes for this session · tab to add' : 'No notes for this session · o to add',
@@ -283,7 +286,7 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 	};
 	const hint = (width: number): string => fitHint([
 		'notes edit', 'esc done',
-		...hasShared ? [{text: activeSection === 'shared' ? 'tab this session' : 'tab worktree notes', short: 'tab switch', drop: 1}] : [],
+		...hasShared && ownNote ? [{text: activeSection === 'shared' ? 'tab this session' : session?.sharedNotes?.kind === 'repo' ? 'tab main checkout notes' : 'tab worktree notes', short: 'tab switch', drop: 1}] : [],
 		{text: 'ctrl+x toggle ☐', short: 'ctrl+x ☐', drop: 1},
 		{text: 'ctrl+t new item', drop: 2},
 		{text: 'ctrl+o open in editor', short: 'ctrl+o editor', drop: 2},

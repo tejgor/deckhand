@@ -111,9 +111,10 @@ test('notes are Markdown files: legacy migration, revision-checked saves, editor
 		assert.equal(await read(path.join(home, 'notes', 'worktrees', `${recordId}.md`)), 'shared plan\n- [ ] review');
 		// The UI names the note it edited: a save for another note is refused.
 		await assert.rejects(call({type: 'save-note', sessionId: first.id, section: 'shared', noteId: 'worktree:other', text: 'x', revision: (await state(first.id)).sharedNotes!.revision} as any), /another note/);
-		await save(child.id, 'session', 'child only');
+		// A session in a worktree has one note, the worktree's: it has no note of its own to write.
+		await assert.rejects(save(child.id, 'session', 'child only'), /worktree’s note/);
 		const handoff = await fs.readFile(await call<string>({type: 'export-handoff', sessionId: child.id} as any), 'utf8');
-		assert.match(handoff, /## Notes\n\nchild only\n\n## Worktree notes\n\nshared plan\n- \[ \] review/);
+		assert.match(handoff, /## Notes\n\n\(No notes recorded\.\)\n\n## Worktree notes\n\nshared plan\n- \[ \] review/);
 		// open-note creates a missing file for the editor.
 		const ownFile = await call<string>({type: 'open-note', sessionId: first.id, section: 'session'} as any);
 		assert.equal(ownFile, path.join(home, 'notes', 'sessions', `${first.id}.md`)); assert.equal(await read(ownFile), '');
@@ -130,6 +131,12 @@ test('notes are Markdown files: legacy migration, revision-checked saves, editor
 		for (const session of [one, two]) { await killAndWait(session.id); await call({type: 'remove', sessionId: session.id} as any); }
 		assert.equal(await exists(ownFile), false);
 		assert.equal(await read(repoFile), 'repo-wide');
+		// It went to the notes trash, named after its session (an empty note is just deleted).
+		const trash = path.join(home, 'notes', 'trash');
+		const trashed = (await fs.readdir(trash)).filter(name => name.includes('_session_main-1_'));
+		assert.equal(trashed.length, 1);
+		assert.equal(await read(path.join(trash, trashed[0]!)), 'mine');
+		assert.ok(!(await fs.readdir(trash)).some(name => name.includes('_session_main-2_')));
 	});
 
 	await t.test('a deleted worktree\'s note stays read-only; a new worktree at the path starts empty; the note goes with the record', async () => {
@@ -147,6 +154,29 @@ test('notes are Markdown files: legacy migration, revision-checked saves, editor
 		assert.equal(await read(oldFile), 'shared plan\n- [ ] review');
 		await call({type: 'remove', sessionId: child.id} as any);
 		assert.equal(await exists(oldFile), false);
+		assert.ok((await fs.readdir(path.join(home, 'notes', 'trash'))).some(name => name.includes('_worktree_')), 'the worktree note went to the trash');
 		await killAndWait(again.id);
+	});
+
+	await t.test('at start, notes of sessions in a worktree are merged into its note (under their titles) and go to the trash', async () => {
+		const owner = await running((await create('merge-a', 'new')).id);
+		const helper = await running((await call<SessionRecord>({type: 'create', input: {title: 'merge-b', program: 'pi', cwd: owner.cwd, repoRoot: root, cols: 80, rows: 24, parentSessionId: owner.id, subSessionKind: 'clean'}} as any)).id);
+		const lone = await running((await create('merge-lone', 'new')).id);
+		await save(owner.id, 'shared', 'worktree plan');
+		for (const session of [owner, helper, lone]) await killAndWait(session.id);
+		// Notes written by an older version: each session's own.
+		await stop(daemon);
+		const own = (session: SessionRecord) => path.join(home, 'notes', 'sessions', `${session.id}.md`);
+		await fs.writeFile(own(owner), '- [ ] from the owner\n');
+		await fs.writeFile(own(helper), 'helper context');
+		await fs.writeFile(own(lone), '- [ ] the only note');
+		daemon = launch(); await ready();
+		const merged = (await state(owner.id)).sharedNotes!.text;
+		assert.match(merged, /^worktree plan\n\n## .*merge-a\n- \[ \] from the owner\n\n## .*merge-b\nhelper context$/);
+		assert.equal((await state(helper.id)).sharedNotes!.text, merged);
+		// A lone note goes into an empty worktree note as it is.
+		assert.equal((await state(lone.id)).sharedNotes!.text, '- [ ] the only note');
+		for (const session of [owner, helper, lone]) { assert.equal(await exists(own(session)), false); assert.equal((await state(session.id)).notes, ''); }
+		assert.equal((await fs.readdir(path.join(home, 'notes', 'trash'))).filter(name => name.includes('merged-into-its-worktree-note')).length, 3);
 	});
 });

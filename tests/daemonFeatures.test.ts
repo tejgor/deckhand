@@ -134,7 +134,9 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		await git(root, 'add', 'deckhand.json'); await git(root, 'commit', '-m', 'no setup');
 		const parent = await create('shared-feature', 'claude', 'new');
 		await waitFor(() => state(parent.id), item => item.status === 'running');
-		await call({type: 'save-note', sessionId: parent.id, section: 'session', text: 'Review this work', revision: (await state(parent.id)).notesFile!.revision} as any);
+		// A session in a worktree writes in the worktree's note.
+		const shared = (await state(parent.id)).sharedNotes!;
+		await call({type: 'save-note', sessionId: parent.id, section: 'shared', noteId: `${shared.kind}:${shared.id}`, text: 'Review this work', revision: shared.revision} as any);
 		const handoff = await call<string>({type: 'export-handoff', sessionId: parent.id} as any);
 		assert.match(await fs.readFile(handoff, 'utf8'), /Review this work[\s\S]*## Workspace changes\n\nBase: main/);
 		const parentState = await state(parent.id);
