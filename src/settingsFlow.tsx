@@ -209,7 +209,8 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 			return;
 		}
 		if (key.tab || key.upArrow || key.downArrow) return;
-		const next = editText(current.state, input, key);
+		// One-line fields: Ctrl+A / Ctrl+E are line start / end, as in notes and tasks (select-all is the JSON editor's).
+		const next = editText(current.state, input, key, {selectAll: false});
 		const limit = current.step === 'name' ? 48 : MAX_TEXT[current.id] ?? 8192;
 		const stripped = next.text.replace(/\n/g, '');
 		setEdit({...current, state: {text: stripped.slice(0, limit), cursor: Math.min(next.cursor, stripped.length, limit), ...next.selectAll ? {selectAll: true} : {}}, error: undefined});

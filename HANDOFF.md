@@ -173,6 +173,8 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 
 ## Design rules
 
+- Keys (audited on `feat/tasks`): lowercase is the common action, uppercase the heavier variant of the same letter (`n`/`N`, `x`/`X`, `s`/`S`, `e`/`E`, `o`/`O`). `o` goes into the thing (attach, edit notes, a task's session), `E` opens your editor (Notes, Tasks, a changed file), `x` stops or removes, Esc goes back on every screen and `q` only quits from browse. Arrows work wherever `j`/`k` do; `←`/`→` and Shift+Tab move between tabs (resizing is `h`/`l` only). `g`/`G` are first/last in lists. Destructive single keys ask first, except the explicit force variant (`X`). Ctrl+A/Ctrl+E are line start/end in every one-line field; select-all exists only in the raw JSON editor. `tests/keysDocumented.test.ts` reads the browse and Tasks handlers' `input === 'x'` checks and fails when one has no line in `src/help.ts`; it does not see `key.*` checks (arrows, Enter, Tab).
+
 - Lifecycle and activity are distinct:
   - lifecycle `status`: `starting`, `running`, `exited`
   - activity `agentStatus`: `unknown`, `active`, `idle`
@@ -221,13 +223,13 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 - in create program picker, Claude/Pi parents add `⑂ Fork parent`
 - during create name entry, `tab` cycles workspace mode: no/new/existing worktree
 - in existing-worktree picker, type to search, `j`/`k` or arrows move, `enter` selects
-- `j` / `k` move selected session
+- `j` / `k` or `↑` / `↓` move selected session
 - session numbers jump to matching visible rows; multi-digit input is buffered when needed and `enter` confirms immediately
 - `J` / `K` manually reorder selected session among siblings
 - `c` cycles selected session's subtree: collapse exited sub-sessions only, then collapse all sub-sessions, then expand all
-- `h` / `l` resize sidebar; left/right arrows also resize sidebar in browse mode
+- `h` / `l` resize sidebar (arrows no longer do: `←` / `→` switch tabs)
 - `[` / `]` decrease/increase `attach_scroll_sensitivity` live and persist it to config
-- `tab` cycles Preview / Terminal / Git / Dev / Notes for selected session
+- `tab` / `→` next tab, `shift+tab` / `←` previous (Preview / Terminal / Git / Dev / Notes)
 - `p` / `t` / `g` / `d` / `a` directly focus Preview / Terminal / Git / Dev / Notes
 - switching sessions restores that session's most recently selected tab, defaulting to Preview
 - `v` on the Terminal tab switches between the shell and the worktree's last action (`terminalView`; with no action yet it says *e runs one*). The Terminal header then reads `shell │ <name> ● running` (or `✓ exit 0`, `✗ exit N`, `✗ signal N`, `○ stopped` after a worker crash), the shown view highlighted (`actionStatus`, `hasAction` in `src/terminalPane.tsx`). The view is kept across attach/detach (`initialTerminalView`/`onTerminalViewChange`, a module variable in `src/cli.ts`) but not across UI restarts
@@ -245,8 +247,8 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 - `m` opens the merge confirmation for worktree-backed sessions (preview, `space` commit-first toggle, merge/squash/cancel; see *Merge behavior*); a conflicted result opens the conflict view (`enter` keep, `a` abort)
 - `M` toggles the worktree's merged marker (every session of it); worktree-only: in the main checkout it says *Not in a worktree, so there is nothing to mark merged. Use D to mark it done* (the daemon refuses the same way)
 - `D` toggles the selected session's done marker (`set-session-done`; any session, sub-sessions in a worktree included; independent of merged and archived)
-- `x` kills selected running session
-- `X` force-kills selected running session; workers send SIGTERM first and SIGKILL after a short delay if still alive
+- `x` asks before stopping any running session (`confirm-kill`; a session without a worktree gets just *Kill session* / *Cancel*, no cleanup inspection)
+- `X` force-kills at once without asking and keeps any worktree (deletion is only offered through `x`); workers send SIGTERM first and SIGKILL after a short delay if still alive
 - for worktree-backed sessions, kill confirmation offers keep/delete/delete-branch/cancel when applicable
 - `s` resume/restart selected exited session
 - `S` fresh-restart selected exited session without using prior parsed/persisted resume handle
@@ -255,7 +257,7 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 - `r` refreshes/resubscribes
 - `U` opens the Agents screen (versions and updates, see *Agent versions and updates*)
 - `?` opens help
-- `q` quits UI; daemon and running sessions continue
+- `q` quits UI; daemon and running sessions continue. Only from browse: Help and Agents no longer close on `q` (Esc closes every screen)
 
 ### Notes
 

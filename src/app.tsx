@@ -466,7 +466,7 @@ function KillConfirmPane({session, sessions, options, selectedIndex, force, widt
 	const contentWidth = Math.max(1, width - 4);
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderDanger} paddingX={1}>
-			<Text color={THEME.warn}>{truncate(cleanupSummary(inspection), contentWidth)}</Text>
+			{session?.worktree?.path && session.worktree.mode !== 'none' ? <Text color={THEME.warn}>{truncate(cleanupSummary(inspection), contentWidth)}</Text> : null}
 			{structuralBlockers(inspection).map((blocker, index) => (
 				<Text key={`blocker-${index}`} color={THEME.warn}>{truncate(`  ${blocker}`, contentWidth)}</Text>
 			))}
@@ -542,7 +542,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 			const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
 			return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k scroll • g/G top/bottom • esc/v return`;
 		}
-		case 'changes-focus': return 'changes • esc/v back • j/k select • space stage/unstage • a/A stage/unstage all • enter/e open in editor • J/K scroll diff • o lazygit';
+		case 'changes-focus': return 'changes • esc/v back • j/k select • space stage/unstage • a/A stage/unstage all • enter/E open in editor • J/K scroll diff • o lazygit';
 		case 'notes-focus': return notesHint ?? 'notes edit • esc done';
 		case 'search': return 'type to search • enter keep search • esc clear';
 		case 'browse': {
@@ -566,7 +566,8 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 			const archive: HintPart | undefined = session?.archivedAt ? {text: 'A unarchive', drop: 2}
 				: session?.status === 'exited' ? {text: 'A archive', drop: 2} : undefined;
 			// Higher drop numbers go first when the line is too narrow; ? help always stays.
-			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, '? help', {text: 'n new', drop: 1}, {text: 'C settings', drop: 1}, {text: 'i info', drop: 3}, {text: 'e actions', drop: 3}, {text: '/ search', drop: 2}, {text: 'f filter', drop: 2}, {text: 'q quit', drop: 1}];
+			const remove: HintPart | undefined = session?.status === 'exited' && !session.worktree?.deletedAt ? {text: 'backspace remove', drop: 3} : undefined;
+			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, remove, '? help', {text: 'n new', drop: 1}, {text: 'b tasks', drop: 2}, {text: 'C settings', drop: 1}, {text: 'i info', drop: 3}, {text: 'e actions', drop: 3}, {text: '/ search', drop: 2}, {text: 'f filter', drop: 2}, {text: 'q quit', drop: 1}];
 			return fitHint(parts.filter((part): part is string | HintPart => Boolean(part)), width, ' • ');
 		}
 	}
@@ -1534,11 +1535,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				await client.stopDev(selectedSession.id);
 				setDev({...EMPTY_DEV, sessionId: selectedSession.id, cwd: selectedSession.cwd});
 				setSessions(current => upsertSession(current, {...(current.find(session => session.id === selectedSession.id) ?? selectedSession), devRunning: false}));
+				setStatusMessage('Stopped Dev');
 			} else {
 				const nextDev = await client.startDev(selectedSession.id, layout.previewCols, layout.previewRows);
 				setDev(nextDev);
 				setSessions(current => upsertSession(current, {...(current.find(session => session.id === selectedSession.id) ?? selectedSession), devRunning: nextDev.live}));
 				setActiveTab('dev');
+				// d on the Dev tab starts it, so a quick second d says plainly what it did.
+				setStatusMessage(`Started Dev${nextDev.command ? `: ${nextDev.command}` : ''} · d stops it`);
 			}
 		} catch (nextError) {
 			setError(errorMessage(nextError));
@@ -1815,12 +1819,16 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				adjustScrollSensitivity(input === ']' ? SCROLL_SENSITIVITY_STEP : -SCROLL_SENSITIVITY_STEP);
 				return;
 			}
-			if (input === 'k') {
+			if (input === 'k' || key.upArrow) {
 				scrollPreview('up');
 				return;
 			}
-			if (input === 'j') {
+			if (input === 'j' || key.downArrow) {
 				scrollPreview('down');
+				return;
+			}
+			if (key.pageUp || key.pageDown) {
+				scrollPreview(key.pageUp ? 'up' : 'down', Math.max(1, layout.previewRows - 2));
 				return;
 			}
 			if (input === 'g') {
@@ -2115,9 +2123,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				);
 				return;
 			}
-			if (key.tab) {
+			// Tab / → next tab, Shift+Tab / ← previous.
+			if (key.tab || key.leftArrow || key.rightArrow) {
+				const step = (key.tab && key.shift) || key.leftArrow ? RIGHT_TABS.length - 1 : 1;
 				setPreviewScrollOffset(0);
-				setActiveTab(tab => RIGHT_TABS[(RIGHT_TABS.indexOf(tab) + 1) % RIGHT_TABS.length] ?? 'preview');
+				setActiveTab(tab => RIGHT_TABS[(RIGHT_TABS.indexOf(tab) + step) % RIGHT_TABS.length] ?? 'preview');
 				return;
 			}
 			if (input === 'p') {
@@ -2188,19 +2198,19 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				void reorderSelected('down');
 				return;
 			}
-			if (input === 'k') {
+			if (input === 'k' || key.upArrow) {
 				moveSelection(-1);
 				return;
 			}
-			if (input === 'j') {
+			if (input === 'j' || key.downArrow) {
 				moveSelection(1);
 				return;
 			}
-			if (key.leftArrow || input === 'h') {
+			if (input === 'h') {
 				resizeSidebar(-2);
 				return;
 			}
-			if (key.rightArrow || input === 'l') {
+			if (input === 'l') {
 				resizeSidebar(2);
 				return;
 			}
@@ -2228,15 +2238,19 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				void toggleSelectedDone();
 				return;
 			}
-			if ((input === 'x' || input === 'X') && selectedSession?.status === 'running') {
-				const force = input === 'X';
+			// x asks first (with the worktree's deletion choices); X force-stops at once and keeps any worktree.
+			if (input === 'X' && selectedSession?.status === 'running') {
+				void killSelected(false, false, true);
+				return;
+			}
+			if (input === 'x' && selectedSession?.status === 'running') {
+				const sessionId = selectedSession.id;
+				setKillConfirmIndex(0);
+				setKillConfirmForce(false);
+				setMode('confirm-kill');
 				if (selectedSession.worktree?.path && selectedSession.worktree.mode !== 'none') {
-					const sessionId = selectedSession.id;
 					const requestId = ++cleanupRequestRef.current;
-					setKillConfirmIndex(0);
-					setKillConfirmForce(force);
 					setCleanupCheck({sessionId});
-					setMode('confirm-kill');
 					if (client) {
 						const inspect = (deleteBranch: boolean) => {
 							const settle = (inspection: SessionCleanupInspection) => {
@@ -2247,8 +2261,6 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						inspect(false);
 						if (selectedCanDeleteBranch) inspect(true);
 					}
-				} else {
-					void killSelected(false, false, force);
 				}
 				return;
 			}
@@ -2433,8 +2445,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 
 		if (mode === 'merge-conflicts') {
-			// Only two choices: keep the merge in progress (marked merged), or abort it.
-			if (key.return) void resolveConflictedMerge('keep');
+			// Only two choices: keep the merge in progress (marked merged), or abort it. Esc keeps it: nothing is undone.
+			if (key.return || key.escape) void resolveConflictedMerge('keep');
 			else if (input === 'a') void resolveConflictedMerge('abort');
 			return;
 		}

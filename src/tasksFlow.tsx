@@ -128,6 +128,8 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (deleting) setPendingDelete(undefined);
 		if (key.upArrow || input === 'k') { move(-1); return; }
 		if (key.downArrow || input === 'j') { move(1); return; }
+		if ((input === 'g' || key.home) && selectable.length) { select(selectable[0]!); return; }
+		if ((input === 'G' || key.end) && selectable.length) { select(selectable.at(-1)!); return; }
 		if (view === 'notes') {
 			if (key.escape || key.tab) { setView('tasks'); setSelected({index: 0}); return; }
 			const item = currentRow?.kind === 'note' ? currentRow.item : undefined;
@@ -147,7 +149,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		}
 		if (currentRow?.kind === 'older' && (key.return || input === ' ')) { setShowOlder(shown => !shown); return; }
 		if (!currentTask) {
-			if (input === 'n' || input === 'g' || input === 'x' || input === ' ' || key.return) setStatusMessage('Select a task first (j/k)');
+			if (input === 'n' || input === 'o' || input === 'x' || input === ' ' || key.return) setStatusMessage('Select a task first (j/k)');
 			return;
 		}
 		const {task, group} = currentTask;
@@ -155,10 +157,10 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (input === ' ') { apply({type: 'toggle', id: task.id}, () => setStatusMessage(task.done ? `Reopened ${task.title}` : `Done: ${task.title}`)); return; }
 		if (input === 'n') {
 			if (group === 'backlog') onStart(task);
-			else setStatusMessage(group === 'progress' ? 'That task is already being worked on (g goes to its session)' : 'That task is done; space reopens it');
+			else setStatusMessage(group === 'progress' ? 'That task is already being worked on (o opens its session)' : 'That task is done; space reopens it');
 			return;
 		}
-		if (input === 'g') {
+		if (input === 'o') {
 			const lead = leadSession(taskSessions(task, sessions));
 			if (lead) onGoTo(lead.id);
 			else setStatusMessage(group === 'progress' ? 'Its session is not in this list (archived or filtered?)' : 'That task has no session; n starts one');
@@ -244,7 +246,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 			{text: 'n start session', short: 'n start'},
 			{text: 'enter edit', drop: 1},
 			{text: 'space done', short: 'space ✓'},
-			{text: 'g go to session', short: 'g go', drop: 1},
+			{text: 'o open its session', short: 'o session', drop: 1},
 			{text: 'J/K reorder', drop: 2},
 			{text: 'x delete', drop: 2},
 			{text: 'tab note items', short: 'tab notes', drop: 1},
@@ -309,7 +311,7 @@ function detailLines(row: BoardRow | undefined, sessions: SessionRecord[], spinn
 	if (row?.kind !== 'task') return [];
 	const {task, group} = row;
 	const state = taskState(task, sessions, spinnerFrame);
-	const where = group === 'progress' ? `${state.where ?? ''} · ${state.text} · g goes to it` : group === 'backlog' ? `${state.text ? `${state.text} · ` : ''}n starts a session for it` : `${state.text}${state.where ? ` ${state.where}` : ''} · space reopens it`;
+	const where = group === 'progress' ? `${state.where ?? ''} · ${state.text} · o opens it` : group === 'backlog' ? `${state.text ? `${state.text} · ` : ''}n starts a session for it` : `${state.text}${state.where ? ` ${state.where}` : ''} · space reopens it`;
 	const body = task.body ? wrapRows(task.body, Math.max(1, width - 2)).map(range => task.body.slice(range.start, range.end)) : [];
 	const room = Math.max(0, DETAIL_ROWS - 2);
 	return [
