@@ -145,7 +145,8 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `J` / `K`, `c` | Move the selected session down / up among its siblings (order is persisted); collapse or expand its sub-sessions |
 | `<` / `>` | Narrow / widen the sidebar |
 | `tab` / `]`, `shift+tab` / `[` | Next / previous tab: Preview, Terminal, Git, Dev, Notes |
-| `p` / `t` / `g` / `d` / `a` | Jump to Preview / Terminal / Git / Dev / Notes (they only switch tabs) |
+| `p` / `t` / `g` / `d` / `a` | Jump to Preview / Terminal / Git / Dev / Notes |
+| `d` `d` | Press `d` twice quickly to start or stop the worktree's Dev command (a single `d`, or a slower second one, only shows the Dev tab) |
 | `→` / `l` | Step into the pane: scroll the preview of a running session (`j`/`k`, arrows, PgUp/PgDn, `g`/`G`, the wheel; `+`/`−` change the wheel speed, also used when attached), browse the Git changes (see [Git Changes](#git-changes)), or edit the notes (see [Notes](#notes)) |
 | `←` / `h` / `esc` | Step back out to the session list |
 | `enter` / `o` | Open full screen what the tab shows: the agent (Preview), the shell or running action (Terminal), lazygit (Git), Dev; Terminal, Git and Dev also for exited sessions. On Notes: edit them |
@@ -315,7 +316,7 @@ Terminal (your `$SHELL`), Git (the Changes view, plus `lazygit` on `o`) and Dev 
 
 ### Dev Command
 
-Press `r` and choose **Dev** (always first in the run list) to start or stop the command; `d` shows its output. Dev belongs to the session's **worktree**, not to the session: every session in the same worktree (or in the same checkout, for sessions without a worktree) sees the same Dev pane and output, and starting or stopping it from any of them acts on that one process. It keeps running after the agents exit (exited sessions still show, attach to and stop it) until you stop it, delete the worktree, remove the worktree's last session, or the daemon stops; the sidebar shows `▶` on the worktree's first row while it runs. Set the command globally (or per repository as `devCommand` in `deckhand.json`):
+Press `d` twice quickly to start or stop the command (or `r` and choose **Dev**, always first in the run list); a single `d` shows its output. Dev belongs to the session's **worktree**, not to the session: every session in the same worktree (or in the same checkout, for sessions without a worktree) sees the same Dev pane and output, and starting or stopping it from any of them acts on that one process. It keeps running after the agents exit (exited sessions still show, attach to and stop it) until you stop it, delete the worktree, remove the worktree's last session, or the daemon stops; the sidebar shows `▶` on the worktree's first row while it runs. Set the command globally (or per repository as `devCommand` in `deckhand.json`):
 
 ```json
 {
@@ -474,7 +475,7 @@ After changing source code, rebuild with `npm run build` before re-running the l
 - **`node-pty` fails to load on macOS:** Re-run the repair script directly: `node scripts/fix-node-pty.js`. If that doesn't help, reinstall: `rm -rf node_modules && npm install`.
 - **Stale daemon socket or PID:** If `deckhand` hangs at startup, the supervisor may have exited uncleanly. Remove stale files: `rm -f ~/.deckhand/daemon.pid ~/.deckhand/daemon.sock` and relaunch.
 - **`o` on the Git tab fails:** Install [`lazygit`](https://github.com/jesseduffield/lazygit) and ensure it is on `PATH`. The Changes list itself only needs `git`.
-- **Dev tab does nothing:** Press `r` and choose **Dev** (the first row) to start or stop the command; `d` only shows the tab. Ensure a `devCommand` is set in global defaults (**C**) or a trusted `deckhand.json`.
+- **Dev tab does nothing:** Press `d` twice quickly (or `r` and choose **Dev**, the first row) to start or stop the command; a single `d` only shows the tab. Ensure a `devCommand` is set in global defaults (**C**) or a trusted `deckhand.json`.
 
 ---
 

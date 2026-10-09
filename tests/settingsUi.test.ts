@@ -116,9 +116,9 @@ test('a Dev command saved in Settings keeps the repository file trusted (created
 	assert.deepEqual((await readJson(file)).actions, {'lint frontend': 'npm run lint'});
 	press('\x1b'); await screen('Settings · sandbox'); press('\x1b'); await screen('C settings');
 
-	// d only selects Dev; r opens the run list with Dev first, and Enter starts it: trusted, so no review.
-	press('d'); await screen('d:Dev'); await screen('r start Dev');
-	press('r'); await screen('○ stopped'); press('\r'); await screen('repo-42');
+	// One d shows Dev; d twice quickly starts it: trusted, so no review.
+	press('d'); await screen('d:Dev'); await screen('d d start Dev');
+	press('d'); press('d'); await screen('repo-42');
 	// An edit from outside Deckhand: the next start reviews it.
 	await fs.writeFile(file, `${JSON.stringify({devCommand: 'echo outside-$((40+2))'})}\n`);
 	press('r'); await screen('reviewed first'); press('\r'); await screen('devCommand: echo outside-$((40+2))');

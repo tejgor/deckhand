@@ -359,7 +359,7 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 		if (edit.id === 'worktree.branchName' && !text.trim()) return [line('A template with {name}; {user} is your user name')];
 		if (edit.id === 'worktree.branchName') { try { return [line(`→ ${expandBranchName(text, {name: 'my-task', user: info.user})} for a session named my-task`, {nowrap: true})]; } catch (error) { return [line(errorMessage(error))]; } }
 		if (edit.id === 'worktree.location') return [text.trim() ? line(`→ ${previewLocation(text, info.vars)}`, {nowrap: true}) : line('A template with {name}: {repo} {repoParent} {repoRoot} {home}, ~/')];
-		if (edit.id === 'devCommand') return [line('Runs in the Dev pane (r starts it), with your shell in the session\'s worktree')];
+		if (edit.id === 'devCommand') return [line('Runs in the Dev pane (d d starts it), with your shell in the session\'s worktree')];
 		return [line('Runs in a new worktree before the agent starts')];
 	};
 
