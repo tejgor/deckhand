@@ -261,7 +261,7 @@ function RemoveConfirmPane({session, items, width}: {session?: SessionRecord; it
 				{shown.map((item, index) => <Text key={index} wrap="truncate-end">{`  ☐ ${truncate(item, inner - 4)}`}</Text>)}
 				{items.length > shown.length ? <Text color={THEME.muted}>{`  +${items.length - shown.length} more`}</Text> : null}
 			</Box>
-			<Box marginTop={1}><Text color={THEME.muted} wrap="truncate-end">m move them to Tasks, then remove · enter remove anyway · esc cancel</Text></Box>
+			<Box marginTop={1}><Text color={THEME.muted} wrap="truncate-end">enter move them to Tasks, then remove · x remove anyway · esc cancel</Text></Box>
 		</Box>
 	);
 }
@@ -276,6 +276,8 @@ function CreatePane({
 	parentWorkspaceLabel,
 	subSessionKind,
 	showForkOption,
+	showHandoffOption,
+	fromHandoff,
 	taskTitle,
 	base,
 }: {
@@ -288,12 +290,17 @@ function CreatePane({
 	parentWorkspaceLabel?: string;
 	subSessionKind?: SubSessionKind;
 	showForkOption?: boolean;
+	/** ↳ From handoff: the parent has an exported handoff (H). */
+	showHandoffOption?: boolean;
+	/** The child starts from the parent's handoff (chosen in the picker); only its agent is left to pick. */
+	fromHandoff?: boolean;
 	/** Started from this task (n on the board). */
 	taskTitle?: string;
 	/** The new worktree's base: the option shown, its position and the number of options. */
 	base?: {label: string; index: number; count: number};
 }) {
 	const forkSelected = mode === 'pick-program' && showForkOption && programIndex === PROGRAMS.length;
+	const handoffSelected = mode === 'pick-program' && showHandoffOption && programIndex === PROGRAMS.length + (showForkOption ? 1 : 0);
 	const contentWidth = Math.max(1, width - 4);
 	const program = PROGRAMS[programIndex]?.key;
 	const staysInParent = forkStaysInParent(program, subSessionKind);
@@ -304,7 +311,7 @@ function CreatePane({
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderActive} paddingX={1} paddingY={0}>
 			<Text color={THEME.accent} bold>
 				{mode === 'pick-program'
-					? parentTitle ? `New sub-session under ${parentTitle}` : 'New session'
+					? parentTitle ? (fromHandoff ? `New sub-session from ${parentTitle}'s handoff` : `New sub-session under ${parentTitle}`) : 'New session'
 					: `New ${PROGRAMS[programIndex]!.label}${parentTitle ? ` ${subSessionKind ?? 'clean'} sub-` : ' '}session`}
 			</Text>
 			<Box marginTop={1} flexDirection="column">
@@ -313,6 +320,7 @@ function CreatePane({
 						<Text color={THEME.muted}>Choose an agent</Text>
 						{PROGRAMS.map((program, index) => <SelectableRow key={program.key} selected={index === programIndex} text={`${program.glyph} ${program.label}`} width={contentWidth} />)}
 						{showForkOption ? <SelectableRow selected={Boolean(forkSelected)} text="⑂ Fork parent" width={contentWidth} /> : null}
+						{showHandoffOption ? <SelectableRow selected={Boolean(handoffSelected)} text="↳ From its handoff (H)" width={contentWidth} /> : null}
 					</>
 				) : (
 					<>
@@ -496,24 +504,33 @@ function untrustedCreationParts(project: ProjectInfo): string[] {
 	];
 }
 
-function ActionPickerPane({project, running, selectedIndex, width, height}: {project?: ProjectInfo; running?: ActionRecord; selectedIndex: number; width: number; height: number}) {
+// The run list (r): the worktree's Dev command first (`dev`, when the session has a workspace), then the actions.
+function ActionPickerPane({project, running, dev, selectedIndex, width, height}: {project?: ProjectInfo; running?: ActionRecord; dev?: {running: boolean}; selectedIndex: number; width: number; height: number}) {
 	const actions = projectActions(project);
-	const selected = actions[selectedIndex];
-	const untrusted = actions.some(action => action.needsTrust);
+	const devCommand = project?.effective.devCommand?.trim() || 'dev';
+	const onDev = Boolean(dev) && selectedIndex === 0;
+	const selected = actions[selectedIndex - (dev ? 1 : 0)];
+	const untrusted = actions.some(action => action.needsTrust) || Boolean(dev && project?.needsReview && project.config.devCommand);
 	const runningName = running?.live ? running.name ?? 'action' : undefined;
 	return <MenuPane
-		title="Actions"
-		subtitle={[untrusted ? {text: '"needs trust": from deckhand.json, reviewed first', color: THEME.warn} : {text: 'Global defaults and repository actions'}]}
-		items={actions.map(action => ({key: action.name, label: action.name, description: action.command, ...action.needsTrust ? {status: {text: '· needs trust', color: THEME.warn}} : {}}))}
+		title="Run"
+		subtitle={[untrusted ? {text: '"needs trust": from deckhand.json, reviewed first', color: THEME.warn} : {text: 'Dev, then your actions (global defaults and repository)'}]}
+		items={[
+			...dev ? [{key: '__dev', label: 'Dev', description: devCommand, status: dev.running ? {text: '● running', color: THEME.success} : {text: '○ stopped', color: THEME.muted}}] : [],
+			...actions.map(action => ({key: action.name, label: action.name, description: action.command, ...action.needsTrust ? {status: {text: '· needs trust', color: THEME.warn}} : {}})),
+		]}
 		selected={selectedIndex}
 		empty="No actions configured (C → Settings › Actions adds one)"
-		details={selected ? {title: 'Selected command', lines: [
+		details={onDev ? {title: 'Dev', lines: [
+			{text: devCommand, color: THEME.active, nowrap: true},
+			{text: dev!.running ? 'Running in this worktree: Enter (or x) stops it.' : 'Enter starts it in this worktree; its output is on the Dev tab, shared by every session there.'},
+		]} : selected ? {title: 'Selected command', lines: [
 			{text: selected.command, color: THEME.active, nowrap: true},
 			...selected.needsTrust ? [{text: `From this repo's deckhand.json, not trusted yet: Enter shows it for review before anything runs${selected.fallback ? ` (s runs the global ${selected.name} instead: ${selected.fallback})` : ''}.`, color: THEME.warn}] : [],
 			runningName ? {text: `${runningName} is still running in this worktree: x stops it, then run another.`, color: THEME.warn}
 				: {text: 'Runs on the Terminal tab beside your shell (v switches), one action at a time per worktree; Dev keeps running.'},
 		]} : undefined}
-		hint={[{text: 'j/k choose', drop: 1}, 'enter run', ...runningName ? [`x stop ${runningName}`] : [], 'esc cancel']}
+		hint={[{text: 'j/k choose', drop: 1}, onDev ? (dev!.running ? 'enter stop Dev' : 'enter start Dev') : 'enter run', ...runningName && !onDev ? [`x stop ${runningName}`] : [], 'esc cancel']}
 		width={width}
 		height={height}
 	/>;
@@ -540,9 +557,9 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 			return '';
 		case 'preview-focus': {
 			const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
-			return `preview focus (${method}) • wheel scroll ×${formatScrollSensitivity(scrollSensitivity)} • [/] adjust • j/k scroll • g/G top/bottom • esc/v return`;
+			return `scrolling the preview (${method}) • j/k ↑↓ PgUp/PgDn scroll • g/G top/bottom • wheel ×${formatScrollSensitivity(scrollSensitivity)} (+/− speed) • ← back`;
 		}
-		case 'changes-focus': return 'changes • esc/v back • j/k select • space stage/unstage • a/A stage/unstage all • enter/E open in editor • J/K scroll diff • o lazygit';
+		case 'changes-focus': return 'changes • ← back • j/k select • space stage/unstage • a/A stage/unstage all • enter/E open in editor • J/K scroll diff • o lazygit';
 		case 'notes-focus': return notesHint ?? 'notes edit • esc done';
 		case 'search': return 'type to search • enter keep search • esc clear';
 		case 'browse': {
@@ -550,24 +567,25 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 			const running = session?.status === 'running';
 			// Terminal, Git and Dev belong to the session's workspace, so they are usable whether or not the agent runs.
 			const hasWorkspace = Boolean(session && workspaceKey(session));
-			const attach = activeTab === 'dev' ? (attachReady ? 'o attach' : undefined)
-				: activeTab === 'git' ? (hasWorkspace ? (attachReady ? 'v changes • o lazygit' : 'loading…') : undefined)
+			// → steps into the pane, Enter opens it full screen.
+			const attach = activeTab === 'dev' ? (attachReady ? 'enter open' : undefined)
+				: activeTab === 'git' ? (hasWorkspace ? (attachReady ? '→ changes • enter lazygit' : 'loading…') : undefined)
 				// A finished action shown on the Terminal tab cannot be attached (not "loading": it will not become ready).
-				: activeTab === 'terminal' ? (hasWorkspace && !terminalAction?.finished ? (attachReady ? 'o attach' : 'loading…') : undefined)
-					: running && activeTab === 'preview' ? (attachReady ? 'o attach' : 'loading…') : undefined;
-			const pane = activeTab === 'notes' ? (session ? 'o edit notes • E open in editor' : undefined)
-				: activeTab === 'dev' && session && workspaceKey(session) ? 'd start/stop'
+				: activeTab === 'terminal' ? (hasWorkspace && !terminalAction?.finished ? (attachReady ? 'enter open' : 'loading…') : undefined)
+					: running && activeTab === 'preview' ? (attachReady ? '→ scroll • enter open' : 'loading…') : undefined;
+			const pane = activeTab === 'notes' ? (session ? 'enter edit notes • E open in editor' : undefined)
+				: activeTab === 'dev' && session && workspaceKey(session) ? (session.devRunning ? 'r stop Dev' : 'r start Dev')
 				: activeTab === 'terminal' && terminalAction ? terminalAction.switchHint
-					: activeTab === 'preview' && running ? 'v scroll' : undefined;
+					: undefined;
 			const lifecycle = session?.status === 'exited'
 				? (session.worktree?.deletedAt ? 'backspace remove' : 's resume • S fresh')
-				: running ? 'x kill' : session?.status === 'starting' ? 'x cancel start' : undefined;
+				: running ? 'x stop' : session?.status === 'starting' ? 'x cancel start' : undefined;
 			// Archiving is offered where it is the likely next step (finished sessions), and undoing it where it applies.
 			const archive: HintPart | undefined = session?.archivedAt ? {text: 'A unarchive', drop: 2}
 				: session?.status === 'exited' ? {text: 'A archive', drop: 2} : undefined;
 			// Higher drop numbers go first when the line is too narrow; ? help always stays.
 			const remove: HintPart | undefined = session?.status === 'exited' && !session.worktree?.deletedAt ? {text: 'backspace remove', drop: 3} : undefined;
-			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, remove, '? help', {text: 'n new', drop: 1}, {text: 'b tasks', drop: 2}, {text: 'C settings', drop: 1}, {text: 'i info', drop: 3}, {text: 'e actions', drop: 3}, {text: '/ search', drop: 2}, {text: 'f filter', drop: 2}, {text: 'q quit', drop: 1}];
+			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, remove, '? help', {text: 'n new', drop: 1}, {text: 'b tasks', drop: 2}, {text: 'C settings', drop: 1}, {text: 'i info', drop: 3}, {text: 'r run', drop: 3}, {text: '/ search', drop: 2}, {text: 'f filter', drop: 2}, {text: 'q quit', drop: 1}];
 			return fitHint(parts.filter((part): part is string | HintPart => Boolean(part)), width, ' • ');
 		}
 	}
@@ -959,6 +977,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const activeAttachTarget: AttachTarget = showingAction ? 'action' : activeTab === 'terminal' ? 'terminal' : activeTab === 'git' ? 'git' : activeTab === 'dev' ? 'dev' : 'agent';
 	// The workspace's shared panes (Terminal, Git, Dev) may run while this session's agent does not.
 	const selectedWorkspace = selectedSession ? workspaceKey(selectedSession) : undefined;
+	// The run list (r) starts with the worktree's Dev command when the session it was opened for has a workspace.
+	const runListHasDev = Boolean(actionProject?.sessionId && actionProject.sessionId === selectedSession?.id && selectedWorkspace);
 	const activePaneReadyForAttach = Boolean(
 		selectedSession && (
 			(activeAttachTarget === 'agent' && selectedSession.status === 'running') ||
@@ -1463,6 +1483,38 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}, {gate: () => false});
 	};
 
+	// → / l: into the pane, where it has something to work in (scroll the preview, browse the changes, edit the notes).
+	const stepIntoPane = () => {
+		if (!selectedSession) return;
+		if (activeTab === 'preview') {
+			if (selectedSession.status === 'running') setMode('preview-focus');
+			else setStatusMessage('The agent is not running, so there is nothing to scroll: s resumes it');
+			return;
+		}
+		if (activeTab === 'git') {
+			if (!selectedWorkspace) setError(`Git is unavailable: ${noWorkspaceReason(selectedSession)}`);
+			else if (changes.sessionId === selectedSession.id && changes.workspace) setMode('changes-focus');
+			else setError('Changes are still loading; try again in a moment');
+			return;
+		}
+		if (activeTab === 'notes') { notesFlow.focus(); setMode('notes-focus'); return; }
+		setStatusMessage(`Nothing to scroll here: Enter opens the ${activeTab === 'dev' ? 'Dev command' : 'shell'} full screen`);
+	};
+
+	// The run list's first row: start (after reviewing an untrusted repository devCommand) or stop the worktree's Dev.
+	const runDev = () => {
+		if (!selectedSession) return;
+		if (!workspaceKey(selectedSession)) { setError(`Dev is unavailable: ${noWorkspaceReason(selectedSession)}`); return; }
+		if (selectedSession.devRunning || (dev.sessionId === selectedSession.id && dev.live)) { setMode('browse'); void toggleDevSelected(); return; }
+		reviewThen(selectedSession.cwd, () => { setMode('browse'); void toggleDevSelected(); }, {
+			back: () => setMode('pick-action'),
+			gate: project => project.needsReview && Boolean(project.config.devCommand),
+			// Skipping starts what applies until trusted: the global (or legacy) Dev command, else the built-in `dev`.
+			labels: project => ({enter: {text: 'enter trust & start', short: 'enter trust'}, skip: {text: `s start ${project.effective.devCommand?.trim() || 'dev'} instead`, short: 's start fallback'}}),
+			purpose: project => `About to start Dev with the repository devCommand: ${project.config.devCommand} (until trusted, Dev runs ${project.effective.devCommand?.trim() ? `the global ${project.effective.devCommand.trim()}` : 'the built-in fallback dev'})`,
+		});
+	};
+
 	// Backspace: removing a session deletes its note (and its worktree's, when it is the last there); open items ask first.
 	const requestRemove = () => {
 		const items = selectedSession?.status === 'exited' ? openItemsRemovedWith(selectedSession, sessions) : [];
@@ -1542,7 +1594,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setSessions(current => upsertSession(current, {...(current.find(session => session.id === selectedSession.id) ?? selectedSession), devRunning: nextDev.live}));
 				setActiveTab('dev');
 				// d on the Dev tab starts it, so a quick second d says plainly what it did.
-				setStatusMessage(`Started Dev${nextDev.command ? `: ${nextDev.command}` : ''} · d stops it`);
+				setStatusMessage(`Started Dev${nextDev.command ? `: ${nextDev.command}` : ''} · r stops it`);
 			}
 		} catch (nextError) {
 			setError(errorMessage(nextError));
@@ -1811,12 +1863,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					setPreviewScrollOffset(offset => Math.max(0, offset - count));
 				}
 			};
-			if (key.escape || input === 'v') {
+			if (key.escape || key.leftArrow || input === 'h') {
 				setMode('browse');
 				return;
 			}
-			if (input === '[' || input === ']') {
-				adjustScrollSensitivity(input === ']' ? SCROLL_SENSITIVITY_STEP : -SCROLL_SENSITIVITY_STEP);
+			// Mouse-wheel speed (also used when attached), saved to the config.
+			if (input === '+' || input === '=' || input === '-') {
+				adjustScrollSensitivity(input === '-' ? -SCROLL_SENSITIVITY_STEP : SCROLL_SENSITIVITY_STEP);
 				return;
 			}
 			if (input === 'k' || key.upArrow) {
@@ -1850,8 +1903,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 		if (mode === 'confirm-remove') {
 			if (key.escape) { setMode('browse'); return; }
-			if (input === 'm') { setMode('browse'); void removeSelected(true); return; }
-			if (key.return) { setMode('browse'); void removeSelected(false); return; }
+			// Enter is the safe choice (keep the items as tasks); x removes them with the notes.
+			if (key.return) { setMode('browse'); void removeSelected(true); return; }
+			if (input === 'x') { setMode('browse'); void removeSelected(false); return; }
 			return;
 		}
 
@@ -1957,10 +2011,19 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (mode === 'pick-action') {
 			const actions = projectActions(actionProject?.project);
 			const reviewSessionId = actionProject?.sessionId;
+			// Row 0 is the worktree's Dev command when the session has a workspace; the actions follow.
+			const devRow = runListHasDev ? 1 : 0;
+			const rows = devRow + actions.length;
 			if (key.escape) { setMode('browse'); return; }
 			if (key.upArrow || input === 'k') setActionIndex(index => Math.max(0, index - 1));
-			if (key.downArrow || input === 'j') setActionIndex(index => Math.min(Math.max(0, actions.length - 1), index + 1));
-			const picked = actions[actionIndex];
+			if (key.downArrow || input === 'j') setActionIndex(index => Math.min(Math.max(0, rows - 1), index + 1));
+			if (input === 'g' || key.home) setActionIndex(0);
+			if (input === 'G' || key.end) setActionIndex(Math.max(0, rows - 1));
+			if (devRow && actionIndex === 0) {
+				if (key.return || (input === 'x' && (selectedSession?.devRunning || (dev.sessionId === selectedSession?.id && dev.live)))) runDev();
+				return;
+			}
+			const picked = actions[actionIndex - devRow];
 			// x stops the worktree's running action (the picker says which); one runs at a time per worktree.
 			if (input === 'x' && client && reviewSessionId && action.sessionId === reviewSessionId && action.live) {
 				setBusy(true);
@@ -1989,8 +2052,11 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return;
 		}
 		if (mode === 'browse') {
-			if (input === '[' || input === ']') {
-				adjustScrollSensitivity(input === ']' ? SCROLL_SENSITIVITY_STEP : -SCROLL_SENSITIVITY_STEP);
+			// Tab / ] next tab, Shift+Tab / [ previous.
+			if (key.tab || input === '[' || input === ']') {
+				const step = (key.tab && key.shift) || input === '[' ? RIGHT_TABS.length - 1 : 1;
+				setPreviewScrollOffset(0);
+				setActiveTab(tab => RIGHT_TABS[(RIGHT_TABS.indexOf(tab) + step) % RIGHT_TABS.length] ?? 'preview');
 				return;
 			}
 			if (numericSelection) {
@@ -2066,8 +2132,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				agents.open();
 				return;
 			}
-			if (input === 'e') {
-				// Every action of the session's repository is listed; untrusted repository ones are reviewed when chosen.
+			if (input === 'r') {
+				// The run list: the worktree's Dev command first, then every action of the session's repository (untrusted
+				// repository ones are reviewed when chosen).
 				const sessionId = selectedSession?.id, actionCwd = selectedSession?.cwd ?? cwd;
 				// The picker says whether an action is still running in this worktree (x stops it), whichever tab is shown.
 				if (client && sessionId && selectedWorkspace) void client.watchAction(sessionId, layout.previewCols, layout.previewRows).then(record => { if (record.sessionId === selectedIdRef.current) setAction(record); }).catch(() => {});
@@ -2089,15 +2156,6 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				}).catch(error => setError(errorMessage(error)));
 				return;
 			}
-			if (input === 'F' && selectedSession) {
-				if (!selectedSession.handoffPath) { setError('Export and review a handoff with H before creating a handoff child'); return; }
-				const parent = selectedSession;
-				setSessionFilter('active'); setSessionQuery('');
-				setHandoffFromId(parent.id); setCreateParentId(parent.id); setCreateSubSessionKind('clean'); setDraftName(''); setWorktreeMode('none');
-				setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)));
-				setMode('pick-program');
-				return;
-			}
 			if ((input === 'x' || input === 'X') && selectedSession?.status === 'starting' && client) { void client.cancelStart(selectedSession.id).catch(error => setError(errorMessage(error))); return; }
 			if (input === 'n' || input === 'N') {
 				// No review here: the repository's defaults only preselect the picker (trusted or not). Creating a new
@@ -2117,19 +2175,18 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				}, {gate: () => false});
 				return;
 			}
-			if (input === 'r') {
+			if (input === 'R') {
 				void refreshSessions().catch(nextError =>
 					setError(errorMessage(nextError)),
 				);
 				return;
 			}
-			// Tab / → next tab, Shift+Tab / ← previous.
-			if (key.tab || key.leftArrow || key.rightArrow) {
-				const step = (key.tab && key.shift) || key.leftArrow ? RIGHT_TABS.length - 1 : 1;
-				setPreviewScrollOffset(0);
-				setActiveTab(tab => RIGHT_TABS[(RIGHT_TABS.indexOf(tab) + step) % RIGHT_TABS.length] ?? 'preview');
+			// → / l steps into the pane (scroll the preview, browse the changes, edit the notes); ← / h is back out (Esc too).
+			if (key.rightArrow || input === 'l') {
+				stepIntoPane();
 				return;
 			}
+			if (key.leftArrow || input === 'h') return;
 			if (input === 'p') {
 				setPreviewScrollOffset(0);
 				setActiveTab('preview');
@@ -2150,40 +2207,17 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setActiveTab('notes');
 				return;
 			}
+			// Tab letters only switch tabs; Dev starts and stops from the run list (r).
 			if (input === 'd') {
-				if (activeTab !== 'dev') {
-					setPreviewScrollOffset(0);
-					setActiveTab('dev');
-					return;
-				}
-				if (selectedSession && workspaceKey(selectedSession)) {
-					// Starting Dev reviews an untrusted repository devCommand first (skipping uses the global one).
-					if (selectedSession.devRunning || (dev.sessionId === selectedSession.id && dev.live)) void toggleDevSelected();
-					else reviewThen(selectedSession.cwd, () => void toggleDevSelected(), {
-						gate: project => project.needsReview && Boolean(project.config.devCommand),
-						// Skipping starts what applies until trusted: the global (or legacy) Dev command, else the built-in `dev`.
-						labels: project => ({enter: {text: 'enter trust & start', short: 'enter trust'}, skip: {text: `s start ${project.effective.devCommand?.trim() || 'dev'} instead`, short: 's start fallback'}}),
-						purpose: project => `About to start Dev with the repository devCommand: ${project.config.devCommand} (until trusted, d runs ${project.effective.devCommand?.trim() ? `the global ${project.effective.devCommand.trim()}` : 'the built-in fallback dev'})`,
-					});
-				} else if (selectedSession) {
-					setError(`Dev is unavailable: ${noWorkspaceReason(selectedSession)}`);
-				}
-				return;
-			}
-			if (input === 'v' && activeTab === 'preview' && selectedSession?.status === 'running') {
-				setMode('preview-focus');
+				setPreviewScrollOffset(0);
+				if (activeTab === 'dev') setStatusMessage(selectedSession?.devRunning ? 'Dev is running · r stops it (Dev is first in the run list)' : 'r starts Dev (it is first in the run list)');
+				setActiveTab('dev');
 				return;
 			}
 			// The Terminal tab switches between the shell and the worktree's last action.
 			if (input === 'v' && activeTab === 'terminal' && selectedSession) {
 				if (hasAction(selectedSession, action)) setTerminalView(view => (view === 'action' && showingAction ? 'shell' : 'action'));
-				else setError('No action has run in this worktree yet; e runs one');
-				return;
-			}
-			if (input === 'v' && activeTab === 'git' && selectedSession) {
-				if (!selectedWorkspace) setError(`Git is unavailable: ${noWorkspaceReason(selectedSession)}`);
-				else if (changes.sessionId === selectedSession.id && changes.workspace) setMode('changes-focus');
-				else setError('Changes are still loading; try again in a moment');
+				else setError('No action has run in this worktree yet; r runs one');
 				return;
 			}
 			if (input === 'c') {
@@ -2206,12 +2240,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				moveSelection(1);
 				return;
 			}
-			if (input === 'h') {
-				resizeSidebar(-2);
-				return;
-			}
-			if (input === 'l') {
-				resizeSidebar(2);
+			if (input === '<' || input === '>') {
+				resizeSidebar(input === '<' ? -2 : 2);
 				return;
 			}
 			if (input === 'm' && selectedSession?.worktree?.path && selectedSession.worktree.mode !== 'none' && !selectedSession.worktree.deletedAt) {
@@ -2230,11 +2260,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			}
 			if (input === 'M' && selectedSession) {
 				// Merged belongs to worktrees; a main-checkout session can still be marked done.
-				if (!selectedSession.worktree?.id && !hasMergedMarker(selectedSession)) setStatusMessage(selectedSession.requestedWorktreeMode && selectedSession.requestedWorktreeMode !== 'none' && !workspaceKey(selectedSession) ? 'Its worktree is not ready yet' : 'Not in a worktree, so there is nothing to mark merged. Use D to mark it done');
+				if (!selectedSession.worktree?.id && !hasMergedMarker(selectedSession)) setStatusMessage(selectedSession.requestedWorktreeMode && selectedSession.requestedWorktreeMode !== 'none' && !workspaceKey(selectedSession) ? 'Its worktree is not ready yet' : 'Not in a worktree, so there is nothing to mark merged. Use Space to mark it done');
 				else void markSelectedMerged();
 				return;
 			}
-			if (input === 'D' && selectedSession) {
+			// Space marks the session done (or not), as it ticks a task.
+			if (input === ' ' && selectedSession) {
 				void toggleSelectedDone();
 				return;
 			}
@@ -2279,32 +2310,35 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				else void restartSelected(restartMode);
 				return;
 			}
-			if (input === 'O') {
-				openSelectedInEditor();
+			// E: your editor. On Notes the active note (the session's, or the worktree's after editing that), else the workspace.
+			if (input === 'E') {
+				if (activeTab === 'notes' && selectedSession) notesFlow.openActiveInEditor();
+				else openSelectedInEditor();
 				return;
 			}
-			if (input === 'o' && activeTab === 'notes' && selectedSession) {
+			// Enter / o: open what the tab shows full screen (on Notes: edit them).
+			const opening = input === 'o' || key.return;
+			if (opening && activeTab === 'notes' && selectedSession) {
 				notesFlow.focus();
 				setMode('notes-focus');
 				return;
 			}
-			// The Notes tab's active section (the session's, or the worktree's after editing that) in Cursor / VS Code.
-			if (input === 'E' && activeTab === 'notes' && selectedSession) {
-				notesFlow.openActiveInEditor();
+			const workspaceTab = activeTab === 'terminal' || activeTab === 'git' || activeTab === 'dev';
+			if (opening && selectedSession && !(selectedSession.status === 'running' || workspaceTab)) {
+				setStatusMessage('The agent is not running: s resumes it, S starts it fresh');
 				return;
 			}
-			const workspaceTab = activeTab === 'terminal' || activeTab === 'git' || activeTab === 'dev';
-			if (input === 'o' && selectedSession && (selectedSession.status === 'running' || workspaceTab)) {
+			if (opening && selectedSession && (selectedSession.status === 'running' || workspaceTab)) {
 				if (workspaceTab && !selectedWorkspace) {
 					setError(`${activeTab === 'git' ? 'Git' : activeTab === 'terminal' ? 'Terminal' : 'Dev'} is unavailable: ${noWorkspaceReason(selectedSession)}`);
 					return;
 				}
 				if (activeTab === 'dev' && !selectedSession.devRunning && !(dev.sessionId === selectedSession.id && dev.live)) {
-					setError('start the dev command with d before attaching');
+					setError('Dev is not running: r starts it (it is first in the run list)');
 					return;
 				}
 				if (activeAttachTarget === 'action' && !action.live) {
-					setError(`${action.name ?? 'The action'} has finished; e runs an action again (v shows the shell)`);
+					setError(`${action.name ?? 'The action'} has finished; r runs an action again (v shows the shell)`);
 					return;
 				}
 				if (!activePaneReadyForAttach) {
@@ -2318,6 +2352,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 
 		if (mode === 'pick-program') {
 			if (key.escape) {
+				// Back from "from its handoff" to the sub-session choices first.
+				if (handoffFromId && createParentId) { setHandoffFromId(undefined); setProgramIndex(0); return; }
 				setCreateParentId(undefined);
 				setCreateSubSessionKind(undefined);
 				if (taskStart) { setTaskStart(undefined); setMode('tasks'); return; }
@@ -2325,17 +2361,27 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			const parent = createParentId ? sessions.find(session => session.id === createParentId) : undefined;
-			const optionCount = PROGRAMS.length + (parent && !handoffFromId && supportsForkedSubSession(parent) ? 1 : 0);
-			if (key.leftArrow || key.upArrow || input === 'k' || input === 'h') {
+			// After the agents: ⑂ fork the parent (when it can be), then ↳ from its handoff (after H exported one).
+			const forkOption = Boolean(parent && !handoffFromId && supportsForkedSubSession(parent));
+			const handoffOption = Boolean(parent?.handoffPath && !handoffFromId);
+			const handoffIndex = PROGRAMS.length + (forkOption ? 1 : 0);
+			const optionCount = PROGRAMS.length + (forkOption ? 1 : 0) + (handoffOption ? 1 : 0);
+			if (key.upArrow || input === 'k') {
 				setProgramIndex(index => (index - 1 + optionCount) % optionCount);
 				return;
 			}
-			if (key.rightArrow || key.downArrow || input === 'j' || input === 'l') {
+			if (key.downArrow || input === 'j') {
 				setProgramIndex(index => (index + 1) % optionCount);
 				return;
 			}
+			if (key.return && handoffOption && parent && programIndex === handoffIndex) {
+				// A clean child that starts from the exported handoff document; the picker now asks for its agent.
+				setHandoffFromId(parent.id); setCreateSubSessionKind('clean'); setWorktreeMode('none');
+				setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)));
+				return;
+			}
 			if (key.return) {
-				if (parent && !handoffFromId && supportsForkedSubSession(parent) && programIndex === PROGRAMS.length) {
+				if (forkOption && parent && programIndex === PROGRAMS.length) {
 					setCreateSubSessionKind('forked');
 					setProgramIndex(Math.max(0, PROGRAMS.findIndex(program => program.key === parent.program)));
 					if (forkStaysInParent(parent.program, 'forked')) setWorktreeMode('none');
@@ -2447,7 +2493,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		if (mode === 'merge-conflicts') {
 			// Only two choices: keep the merge in progress (marked merged), or abort it. Esc keeps it: nothing is undone.
 			if (key.return || key.escape) void resolveConflictedMerge('keep');
-			else if (input === 'a') void resolveConflictedMerge('abort');
+			else if (input === 'x') void resolveConflictedMerge('abort');
 			return;
 		}
 
@@ -2624,7 +2670,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				) : details ? (
 					<DetailsPane title={details.title} text={details.text} footer={details.footer} width={layout.previewWidth} height={layout.contentHeight} scroll={details.scroll} />
 				) : mode === 'pick-action' ? (
-					<ActionPickerPane project={actionProject?.project} running={action.sessionId === actionProject?.sessionId ? action : undefined} selectedIndex={actionIndex} width={layout.previewWidth} height={layout.contentHeight} />
+					<ActionPickerPane project={actionProject?.project} running={action.sessionId === actionProject?.sessionId ? action : undefined} dev={runListHasDev ? {running: Boolean(selectedSession?.devRunning || (dev.sessionId === selectedSession?.id && dev.live))} : undefined} selectedIndex={actionIndex} width={layout.previewWidth} height={layout.contentHeight} />
 				) : mode === 'pick-worktree' ? (
 					<WorktreePickerPane
 						worktrees={filteredWorktrees}
@@ -2661,6 +2707,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						taskTitle={taskStart && !createParentId ? taskStart.title : undefined}
 						base={{label: baseOptions(branchList)[Math.min(baseIndex, baseOptions(branchList).length - 1)]!.label, index: Math.min(baseIndex, baseOptions(branchList).length - 1), count: baseOptions(branchList).length}}
 						showForkOption={createParentId && !handoffFromId ? supportsForkedSubSession(sessions.find(session => session.id === createParentId)) : false}
+						showHandoffOption={Boolean(createParentId && !handoffFromId && sessions.find(session => session.id === createParentId)?.handoffPath)}
+						fromHandoff={Boolean(handoffFromId)}
 					/>
 				) : null}
 				</>}

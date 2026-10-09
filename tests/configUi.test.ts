@@ -24,7 +24,7 @@ test('isolated terminal UI asks for trust only when repository config is about t
 	const file = path.join(home, 'sandbox', 'deckhand.json');
 	// C → Settings opens on the This repo column; e opens the selected column's raw JSON (← selects Global).
 	const openSettings = async () => { press('C'); await screen('Settings · sandbox'); await screen('Global (all repos)'); };
-	const openConfig = async () => { await openSettings(); press('e'); await screen('Repository config'); };
+	const openConfig = async () => { await openSettings(); press('E'); await screen('Repository config'); };
 	const replace = async (text: string, marker: string) => { press('\x01'); await screen('all selected'); press(text); await screen(marker); };
 	await screen('DEV (isolated)'); await screen('● ready');
 
@@ -41,9 +41,9 @@ test('isolated terminal UI asks for trust only when repository config is about t
 	assert.equal(Object.keys((await readJson('config.json')).trustedProjects ?? {}).length, 0);
 	await fs.access(path.join(home, 'worktrees', 'wt1'));
 	await assert.rejects(fs.access(path.join(home, 'worktrees', 'wt1', 'repo-setup-ran')));
-	// e lists the untrusted repository action, marked; choosing it reviews first, Esc returns to the list.
-	press('e'); await screen('· needs trust');
-	press('\r'); await screen('About to run the repository action test: npm test'); await screen('s cancel');
+	// r lists Dev, then the untrusted repository action, marked; choosing it reviews first, Esc returns to the list.
+	press('r'); await screen('· needs trust');
+	press('j'); await screen('Selected command'); press('\r'); await screen('About to run the repository action test: npm test'); await screen('s cancel');
 	press('\x1b'); await screen('· needs trust');
 	press('\x1b'); await screen('C settings');
 	// T in Settings trusts it explicitly; n still opens the picker directly.
@@ -52,7 +52,7 @@ test('isolated terminal UI asks for trust only when repository config is about t
 	press('n'); await screen('Choose an agent'); press('\r'); await screen('Workspace: new worktree'); press('\x1b'); await screen('Choose an agent'); press('\x1b'); await screen('C settings');
 
 	// Global defaults are stored in config.json under "defaults", keeping the trust entry.
-	await openSettings(); press('\x1b[D'); await screen('Built-in default'); press('e'); await screen('config.json "defaults"');
+	await openSettings(); press('\x1b[D'); await screen('Built-in default'); press('E'); await screen('config.json "defaults"');
 	press('\x01'); await screen('all selected'); press('{"devCommand":"printf global"}'); await screen('printf global');
 	press('\x13'); await screen('Saved global defaults'); await screen('Settings · sandbox');
 	press('\x1b'); await screen('C settings');

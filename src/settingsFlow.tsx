@@ -44,7 +44,7 @@ const display = (value: unknown) => Array.isArray(value) ? value.join(', ') || '
 const capitalize = (text: string) => `${text[0]!.toUpperCase()}${text.slice(1)}`;
 
 // C → Settings: a grid of every setting with one column per layer; the cursor is a cell (↑↓ setting, ←→ or Tab
-// layer) and edits save immediately into that cell's layer through save-config's revision-checked writes. e opens the
+// layer) and edits save immediately into that cell's layer through save-config's revision-checked writes. E opens the
 // raw JSON of the selected column's file and returns here; T reviews trust and returns here. Saving never runs
 // anything; a repository file stays trusted when the version it replaced was (see savedProjectTrust).
 export function useSettingsFlow({client, mode, setMode, setBusy, setError, setStatusMessage, onReview}: SettingsFlowOptions): SettingsFlow {
@@ -265,12 +265,12 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 			if (key.escape) { if (linksDirty) setEdit({kind: 'discard-links'}); else { token.current++; setLinks(undefined); setView('main'); } return; }
 			const candidate = links.data.candidates[links.row];
 			if (input === ' ' && candidate) {
-				if (candidate.configured === 'files') setNotice({text: `${candidate.path} comes from worktree.files (→ ${candidate.source}); e edits it in the raw JSON.`});
+				if (candidate.configured === 'files') setNotice({text: `${candidate.path} comes from worktree.files (→ ${candidate.source}); E edits it in the raw JSON.`});
 				else { setLinks({...links, links: {...links.links, [candidate.path]: !links.links[candidate.path]}}); setNotice(undefined); }
 				return;
 			}
-			if (input === 'e') {
-				if (linksDirty) { setNotice({text: 'Unsaved link changes: Enter saves them (Esc discards) before e opens the raw JSON.', error: true}); return; }
+			if (input === 'E') {
+				if (linksDirty) { setNotice({text: 'Unsaved link changes: Enter saves them (Esc discards) before E opens the raw JSON.', error: true}); return; }
 				editJson(links.target); return;
 			}
 			if (key.return) {
@@ -292,7 +292,7 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 			const moved = move(actionRow, actions.length);
 			if (moved !== undefined) { setActionRow(moved); setNotice(undefined); return; }
 			if (key.escape) { setView('main'); setNotice(undefined); return; }
-			if (input === 'e') { editJson(column); return; }
+			if (input === 'E') { editJson(column); return; }
 			if (input === 'T') { onReview(cwd, () => load(cwd)); return; }
 			setNotice(undefined);
 			if (input === 'a' || (key.return && !action)) { setEdit({kind: 'text', id: 'actions', label: 'New action', target: column, step: 'name', state: {text: '', cursor: 0}}); return; }
@@ -309,7 +309,7 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 		if (moved !== undefined) { setRow(moved); setNotice(undefined); return; }
 		if (key.escape) { close(); return; }
 		if (key.leftArrow || key.rightArrow || key.tab) { pickColumn(key.tab ? otherTarget(column) : key.leftArrow ? 'global' : 'repository'); return; }
-		if (input === 'e') { editJson(cellColumn); return; }
+		if (input === 'E') { editJson(cellColumn); return; }
 		if (input === 'T') { onReview(cwd, () => load(cwd)); return; }
 		setNotice(undefined);
 		if (input !== 'x' && !key.return) return;
@@ -323,7 +323,7 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 		if (input === 'x') {
 			const layer = infoLayer(info, column);
 			if (def.id === 'worktree.links' ? ownValue(layer, 'worktree.links') === undefined : !layerSets(layer, def.id)) {
-				setNotice({text: `${def.label} is not set in ${targetName(column)}; nothing to clear.${def.id === 'worktree.links' && layerSets(layer, def.id) ? ' worktree.files entries are edited in the raw JSON (e).' : ''}`, error: true});
+				setNotice({text: `${def.label} is not set in ${targetName(column)}; nothing to clear.${def.id === 'worktree.links' && layerSets(layer, def.id) ? ' worktree.files entries are edited in the raw JSON (E).' : ''}`, error: true});
 				return;
 			}
 			setEdit({kind: 'clear', id: def.id, label: def.label, target: column});
@@ -359,7 +359,7 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 		if (edit.id === 'worktree.branchName' && !text.trim()) return [line('A template with {name}; {user} is your user name')];
 		if (edit.id === 'worktree.branchName') { try { return [line(`→ ${expandBranchName(text, {name: 'my-task', user: info.user})} for a session named my-task`, {nowrap: true})]; } catch (error) { return [line(errorMessage(error))]; } }
 		if (edit.id === 'worktree.location') return [text.trim() ? line(`→ ${previewLocation(text, info.vars)}`, {nowrap: true}) : line('A template with {name}: {repo} {repoParent} {repoRoot} {home}, ~/')];
-		if (edit.id === 'devCommand') return [line('Runs in the Dev pane (d), with your shell in the session\'s worktree')];
+		if (edit.id === 'devCommand') return [line('Runs in the Dev pane (r starts it), with your shell in the session\'s worktree')];
 		return [line('Runs in a new worktree before the agent starts')];
 	};
 

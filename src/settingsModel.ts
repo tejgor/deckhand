@@ -45,8 +45,8 @@ const layerLabel = (kind: ConfigTargetKind) => kind === 'global' ? 'Global defau
 function documentLayer(document: Pick<ProjectConfigDocument, 'raw' | 'exists' | 'kind'>): Layer {
 	let value: unknown;
 	try { value = document.exists ? JSON.parse(document.raw.replace(/^﻿/, '')) : {}; }
-	catch { throw new Error(`${layerLabel(document.kind)} not valid JSON; press e to repair it first`); }
-	if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${layerLabel(document.kind)} not a JSON object; press e to repair it first`);
+	catch { throw new Error(`${layerLabel(document.kind)} not valid JSON; press E to repair it first`); }
+	if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${layerLabel(document.kind)} not a JSON object; press E to repair it first`);
 	return value as Layer;
 }
 export function infoLayer(info: Pick<SettingsInfo, 'targets'>, kind: ConfigTargetKind): Layer | undefined {
@@ -83,7 +83,7 @@ export function applyChange(document: Pick<ProjectConfigDocument, 'raw' | 'exist
 		const parent = parents.at(-1)!;
 		const child = parent[key];
 		if (child === undefined) { if (change.value === undefined) break; parent[key] = {}; }
-		else if (!child || typeof child !== 'object' || Array.isArray(child)) throw new Error(`${change.path.slice(0, parents.length).join('.')} is not an object; press e to repair it first`);
+		else if (!child || typeof child !== 'object' || Array.isArray(child)) throw new Error(`${change.path.slice(0, parents.length).join('.')} is not an object; press E to repair it first`);
 		parents.push(parent[key] as Layer);
 	}
 	const last = change.path.at(-1)!;

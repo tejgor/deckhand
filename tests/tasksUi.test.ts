@@ -47,7 +47,7 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 
 	press('a'); await screen('◆ Task Write the docs'); await screen('b board');
 	press('b'); await screen('IN PROGRESS · 1'); await screen('o session');
-	press('\x1b'); await screen('o edit notes');
+	press('\x1b'); await screen('enter edit notes');
 
 	// A note's checklist item goes to Tasks with ctrl+p and leaves a ↗ link in the note.
 	press('o'); await screen('esc done');
@@ -57,9 +57,10 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('b'); await screen('BACKLOG · 1'); await screen('Follow up on review');
 	assert.match(await tasksFile(), /- \[ \] Follow up on review <!-- dh:t=[0-9a-f]{8} added=/);
 
-	// Audited keys: ← goes to the previous tab (Notes → Dev), x asks before stopping, Esc backs out of it.
-	press('\x1b'); await screen('o edit notes');
-	press('\x1b[D'); await screen('d start/stop');
-	press('x'); await screen('Kill only, keep worktree'); press('\x1b'); await screen('d start/stop');
-	press('\x1b[A'); press('\x1b[B'); await screen('x kill');
+	// Keymap: [ goes to the previous tab (Notes → Dev), x asks before stopping, Esc backs out of it, Space marks done.
+	press('\x1b'); await screen('enter edit notes');
+	press('['); await screen('r start Dev');
+	press('x'); await screen('Kill only, keep worktree'); press('\x1b'); await screen('r start Dev');
+	press('\x1b[A'); press('\x1b[B'); await screen('x stop');
+	press(' '); await screen('Marked done');
 });

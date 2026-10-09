@@ -138,41 +138,34 @@ Press `o` to attach to the selected session's active pane. To branch off related
 
 | Key | Action |
 | --- | --- |
-| `n` | New top-level session (in a new worktree, `↑`/`↓` pick the branch it starts from) |
-| `b` | Tasks: the repository's task list (see [Tasks](#tasks)) |
-| `N` | New sub-session under the selected session |
-| `1`–`9`, `0` | Jump to that numbered visible session (`0` selects visible session 10). With more than 10, type the number: `enter` or a short pause selects it, `esc` clears it |
+| *The model* | Two places: the session list on the left, the pane on the right. `→`/`l` steps into the pane, `←`/`h` or `esc` steps back out. The same keys mean the same thing on every screen: `enter` opens or chooses, `space` toggles, `a` adds, `x` removes or stops, `E` opens your editor, `o` goes full screen |
 | `j` / `k`, `↑` / `↓` | Move between visible sessions |
-| `J` / `K` | Move the selected session down / up among its siblings (order is persisted) |
-| `c` | Collapse or expand the selected session's sub-sessions in the sidebar |
-| `tab` / `→`, `shift+tab` / `←` | Next / previous tab: Preview, Terminal, Git, Dev, Notes |
-| `p` / `t` / `g` / `d` / `a` | Jump directly to Preview / Terminal / Git / Dev / Notes |
-| `d` *(on Dev tab)* | Start or stop the Dev command of the selected session's worktree (shared by every session in it); the status line says which |
-| `o` | Attach to the selected session (opens current tab; Terminal, Git and Dev also for exited sessions; on Git it opens lazygit); on Notes, edit them (see [Notes](#notes)) |
-| `E` *(on Notes tab)* | Open the note (the session's, or the worktree's after you edited that) in Cursor / VS Code |
-| `O` | Open the selected session directory/worktree in Cursor (if available) or VS Code |
-| `v` *(on Preview tab, running session)* | Focus preview scrolling (`j`/`k` or `↑`/`↓`, PgUp/PgDn, the mouse wheel, `g`/`G` jump, `esc` exits focus) |
-| `v` *(on Git tab)* | Focus the Changes list (see [Git Changes](#git-changes)) |
-| `esc` *(in Notes)* | Stop editing notes (saves at once) |
-| `[` / `]` | Decrease / increase the mouse-wheel scroll speed (preview focus and attached terminals) and save it to config |
-| `m` | Merge the selected worktree into the current branch, uncommitted: the confirmation shows `Into <branch> · <path>` (yellow when it is not the main checkout's default branch), the commits and diff stat, and for uncommitted files a `space` toggle (on by default) that commits them first with the session's title as the message. On conflicts: `enter` (or `esc`) keeps the merge in progress for you to resolve (marked merged), `a` aborts it. Every session of the worktree then shows `✓` |
-| `M` | Toggle the worktree's merged marker (every session of it); worktrees only — in the main checkout use `D` |
-| `D` | Mark the selected session done / not done (`☑`; any session, independent of merged) |
-| `h` / `l` | Resize the sidebar |
-| `x` / `X` | Stop the selected running session, asking first (in a worktree, also whether to delete it) / force-stop it at once, keeping its worktree |
+| `1`–`9`, `0` | Jump to that numbered visible session (`0` selects visible session 10). With more than 10, type the number: `enter` or a short pause selects it, `esc` clears it |
+| `/` / `f` / `!` | Search titles, notes, tasks, provider, branch, path / cycle filters / next session that needs you |
+| `J` / `K`, `c` | Move the selected session down / up among its siblings (order is persisted); collapse or expand its sub-sessions |
+| `<` / `>` | Narrow / widen the sidebar |
+| `tab` / `]`, `shift+tab` / `[` | Next / previous tab: Preview, Terminal, Git, Dev, Notes |
+| `p` / `t` / `g` / `d` / `a` | Jump to Preview / Terminal / Git / Dev / Notes (they only switch tabs) |
+| `→` / `l` | Step into the pane: scroll the preview of a running session (`j`/`k`, arrows, PgUp/PgDn, `g`/`G`, the wheel; `+`/`−` change the wheel speed, also used when attached), browse the Git changes (see [Git Changes](#git-changes)), or edit the notes (see [Notes](#notes)) |
+| `←` / `h` / `esc` | Step back out to the session list |
+| `enter` / `o` | Open full screen what the tab shows: the agent (Preview), the shell or running action (Terminal), lazygit (Git), Dev; Terminal, Git and Dev also for exited sessions. On Notes: edit them |
+| `v` *(on Terminal)* | Switch between the shell and the worktree's last action |
+| `E` | Open in Cursor / VS Code: on Notes the note (the session's, or the worktree's after you edited it), otherwise the session's directory/worktree |
+| `n` / `N` | New top-level session (in a new worktree, `↑`/`↓` pick the branch it starts from) / new sub-session: clean, a ⑂ fork, or ↳ from the handoff exported with `H` |
+| `x` / `X` | Stop the selected running session, asking first (in a worktree, also whether to delete it) / force-stop it at once, keeping its worktree; while starting, cancel startup/setup (the worktree is kept) |
 | `s` / `S` | Resume / fresh-restart the selected exited session |
-| `backspace` | Drop the selected exited session from the list (when its notes still have open checklist items, `m` first moves them to Tasks) |
-| `r` | Refresh the session list |
+| `space` | Mark the selected session done / not done (`☑`; any session, independent of merged) |
+| `m` / `M` | Merge the selected worktree into the current branch, uncommitted: the confirmation shows `Into <branch> · <path>` (yellow when it is not the main checkout's default branch), the commits and diff stat, and for uncommitted files a `space` toggle (on by default) that commits them first with the session's title as the message. On conflicts: `enter` (or `esc`) keeps the merge in progress for you to resolve (marked merged), `x` aborts it. Every session of the worktree then shows `✓` / toggle the worktree's merged marker without merging (worktrees only) |
+| `r` | Run: a list with the worktree's Dev command first (`enter` starts or stops it; its output is on the Dev tab, shared by every session there) and then your actions (global, plus trusted repository actions), which run beside the shell on the Terminal tab (`v` switches) |
 | `A` | Archive/unarchive (does not stop an agent) |
-| `f` / `/` | Cycle filters / search title, notes, provider, branch, path |
+| `backspace` | Drop the selected exited session from the list (when its notes still have open checklist items, it asks: `enter` moves them to Tasks first, `x` drops them) |
+| `H` | Export/open a handoff (notes plus commits and changed files, no diff content); `N` → ↳ then creates a clean child from it |
 | `i` | Workspace Git summary; `P` queries PR, `b` opens it, `c` pushes and opens GitHub's new-PR form (after confirmation), `g` opens the Git tab |
-| `C` | Settings: a grid of every setting with a Global and a This repo column (● in effect, ⚠ needs trust); ↑↓ (`j`/`k`, PgUp/PgDn, Home/End) setting, ←→ or `tab` column, Enter edits that cell's layer, x clears it, e that column's raw JSON (Ctrl+S saves, Ctrl+F formats), T reviews/trusts the repo file; in Actions `a` adds and `x` removes, in Linked items Space toggles and Enter saves (you're also asked inline right before anything from it runs) |
-| `e` | Choose an action (global, plus trusted repository actions); it runs beside the shell on the worktree's Terminal tab (`v` switches) |
-| `U` | Agents: installed vs latest version of Claude, Pi and Codex; Enter runs the selected agent's own updater (asks first when it has running sessions — Enter or `y` confirms — which keep their version until restarted), `r` re-checks, Esc back |
-| `H` / `F` | Export/open handoff (notes plus commits and changed files, no diff content) / create a clean child from the reviewed document |
-| `!` | Next known attention session |
-| `x` / `X` *(while starting)* | Cancel startup/setup, retaining its worktree |
-| `?` | Help: topics on the left (↑↓ or 1-9 switch), each a table of keys; `/` searches every topic, PgUp/PgDn scroll, Esc closes |
+| `b` | Tasks: the repository's task list (see [Tasks](#tasks)) |
+| `C` | Settings: a grid of every setting with a Global and a This repo column (● in effect, ⚠ needs trust); ↑↓ (`j`/`k`, PgUp/PgDn, Home/End) setting, ←→ or `tab` column, `enter` edits that cell's layer, `x` clears it, `E` that column's raw JSON (Ctrl+S saves, Ctrl+F formats), `T` reviews/trusts the repo file; in Actions `a` adds and `x` removes, in Linked items `space` toggles and `enter` saves |
+| `U` | Agents: installed vs latest version of Claude, Pi and Codex; `enter` runs the selected agent's own updater (asks first when it has running sessions, which keep their version until restarted), `r` re-checks, `esc` back |
+| `R` | Reload the session list (it updates live; rarely needed) |
+| `?` | Help: topics on the left (↑↓ or 1-9 switch), each a table of keys; `/` searches every topic, PgUp/PgDn scroll, `esc` closes |
 | `q` | Quit the UI; running sessions continue in the daemon (only from the session list: every other screen closes with `esc`) |
 
 > *Deletion is conservative: unknown/unsafe Git state requires typing `DELETE`. `X` does not authorize data loss. Main/current/actively shared worktree protections cannot be overridden.*
@@ -205,7 +198,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 
 ### Notes Editing
 
-The Notes tab shows two notes: the worktree's, shared by every session in that worktree (sessions in the main checkout share one for it), above the selected session's own. Press `o` to edit:
+The Notes tab shows two notes: the worktree's, shared by every session in that worktree (sessions in the main checkout share one for it), above the selected session's own. Press `enter` (or `→`) to edit:
 
 | Key | Action |
 | --- | --- |
@@ -233,7 +226,7 @@ The Notes tab shows two notes: the worktree's, shared by every session in that w
 | `o` | Open (select) the session doing it |
 | `J` / `K` | Reorder within its group |
 | `x` | Delete (press twice) |
-| `tab` | Open checklist items in notes that are not tasks yet; `p` sends one to Tasks, `enter` opens its note |
+| `tab` | Open checklist items in notes that are not tasks yet; `a` adds one as a task, `enter` opens its note |
 | `E` | Open the task list in Cursor / VS Code |
 | `esc` | Back |
 
@@ -251,7 +244,7 @@ The Git tab shows the selected session's worktree changes in VS Code's groups: *
 | `enter` / `E` | Open the file in Cursor or VS Code at its first changed line |
 | `J` / `K`, PgUp/PgDn | Scroll the diff preview |
 | `o` | Attach lazygit (commits, discards, hunks, branches, history) |
-| `esc` / `v` | Back to browsing |
+| `esc` / `←` / `h` | Back to the session list |
 
 The diff preview (beside the list in wide terminals, below it otherwise) shows the staged diff for staged files, the unstaged diff for changes and conflicts, and the whole file for untracked files; it is read-only and cut at 256 KB. Deckhand never commits, discards or edits files from this view.
 
@@ -322,7 +315,7 @@ Terminal (your `$SHELL`), Git (the Changes view, plus `lazygit` on `o`) and Dev 
 
 ### Dev Command
 
-Focus the Dev tab with `d`, then press `d` again while it is focused to start or stop the command. Dev belongs to the session's **worktree**, not to the session: every session in the same worktree (or in the same checkout, for sessions without a worktree) sees the same Dev pane and output, and starting or stopping it from any of them acts on that one process. It keeps running after the agents exit (exited sessions still show, attach to and stop it) until you stop it, delete the worktree, remove the worktree's last session, or the daemon stops; the sidebar shows `▶` on the worktree's first row while it runs. Set the command globally (or per repository as `devCommand` in `deckhand.json`):
+Press `r` and choose **Dev** (always first in the run list) to start or stop the command; `d` shows its output. Dev belongs to the session's **worktree**, not to the session: every session in the same worktree (or in the same checkout, for sessions without a worktree) sees the same Dev pane and output, and starting or stopping it from any of them acts on that one process. It keeps running after the agents exit (exited sessions still show, attach to and stop it) until you stop it, delete the worktree, remove the worktree's last session, or the daemon stops; the sidebar shows `▶` on the worktree's first row while it runs. Set the command globally (or per repository as `devCommand` in `deckhand.json`):
 
 ```json
 {
@@ -481,7 +474,7 @@ After changing source code, rebuild with `npm run build` before re-running the l
 - **`node-pty` fails to load on macOS:** Re-run the repair script directly: `node scripts/fix-node-pty.js`. If that doesn't help, reinstall: `rm -rf node_modules && npm install`.
 - **Stale daemon socket or PID:** If `deckhand` hangs at startup, the supervisor may have exited uncleanly. Remove stale files: `rm -f ~/.deckhand/daemon.pid ~/.deckhand/daemon.sock` and relaunch.
 - **`o` on the Git tab fails:** Install [`lazygit`](https://github.com/jesseduffield/lazygit) and ensure it is on `PATH`. The Changes list itself only needs `git`.
-- **Dev tab does nothing:** Press `d` once to focus the Dev tab, then press `d` again to start/stop the command. Ensure a `devCommand` is set in global defaults (**C**) or a trusted `deckhand.json`.
+- **Dev tab does nothing:** Press `r` and choose **Dev** (the first row) to start or stop the command; `d` only shows the tab. Ensure a `devCommand` is set in global defaults (**C**) or a trusted `deckhand.json`.
 
 ---
 

@@ -57,7 +57,7 @@ test('C → Settings in the sandbox: a grid with a Global and a This repo column
 	press('x'); await screen('Clear Linked items in this repo?');
 	press('\r'); await screen('Cleared Linked items in this repo · still trusted'); await screen('deckhand.json: trusted ✓');
 	assert.deepEqual(await readJson(file), {...original, defaultAgent: 'codex'});
-	press('e'); await screen('Repository config · deckhand.json');
+	press('E'); await screen('Repository config · deckhand.json');
 	press('\x1b'); await screen('Settings · sandbox');
 
 	// Agents: global-only config.json flags. The repo cell says so and the cursor selects Global on these rows (from
@@ -116,14 +116,14 @@ test('a Dev command saved in Settings keeps the repository file trusted (created
 	assert.deepEqual((await readJson(file)).actions, {'lint frontend': 'npm run lint'});
 	press('\x1b'); await screen('Settings · sandbox'); press('\x1b'); await screen('C settings');
 
-	// The first d selects Dev, the next starts it: trusted, so no review.
-	press('d'); await screen('d:Dev');
-	press('d'); await screen('repo-42');
-	// An edit from outside Deckhand: the next start reviews it (while the finished output is up, the first d closes it).
+	// d only selects Dev; r opens the run list with Dev first, and Enter starts it: trusted, so no review.
+	press('d'); await screen('d:Dev'); await screen('r start Dev');
+	press('r'); await screen('○ stopped'); press('\r'); await screen('repo-42');
+	// An edit from outside Deckhand: the next start reviews it.
 	await fs.writeFile(file, `${JSON.stringify({devCommand: 'echo outside-$((40+2))'})}\n`);
-	press('d');
-	const next = await Promise.race([screen('Press d to start it again'), screen('devCommand: echo outside-$((40+2))')]);
-	if (!next.includes('devCommand: echo outside-$((40+2))')) { press('d'); await screen('devCommand: echo outside-$((40+2))'); }
+	press('r'); await screen('reviewed first'); press('\r'); await screen('devCommand: echo outside-$((40+2))');
 	await screen('s start echo fallback-$((40+2)) instead');
+	// Esc steps back to the run list, a second Esc to the session list.
+	press('\x1b'); await screen('enter start Dev');
 	press('\x1b'); await screen('C settings');
 });

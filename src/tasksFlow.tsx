@@ -133,7 +133,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (view === 'notes') {
 			if (key.escape || key.tab) { setView('tasks'); setSelected({index: 0}); return; }
 			const item = currentRow?.kind === 'note' ? currentRow.item : undefined;
-			if (input === 'p' && item) { promote(item); return; }
+			if (input === 'a' && item) { promote(item); return; }
 			if (key.return && item) { onOpenNote(item.sessionId); return; }
 			return;
 		}
@@ -240,7 +240,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (editor) return fitHint(editor.field === 'title'
 			? ['enter save', 'tab details', 'esc cancel']
 			: ['enter new line', 'ctrl+s save', 'tab title', 'esc cancel'], width, ' • ');
-		if (view === 'notes') return fitHint(['p send to Tasks', 'enter open the note', 'j/k move', 'tab back'], width, ' • ');
+		if (view === 'notes') return fitHint(['a add as a task', 'enter open the note', 'j/k move', 'tab back'], width, ' • ');
 		return fitHint([
 			'j/k move', 'a add',
 			{text: 'n start session', short: 'n start'},
@@ -306,7 +306,7 @@ function BoardLine({row, selected, width, sessions, spinnerFrame}: {row: BoardRo
 function detailLines(row: BoardRow | undefined, sessions: SessionRecord[], spinnerFrame: string, width: number): React.ReactNode[] {
 	if (row?.kind === 'note') return [
 		<Text key="t" bold wrap="truncate-end">{row.item.title}</Text>,
-		<Text key="s" color={THEME.muted} wrap="truncate-end">{`In the notes of ${row.item.source}. p makes it a backlog task; the note keeps a ↗ link.`}</Text>,
+		<Text key="s" color={THEME.muted} wrap="truncate-end">{`In the notes of ${row.item.source}. a adds it to the backlog; the note keeps a ↗ link.`}</Text>,
 	];
 	if (row?.kind !== 'task') return [];
 	const {task, group} = row;

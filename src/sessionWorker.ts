@@ -244,7 +244,7 @@ class PaneHost {
 	async startAction(cols: number, rows: number, command: string, name: string): Promise<ActionRecord> {
 		this.hosted('action');
 		const existing = this.panes.action;
-		if (this.startPromises.has('action') || (existing && !existing.exited)) throw new Error(`The ${existing?.name ?? 'previous'} action is still running; stop it first (e, then x)`);
+		if (this.startPromises.has('action') || (existing && !existing.exited)) throw new Error(`The ${existing?.name ?? 'previous'} action is still running; stop it first (r, then x)`);
 		const start = (async () => {
 			await this.stop('action');
 			const runtime = this.spawnPane('action', shellCommand(), ['-ic', command], this.cwd(), cols, rows, command);

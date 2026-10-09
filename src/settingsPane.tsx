@@ -393,7 +393,7 @@ export function SettingsPane({info, view, row, actionRow, column, edit, editHelp
 	if (view === 'links' && links) {
 		lines = linkLines(links, sizes, info.vars?.home, inner);
 		selected = links.row;
-		hint = [{text: '↑↓ move', drop: 2}, 'space link/skip', 'enter save', {text: 'e raw JSON', short: 'e JSON', drop: 1}, 'esc cancel'];
+		hint = [{text: '↑↓ move', drop: 2}, 'space link/skip', 'enter save', {text: 'E raw JSON', short: 'E JSON', drop: 1}, 'esc cancel'];
 		const current = links.data.candidates[links.row];
 		if (current) details.push({text: `${current.path}${current.kind === 'dir' ? '/' : ''}: ${current.configured === 'files' ? `copied from ${current.source} by worktree.files (edit in raw JSON: e)` : candidateAction(current) || (links.links[current.path] ? 'linked' : 'not linked')}`});
 		if (JSON.stringify(links.links) !== JSON.stringify(links.initial)) details.push({text: 'Unsaved changes: Enter saves them, Esc discards.', color: THEME.warn});
@@ -401,13 +401,13 @@ export function SettingsPane({info, view, row, actionRow, column, edit, editHelp
 		const list = actionLines(info, column, actionRow, inner);
 		lines = list.lines; selected = actionRow;
 		details = actionDetails(info, column, actionRow, list.valueWidth);
-		hint = [{text: '↑↓ move', drop: 3}, 'enter edit', 'a add', {text: 'x remove', drop: 1}, {text: 'e raw JSON', short: 'e JSON', drop: 2}, {text: 'esc back', short: 'esc'}];
+		hint = [{text: '↑↓ move', drop: 3}, 'enter edit', 'a add', {text: 'x remove', drop: 1}, {text: 'E raw JSON', short: 'E JSON', drop: 2}, {text: 'esc back', short: 'esc'}];
 	} else {
 		const grid = settingsGrid(info);
 		const current = Math.min(row, grid.length - 1);
 		lines = gridLines(grid, current, column, layout); selected = current;
 		details = gridDetails(info, grid[current]!, column, layout, inner - 4);
-		hint = [{text: '↑↓ setting', drop: 4}, {text: '←→ global/repo', short: '←→ column'}, 'enter edit', {text: 'x clear', drop: 3}, {text: 'e JSON', drop: 1}, {text: 'T trust', drop: 2}, 'esc'];
+		hint = [{text: '↑↓ setting', drop: 4}, {text: '←→ global/repo', short: '←→ column'}, 'enter edit', {text: 'x clear', drop: 3}, {text: 'E JSON', drop: 1}, {text: 'T trust', drop: 2}, 'esc'];
 	}
 	if (notice) details = [{text: notice.text, color: notice.error ? THEME.error : THEME.warn}, ...details];
 	if (!details.length) details = [{text: ' '}];
