@@ -46,7 +46,7 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	assert.match(linked, /^- \[ \] Write the docs <!-- dh:t=[0-9a-f]{8} wt=/);
 
 	press('a'); await screen('◆ Task Write the docs'); await screen('b board');
-	press('b'); await screen('IN PROGRESS · 1'); await screen('g go');
+	press('b'); await screen('IN PROGRESS · 1'); await screen('o session');
 	press('\x1b'); await screen('o edit notes');
 
 	// A note's checklist item goes to Tasks with ctrl+p and leaves a ↗ link in the note.
@@ -56,4 +56,10 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('\x1b'); await screen('↗ Follow up on review · in Tasks');
 	press('b'); await screen('BACKLOG · 1'); await screen('Follow up on review');
 	assert.match(await tasksFile(), /- \[ \] Follow up on review <!-- dh:t=[0-9a-f]{8} added=/);
+
+	// Audited keys: ← goes to the previous tab (Notes → Dev), x asks before stopping, Esc backs out of it.
+	press('\x1b'); await screen('o edit notes');
+	press('\x1b[D'); await screen('d start/stop');
+	press('x'); await screen('Kill only, keep worktree'); press('\x1b'); await screen('d start/stop');
+	press('\x1b[A'); press('\x1b[B'); await screen('x kill');
 });

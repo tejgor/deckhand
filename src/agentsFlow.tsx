@@ -154,7 +154,7 @@ export function useAgentsFlow({client, versions, setVersions, setMode, setStatus
 				else if (key.escape || input === 'n') setConfirming(undefined);
 				return;
 			}
-			if (key.escape || input === 'q') { setMode('browse'); return; }
+			if (key.escape) { setMode('browse'); return; }
 			if (key.upArrow || input === 'k') { setSelected(index => Math.max(0, index - 1)); return; }
 			if (key.downArrow || input === 'j') { setSelected(index => Math.min(AGENT_PROGRAMS.length - 1, index + 1)); return; }
 			if (input === 'r') { check(); return; }

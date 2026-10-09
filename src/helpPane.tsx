@@ -95,7 +95,7 @@ export function useHelp(): HelpView {
 			else if (input === '?') return 'close';
 			return;
 		}
-		if (key.escape || input === '?' || input === 'q') return 'close';
+		if (key.escape || input === '?') return 'close';
 		if (input === '/') { setQuery(''); setTyping(true); setScroll(0); return; }
 		if (key.upArrow || key.leftArrow || input === 'k' || input === 'h' || (key.tab && key.shift)) { pick(topic - 1); return; }
 		if (key.downArrow || key.rightArrow || input === 'j' || input === 'l' || key.tab) { pick(topic + 1); return; }

@@ -19,7 +19,7 @@ test('C → Settings in the sandbox: a grid with a Global and a This repo column
 	await fs.writeFile(path.join(home, 'config.json'), JSON.stringify({defaults: {actions: {fmt: 'npm run fmt'}}}));
 
 	// ? : topics on the left, j/k (or a number) switch, / searches every topic, Esc steps back out.
-	press('?'); await screen('Help · Start here'); await screen('9 Agent signals');
+	press('?'); await screen('Help · Start here'); await screen('9 Tasks');
 	press('j'); await screen('Help · Sessions'); press('8'); await screen('Help · Settings');
 	press('/'); await screen('type to search'); press('lazygit'); await screen('7  Git & PRs');
 	press('\x1b'); await screen('Help · Settings'); press('\x1b'); await screen('C settings');

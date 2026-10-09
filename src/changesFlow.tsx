@@ -116,7 +116,7 @@ export function useChangesFlow({client, session, changes, focused, onChanges, on
 		if (input === ' ') { if (entry) stage(stageMode(entry), entry); return; }
 		if (input === 'a') { stage('stage'); return; }
 		if (input === 'A') { stage('unstage'); return; }
-		if (key.return || input === 'e') { void open().catch(error => setError(errorMessage(error))); }
+		if (key.return || input === 'E') { void open().catch(error => setError(errorMessage(error))); }
 	};
 
 	const render = (width: number, height: number) => {
