@@ -27,7 +27,7 @@ import {AgentVersionChecker, findOnPath} from './agentVersionCheck.js';
 import {exportHandoff} from './sessionFeatures.js';
 import {NotesStore, noteFilePath, noteFileStem, type NoteId, type NoteKind} from './notesStore.js';
 import {repoNoteId, sharedNoteIdentity} from './notes.js';
-import {applyTaskOp, clientTaskOp, isAssigned, linkMatches, newTaskId, openNoteItems, parseTasks, promoteNoteLine, taskPrompt, type Task, type TaskLink, type TaskOp} from './tasks.js';
+import {applyTaskOp, clientTaskOp, findNoteTaskLink, isAssigned, isLinked, linkMatches, newTaskId, openNoteItems, parseTasks, promoteNoteLine, returnTaskToNote, taskPrompt, type Task, type TaskLink, type TaskOp} from './tasks.js';
 import {PROTOCOL_VERSION} from './types.js';
 import type {ActionRecord, AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, BranchList, ClientRequest, CreateSessionInput, DevRecord, GitRecord, MergePreview, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TasksDoc, TerminalRecord, WorktreeMarkers, WorktreeMergeMode, WorktreeMergeResult, WorktreeRecord} from './types.js';
 
@@ -55,7 +55,9 @@ const MERGE_DETECT_MAX = 50;
 interface PendingMerge extends ConflictedMerge {sessionId: string; sourceRef: string; sourceSha?: string; targetBranch: string; tickTaskIds?: string[]}
 
 interface ClientSubscription {
+	/** The checkout the client was opened in (`subscribe`); it also hears about every session of the same repository (`repoKey`). */
 	repoRoot?: string;
+	repoKey?: string;
 	/** The repository whose task list this client shows (`watch-tasks`). */
 	tasksKey?: string;
 	watchedPreviewSessionId?: string;
@@ -814,7 +816,10 @@ export class InkDaemon {
 				case 'subscribe': {
 					const client = this.getClient(socket);
 					client.repoRoot = message.repoRoot;
-					sendMessage(socket, response(message.requestId, this.sessionsForRepo(message.repoRoot)));
+					client.repoKey = await this.tasksKeyFor(message.repoRoot).catch(() => undefined);
+					// Every checkout's key known first, so the answer has the whole repository's sessions.
+					await Promise.all([...new Set([...this.sessions.values()].map(session => path.resolve(session.repoRoot)))].map(root => this.learnRepoKey(root)));
+					sendMessage(socket, response(message.requestId, sortSessionsForSidebar([...this.sessions.values()].filter(session => this.inClientScope(session, client)))));
 					return;
 				}
 				case 'list-worktrees': {
@@ -940,6 +945,9 @@ export class InkDaemon {
 					return;
 				case 'promote-note-item':
 					sendMessage(socket, response(message.requestId, await this.promoteNoteItem(message)));
+					return;
+				case 'return-task-to-note':
+					sendMessage(socket, response(message.requestId, await this.returnTaskToNote(message.cwd, message.taskId)));
 					return;
 				case 'list-branches':
 					sendMessage(socket, response(message.requestId, await this.listBranches(message.cwd)));
@@ -1583,10 +1591,36 @@ export class InkDaemon {
 		return sortSessionsForSidebar([...this.sessions.values()].filter(session => sessionMatchesScope(session, repoRoot)));
 	}
 
+	/**
+	 * A client hears about the sessions of its checkout and of every other checkout of the same repository: the board's
+	 * task groups, note items and w menu span the repository (the UI filters its sidebar to its checkout itself).
+	 */
+	private inClientScope(session: SessionRecord, client: ClientSubscription): boolean {
+		if (!client.repoRoot) return false;
+		if (sessionMatchesScope(session, client.repoRoot)) return true;
+		if (!client.repoKey) return false;
+		const root = path.resolve(session.repoRoot);
+		const key = this.repoKeys.get(root);
+		if (key === undefined && !this.repoKeyMisses.has(root)) void this.learnRepoKey(root, true);
+		return key === client.repoKey;
+	}
+
+	/**
+	 * Resolves a checkout's repository key once (sync lookups in broadcasts read `repoKeys`); a checkout that cannot be
+	 * resolved (a deleted worktree) is not tried again. `announce`: tell the clients of that repository about its sessions.
+	 */
+	private async learnRepoKey(root: string, announce = false): Promise<void> {
+		if (this.repoKeys.has(root) || this.repoKeyMisses.has(root)) return;
+		const key = await this.tasksKeyFor(root).catch(() => undefined);
+		if (key === undefined) { this.repoKeyMisses.add(root); return; }
+		this.repoKeys.set(root, key);
+		if (announce) for (const session of this.sessions.values()) if (path.resolve(session.repoRoot) === root) this.broadcastSessionUpdated(session);
+	}
+
 	private broadcastSessionUpdated(session: SessionRecord): void {
 		session = this.sessions.get(session.id) ?? session;
 		for (const [socket, client] of this.clients.entries()) {
-			if (client.repoRoot && sessionMatchesScope(session, client.repoRoot)) {
+			if (this.inClientScope(session, client)) {
 				sendMessage(socket, {type: 'session-updated', session});
 			}
 		}
@@ -1595,7 +1629,7 @@ export class InkDaemon {
 	private broadcastSessionRemoved(session: SessionRecord): void {
 		const sessionId = session.id;
 		for (const [socket, client] of this.clients.entries()) {
-			if (client.repoRoot && sessionMatchesScope(session, client.repoRoot)) {
+			if (this.inClientScope(session, client)) {
 				sendMessage(socket, {type: 'session-removed', sessionId});
 			}
 		}
@@ -1626,6 +1660,9 @@ export class InkDaemon {
 	// ── Tasks: one list per repository (src/tasks.ts), a file beside the notes ──────────────────────────────────────
 
 	private readonly tasksKeys = new Map<string, Promise<string>>();
+	/** Resolved repository keys by checkout path (sync, for broadcasts), and checkouts that could not be resolved. */
+	private readonly repoKeys = new Map<string, string>();
+	private readonly repoKeyMisses = new Set<string>();
 	/** The task list of the repository `cwd` is in: keyed by its main checkout (trust root), so every worktree shares it. */
 	private tasksKeyFor(cwd: string): Promise<string> {
 		if (typeof cwd !== 'string' || !cwd) return Promise.reject(new Error('Invalid repository path'));
@@ -1750,6 +1787,44 @@ export class InkDaemon {
 		}
 		if (saved.changed) this.notesChanged(note.kind, noteFileStem(note.id));
 		return {session: this.requireSession(session.id), tasks: this.tasksDoc(key)};
+	}
+
+	/**
+	 * A task sent from a note goes back there: its `↗` line becomes `- [ ] <title>` again (details indented under it),
+	 * then it leaves the list (if that fails, the note is put back). Not a done task, nor one a session was started for.
+	 */
+	private async returnTaskToNote(cwd: string, taskId: string): Promise<TasksDoc> {
+		const key = await this.tasksKeyFor(cwd);
+		const task = parseTasks(this.notes.get({kind: 'tasks', id: key}).text).find(item => item.id === taskId);
+		if (!task) throw new Error('That task is no longer in the list');
+		if (task.done) throw new Error('That task is done; space reopens it');
+		if (isLinked(task) && !isAssigned(task)) throw new Error('A session was started for that task; it stays a task');
+		const origin = await this.taskOrigin(key, taskId);
+		if (!origin) throw new Error('No note links to that task any more (its session was removed, or the ↗ line was edited)');
+		if (origin.readOnly) throw new Error('Its worktree was deleted: that note is read-only');
+		const stored = this.notes.get(origin.note);
+		const saved = await this.notes.save(origin.note, returnTaskToNote(stored.text, findNoteTaskLink(stored.text, taskId), task), stored.revision);
+		if (!saved.saved) throw new Error('Its note changed meanwhile; try again');
+		if (saved.changed) this.notesChanged(origin.note.kind, noteFileStem(origin.note.id));
+		try {
+			await this.changeTasks(key, {type: 'remove', id: taskId});
+		} catch (error) {
+			const now = this.notes.get(origin.note);
+			if ((await this.notes.save(origin.note, stored.text, now.revision)).changed) this.notesChanged(origin.note.kind, noteFileStem(origin.note.id));
+			throw error;
+		}
+		return this.tasksDoc(key);
+	}
+
+	/** The note of a session of this repository (its own, or the one it shares) that links to task `id`. */
+	private async taskOrigin(key: string, id: string): Promise<{note: NoteId; readOnly: boolean} | undefined> {
+		for (const session of this.sessions.values()) {
+			const shared = sharedNoteIdentity(session);
+			const notes: Array<{note: NoteId; readOnly: boolean}> = [{note: {kind: 'session', id: session.id}, readOnly: false}, ...shared ? [{note: shared, readOnly: Boolean(session.sharedNotes?.readOnly)}] : []];
+			const found = notes.find(({note}) => findNoteTaskLink(this.notes.get(note).text, id) >= 0);
+			if (found && await this.tasksKeyFor(session.repoRoot).catch(() => undefined) === key) return found;
+		}
+		return undefined;
 	}
 
 	/** Before removing a session: the open items of the notes that go with it (its own, and its worktree's when it is the last there). */

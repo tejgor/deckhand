@@ -1,5 +1,5 @@
 import type {SessionRecord} from './types.js';
-import {groupTasks, isAssigned, isLinked, linkKey, linkOfKey, openNoteItems, parseNoteTaskLink, type Task} from './tasks.js';
+import {findNoteTaskLink, groupTasks, isAssigned, isLinked, linkKey, linkOfKey, openNoteItems, parseNoteTaskLink, type Task} from './tasks.js';
 import {noteKey, parseChecklistLine} from './notes.js';
 import {statusWords} from './sidebarModel.js';
 import {THEME, displaySessionTitle, statusColor, statusGlyph} from './ui.js';
@@ -23,13 +23,16 @@ export interface NoteItem {
 	line: number;
 	revision: string;
 	noteId?: string;
+	/** The note it is in: `worktree note`, `main checkout note`, or the session's title. */
 	source: string;
+	/** Its group on the board: the worktree (`wt:<record id>`) or `main` (the main checkout). */
+	group: string;
 }
 
 export type BoardRow =
 	| {kind: 'heading'; text: string; count?: string}
-	/** The heading of a worktree's (or main-checkout session's) group: `section` is its work's key. */
-	| {kind: 'work'; section: string; count: number}
+	/** The heading of a worktree's (or main-checkout session's) group: `section` is its work's key (`main`: the main checkout's notes, in the note list); `label` replaces the work's name. */
+	| {kind: 'work'; section: string; count: number; label?: string}
 	/** `section`: the work's key for tasks in progress, else `backlog` or `done`. */
 	| {kind: 'task'; task: Task; group: TaskGroup; section: string}
 	| {kind: 'older'; count: number; shown: boolean}
@@ -101,19 +104,26 @@ export function workLabel(section: string, sessions: SessionRecord[]): string {
 }
 
 export interface WorkOption {
-	/** The work's key, or undefined for the backlog. */
+	/** The work's key, or undefined for the backlog and the note. */
 	section?: string;
+	kind: 'backlog' | 'note' | 'worktree' | 'session';
 	label: string;
 	/** `merged`, `here` (where the task is now), or both. */
 	note: string;
+	/** What search matches (lowercase): the label, branch and the titles of the work's sessions. */
+	search: string;
 }
+
+/** The w menu's two lists: worktrees, and sessions in the main checkout. */
+export type PickerView = 'worktrees' | 'sessions';
+export const pickerViewOf = (section?: string): PickerView => (section?.startsWith('s:') ? 'sessions' : 'worktrees');
 
 /**
  * Where w can move a task: the backlog, then every worktree incarnation and main-checkout session in sidebar order
  * (not deleted worktrees, nor ones whose sessions are all archived).
  */
 export function workOptions(sessions: SessionRecord[], current?: string): WorkOption[] {
-	const options: WorkOption[] = [{label: 'Backlog · no worktree', note: current ? '' : 'here'}];
+	const options: WorkOption[] = [{kind: 'backlog', label: 'Backlog · no worktree', note: current ? '' : 'here', search: ''}];
 	const seen = new Set<string>();
 	for (const session of sortSessionsForSidebar(sessions)) {
 		if (!workspaceKey(session)) continue;
@@ -123,9 +133,48 @@ export function workOptions(sessions: SessionRecord[], current?: string): WorkOp
 		if (working.every(other => other.archivedAt)) continue;
 		seen.add(section);
 		const merged = Boolean(session.worktree?.id && working.some(other => other.worktree?.mergedAt));
-		options.push({section, label: workLabel(section, sessions), note: [merged ? '✓ merged' : '', section === current ? 'here' : ''].filter(Boolean).join(' · ')});
+		const label = workLabel(section, sessions);
+		options.push({
+			section, kind: section.startsWith('wt:') ? 'worktree' : 'session', label,
+			note: [merged ? '✓ merged' : '', section === current ? 'here' : ''].filter(Boolean).join(' · '),
+			search: [label, ...working.map(other => displaySessionTitle(other, sessions))].join(' ').toLowerCase(),
+		});
 	}
 	return options;
+}
+
+/**
+ * The w menu's rows in `view`: the backlog and (when the task came from a note) the way back to it always first,
+ * then that view's options matching every word of `query`.
+ */
+export function pickerRows(options: WorkOption[], view: PickerView, query: string, origin?: string): WorkOption[] {
+	const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+	const kind = view === 'worktrees' ? 'worktree' : 'session';
+	return [
+		...options.filter(option => option.kind === 'backlog'),
+		...origin ? [{kind: 'note' as const, label: `↩ Back to its note · ${origin}`, note: '', search: ''}] : [],
+		...options.filter(option => option.kind === kind && terms.every(term => option.search.includes(term))),
+	];
+}
+
+/** How many options each view lists for `query` (the menu's tabs). */
+export function pickerCounts(options: WorkOption[], query: string): Record<PickerView, number> {
+	const count = (view: PickerView) => pickerRows(options, view, query).filter(option => option.kind !== 'backlog').length;
+	return {worktrees: count('worktrees'), sessions: count('sessions')};
+}
+
+/**
+ * Where a task sent from a note came from (the note still holding its `↗` line, among the sessions in view), for w's
+ * way back: not a done task, nor one a session was started for, nor a deleted worktree's (read-only) note.
+ */
+export function taskOrigin(task: Task, sessions: SessionRecord[]): string | undefined {
+	if (task.done || (isLinked(task) && !isAssigned(task)) || !task.meta.t) return undefined;
+	for (const session of sessions) {
+		if (findNoteTaskLink(session.notes ?? '', task.id) >= 0) return displaySessionTitle(session, sessions) || 'session';
+		const shared = session.sharedNotes;
+		if (shared && !shared.readOnly && findNoteTaskLink(shared.text, task.id) >= 0) return shared.kind === 'repo' ? 'main checkout' : `⎇ ${session.worktree?.branch || 'worktree'}`;
+	}
+	return undefined;
 }
 
 function urgency(session: SessionRecord): number {
@@ -175,7 +224,10 @@ export function workState(section: string, sessions: SessionRecord[], spinnerFra
 	return {glyph: statusGlyph(lead, spinnerFrame), color: statusColor(lead), text: urgency(lead) === 3 ? 'needs you' : statusWords(lead), where};
 }
 
-/** Open checklist items of the notes in view (each shared note once), not linked to tasks yet. */
+/**
+ * Open checklist items of every session's notes (each shared note once), not linked to tasks yet, grouped by worktree
+ * (its shared note first, then its sessions' notes) and then the main checkout, groups in sidebar order.
+ */
 export function noteItems(sessions: SessionRecord[]): NoteItem[] {
 	const items: NoteItem[] = [];
 	const seen = new Set<string>();
@@ -183,18 +235,27 @@ export function noteItems(sessions: SessionRecord[]): NoteItem[] {
 		const key = noteKey(session, section);
 		if (!key || !text || !revision || seen.has(key)) return;
 		seen.add(key);
+		const group = session.worktree?.id ? `wt:${session.worktree.id}` : 'main';
 		text.split('\n').forEach((line, index) => {
 			const item = parseChecklistLine(line);
 			if (!item || item.checked || !item.text.trim() || parseNoteTaskLink(line)) return;
-			items.push({key: `${key}:${index}`, title: item.text.trim(), sessionId: session.id, section, line: index, revision, ...noteId ? {noteId} : {}, source});
+			items.push({key: `${key}:${index}`, title: item.text.trim(), sessionId: session.id, section, line: index, revision, ...noteId ? {noteId} : {}, source, group});
 		});
 	};
-	for (const session of sessions) {
+	const ordered = sortSessionsForSidebar(sessions);
+	for (const session of ordered) {
 		const shared = session.sharedNotes;
-		if (shared && !shared.readOnly) add(session, 'shared', shared.text, shared.revision, shared.kind === 'repo' ? 'main checkout' : `⎇ ${session.worktree?.branch || 'worktree'}`, `${shared.kind}:${shared.id}`);
-		add(session, 'session', session.notes, session.notesFile?.revision, displaySessionTitle(session, sessions) || 'session');
+		if (shared && !shared.readOnly) add(session, 'shared', shared.text, shared.revision, shared.kind === 'repo' ? 'main checkout note' : 'worktree note', `${shared.kind}:${shared.id}`);
 	}
-	return items;
+	for (const session of ordered) add(session, 'session', session.notes, session.notesFile?.revision, displaySessionTitle(session, sessions) || 'session');
+	// Worktrees in sidebar order, the main checkout last; within a group, shared notes first.
+	const groups = [...new Set([...ordered.filter(session => session.worktree?.id).map(session => `wt:${session.worktree!.id}`), 'main'])];
+	return groups.flatMap(group => items.filter(item => item.group === group));
+}
+
+/** A note group's heading: `⎇ <branch>`, or `main checkout`. */
+export function noteGroupLabel(group: string, sessions: SessionRecord[]): string {
+	return group === 'main' ? 'main checkout' : workLabel(group, sessions);
 }
 
 /** `☐ 3 tasks` for the header (open tasks), empty without any. */

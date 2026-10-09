@@ -4,21 +4,25 @@ import {Box, Text, type Key} from 'ink';
 import type {LiveClient} from './client.js';
 import type {SessionRecord, TasksDoc} from './types.js';
 import {MAX_TASK_BODY, MAX_TASK_TITLE, isAssigned, linkKey, linkOfKey, type Task} from './tasks.js';
-import {boardRows, leadSession, noteItems, rowKey, selectableRow, taskSessions, taskState, workLabel, workOptions, workState, type BoardRow, type NoteItem} from './tasksBoard.js';
+import {boardRows, leadSession, noteGroupLabel, noteItems, pickerCounts, pickerRows, pickerViewOf, rowKey, selectableRow, taskOrigin, taskSessions, taskState, workLabel, workOptions, workState, type BoardRow, type NoteItem, type PickerView, type WorkOption} from './tasksBoard.js';
 import {editText, wrapRows, wrappedEditorLines, type EditOptions, type EditorState} from './textEditor.js';
 import {openInEditor} from './desktop.js';
 import {fitHint} from './menu.js';
-import {THEME, errorMessage, truncate} from './ui.js';
+import {THEME, errorMessage, stripTerminalControls, truncate} from './ui.js';
 
 // The Tasks board (b): the repository's task list in the right pane, grouped by the worktree (or main-checkout
 // session) each open task is on, then the backlog; v narrows it to the work of the session it was opened from. Also the
 // open note items not yet tasks (tab), a small editor for adding and editing a task (title, then body), and the w
-// picker that moves a task to a worktree or back to the backlog. The daemon owns the file; every change is an op
+// picker that moves a task to a worktree or a main-checkout session (two views, Tab switches; typing searches), back to
+// the backlog, or back to the note it was sent from. The daemon owns the file; every change is an op
 // (src/tasks.ts) applied to the file as it is, so an editor's edits are never overwritten.
 
 const DETAIL_ROWS = 5;
 const EDITOR_BODY_ROWS = 4;
 const PICKER_ROWS = 8;
+
+/** The w menu: the task, where it is now, the note it came from (if any), the view, the search and the selected row. */
+interface TaskPicker {taskId: string; title: string; current?: string; origin?: string; view: PickerView; query: string; index: number}
 
 interface TaskEditor {
 	kind: 'add' | 'edit';
@@ -68,14 +72,14 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 	const [pendingDelete, setPendingDelete] = useState<string | undefined>();
 	const [scope, setScope] = useState<string | undefined>();
 	const [scoped, setScoped] = useState(false);
-	const [picker, setPicker] = useState<{taskId: string; title: string; current?: string; index: number} | undefined>();
+	const [picker, setPicker] = useState<TaskPicker | undefined>();
 	const top = useRef(0);
 	const busy = useRef(false);
 	const bodyWidth = useRef(40);
 
 	const items = view === 'notes' ? noteItems(sessions) : [];
 	const rows: BoardRow[] = view === 'notes'
-		? [{kind: 'heading', text: 'IN NOTES · open items, not tasks', count: items.length ? String(items.length) : undefined}, ...items.length ? items.map((item): BoardRow => ({kind: 'note', item})) : [{kind: 'empty', text: 'No open checklist items in the notes here'} as BoardRow]]
+		? [{kind: 'heading', text: 'IN NOTES · open items, not tasks', count: items.length ? String(items.length) : undefined}, ...items.length ? noteRows(items, sessions) : [{kind: 'empty', text: 'No open checklist items in any session\'s notes'} as BoardRow]]
 		: boardRows(tasks, showOlder, undefined, scoped ? scope : undefined);
 	const selectable = rows.map((row, index) => (selectableRow(row) ? index : -1)).filter(index => index >= 0);
 	// The selection follows its row (by key) across updates; a row that went keeps the position.
@@ -131,17 +135,43 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		setEditor({...state, body: {text: next.text, cursor: next.cursor}});
 	};
 
-	const pickerInput = (input: string, key: Partial<Key>, state: NonNullable<typeof picker>) => {
-		const options = workOptions(sessions, state.current);
-		const to = (index: number) => setPicker({...state, index: Math.max(0, Math.min(options.length - 1, index))});
-		if (key.escape) { setPicker(undefined); return; }
-		if (key.upArrow || input === 'k') { to(state.index - 1); return; }
-		if (key.downArrow || input === 'j') { to(state.index + 1); return; }
-		if (input === 'g' || key.home) { to(0); return; }
-		if (input === 'G' || key.end) { to(options.length - 1); return; }
-		if (!key.return) return;
-		const option = options[state.index];
+	const pickerRowsOf = (state: TaskPicker) => pickerRows(workOptions(sessions, state.current), state.view, state.query, state.origin);
+	// Where the selection starts in a view: where the task is now (without a search), else the first listed match.
+	const pickerStart = (state: TaskPicker) => {
+		const rows = pickerRowsOf(state);
+		const listed = (option: WorkOption) => option.kind === 'worktree' || option.kind === 'session';
+		const here = state.query ? -1 : rows.findIndex(option => listed(option) && option.section === state.current);
+		return here >= 0 ? here : Math.max(0, rows.findIndex(listed));
+	};
+	const openPicker = (state: Omit<TaskPicker, 'index'>) => setPicker({...state, index: pickerStart({...state, index: 0})});
+
+	const pickerInput = (input: string, key: Partial<Key>, state: TaskPicker) => {
+		const rows = pickerRowsOf(state);
+		const to = (index: number) => setPicker({...state, index: Math.max(0, Math.min(rows.length - 1, index))});
+		if (key.escape) { if (state.query) openPicker({...state, query: ''}); else setPicker(undefined); return; }
+		if (key.tab || key.leftArrow || key.rightArrow) { openPicker({...state, view: state.view === 'worktrees' ? 'sessions' : 'worktrees'}); return; }
+		if (key.upArrow) { to(state.index - 1); return; }
+		if (key.downArrow) { to(state.index + 1); return; }
+		if (key.pageUp) { to(state.index - PICKER_ROWS); return; }
+		if (key.pageDown) { to(state.index + PICKER_ROWS); return; }
+		if (key.home) { to(0); return; }
+		if (key.end) { to(rows.length - 1); return; }
+		if (key.backspace || key.delete) { openPicker({...state, query: state.query.slice(0, -1)}); return; }
+		if (!key.return) {
+			const typed = key.ctrl || key.meta ? '' : stripTerminalControls(input);
+			if (typed) openPicker({...state, query: (state.query + typed).slice(0, 64)});
+			return;
+		}
+		const option = rows[state.index];
 		if (!option) return;
+		if (option.kind === 'note') {
+			run(() => client!.returnTaskToNote(repoRoot, state.taskId), next => {
+				onDoc(next);
+				setPicker(undefined);
+				setStatusMessage(`Back in the note of ${state.origin}: ${truncate(state.title, 40)}`);
+			});
+			return;
+		}
 		if (option.section === state.current) { setPicker(undefined); setStatusMessage('It is already there'); return; }
 		const link = option.section ? linkOfKey(option.section) : undefined;
 		apply({type: 'assign', id: state.taskId, ...link ? {link} : {}}, () => {
@@ -208,7 +238,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (input === 'w') {
 			if (task.done) { setStatusMessage('That task is done; space reopens it'); return; }
 			const current = linkKey(task.meta);
-			setPicker({taskId: task.id, title: task.title, current, index: Math.max(0, workOptions(sessions, current).findIndex(option => option.section === current))});
+			openPicker({taskId: task.id, title: task.title, current, origin: taskOrigin(task, sessions), view: pickerViewOf(current), query: ''});
 			return;
 		}
 		if (input === 'o') {
@@ -271,18 +301,25 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		);
 	};
 
-	const pickerLines = (state: NonNullable<typeof picker>, width: number): React.ReactNode[] => {
+	const pickerLines = (state: TaskPicker, width: number): React.ReactNode[] => {
 		const options = workOptions(sessions, state.current);
-		const start = Math.max(0, Math.min(state.index - PICKER_ROWS + 1, options.length - PICKER_ROWS));
+		const rows = pickerRows(options, state.view, state.query, state.origin);
+		const counts = pickerCounts(options, state.query);
+		const start = Math.max(0, Math.min(state.index - PICKER_ROWS + 1, rows.length - PICKER_ROWS));
+		const tab = (view: PickerView, text: string) => <Text inverse={state.view === view} bold={state.view === view} color={state.view === view ? THEME.active : THEME.muted}>{` ${text} `}</Text>;
+		const listed = rows.some(option => option.kind === 'worktree' || option.kind === 'session');
+		const none = state.query ? `Nothing in ${state.view} matches “${state.query}”` : state.view === 'worktrees' ? 'No worktrees' : 'No sessions in the main checkout';
 		return [
 			<Text key="head" wrap="truncate-end"><Text color={THEME.accent} bold>Move </Text>{truncate(`“${state.title}”`, Math.max(4, width - 12))}<Text color={THEME.accent} bold> to</Text></Text>,
-			...options.slice(start, start + PICKER_ROWS).map((option, offset) => {
+			<Text key="views" wrap="truncate-end">{tab('worktrees', `Worktrees ${counts.worktrees}`)} {tab('sessions', `Sessions ${counts.sessions}`)}<Text color={state.query ? THEME.active : THEME.muted}>{`   ${state.query ? `search: ${state.query}▏` : 'type to search'}`}</Text></Text>,
+			...rows.slice(start, start + PICKER_ROWS).map((option, offset) => {
 				const selected = start + offset === state.index;
 				const note = option.note ? ` ${option.note}` : '';
-				return <Text key={option.section ?? 'backlog'} inverse={selected} bold={selected} color={selected ? THEME.active : undefined} wrap="truncate-end">
+				return <Text key={option.section ?? option.kind} inverse={selected} bold={selected} color={selected ? THEME.active : undefined} wrap="truncate-end">
 					{`${selected ? '›' : ' '} ${truncate(option.label, Math.max(1, width - note.length - 2))}`.padEnd(Math.max(0, width - note.length))}<Text color={selected ? undefined : THEME.muted}>{note}</Text>
 				</Text>;
 			}),
+			...listed ? [] : [<Text key="none" color={THEME.muted} wrap="truncate-end">{`  ${none}`}</Text>],
 		];
 	};
 
@@ -308,7 +345,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (editor) return fitHint(editor.field === 'title'
 			? ['enter save', 'tab details', 'esc cancel']
 			: ['enter new line', 'ctrl+s save', 'tab title', 'esc cancel'], width, ' • ');
-		if (picker) return fitHint(['enter move here', 'j/k choose', 'esc cancel'], width, ' • ');
+		if (picker) return fitHint(['enter move here', 'type to search', {text: 'tab worktrees / sessions', short: 'tab view'}, '↑↓ choose', picker.query ? 'esc clear search' : 'esc cancel'], width, ' • ');
 		if (view === 'notes') return fitHint(['a add as a task', 'enter open the note', 'j/k move', 'tab back'], width, ' • ');
 		return fitHint([
 			'j/k move', 'a add',
@@ -339,6 +376,14 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 	};
 }
 
+/** Note items under a heading per worktree (then the main checkout), each with its count. */
+function noteRows(items: NoteItem[], sessions: SessionRecord[]): BoardRow[] {
+	return [...new Set(items.map(item => item.group))].flatMap(group => {
+		const inGroup = items.filter(item => item.group === group);
+		return [{kind: 'work', section: group, count: inGroup.length, label: noteGroupLabel(group, sessions)} as BoardRow, ...inGroup.map((item): BoardRow => ({kind: 'note', item}))];
+	});
+}
+
 /** The ID of the task `next` has that `before` did not (the one just added). */
 function parseAdded(next: TasksDoc, before: Set<string>): string | undefined {
 	const ids = [...next.text.matchAll(/<!--[ \t]*dh:t=([0-9a-f]+)/g)].map(match => match[1]!);
@@ -356,12 +401,12 @@ function BoardLine({row, selected, width, sessions, spinnerFrame}: {row: BoardRo
 	if (row.kind === 'empty') return <Text color={THEME.muted} wrap="truncate-end">{`  ${row.text}`}</Text>;
 	if (row.kind === 'work') {
 		// The work's name and open count, its most urgent session's state on the right.
-		const work = workState(row.section, sessions, spinnerFrame);
-		const state = `${work.glyph} ${work.text}`;
-		const label = truncate(workLabel(row.section, sessions), Math.max(4, width - state.length - 8));
+		const work = row.section === 'main' ? undefined : workState(row.section, sessions, spinnerFrame);
+		const state = work ? `${work.glyph} ${work.text}` : '';
+		const label = truncate(row.label ?? workLabel(row.section, sessions), Math.max(4, width - state.length - 8));
 		return <Box justifyContent="space-between" width={width}>
 			<Text wrap="truncate-end"><Text color={THEME.accentSoft} bold>{label}</Text>{row.count ? <Text color={THEME.muted}>{` · ${row.count}`}</Text> : null}</Text>
-			<Text color={work.color}>{state}</Text>
+			{work ? <Text color={work.color}>{state}</Text> : null}
 		</Box>;
 	}
 	const marker = selected ? '›' : ' ';
@@ -391,7 +436,7 @@ function BoardLine({row, selected, width, sessions, spinnerFrame}: {row: BoardRo
 function detailLines(row: BoardRow | undefined, sessions: SessionRecord[], spinnerFrame: string, width: number): React.ReactNode[] {
 	if (row?.kind === 'note') return [
 		<Text key="t" bold wrap="truncate-end">{row.item.title}</Text>,
-		<Text key="s" color={THEME.muted} wrap="truncate-end">{`In the notes of ${row.item.source}. a adds it to the backlog; the note keeps a ↗ link.`}</Text>,
+		<Text key="s" color={THEME.muted} wrap="truncate-end">{`In ${row.item.section === 'shared' ? `the ${row.item.source}` : `the notes of ${row.item.source}`} · ${noteGroupLabel(row.item.group, sessions)}. a adds it as a task (on that work); the note keeps a ↗ link.`}</Text>,
 	];
 	if (row?.kind !== 'task') return [];
 	const {task, group} = row;
@@ -399,11 +444,14 @@ function detailLines(row: BoardRow | undefined, sessions: SessionRecord[], spinn
 	const where = group === 'progress' ? (isAssigned(task)
 		? `Assigned to ${workLabel(linkKey(task.meta)!, sessions)}: a merge sends it back to the backlog unless ticked · n gives it its own worktree`
 		: `Started ${workLabel(linkKey(task.meta)!, sessions)}: merging or marking it done ticks it · o opens it`) : group === 'backlog' ? `${state.text ? `${state.text} · ` : ''}n starts a session for it` : `${state.text}${state.where ? ` ${state.where}` : ''} · space reopens it`;
+	// Sent from a note that still links it: w can put it back there.
+	const origin = taskOrigin(task, sessions);
+	const back = origin ? ` · w: back to the note of ${origin}` : '';
 	const body = task.body ? wrapRows(task.body, Math.max(1, width - 2)).map(range => task.body.slice(range.start, range.end)) : [];
 	const room = Math.max(0, DETAIL_ROWS - 2);
 	return [
 		<Text key="t" bold wrap="truncate-end">{task.title}</Text>,
-		<Text key="w" color={THEME.muted} wrap="truncate-end">{where}</Text>,
+		<Text key="w" color={THEME.muted} wrap="truncate-end">{where}{back}</Text>,
 		...body.slice(0, room).map((line, index) => <Text key={`b-${index}`} wrap="truncate-end">{`  ${index === room - 1 && body.length > room ? `${line.slice(0, Math.max(0, width - 6))} …` : line}`}</Text>),
 	];
 }

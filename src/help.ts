@@ -106,10 +106,10 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		note('One list per repository. On a worktree: ◆ the task it was started for, ☐ a follow-up assigned to it. A note checkbox becomes a task only when you send it.'),
 		key('b  v', 'The board: a group per worktree with open tasks, backlog, done / only the selected session\'s worktree'),
 		key('a  Enter', 'Add (to the selection\'s group) / edit: Enter saves the title, Tab adds details (Ctrl+S saves)'),
-		key('n  w', 'Start a session for it in a new worktree (↑↓ picks the base) / move it to a worktree or the backlog'),
+		key('n  w', 'Start a session for it in a new worktree (↑↓ picks the base) / move it: backlog, back to its note, a worktree or session (Tab, type to search)'),
 		key('Space  x', 'Tick or reopen / delete (x twice)'),
 		key('o  J K', 'Open the session doing it / reorder (j k, g G move)'),
-		key('Tab  E', 'Note items not yet tasks (a adds one, Enter opens its note) / the list in Cursor / VS Code'),
+		key('Tab  E', 'Every note\'s open items, by worktree (a adds one, Enter opens its note) / the list in Cursor / VS Code'),
 		note('A merge (m, M, found merged) ticks ◆ and sends open ☐ back to the backlog unless m ticked them; marking every session done ticks ◆. Undoing either undoes that; work removed unmerged goes back to the backlog.'),
 	]},
 	{title: 'Notes', lines: [

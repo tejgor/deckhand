@@ -151,12 +151,45 @@ test('tasks: one list per repository, linked to the work started from it', {time
 		assert.equal(promoted.session.notes, `scratch\n- ↗ Promote me <!-- dh:t=${task.id} -->\n- [x] Ticked\n- [ ] Keep me`);
 		// It lands on the note's work: here a main-checkout session, as a follow-up.
 		assert.equal(task.meta.s, session.id); assert.ok(task.meta.assigned);
+		// And back: the ↗ line becomes the item again (with the task's details), and the task leaves the list.
+		await op({type: 'edit', id: task.id, title: 'Promote me', body: 'details'});
+		const returned = await call<TasksDoc>({type: 'return-task-to-note', cwd: root, taskId: task.id} as any);
+		assert.ok(!tasksOf(returned).some(item => item.id === task.id));
+		assert.equal((await state(session.id)).notes, 'scratch\n- [ ] Promote me\n  details\n- [x] Ticked\n- [ ] Keep me');
+		await assert.rejects(call({type: 'return-task-to-note', cwd: root, taskId: task.id} as any), /no longer in the list/);
+		await assert.rejects(call({type: 'return-task-to-note', cwd: root, taskId: (await byTitle('Second task')).id} as any), /No note links/);
 		await call({type: 'kill', sessionId: session.id} as any); await waitFor(() => state(session.id), next => next.status === 'exited');
 		await call({type: 'remove', sessionId: session.id, moveOpenItems: true} as any);
 		const moved = await byTitle('Keep me');
 		assert.equal(moved.body, 'From the notes of notes holder (removed)');
 		assert.equal((await current()).filter(item => item.title === 'Ticked').length, 0);
 		assert.equal((await byTitle('Promote me')).meta.s, undefined, 'back to the backlog with its session');
+	});
+
+	await t.test('a UI opened in one checkout hears about the sessions of every checkout of its repository, not other repositories', async () => {
+		const other = path.join(home, 'other-worktree');
+		const elsewhere = await repo();
+		t.after(() => fs.rm(elsewhere, {recursive: true, force: true}));
+		const inMain = await create('in main', 'none');
+		const inWorktree = await call<SessionRecord>({type: 'create', input: {title: 'in worktree', program: 'claude', cwd: other, repoRoot: other, cols: 80, rows: 24, worktreeMode: 'none'}} as any);
+		const unrelated = await call<SessionRecord>({type: 'create', input: {title: 'unrelated', program: 'claude', cwd: elsewhere, repoRoot: elsewhere, cols: 80, rows: 24, worktreeMode: 'none'}} as any);
+		await Promise.all([inMain, inWorktree, unrelated].map(item => running(item.id)));
+		const titles = (items: SessionRecord[]) => items.map(item => item.title);
+		for (const scope of [root, other]) {
+			const seen = titles(await call<SessionRecord[]>({type: 'subscribe', repoRoot: scope} as any));
+			assert.ok(seen.includes('in main') && seen.includes('in worktree'), `${scope}: ${seen.join(', ')}`);
+			assert.ok(!seen.includes('unrelated'), scope);
+		}
+		// Live updates too: a UI subscribed in the worktree hears about a change in the main checkout.
+		const listener = net.createConnection(getSocketPath()); await once(listener, 'connect');
+		t.after(() => listener.destroy());
+		const heard: ServerMessage[] = []; attachJsonParser(listener, message => void heard.push(message));
+		const subscribeId = randomUUID();
+		writeMessage(listener, {type: 'subscribe', requestId: subscribeId, repoRoot: other} as any);
+		await waitFor(async () => heard.some(event => event.type === 'response' && event.requestId === subscribeId), Boolean);
+		await call({type: 'set-session-done', sessionId: inMain.id, done: true} as any);
+		await waitFor(async () => heard.some(event => event.type === 'session-updated' && event.session.id === inMain.id && Boolean(event.session.doneAt)), Boolean);
+		for (const item of [inMain, inWorktree, unrelated]) { await call({type: 'kill', sessionId: item.id} as any); await waitFor(() => state(item.id), next => next.status === 'exited'); await call({type: 'remove', sessionId: item.id} as any); }
 	});
 
 	await t.test('follow-ups: assigned only to work in this repository; a merge ticks the started task and the ticked follow-ups, the rest go back', async () => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {applyTaskOp, cleanTaskTitle, clientTaskOp, groupTasks, openNoteItems, parseNoteTaskLink, parseTasks, promoteNoteLine, taskPrompt, withoutTaskMeta} from '../src/tasks.js';
+import {applyTaskOp, cleanTaskTitle, clientTaskOp, findNoteTaskLink, groupTasks, returnTaskToNote, openNoteItems, parseNoteTaskLink, parseTasks, promoteNoteLine, taskPrompt, withoutTaskMeta} from '../src/tasks.js';
 
 const NOW = new Date('2026-10-09T12:00:00Z');
 
@@ -121,4 +121,13 @@ test('client ops: add and assign may carry a link; anything else about links is 
 	assert.throws(() => clientTaskOp({type: 'assign', id: 'a', link: {wt: 'w', s: 's'}}), /link/);
 	assert.throws(() => clientTaskOp({type: 'assign', id: 'a', link: {wt: ''}}), /link/);
 	assert.throws(() => clientTaskOp({type: 'release-linked', link: {wt: 'w'}}), /Unknown task change/);
+});
+
+test('a task goes back to the note it was sent from: its ↗ line becomes the item again, details under it', () => {
+	const note = 'scratch\n  - ↗ Retry setup <!-- dh:t=abcd1234 -->\nmore';
+	assert.equal(findNoteTaskLink(note, 'abcd1234'), 1);
+	assert.equal(findNoteTaskLink(note, 'other'), -1);
+	assert.equal(returnTaskToNote(note, 1, {title: 'Retry setup when trust changes', body: 'why:\n\nit breaks'}), 'scratch\n  - [ ] Retry setup when trust changes\n    why:\n\n    it breaks\nmore');
+	assert.equal(returnTaskToNote(note, 1, {title: 'Retry setup', body: ''}), 'scratch\n  - [ ] Retry setup\nmore');
+	assert.throws(() => returnTaskToNote(note, 0, {title: 'x', body: ''}), /no longer links/);
 });

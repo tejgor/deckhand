@@ -430,6 +430,7 @@ export class LiveClient {
 	watchTasks(cwd: string): Promise<TasksDoc> { return this.request({type: 'watch-tasks', requestId: randomUUID(), cwd}); }
 	taskOp(cwd: string, op: TaskOp): Promise<TasksDoc> { return this.request({type: 'task-op', requestId: randomUUID(), cwd, op}); }
 	openTasks(cwd: string): Promise<string> { return this.request({type: 'open-tasks', requestId: randomUUID(), cwd}); }
+	returnTaskToNote(cwd: string, taskId: string): Promise<TasksDoc> { return this.request({type: 'return-task-to-note', requestId: randomUUID(), cwd, taskId}); }
 	promoteNoteItem(sessionId: string, section: NoteSection, line: number, revision: string, noteId?: string): Promise<{session: SessionRecord; tasks: TasksDoc}> {
 		return this.request({type: 'promote-note-item', requestId: randomUUID(), sessionId, section, line, revision, ...noteId ? {noteId} : {}});
 	}

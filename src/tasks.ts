@@ -351,6 +351,21 @@ export function promoteNoteLine(noteText: string, line: number, id: string): {ti
 	return {title, done: item.checked, text: lines.join('\n')};
 }
 
+/** The line (0-based) of a note that links to task `id` (`- ↗ … <!-- dh:t=<id> -->`), else -1. */
+export function findNoteTaskLink(noteText: string, id: string): number {
+	return noteText.split('\n').findIndex(line => parseNoteTaskLink(line)?.id === id);
+}
+
+/** The note with its link (on `line`) turned back into an open checklist item: the task's title, its details indented under it. */
+export function returnTaskToNote(noteText: string, line: number, task: Pick<Task, 'title' | 'body'>): string {
+	const lines = noteText.split('\n');
+	const link = lines[line] === undefined ? undefined : parseNoteTaskLink(lines[line]!);
+	if (!link) throw new Error('That note no longer links to the task');
+	const body = task.body ? task.body.split('\n').map(text => (text ? `${link.indent}  ${text}` : '')) : [];
+	lines.splice(line, 1, `${link.indent}- [ ] ${task.title}`, ...body);
+	return lines.join('\n');
+}
+
 /** The unchecked checklist items of a note, as task titles. */
 export function openNoteItems(noteText: string | undefined): string[] {
 	return (noteText ?? '').split('\n').map(line => parseChecklistLine(line)).filter(item => item && !item.checked).map(item => cleanTaskTitle(item!.text)).filter(Boolean);
