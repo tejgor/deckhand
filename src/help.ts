@@ -27,7 +27,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		key('s  S', 'Resume an exited session (or retry a failed setup) / restart it with a fresh conversation'),
 		key('Space', 'Mark done / not done (☑; any session, not the same as merged)'),
 		key('m  M', 'Merge the worktree into this branch (see Git & PRs) / mark it merged without merging (✓)'),
-		key('Backspace  A', 'Archive an exited session (on an archived one: remove it for good) / archive or unarchive any'),
+		key('Backspace  A', 'Archive an exited session (on an archived one: remove it for good, asking first) / archive or unarchive any'),
 		key('H', 'Export a Markdown handoff (notes, commits, changed files, diff stat) and open it'),
 		note('A fork copies the conversation as saved then, not a turn in progress.'),
 		note('Deleting a worktree on stop is blocked by uncommitted work or unpushed commits unless you type DELETE.'),
@@ -122,7 +122,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		key('Ctrl+A  E', 'Start / end of the line (Home / End too; Ctrl+Home/End: the note; PgUp/PgDn a screen)'),
 		key('Ctrl+P', 'Send the line\'s checklist item to Tasks (the note keeps a ↗ link)'),
 		key('Ctrl+O', 'Open the note you are editing in Cursor / VS Code'),
-		note('☐ N open below the sidebar counts open items of both notes. A worktree\'s note goes when its last session is removed (open items ask first: m moves them to Tasks).'),
+		note('☐ N open below the sidebar counts open items of both notes. A worktree\'s note goes when its last session is removed (removing asks first; Enter sends open items to Tasks).'),
 	]},
 	{title: 'Worktrees', lines: [
 		note('W lists every worktree of the repository (Deckhand\'s or not) by what to do with it: merged and safe to delete, merged with leftovers, in progress, idle (nothing running for 14 days), missing (directory gone), and the main checkout.'),

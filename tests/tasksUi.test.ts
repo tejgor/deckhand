@@ -98,7 +98,7 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('X'); await screen('s resume');
 	press('\x7f'); await screen('Archived Write the docs'); await screen('No sessions match');
 	press('f'); await screen('A  archived'); press('A'); await screen('A unarchive'); await screen('backspace remove');
-	// Its note has the open item sent back from Tasks: removing asks first; x removes anyway.
-	press('\x7f'); await screen('Follow up on review');
+	// Removing always asks; its note has the open item sent back from Tasks, so it is listed and x removes anyway.
+	press('\x7f'); await screen('for good?'); await screen('Follow up on review');
 	press('x'); await screen('No sessions yet.');
 });

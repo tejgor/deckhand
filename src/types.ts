@@ -234,7 +234,7 @@ export interface SessionRecord {
 	requestedWorktreeMode?: WorktreeMode;
 	/** The agent version (x.y.z) the session's agent last launched with; it stays outdated until restarted. */
 	agentVersion?: string;
-	/** Marked done with `D` (any session; independent of merged). */
+	/** Marked done with Space (any session; independent of merged). */
 	doneAt?: string;
 	/** Started from a task: typed (not sent) into the agent's input once it first settles; cleared once typed or given up. */
 	startPrompt?: string;

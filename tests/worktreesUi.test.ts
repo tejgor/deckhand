@@ -58,5 +58,9 @@ test('W in a real PTY: merged worktrees grouped, x on the group deletes them and
 	await screen('No other worktrees');
 	// Its session was stopped and archived: back in the list, f A shows it.
 	press('\x1b'); await screen('Sessions');
-	press('f'); press('A'); await screen('shipped');
+	press('f'); press('A'); await screen('shipped'); await screen('backspace remove');
+	// Removing it for good asks even with nothing open in its notes; Esc keeps it, Enter removes it.
+	press('\x7f'); await screen('Remove “shipped” for good?'); await screen('enter remove · esc keep it');
+	press('\x1b'); await screen('backspace remove');
+	press('\x7f'); await screen('for good?'); press('\r'); await screen('No sessions');
 });

@@ -49,7 +49,7 @@ Tools for running coding agents in parallel typically rely on [`tmux`](https://g
 - **Resumable Agents** — Claude/Pi retain native identities; Codex resumes when its native ID is captured. Unknown IDs never silently become a blank conversation. Fresh restart remains explicit.
 - **Tasks** — One task list per repository (`b`), beside the notes, grouped by the worktree each open task is on (with the live state of its sessions), then backlog and done; `v` shows only the current worktree's. `n` starts a session for a task in a new worktree (you pick the base branch); `w` assigns a task to a worktree as a follow-up. Merging that worktree ticks the task it was started for, asks about its follow-ups, and work dropped unmerged goes back to the backlog.
 - **Notes with checklists** — Each session's notes plus one note per worktree shared by every session in it, as Markdown files you can also edit in VS Code; `- [ ]` items render as ☐/☑ and their open count shows in the sidebar.
-- **Worktree Manager** — `W` lists every worktree of the repository (Deckhand's or made with `git worktree add`) grouped by what to do with it: merged and safe to delete, merged with leftovers, in progress, idle, missing. Each shows its sessions, uncommitted files, commits not in the default branch and last activity. `x` deletes one, stopping the sessions still running in it after one confirmation, and `x` on the safe group deletes them all with their branches.
+- **Worktree Manager** — `W` lists every worktree of the repository (Deckhand's or made with `git worktree add`) grouped by what to do with it: merged and safe to delete, merged with leftovers, in progress, idle, missing. Each shows its sessions, uncommitted files, commits not in the default branch and last activity. `x` deletes one, stopping the sessions still running in it after one confirmation, and `x` on the safe group deletes them all, with or without their branches.
 - **Safer Cleanup** — Check uncommitted, untracked and valuable ignored files, and commits that deleting a branch would lose, before deletion; force kill and data-loss authorization are separate.
 - **Merge Helpers** — Merge or squash-merge a session's worktree into the current branch, staged for review rather than committed: a preview shows the target, commits and diff stat first, uncommitted work can be committed first, conflicts are kept to resolve or aborted in one key, and worktrees merged elsewhere (into the default branch, or a merged PR) are marked by themselves.
 - **Git Changes** — The Git tab lists the worktree's changes like VS Code's Source Control panel (merge conflicts, staged, unstaged, untracked, with line counts), previews each file's diff, stages/unstages files and opens them in your editor at the first change; `lazygit` (optional) is one key away for everything else.
@@ -143,7 +143,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `j` / `k`, `↑` / `↓` | Move between visible sessions |
 | `1`–`9`, `0` | Jump to that numbered visible session (`0` selects visible session 10). With more than 10, type the number: `enter` or a short pause selects it, `esc` clears it |
 | `/` / `f` / `!` | Search titles, notes, tasks, provider, branch, path / filter menu (`a` active, `r` running, `!` attention, `e` exited, `A` archived, `*` all; `f f` back to active) / next session that needs you |
-| `J` / `K`, `c` | Move the selected session down / up among its siblings (order is persisted); collapse or expand its sub-sessions |
+| `J` / `K`, `c` | Move the selected session down / up among its siblings (order is persisted); cycle its sub-sessions: hide the exited ones, collapse, expand |
 | `<` / `>` | Narrow / widen the sidebar |
 | `tab` / `]`, `shift+tab` / `[` | Next / previous tab: Preview, Terminal, Git, Dev, Notes |
 | `p` / `t` / `g` / `d` / `a` | Jump to Preview / Terminal / Git / Dev / Notes |
@@ -158,9 +158,9 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `s` / `S` | Resume / fresh-restart the selected exited session |
 | `space` | Mark the selected session done / not done (`☑`; any session, independent of merged) |
 | `m` / `M` | Merge the selected worktree into the current branch, uncommitted: the confirmation shows `Into <branch> · <path>` (yellow when it is not the main checkout's default branch), the commits and diff stat, and for uncommitted files a `space` toggle (on by default) that commits them first with the session's title as the message. On conflicts: `enter` (or `esc`) keeps the merge in progress for you to resolve (marked merged), `x` aborts it. Every session of the worktree then shows `✓` / toggle the worktree's merged marker without merging (worktrees only) |
-| `r` | Run: a list with the worktree's Dev command first (`enter` starts or stops it; its output is on the Dev tab, shared by every session there) and then your actions (global, plus trusted repository actions), which run beside the shell on the Terminal tab (`v` switches) |
+| `r` | Run: a list with the worktree's Dev command first (`enter` starts or stops it; its output is on the Dev tab, shared by every session there) and then your actions (global, plus trusted repository actions), which run beside the shell on the Terminal tab (`v` switches); `x` stops the running action or Dev |
 | `A` | Archive/unarchive (does not stop an agent) |
-| `backspace` | Archive the selected exited session (hidden from the default view, nothing lost; `f A` shows archived sessions). On an archived session it removes it for good, deleting its notes; when they still have open checklist items it asks: `enter` moves them to Tasks first, `x` drops them |
+| `backspace` | Archive the selected exited session (hidden from the default view, nothing lost; `f A` shows archived sessions). On an archived session it removes it for good, moving its notes to `~/.deckhand/notes/trash/`, after asking (`enter` removes, `esc` keeps it); when they still have open checklist items it lists them: `enter` moves them to Tasks first, `x` drops them |
 | `H` | Export/open a handoff (notes plus commits and changed files, no diff content); `N` → ↳ then creates a clean child from it |
 | `i` | Workspace Git summary; `P` queries PR, `b` opens it, `c` pushes and opens GitHub's new-PR form (after confirmation), `g` opens the Git tab |
 | `b` | Tasks: the repository's task list (see [Tasks](#tasks)) |
@@ -188,7 +188,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 ```
 
 - **Before the title:** status — spinner starting/working, `●` idle, `◌` activity unknown, `○` exited; with agent signals `?` needs input, `◆` response ended (not task success), `!` failed or failed/interrupted exit, `⌛` rate-limited. Tree — `▾`/`▸` expanded/collapsed parent, `↳` clean and `⑂` forked sub-session.
-- **After the title:** `▶` Dev running (once per worktree), `▣` archived, `!` cleanup error, `✓` merged (by `m`, `M`, or found merged elsewhere), `☑` done (`D`), `+N` hidden sub-sessions, `↑` running an older agent version than the one now installed (restart it to update; the details line then shows both versions, e.g. `✶ claude 2.1.287 · 2.1.290 installed`), then the agent: `✶` Claude, `π` Pi, `◇` Codex.
+- **After the title:** `▶` Dev running (once per worktree), `▣` archived, `!` cleanup error, `✓` merged (by `m`, `M`, or found merged elsewhere), `☑` done (`space`), `+N` hidden sub-sessions, `↑` running an older agent version than the one now installed (restart it to update; the details line then shows both versions, e.g. `✶ claude 2.1.287 · 2.1.290 installed`), then the agent: `✶` Claude, `π` Pi, `◇` Codex.
 - Archived rows are dimmed; in the archived view the parents shown for context are dimmed instead. Done rows have a muted title (their markers and status stay readable), and the details say `done 2d ago`. `?` → Sidebar lists all of this in the app.
 
 ### Attach Mode
@@ -235,7 +235,7 @@ The Notes tab shows the note of the place you work. A session in a worktree has 
 | `E` | Open the task list in Cursor / VS Code |
 | `esc` | Back |
 
-A task started with `n` is linked to its session's worktree (or, in the main checkout, to the session): the board shows the most urgent state of the sessions there (needs you, working, idle, exited), the session's Notes tab and sidebar details name the task (and count the worktree's other open tasks), and the task (`title: details`, one line) is typed into the agent's input once it has started, not sent: edit it and press Enter yourself. Deckhand waits until the agent's screen settles, never types into a menu or question (a folder-trust prompt, for example), and skips it if you start typing first or the agent doesn't settle within two minutes. Merging the worktree (`m`, `M`, or found merged) ticks it, and the merge screen says so; `D` ticks it once every session there is done; undoing either reopens it. Follow-ups are never ticked on their own: `m` lists them (up to five) and `space` ticks the ones you finished, and any left open go back to the backlog marked *left open in ⎇ branch* (unmarking the merge puts them back). Work removed or deleted without merging puts its tasks back in the backlog, marked with the branch they were tried in or left open in. Handoffs (`H`) list a worktree's open follow-ups. Done tasks fold away after a week.
+A task started with `n` is linked to its session's worktree (or, in the main checkout, to the session): the board shows the most urgent state of the sessions there (needs you, working, idle, exited), the session's Notes tab and sidebar details name the task (and count the worktree's other open tasks), and the task (`title: details`, one line) is typed into the agent's input once it has started, not sent: edit it and press Enter yourself. Deckhand waits until the agent's screen settles, never types into a menu or question (a folder-trust prompt, for example), and skips it if you start typing first or the agent doesn't settle within two minutes. Merging the worktree (`m`, `M`, or found merged) ticks it, and the merge screen says so; marking done (`space`) ticks it once every session there is done; undoing either reopens it. Follow-ups are never ticked on their own: `m` lists them (up to five) and `space` ticks the ones you finished, and any left open go back to the backlog marked *left open in ⎇ branch* (unmarking the merge puts them back). Work removed or deleted without merging puts its tasks back in the backlog, marked with the branch they were tried in or left open in. Handoffs (`H`) list a worktree's open follow-ups. Done tasks fold away after a week.
 
 ### Worktrees
 
@@ -249,19 +249,19 @@ A task started with `n` is linked to its session's worktree (or, in the main che
 
 | Key | Action |
 | --- | --- |
-| `j` / `k`, `g` / `G` | Move |
+| `j` / `k`, `g` / `G`, PgUp / PgDn | Move |
 | `x` | Delete the selected worktree, asking first: keep or delete its branch. Sessions still running in it are named and stopped first; uncommitted work or commits only on the branch need `DELETE` typed, as with `x` on a session. On a missing one: prune (Git's entry) or forget (Deckhand's record) |
-| `x` *(on "Merged · safe to delete")* | Delete every worktree in the group and its branch, after one confirmation |
+| `x` *(on "Merged · safe to delete")* | Delete every worktree in the group, with or without their branches, after one confirmation (protected branches such as the default branch are never deleted) |
 | `enter` / `o` | Select its session in the sidebar |
 | `M` / `E` | Mark it merged or clear the marker / open it in Cursor or VS Code |
 | `R` | Check them all again |
 | `esc` | Back |
 
-Deleted worktrees' sessions are archived (`f A` shows them; their notes stay readable). The main checkout, the worktree this Deckhand runs in, and one another Deckhand has open are never deleted from here.
+Deleted worktrees' sessions are archived (`f A` shows them; their notes stay readable). The main checkout, the worktree this Deckhand runs in, one another Deckhand has open, and locked worktrees are never deleted from here.
 
 ### Git Changes
 
-The Git tab shows the selected session's worktree changes in VS Code's groups: **Merge Conflicts**, **Staged Changes**, **Changes** (unstaged tracked files) and **Untracked**, each with a count. A partially staged file appears in both Staged and Changes. Each row shows the status letter (M, A, D, R, C, U, ?), the file name with its directory dimmed, `old → new` for renames, and `+added −removed` lines (`bin` for binary files). The list refreshes about every two seconds while the tab is open and right after you stage or unstage. Press `v` to focus it:
+The Git tab shows the selected session's worktree changes in VS Code's groups: **Merge Conflicts**, **Staged Changes**, **Changes** (unstaged tracked files) and **Untracked**, each with a count. A partially staged file appears in both Staged and Changes. Each row shows the status letter (M, A, D, R, C, T, U, ?), the file name with its directory dimmed, `old → new` for renames, and `+added −removed` lines (`bin` for binary files). The list refreshes about every two seconds while the tab is open and right after you stage or unstage. Press `→` (or `l`) to focus it:
 
 | Key | Action |
 | --- | --- |
@@ -354,7 +354,7 @@ The older top-level `dev_command` still works when no `devCommand` is set.
 
 ### Notes
 
-Notes are Markdown files in `~/.deckhand/notes/`: `sessions/<session>.md` for each session's own, `worktrees/<id>.md` for each worktree (shared by every session in it, sub-sessions and attached ones included; a new worktree later created at the same path starts with a fresh note) and `repos/<hash>.md` for the main checkout. They autosave while you type. Edit them in VS Code too (`E` opens one): changes show up in Deckhand within a second, and Deckhand never overwrites them: if a file changed while you were typing, it reloads the file and says so. A session's note is deleted with the session, a worktree's when its last session is removed; the main checkout's is kept. Older notes stored in `state.json` move into these files on the first start. Checklist items (`- [ ]`, `- [x]`, also `*`, indented) render as ☐/☑, the sidebar shows `☐ N open` for the selected session, and handoffs (`H`), the merge confirmation and `/` search include the worktree's note. Each note holds up to 50 000 characters (a longer file is shown cut and edited in your editor).
+Notes are Markdown files in `~/.deckhand/notes/`: `sessions/<session>.md` for each session's own, `worktrees/<id>.md` for each worktree (shared by every session in it, sub-sessions and attached ones included; a new worktree later created at the same path starts with a fresh note) and `repos/<hash>.md` for the main checkout. They autosave while you type. Edit them in VS Code too (`E` opens one): changes show up in Deckhand within a second, and Deckhand never overwrites them: if a file changed while you were typing, it reloads the file and says so. A session's note moves to `notes/trash/` when the session is removed, a worktree's when its last session is removed (empty notes are simply deleted); the main checkout's is kept. Older notes stored in `state.json` move into these files on the first start. Checklist items (`- [ ]`, `- [x]`, also `*`, indented) render as ☐/☑, the sidebar shows `☐ N open` for the selected session, and handoffs (`H`), the merge confirmation and `/` search include the worktree's note. Each note holds up to 50 000 characters (a longer file is shown cut and edited in your editor).
 
 ### Task Lists
 
@@ -362,7 +362,7 @@ Each repository's tasks are one Markdown file, `~/.deckhand/notes/tasks/<hash>.m
 
 ### Attach Scroll Sensitivity
 
-Attached sessions and Preview focus dampen trackpad and mouse-wheel scrolling. Press `[` / `]` in Deckhand to decrease/increase the multiplier immediately and save it, or edit the config directly:
+Attached sessions and Preview focus dampen trackpad and mouse-wheel scrolling. While scrolling a preview (`→` on Preview), press `+` / `−` to increase/decrease the multiplier; it is saved immediately and also applies when attached. Or edit the config directly:
 
 ```json
 {
