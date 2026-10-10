@@ -19,7 +19,7 @@ function settingsInfo(repoRaw: string | undefined, defaults: Record<string, unkn
 		cwd: '/dev/mono', repo: 'mono', repository: {state: repoRaw === undefined ? 'absent' : trusted ? 'trusted' : 'untrusted', path: '/dev/mono/deckhand.json'}, needsReview: !trusted && repoRaw !== undefined,
 		rows: explainSettings(project, user, {vars, user: 'me', configDir: '/state'}).rows,
 		targets: {global: document('global', defaults && JSON.stringify(defaults)), repository: document('repository', repoRaw)},
-		vars, defaultLocation: '/state/worktrees/<name>', insideIgnored: false, user: 'me', agentHooks: false, notifications: false,
+		vars, defaultLocation: '/state/worktrees/<name>', insideIgnored: false, user: 'me', notifications: false,
 	};
 }
 const REPO = '{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}}';
@@ -71,12 +71,21 @@ test('settings grid: each cell is that layer\'s own value; the one in effect (ex
 
 test('Agent signals and Notifications are global only (config.json flags); Agent signals warns when Codex\'s hooks do not call this Deckhand', () => {
 	const row = (info: SettingsInfo, id: string) => settingsGrid(info).find(entry => entry.def.id === id)!;
-	const off = settingsInfo(REPO, GLOBAL);
-	assert.deepEqual(row(off, 'agentHooks').cells, {global: {text: 'off', set: false, effective: true, builtIn: true}, repository: {text: 'global only', set: false, effective: false, globalOnly: true}});
-	assert.match(cellDetail(off, row(off, 'agentHooks'), 'repository').relation, /^global only/);
-	assert.deepEqual(currentChoice(off, 'agentHooks', 'global', choiceOptions(off, 'agentHooks', 'global')), {index: 1, current: -1});
-	assert.deepEqual(choiceChange(off, 'agentHooks', 'global', {label: 'on', value: true}), {path: ['agent_hooks'], value: true});
-	assert.equal(choiceChange(off, 'notifications', 'global', {label: 'off', value: false}), undefined);
+	// Agent signals not set: on (built in) for Claude; either choice is stored (on adds Codex).
+	const unset = settingsInfo(REPO, GLOBAL);
+	assert.deepEqual(row(unset, 'agentHooks').cells, {global: {text: 'on', set: false, effective: true, builtIn: true}, repository: {text: 'global only', set: false, effective: false, globalOnly: true}});
+	assert.match(cellDetail(unset, row(unset, 'agentHooks'), 'global').relation, /^Not set: on for Claude/);
+	assert.match(cellDetail(unset, row(unset, 'agentHooks'), 'repository').relation, /^global only/);
+	assert.deepEqual(currentChoice(unset, 'agentHooks', 'global', choiceOptions(unset, 'agentHooks', 'global')), {index: 0, current: -1});
+	assert.deepEqual(choiceChange(unset, 'agentHooks', 'global', {label: 'on', value: true}), {path: ['agent_hooks'], value: true});
+	assert.deepEqual(choiceChange(unset, 'agentHooks', 'global', {label: 'off', value: false}), {path: ['agent_hooks'], value: false});
+	assert.equal(choiceChange(unset, 'notifications', 'global', {label: 'off', value: false}), undefined);
+	// Switched off: stored, so it is no built-in.
+	const off = {...unset, agentHooks: false};
+	assert.deepEqual(row(off, 'agentHooks').cells.global, {text: 'off', set: true, effective: true});
+	assert.match(cellDetail(off, row(off, 'agentHooks'), 'global').relation, /^Off: attention/);
+	assert.deepEqual(currentChoice(off, 'agentHooks', 'global', choiceOptions(off, 'agentHooks', 'global')), {index: 1, current: 1});
+	assert.equal(choiceChange(off, 'agentHooks', 'global', {label: 'off', value: false}), undefined);
 
 	const codex = {state: 'missing' as const, file: '/home/me/.codex/hooks.json', fileExists: false, command: 'deckhand hooks codex'};
 	const on = {...off, agentHooks: true, codexHooks: codex};

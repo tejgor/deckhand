@@ -21,7 +21,7 @@ import {readCandidateSizes, readSettingsInfo, readWorktreeCandidates} from './se
 import {createPullRequest, getHandoffGitContext, getMergePreview, getWorkspaceSummary, inspectWorkspaceCleanup, mergedIntoDefault, worktreeActivity, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
 import {applyStage, readChangeDiff, readChanges, type ChangesSnapshot, type UntrackedCounts} from './changesGit.js';
 import {emptyChanges, findChange, type ChangesRecord} from './changesModel.js';
-import {normalizeHook, integrationArgs, needsAttention} from './agentSignals.js';
+import {attentionMessage, hooksEnabled, normalizeHook, integrationArgs, needsAttention} from './agentSignals.js';
 import {AGENTS, agentSpec, launchArgs, newAgentRef, relaunchPlan, sameAgentSessionRef, type LaunchPlan} from './agents.js';
 import {AgentVersionChecker, findOnPath} from './agentVersionCheck.js';
 import {exportHandoff} from './sessionFeatures.js';
@@ -108,6 +108,8 @@ interface WorkerRuntime extends WorkerChannel {
 	screen?: string;
 	/** A task's text waiting to be typed (not sent) into the agent's input once it first settles (`typeDraft`). */
 	draft?: {text: string; timer: NodeJS.Timeout; settle?: NodeJS.Timeout};
+	/** When the hook behind the last applied signal started (its `sentAt`): async hooks may arrive out of order. */
+	lastHookAt?: number;
 }
 
 // How long a task's draft waits for the agent to settle at its input (a trust prompt answered meanwhile included).
@@ -375,6 +377,8 @@ function projectNotes(session: SessionRecord, worktrees: ReadonlyMap<string, Wor
 /** The session as state.json stores it: no projected markers (their record holds them) and no notes (files hold them). */
 function persistedSession(session: SessionRecord): SessionRecord {
 	const {notes: _notes, notesFile: _file, sharedNotes: _shared, ...stored} = storedSession(session);
+	// What the agent asks or said (attention.reason) may quote commands or code: kept in memory, never written.
+	if (stored.attention?.reason) { const {reason: _reason, ...attention} = stored.attention; return {...stored, attention}; }
 	return stored;
 }
 
@@ -1244,15 +1248,26 @@ export class InkDaemon {
 		if (!worker || worker.hookToken !== message.token || worker.launchId !== message.launchId || session.launchId !== message.launchId || session.status === 'exited') throw new Error('Stale or unauthorized lifecycle callback');
 		const signal = normalizeHook(session.program, message.payload);
 		if (!signal) return;
+		// Async hooks race each other: one that started before the last applied signal is stale.
+		if (message.sentAt !== undefined) {
+			if (worker.lastHookAt !== undefined && message.sentAt < worker.lastHookAt) return;
+			worker.lastHookAt = message.sentAt;
+		}
+		const previous = session.attention;
+		// A native subagent's tool use only shows that the prompt it raised was answered; otherwise the root's state stands.
+		if (signal.fromSubagent && signal.state === 'working' && previous?.state !== 'needs-input') return;
 		const nativeRef = this.acceptedNativeRef(session, signal.nativeRef, signal.event);
-		const attention = {state: signal.state, event: signal.event, at: new Date().toISOString()};
-		if (!nativeRef && session.attention?.state === signal.state) {
+		// A notification's generic text ("Claude is waiting for your input") never replaces the reason it follows.
+		const reason = signal.reason?.kind === 'notice' && previous?.reason ? previous.reason : signal.reason;
+		const attention = {state: signal.state, event: signal.event, at: new Date().toISOString(), ...reason ? {reason} : {}};
+		const reasonChanged = reason?.text !== previous?.reason?.text;
+		if (!nativeRef && previous?.state === signal.state && !reasonChanged) {
 			// Tool-use events repeat constantly without changing anything visible; keep them off disk and the wire.
-			this.sessions.set(session.id, {...session, attention});
+			this.sessions.set(session.id, {...session, attention: {...attention, at: previous.at}});
 			return;
 		}
 		const updated = await this.saveSession({...session, ...(nativeRef ? {agentSessionRef: nativeRef} : {}), attention});
-		if (needsAttention(signal.state) && session.attention?.state !== signal.state) void this.notify(updated, signal.state);
+		if (needsAttention(signal.state) && (previous?.state !== signal.state || reasonChanged)) void this.notify(updated, attentionMessage(signal.state, reason));
 	}
 
 	private acceptedNativeRef(session: SessionRecord, ref: AgentSessionRef | undefined, event: string): AgentSessionRef | undefined {
@@ -1495,7 +1510,11 @@ export class InkDaemon {
 	private async setWorkerAgentStatus(sessionId: string, agentStatus: AgentActivityStatus): Promise<void> {
 		const session = this.sessions.get(sessionId);
 		if (!session || session.status === 'exited' || session.agentStatus === agentStatus) return;
-		await this.saveSession({...session, agentStatus, agentStatusUpdatedAt: new Date().toISOString()});
+		const now = new Date().toISOString();
+		// A signal still saying working on a settled screen is stale: Claude reports no hook when Esc interrupts it.
+		// Agents animate while they work, so the screen going idle means they stopped; the next hook says what's next.
+		const staleWorking = agentStatus === 'idle' && session.attention?.state === 'working';
+		await this.saveSession({...session, agentStatus, agentStatusUpdatedAt: now, ...staleWorking ? {attention: {state: 'unknown' as const, event: 'ScreenIdle', at: now}} : {}});
 		if (agentStatus === 'idle') await this.typeDraft(sessionId);
 	}
 
@@ -2556,7 +2575,7 @@ export class InkDaemon {
 			}
 		}
 		this.assertCurrentLaunch(sessionId, startingSession.launchId);
-		preparedSession.args = [...(preparedSession.args ?? []), ...await integrationArgs(preparedSession.program, preparedSession.command, appConfig.agent_hooks === true), ...this.firstMessageArgs(preparedSession, plan, true)];
+		preparedSession.args = [...(preparedSession.args ?? []), ...await integrationArgs(preparedSession.program, preparedSession.command, hooksEnabled(appConfig.agent_hooks, preparedSession.program)), ...this.firstMessageArgs(preparedSession, plan, true)];
 		const launchSession = {...this.requireSession(sessionId), args: preparedSession.args, handoffPath: preparedSession.handoffPath};
 		this.sessions.set(sessionId, launchSession);
 		const runningSession = await this.startWorker(launchSession, input.cols, input.rows);
@@ -2656,7 +2675,7 @@ export class InkDaemon {
 				else await this.runSetup(sessionId, setupCommand);
 			}
 			this.assertCurrentLaunch(sessionId, starting.launchId);
-			starting.args = [...(starting.args ?? []), ...await integrationArgs(starting.program, starting.command, config.agent_hooks === true), ...this.firstMessageArgs(starting, plan, neverStarted)];
+			starting.args = [...(starting.args ?? []), ...await integrationArgs(starting.program, starting.command, hooksEnabled(config.agent_hooks, starting.program)), ...this.firstMessageArgs(starting, plan, neverStarted)];
 			await prepareAgentSessionRef(starting.agentSessionRef);
 			const runningSession = await this.startWorker({...this.requireSession(sessionId), args: starting.args}, cols, rows);
 			return await this.saveSession({...runningSession, ...this.requireSession(sessionId), status: 'running', pid: runningSession.pid});

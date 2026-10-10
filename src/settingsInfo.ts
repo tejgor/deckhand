@@ -37,8 +37,8 @@ export interface SettingsInfo {
 	/** origin's default branch name when an origin remote exists. */
 	originBranch?: string;
 	user: string;
-	/** User config.json flags (global only): agent_hooks and notifications. */
-	agentHooks: boolean;
+	/** User config.json flags (global only): agent_hooks (undefined: not set, on for Claude) and notifications. */
+	agentHooks?: boolean;
 	notifications: boolean;
 	/** Codex is used here but its hooks don't call this Deckhand (see codexHookState); absent when fine or irrelevant. */
 	codexHooks?: CodexHookStatus;
@@ -91,7 +91,7 @@ export async function readSettingsInfo(cwd: string): Promise<SettingsInfo> {
 		checkout ? resolveDefaultBranch(checkout).catch(() => undefined) : Promise.resolve(undefined),
 		checkout ? optionalGit(checkout, ['remote']) : Promise.resolve(undefined),
 	]);
-	const codexHooks = user.agent_hooks ? await readCodexHooks().catch(() => undefined) : undefined;
+	const codexHooks = user.agent_hooks === true ? await readCodexHooks().catch(() => undefined) : undefined;
 	const originBranch = checkout && remotes?.split('\n').includes('origin') ? await resolveDefaultBranch(checkout, 'origin', 'remote').catch(() => undefined) : undefined;
 	const {rows, globalError} = explainSettings(project, user, {...vars ? {vars} : {}, user: userSlug(), ...hookFile ? {hookFile} : {}});
 	const state: SettingsInfo['repository']['state'] = !context ? 'none' : error ? 'invalid' : !project?.path ? 'bare' : !project.exists ? 'absent' : isProjectTrusted(project, user) ? 'trusted' : 'untrusted';
@@ -102,7 +102,7 @@ export async function readSettingsInfo(cwd: string): Promise<SettingsInfo> {
 		needsReview: Boolean(project && projectNeedsReview(project, user)), ...globalError ? {globalError} : {}, rows, targets,
 		...hookFile ? {hookFile} : {}, ...vars ? {vars} : {}, defaultLocation: path.join(getConfigDir(), 'worktrees', '<name>'), insideIgnored,
 		...defaultBranch ? {defaultBranch} : {}, ...originBranch ? {originBranch} : {}, user: userSlug(),
-		agentHooks: user.agent_hooks === true, notifications: user.notifications === true, ...codexHooks ? {codexHooks} : {},
+		...user.agent_hooks !== undefined ? {agentHooks: user.agent_hooks} : {}, notifications: user.notifications === true, ...codexHooks ? {codexHooks} : {},
 	};
 }
 

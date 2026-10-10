@@ -99,8 +99,8 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		key('Enter  x', 'Edit / clear the cell (Actions: a adds, x removes; Linked items: Space, Enter saves)'),
 		key('E  T', 'The column\'s raw JSON (Ctrl+S saves, Ctrl+F formats) / review and trust the repo file'),
 		note('A repo\'s commands only run once you trust it; you\'re asked right before. Your edits here keep it trusted.'),
-		heading('Agent signals (Settings → Agents; off by default)'),
-		note('Sessions report working, needs input, done, failed or rate-limited (! jumps to them), and can notify you. Claude needs nothing; Codex needs `deckhand hooks codex` in ~/.codex/hooks.json; Pi has none. "Done" means the agent stopped, not that it succeeded.'),
+		heading('Agent signals (Settings → Agents; on for Claude unless switched off)'),
+		note('Sessions report working, needs input, done, failed or rate-limited (! jumps to them) and what they wait on (a question, a plan, a command, their last line), and can notify you. Claude needs nothing; Codex: switch on, then `deckhand hooks codex` in ~/.codex/hooks.json; Pi has none. "Done" means it stopped, not that it succeeded.'),
 	]},
 	{title: 'Tasks', lines: [
 		note('One list per repository. On a worktree: ◆ the task it was started for, ☐ a follow-up assigned to it. A note checkbox becomes a task only when you send it.'),

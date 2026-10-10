@@ -28,7 +28,10 @@ export const SETTINGS: readonly SettingDef[] = [
 export const APP_FLAG = {agentHooks: 'agent_hooks', notifications: 'notifications'} as const;
 export type AppFlagId = keyof typeof APP_FLAG;
 export const isAppFlag = (id: SettingId): id is AppFlagId => Object.hasOwn(APP_FLAG, id);
-const appFlag = (info: Pick<SettingsInfo, 'agentHooks' | 'notifications'>, id: AppFlagId) => info[id] === true;
+// Agent signals are on unless switched off (unset: Claude only, see hooksEnabled); Notifications are off unless switched on.
+const appFlag = (info: Pick<SettingsInfo, 'agentHooks' | 'notifications'>, id: AppFlagId) => id === 'agentHooks' ? info.agentHooks !== false : info[id] === true;
+/** The value config.json stores for the flag, undefined when it stores none (Notifications off counts as none). */
+const storedFlag = (info: Pick<SettingsInfo, 'agentHooks' | 'notifications'>, id: AppFlagId) => id === 'agentHooks' ? info.agentHooks : info[id] === true ? true : undefined;
 const LOCATION_PRESETS = {next: '{repoParent}/worktrees/{name}', inside: '{repoRoot}/.worktrees/{name}'} as const;
 const WORKSPACE_LABELS: Record<string, string> = {none: 'no worktree', new: 'new worktree', existing: 'existing worktree'};
 
@@ -174,9 +177,9 @@ export function settingsGrid(info: GridInfo): GridRow[] {
 	const hookRow = info.rows.find(row => row.key === 'worktree.hook');
 	return SETTINGS.map(def => {
 		if (isAppFlag(def.id)) {
-			const on = appFlag(info, def.id);
-			const codex = def.id === 'agentHooks' && on ? info.codexHooks : undefined;
-			const global: GridCell = {text: on ? 'on' : 'off', set: on, effective: true, ...on ? {} : {builtIn: true}, ...codex ? {warning: 'Codex'} : {}};
+			const on = appFlag(info, def.id), set = storedFlag(info, def.id) !== undefined;
+			const codex = def.id === 'agentHooks' && info.agentHooks === true ? info.codexHooks : undefined;
+			const global: GridCell = {text: on ? 'on' : 'off', set, effective: true, ...set ? {} : {builtIn: true}, ...codex ? {warning: 'Codex'} : {}};
 			return {def, cells: {global, repository: {text: 'global only', set: false, effective: false, globalOnly: true}}, ...codex ? {note: codexHookNote(codex, home), warn: true} : {}};
 		}
 		if (def.control === 'actions' || def.control === 'links') {
@@ -227,9 +230,10 @@ const BUILT_IN: Record<SettingId, string> = {
 };
 /** What a global-only setting does when on (Notifications also says what Agent signals adds). */
 function appFlagDetail(info: Pick<SettingsInfo, 'agentHooks' | 'notifications'>, id: AppFlagId): string {
+	if (id === 'agentHooks' && info.agentHooks === undefined) return 'Not set: on for Claude (its state and what it asks) · on adds Codex, with its hooks set up';
 	if (!appFlag(info, id)) return BUILT_IN[id];
-	if (id === 'agentHooks') return 'new sessions report working / needs input / done · Claude automatically, Codex via its own hooks';
-	return info.agentHooks ? 'a desktop notification when a session needs you or exits' : 'a desktop notification when a session exits (Agent signals adds needs input / done)';
+	if (id === 'agentHooks') return 'new sessions report state and what they ask · Claude automatically, Codex via its own hooks';
+	return appFlag(info, 'agentHooks') ? 'a desktop notification when a session needs you or exits' : 'a desktop notification when a session exits (Agent signals adds needs input / done)';
 }
 export const NEEDS_TRUST_DETAIL = "Applies once trusted — you'll be asked the first time it runs (or press T)";
 /** The details line of the selected cell: its layer (or "Built-in default") and how it relates to the other layer. */
@@ -322,7 +326,7 @@ export function choiceOptions(info: SettingsInfo, id: SettingId, target: ConfigT
  * the layer's own value, else the value in effect. The location's first option (inherit) is current when unset.
  */
 export function currentChoice(info: SettingsInfo, id: SettingId, target: ConfigTargetKind, options: ChoiceOption[]): {index: number; current: number} {
-	if (isAppFlag(id)) { const index = options.findIndex(option => option.value === appFlag(info, id)); return {index, current: appFlag(info, id) ? index : -1}; }
+	if (isAppFlag(id)) { const index = options.findIndex(option => option.value === appFlag(info, id)); return {index, current: storedFlag(info, id) === undefined ? -1 : index}; }
 	const own = ownValue(infoLayer(info, target), id);
 	if (id === 'worktree.location') {
 		if (own === undefined) return {index: 0, current: 0};
@@ -337,7 +341,11 @@ export function currentChoice(info: SettingsInfo, id: SettingId, target: ConfigT
 }
 /** Choosing an option: the change to save, or undefined when the target already has exactly that value. */
 export function choiceChange(info: SettingsInfo, id: SettingId, target: ConfigTargetKind, option: ChoiceOption): SettingChange | undefined {
-	if (isAppFlag(id)) return appFlag(info, id) === option.value ? undefined : {path: [APP_FLAG[id]], value: option.value};
+	if (isAppFlag(id)) {
+		// Agent signals not set stores either choice (on adds Codex); otherwise picking the current value changes nothing.
+		const unchanged = id === 'agentHooks' ? info.agentHooks === option.value : appFlag(info, id) === option.value;
+		return unchanged ? undefined : {path: [APP_FLAG[id]], value: option.value};
+	}
 	const own = ownValue(infoLayer(info, target), id);
 	return own === option.value ? undefined : {path: settingPath(id), value: option.value};
 }

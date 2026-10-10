@@ -39,6 +39,40 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		return (await waitFor(() => trace(id), item => Boolean(item) && item.launchId !== before)).args as string[];
 	};
 
+	await t.test('agent signals say why a session waits: broadcast, never persisted, not replaced by older or generic signals; a settled screen ends a stale working', async () => {
+		const session = await create('reasons');
+		await waitFor(() => state(session.id), item => item.status === 'running' && item.attention?.event === 'SessionStart');
+		const {launchId, token} = await trace(session.id);
+		const hook = (payload: object, sentAt: number) => call({type: 'agent-hook', sessionId: session.id, launchId, token, payload, sentAt} as any);
+		const at = Date.now() + 60_000; // later than the fake agent's own SessionStart hook
+		// The fake agent printed `ready` and goes idle 5 s later: a working signal left over then becomes unknown.
+		await hook({hook_event_name: 'UserPromptSubmit'}, at);
+		assert.equal((await state(session.id)).attention?.state, 'working');
+		await waitFor(() => state(session.id), item => item.attention?.event === 'ScreenIdle' && item.attention.state === 'unknown');
+		await hook({hook_event_name: 'PreToolUse', tool_name: 'AskUserQuestion', tool_input: {questions: [{question: 'Which DB?', options: [{label: 'Postgres'}, {label: 'SQLite'}]}]}}, at + 1);
+		const asking = await state(session.id);
+		assert.equal(asking.attention?.state, 'needs-input');
+		assert.deepEqual(asking.attention?.reason, {kind: 'question', text: 'asks: Which DB?', options: ['Postgres', 'SQLite']});
+		// state.json keeps the state, never the reason.
+		const stored = (await loadState()).sessions.find(item => item.id === session.id)!;
+		assert.equal(stored.attention?.state, 'needs-input'); assert.equal(stored.attention?.reason, undefined);
+		// An async hook that started earlier arrives late: dropped.
+		await hook({hook_event_name: 'PostToolUse', tool_name: 'Bash'}, at);
+		assert.equal((await state(session.id)).attention?.state, 'needs-input');
+		// The agent's generic notification does not replace the question.
+		await hook({hook_event_name: 'Notification', notification_type: 'permission_prompt', message: 'Claude needs your attention'}, at + 2);
+		assert.equal((await state(session.id)).attention?.reason?.text, 'asks: Which DB?');
+		// A native subagent's tool use shows the prompt was answered; it never overrides the root's other states.
+		await hook({hook_event_name: 'PostToolUse', agent_id: 'sub'}, at + 3);
+		const answered = await state(session.id);
+		assert.equal(answered.attention?.state, 'working'); assert.equal(answered.attention?.reason, undefined);
+		await hook({hook_event_name: 'Stop', last_assistant_message: 'Done.\n\nShall I push?'}, at + 4);
+		assert.deepEqual((await state(session.id)).attention?.reason, {kind: 'message', text: 'said: Shall I push?'});
+		await hook({hook_event_name: 'PostToolUse', agent_id: 'sub'}, at + 5);
+		assert.equal((await state(session.id)).attention?.state, 'response-ended');
+		await killAndWait(session.id);
+	});
+
 	await t.test('hook bridge records the Codex identity, callbacks are authenticated, and a crashed daemon resumes the exact conversation', async () => {
 		const session = await create('context', 'codex');
 		await waitFor(() => state(session.id), item => item.status === 'running' && item.agentSessionRef?.value === 'fixture-native-codex');

@@ -61,10 +61,10 @@ test('C → Settings in the sandbox: a grid with a Global and a This repo column
 	press('\x1b'); await screen('Settings · sandbox');
 
 	// Agents: global-only config.json flags. The repo cell says so and the cursor selects Global on these rows (from
-	// the This repo column too); Agent signals saves agent_hooks and hints that Codex (its home exists here) has no
-	// Deckhand hooks yet. Leaving the row returns to This repo.
-	press('\x1b[F'); await screen('❯ Notifications'); press('k'); await screen('❯ Agent signals'); await screen('Off: attention (! and the session markers)');
-	press('\r'); await screen('Agent signals · Global'); press('k'); await screen('❯ ○ on');
+	// the This repo column too); Agent signals, not set (on for Claude), saves agent_hooks and hints that Codex (its
+	// home exists here) has no Deckhand hooks yet. Leaving the row returns to This repo.
+	press('\x1b[F'); await screen('❯ Notifications'); press('k'); await screen('❯ Agent signals'); await screen('Not set: on for Claude');
+	press('\r'); await screen('Agent signals · Global'); await screen('❯ ○ on');
 	press('\r'); await screen('Agent signals on (global)'); await screen('on ⚠ Codex'); await screen('Codex hooks not set up: node scripts/deckhand-dev.mjs hooks codex >');
 	assert.equal((await readJson(path.join(home, 'config.json'))).agent_hooks, true);
 	press('k'); await screen('❯ Creation hook'); await screen('This repo · ');

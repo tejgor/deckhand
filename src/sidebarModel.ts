@@ -278,7 +278,8 @@ function titleLines(title: string, width: number, max: number): string[] {
 
 /**
  * The selected session's details in the `freeRows` rows the list leaves: a separator, the full title (two lines
- * with five free rows, else one), `agent · state · age`, where it runs, and open checklist items of its notes
+ * with five free rows, else one), `agent · state · age`, why it waits (what it asks or said, from agent signals;
+ * two lines when the location still fits after them), where it runs, and open checklist items of its notes
  * (`☐ 3 open (2 worktree)`) when there are any. Fewer rows drop the checklist line first, then the location, and
  * fewer than three hide it.
  */
@@ -295,6 +296,8 @@ export function sessionDetails(session: SessionRecord | undefined, allSessions: 
 		...titles.map(text => [{text, color: THEME.accentSoft}]),
 		stateLine(session, state, age, width, installedVersions[session.program]),
 	];
+	const reason = attentionReasonLines(session, width, freeRows - lines.length);
+	lines.push(...reason);
 	if (freeRows - lines.length >= 1) lines.push([{text: locationText(session, allSessions, width, now), color: THEME.muted}]);
 	// The task it works on (b), and how many more are open on its work: kept longer than the checklist line below.
 	if (task && freeRows - lines.length >= 1) {
@@ -305,6 +308,17 @@ export function sessionDetails(session: SessionRecord | undefined, allSessions: 
 	const checklist = openChecklistText(session, width);
 	if (checklist && freeRows - lines.length >= 1) lines.push([{text: checklist, color: THEME.muted}]);
 	return lines;
+}
+
+/**
+ * What a running session waits on, from its agent signal's reason (`asks: …`, `plan ready: …`, `wants to run: …`,
+ * `said: …`, a failure): up to two lines when `rows` leaves one for the location after them, else one.
+ */
+export function attentionReasonLines(session: SessionRecord, width: number, rows: number): DetailLine[] {
+	const reason = session.status === 'running' ? session.attention?.reason : undefined;
+	if (!reason || rows < 1 || width < 1) return [];
+	const color = reason.kind === 'message' ? THEME.muted : reason.kind === 'failure' ? statusColor(session) : THEME.warn;
+	return titleLines(reason.text, width, rows >= 3 ? 2 : 1).map(text => [{text, color}]);
 }
 
 /**
