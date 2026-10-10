@@ -37,13 +37,13 @@ Not yet checked against real agents: real question/permission payload wording, a
 ### 7. Answering without attaching
 - The reason already keeps the first question's `options`.
 - In the Preview pane, a waiting question lists its options; picking one sends keystrokes to the PTY (the option's number or arrows, then Enter). Depends on Claude's dialog layout: check the option labels are on screen first, refuse otherwise.
-- Structured alternative: a briefly waiting `PreToolUse` hook returning `permissionDecision: "allow"` with `updatedInput` (the original `questions` plus `answers`). Robust, but the dialog is hidden while it waits — better suited to orchestrated sessions (a Deckhand MCP) than interactive use.
+- Structured alternative: a briefly waiting `PreToolUse` hook returning `permissionDecision: "allow"` with `updatedInput` (the original `questions` plus `answers`). Robust, but the dialog is hidden while it waits — better suited to orchestrated sessions (a Deckhand MCP, see `deckhand-mcp-cli.md`) than interactive use. For Codex, the app-server answers requests natively, with the TUI's prompt still visible (`codex-app-server.md`).
 - Permission prompts could get y/n the same way (keystrokes).
 
 ## Also outstanding
 
 - **Hook health:** show when a session last received a signal, so a missing Codex setup is distinguishable from guessed activity.
-- **Codex:** log a real `request_user_input` payload to confirm its shape (the bridge forwards it, untested).
+- **Codex:** log a real `request_user_input` payload to confirm its shape (the bridge forwards it, untested). Possibly moot: the app-server would replace Codex hooks altogether (`codex-app-server.md`).
 - **Pi:** a Deckhand extension loaded with `pi --extension`, using `agent_settled` (idle) and `tool_call` (activity); Pi has no question tool.
 - **Claude `StopFailure`:** now documented, but still left out of Claude's hook settings (`integrationArgs`); registering it gives real `rate limited` / `overloaded` reasons.
 - **Late `working` signal:** one that arrives after the screen already settled isn't caught by the idle fallback (it triggers only on the active→idle transition). Rare, since agents animate while working; a timer would close it.
@@ -54,3 +54,4 @@ Not yet checked against real agents: real question/permission payload wording, a
 - Claude Code hooks: https://code.claude.com/docs/en/hooks
 - Codex hooks: https://learn.chatgpt.com/docs/hooks
 - Pi extensions: https://pi.dev/docs/latest/extensions
+- Related future work: `codex-app-server.md` (Codex without hooks), `deckhand-mcp-cli.md` (agents driving Deckhand)

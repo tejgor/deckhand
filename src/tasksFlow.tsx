@@ -7,7 +7,7 @@ import {MAX_TASK_BODY, MAX_TASK_TITLE, isAssigned, linkKey, linkOfKey, type Task
 import {boardRows, leadSession, noteGroupLabel, notesViewRows, pickerCounts, pickerRows, pickerViewOf, rowKey, selectableRow, taskOrigin, taskSessions, taskState, workLabel, workOptions, workState, type BoardRow, type NoteItem, type PickerView, type WorkOption} from './tasksBoard.js';
 import {editText, wrapRows, wrappedEditorLines, type EditOptions, type EditorState} from './textEditor.js';
 import {openInEditor} from './desktop.js';
-import {fitHint} from './menu.js';
+import {fitHint, scrolledListTop} from './menu.js';
 import {THEME, errorMessage, stripTerminalControls, truncate} from './ui.js';
 import {attentionReasonLines} from './sidebarModel.js';
 
@@ -290,11 +290,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		const lower = picker ? pickerLines(picker, inner) : editor ? editorLines(editor, inner) : detailLines(currentRow, sessions, spinnerFrame, inner);
 		// Border (2), title and status lines (2), the `+N more` line (1), then the rule and the lower part.
 		const listRows = Math.max(1, height - 2 - 3 - (lower.length ? lower.length + 1 : 0));
-		if (current >= 0) {
-			if (current < top.current) top.current = current;
-			if (current >= top.current + listRows) top.current = current - listRows + 1;
-		}
-		top.current = Math.max(0, Math.min(top.current, Math.max(0, rows.length - listRows)));
+		top.current = scrolledListTop(top.current, current, listRows, rows.length, index => selectableRow(rows[index]!));
 		const shown = rows.slice(top.current, top.current + listRows);
 		return (
 			<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
