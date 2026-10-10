@@ -56,7 +56,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		key('↑', 'Runs an older agent version than installed: restart it (x, then s) to update'),
 		key('╎', 'Shares the selected session\'s worktree: Terminal, Git, Dev'),
 		key('! N', 'Header: N sessions need attention (! jumps to them)'),
-		note('Below the list: the selected session\'s full title, agent · state · age (both versions when ↑), branch or main checkout (shared with N, ▶ dev, merged, done 2d ago, archived), ☐ N open checklist items.'),
+		note('Below the list: the selected session\'s full title, agent · state · age (both versions when ↑), branch or main checkout, then ╎N (N others share the worktree) ▶ ✓ ☑2d (done 2 days ago) ▣, ☐ N open checklist items.'),
 	]},
 	{title: 'Panes', lines: [
 		key('p t g d a', 'Jump to Preview, Terminal, Git, Dev, Notes (d twice quickly also starts or stops Dev)'),

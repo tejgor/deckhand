@@ -184,7 +184,7 @@ On conflicts, one small view lists the conflicted files and offers two keys: **E
 
 **✓** (merged) belongs to the worktree: every session in a linked worktree shows it, and **M** from any of them sets or clears it. It is also set by itself when the branch was merged outside Deckhand: its tip is in the default branch (local, or `origin/<default>` as last fetched; Deckhand never fetches) and it has at least one commit of its own beyond where it started (a fresh branch, or one only fast-forwarded to a newer main, never counts), or `i` → **P** finds its PR merged (GitHub squash merges included). This is checked at daemon start, every five minutes and whenever `i` runs; it never unmarks, and after **M** clears a found marker it stays cleared until the branch gets new commits. Sessions in the main checkout have nothing to merge: **M** says so and points at **Space**.
 
-**Space** marks any session done (or not done): `☑` in its row, a muted title, and `done 2d ago` in the details. It is independent of merged (a worktree session can be both) and of archiving; handoffs mention it. Main-checkout sessions that an older version marked with **M** are shown as done.
+**Space** marks any session done (or not done): `☑` in its row, a muted title, and `☑2d` (done 2 days ago) after the branch in the details. It is independent of merged (a worktree session can be both) and of archiving; handoffs mention it. Main-checkout sessions that an older version marked with **M** are shown as done.
 
 ## Organizing and inspecting sessions
 
