@@ -283,10 +283,8 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		}
 		if (key.escape) { onExit(); return; }
 		if (key.tab) { setView('notes'); setSelected({index: 0}); return; }
-		// A new task joins the group the selection is in (a worktree's, or the backlog); in the v view, that work's.
-		// a in a work's group: a step in its note (it has its task), or its task when it has none; elsewhere the backlog.
 		if (input === 'a') {
-			const section = scoped ? scope : currentTask?.group === 'progress' ? currentTask.section : currentRow?.kind === 'step' ? currentRow.section : undefined;
+			const section = addSection();
 			setEditor({kind: section && hasMainTask(section, tasks) ? 'step' : 'add', section, field: 'title', title: {text: '', cursor: 0}, body: {text: '', cursor: 0}});
 			return;
 		}
@@ -423,7 +421,12 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		];
 	};
 
+	// A new task joins the group the selection is in (a worktree's, or the backlog); in the v view, that work's.
+	// a in a work's group: a step in its note (it has its task), or its task when it has none; elsewhere the backlog.
+	const addSection = () => scoped ? scope : currentTask?.group === 'progress' ? currentTask.section : currentRow?.kind === 'step' ? currentRow.section : undefined;
+
 	const hint = (width: number): string => {
+		const addTo = addSection(), addsStep = Boolean(addTo && hasMainTask(addTo, tasks));
 		if (editor) return fitHint(editor.kind === 'step' ? ['enter add to the note', 'esc cancel'] : editor.field === 'title'
 			? ['enter save', 'tab details', 'esc cancel']
 			: ['enter new line', 'ctrl+s save', 'tab title', 'esc cancel'], width, ' • ');
@@ -443,9 +446,10 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 				'tab tasks', 'esc tasks',
 			], width, ' • ');
 		}
-		if (currentRow?.kind === 'step') return fitHint(['j/k move', {text: currentRow.step.done ? 'space reopen' : 'space tick'}, {text: 'enter open the note', short: 'enter note'}, 'a add', 'esc back'], width, ' • ');
+		if (currentRow?.kind === 'step') return fitHint(['j/k move', {text: currentRow.step.done ? 'space reopen' : 'space tick'}, {text: 'enter open the note', short: 'enter note'}, {text: 'a add step', short: 'a step'}, 'esc back'], width, ' • ');
+		if (currentRow?.kind === 'empty') return fitHint(['j/k move', {text: 'a add task', short: 'a add'}, 'esc back'], width, ' • ');
 		return fitHint([
-			'j/k move', 'a add',
+			'j/k move', addsStep ? {text: 'a add step', short: 'a step'} : {text: 'a add task', short: 'a add'},
 			{text: 'n start session', short: 'n start'},
 			{text: 'w move to a worktree', short: 'w move'},
 			{text: 'enter edit', drop: 1},
@@ -487,7 +491,7 @@ function neighborInGroup(rows: BoardRow[], index: number, direction: -1 | 1, sec
 
 function BoardLine({row, selected, width, sessions, spinnerFrame}: {row: BoardRow; selected: boolean; width: number; sessions: SessionRecord[]; spinnerFrame: string}) {
 	if (row.kind === 'heading') return <Text wrap="truncate-end"><Text color={THEME.muted} bold>{row.text}</Text>{row.count ? <Text color={THEME.muted}>{` · ${row.count}`}</Text> : null}</Text>;
-	if (row.kind === 'empty') return <Text color={THEME.muted} wrap="truncate-end">{`  ${row.text}`}</Text>;
+	if (row.kind === 'empty') return <Text inverse={selected} color={selected ? THEME.active : THEME.muted} wrap="truncate-end">{`${selected ? '›' : ' '} ${row.text}`.padEnd(width)}</Text>;
 	if (row.kind === 'work') {
 		// The work's name and open count, its most urgent session's state on the right.
 		const work = row.section === 'main' ? undefined : workState(row.section, sessions, spinnerFrame);

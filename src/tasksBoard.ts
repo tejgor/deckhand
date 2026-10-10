@@ -38,7 +38,8 @@ export type BoardRow =
 	/** A checklist item of the work's note, shown under the task the work was started for (one of its steps). */
 	| {kind: 'step'; section: string; taskId: string; step: WorkStep}
 	| {kind: 'older'; count: number; shown: boolean}
-	| {kind: 'empty'; text: string}
+	/** `addsTo`: an empty backlog, selectable so `a` can add there even when every task is on a worktree. */
+	| {kind: 'empty'; text: string; addsTo?: 'backlog'}
 	/** The Notes view (tab): a note's heading (its open items counted), then each line of it. */
 	| {kind: 'notehead'; block: NoteBlock; open: number}
 	| {kind: 'noteline'; block: NoteBlock; line: number; text: string; style: NoteLineStyle; item?: NoteItem};
@@ -46,8 +47,9 @@ export type BoardRow =
 /** How a note's line shows: an open item (actionable), a ticked one, a ↗ link to a task, a heading, or text. */
 export type NoteLineStyle = 'open' | 'done' | 'link' | 'heading' | 'text';
 
-export const selectableRow = (row: BoardRow) => row.kind === 'task' || row.kind === 'step' || row.kind === 'older' || row.kind === 'notehead' || row.kind === 'noteline';
+export const selectableRow = (row: BoardRow) => row.kind === 'task' || row.kind === 'step' || row.kind === 'older' || row.kind === 'notehead' || row.kind === 'noteline' || (row.kind === 'empty' && Boolean(row.addsTo));
 export const rowKey = (row: BoardRow): string | undefined => row.kind === 'task' ? `task:${row.task.id}` : row.kind === 'step' ? `step:${row.section}:${row.step.line}` : row.kind === 'older' ? 'older'
+	: row.kind === 'empty' && row.addsTo ? `empty:${row.addsTo}`
 	: row.kind === 'notehead' ? `notehead:${row.block.key}` : row.kind === 'noteline' ? `noteline:${row.block.key}:${row.line}` : undefined;
 
 /** One checklist item of a work's note: the note's line, its text, ticked or not. */
@@ -93,7 +95,7 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), s
 	const section = (text: string, list: Task[], group: TaskGroup, empty?: string) => {
 		rows.push({kind: 'heading', text, count: list.length ? String(list.length) : undefined});
 		for (const task of list) rows.push({kind: 'task', task, group, section: group});
-		if (!list.length && empty) rows.push({kind: 'empty', text: empty});
+		if (!list.length && empty) rows.push({kind: 'empty', text: empty, ...group === 'backlog' ? {addsTo: 'backlog' as const} : {}});
 	};
 	const works = [...new Set(groups.progress.map(task => linkKey(task.meta)!))];
 	if (scope && !works.includes(scope)) works.push(scope);
@@ -110,7 +112,7 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), s
 		if (!list.length) rows.push({kind: 'empty', text: 'No open tasks here · a adds one'});
 	}
 	if (!works.length) section('IN PROGRESS', [], 'progress', 'n on a backlog task starts a session for it · w gives it to a worktree');
-	if (!scope) section('BACKLOG', groups.backlog, 'backlog', tasks.length ? 'Nothing waiting' : 'No tasks yet · a adds one');
+	if (!scope) section('BACKLOG', groups.backlog, 'backlog', tasks.length ? 'Nothing waiting · a adds a task here' : 'No tasks yet · a adds one');
 	if (groups.done.length || groups.olderDone.length) {
 		section('DONE · this week', groups.done, 'done');
 		if (groups.olderDone.length) {

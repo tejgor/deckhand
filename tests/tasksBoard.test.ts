@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {parseTasks} from '../src/tasks.js';
-import {boardRows, linkedTask, noteGroupLabel, noteItems, notesViewRows, otherOpenTasks, pickerCounts, pickerRows, pickerViewOf, taskOrigin, workKeyOf, workLabel, workOptions, type BoardRow} from '../src/tasksBoard.js';
+import {boardRows, linkedTask, selectableRow, noteGroupLabel, noteItems, notesViewRows, otherOpenTasks, pickerCounts, pickerRows, pickerViewOf, taskOrigin, workKeyOf, workLabel, workOptions, type BoardRow} from '../src/tasksBoard.js';
 import type {SessionRecord} from '../src/types.js';
 
 const NOW = new Date('2026-10-09T12:00:00Z');
@@ -26,6 +26,14 @@ test('board: a group per worktree with open tasks (first task\'s order), then th
 	]);
 	// Nothing on a worktree yet: a hint where the groups go.
 	assert.deepEqual(describe(boardRows(parseTasks('- [ ] Solo <!-- dh:t=x -->'), false, NOW)).slice(0, 2), ['# IN PROGRESS', '(n on a backlog task starts a session for it · w gives it to a worktree)']);
+});
+
+test('board: an empty backlog can be selected, so a adds there when every task is on a worktree', () => {
+	const rows = boardRows(parseTasks('- [ ] Add OAuth <!-- dh:t=a wt=w1 -->'), false, NOW);
+	assert.deepEqual(describe(rows), ['[wt:w1 1]', 'wt:w1: Add OAuth', '# BACKLOG', '(Nothing waiting · a adds a task here)']);
+	assert.deepEqual(rows.filter(selectableRow).map(row => row.kind), ['task', 'empty']);
+	// Other placeholders stay unselectable.
+	assert.equal(boardRows(parseTasks('- [ ] Solo <!-- dh:t=x -->'), false, NOW).filter(selectableRow).length, 1);
 });
 
 test('board v: only one work\'s group (even empty) and its done tasks', () => {
