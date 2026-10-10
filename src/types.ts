@@ -1,5 +1,5 @@
 import type {AttentionReason, AttentionState} from './agentSignals.js';
-import type {WorkspaceSummary, CleanupInspection, CreatePrResult} from './workspaceGit.js';
+import type {WorkspaceSummary, CleanupInspection, CleanupFile, CreatePrResult} from './workspaceGit.js';
 import type {LoadedProject, ProjectConfig} from './projectConfig.js';
 import type {ConfigTargetKind, ConfigTargets, ProjectConfigDocument, SavedConfigDocument} from './projectConfigDocument.js';
 import type {SettingsInfo, WorktreeCandidates} from './settingsInfo.js';
@@ -503,7 +503,7 @@ export interface ProjectInfo extends LoadedProject {trusted: boolean; needsRevie
 // reasons/safe describe data that DELETE (allowDataLoss) may override; structuralBlockers
 // (main/current/shared/missing worktree, protected branch) can never be overridden.
 export type SessionCleanupInspection = CleanupInspection & {structuralBlockers: string[]};
-export type {WorkspaceSummary, CleanupInspection, CreatePrResult, ProjectConfigDocument, SavedConfigDocument, ConfigTargets, ConfigTargetKind, SettingsInfo, WorktreeCandidates, ChangeDiff, ChangeGroup, ChangesRecord};
+export type {WorkspaceSummary, CleanupInspection, CleanupFile, CreatePrResult, ProjectConfigDocument, SavedConfigDocument, ConfigTargets, ConfigTargetKind, SettingsInfo, WorktreeCandidates, ChangeDiff, ChangeGroup, ChangesRecord};
 
 export type ServerResponse<T = unknown> = {
 	type: 'response';

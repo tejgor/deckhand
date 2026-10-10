@@ -1,4 +1,5 @@
-import type {ProjectInfo, SessionWorktreeRecord, WorkspaceSummary} from './types.js';
+import type {CleanupInspection, ProjectInfo, SessionWorktreeRecord, WorkspaceSummary} from './types.js';
+import {CLEANUP_FILE_LEGEND, CLEANUP_FILE_MARKS, lostFileCount} from './cleanupView.js';
 
 // Pure text builders for the scrollable details panes. Rendering (wrapping and
 // visible escapes for invisible characters) happens in detailsPane.tsx.
@@ -17,8 +18,13 @@ export function trustReviewText(project: ProjectInfo, purpose?: string): string 
 	return `${purpose ? `${purpose}\n\n` : ''}${status}\n\nTrusting lets this repository's commands (setup, Dev, actions, creation hook) execute as you. Changed bytes need another review, except edits you save in Deckhand while it is trusted.\n\n${config}${hook}\n\nTrust covers these bytes, not everything commands may execute.`;
 }
 
-export function cleanupOverrideText(reasons: string[] | undefined): string {
-	return `This can permanently erase local work and commits.\n\n${reasons?.length ? reasons.join('\n') : 'Safety could not be verified'}\n\nMain/current/shared worktree protections cannot be overridden.`;
+/** The typed-DELETE screen of x on a session: every reason, then every listed file (the pane scrolls). */
+export function cleanupOverrideText(inspection: Pick<CleanupInspection, 'reasons' | 'files' | 'dirtyFiles' | 'untrackedFiles' | 'ignoredFiles'> | undefined): string {
+	const reasons = inspection?.reasons.length ? inspection.reasons.join('\n') : 'Safety could not be verified';
+	const files = inspection?.files ?? [];
+	const more = inspection ? lostFileCount(inspection) - files.length : 0;
+	const list = files.length ? `\n\nFiles (${CLEANUP_FILE_LEGEND}):\n${files.map(file => `  ${CLEANUP_FILE_MARKS[file.state]} ${file.path}`).join('\n')}${more > 0 ? `\n  +${more} more` : ''}` : '';
+	return `This can permanently erase local work and commits.\n\n${reasons}${list}\n\nMain/current/shared worktree protections cannot be overridden.`;
 }
 
 /** One entry of the e list. Untrusted repository actions are listed too, marked, and reviewed when chosen. */

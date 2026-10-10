@@ -33,6 +33,7 @@ test('W in a real PTY: merged worktrees grouped, x on the group deletes them and
 	const scratch = path.join(home, 'scratch');
 	await git(sandbox, 'worktree', 'add', '-b', 'scratch', scratch);
 	await fs.writeFile(path.join(scratch, 'notes.txt'), 'only here\n');
+	await fs.writeFile(path.join(scratch, 'README.md'), 'changed here\n');
 
 	// The session list's footer lists it beside b tasks.
 	press('\x1b[A'); await screen('W worktrees');
@@ -50,9 +51,12 @@ test('W in a real PTY: merged worktrees grouped, x on the group deletes them and
 	// Not merged, with an untracked file: keeping the branch is offered first, and the file needs DELETE typed.
 	// The main checkout is last; scratch is in progress above it.
 	press('G'); await screen('› ◆ main'); press('k'); await screen('› ○ scratch');
-	press('x'); await screen('Delete scratch?'); await screen('1 untracked file(s) (typing DELETE overrides)');
+	// The confirmation names what would be lost: each reason on its own line, then the files themselves.
+	press('x'); await screen('Delete scratch?'); await screen('Deleting it would lose (typing DELETE overrides):');
+	await screen('· 1 modified/staged file(s)'); await screen('· 1 untracked file(s)');
+	await screen('Files (M changed · ? untracked · ! ignored):'); await screen('M README.md'); await screen('? notes.txt');
 	await screen('Delete the worktree, keep its branch');
-	press('\r'); await screen('Destructive cleanup override'); await screen('Type DELETE then enter:');
+	press('\r'); await screen('Delete scratch anyway?'); await screen('? notes.txt'); await screen('Type DELETE then enter:');
 	press('DELE'); await screen('Type DELETE then enter: DELE'); press('TE'); await screen('Type DELETE then enter: DELETE');
 	press('\r'); await screen('Deleted scratch');
 	await waitFor(() => fs.access(scratch).then(() => true, () => false), exists => !exists, UI_WAIT_MS);

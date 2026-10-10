@@ -21,8 +21,14 @@ export interface PullRequestInfo {
 }
 /** Looks up the branch's PR in `cwd` (`gh pr view`); injectable so tests never reach GitHub. */
 export type PullRequestLookup = (cwd: string) => Promise<PullRequestInfo>;
+/** A file deleting the worktree would lose: changed (modified, staged, conflicted), untracked, or a valuable ignored one. */
+export interface CleanupFile {path: string; state: 'changed' | 'untracked' | 'ignored'}
+/** At most this many files are listed (`files`); the counts are complete. */
+export const CLEANUP_FILES_LISTED = 100;
 export interface CleanupInspection {
 	safe: boolean; reasons: string[]; dirtyFiles: number; untrackedFiles: number; ignoredFiles: number;
+	/** Which files would be lost (repository-relative, changed first, at most CLEANUP_FILES_LISTED), so the confirmation can name them. */
+	files?: CleanupFile[];
 	/** Informational: commits ahead of the cached upstream / comparison base. Only `reasons` decide safety. */
 	unpublishedCommits?: number; unmergedCommits?: number;
 }
@@ -172,8 +178,14 @@ export async function inspectWorkspaceCleanup(cwd: string, baseRef?: string, opt
 		if (lost === undefined) reasons.push('Commit preservation cannot be verified');
 		else if (Number(lost) > 0) reasons.push(`${Number(lost)} commit(s) exist ${where} and would be lost`);
 	}
+	const files: CleanupFile[] = [
+		...status.entries.filter(entry => entry.kind !== '?').map(entry => ({path: entry.path, state: 'changed' as const})),
+		...untracked.map(file => ({path: file, state: 'untracked' as const})),
+		...ignored.map(file => ({path: file, state: 'ignored' as const})),
+	].slice(0, CLEANUP_FILES_LISTED);
 	return {
 		safe: reasons.length === 0, reasons, dirtyFiles: status.dirtyFiles, untrackedFiles: untracked.length, ignoredFiles: ignored.length,
+		...files.length ? {files} : {},
 		unpublishedCommits: status.upstream && status.ahead !== undefined ? status.ahead : undefined,
 		unmergedCommits: merged === undefined ? undefined : Number(merged),
 	};
