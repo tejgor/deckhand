@@ -40,8 +40,11 @@ export type TaskOp =
 	| {type: 'move'; id: string; target: string; after?: boolean}
 	/** A session was started for the task (n): it is that work's own task. */
 	| {type: 'link'; id: string; link: TaskLink}
-	/** w: the task is assigned to that work (a follow-up), or back to the backlog without `link`. */
-	| {type: 'assign'; id: string; link?: TaskLink}
+	/**
+	 * w: the task is assigned to that work (a follow-up; with `main`, the task the work is for, as if started there), or
+	 * back to the backlog without `link`. Already linked there, only an explicit `main` (true or false) changes its role.
+	 */
+	| {type: 'assign'; id: string; link?: TaskLink; main?: boolean}
 	/** A merge (`merge`) or D (`done`) finished the linked work: its open started tasks are ticked, and the assigned ones in `also`. */
 	| {type: 'tick-linked'; link: TaskLink; auto: 'merge' | 'done'; also?: string[]}
 	/** A merge left these assigned tasks open: they go back to the backlog, remembering the branch and the worktree. */
@@ -229,10 +232,10 @@ export function applyTaskOp(text: string, op: TaskOp, now = new Date()): {text: 
 		case 'assign': {
 			target = find(op.id);
 			if (target.done) throw new Error('That task is done; space reopens it');
-			// Already there (started or assigned): nothing to change.
-			if (op.link ? linkMatches(target.meta, op.link) : !(target.meta.wt || target.meta.s)) break;
+			// Already there in that role (the work's own task, or a follow-up): nothing to change.
+			if (op.link ? linkMatches(target.meta, op.link) && (op.main === undefined || op.main === !target.meta.assigned) : !(target.meta.wt || target.meta.s)) break;
 			clearLink(target.meta);
-			if (op.link) Object.assign(target.meta, op.link, {assigned: date});
+			if (op.link) Object.assign(target.meta, op.link, op.main ? {} : {assigned: date});
 			changed = 1;
 			break;
 		}
@@ -291,7 +294,7 @@ export function clientTaskOp(raw: unknown): TaskOp {
 	const text = (key: string) => { if (typeof op[key] !== 'string') throw new Error(`Invalid task change: ${key}`); return op[key] as string; };
 	switch (op.type) {
 		case 'add': return {type: 'add', title: text('title'), ...typeof op.body === 'string' ? {body: op.body} : {}, ...op.link !== undefined ? {link: clientLink(op.link)} : {}};
-		case 'assign': return {type: 'assign', id: text('id'), ...op.link !== undefined ? {link: clientLink(op.link)} : {}};
+		case 'assign': return {type: 'assign', id: text('id'), ...op.link !== undefined ? {link: clientLink(op.link)} : {}, ...typeof op.main === 'boolean' && op.link !== undefined ? {main: op.main} : {}};
 		case 'edit': return {type: 'edit', id: text('id'), title: text('title'), body: text('body')};
 		case 'toggle': case 'remove': return {type: op.type, id: text('id')};
 		case 'move': return {type: 'move', id: text('id'), target: text('target'), ...op.after === true ? {after: true} : {}};

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {applyTaskOp, parseTasks, promoteOpenNoteLines} from '../src/tasks.js';
+import {applyTaskOp, clientTaskOp, parseTasks, promoteOpenNoteLines} from '../src/tasks.js';
 import {noteReadRows, toggleChecklistLine} from '../src/notes.js';
-import {boardRows, noteLine, noteSteps, taskLinkLookup, workNote, worktreeOpenItems, type BoardRow} from '../src/tasksBoard.js';
+import {boardRows, hasMainTask, noteLine, noteSteps, taskLinkLookup, workNote, worktreeOpenItems, type BoardRow} from '../src/tasksBoard.js';
 import {mergeConfirmLayout} from '../src/mergeModel.js';
 import type {MergePreview, SessionRecord} from '../src/types.js';
 
@@ -77,4 +77,24 @@ test('the merge confirmation offers to send the worktree note\'s open items to t
 	// No follow-ups heading for the items row alone; nothing before the preview arrives.
 	assert.ok(!keep.details.some(line => line.text.startsWith('Follow-ups')));
 	assert.deepEqual(mergeConfirmLayout({...input, preview: undefined, openItems: {titles: ['x'], send: true}}).followUps, []);
+});
+
+test('w onto work without a ◆ task makes the task that work\'s own; ctrl+f (no main) makes it a follow-up; the role can change in place', () => {
+	const text = '- [ ] Fix flaky test <!-- dh:t=f1 -->\n- [ ] Write docs <!-- dh:t=d1 -->';
+	const main = applyTaskOp(text, {type: 'assign', id: 'f1', link: {s: 'flaky'}, main: true}, NOW);
+	assert.match(main.text, /^- \[ \] Fix flaky test <!-- dh:t=f1 s=flaky -->/);
+	assert.equal(hasMainTask('s:flaky', parseTasks(main.text)), true);
+	assert.equal(hasMainTask('s:flaky', parseTasks(main.text), 'f1'), false);
+	// Once it has one, the next task assigned there is a follow-up (the UI sends no `main`).
+	const follow = applyTaskOp(main.text, {type: 'assign', id: 'd1', link: {s: 'flaky'}}, NOW);
+	assert.match(follow.text, /Write docs <!-- dh:t=d1 s=flaky assigned=2026-10-09 -->/);
+	// Same work, other role (only with an explicit `main`): a follow-up becomes the work's own task, and back.
+	assert.match(applyTaskOp(follow.text, {type: 'assign', id: 'd1', link: {s: 'flaky'}, main: true}, NOW).text, /Write docs <!-- dh:t=d1 s=flaky -->/);
+	assert.match(applyTaskOp(main.text, {type: 'assign', id: 'f1', link: {s: 'flaky'}, main: false}, NOW).text, /Fix flaky test <!-- dh:t=f1 s=flaky assigned=2026-10-09 -->/);
+	assert.equal(applyTaskOp(main.text, {type: 'assign', id: 'f1', link: {s: 'flaky'}, main: true}, NOW).changed, 0);
+	assert.equal(applyTaskOp(main.text, {type: 'assign', id: 'f1', link: {s: 'flaky'}}, NOW).changed, 0);
+	// From a client: `main` only with a link.
+	assert.deepEqual(clientTaskOp({type: 'assign', id: 'x', link: {wt: 'w1'}, main: true}), {type: 'assign', id: 'x', link: {wt: 'w1'}, main: true});
+	assert.deepEqual(clientTaskOp({type: 'assign', id: 'x', link: {wt: 'w1'}, main: false}), {type: 'assign', id: 'x', link: {wt: 'w1'}, main: false});
+	assert.deepEqual(clientTaskOp({type: 'assign', id: 'x', main: true}), {type: 'assign', id: 'x'});
 });

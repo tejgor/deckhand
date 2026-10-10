@@ -4,7 +4,7 @@ import {Box, Text, type Key} from 'ink';
 import type {LiveClient} from './client.js';
 import type {SessionRecord, TasksDoc} from './types.js';
 import {MAX_TASK_BODY, MAX_TASK_TITLE, isAssigned, linkKey, linkOfKey, type Task} from './tasks.js';
-import {blockItems, boardRows, leadSession, noteGroupLabel, noteSteps, notesViewRows, pickerCounts, pickerRows, pickerViewOf, rowKey, selectableRow, taskLinkLookup, taskOrigin, taskSessions, taskState, workLabel, workNote, workOptions, workState, type BoardRow, type NoteItem, type PickerView, type WorkOption} from './tasksBoard.js';
+import {blockItems, boardRows, hasMainTask, leadSession, noteGroupLabel, noteSteps, notesViewRows, pickerCounts, pickerRows, pickerViewOf, rowKey, selectableRow, taskLinkLookup, taskOrigin, taskSessions, taskState, workLabel, workNote, workOptions, workState, type BoardRow, type NoteItem, type PickerView, type WorkOption} from './tasksBoard.js';
 import {toggleChecklistLine} from './notes.js';
 import {editText, wrapRows, wrappedEditorLines, type EditOptions, type EditorState} from './textEditor.js';
 import {openInEditor} from './desktop.js';
@@ -25,7 +25,12 @@ const PICKER_ROWS = 8;
 const capitalize = (text: string) => (text ? `${text[0]!.toUpperCase()}${text.slice(1)}` : text);
 
 /** The w menu: the task, where it is now, the note it came from (if any), the view, the search and the selected row. */
-interface TaskPicker {taskId: string; title: string; current?: string; origin?: string; view: PickerView; query: string; index: number}
+/**
+ * The w menu: the task, where it is now (and whether as that work's own task, `currentMain`), the note it came from (if
+ * any), the view, the search, the selected row, and `followUp` (ctrl+f): a work without a ◆ task gets it as a follow-up
+ * instead of as its own task.
+ */
+interface TaskPicker {taskId: string; title: string; current?: string; currentMain?: boolean; origin?: string; view: PickerView; query: string; index: number; followUp?: boolean}
 
 interface TaskEditor {
 	kind: 'add' | 'edit';
@@ -141,6 +146,8 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		setEditor({...state, body: {text: next.text, cursor: next.cursor}});
 	};
 
+	// Onto work without a task it was started for, a task becomes that (◆), unless ctrl+f made it a follow-up.
+	const asMain = (state: TaskPicker, section: string | undefined) => Boolean(section) && !state.followUp && !hasMainTask(section!, tasks, state.taskId);
 	const pickerRowsOf = (state: TaskPicker) => pickerRows(workOptions(sessions, state.current), state.view, state.query, state.origin);
 	// Where the selection starts in a view: where the task is now (without a search), else the first listed match.
 	const pickerStart = (state: TaskPicker) => {
@@ -155,6 +162,8 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		const rows = pickerRowsOf(state);
 		const to = (index: number) => setPicker({...state, index: Math.max(0, Math.min(rows.length - 1, index))});
 		if (key.escape) { if (state.query) openPicker({...state, query: ''}); else setPicker(undefined); return; }
+		// ctrl+f: onto work without a ◆ task, as a follow-up after all (and back). Letters are the search.
+		if (key.ctrl && input === 'f') { setPicker({...state, followUp: !state.followUp}); return; }
 		if (key.tab || key.leftArrow || key.rightArrow) { openPicker({...state, view: state.view === 'worktrees' ? 'sessions' : 'worktrees'}); return; }
 		if (key.upArrow) { to(state.index - 1); return; }
 		if (key.downArrow) { to(state.index + 1); return; }
@@ -178,12 +187,15 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 			});
 			return;
 		}
-		if (option.section === state.current) { setPicker(undefined); setStatusMessage('It is already there'); return; }
+		const main = Boolean(option.section) && asMain(state, option.section);
+		if (option.section === state.current && (!option.section || main === Boolean(state.currentMain))) { setPicker(undefined); setStatusMessage('It is already there'); return; }
 		const link = option.section ? linkOfKey(option.section) : undefined;
-		apply({type: 'assign', id: state.taskId, ...link ? {link} : {}}, () => {
+		apply({type: 'assign', id: state.taskId, ...link ? {link, main} : {}}, () => {
 			setPicker(undefined);
 			setSelected({key: `task:${state.taskId}`, index: 0});
-			setStatusMessage(option.section ? `Moved to ${option.label}: a merge there sends it back to the backlog unless you tick it` : 'Moved to the backlog');
+			setStatusMessage(!option.section ? 'Moved to the backlog'
+				: main ? `Now the task ${option.label} is for (◆): its note's checklist shows as its steps, merging or finishing it ticks it`
+				: `Moved to ${option.label} as a follow-up: a merge there sends it back to the backlog unless you tick it`);
 		});
 	};
 
@@ -283,7 +295,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (input === 'w') {
 			if (task.done) { setStatusMessage('That task is done; space reopens it'); return; }
 			const current = linkKey(task.meta);
-			openPicker({taskId: task.id, title: task.title, current, origin: taskOrigin(task, sessions), view: pickerViewOf(current), query: ''});
+			openPicker({taskId: task.id, title: task.title, current, currentMain: Boolean(current) && !isAssigned(task), origin: taskOrigin(task, sessions), view: pickerViewOf(current), query: ''});
 			return;
 		}
 		if (input === 'o') {
@@ -357,7 +369,9 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 			<Text key="views" wrap="truncate-end">{tab('worktrees', `Worktrees ${counts.worktrees}`)} {tab('sessions', `Sessions ${counts.sessions}`)}<Text color={state.query ? THEME.active : THEME.muted}>{`   ${state.query ? `search: ${state.query}▏` : 'type to search'}`}</Text></Text>,
 			...rows.slice(start, start + PICKER_ROWS).map((option, offset) => {
 				const selected = start + offset === state.index;
-				const note = option.note ? ` ${option.note}` : '';
+				// Worktrees and sessions say what the task would be there: its own task (◆) or a follow-up.
+				const role = option.kind === 'worktree' || option.kind === 'session' ? (asMain(state, option.section) ? '◆ main task' : 'follow-up') : '';
+				const note = [option.note, role].filter(Boolean).length ? ` ${[option.note, role].filter(Boolean).join(' · ')}` : '';
 				return <Text key={option.section ?? option.kind} inverse={selected} bold={selected} color={selected ? THEME.active : undefined} wrap="truncate-end">
 					{`${selected ? '›' : ' '} ${truncate(option.label, Math.max(1, width - note.length - 2))}`.padEnd(Math.max(0, width - note.length))}<Text color={selected ? undefined : THEME.muted}>{note}</Text>
 				</Text>;
@@ -388,7 +402,13 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (editor) return fitHint(editor.field === 'title'
 			? ['enter save', 'tab details', 'esc cancel']
 			: ['enter new line', 'ctrl+s save', 'tab title', 'esc cancel'], width, ' • ');
-		if (picker) return fitHint(['enter move here', 'type to search', {text: 'tab worktrees / sessions', short: 'tab view'}, '↑↓ choose', picker.query ? 'esc clear search' : 'esc cancel'], width, ' • ');
+		if (picker) {
+			// ctrl+f is offered on work without a ◆ task: as a follow-up instead (or back).
+			const on = pickerRowsOf(picker)[picker.index];
+			const choosable = (on?.kind === 'worktree' || on?.kind === 'session') && !hasMainTask(on.section!, tasks, picker.taskId);
+			const role = choosable ? [{text: picker.followUp ? 'ctrl+f as its main task' : 'ctrl+f as a follow-up', short: 'ctrl+f role'}] : [];
+			return fitHint(['enter move here', ...role, 'type to search', {text: 'tab worktrees / sessions', short: 'tab view'}, '↑↓ choose', picker.query ? 'esc clear search' : 'esc cancel'], width, ' • ');
+		}
 		if (view === 'notes') {
 			const onItem = currentRow?.kind === 'noteline' && Boolean(currentRow.item);
 			const onNote = currentRow?.kind === 'notehead' || currentRow?.kind === 'noteline';
