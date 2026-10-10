@@ -223,15 +223,22 @@ function sessionBranch(session: SessionRecord, sharing: SessionRecord[]): string
 	return session.worktree?.branch || sharing.find(other => other.worktree?.branch && !other.worktree.isMain)?.worktree?.branch;
 }
 
-/** `done 2d ago` (`done now` within a minute; plain `done` without a clock or a readable time). */
-export function doneText(session: SessionRecord, now?: number): string {
+/** `☑2d` (`☑` alone within a minute, without a clock or a readable time): the done marker with its age, for the details. */
+function doneGlyph(session: SessionRecord, now?: number): string {
 	const at = session.doneAt ? Date.parse(session.doneAt) : NaN;
-	if (now === undefined || !Number.isFinite(at)) return 'done';
-	const age = formatAge(now - at);
-	return age === 'now' ? 'done now' : `done ${age} ago`;
+	const age = now === undefined || !Number.isFinite(at) ? 'now' : formatAge(now - at);
+	return age === 'now' ? DONE_MARKER : `${DONE_MARKER}${age}`;
 }
 
-/** Where the session runs plus its workspace markers, from session data only (no Git), cut to `width` at a ` · `. */
+// The branch (or place) keeps at least this many columns before markers are dropped.
+const MIN_WHERE = 8;
+
+/**
+ * Where the session runs, then its workspace markers as the sidebar's glyphs: `╎N` N other sessions share the
+ * worktree, `▶` Dev runs, `✓` merged, `☑2d` done (and when), `▣` archived. Words (`shared with 2 · ▶ dev · merged`)
+ * never fitted a usable sidebar width. A long branch is cut to keep the markers; only below MIN_WHERE columns are
+ * markers dropped from the end, ` …` marking that.
+ */
 export function locationText(session: SessionRecord, allSessions: SessionRecord[], width = Infinity, now?: number): string {
 	const key = workspaceKey(session);
 	const sharing = key === undefined ? [] : allSessions.filter(other => other.id !== session.id && workspaceKey(other) === key);
@@ -244,22 +251,21 @@ export function locationText(session: SessionRecord, allSessions: SessionRecord[
 		const branch = sessionBranch(session, sharing);
 		where = branch ? `⎇ ${branch}` : `worktree ${path.basename(key)}`;
 	}
-	const [first, ...rest] = [
-		where,
-		sharing.length ? `shared with ${sharing.length}` : '',
-		session.devRunning ? '▶ dev' : '',
-		isMerged(session) ? 'merged' : '',
-		session.doneAt ? doneText(session, now) : '',
-		session.archivedAt ? 'archived' : '',
+	const markers = [
+		sharing.length ? `${GUTTER_MARKER}${sharing.length}` : '',
+		session.devRunning ? '▶' : '',
+		isMerged(session) ? '✓' : '',
+		session.doneAt ? doneGlyph(session, now) : '',
+		session.archivedAt ? '▣' : '',
 	].filter(Boolean);
-	let text = truncate(first!, width);
-	for (const [index, part] of rest.entries()) {
-		const next = `${text} · ${part}`;
-		// Whole markers only; the ones cut leave a ` …` (so a marker is kept only if that still fits after it).
-		if (next.length > width || (index < rest.length - 1 && next.length + 2 > width)) return text.length + 2 <= width ? `${text} …` : text;
-		text = next;
+	for (let shown = markers.length; shown >= 0; shown--) {
+		const cut = shown < markers.length;
+		if (!shown) return cut && where.length + 2 <= width ? `${where} …` : truncate(where, width);
+		const tail = [...markers.slice(0, shown), ...cut ? ['…'] : []].join(' ');
+		const room = width - tail.length - 1;
+		if (room >= Math.min(MIN_WHERE, where.length)) return `${truncate(where, room)} ${tail}`;
 	}
-	return text;
+	return truncate(where, width);
 }
 
 /** Title lines: wrapped, at most `max`, the last one ending in … when cut. */

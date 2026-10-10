@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import React from 'react';
 import {renderToString} from 'ink';
-import {doneText, filterMenuLines, formatAge, locationText, msUntilAgeChanges, sessionDetails, sidebarHeader, sidebarRows, statusSince, statusWords, type SidebarRowsInput} from '../src/sidebarModel.js';
+import {filterMenuLines, formatAge, locationText, msUntilAgeChanges, sessionDetails, sidebarHeader, sidebarRows, statusSince, statusWords, type SidebarRowsInput} from '../src/sidebarModel.js';
 import {Sidebar, moreText, partStyle} from '../src/sidebar.js';
 import {sortSessionsForSidebar} from '../src/sessionOrder.js';
 import type {SessionRecord} from '../src/types.js';
@@ -125,21 +125,22 @@ test('sidebar details: title, agent · state · age, location; shrinks with fewe
 	// More than two lines of title: the second ends in ….
 	assert.deepEqual(details('d', 12).slice(1, 3), ['fix flaky', 'checkout e2…']);
 	// Worktree sessions: the branch (a sub-session without its own takes the workspace's), who shares it, Dev.
-	assert.deepEqual(details('b', 48).slice(2), ['π pi · idle · 7m', '⎇ feat/auth · shared with 2 · ▶ dev']);
-	assert.deepEqual(details('c', 48).slice(2), ['✶ claude · exited · 42m', '⎇ feat/auth · shared with 2 · ▶ dev']);
+	assert.deepEqual(details('b', 48).slice(2), ['π pi · idle · 7m', '⎇ feat/auth ╎2 ▶']);
+	assert.deepEqual(details('c', 48).slice(2), ['✶ claude · exited · 42m', '⎇ feat/auth ╎2 ▶']);
 	assert.deepEqual(details('e', 48).slice(2), ['✶ claude · exited (failed) · 3h', '⎇ feat/billing']);
-	assert.deepEqual(details('f', 48).slice(2), ['✶ claude · exited · 2d', '⎇ docs/cleanup · merged · archived']);
+	assert.deepEqual(details('f', 48).slice(2), ['✶ claude · exited · 2d', '⎇ docs/cleanup ✓ ▣']);
 	assert.deepEqual(details('g', 48).slice(2), ['π pi · starting · 5m', 'preparing worktree']);
 	// Narrow: the agent's name goes before the age, the age before the state.
 	assert.deepEqual(details('e', 20).slice(3), ['✶ exited (failed)', '⎇ feat/billing']);
-	assert.deepEqual(details('c', 20).slice(2), ['✶ exited · 42m', '⎇ feat/auth …']);
-	// The location is cut at whole markers (… marks the rest); only a long branch itself is cut mid-word.
-	assert.equal(locationText(byId('b'), all, 30), '⎇ feat/auth · shared with 2 …');
-	assert.equal(locationText(byId('b'), all, 35), '⎇ feat/auth · shared with 2 · ▶ dev');
-	assert.equal(locationText(session('long', {worktree: {...auth, id: 'w8', path: '/wt/long', branch: 'feature/a-very-long-branch'}, archivedAt: ago(1)}), [], 20), '⎇ feature/a-very-lo…');
+	assert.deepEqual(details('c', 20).slice(2), ['✶ exited · 42m', '⎇ feat/auth ╎2 ▶']);
+	// Markers are glyphs, kept by cutting a long branch; only below 8 columns for it are they dropped (… marks that when it fits).
+	assert.equal(locationText(byId('b'), all, 13), '⎇ feat/… ╎2 ▶');
+	assert.equal(locationText(byId('b'), all, 12), '⎇ feat/auth');
+	assert.equal(locationText(byId('b'), all, 10), '⎇ feat/au…');
+	assert.equal(locationText(session('long', {worktree: {...auth, id: 'w8', path: '/wt/long', branch: 'feature/a-very-long-branch'}, archivedAt: ago(1)}), [], 20), '⎇ feature/a-very-… ▣');
 	const deleted = session('z', {title: 'gone', worktree: {...auth, id: 'w9', deletedAt: ago(1)}, status: 'exited', exitReason: 'interrupted'});
 	assert.deepEqual(details('z', 48, 10, [...all, deleted]).slice(2), ['✶ claude · interrupted · 5m', 'worktree deleted']);
-	assert.equal(locationText(byId('d'), [...all, session('d2')]), 'main checkout · shared with 1');
+	assert.equal(locationText(byId('d'), [...all, session('d2')]), 'main checkout ╎1');
 	assert.equal(locationText(session('main', {worktree: {mode: 'attached', path: '/repo', isMain: true, branch: 'main'}}), []), 'main checkout');
 	assert.equal(locationText(session('nb', {cwd: '/wt/x', launchWorktreeRoot: '/wt/x', worktree: {mode: 'none', id: 'w7'}}), []), 'worktree x');
 });
@@ -211,14 +212,14 @@ test('sidebar done marker: ☑ after ✓ in the suffix, dropped after ✓ when n
 	assert.deepEqual(flags('all'), ['done', 'done', 'dim', '-']);
 	assert.deepEqual(flags('archived'), ['dim', 'dim', 'done', 'dim']);
 	assert.deepEqual(flags('all', 'main'), ['done', '-', 'dim', '-']);
-	// Details: `done 2d ago` after merged, before archived; `done now` within a minute.
+	// Details: ☑ with its age after ✓, before ▣; ☑ alone within a minute or without a time.
 	const detail = (item: SessionRecord) => sessionDetails(item, [item], 48, 10, NOW).map(line => line.map(part => part.text).join('')).at(-1);
-	assert.equal(detail(both), '⎇ feat/auth · merged · done 2d ago');
-	assert.equal(detail(main), 'main checkout · done 30m ago');
-	assert.equal(detail(archived), 'main checkout · done 1h ago · archived');
-	assert.equal(doneText(session('x', {doneAt: ago(0)}), NOW), 'done now');
-	assert.equal(doneText(main), 'done');
-	assert.equal(locationText(both, [both], 30, NOW), '⎇ feat/auth · merged …');
+	assert.equal(detail(both), '⎇ feat/auth ✓ ☑2d');
+	assert.equal(detail(main), 'main checkout ☑30m');
+	assert.equal(detail(archived), 'main checkout ☑1h ▣');
+	assert.equal(locationText(session('x', {doneAt: ago(0)}), [], Infinity, NOW), 'main checkout ☑');
+	assert.equal(locationText(main, [main]), 'main checkout ☑');
+	assert.equal(locationText(both, [both], 14, NOW), '⎇ feat/… ✓ ☑2d');
 	// Styles: a done row's title is muted, not dim; its ☑ readable; the status glyph keeps its color. Archived ones stay dim.
 	const [, mainRow, archivedRow] = rows({rows: list, filter: 'all'});
 	const style = (row: typeof mainRow, role: string) => partStyle(row!.parts.find(part => part.role === role)!, row!);

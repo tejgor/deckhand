@@ -603,7 +603,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 				: session?.status === 'exited' ? {text: 'backspace archive', drop: 2} : undefined;
 			// Higher drop numbers go first when the line is too narrow; ? help always stays.
 			const remove: HintPart | undefined = session?.status === 'exited' && session.archivedAt ? {text: 'backspace remove for good', short: 'backspace remove', drop: 1} : undefined;
-			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, remove, '? help', {text: 'n new', drop: 1}, {text: 'b tasks', drop: 2}, {text: 'C settings', drop: 1}, {text: 'i info', drop: 3}, {text: 'r run', drop: 3}, {text: '/ search', drop: 2}, {text: 'f filter', drop: 2}, {text: 'q quit', drop: 1}];
+			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, remove, '? help', {text: 'n new', drop: 1}, {text: 'b tasks', drop: 2}, {text: 'W worktrees', drop: 2}, {text: 'C settings', drop: 1}, {text: 'i info', drop: 3}, {text: 'r run', drop: 3}, {text: '/ search', drop: 2}, {text: 'f filter', drop: 2}, {text: 'q quit', drop: 1}];
 			return fitHint(parts.filter((part): part is string | HintPart => Boolean(part)), width, ' • ');
 		}
 	}
@@ -987,7 +987,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const selectedSince = selectedSession ? statusSince(selectedSession) : undefined;
 	const selectedDoneAt = selectedSession?.doneAt;
 	useEffect(() => {
-		// The state's age and the `done 2d ago` marker: re-render when the first of them changes.
+		// The state's age and the done marker's (`☑2d`): re-render when the first of them changes.
 		const ages = [selectedSince, selectedDoneAt].map(at => (at ? Date.parse(at) : NaN)).filter(Number.isFinite);
 		if (shouldAnimateStatus || !ages.length) return;
 		const timer = setTimeout(() => setClockTick(tick => tick + 1), Math.min(...ages.map(at => msUntilAgeChanges(Date.now() - at))));

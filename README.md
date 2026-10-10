@@ -31,11 +31,15 @@ https://github.com/user-attachments/assets/89ceed64-18c0-4006-bd9e-7500204ca02a
 
 ## 🤔 Why Deckhand?
 
-Tools for running coding agents in parallel typically rely on [`tmux`](https://github.com/tmux/tmux) to host isolated agent sessions, paired with git worktrees for branch isolation. That works well in a dedicated terminal, but `tmux` fits awkwardly inside an IDE's integrated terminal, where prefix-key collisions, nested key handling, and resize quirks get in the way.
+Coding agents get more done when several run at once, each on its own job. Doing that by hand turns into three chores:
 
-**Deckhand** targets the integrated terminal and drops the `tmux` dependency. It runs as a single program built on an [Ink](https://github.com/vadimdemedes/ink) UI, a local daemon, and [`node-pty`](https://github.com/microsoft/node-pty) workers, behaving consistently in whatever terminal it is launched from.
+- **Keeping their work apart.** Two agents in one checkout edit the same files. Deckhand starts a session in its own git worktree — a separate copy of the repository on its own branch — in one step, and the worktree's shell, Git view, Dev command and notes come with it.
+- **Knowing which one needs you.** Instead of a terminal tab per agent, one sidebar shows every session's state (working or idle, and with agent signals on, waiting for your input) beside a live preview, so you attach only when you're needed. Sessions belong to a local daemon, so quitting the UI leaves them running.
+- **Landing the work and tidying up.** Merge a worktree back after a preview of its commits and diff stat; the result is staged, not committed, so you review it first. A task started from the task list ticks itself off when its worktree is merged, and the Worktrees screen shows which worktrees are merged and what deleting each one would lose.
 
-> *For `tmux`-based alternatives, see [claude-squad](https://github.com/smtg-ai/claude-squad) and [agent-deck](https://github.com/asheshgoplani/agent-deck).*
+Deckhand runs Claude Code, Codex and Pi, and lives in the terminal you already have open in your editor, so there is no separate app or window to keep track of.
+
+> *Related projects: [claude-squad](https://github.com/smtg-ai/claude-squad) and [agent-deck](https://github.com/asheshgoplani/agent-deck).*
 
 ---
 
@@ -184,12 +188,12 @@ Press `o` to attach to the selected session's active pane. To branch off related
 │ ────────────────────────────── │
 │ write tests                    │   the selected session, when there is room
 │ π pi · idle · 7m               │
-│ ⎇ feat/auth · shared with 2 …  │
+│ ⎇ feat/auth ╎2 ▶               │   branch; ╎2 two others share it, ▶ Dev runs
 ```
 
 - **Before the title:** status — spinner starting/working, `●` idle, `◌` activity unknown, `○` exited; with agent signals `?` needs input, `◆` response ended (not task success), `!` failed or failed/interrupted exit, `⌛` rate-limited. Tree — `▾`/`▸` expanded/collapsed parent, `↳` clean and `⑂` forked sub-session.
 - **After the title:** `▶` Dev running (once per worktree), `▣` archived, `!` cleanup error, `✓` merged (by `m`, `M`, or found merged elsewhere), `☑` done (`space`), `+N` hidden sub-sessions, `↑` running an older agent version than the one now installed (restart it to update; the details line then shows both versions, e.g. `✶ claude 2.1.287 · 2.1.290 installed`), then the agent: `✶` Claude, `π` Pi, `◇` Codex.
-- Archived rows are dimmed; in the archived view the parents shown for context are dimmed instead. Done rows have a muted title (their markers and status stay readable), and the details say `done 2d ago`. `?` → Sidebar lists all of this in the app.
+- Archived rows are dimmed; in the archived view the parents shown for context are dimmed instead. Done rows have a muted title (their markers and status stay readable), and the details show `☑2d` (done 2 days ago). Below the branch, the details repeat the row's markers as glyphs (`╎N` others in the worktree, `▶`, `✓`, `☑2d`, `▣`); a long branch is shortened to keep them. `?` → Sidebar lists all of this in the app.
 
 ### Attach Mode
 

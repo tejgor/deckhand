@@ -114,7 +114,7 @@ test('sidebar: ↑ before the agent glyph on outdated running sessions, dropped 
 		'│ ────────────────────────────── │',
 		'│ old build                      │',
 		'│ ✶ 2.1.287 → 2.1.290 · idle     │',
-		'│ main checkout · shared with 3  │',
+		'│ main checkout ╎3               │',
 		'╰────────────────────────────────╯',
 	]);
 });

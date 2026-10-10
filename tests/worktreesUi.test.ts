@@ -34,6 +34,8 @@ test('W in a real PTY: merged worktrees grouped, x on the group deletes them and
 	await git(sandbox, 'worktree', 'add', '-b', 'scratch', scratch);
 	await fs.writeFile(path.join(scratch, 'notes.txt'), 'only here\n');
 
+	// The session list's footer lists it beside b tasks.
+	press('\x1b[A'); await screen('W worktrees');
 	press('W'); await screen('⎇ Worktrees'); await screen('Merged · safe to delete · 1'); await screen('Main checkout');
 	await screen('scratch'); await screen('not from Deckhand');
 	// The selection starts on the selected session's worktree; its details say why it can go.
