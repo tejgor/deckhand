@@ -553,4 +553,6 @@ export type ServerMessage = ServerResponse | ServerEvent;
 
 export type UiExitResult =
 	| {kind: 'quit'}
-	| {kind: 'attach'; sessionId: string; target: AttachTarget; title?: string; cwd?: string; program?: ProgramKey};
+	| {kind: 'attach'; sessionId: string; target: AttachTarget; title?: string; cwd?: string; program?: ProgramKey}
+	/** o on Notes: the note's file in the terminal editor (src/desktop.ts), then back to the Notes tab. */
+	| {kind: 'edit-note'; sessionId: string; file: string; editor: {command: string; args: string[]; label: string}};

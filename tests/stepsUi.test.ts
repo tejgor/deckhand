@@ -31,7 +31,7 @@ test('steps: the worktree note\'s checklist under its task on the board (space t
 	press('a'); await screen('New task'); press('Ship parser'); await screen('Ship parser'); press('\r'); await screen('Added to the backlog');
 	press('n'); await screen('Choose an agent'); press('\r'); await screen('Workspace: new worktree'); press('\r'); await screen('fake agent ready');
 	// Its worktree note gets a checklist (Notes tab, o to edit; Enter continues the list).
-	press('a'); await screen('enter edit notes'); press('o'); await screen('esc done');
+	press('a'); await screen('enter edit notes'); press('\r'); await screen('esc done');
 	press('\x14'); await screen('- [ ]'); press('Read the spec'); await screen('Read the spec');
 	press('\r'); await screen('- [ ] '); press('Write tests'); await screen('Write tests');
 	press('\x1b'); await waitFor(worktreeNote, text => text.includes('- [ ] Write tests'), UI_WAIT_MS);
@@ -64,7 +64,7 @@ test('w onto a session started from the sidebar makes the task its own (◆, wit
 	// A session started from the sidebar, in a new worktree, with a checklist in its note: no task yet.
 	press('n'); await screen('Choose an agent'); press('\r'); await screen('Workspace: new worktree');
 	press('flaky'); await screen('Name: flaky'); press('\r'); await screen('fake agent ready');
-	press('a'); await screen('enter edit notes'); press('o'); await screen('esc done');
+	press('a'); await screen('enter edit notes'); press('\r'); await screen('esc done');
 	press('\x14'); await screen('- [ ]'); press('Reproduce it'); await screen('Reproduce it'); press('\x1b'); await screen('enter edit notes');
 
 	// A task written afterwards, moved there with w: as the work's own task by default (the row says so).

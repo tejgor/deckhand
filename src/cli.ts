@@ -1,5 +1,8 @@
 #!/usr/bin/env node
+import {spawnSync} from 'node:child_process';
 import {attachSession} from './attach.js';
+import {isVimFamily, terminalEditorArgs} from './desktop.js';
+import {writeNotesVimScript} from './notesVim.js';
 import {ensureGitRepo} from './git.js';
 import {StringDecoder} from 'node:string_decoder';
 import {loadAppConfig} from './storage.js';
@@ -196,6 +199,23 @@ async function main(): Promise<void> {
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				process.stderr.write(`\nattach failed: ${message}\n`);
+				await new Promise(resolve => setTimeout(resolve, 1500));
+			}
+			clearTerminalScreen();
+		}
+		if (result.kind === 'edit-note') {
+			uiState.selectedId = result.sessionId;
+			uiState.activeTab = 'notes';
+			uiState.sessionTabs[result.sessionId] = 'notes';
+			clearTerminalScreen();
+			// Without the script vim still edits the note; only the Deckhand keys are missing.
+			const vimScript = isVimFamily(result.editor) ? await writeNotesVimScript().catch(() => undefined) : undefined;
+			// Synchronous: the editor owns the terminal and stdin until it quits. The daemon's watcher picks up the saved
+			// file, so the Notes tab shows it when the UI comes back.
+			const editor = spawnSync(result.editor.command, terminalEditorArgs(result.editor, result.file, vimScript), {stdio: 'inherit'});
+			// Only a failed launch is reported: vim exits non-zero after any error message seen while editing.
+			if (editor.error) {
+				process.stderr.write(`\n${result.editor.command} failed: ${errorMessage(editor.error)}; the note is ${result.file}\n`);
 				await new Promise(resolve => setTimeout(resolve, 1500));
 			}
 			clearTerminalScreen();

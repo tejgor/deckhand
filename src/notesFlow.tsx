@@ -12,7 +12,7 @@ import {displaySessionTitle, errorMessage} from './ui.js';
 
 // The Notes tab's state: one draft per note (a shared note is one draft for every session showing it, so its cursor
 // and unsaved text follow it), debounced revision-checked saves, reloads when the file changed elsewhere, and the keys
-// of notes focus (o). The daemon owns the files (src/notesStore.ts); records carry their text and revision.
+// of notes focus (Enter). The daemon owns the files (src/notesStore.ts); records carry their text and revision.
 
 const SAVE_DEBOUNCE_MS = 300;
 
@@ -54,11 +54,13 @@ interface NotesFlowOptions {
 	links?: TaskLinkLookup;
 }
 export interface NotesFlow {
-	/** o: start editing (the section last edited, the session's by default). */
+	/** Enter / →: start editing (the section last edited, the session's by default). */
 	focus(): void;
 	handleInput(input: string, key: Partial<Key>): void;
 	/** E (browse) / Ctrl+O (editing): the active section's file in Cursor / VS Code. */
 	openActiveInEditor(): void;
+	/** o (browse): saves the active section and resolves to its file, for the terminal editor; undefined if unavailable. */
+	activeFile(): Promise<string | undefined>;
 	render(width: number, height: number): React.ReactNode;
 	hint(width: number): string;
 }
@@ -147,12 +149,17 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 	}, [focused]);
 	useEffect(() => () => { for (const timer of timers.current.values()) clearTimeout(timer); }, []);
 
-	const openSection = (which: NoteSection) => {
+	// Saved first, so the editor opens what is shown; the daemon creates the file if needed.
+	const fileOf = (which: NoteSection): Promise<string> | undefined => {
 		const {client: current} = latest.current;
-		if (!current || !session) return;
+		if (!current || !session) return undefined;
 		const key = noteKey(session, which);
 		const sessionId = session.id;
-		void (key ? flush(key) : Promise.resolve()).then(() => current.openNote(sessionId, which)).then(file => {
+		return (key ? flush(key) : Promise.resolve()).then(() => current.openNote(sessionId, which));
+	};
+
+	const openSection = (which: NoteSection) => {
+		void fileOf(which)?.then(file => {
 			const label = openInEditor(file, message => setError(`${message}; the note is ${file}`));
 			if (label) setStatusMessage(`Opened ${file} in ${label}; edits there show up here`);
 		}, error => setError(errorMessage(error)));
@@ -256,7 +263,7 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 			sharedInput = {
 				titles: sharedNote.kind === 'repo' ? [`Main checkout (shared by ${plural(count, 'session')})`, 'Main checkout'] : [`Worktree · ${where} (shared by ${plural(count, 'session')})`, `Worktree · ${where}`, 'Worktree'],
 				text: shared.text,
-				empty: sharedNote.readOnly ? `${what} (its worktree was deleted)` : !ownNote ? (focused ? `${what} · type to add` : `${what} · o to add`) : focused ? `${what} · tab to add` : `${what} · o, then tab to add`,
+				empty: sharedNote.readOnly ? `${what} (its worktree was deleted)` : !ownNote ? (focused ? `${what} · type to add` : `${what} · enter to add`) : focused ? `${what} · tab to add` : `${what} · enter, then tab to add`,
 				flag: sharedNote.readOnly ? 'deleted, read-only' : sharedNote.tooLarge ? 'too large, E to edit' : undefined,
 				editing: editingSection === 'shared' ? {cursor: shared.cursor, scrollTop: shared.scrollTop} : undefined,
 				active: !focused && activeSection === 'shared',
@@ -265,7 +272,7 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 		const sessionInput: NotesSectionInput | undefined = !ownNote ? undefined : {
 			titles: [`This session · ${titleOf(session)}`, 'This session'],
 			text: own?.text ?? '',
-			empty: focused ? 'No notes for this session · tab to add' : 'No notes for this session · o to add',
+			empty: focused ? 'No notes for this session · tab to add' : 'No notes for this session · enter to add',
 			flag: session.notesFile?.tooLarge ? 'too large, E to edit' : undefined,
 			editing: editingSection === 'session' && own ? {cursor: own.cursor, scrollTop: own.scrollTop} : undefined,
 			active: !focused && activeSection === 'session' && hasShared,
@@ -299,6 +306,11 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 		focus: () => { if (section === 'shared' && !sharedEditable) setSection('session'); },
 		handleInput,
 		openActiveInEditor: () => openSection(activeSection),
+		activeFile: () => {
+			// A deleted worktree's note is read-only: edit the session's instead.
+			const which = activeSection === 'shared' && !sharedEditable && ownNote ? 'session' : activeSection;
+			return fileOf(which)?.catch(error => { setError(errorMessage(error)); return undefined; }) ?? Promise.resolve(undefined);
+		},
 		render,
 		hint,
 	};

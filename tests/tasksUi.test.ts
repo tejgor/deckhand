@@ -59,7 +59,7 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('\x1b'); await screen('enter edit notes');
 
 	// A note's checklist item goes to Tasks with ctrl+p and leaves a ↗ link in the note.
-	press('o'); await screen('esc done');
+	press('\r'); await screen('esc done');
 	press('\x14'); await screen('- [ ]'); press('Follow up on review'); await screen('ctrl+p → tasks');
 	press('\x10'); await screen('Sent to Tasks');
 	press('\x1b'); await screen('↗ Follow up on review · in Tasks');

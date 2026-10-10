@@ -36,7 +36,7 @@ test('W in a real PTY: merged worktrees grouped, x on the group deletes them and
 	await fs.writeFile(path.join(scratch, 'README.md'), 'changed here\n');
 
 	// Its worktree note has an open item left (Notes tab, o to edit, Ctrl+T adds an item).
-	press('a'); await screen('enter edit notes'); press('o'); await screen('esc done');
+	press('a'); await screen('enter edit notes'); press('\r'); await screen('esc done');
 	press('\x14'); await screen('- [ ]'); press('Follow up on perf'); await screen('Follow up on perf'); press('\x1b'); await screen('enter edit notes');
 
 	// The session list's footer lists it beside b tasks.

@@ -7,7 +7,7 @@ import {DevPane} from './devPane.js';
 import {DetailsPane, detailsViewport, scrollDetails} from './detailsPane.js';
 import {cleanupLossLines, fileRowsLeft} from './cleanupView.js';
 import {cleanupOverrideText, createPrConfirmText, projectActions, trustReviewText, workspaceSummaryText} from './detailTexts.js';
-import {openInEditor, openUrl} from './desktop.js';
+import {openInEditor, openUrl, resolveTerminalEditor} from './desktop.js';
 import {MenuList, MenuPane, SelectableRow, fitHint, type HintPart} from './menu.js';
 import {isSettingsFlowMode, useSettingsFlow} from './settingsFlow.js';
 import {useHelp} from './helpPane.js';
@@ -600,7 +600,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 				// A finished action shown on the Terminal tab cannot be attached (not "loading": it will not become ready).
 				: activeTab === 'terminal' ? (hasWorkspace && !terminalAction?.finished ? (attachReady ? 'enter open' : 'loading…') : undefined)
 					: running && activeTab === 'preview' ? (attachReady ? '→ scroll • enter open' : 'loading…') : undefined;
-			const pane = activeTab === 'notes' ? (session ? 'enter edit notes • E open in editor' : undefined)
+			const pane = activeTab === 'notes' ? (session ? 'enter edit notes • o vim • E open in editor' : undefined)
 				: activeTab === 'dev' && session && workspaceKey(session) ? (session.devRunning ? 'd d stop Dev' : 'd d start Dev')
 				: activeTab === 'terminal' && terminalAction ? terminalAction.switchHint
 					: undefined;
@@ -1498,6 +1498,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		cwd: session.cwd,
 		program: session.program,
 	} satisfies UiExitResult);
+	const editNoteInTerminal = (session: SessionRecord) => {
+		const editor = resolveTerminalEditor();
+		if (!editor) { setError('No terminal editor found: set $EDITOR or install nvim (E opens the note in Cursor / VS Code)'); return; }
+		void notesFlow.activeFile().then(file => {
+			if (file) exit({kind: 'edit-note', sessionId: session.id, file, editor} satisfies UiExitResult);
+		});
+	};
 	const settingsFlow = useSettingsFlow({client, mode, setMode, setBusy, setError, setStatusMessage, onReview: (reviewCwd, back) => reviewThen(reviewCwd, undefined, {back})});
 
 	// Resolves the repository config for `targetCwd` and runs `resume` with it, showing the inline review first when
@@ -2418,7 +2425,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				else openSelectedInEditor();
 				return;
 			}
-			// Enter / o: open what the tab shows full screen (on Notes: edit them).
+			// o on Notes: the note in your terminal editor (nvim/vim), back here when it quits.
+			if (input === 'o' && activeTab === 'notes' && selectedSession) {
+				editNoteInTerminal(selectedSession);
+				return;
+			}
+			// Enter / o: open what the tab shows full screen (on Notes, Enter edits them here).
 			const opening = input === 'o' || key.return;
 			if (opening && activeTab === 'notes' && selectedSession) {
 				notesFlow.focus();
