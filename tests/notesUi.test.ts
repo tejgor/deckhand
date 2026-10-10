@@ -31,8 +31,8 @@ test('Notes tab: o edits with a real cursor (arrows, word jumps), ctrl+x makes a
 	press('nts'); await screen('Name: nts'); press('\r'); await screen('fake agent ready');
 
 	// A session in a worktree has one note, the worktree's.
-	press('a'); await screen('No worktree notes · o to add'); await screen('E open in editor');
-	press('o'); await screen('esc done');
+	press('a'); await screen('No worktree notes · enter to add'); await screen('E open in editor');
+	press('\r'); await screen('esc done');
 	press('hello world'); await screen('hello world');
 	// Left ×5 lands before "world"; Alt+← (ESC b, as macOS terminals send Option+←) jumps a word back.
 	press('\x1b[D\x1b[D\x1b[D\x1b[D\x1b[D'); press('big '); await screen('hello big world');

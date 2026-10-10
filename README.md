@@ -52,7 +52,7 @@ Deckhand runs Claude Code, Codex and Pi, and lives in the terminal you already h
 - **Sub-sessions** — Group related work under a parent session, indented in the sidebar; each one starts clean in the parent's directory, or forks the parent's Claude, Pi or Codex conversation.
 - **Resumable Agents** — Claude/Pi retain native identities; Codex resumes when its native ID is captured. Unknown IDs never silently become a blank conversation. Fresh restart remains explicit.
 - **Tasks** — One task list per repository (`b`), beside the notes, grouped by the worktree each task is for (with the live state of its sessions, and its steps: the worktree note's checklist), then backlog and done; `v` shows only the current worktree's. `n` starts a session for a task in a new worktree (you pick the base branch); `w` gives a task to a worktree (or, when it has one, puts it into its note as a step). Merging that worktree ticks its task and offers to send its unfinished steps to the backlog; work dropped unmerged goes back to the backlog.
-- **Notes with checklists** — Each session's notes plus one note per worktree shared by every session in it, as Markdown files you can also edit in VS Code; `- [ ]` items render as ☐/☑ and their open count shows in the sidebar.
+- **Notes with checklists** — Each session's notes plus one note per worktree shared by every session in it, as Markdown files you can also edit in vim (`o`, with the checklist keys) or VS Code; `- [ ]` items render as ☐/☑ and their open count shows in the sidebar.
 - **Worktree Manager** — `W` lists every worktree of the repository (Deckhand's or made with `git worktree add`) grouped by what to do with it: merged and safe to delete, merged with leftovers, in progress, idle, missing. Each shows its sessions, uncommitted files, commits not in the default branch and last activity. `x` deletes one, stopping the sessions still running in it after one confirmation, and `x` on the safe group deletes them all, with or without their branches.
 - **Safer Cleanup** — Check uncommitted, untracked and valuable ignored files, and commits that deleting a branch would lose, before deletion; force kill and data-loss authorization are separate.
 - **Merge Helpers** — Merge or squash-merge a session's worktree into the current branch, staged for review rather than committed: a preview shows the target, commits and diff stat first, uncommitted work can be committed first, conflicts are kept to resolve or aborted in one key, and worktrees merged elsewhere (into the default branch, or a merged PR) are marked by themselves.
@@ -154,7 +154,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | `d` `d` | Press `d` twice quickly to start or stop the worktree's Dev command (a single `d`, or a slower second one, only shows the Dev tab) |
 | `→` / `l` | Step into the pane: scroll the preview of a running session (`j`/`k`, arrows, PgUp/PgDn, `g`/`G`, the wheel; `+`/`−` change the wheel speed, also used when attached), browse the Git changes (see [Git Changes](#git-changes)), or edit the notes (see [Notes](#notes)) |
 | `←` / `h` / `esc` | Step back out to the session list |
-| `enter` / `o` | Open full screen what the tab shows: the agent (Preview), the shell or running action (Terminal), lazygit (Git), Dev; Terminal, Git and Dev also for exited sessions. On Notes: edit them |
+| `enter` / `o` | Open full screen what the tab shows: the agent (Preview), the shell or running action (Terminal), lazygit (Git), Dev; Terminal, Git and Dev also for exited sessions. On Notes: `enter` edits them here, `o` in vim (see [Notes Editing](#notes-editing)) |
 | `v` *(on Terminal)* | Switch between the shell and the worktree's last action |
 | `E` | Open in Cursor / VS Code: on Notes the note (the session's, or the worktree's after you edited it), otherwise the session's directory/worktree |
 | `n` / `N` | New top-level session (in a new worktree, `↑`/`↓` pick the branch it starts from) / new sub-session: clean, a ⑂ fork, or ↳ from the handoff exported with `H` |
@@ -219,6 +219,8 @@ The Notes tab shows the note of the place you work. A session in a worktree has 
 | `ctrl+o` | Open the note you are editing in Cursor / VS Code |
 | `ctrl+p` | Send the line's open checklist item to [Tasks](#tasks); the note keeps a `↗` link to it |
 | `esc` | Back to browsing |
+
+**In vim.** `o` on the Notes tab opens the note full screen in your terminal editor: `$VISUAL`, else `$EDITOR`, else `nvim`, `vim` or `vi`, whichever is installed. Quitting it (`:wq`, or `ctrl+]` / `ctrl+space` as when attached) returns to the Notes tab with your edits. In vim and nvim, the note also gets `ctrl+x` and `ctrl+t` from the table above, and `enter` continuing a checklist in insert mode; vim's own meanings of those keys are kept in every other buffer. To send an item to Tasks from there, use the board's notes list (`b`, then `tab`: `a` / `A`). Other editors just open the file.
 
 ### Tasks
 
