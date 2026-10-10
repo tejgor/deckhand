@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {applyTaskOp, cleanTaskTitle, clientTaskOp, findNoteTaskLink, groupTasks, returnTaskToNote, openNoteItems, parseNoteTaskLink, parseTasks, promoteNoteLine, taskPrompt, withoutTaskMeta} from '../src/tasks.js';
+import {appendNoteItem, applyTaskOp, cleanTaskTitle, migrateFollowUps, clientTaskOp, findNoteTaskLink, groupTasks, returnTaskToNote, openNoteItems, parseNoteTaskLink, parseTasks, promoteNoteLine, taskPrompt, withoutTaskMeta} from '../src/tasks.js';
 
 const NOW = new Date('2026-10-09T12:00:00Z');
 
@@ -82,36 +82,48 @@ test('notes: a checklist line becomes a link to its task; open items; display wi
 	assert.equal(taskPrompt({title: 'Fix it', body: ''}), 'Fix it');
 });
 
-test('assigned follow-ups: added or moved there, never ticked by the work unless asked, back to the backlog on merge', () => {
-	let text = '- [ ] Started <!-- dh:t=a wt=w1 -->\n- [ ] Elsewhere <!-- dh:t=b tried=old -->\n';
-	// Added to a worktree, or moved there with w: assigned (a follow-up), not started.
+test('a work\'s task: w or add with a link makes it the task of that work (◆), ticked by its merge or done; follow-ups migrate into notes', () => {
+	let text = '- [ ] Elsewhere <!-- dh:t=b tried=old -->\n';
+	// Added for a work, or moved there with w: that work's task (no other bookkeeping; the old `tried` goes).
 	text = applyTaskOp(text, {type: 'add', title: 'Add tests', link: {wt: 'w1'}, id: 'c'}, NOW).text;
-	text = applyTaskOp(text, {type: 'assign', id: 'b', link: {wt: 'w1'}}, NOW).text;
-	assert.deepEqual(parseTasks(text).map(task => task.meta), [{t: 'a', wt: 'w1'}, {t: 'b', wt: 'w1', assigned: '2026-10-09'}, {t: 'c', wt: 'w1', assigned: '2026-10-09', added: '2026-10-09'}]);
-	assert.equal(applyTaskOp(text, {type: 'assign', id: 'b', link: {wt: 'w1'}}, NOW).changed, 0);
-	assert.equal(applyTaskOp(text, {type: 'assign', id: 'a', link: {wt: 'w1'}}, NOW).changed, 0, 'already there (started)');
-	// D ticks only the started task.
-	const done = applyTaskOp(text, {type: 'tick-linked', link: {wt: 'w1'}, auto: 'done'}, NOW);
-	assert.equal(done.changed, 1);
-	// A merge ticks the started task and the follow-ups its confirmation ticked; the rest go back, remembering where from.
-	let merged = applyTaskOp(text, {type: 'tick-linked', link: {wt: 'w1'}, auto: 'merge', also: ['c']}, NOW).text;
-	merged = applyTaskOp(merged, {type: 'release-linked', link: {wt: 'w1'}, from: 'feat/auth'}, NOW).text;
-	assert.deepEqual(parseTasks(merged).map(task => [task.title, task.done, task.meta]), [
-		['Started', true, {t: 'a', wt: 'w1', done: '2026-10-09', auto: 'merge'}],
-		['Elsewhere', false, {t: 'b', from: 'feat/auth', was: 'w1'}],
-		['Add tests', true, {t: 'c', wt: 'w1', assigned: '2026-10-09', done: '2026-10-09', auto: 'merge', added: '2026-10-09'}],
-	]);
-	// Unmerging reopens what the merge ticked and assigns the released follow-up again.
-	const unmerged = applyTaskOp(merged, {type: 'reopen-linked', link: {wt: 'w1'}, auto: 'merge'}, NOW);
-	assert.equal(unmerged.changed, 3);
-	assert.deepEqual(parseTasks(unmerged.text).map(task => [task.done, task.meta.wt, task.meta.assigned]), [[false, 'w1', undefined], [false, 'w1', '2026-10-09'], [false, 'w1', '2026-10-09']]);
-	// Deleted unmerged: the started task was tried there, a follow-up came from there.
-	const abandoned = applyTaskOp(text, {type: 'abandon-linked', link: {wt: 'w1'}, tried: 'feat/auth'}, NOW).text;
-	assert.deepEqual(parseTasks(abandoned).map(task => task.meta), [{t: 'a', tried: 'feat/auth'}, {t: 'b', from: 'feat/auth'}, {t: 'c', from: 'feat/auth', added: '2026-10-09'}]);
-	// Back to the backlog with w; starting a session for a follow-up (n) makes it that work's own task.
-	assert.deepEqual(parseTasks(applyTaskOp(text, {type: 'assign', id: 'c'}, NOW).text)[2]!.meta, {t: 'c', added: '2026-10-09'});
-	assert.deepEqual(parseTasks(applyTaskOp(text, {type: 'link', id: 'c', link: {wt: 'w2'}}, NOW).text)[2]!.meta, {t: 'c', wt: 'w2', added: '2026-10-09'});
+	text = applyTaskOp(text, {type: 'assign', id: 'b', link: {wt: 'w2'}}, NOW).text;
+	assert.deepEqual(parseTasks(text).map(task => task.meta), [{t: 'b', wt: 'w2'}, {t: 'c', wt: 'w1', added: '2026-10-09'}]);
+	assert.equal(applyTaskOp(text, {type: 'assign', id: 'b', link: {wt: 'w2'}}, NOW).changed, 0, 'already there');
+	// A merge (or done) ticks it; undoing that reopens it; deleted unmerged sends it back, tried there.
+	const merged = applyTaskOp(text, {type: 'tick-linked', link: {wt: 'w1'}, auto: 'merge'}, NOW);
+	assert.equal(merged.changed, 1);
+	assert.deepEqual(parseTasks(applyTaskOp(merged.text, {type: 'reopen-linked', link: {wt: 'w1'}, auto: 'merge'}, NOW).text)[1]!.done, false);
+	assert.deepEqual(parseTasks(applyTaskOp(text, {type: 'abandon-linked', link: {wt: 'w1'}, tried: 'feat/auth'}, NOW).text)[1]!.meta, {t: 'c', tried: 'feat/auth', added: '2026-10-09'});
+	// Back to the backlog with w; done tasks stay put.
+	assert.deepEqual(parseTasks(applyTaskOp(text, {type: 'assign', id: 'c'}, NOW).text)[1]!.meta, {t: 'c', added: '2026-10-09'});
 	assert.throws(() => applyTaskOp('- [x] d <!-- dh:t=d -->\n', {type: 'assign', id: 'd', link: {s: 's1'}}), /done/);
+
+	// Follow-ups of the old model (`assigned=`): open ones leave the list for their work's note, unless that work is gone
+	// (they stay, in the backlog); done and released ones only lose the old bookkeeping; other lines are kept.
+	const old = [
+		'# Tasks',
+		'- [ ] Ship it <!-- dh:t=a wt=w1 -->',
+		'- [ ] Add tests <!-- dh:t=f wt=w1 assigned=2026-10-01 added=2026-10-01 -->',
+		'  with fixtures',
+		'- [ ] Gone work <!-- dh:t=g wt=w9 assigned=2026-10-01 -->',
+		'- [x] Did it <!-- dh:t=d wt=w1 assigned=2026-10-01 done=2026-10-02 auto=merge -->',
+		'- [ ] Released <!-- dh:t=r from=feat/x was=w3 -->',
+	].join('\n');
+	const migrated = migrateFollowUps(old, link => 'wt' in link && link.wt === 'w1')!;
+	assert.deepEqual(migrated.moved, [{link: {wt: 'w1'}, title: 'Add tests', body: 'with fixtures'}]);
+	assert.equal(migrated.text, [
+		'# Tasks',
+		'- [ ] Ship it <!-- dh:t=a wt=w1 -->',
+		'- [ ] Gone work <!-- dh:t=g -->',
+		'- [x] Did it <!-- dh:t=d wt=w1 done=2026-10-02 auto=merge -->',
+		'- [ ] Released <!-- dh:t=r from=feat/x -->',
+		'',
+	].join('\n'));
+	assert.equal(migrateFollowUps(migrated.text, () => true), undefined, 'nothing left to migrate');
+	assert.equal(migrateFollowUps('- [ ] Plain <!-- dh:t=p -->\n', () => true), undefined);
+	// Into its note: an open item at the end, its details indented under it.
+	assert.equal(appendNoteItem('# Plan\n- [x] Read\n\n', 'Add tests', 'with fixtures'), '# Plan\n- [x] Read\n- [ ] Add tests\n  with fixtures\n');
+	assert.equal(appendNoteItem('', 'First'), '- [ ] First\n');
 });
 
 test('client ops: add and assign may carry a link; anything else about links is the daemon\'s', () => {
@@ -120,7 +132,7 @@ test('client ops: add and assign may carry a link; anything else about links is 
 	assert.deepEqual(clientTaskOp({type: 'assign', id: 'a'}), {type: 'assign', id: 'a'});
 	assert.throws(() => clientTaskOp({type: 'assign', id: 'a', link: {wt: 'w', s: 's'}}), /link/);
 	assert.throws(() => clientTaskOp({type: 'assign', id: 'a', link: {wt: ''}}), /link/);
-	assert.throws(() => clientTaskOp({type: 'release-linked', link: {wt: 'w'}}), /Unknown task change/);
+	assert.throws(() => clientTaskOp({type: 'tick-linked', link: {wt: 'w'}}), /Unknown task change/);
 });
 
 test('a task goes back to the note it was sent from: its ↗ line becomes the item again, details under it', () => {

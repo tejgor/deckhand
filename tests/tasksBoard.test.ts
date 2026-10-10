@@ -12,7 +12,7 @@ const tasks = parseTasks([
 	'- [ ] Fix flaky e2e <!-- dh:t=e wt=w2 -->',
 	'- [ ] Add OAuth <!-- dh:t=a wt=w1 -->',
 	'- [ ] Rate-limit export <!-- dh:t=r -->',
-	'- [ ] Add tests <!-- dh:t=t wt=w1 assigned=2026-10-09 -->',
+	'- [ ] Add tests <!-- dh:t=t wt=w1 -->',
 	'- [x] Shipped <!-- dh:t=s wt=w1 done=2026-10-08 auto=merge -->',
 ].join('\n'));
 const describe = (rows: BoardRow[]) => rows.map(row => row.kind === 'work' ? `[${row.section} ${row.count}]` : row.kind === 'heading' ? `# ${row.text}` : row.kind === 'task' ? `${row.section}: ${row.task.title}` : row.kind === 'empty' ? `(${row.text})` : row.kind);
@@ -25,7 +25,7 @@ test('board: a group per worktree with open tasks (first task\'s order), then th
 		'# DONE · this week', 'done: Shipped',
 	]);
 	// Nothing on a worktree yet: a hint where the groups go.
-	assert.deepEqual(describe(boardRows(parseTasks('- [ ] Solo <!-- dh:t=x -->'), false, NOW)).slice(0, 2), ['# IN PROGRESS', '(n on a backlog task starts a session for it · w assigns it to a worktree)']);
+	assert.deepEqual(describe(boardRows(parseTasks('- [ ] Solo <!-- dh:t=x -->'), false, NOW)).slice(0, 2), ['# IN PROGRESS', '(n on a backlog task starts a session for it · w gives it to a worktree)']);
 });
 
 test('board v: only one work\'s group (even empty) and its done tasks', () => {
@@ -76,14 +76,14 @@ test('the w menu: backlog and the way back to the note pinned, then one view (wo
 	assert.equal(pickerViewOf(undefined), 'worktrees');
 });
 
-test('a task\'s origin: the note (session\'s or shared) still holding its ↗ line, unless done, started, or read-only', () => {
+test('a task\'s origin: the note (session\'s or shared) still holding its ↗ line, unless done, some work\'s task, or read-only', () => {
 	const withNotes = [
 		session('a', {title: 'notes holder', notes: '- ↗ From a session <!-- dh:t=11111111 -->'}),
 		inWorktree('b', 'w1', 'feat/auth', {sharedNotes: {kind: 'worktree', id: 'w1', text: '- ↗ From the worktree <!-- dh:t=22222222 -->', revision: 'r'}} as Partial<SessionRecord>),
 		inWorktree('c', 'w9', 'gone', {sharedNotes: {kind: 'worktree', id: 'w9', text: '- ↗ Deleted <!-- dh:t=33333333 -->', revision: 'r', readOnly: true}} as Partial<SessionRecord>),
 	];
 	const [one, two, three, started, done] = parseTasks([
-		'- [ ] From a session <!-- dh:t=11111111 -->', '- [ ] From the worktree <!-- dh:t=22222222 wt=w1 assigned=2026-10-09 -->', '- [ ] Deleted <!-- dh:t=33333333 -->',
+		'- [ ] From a session <!-- dh:t=11111111 -->', '- [ ] From the worktree <!-- dh:t=22222222 -->', '- [ ] Deleted <!-- dh:t=33333333 -->',
 		'- [ ] Started <!-- dh:t=11111111 wt=w1 -->', '- [x] Done <!-- dh:t=22222222 -->',
 	].join('\n'));
 	assert.equal(taskOrigin(one!, withNotes), 'notes holder');

@@ -25,13 +25,13 @@ test('a work\'s steps: its note\'s checklist (open and ticked, not ↗ links or 
 	assert.deepEqual(workNote('wt:w1', sessions), {sessionId: 'auth', section: 'shared', noteId: 'worktree:w1', text: note, revision: 'r1'});
 	assert.deepEqual(workNote('s:main', sessions), {sessionId: 'main', section: 'session', text: '- [ ] Ask about rate limits', revision: 'rm'});
 	assert.equal(workNote('wt:w9', sessions)?.readOnly, true);
-	const tasks = parseTasks(['- [ ] Add OAuth <!-- dh:t=a wt=w1 -->', '- [ ] Add tests <!-- dh:t=t wt=w1 assigned=2026-10-09 -->'].join('\n'));
+	const tasks = parseTasks(['- [ ] Add OAuth <!-- dh:t=a wt=w1 -->', '- [ ] Elsewhere <!-- dh:t=e -->'].join('\n'));
 	const rows = boardRows(tasks, false, NOW, undefined, section => noteSteps(workNote(section, sessions)?.text));
 	const describe = (row: BoardRow) => row.kind === 'task' ? `${row.task.title}${row.steps ? ` ${row.steps.done}/${row.steps.total}` : ''}` : row.kind === 'step' ? `  ${row.step.done ? '☑' : '☐'} ${row.step.text}` : row.kind;
-	// Under the started task (◆), before the follow-ups; it counts them.
-	assert.deepEqual(rows.slice(0, 6).map(describe), ['work', 'Add OAuth 1/3', '  ☑ Read the spec', '  ☐ Write the parser', '  ☐ Handle tabs', 'Add tests']);
-	// Only follow-ups on the work: no task to hang them on, so none are listed.
-	assert.ok(!boardRows(parseTasks('- [ ] Add tests <!-- dh:t=t wt=w1 assigned=2026-10-09 -->'), false, NOW, undefined, () => noteSteps(note)).some(row => row.kind === 'step'));
+	// Under the work's task (◆), which counts them.
+	assert.deepEqual(rows.slice(0, 6).map(describe), ['work', 'Add OAuth 1/3', '  ☑ Read the spec', '  ☐ Write the parser', '  ☐ Handle tabs', 'heading']);
+	// No task on the work: no group, so no steps on the board (the Notes view still lists them).
+	assert.ok(!boardRows(parseTasks('- [ ] Elsewhere <!-- dh:t=e -->'), false, NOW, undefined, () => noteSteps(note)).some(row => row.kind === 'step'));
 	// Space on a step ticks the note's line (and back).
 	assert.equal(toggleChecklistLine(note, 2)!.split('\n')[2], '- [x] Write the parser');
 	assert.equal(toggleChecklistLine(note, 1)!.split('\n')[1], '- [ ] Read the spec');
@@ -69,32 +69,23 @@ test('↗ lines say where their task is: in Tasks, done, or no longer in the lis
 test('the merge confirmation offers to send the worktree note\'s open items to the backlog: one row space switches', () => {
 	const preview: MergePreview = {targetRoot: '/repo', targetBranch: 'main', targetIsMain: true, defaultBranch: 'main', commitCount: 1, commits: ['feat'], diff: {files: 1, insertions: 1, deletions: 0}, uncommitted: 0, overlap: {committed: [], uncommitted: []}} as unknown as MergePreview;
 	const input = {title: 'auth', preview, commitFirst: true, commitMessage: 'auth', notes: [], width: 100, height: 30};
-	const send = mergeConfirmLayout({...input, followUps: [{title: 'Add tests', ticked: false}], openItems: {titles: ['Write the parser', 'Handle tabs'], send: true}});
-	assert.deepEqual(send.followUps, ['☐ Add tests · back to the backlog', '☑ 2 open note items → backlog: Write the parser, Handle tabs']);
+	const send = mergeConfirmLayout({...input, openItems: {titles: ['Write the parser', 'Handle tabs'], send: true}});
+	assert.deepEqual(send.toggles, ['☑ 2 open note items → backlog: Write the parser, Handle tabs']);
 	assert.equal(send.hint, 'enter choose · space toggle · j/k move · esc cancel');
 	const keep = mergeConfirmLayout({...input, openItems: {titles: ['Write the parser'], send: false}});
-	assert.deepEqual(keep.followUps, ['☐ 1 open note item · stay in the note: Write the parser']);
-	// No follow-ups heading for the items row alone; nothing before the preview arrives.
-	assert.ok(!keep.details.some(line => line.text.startsWith('Follow-ups')));
-	assert.deepEqual(mergeConfirmLayout({...input, preview: undefined, openItems: {titles: ['x'], send: true}}).followUps, []);
+	assert.deepEqual(keep.toggles, ['☐ 1 open note item · stay in the note: Write the parser']);
+	// Nothing before the preview arrives.
+	assert.deepEqual(mergeConfirmLayout({...input, preview: undefined, openItems: {titles: ['x'], send: true}}).toggles, []);
 });
 
-test('w onto work without a ◆ task makes the task that work\'s own; ctrl+f (no main) makes it a follow-up; the role can change in place', () => {
+test('w onto work without a task makes the task that work\'s (◆); onto work with one, the daemon puts it into its note as a step', () => {
 	const text = '- [ ] Fix flaky test <!-- dh:t=f1 -->\n- [ ] Write docs <!-- dh:t=d1 -->';
-	const main = applyTaskOp(text, {type: 'assign', id: 'f1', link: {s: 'flaky'}, main: true}, NOW);
+	const main = applyTaskOp(text, {type: 'assign', id: 'f1', link: {s: 'flaky'}}, NOW);
 	assert.match(main.text, /^- \[ \] Fix flaky test <!-- dh:t=f1 s=flaky -->/);
+	// The menu asks: does that work have an open task other than the one moving? Then it becomes a step instead.
 	assert.equal(hasMainTask('s:flaky', parseTasks(main.text)), true);
 	assert.equal(hasMainTask('s:flaky', parseTasks(main.text), 'f1'), false);
-	// Once it has one, the next task assigned there is a follow-up (the UI sends no `main`).
-	const follow = applyTaskOp(main.text, {type: 'assign', id: 'd1', link: {s: 'flaky'}}, NOW);
-	assert.match(follow.text, /Write docs <!-- dh:t=d1 s=flaky assigned=2026-10-09 -->/);
-	// Same work, other role (only with an explicit `main`): a follow-up becomes the work's own task, and back.
-	assert.match(applyTaskOp(follow.text, {type: 'assign', id: 'd1', link: {s: 'flaky'}, main: true}, NOW).text, /Write docs <!-- dh:t=d1 s=flaky -->/);
-	assert.match(applyTaskOp(main.text, {type: 'assign', id: 'f1', link: {s: 'flaky'}, main: false}, NOW).text, /Fix flaky test <!-- dh:t=f1 s=flaky assigned=2026-10-09 -->/);
-	assert.equal(applyTaskOp(main.text, {type: 'assign', id: 'f1', link: {s: 'flaky'}, main: true}, NOW).changed, 0);
-	assert.equal(applyTaskOp(main.text, {type: 'assign', id: 'f1', link: {s: 'flaky'}}, NOW).changed, 0);
-	// From a client: `main` only with a link.
-	assert.deepEqual(clientTaskOp({type: 'assign', id: 'x', link: {wt: 'w1'}, main: true}), {type: 'assign', id: 'x', link: {wt: 'w1'}, main: true});
-	assert.deepEqual(clientTaskOp({type: 'assign', id: 'x', link: {wt: 'w1'}, main: false}), {type: 'assign', id: 'x', link: {wt: 'w1'}, main: false});
-	assert.deepEqual(clientTaskOp({type: 'assign', id: 'x', main: true}), {type: 'assign', id: 'x'});
+	assert.equal(hasMainTask('s:other', parseTasks(main.text)), false);
+	// From a client, assign carries only a link (no roles any more).
+	assert.deepEqual(clientTaskOp({type: 'assign', id: 'x', link: {wt: 'w1'}, main: true}), {type: 'assign', id: 'x', link: {wt: 'w1'}});
 });

@@ -48,13 +48,13 @@ test('steps: the worktree note\'s checklist under its task on the board (space t
 	press('b'); await screen('◆ Ship parser'); press('\t'); await screen('✎ Notes'); await screen('A send all');
 	press('A'); await screen('Sent 1 item to Tasks'); await screen('↗ Write tests · in Tasks');
 	assert.match(await worktreeNote(), /- ↗ Write tests <!-- dh:t=[0-9a-f]{8} -->/);
-	// Its task is a follow-up of the worktree; ticking it shows · done on the ↗ line.
-	press('\t'); await screen('☐ Write tests');
-	press('G'); await screen('› ☐ Write tests'); press(' '); await screen('Done: Write tests');
+	// Its task is in the backlog (work of its own); ticking it shows · done on the ↗ line.
+	press('\t'); await screen('BACKLOG · 1');
+	press('G'); await screen('Write tests'); press(' '); await screen('Done: Write tests');
 	press('\t'); await screen('↗ Write tests · done');
 });
 
-test('w onto a session started from the sidebar makes the task its own (◆, with steps); ctrl+f makes it a follow-up instead', {timeout: UI_TEST_TIMEOUT_MS}, async t => {
+test('w onto a session started from the sidebar makes the task its own (◆, with steps); a there then adds a step', {timeout: UI_TEST_TIMEOUT_MS}, async t => {
 	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-ui-'));
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const agent of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, agent), fakeAgent, {mode: 0o755});
@@ -70,13 +70,11 @@ test('w onto a session started from the sidebar makes the task its own (◆, wit
 	// A task written afterwards, moved there with w: as the work's own task by default (the row says so).
 	press('b'); await screen('No tasks yet · a adds one');
 	press('a'); await screen('New task'); press('Fix flaky test'); await screen('Fix flaky test'); press('\r'); await screen('Added to the backlog');
-	press('w'); await screen('Move “Fix flaky test” to'); await screen('◆ main task'); await screen('ctrl+f as a follow-up');
-	// ctrl+f switches it to a follow-up (and back).
-	press('\x06'); await screen('follow-up'); await screen('ctrl+f as its main task');
-	press('\x06'); await screen('◆ main task');
-	press('\r'); await screen('Now the task ⎇'); await screen('◆ Fix flaky test'); await screen('0/1'); await screen('☐ Reproduce it');
-	// The next task there is a follow-up: the work already has its own, so w offers no other role.
-	press('a'); await screen('New task'); press('Write docs'); await screen('Write docs'); press('\r'); await screen('Added to');
-	press('G'); await screen('› ☐ Write docs');
-	press('w'); await screen('here · follow-up'); press('\r'); await screen('It is already there');
+	press('w'); await screen('Move “Fix flaky test” to'); await screen('◆ its task');
+	press('\r'); await screen('Now the task of ⎇'); await screen('◆ Fix flaky test'); await screen('0/1'); await screen('☐ Reproduce it');
+	// The work has its task now: a adds a step to its note.
+	press('a'); await screen('New step · the note of ⎇'); press('Write docs'); await screen('Write docs'); press('\r'); await screen('Added a step to');
+	await screen('☐ Write docs'); await screen('0/2');
+	press('G'); await screen('›   ☐ Write docs');
+	press('w'); await screen('A step from the note');
 });

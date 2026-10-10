@@ -21,7 +21,8 @@ test('open note items go to Tasks at once: A, a merge, deletion from W and x wit
 	for (const provider of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, provider), fakeAgent, {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
 	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1'};
-	const daemon = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); daemon.stderr?.on('data', () => {});
+	const launch = () => { const child = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); child.stderr?.on('data', () => {}); return child; };
+	let daemon = launch();
 	t.after(async () => { await stop(daemon); await fs.rm(root, {recursive: true, force: true}); await fs.rm(home, {recursive: true, force: true}); });
 	const call = <T>(message: Omit<Extract<ClientRequest, {requestId: string}>, 'requestId'>) => request<T>({...message, requestId: randomUUID()} as Extract<ClientRequest, {requestId: string}>, 60_000);
 	await waitFor(async () => { try { return await call<{ok: boolean}>({type: 'ping'}); } catch { return {ok: false}; } }, result => result.ok);
@@ -38,7 +39,7 @@ test('open note items go to Tasks at once: A, a merge, deletion from W and x wit
 	};
 	const sharedText = async (id: string) => (await state(id)).sharedNotes?.text ?? '';
 
-	// A in the Notes view: every open item of the note, each to the note's work (the worktree, as a follow-up).
+	// A in the Notes view: every open item of the note to the backlog (work of its own; the note's work's to-dos are its steps).
 	const one = await running((await create('items one')).id);
 	const wt1 = one.worktree!.id!;
 	let saved = await writeNote(one, '- [x] Done already\n- [ ] Parse tabs\n- [ ] Parse spaces\nprose');
@@ -48,7 +49,7 @@ test('open note items go to Tasks at once: A, a merge, deletion from W and x wit
 	let list = await tasks();
 	for (const title of ['Parse tabs', 'Parse spaces']) {
 		const task = list.find(item => item.title === title)!;
-		assert.equal(task.meta.wt, wt1); assert.ok(task.meta.assigned);
+		assert.equal(task.meta.wt, undefined); assert.equal(task.done, false);
 		assert.ok(sent.session.sharedNotes!.text.includes(`- ↗ ${title} <!-- dh:t=${task.id} -->`));
 	}
 	assert.match(sent.session.sharedNotes!.text, /^- \[x\] Done already\n/);
@@ -86,4 +87,19 @@ test('open note items go to Tasks at once: A, a merge, deletion from W and x wit
 	const flags = (await tasks()).find(item => item.title === 'Clean up flags')!;
 	assert.equal(flags.meta.from, four.worktree!.branch);
 	assert.match(await sharedText(four.id), /- ↗ Clean up flags <!-- dh:t=/);
+
+	// Follow-ups of the old model become steps at daemon start: an open task assigned to a live worktree moves into its
+	// note; one assigned to a deleted worktree stays, in the backlog; the old bookkeeping goes.
+	await stop(daemon);
+	const tasksDir = path.join(home, 'notes', 'tasks');
+	const [file] = (await fs.readdir(tasksDir)).filter(name => name.endsWith('.md'));
+	const legacy = `- [ ] Legacy step <!-- dh:t=1e9acy01 wt=${wt1} assigned=2026-10-01 -->\n  its details\n- [ ] Orphan <!-- dh:t=1e9acy02 wt=${four.worktree!.id} assigned=2026-10-01 -->\n`;
+	await fs.appendFile(path.join(tasksDir, file!), legacy);
+	daemon = launch();
+	await waitFor(async () => { try { return await call<{ok: boolean}>({type: 'ping'}); } catch { return {ok: false}; } }, result => result.ok);
+	const after = await tasks();
+	assert.ok(!after.some(item => item.title === 'Legacy step'));
+	assert.deepEqual(after.find(item => item.title === 'Orphan')?.meta, {t: '1e9acy02'});
+	assert.match(await sharedText(one.id), /- \[ \] Legacy step\n  its details\n$/);
+	assert.doesNotMatch(await fs.readFile(path.join(tasksDir, file!), 'utf8'), /assigned=/);
 });

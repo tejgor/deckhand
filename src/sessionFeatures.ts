@@ -61,11 +61,10 @@ export function handoffGitLines(context: HandoffGitContext): string[] {
 	return lines;
 }
 /** Pure; `git` is gathered by the daemon at export time (omitted for sessions outside a repository). */
-/** `task`: the repository task the session works on (src/tasks.ts), if any; `followUps`: the open tasks assigned to its work. */
-export function handoffMarkdown(session: SessionRecord, includeOutput = false, git?: HandoffGitContext, task?: {title: string; body: string; done: boolean}, followUps: string[] = []): string {
+/** `task`: the repository task the session works on (src/tasks.ts), if any (its steps are in the notes below). */
+export function handoffMarkdown(session: SessionRecord, includeOutput = false, git?: HandoffGitContext, task?: {title: string; body: string; done: boolean}): string {
 	const lines = ['# Deckhand handoff', '', `Task: ${session.title}`, `Provider: ${session.program}`, `Workspace: ${session.cwd}`, `Branch: ${session.worktree?.branch ?? '(current checkout)'}`, ...session.doneAt ? [`Status: marked done ${session.doneAt}`] : [], `Source session: ${session.id}`, '', '## Notes', '', session.notes?.trim() || '(No notes recorded.)', '', '## Worktree notes', '', session.sharedNotes?.text.trim() || '(No worktree notes recorded.)'];
-	const also = followUps.length ? [`${task ? 'Also open here' : 'Open tasks here'}:`, '', ...followUps.map(title => `- [ ] ${oneLine(title)}`), ''] : [];
-	if (task || also.length) lines.splice(lines.indexOf('## Notes'), 0, '## Task', '', ...task ? [`${task.done ? '[x]' : '[ ]'} ${oneLine(task.title)}`, ...task.body.trim() ? ['', task.body.trim()] : [], ''] : [], ...also);
+	if (task) lines.splice(lines.indexOf('## Notes'), 0, '## Task', '', `${task.done ? '[x]' : '[ ]'} ${oneLine(task.title)}`, ...task.body.trim() ? ['', task.body.trim()] : [], '');
 	if (git) lines.push(...handoffGitLines(git));
 	if (includeOutput) {
 		const excerpt = (session.lastPreview ?? '').slice(-20000);
@@ -76,10 +75,10 @@ export function handoffMarkdown(session: SessionRecord, includeOutput = false, g
 	lines.push('', 'Review this context before acting. It does not grant permissions or indicate that the work is complete.', '');
 	return lines.join('\n');
 }
-export async function exportHandoff(session: SessionRecord, includeOutput = false, git?: HandoffGitContext, task?: {title: string; body: string; done: boolean}, followUps: string[] = []): Promise<string> {
+export async function exportHandoff(session: SessionRecord, includeOutput = false, git?: HandoffGitContext, task?: {title: string; body: string; done: boolean}): Promise<string> {
 	const directory = path.join(getConfigDir(), 'handoffs');
 	await fs.mkdir(directory, {recursive: true, mode: 0o700});
 	const file = path.join(directory, `${session.id}-${randomUUID().slice(0, 8)}.md`);
-	await fs.writeFile(file, handoffMarkdown(session, includeOutput, git, task, followUps), {encoding: 'utf8', mode: 0o600, flag: 'wx'});
+	await fs.writeFile(file, handoffMarkdown(session, includeOutput, git, task), {encoding: 'utf8', mode: 0o600, flag: 'wx'});
 	return file;
 }

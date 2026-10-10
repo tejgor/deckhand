@@ -19,14 +19,14 @@ import {emptyChanges, type ChangesRecord} from './changesModel.js';
 import {useNotesFlow} from './notesFlow.js';
 import {TaskBanner, useTasksFlow} from './tasksFlow.js';
 import {useWorktreesFlow} from './worktreesFlow.js';
-import {isAssigned, parseTasks, type Task} from './tasks.js';
+import {parseTasks, type Task} from './tasks.js';
 import {linkedTask, linkedTasks, noteSteps, openItemsRemovedWith, otherOpenTasks, stepCount, taskCountLabel, taskLinkLookup, workKeyOf, workNote, worktreeOpenItems} from './tasksBoard.js';
 import {PreviewPane} from './preview.js';
 import {sessionMatchesScope} from './sessionScope.js';
 import {noWorkspaceReason, workspaceKey} from './workspace.js';
 import {Sidebar} from './sidebar.js';
 import {msUntilAgeChanges, statusSince} from './sidebarModel.js';
-import {MERGE_FOLLOW_UPS, conflictView, mergeConfirmLayout, type MergeLine, type MergeNoteEntry} from './mergeModel.js';
+import {conflictView, mergeConfirmLayout, type MergeLine, type MergeNoteEntry} from './mergeModel.js';
 import {filterCollapsedSessions, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from './sessionOrder.js';
 import {TabBar} from './tabs.js';
 import {TerminalPane, actionStatus, hasAction, type TerminalView} from './terminalPane.js';
@@ -411,21 +411,21 @@ function MergeLines({lines}: {lines: MergeLine[]}) {
 
 export function MergeConfirmPane({session, sessions, flow, selectedIndex, width, height, tasks = []}: {session?: SessionRecord; sessions: SessionRecord[]; flow?: MergeFlow; selectedIndex: number; width: number; height: number; tasks?: Task[]}) {
 	const contentWidth = Math.max(1, width - 4);
-	const {started, followUps} = mergeTasks(tasks, session);
+	const started = mergeTasks(tasks, session);
 	const layout = mergeConfirmLayout({
 		title: session ? displaySessionTitle(session, sessions) : 'worktree',
 		preview: flow?.preview, previewError: flow?.previewError, commitFirst: flow?.commitFirst ?? true,
 		commitMessage: session?.title.trim() ?? '', error: flow?.error, notes: mergeNoteEntries(session, sessions),
-		tasks: started.map(task => task.title), followUps: followUps.map(task => ({title: task.title, ticked: Boolean(flow?.ticks?.includes(task.id))})),
+		tasks: started.map(task => task.title),
 		openItems: {titles: worktreeOpenItems(session?.worktree?.id, sessions), send: !flow?.keepOpenItems},
 		width: contentWidth, height,
 	});
-	const onTask = flow?.taskCursor !== undefined;
+	const onTask = Boolean(flow?.onItems);
 	return (
 		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
 			<Text color={THEME.accent} bold wrap="truncate-end">{layout.title}</Text>
 			<MergeLines lines={layout.details} />
-			{layout.followUps.map((text, index) => <SelectableRow key={`follow-${index}`} selected={flow?.taskCursor === index} text={text} width={contentWidth} color={text.startsWith('☑') ? THEME.success : THEME.muted} />)}
+			{layout.toggles.map((text, index) => <SelectableRow key={`toggle-${index}`} selected={onTask} text={text} width={contentWidth} color={text.startsWith('☑') ? THEME.success : THEME.muted} />)}
 			<Box marginTop={1} flexDirection="column">
 				{layout.options.map((option, index) => <SelectableRow key={option} selected={!onTask && index === selectedIndex} text={option} width={contentWidth} selectedColor={option === 'Cancel' ? THEME.muted : THEME.active} />)}
 			</Box>
@@ -557,12 +557,12 @@ function ActionPickerPane({project, running, dev, selectedIndex, width, height}:
 }
 
 /** The merge confirmation (m) of one session: its preview, the commit-first toggle and a failed attempt's output. */
-interface MergeFlow {sessionId: string; preview?: MergePreview; previewError?: string; commitFirst: boolean; error?: string; /** Follow-ups ticked to be done with this merge. */ ticks?: string[]; /** The selection is on this follow-up (or, one past them, the note's open items; else on the options). */ taskCursor?: number; /** The note's open items stay in the note (switched off on the confirmation; by default they go to the backlog). */ keepOpenItems?: boolean}
+interface MergeFlow {sessionId: string; preview?: MergePreview; previewError?: string; commitFirst: boolean; error?: string; /** The selection is on the note's open items row (else on the options). */ onItems?: boolean; /** The note's open items stay in the note (switched off on the confirmation; by default they go to the backlog). */ keepOpenItems?: boolean}
 
-/** The worktree's open tasks a merge confirmation lists: the ones it was started for (ticked by the merge) and its assigned follow-ups. */
-function mergeTasks(tasks: Task[], session?: SessionRecord): {started: Task[]; followUps: Task[]} {
+/** The worktree's open task a merge confirmation names: the merge ticks it. */
+function mergeTasks(tasks: Task[], session?: SessionRecord): Task[] {
 	const open = tasks.filter(task => !task.done && task.meta.wt && task.meta.wt === session?.worktree?.id);
-	return {started: open.filter(task => !isAssigned(task)), followUps: open.filter(task => isAssigned(task))};
+	return open;
 }
 
 function hasMergedMarker(session?: SessionRecord): boolean {
@@ -1806,15 +1806,13 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		const flow = mergeFlow?.sessionId === sessionId ? mergeFlow : undefined;
 		// The toggle only applies when there is something uncommitted to commit.
 		const commitFirst = Boolean(flow?.preview?.uncommitted) && (flow?.commitFirst ?? true);
-		const followUpIds = new Set(mergeTasks(tasks, selectedSession).followUps.map(task => task.id));
-		const ticks = (flow?.ticks ?? []).filter(id => followUpIds.has(id));
 		// The note's open items go to the backlog with a clean merge unless the confirmation kept them in the note.
 		const sendOpenItems = worktreeOpenItems(selectedSession.worktree.id, repoSessions).length > 0 && !flow?.keepOpenItems;
 		setBusy(true);
 		setError(undefined);
 		setMergeFlow(current => (current?.sessionId === sessionId ? {...current, error: undefined} : current));
 		try {
-			const result = await client.mergeWorktree(sessionId, mergeMode, cwd, commitFirst, ticks, sendOpenItems);
+			const result = await client.mergeWorktree(sessionId, mergeMode, cwd, commitFirst, sendOpenItems);
 			const sent = result.sentItems ? ` · ${result.sentItems} open note item${result.sentItems === 1 ? '' : 's'} sent to the backlog` : '';
 			const committed = result.committed ? `Committed ${result.committed.files} file${result.committed.files === 1 ? '' : 's'}, then ` : '';
 			if (result.conflicted) {
@@ -1835,7 +1833,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		} finally {
 			setBusy(false);
 		}
-	}, [client, cwd, mergeFlow, selectedSession, tasks, repoSessions]);
+	}, [client, cwd, mergeFlow, selectedSession, repoSessions]);
 
 	const resolveConflictedMerge = useCallback(async (action: 'keep' | 'abort') => {
 		if (!client || !mergeConflict) return;
@@ -2607,20 +2605,12 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setMode('browse');
 				return;
 			}
-			// The follow-ups (listed once the preview is in) come before the options in one j/k cycle; space or enter on
-			// one ticks it, space elsewhere toggles commit-first.
-			const followUps = mergeFlow?.preview ? mergeTasks(tasks, selectedSession).followUps.slice(0, MERGE_FOLLOW_UPS) : [];
-			// One more row after them: the note's open items (to the backlog, or kept in the note).
+			// The note's open items row (listed once the preview is in) comes before the options in one j/k cycle; space
+			// or enter on it switches it, space elsewhere toggles commit-first.
 			const itemsRow = mergeFlow?.preview && worktreeOpenItems(selectedSession?.worktree?.id, sessions).length ? 1 : 0;
-			const rowCount = followUps.length + itemsRow;
-			const taskCursor = mergeFlow?.taskCursor !== undefined && mergeFlow.taskCursor < rowCount ? mergeFlow.taskCursor : undefined;
-			if ((input === ' ' || key.return) && taskCursor === followUps.length && itemsRow) {
+			const onItems = Boolean(itemsRow && mergeFlow?.onItems);
+			if ((input === ' ' || key.return) && onItems) {
 				setMergeFlow(current => (current ? {...current, keepOpenItems: !current.keepOpenItems} : current));
-				return;
-			}
-			if ((input === ' ' || key.return) && taskCursor !== undefined) {
-				const id = followUps[taskCursor]!.id;
-				setMergeFlow(current => (current ? {...current, ticks: current.ticks?.includes(id) ? current.ticks.filter(other => other !== id) : [...current.ticks ?? [], id]} : current));
 				return;
 			}
 			if (input === ' ') {
@@ -2629,10 +2619,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			}
 			const step = key.upArrow || input === 'k' ? -1 : key.downArrow || input === 'j' ? 1 : 0;
 			if (step) {
-				const count = rowCount + optionCount;
-				const at = ((taskCursor ?? rowCount + mergeConfirmIndex) + step + count) % count;
-				setMergeFlow(current => (current ? {...current, taskCursor: at < rowCount ? at : undefined} : current));
-				if (at >= rowCount) setMergeConfirmIndex(at - rowCount);
+				const count = itemsRow + optionCount;
+				const at = ((onItems ? 0 : itemsRow + mergeConfirmIndex) + step + count) % count;
+				setMergeFlow(current => (current ? {...current, onItems: at < itemsRow} : current));
+				if (at >= itemsRow) setMergeConfirmIndex(at - itemsRow);
 				return;
 			}
 			if (key.return) {
@@ -2778,7 +2768,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							<DevPane session={selectedSession} dev={dev} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
 						) : selectedTask ? (
 							<Box flexDirection="column">
-								<TaskBanner task={selectedTask} more={otherOpenTasks(tasks, selectedSession)} steps={selectedTask && !isAssigned(selectedTask) && selectedSession ? stepCount(noteSteps(workNote(workKeyOf(selectedSession), repoSessions)?.text)) : undefined} sessions={repoSessions} spinnerFrame={spinnerFrame} width={layout.paneInnerWidth} />
+								<TaskBanner task={selectedTask} more={otherOpenTasks(tasks, selectedSession)} steps={selectedTask && selectedSession ? stepCount(noteSteps(workNote(workKeyOf(selectedSession), repoSessions)?.text)) : undefined} sessions={repoSessions} spinnerFrame={spinnerFrame} width={layout.paneInnerWidth} />
 								{notesFlow.render(layout.paneInnerWidth, Math.max(1, layout.paneInnerHeight - 2))}
 							</Box>
 						) : (

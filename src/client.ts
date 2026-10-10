@@ -420,8 +420,8 @@ export class LiveClient {
 	}
 
 	/** `sendOpenItems`: after a clean merge, the worktree note's open checklist items go to the backlog. */
-	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false, tickTaskIds: string[] = [], sendOpenItems = false): Promise<WorktreeMergeResult> {
-		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd, commitFirst, ...tickTaskIds.length ? {tickTaskIds} : {}, ...sendOpenItems ? {sendOpenItems: true} : {}});
+	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false, sendOpenItems = false): Promise<WorktreeMergeResult> {
+		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd, commitFirst, ...sendOpenItems ? {sendOpenItems: true} : {}});
 	}
 
 	resolveMerge(sessionId: string, targetCwd: string, action: 'keep' | 'abort'): Promise<SessionRecord> {
@@ -446,6 +446,8 @@ export class LiveClient {
 	taskOp(cwd: string, op: TaskOp): Promise<TasksDoc> { return this.request({type: 'task-op', requestId: randomUUID(), cwd, op}); }
 	openTasks(cwd: string): Promise<string> { return this.request({type: 'open-tasks', requestId: randomUUID(), cwd}); }
 	returnTaskToNote(cwd: string, taskId: string): Promise<TasksDoc> { return this.request({type: 'return-task-to-note', requestId: randomUUID(), cwd, taskId}); }
+	/** The task into the note of work `section` (which has its task already), as a step. */
+	taskToNote(cwd: string, taskId: string, section: string): Promise<TasksDoc> { return this.request({type: 'task-to-note', requestId: randomUUID(), cwd, taskId, section}); }
 	promoteNoteItem(sessionId: string, section: NoteSection, line: number, revision: string, noteId?: string): Promise<{session: SessionRecord; tasks: TasksDoc}> {
 		return this.request({type: 'promote-note-item', requestId: randomUUID(), sessionId, section, line, revision, ...noteId ? {noteId} : {}});
 	}
