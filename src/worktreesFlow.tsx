@@ -6,7 +6,7 @@ import type {SessionRecord, WorktreeCleanupInspection, WorktreeOverview, Worktre
 import {GROUP_TITLES, bulkTargets, deleteRefusal, mergedText, protectedBranch, selectableWorktreeRow, worktreeName, worktreeRowKey, worktreeRows, worktreeTags, type WorktreeRow} from './worktreesModel.js';
 import {leadSession} from './tasksBoard.js';
 import {openInEditor} from './desktop.js';
-import {SelectableRow, fitHint} from './menu.js';
+import {SelectableRow, fitHint, scrolledListTop} from './menu.js';
 import {cleanupOverrideText} from './detailTexts.js';
 import {formatAge} from './sidebarModel.js';
 import {THEME, compactPath, displaySessionTitle, errorMessage, statusColor, statusGlyph, truncate} from './ui.js';
@@ -263,11 +263,7 @@ export function useWorktreesFlow({client, cwd, sessions, spinnerFrame, onExit, o
 		const status = working ?? (loading ? 'Checking worktrees…' : overview ? `${overview.defaultBranch ? `Compared with ${overview.defaultBranch}` : 'No default branch found'} · checked ${checkedAgo(now - Date.parse(overview.checkedAt))}${overview.unchecked ? ` · ${overview.unchecked} not checked (too many)` : ''}` : '');
 		const lower = detailLines(currentRow, rows, sessions, overview?.defaultBranch, spinnerFrame, now, inner);
 		const listRows = Math.max(1, height - 2 - 3 - (lower.length ? lower.length + 1 : 0));
-		if (current >= 0) {
-			if (current < top.current) top.current = current;
-			if (current >= top.current + listRows) top.current = current - listRows + 1;
-		}
-		top.current = Math.max(0, Math.min(top.current, Math.max(0, rows.length - listRows)));
+		top.current = scrolledListTop(top.current, current, listRows, rows.length, index => selectableWorktreeRow(rows[index]!));
 		const shown = rows.slice(top.current, top.current + listRows);
 		return (
 			<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>

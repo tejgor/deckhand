@@ -47,6 +47,24 @@ export function menuWindowStart(selected: number, count: number, rows: number): 
 }
 
 /**
+ * The first visible row of a scrolled list of `total` rows showing `rows` at a time, from the last one (`top`), so the
+ * selection (`current`, -1 for none) stays on screen. Moving up onto a row also shows the rows right above it that
+ * cannot be selected (its group's heading), as far as the selection stays visible: scrolling only to the selected row
+ * hid the heading of the first group after scrolling down and back up.
+ */
+export function scrolledListTop(top: number, current: number, rows: number, total: number, selectable: (index: number) => boolean): number {
+	if (current >= 0) {
+		if (current < top) {
+			let first = current;
+			while (first > 0 && !selectable(first - 1)) first--;
+			top = Math.max(first, current - rows + 1);
+		}
+		if (current >= top + rows) top = current - rows + 1;
+	}
+	return Math.max(0, Math.min(top, Math.max(0, total - rows)));
+}
+
+/**
  * A vertical list of SelectableRows: an aligned label column, then the description cut to fit. With `rows`, only a
  * window around the selection is shown (with ↑/↓ more markers), so short terminals clip instead of overflowing.
  */
