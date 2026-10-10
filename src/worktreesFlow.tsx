@@ -4,7 +4,7 @@ import {Box, Text, type Key} from 'ink';
 import type {LiveClient} from './client.js';
 import type {SessionRecord, WorktreeCleanupInspection, WorktreeOverview, WorktreeOverviewEntry} from './types.js';
 import {GROUP_TITLES, bulkTargets, deleteRefusal, mergedText, protectedBranch, selectableWorktreeRow, worktreeName, worktreeRowKey, worktreeRows, worktreeTags, type WorktreeRow} from './worktreesModel.js';
-import {leadSession} from './tasksBoard.js';
+import {leadSession, worktreeOpenItems} from './tasksBoard.js';
 import {openInEditor} from './desktop.js';
 import {SelectableRow, fitHint, scrolledListTop} from './menu.js';
 import {cleanupLossLines, fileRowsLeft} from './cleanupView.js';
@@ -30,6 +30,8 @@ interface DeleteConfirm {
 	checks: {worktree?: WorktreeCleanupInspection; branch?: WorktreeCleanupInspection};
 	/** Typing DELETE to authorize data loss for this option. */
 	override?: {deleteBranch: boolean; draft: string};
+	/** Their notes' open checklist items stay there (space); by default they go to the backlog first. */
+	keepOpenItems?: boolean;
 }
 
 interface WorktreesFlowOptions {
@@ -140,13 +142,17 @@ export function useWorktreesFlow({client, cwd, sessions, spinnerFrame, onExit, o
 		load();
 	};
 
-	const deleteOne = (entry: WorktreeOverviewEntry, deleteBranch: boolean, allowDataLoss = false) => {
+	const openItemsOf = (entry: WorktreeOverviewEntry) => worktreeOpenItems(entry.recordId, sessions);
+	const sendsItems = (entry: WorktreeOverviewEntry, keep?: boolean) => !keep && openItemsOf(entry).length > 0;
+	const sentText = (count = 0) => (count ? `${count} open note item${count === 1 ? '' : 's'} to the backlog` : '');
+
+	const deleteOne = (entry: WorktreeOverviewEntry, deleteBranch: boolean, allowDataLoss = false, keepOpenItems = false) => {
 		if (!client || working) return;
 		setWorking(`Deleting ${worktreeName(entry)}…`);
 		setError(undefined);
-		void client.deleteWorktree(cwd, entry.path, {branch: entry.branch, deleteBranch, stopSessions: true, allowDataLoss}).then(result => {
+		void client.deleteWorktree(cwd, entry.path, {branch: entry.branch, deleteBranch, stopSessions: true, allowDataLoss, sendOpenItems: sendsItems(entry, keepOpenItems)}).then(result => {
 			const done = result.removed === 'deleted' ? `Deleted ${worktreeName(entry)}${result.branchDeleted ? ' and its branch' : ''}` : result.removed === 'pruned' ? `Pruned ${worktreeName(entry)}` : `Forgot ${worktreeName(entry)}`;
-			const extra = [result.stopped ? `stopped ${result.stopped} session${result.stopped === 1 ? '' : 's'}` : '', result.archived ? `archived ${result.archived} (f A shows them)` : ''].filter(Boolean);
+			const extra = [result.stopped ? `stopped ${result.stopped} session${result.stopped === 1 ? '' : 's'}` : '', sentText(result.sentItems), result.archived ? `archived ${result.archived} (f A shows them)` : ''].filter(Boolean);
 			finish([done, ...extra].join(' · '));
 		}, error => {
 			setWorking(undefined);
@@ -156,22 +162,22 @@ export function useWorktreesFlow({client, cwd, sessions, spinnerFrame, onExit, o
 		});
 	};
 
-	const deleteAll = (entries: WorktreeOverviewEntry[], withBranches: boolean) => {
+	const deleteAll = (entries: WorktreeOverviewEntry[], withBranches: boolean, keepOpenItems = false) => {
 		if (!client || working) return;
 		setError(undefined);
 		void (async () => {
-			let deleted = 0, branches = 0, stopped = 0;
+			let deleted = 0, branches = 0, stopped = 0, sent = 0;
 			const failed: string[] = [];
 			for (const [index, entry] of entries.entries()) {
 				setWorking(`Deleting ${worktreeName(entry)}… ${index + 1}/${entries.length}`);
 				try {
-					const result = await client.deleteWorktree(cwd, entry.path, {branch: entry.branch, deleteBranch: withBranches && canDeleteBranch(entry), stopSessions: true});
-					deleted++; stopped += result.stopped;
+					const result = await client.deleteWorktree(cwd, entry.path, {branch: entry.branch, deleteBranch: withBranches && canDeleteBranch(entry), stopSessions: true, sendOpenItems: sendsItems(entry, keepOpenItems)});
+					deleted++; stopped += result.stopped; sent += result.sentItems ?? 0;
 					if (result.branchDeleted) branches++;
 				} catch (error) { failed.push(`${worktreeName(entry)}: ${errorMessage(error)}`); }
 			}
 			if (failed.length) setError(`Not deleted: ${failed.join('; ')}`);
-			finish([`Deleted ${deleted} worktree${deleted === 1 ? '' : 's'}${branches ? ` and ${branches} branch${branches === 1 ? '' : 'es'}` : ''}`, stopped ? `stopped ${stopped} session${stopped === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · '));
+			finish([`Deleted ${deleted} worktree${deleted === 1 ? '' : 's'}${branches ? ` and ${branches} branch${branches === 1 ? '' : 'es'}` : ''}`, stopped ? `stopped ${stopped} session${stopped === 1 ? '' : 's'}` : '', sentText(sent)].filter(Boolean).join(' · '));
 		})();
 	};
 
@@ -183,24 +189,25 @@ export function useWorktreesFlow({client, cwd, sessions, spinnerFrame, onExit, o
 			const {override} = state;
 			if (key.escape) { setConfirm({...state, override: undefined}); return; }
 			if (key.backspace || key.delete) { setConfirm({...state, override: {...override, draft: override.draft.slice(0, -1)}}); return; }
-			if (key.return) { if (override.draft === 'DELETE') deleteOne(state.entries[0]!, override.deleteBranch, true); return; }
+			if (key.return) { if (override.draft === 'DELETE') deleteOne(state.entries[0]!, override.deleteBranch, true, state.keepOpenItems); return; }
 			if (!key.ctrl && !key.meta && /^[A-Za-z]+$/.test(input)) setConfirm({...state, override: {...override, draft: (override.draft + input).slice(0, 10)}});
 			return;
 		}
 		if (key.escape) { setConfirm(undefined); return; }
 		if (key.upArrow || input === 'k') { setConfirm({...state, index: (index - 1 + list.length) % list.length}); return; }
 		if (key.downArrow || input === 'j') { setConfirm({...state, index: (index + 1) % list.length}); return; }
+		if (input === ' ') { if (state.entries.some(entry => openItemsOf(entry).length)) setConfirm({...state, keepOpenItems: !state.keepOpenItems}); return; }
 		if (!key.return) return;
 		const option = list[index]!;
 		if (option.kind === 'cancel') { setConfirm(undefined); return; }
-		if (state.bulk) { deleteAll(state.entries, option.kind === 'delete-branch'); return; }
+		if (state.bulk) { deleteAll(state.entries, option.kind === 'delete-branch', state.keepOpenItems); return; }
 		const entry = state.entries[0]!;
-		if (option.kind === 'prune' || option.kind === 'forget') { deleteOne(entry, false); return; }
+		if (option.kind === 'prune' || option.kind === 'forget') { deleteOne(entry, false, false, state.keepOpenItems); return; }
 		const deleteBranch = option.kind === 'delete-branch';
 		const check = deleteBranch ? state.checks.branch : state.checks.worktree;
 		if (!check) { setStatusMessage('Still checking what it would lose…'); return; }
 		if (check.structuralBlockers.length) { setError(check.structuralBlockers.join('; ')); return; }
-		if (check.safe) deleteOne(entry, deleteBranch);
+		if (check.safe) deleteOne(entry, deleteBranch, false, state.keepOpenItems);
 		else setConfirm({...state, override: {deleteBranch, draft: ''}});
 	};
 
@@ -255,7 +262,7 @@ export function useWorktreesFlow({client, cwd, sessions, spinnerFrame, onExit, o
 	};
 
 	const render = (width: number, height: number): React.ReactNode => {
-		if (confirm) return <ConfirmPane state={confirm} options={options(confirm)} sessions={sessions} working={working} width={width} height={height} />;
+		if (confirm) return <ConfirmPane state={confirm} options={options(confirm)} sessions={sessions} openItems={confirm.entries.flatMap(openItemsOf)} working={working} width={width} height={height} />;
 		const inner = Math.max(10, width - 4);
 		const linked = overview?.entries.filter(entry => !entry.isMain) ?? [];
 		const ready = rows.filter(row => row.kind === 'worktree' && row.group === 'ready').length;
@@ -284,7 +291,7 @@ export function useWorktreesFlow({client, cwd, sessions, spinnerFrame, onExit, o
 
 	const hint = (width: number): string => {
 		if (confirm?.override) return fitHint(['type DELETE then enter', 'esc back'], width, ' • ');
-		if (confirm) return fitHint(['enter choose', 'j/k move', 'esc cancel'], width, ' • ');
+		if (confirm) return fitHint(['enter choose', 'j/k move', ...confirm.entries.some(entry => openItemsOf(entry).length) ? [{text: confirm.keepOpenItems ? 'space send note items' : 'space keep note items', short: 'space note items'}] : [], 'esc cancel'], width, ' • ');
 		const onReady = currentRow?.kind === 'heading' && currentRow.group === 'ready';
 		return fitHint([
 			'j/k move',
@@ -370,7 +377,7 @@ function detailLines(row: WorktreeRow | undefined, rows: WorktreeRow[], sessions
 	].slice(0, DETAIL_ROWS);
 }
 
-function ConfirmPane({state, options, sessions, working, width, height}: {state: DeleteConfirm; options: ConfirmOption[]; sessions: SessionRecord[]; working?: string; width: number; height: number}) {
+function ConfirmPane({state, options, sessions, openItems, working, width, height}: {state: DeleteConfirm; options: ConfirmOption[]; sessions: SessionRecord[]; /** Open checklist items of their notes (sent to the backlog first unless kept). */ openItems: string[]; working?: string; width: number; height: number}) {
 	const inner = Math.max(1, width - 4);
 	const index = Math.min(state.index, options.length - 1);
 	const running = sessions.filter(session => session.status !== 'exited' && state.entries.some(entry => entry.sessionIds.includes(session.id)));
@@ -406,6 +413,7 @@ function ConfirmPane({state, options, sessions, working, width, height}: {state:
 			{loss}
 			{check?.structuralBlockers.map((blocker, row) => <Text key={`b-${row}`} color={THEME.warn} wrap="truncate-end">{`  ${blocker}`}</Text>)}
 			{running.length ? <Text color={THEME.warn} wrap="truncate-end">{`Stops ${running.length === 1 ? 'the session' : `${running.length} sessions`} running there first: ${running.map(session => displaySessionTitle(session, sessions)).join(', ')}`}</Text> : null}
+			{openItems.length ? <Text color={state.keepOpenItems ? THEME.muted : THEME.active} wrap="truncate-end">{`${state.keepOpenItems ? '☐' : '☑'} ${openItems.length} open note item${openItems.length === 1 ? '' : 's'} ${state.keepOpenItems ? 'stay in the (read-only) note' : '→ backlog first'}: ${openItems.join(', ')}`}</Text> : null}
 			{entry.missing ? null : <Text color={THEME.muted} wrap="truncate-end">Its sessions cannot be resumed afterwards; they are archived (notes kept, f A shows them).</Text>}
 			<Box marginTop={1} flexDirection="column">
 				{options.map((option, row) => <SelectableRow key={option.kind} selected={row === index} text={option.label} width={inner} selectedColor={option.kind === 'cancel' ? THEME.muted : THEME.error} wrap />)}

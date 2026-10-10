@@ -44,6 +44,8 @@ export interface MergeConfirmInput {
 	tasks?: string[];
 	/** Open tasks assigned to the worktree (follow-ups): merging sends them back to the backlog unless ticked here. */
 	followUps?: Array<{title: string; ticked: boolean}>;
+	/** Open checklist items of the worktree's note: sent to the backlog with the merge unless `send` is switched off. */
+	openItems?: {titles: string[]; send: boolean};
 	/** Content columns (inside the border and padding). */
 	width: number;
 	/** The pane's rows, border included. */
@@ -103,9 +105,16 @@ export function mergeConfirmLayout(input: MergeConfirmInput): MergeConfirmLayout
 	const listed = preview ? input.followUps ?? [] : [];
 	const followUps = listed.slice(0, MERGE_FOLLOW_UPS).map(item => fit(`${item.ticked ? '☑' : '☐'} ${item.title} · ${item.ticked ? 'done with this merge' : 'back to the backlog'}`));
 	const unlisted = listed.length - followUps.length;
-	if (followUps.length) tail.push({text: fit(unlisted ? `Follow-ups · space ticks finished ones · +${unlisted} more go back` : 'Follow-ups · space ticks the ones you finished'), color: THEME.accentSoft});
+	// The note's open items: one more selectable row after the follow-ups (space switches it).
+	const items = preview ? input.openItems : undefined;
+	if (items?.titles.length) {
+		const count = plural(items.titles.length, 'open note item');
+		followUps.push(fit(`${items.send ? '☑' : '☐'} ${count} ${items.send ? '→ backlog' : '· stay in the note'}: ${items.titles.join(', ')}`));
+	}
+	if (followUps.length > (items?.titles.length ? 1 : 0)) tail.push({text: fit(unlisted ? `Follow-ups · space ticks finished ones · +${unlisted} more go back` : 'Follow-ups · space ticks the ones you finished'), color: THEME.accentSoft});
 	// Space toggles the selected follow-up, else commit-first: one hint for both.
-	const space = preview?.uncommitted && followUps.length ? {text: 'space commit first or tick', short: 'space toggle'}
+	const space = items?.titles.length ? {text: 'space toggle', short: 'space toggle'}
+		: preview?.uncommitted && followUps.length ? {text: 'space commit first or tick', short: 'space toggle'}
 		: preview?.uncommitted ? {text: 'space commit first', short: 'space toggle'} : followUps.length ? {text: 'space tick a follow-up', short: 'space tick'} : undefined;
 	const hint = fitHint(['enter choose', ...space ? [space] : [], {text: 'j/k move', drop: 1}, 'esc cancel'], width);
 	// Border (2), title, the blank and three options, the blank and the hint.

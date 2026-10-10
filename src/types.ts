@@ -7,7 +7,7 @@ import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 import type {TaskOp} from './tasks.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 43;
+export const PROTOCOL_VERSION = 44;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -129,6 +129,8 @@ export interface WorktreeDeleteResult {
 	/** Sessions stopped first, and exited sessions of it archived after. */
 	stopped: number;
 	archived: number;
+	/** Open checklist items of its note sent to the backlog first. */
+	sentItems?: number;
 }
 
 export interface WorktreeMergeResult {
@@ -144,6 +146,8 @@ export interface WorktreeMergeResult {
 	conflictCount?: number;
 	/** The worktree's uncommitted changes were committed first (`commitFirst`). */
 	committed?: {files: number; sha: string};
+	/** Open checklist items of the worktree's note sent to the backlog after the merge (`sendOpenItems`). */
+	sentItems?: number;
 	reason?: string;
 	stdout: string;
 	stderr: string;
@@ -429,7 +433,7 @@ export type ClientRequest =
 	 * Deletes a listed worktree (`branch`: as listed; refused when it changed). Its running sessions are stopped first only
 	 * with `stopSessions`; `allowDataLoss` overrides the data checks (typed DELETE). A missing one is pruned or forgotten.
 	 */
-	| {type: 'delete-worktree'; requestId: string; cwd: string; path: string; branch?: string; deleteBranch?: boolean; stopSessions?: boolean; allowDataLoss?: boolean}
+	| {type: 'delete-worktree'; requestId: string; cwd: string; path: string; branch?: string; deleteBranch?: boolean; stopSessions?: boolean; allowDataLoss?: boolean; sendOpenItems?: boolean}
 	| {type: 'watch-preview'; requestId: string; sessionId?: string; cols: number; rows: number; scrollOffset?: number}
 	| {type: 'watch-terminal'; requestId: string; sessionId?: string; cols: number; rows: number}
 	| {type: 'watch-git'; requestId: string; sessionId?: string; cols: number; rows: number}
@@ -458,6 +462,8 @@ export type ClientRequest =
 	/** Creates the task list's file if missing and responds with its path (for the editor). */
 	| {type: 'open-tasks'; requestId: string; cwd: string}
 	/** Sends the open checklist item on `line` of a note (at `revision`) to the repository's tasks; the line becomes a link. */
+	/** `A` in the Notes view: every open checklist item of one note (at `revision`) to Tasks; `{session, tasks, sent}`. */
+	| {type: 'send-open-items'; requestId: string; sessionId: string; section: 'session' | 'shared'; noteId?: string; revision: string}
 	| {type: 'promote-note-item'; requestId: string; sessionId: string; section: 'session' | 'shared'; noteId?: string; line: number; revision: string}
 	/** The reverse: a task sent from a note goes back there as a checklist item (its `↗` line), and leaves the list. Responds with the TasksDoc. */
 	| {type: 'return-task-to-note'; requestId: string; cwd: string; taskId: string}
@@ -465,12 +471,14 @@ export type ClientRequest =
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
 	| {type: 'reorder-session'; requestId: string; sessionId: string; direction: 'up' | 'down'}
 	| {type: 'restart'; requestId: string; sessionId: string; cols: number; rows: number; mode?: RestartMode; projectFingerprint?: string}
-	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean; deleteBranch?: boolean; force?: boolean; allowDataLoss?: boolean}
+	/** `sendOpenItems` (with a deletion): first send the worktree note's open checklist items to the backlog. */
+	| {type: 'kill'; requestId: string; sessionId: string; deleteWorktree?: boolean; deleteBranch?: boolean; force?: boolean; allowDataLoss?: boolean; sendOpenItems?: boolean}
 	/** What `m` would merge into the worktree at `targetCwd`; read-only. */
 	| {type: 'merge-preview'; requestId: string; sessionId: string; targetCwd: string}
 	/** `commitFirst`: commit the source worktree's uncommitted changes (`git add -A`, message = session title) before merging. */
 	/** `tickTaskIds`: assigned tasks of the worktree the confirmation ticked; the merge marks them done with the task it was started for. */
-	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string; commitFirst?: boolean; tickTaskIds?: string[]}
+	/** `sendOpenItems`: after a clean merge, send the worktree note's open checklist items to the backlog. */
+	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string; commitFirst?: boolean; tickTaskIds?: string[]; sendOpenItems?: boolean}
 	/** After a conflicted merge: `keep` leaves it in progress and marks the worktree merged; `abort` undoes it. */
 	| {type: 'resolve-merge'; requestId: string; sessionId: string; targetCwd: string; action: 'keep' | 'abort'}
 	| {type: 'mark-session-merged'; requestId: string; sessionId: string; targetCwd: string}

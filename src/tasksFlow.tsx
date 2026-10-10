@@ -4,7 +4,8 @@ import {Box, Text, type Key} from 'ink';
 import type {LiveClient} from './client.js';
 import type {SessionRecord, TasksDoc} from './types.js';
 import {MAX_TASK_BODY, MAX_TASK_TITLE, isAssigned, linkKey, linkOfKey, type Task} from './tasks.js';
-import {boardRows, leadSession, noteGroupLabel, notesViewRows, pickerCounts, pickerRows, pickerViewOf, rowKey, selectableRow, taskOrigin, taskSessions, taskState, workLabel, workOptions, workState, type BoardRow, type NoteItem, type PickerView, type WorkOption} from './tasksBoard.js';
+import {blockItems, boardRows, leadSession, noteGroupLabel, noteSteps, notesViewRows, pickerCounts, pickerRows, pickerViewOf, rowKey, selectableRow, taskLinkLookup, taskOrigin, taskSessions, taskState, workLabel, workNote, workOptions, workState, type BoardRow, type NoteItem, type PickerView, type WorkOption} from './tasksBoard.js';
+import {toggleChecklistLine} from './notes.js';
 import {editText, wrapRows, wrappedEditorLines, type EditOptions, type EditorState} from './textEditor.js';
 import {openInEditor} from './desktop.js';
 import {fitHint, scrolledListTop} from './menu.js';
@@ -81,9 +82,11 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 	const busy = useRef(false);
 	const bodyWidth = useRef(40);
 
+	// A work's steps: its note's checklist (a worktree's note, a main-checkout session's own), under its task.
+	const stepsOf = (section: string) => noteSteps(workNote(section, sessions)?.text);
 	const rows: BoardRow[] = view === 'notes'
-		? notesViewRows(sessions, {itemsOnly, scope: scoped ? scope : undefined})
-		: boardRows(tasks, showOlder, undefined, scoped ? scope : undefined);
+		? notesViewRows(sessions, {itemsOnly, scope: scoped ? scope : undefined, links: doc ? taskLinkLookup(tasks) : undefined})
+		: boardRows(tasks, showOlder, undefined, scoped ? scope : undefined, stepsOf);
 	const selectable = rows.map((row, index) => (selectableRow(row) ? index : -1)).filter(index => index >= 0);
 	// The selection follows its row (by key) across updates; a row that went keeps the position.
 	const keyedIndex = selected.key ? rows.findIndex(row => rowKey(row) === selected.key) : -1;
@@ -184,6 +187,19 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		});
 	};
 
+	// Space on a step: ticks it in its note (revision-checked, like typing in the Notes tab).
+	const toggleStep = (row: Extract<BoardRow, {kind: 'step'}>) => {
+		const note = workNote(row.section, sessions);
+		if (!note) { setStatusMessage('Its note is not in this list (archived or filtered?)'); return; }
+		if (note.readOnly) { setStatusMessage('Its worktree was deleted: its note is read-only'); return; }
+		const text = toggleChecklistLine(note.text, row.step.line);
+		if (text === undefined) { setStatusMessage('That line of the note changed; try again'); return; }
+		run(() => client!.saveNote(note.sessionId, note.section, text, note.revision, note.noteId), result => {
+			onSession(result.session);
+			setStatusMessage(!result.saved ? 'The note changed meanwhile; try again' : row.step.done ? `Reopened: ${truncate(row.step.text, 50)}` : `Ticked: ${truncate(row.step.text, 50)}`);
+		});
+	};
+
 	const firstTaskOf = (section: string | undefined) => (section ? tasks.find(task => !task.done && linkKey(task.meta) === section) : undefined);
 
 	const handleInput = (input: string, key: Partial<Key>) => {
@@ -213,6 +229,18 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 				else setStatusMessage('Select an open checklist item (☐) to add it as a task');
 				return;
 			}
+			// A: every open item of the selected note at once.
+			if (input === 'A') {
+				if (!block) { setStatusMessage('Select a note first (j/k)'); return; }
+				const open = blockItems(block, sessions).length;
+				if (!open) { setStatusMessage('No open items in this note'); return; }
+				run(() => client!.sendOpenItems(block.sessionId, block.section, block.revision, block.noteId), result => {
+					onSession(result.session);
+					onDoc(result.tasks);
+					setStatusMessage(`Sent ${result.sent} item${result.sent === 1 ? '' : 's'} to Tasks (the note keeps a ↗ link for each)`);
+				});
+				return;
+			}
 			if (key.return && block) { onOpenNote(block.sessionId); return; }
 			return;
 		}
@@ -220,7 +248,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (key.tab) { setView('notes'); setSelected({index: 0}); return; }
 		// A new task joins the group the selection is in (a worktree's, or the backlog); in the v view, that work's.
 		if (input === 'a') {
-			const section = scoped ? scope : currentTask?.group === 'progress' ? currentTask.section : undefined;
+			const section = scoped ? scope : currentTask?.group === 'progress' ? currentTask.section : currentRow?.kind === 'step' ? currentRow.section : undefined;
 			setEditor({kind: 'add', section, field: 'title', title: {text: '', cursor: 0}, body: {text: '', cursor: 0}});
 			return;
 		}
@@ -232,6 +260,13 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 			return;
 		}
 		if (currentRow?.kind === 'older' && (key.return || input === ' ')) { setShowOlder(shown => !shown); return; }
+		if (currentRow?.kind === 'step') {
+			if (input === ' ') { toggleStep(currentRow); return; }
+			const note = workNote(currentRow.section, sessions);
+			if (key.return) { if (note) onOpenNote(note.sessionId); else setStatusMessage('Its note is not in this list (archived or filtered?)'); return; }
+			if (input === 'n' || input === 'o' || input === 'x' || input === 'w' || input === 'J' || input === 'K') setStatusMessage('A step from the note: space ticks it, enter opens the note to edit it');
+			return;
+		}
 		if (!currentTask) {
 			if (input === 'n' || input === 'o' || input === 'x' || input === 'w' || input === ' ' || key.return) setStatusMessage('Select a task first (j/k)');
 			return;
@@ -356,8 +391,10 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (picker) return fitHint(['enter move here', 'type to search', {text: 'tab worktrees / sessions', short: 'tab view'}, '↑↓ choose', picker.query ? 'esc clear search' : 'esc cancel'], width, ' • ');
 		if (view === 'notes') {
 			const onItem = currentRow?.kind === 'noteline' && Boolean(currentRow.item);
+			const onNote = currentRow?.kind === 'notehead' || currentRow?.kind === 'noteline';
 			return fitHint([
 				...onItem ? ['a add as a task'] : [],
+				...onNote ? [{text: 'A send all open items', short: 'A send all', drop: 1}] : [],
 				{text: 'enter open the note', short: 'enter open'},
 				{text: itemsOnly ? 'f every note' : 'f open items only', short: 'f filter', drop: 1},
 				...scope ? [{text: scoped ? 'v all notes' : 'v this worktree', short: 'v view', drop: 1}] : [],
@@ -365,6 +402,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 				'tab tasks', 'esc tasks',
 			], width, ' • ');
 		}
+		if (currentRow?.kind === 'step') return fitHint(['j/k move', {text: currentRow.step.done ? 'space reopen' : 'space tick'}, {text: 'enter open the note', short: 'enter note'}, 'a add', 'esc back'], width, ' • ');
 		return fitHint([
 			'j/k move', 'a add',
 			{text: 'n start session', short: 'n start'},
@@ -435,11 +473,17 @@ function BoardLine({row, selected, width, sessions, spinnerFrame}: {row: BoardRo
 		const color = selected ? THEME.active : row.style === 'done' ? THEME.muted : row.style === 'link' ? THEME.accentSoft : undefined;
 		return <Text inverse={selected} bold={selected || row.style === 'heading'} color={color} wrap="truncate-end">{`${marker}   ${truncate(row.text, Math.max(1, width - 4))}`.padEnd(width)}</Text>;
 	}
-	// In a worktree's group its heading shows the state: the task the work was started for is ◆, a follow-up ☐.
+	// A step: an item of the work's note, under the task it was started for.
+	if (row.kind === 'step') {
+		const color = selected ? THEME.active : row.step.done ? THEME.muted : undefined;
+		return <Text inverse={selected} bold={selected} color={color} wrap="truncate-end">{`${marker}   ${row.step.done ? '☑' : '☐'} ${truncate(row.step.text, Math.max(1, width - 6))}`.padEnd(width)}</Text>;
+	}
+	// In a worktree's group its heading shows the state: the task the work was started for is ◆, a follow-up ☐; the
+	// started task counts its steps (the work note's checklist) on the right.
 	const inWork = row.group === 'progress';
 	const state = taskState(row.task, sessions, spinnerFrame);
 	const glyph = inWork ? (isAssigned(row.task) ? {text: '☐', color: THEME.muted} : {text: '◆', color: THEME.accentSoft}) : {text: state.glyph, color: state.color};
-	const right = inWork ? '' : truncate([state.where, state.text].filter(Boolean).join('  '), Math.floor(width / 2));
+	const right = inWork ? (row.steps ? `${row.steps.done}/${row.steps.total}` : '') : truncate([state.where, state.text].filter(Boolean).join('  '), Math.floor(width / 2));
 	const title = truncate(row.task.title, Math.max(1, width - right.length - 6));
 	return (
 		<Text inverse={selected} bold={selected} color={selected ? THEME.active : row.task.done ? THEME.muted : undefined} wrap="truncate-end">
@@ -461,6 +505,13 @@ function detailLines(row: BoardRow | undefined, sessions: SessionRecord[], spinn
 		return [
 			...text.slice(0, DETAIL_ROWS - 1).map((line, index) => <Text key={`t-${index}`} bold wrap="truncate-end">{line}</Text>),
 			<Text key="s" color={THEME.muted} wrap="truncate-end">{`${where} · ${row.item ? 'a adds it as a task (on that work), the note keeps a ↗ link · ' : ''}enter opens the note`}</Text>,
+		];
+	}
+	if (row?.kind === 'step') {
+		const work = workLabel(row.section, sessions);
+		return [
+			<Text key="t" bold wrap="truncate-end">{row.step.text}</Text>,
+			<Text key="w" color={THEME.muted} wrap="truncate-end">{`A step: a checklist item in the note of ${work} · space ${row.step.done ? 'reopens' : 'ticks'} it · enter opens the note to edit it`}</Text>,
 		];
 	}
 	if (row?.kind !== 'task') return [];
@@ -486,9 +537,9 @@ function detailLines(row: BoardRow | undefined, sessions: SessionRecord[], spinn
 }
 
 /** The Notes tab's first line for a session doing a task: the task, how many more are open on its work, its state, and the board's key. */
-export function TaskBanner({task, more = 0, sessions, spinnerFrame, width}: {task: Task; more?: number; sessions: SessionRecord[]; spinnerFrame: string; width: number}) {
+export function TaskBanner({task, more = 0, steps, sessions, spinnerFrame, width}: {task: Task; more?: number; /** The work note's checklist, done of total (the started task's steps). */ steps?: {done: number; total: number}; sessions: SessionRecord[]; spinnerFrame: string; width: number}) {
 	const state = taskState(task, sessions, spinnerFrame);
-	const right = `${more ? `+${more} open here · ` : ''}${state.text ? `${state.text} · ` : ''}b board`;
+	const right = `${steps?.total ? `${steps.done}/${steps.total} steps · ` : ''}${more ? `+${more} open here · ` : ''}${state.text ? `${state.text} · ` : ''}b board`;
 	const title = truncate(task.title, Math.max(4, width - right.length - 10));
 	return (
 		<Box flexDirection="column" width={width}>

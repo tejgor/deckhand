@@ -1,6 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {budgetSections, checklistLabel, fitFirst, fitReadRows, noteReadRows, visibleText, type NoteSection} from './notes.js';
+import {budgetSections, checklistLabel, fitFirst, fitReadRows, noteReadRows, visibleText, type NoteSection, type TaskLinkLookup} from './notes.js';
 import {scrollTopFor, wrappedEditorLines} from './textEditor.js';
 import {THEME, truncate} from './ui.js';
 
@@ -39,12 +39,12 @@ function header(section: NotesSectionInput, width: number, focused: boolean): No
 }
 
 /** Body rows a section needs at `width`: the editor's rows, one for an empty section, else its rendered rows. */
-function need(section: NotesSectionInput, width: number): number {
+function need(section: NotesSectionInput, width: number, links?: TaskLinkLookup): number {
 	if (section.editing) return wrappedEditorLines({text: section.text, cursor: section.editing.cursor}, width).lines.length;
-	return section.text.trim() ? noteReadRows(section.text, width).length : 1;
+	return section.text.trim() ? noteReadRows(section.text, width, links).length : 1;
 }
 
-function body(section: NotesSectionInput, width: number, rows: number): {rows: NotesRow[]; scrollTop?: number} {
+function body(section: NotesSectionInput, width: number, rows: number, links?: TaskLinkLookup): {rows: NotesRow[]; scrollTop?: number} {
 	if (rows <= 0) return {rows: []};
 	if (section.editing) {
 		const {lines, cursorRow} = wrappedEditorLines({text: section.text, cursor: section.editing.cursor}, width);
@@ -57,7 +57,7 @@ function body(section: NotesSectionInput, width: number, rows: number): {rows: N
 		return {rows: shown, scrollTop};
 	}
 	if (!section.text.trim()) return {rows: [[{text: truncate(section.empty, width), color: THEME.muted}]]};
-	return {rows: fitReadRows(noteReadRows(section.text, width), rows).map((row): NotesRow => [
+	return {rows: fitReadRows(noteReadRows(section.text, width, links), rows).map((row): NotesRow => [
 		row.kind === 'done' ? {text: row.text, color: THEME.muted} : row.kind === 'link' ? {text: row.text, color: THEME.accentSoft} : row.kind === 'more' ? {text: row.text, color: THEME.muted, dim: true} : row.kind === 'heading' ? {text: row.text, bold: true} : {text: row.text},
 	])};
 }
@@ -67,17 +67,17 @@ function body(section: NotesSectionInput, width: number, rows: number): {rows: N
  * (when it shows one: a session in a worktree has only the worktree's note).
  * `scrollTop` is the edited section's first row, for the next render; `bodies` the rows each section's body got.
  */
-export function notesLayout({shared, session, width, height, focus}: {shared?: NotesSectionInput; session?: NotesSectionInput; width: number; height: number; focus?: NoteSection}): {rows: NotesRow[]; scrollTop?: number; bodies: {shared: number; session: number}} {
+export function notesLayout({shared, session, width, height, focus, links}: {shared?: NotesSectionInput; session?: NotesSectionInput; width: number; height: number; focus?: NoteSection; /** Whether each linked task is open, done or gone (`↗` lines say so). */ links?: TaskLinkLookup}): {rows: NotesRow[]; scrollTop?: number; bodies: {shared: number; session: number}} {
 	const columns = Math.max(1, width);
 	// A session in a worktree shows only the worktree's note (no session section).
 	const headers = shared && session ? 3 : 1;
 	const budget = shared && !session ? {shared: Math.max(0, height - headers), session: 0}
-		: budgetSections(Math.max(0, height - headers), shared && need(shared, columns), need(session!, columns), focus);
+		: budgetSections(Math.max(0, height - headers), shared && need(shared, columns, links), need(session!, columns, links), focus);
 	const rows: NotesRow[] = [];
 	let scrollTop: number | undefined;
 	const add = (section: NotesSectionInput, which: NoteSection, count: number) => {
 		rows.push(header(section, columns, focus === which));
-		const shown = body(section, columns, count);
+		const shown = body(section, columns, count, links);
 		if (shown.scrollTop !== undefined) scrollTop = shown.scrollTop;
 		rows.push(...shown.rows);
 		for (let index = shown.rows.length; index < count; index++) rows.push([{text: ' '}]);

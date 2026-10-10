@@ -1,5 +1,6 @@
 import path from 'node:path';
 import {formatAge} from './sidebarModel.js';
+import {worktreeOpenItems} from './tasksBoard.js';
 import type {SessionRecord, WorktreeOverview, WorktreeOverviewEntry} from './types.js';
 
 // W, the worktree manager (src/worktreesFlow.tsx renders it): the repository's worktrees grouped by what to do with
@@ -123,6 +124,9 @@ export function worktreeTags(entry: WorktreeOverviewEntry, sessions: SessionReco
 		if (inspection.ignoredFiles) tags.push(`${inspection.ignoredFiles} ignored`);
 	}
 	if (entry.aheadOfDefault) tags.push(`${entry.aheadOfDefault} commit${entry.aheadOfDefault === 1 ? '' : 's'}`);
+	// Open checklist items of its note: deleting it offers to send them to the backlog.
+	const open = worktreeOpenItems(entry.recordId, sessions).length;
+	if (open) tags.push(`☐${open}`);
 	const running = entry.runningIds.length;
 	if (running) tags.push(`${running} running`);
 	else if (entry.sessionIds.length) tags.push(`${entry.sessionIds.length} session${entry.sessionIds.length === 1 ? '' : 's'}`);
