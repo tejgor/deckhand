@@ -7,7 +7,7 @@ import {GROUP_TITLES, bulkTargets, deleteRefusal, mergedText, protectedBranch, s
 import {leadSession} from './tasksBoard.js';
 import {openInEditor} from './desktop.js';
 import {SelectableRow, fitHint, scrolledListTop} from './menu.js';
-import {cleanupOverrideText} from './detailTexts.js';
+import {cleanupLossLines, fileRowsLeft} from './cleanupView.js';
 import {formatAge} from './sidebarModel.js';
 import {THEME, compactPath, displaySessionTitle, errorMessage, statusColor, statusGlyph, truncate} from './ui.js';
 
@@ -379,8 +379,9 @@ function ConfirmPane({state, options, sessions, working, width, height}: {state:
 		const check = state.override.deleteBranch ? state.checks.branch : state.checks.worktree;
 		return (
 			<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderDanger} paddingX={1}>
-				<Text color={THEME.error} bold>Destructive cleanup override</Text>
-				{cleanupOverrideText(check?.reasons).split('\n').map((line, row) => <Text key={`o-${row}`} wrap="wrap">{line || ' '}</Text>)}
+				<Text color={THEME.error} bold>{`Delete ${worktreeName(entry)} anyway?`}</Text>
+				<Text wrap="wrap">This permanently erases what is listed below. Main/current/shared worktree protections cannot be overridden.</Text>
+				<Box marginTop={1} flexDirection="column">{check ? cleanupLossLines(check, inner, fileRowsLeft(height, 9 + check.reasons.length)) : <Text color={THEME.warn}>Safety could not be verified</Text>}</Box>
 				<Box marginTop={1}><Text color={THEME.warn}>{`Type DELETE then enter: ${state.override.draft}`}</Text></Box>
 			</Box>
 		);
@@ -390,7 +391,10 @@ function ConfirmPane({state, options, sessions, working, width, height}: {state:
 		: !check ? 'Checking what it would lose…'
 		: check.structuralBlockers.length ? 'Deletion is blocked:'
 		: check.safe ? 'Local cleanup checks passed: nothing is lost'
-		: `${check.reasons.join('; ')} (typing DELETE overrides)`;
+		: 'Deleting it would lose (typing DELETE overrides):';
+	// What it would lose, in full: the reasons, then the files in the rows the rest of the pane leaves.
+	const loss = check && !check.safe && !check.structuralBlockers.length
+		? cleanupLossLines(check, inner, fileRowsLeft(height, 12 + check.reasons.length + options.length + (running.length ? 1 : 0))) : [];
 	return (
 		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderDanger} paddingX={1}>
 			<Text color={THEME.error} bold>{state.bulk ? `Delete ${state.entries.length} merged worktree${state.entries.length === 1 ? '' : 's'}?` : entry.missing ? `Clean up ${worktreeName(entry)}?` : `Delete ${worktreeName(entry)}?`}</Text>
@@ -399,6 +403,7 @@ function ConfirmPane({state, options, sessions, working, width, height}: {state:
 				: <Text color={THEME.muted} wrap="truncate-end">{compactPath(entry.path, inner)}</Text>}
 			{state.bulk && state.entries.length > 8 ? <Text color={THEME.muted}>{`  +${state.entries.length - 8} more`}</Text> : null}
 			{summary ? <Text color={check?.safe ? THEME.success : THEME.warn} wrap="truncate-end">{summary}</Text> : null}
+			{loss}
 			{check?.structuralBlockers.map((blocker, row) => <Text key={`b-${row}`} color={THEME.warn} wrap="truncate-end">{`  ${blocker}`}</Text>)}
 			{running.length ? <Text color={THEME.warn} wrap="truncate-end">{`Stops ${running.length === 1 ? 'the session' : `${running.length} sessions`} running there first: ${running.map(session => displaySessionTitle(session, sessions)).join(', ')}`}</Text> : null}
 			{entry.missing ? null : <Text color={THEME.muted} wrap="truncate-end">Its sessions cannot be resumed afterwards; they are archived (notes kept, f A shows them).</Text>}

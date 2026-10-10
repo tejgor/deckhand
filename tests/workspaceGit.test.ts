@@ -26,6 +26,11 @@ test('cleanup blocks dirty, untracked and valuable ignored files but not depende
 	const inspection = await inspectWorkspaceCleanup(cwd, 'main');
 	assert.equal(inspection.dirtyFiles, 1); assert.equal(inspection.untrackedFiles, 1); assert.equal(inspection.ignoredFiles, 2); assert.equal(inspection.safe, false);
 	assert.ok(inspection.reasons.some(reason => reason.includes('.env') && reason.includes('target/')));
+	// The files themselves, for the confirmation: changed first, then untracked, then valuable ignored (no dependency cache).
+	assert.deepEqual(inspection.files, [
+		{path: 'file.txt', state: 'changed'}, {path: 'untracked.txt', state: 'untracked'},
+		{path: '.env', state: 'ignored'}, {path: 'target/', state: 'ignored'},
+	]);
 });
 test('summary separates staged/unstaged changes from commits and reports local upstream', async t => {
 	const cwd = await repo(); t.after(() => fs.rm(cwd, {recursive: true, force: true}));

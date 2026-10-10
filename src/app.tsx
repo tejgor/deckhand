@@ -5,6 +5,7 @@ import {LiveClient, createLiveClient} from './client.js';
 import {loadAppConfig, updateAppConfig} from './storage.js';
 import {DevPane} from './devPane.js';
 import {DetailsPane, detailsViewport, scrollDetails} from './detailsPane.js';
+import {cleanupLossLines, fileRowsLeft} from './cleanupView.js';
 import {cleanupOverrideText, createPrConfirmText, projectActions, trustReviewText, workspaceSummaryText} from './detailTexts.js';
 import {openInEditor, openUrl} from './desktop.js';
 import {MenuList, MenuPane, SelectableRow, fitHint, type HintPart} from './menu.js';
@@ -478,14 +479,18 @@ function cleanupSummary(inspection: SessionCleanupInspection | undefined): strin
 	if (!inspection) return 'Checking cleanup safety…';
 	const blockers = structuralBlockers(inspection);
 	if (blockers.length > 0) return 'Worktree deletion is blocked:';
-	return inspection.safe ? 'Local cleanup checks passed' : inspection.reasons.join('; ');
+	return inspection.safe ? 'Local cleanup checks passed' : 'Deleting the worktree would lose (typing DELETE overrides):';
 }
 
-function KillConfirmPane({session, sessions, options, selectedIndex, force, width, inspection}: {session?: SessionRecord; sessions: SessionRecord[]; options: KillOption[]; selectedIndex: number; force: boolean; width: number; inspection?: SessionCleanupInspection}) {
+function KillConfirmPane({session, sessions, options, selectedIndex, force, width, height, inspection}: {session?: SessionRecord; sessions: SessionRecord[]; options: KillOption[]; selectedIndex: number; force: boolean; width: number; height: number; inspection?: SessionCleanupInspection}) {
 	const contentWidth = Math.max(1, width - 4);
+	// What deleting would lose, in full: the reasons, then the files in the rows the rest of the pane leaves.
+	const loss = inspection && !inspection.safe && !structuralBlockers(inspection).length
+		? cleanupLossLines(inspection, contentWidth, fileRowsLeft(height, 11 + inspection.reasons.length + options.length)) : [];
 	return (
 		<Box flexDirection="column" width={width} borderStyle="round" borderColor={THEME.borderDanger} paddingX={1}>
 			{session?.worktree?.path && session.worktree.mode !== 'none' ? <Text color={THEME.warn}>{truncate(cleanupSummary(inspection), contentWidth)}</Text> : null}
+			{loss}
 			{structuralBlockers(inspection).map((blocker, index) => (
 				<Text key={`blocker-${index}`} color={THEME.warn}>{truncate(`  ${blocker}`, contentWidth)}</Text>
 			))}
@@ -1598,7 +1603,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 					scroll: detailsScroll,
 				};
 			case 'confirm-loss':
-				return {title: 'Destructive cleanup override', text: cleanupOverrideText(cleanupInspectionFor(pendingDeleteBranch)?.reasons), footer: [`Type DELETE then enter: ${confirmationDraft}`, 'esc cancel'], scroll: detailsScroll};
+				return {title: 'Destructive cleanup override', text: cleanupOverrideText(cleanupInspectionFor(pendingDeleteBranch)), footer: [`Type DELETE then enter: ${confirmationDraft}`, 'esc cancel'], scroll: detailsScroll};
 			default:
 				return undefined;
 		}
@@ -2788,6 +2793,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						selectedIndex={killConfirmIndexClamped}
 						force={killConfirmForce}
 						width={layout.previewWidth}
+						height={layout.contentHeight}
 						inspection={killConfirmInspection}
 					/>
 				) : mode === 'confirm-merge' ? (

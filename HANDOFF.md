@@ -339,6 +339,8 @@ Worktree deletion is guarded in two layers (`cleanupBlockers`/`inspectSessionCle
 - both are re-checked at kill/exit time, not just when the confirmation opens
 - squash merges: Git never considers a squash-merged branch merged, so the "not reachable" count would demand `DELETE` for commits that were integrated. When the worktree has a merge marker with `mergeSourceSha` (set by Deckhand's merge/squash, a kept conflicted merge, or a PR found merged with its head commit present locally), `inspectWorkspaceCleanup(…, {integrated})` excludes that commit too (`rev-list HEAD --not --branches --remotes <sha>`, only after `rev-parse --verify` confirms it). Commits added after it still count; an unmarked worktree, a manual `M` (no SHA) or an unknown/invalid SHA change nothing.
 
+- what would be lost is shown in full (`src/cleanupView.tsx`): `inspectWorkspaceCleanup` returns the files themselves (`files`: changed, untracked, valuable ignored, at most `CLEANUP_FILES_LISTED` (100); the counts stay complete), and the kill confirmation, W's confirmation and both typed-DELETE screens list each reason on its own line and then the files (`M`/`?`/`!`, paths cut from the front) in the rows the pane leaves, `+N more` for the rest (x's DELETE screen scrolls and lists all). Before, one line cut at the pane's width showed the reasons joined, naming at most three ignored files.
+
 When safe, kill confirmation offers:
 
 - kill only / keep worktree (restartable)
