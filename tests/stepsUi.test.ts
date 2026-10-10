@@ -75,6 +75,8 @@ test('w onto a session started from the sidebar makes the task its own (◆, wit
 	// The work has its task now: a adds a step to its note.
 	press('a'); await screen('New step · the note of ⎇'); press('Write docs'); await screen('Write docs'); press('\r'); await screen('Added a step to');
 	await screen('☐ Write docs'); await screen('0/2');
-	press('G'); await screen('›   ☐ Write docs');
+	// G: the empty backlog (selectable, so a adds there) is last; the last step is just above it.
+	press('G'); await screen('› Nothing waiting');
+	press('k'); await screen('›   ☐ Write docs');
 	press('w'); await screen('A step from the note');
 });

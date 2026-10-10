@@ -94,6 +94,11 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('\x1b[A'); await screen('› ↩ Back to its note');
 	press('\r'); await screen('Back in the note of'); await screen('Nothing waiting');
 	assert.doesNotMatch(await tasksFile(), /Follow up on review/);
+	// The only task is on a worktree, where a adds a step; the empty backlog can be selected to add a task there.
+	press('g'); await screen('a step •');
+	press('G'); await screen('› Nothing waiting'); await screen('a add task');
+	press('a'); await screen('New task · backlog');
+	press('\x1b'); await screen('a add task');
 
 	// Keymap: [ goes to the previous tab (Notes → Dev), x asks before stopping, Esc backs out of it, Space marks done.
 	press('\x1b'); await screen('enter edit notes');

@@ -105,7 +105,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 	{title: 'Tasks', lines: [
 		note('One list per repository. A worktree (or main-checkout session) has one task, ◆; its to-dos are its note\'s checklist, shown under it as steps (2/5).'),
 		key('b  v', 'The board: a group per worktree with its task, backlog, done / only the selected session\'s worktree'),
-		key('a  Enter', 'Add a task (in a worktree\'s group: a step to its note) / edit it (Tab: details, Ctrl+S saves); on a step, open its note'),
+		key('a  Enter', 'Add a task (in a worktree\'s group: a step to its note; select Backlog for a task) / edit it (Tab: details, Ctrl+S saves); on a step, open its note'),
 		key('n  w', 'Start a session for it (↑↓ picks the base) / move it: backlog, its note, a worktree or session (its task, or a step in its note if it has one)'),
 		key('Space  x', 'Tick or reopen (a step: in its note) / delete (x twice)'),
 		key('o  J K', 'Open the session doing it / reorder (j k, g G move)'),
