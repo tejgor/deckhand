@@ -35,16 +35,23 @@ test('W in a real PTY: merged worktrees grouped, x on the group deletes them and
 	await fs.writeFile(path.join(scratch, 'notes.txt'), 'only here\n');
 	await fs.writeFile(path.join(scratch, 'README.md'), 'changed here\n');
 
+	// Its worktree note has an open item left (Notes tab, o to edit, Ctrl+T adds an item).
+	press('a'); await screen('enter edit notes'); press('o'); await screen('esc done');
+	press('\x14'); await screen('- [ ]'); press('Follow up on perf'); await screen('Follow up on perf'); press('\x1b'); await screen('enter edit notes');
+
 	// The session list's footer lists it beside b tasks.
 	press('\x1b[A'); await screen('W worktrees');
 	press('W'); await screen('⎇ Worktrees'); await screen('Merged · safe to delete · 1'); await screen('Main checkout');
-	await screen('scratch'); await screen('not from Deckhand');
+	await screen('scratch'); await screen('not from Deckhand'); await screen('☐1');
 	// The selection starts on the selected session's worktree; its details say why it can go.
 	await screen('Clean: deleting it and its branch loses nothing');
 	press('k'); await screen('x deletes them all');
 	press('x'); await screen('Delete 1 merged worktree?'); await screen('Stops the session running there first: shipped');
 	await screen('Stop 1 session, delete 1 worktree and their branches');
-	press('\r'); await screen('Deleted 1 worktree and 1 branch · stopped 1 session');
+	// Its note's open item goes to the backlog first; space would keep it in the note.
+	await screen('☑ 1 open note item → backlog first: Follow up on perf');
+	press(' '); await screen('☐ 1 open note item stay in the (read-only) note'); press(' '); await screen('☑ 1 open note item → backlog first');
+	press('\r'); await screen('Deleted 1 worktree and 1 branch · stopped 1 session · 1 open note item to the backlog');
 	await waitFor(() => fs.access(worktree).then(() => true, () => false), exists => !exists, UI_WAIT_MS);
 	assert.doesNotMatch(await git(sandbox, 'branch', '--list', branch), new RegExp(branch));
 

@@ -3,7 +3,7 @@ import path from 'node:path';
 import type {Key} from 'ink';
 import type {LiveClient} from './client.js';
 import type {SessionRecord, TasksDoc} from './types.js';
-import {MAX_NOTES_CHARS, MAX_NOTES_LABEL, continueChecklist, insertChecklistItem, noteKey, parseChecklistLine, showsOwnNote, toggleChecklist, type NoteSection} from './notes.js';
+import {MAX_NOTES_CHARS, MAX_NOTES_LABEL, continueChecklist, insertChecklistItem, noteKey, parseChecklistLine, showsOwnNote, toggleChecklist, type NoteSection, type TaskLinkLookup} from './notes.js';
 import {NotesMessage, NotesRows, notesLayout, type NotesSectionInput} from './notesPane.js';
 import {cleanInsertedText, editText, lineEnd, lineStart, replaceRange, type EditOptions, type EditorState} from './textEditor.js';
 import {openInEditor} from './desktop.js';
@@ -50,6 +50,8 @@ interface NotesFlowOptions {
 	setStatusMessage: (message: string | undefined) => void;
 	/** Ctrl+P sent a checklist item to Tasks: the task list as it is now. */
 	onTasks?: (tasks: TasksDoc) => void;
+	/** Whether each task a `↗` line links to is open, done or gone (undefined until the list is loaded). */
+	links?: TaskLinkLookup;
 }
 export interface NotesFlow {
 	/** o: start editing (the section last edited, the session's by default). */
@@ -63,7 +65,7 @@ export interface NotesFlow {
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-export function useNotesFlow({client, session, sessions, focused, onExit, setError, setStatusMessage, onTasks}: NotesFlowOptions): NotesFlow {
+export function useNotesFlow({client, session, sessions, focused, onExit, setError, setStatusMessage, onTasks, links}: NotesFlowOptions): NotesFlow {
 	const drafts = useRef(new Map<string, Draft>());
 	const timers = useRef(new Map<string, NodeJS.Timeout>());
 	const [, setVersion] = useState(0);
@@ -268,7 +270,7 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 			editing: editingSection === 'session' && own ? {cursor: own.cursor, scrollTop: own.scrollTop} : undefined,
 			active: !focused && activeSection === 'session' && hasShared,
 		};
-		const layout = notesLayout({shared: sharedInput, session: sessionInput, width, height, focus: editingSection});
+		const layout = notesLayout({shared: sharedInput, session: sessionInput, width, height, focus: editingSection, links});
 		const edited = editingSection === 'shared' ? shared : editingSection === 'session' ? own : undefined;
 		if (edited && layout.scrollTop !== undefined) edited.scrollTop = layout.scrollTop;
 		// The editor's wrap width and body rows, for Up/Down and PageUp/PageDown.

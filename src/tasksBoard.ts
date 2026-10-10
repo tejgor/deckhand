@@ -1,6 +1,6 @@
 import type {SessionRecord} from './types.js';
 import {findNoteTaskLink, groupTasks, isAssigned, isLinked, linkKey, linkOfKey, openNoteItems, parseNoteTaskLink, type Task} from './tasks.js';
-import {noteKey, parseChecklistLine} from './notes.js';
+import {noteKey, parseChecklistLine, taskLinkSuffix, type TaskLinkLookup} from './notes.js';
 import {statusWords} from './sidebarModel.js';
 import {THEME, displaySessionTitle, statusColor, statusGlyph} from './ui.js';
 import {workspaceKey} from './workspace.js';
@@ -33,8 +33,10 @@ export type BoardRow =
 	| {kind: 'heading'; text: string; count?: string}
 	/** The heading of a worktree's (or main-checkout session's) group: `section` is its work's key (`main`: the main checkout's notes, in the note list); `label` replaces the work's name. */
 	| {kind: 'work'; section: string; count: number; label?: string}
-	/** `section`: the work's key for tasks in progress, else `backlog` or `done`. */
-	| {kind: 'task'; task: Task; group: TaskGroup; section: string}
+	/** `section`: the work's key for tasks in progress, else `backlog` or `done`. `steps`: its work note's checklist, done/total. */
+	| {kind: 'task'; task: Task; group: TaskGroup; section: string; steps?: {done: number; total: number}}
+	/** A checklist item of the work's note, shown under the task the work was started for (one of its steps). */
+	| {kind: 'step'; section: string; taskId: string; step: WorkStep}
 	| {kind: 'older'; count: number; shown: boolean}
 	| {kind: 'empty'; text: string}
 	/** The Notes view (tab): a note's heading (its open items counted), then each line of it. */
@@ -44,16 +46,48 @@ export type BoardRow =
 /** How a note's line shows: an open item (actionable), a ticked one, a ↗ link to a task, a heading, or text. */
 export type NoteLineStyle = 'open' | 'done' | 'link' | 'heading' | 'text';
 
-export const selectableRow = (row: BoardRow) => row.kind === 'task' || row.kind === 'older' || row.kind === 'notehead' || row.kind === 'noteline';
-export const rowKey = (row: BoardRow): string | undefined => row.kind === 'task' ? `task:${row.task.id}` : row.kind === 'older' ? 'older'
+export const selectableRow = (row: BoardRow) => row.kind === 'task' || row.kind === 'step' || row.kind === 'older' || row.kind === 'notehead' || row.kind === 'noteline';
+export const rowKey = (row: BoardRow): string | undefined => row.kind === 'task' ? `task:${row.task.id}` : row.kind === 'step' ? `step:${row.section}:${row.step.line}` : row.kind === 'older' ? 'older'
 	: row.kind === 'notehead' ? `notehead:${row.block.key}` : row.kind === 'noteline' ? `noteline:${row.block.key}:${row.line}` : undefined;
+
+/** One checklist item of a work's note: the note's line, its text, ticked or not. */
+export interface WorkStep {line: number; text: string; done: boolean}
+
+/** The note a work's steps are in: a worktree's shared note, or a main-checkout session's own; how the board saves it. */
+export interface WorkNote {sessionId: string; section: 'session' | 'shared'; noteId?: string; text: string; revision: string; readOnly?: boolean}
+
+/** The note of work `section` (`wt:<id>`: the worktree's note, from any session of it; `s:<id>`: that session's own note). */
+export function workNote(section: string, sessions: SessionRecord[]): WorkNote | undefined {
+	const working = workSessions(section, sessions);
+	if (section.startsWith('wt:')) {
+		const id = section.slice(3);
+		const holder = [...working.filter(session => !session.archivedAt), ...working.filter(session => session.archivedAt)]
+			.find(session => session.sharedNotes?.kind === 'worktree' && session.sharedNotes.id === id);
+		const shared = holder?.sharedNotes;
+		return holder && shared ? {sessionId: holder.id, section: 'shared', noteId: `${shared.kind}:${shared.id}`, text: shared.text, revision: shared.revision, ...shared.readOnly ? {readOnly: true} : {}} : undefined;
+	}
+	const session = working[0];
+	return session?.notesFile ? {sessionId: session.id, section: 'session', text: session.notes ?? '', revision: session.notesFile.revision} : undefined;
+}
+
+/** Steps done of total. */
+export const stepCount = (steps: WorkStep[]) => ({done: steps.filter(step => step.done).length, total: steps.length});
+
+/** A note's checklist items (open and ticked; not `↗` links, nor items without text), as steps. */
+export function noteSteps(text: string | undefined): WorkStep[] {
+	return (text ?? '').split('\n').flatMap((line, index) => {
+		const item = parseChecklistLine(line);
+		return item && item.text.trim() ? [{line: index, text: item.text.trim(), done: item.checked}] : [];
+	});
+}
 
 /**
  * The board's rows: a group per worktree (or main-checkout session) with open tasks, in the order its first task
  * appears in the file, then the backlog and done this week (older ones folded unless `showOlder`). With `scope` (v),
- * only that work's group (shown even when empty) and its done tasks.
+ * only that work's group (shown even when empty) and its done tasks. `stepsOf`: a work's steps (its note's checklist),
+ * listed under the first task it was started for, which counts them.
  */
-export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), scope?: string): BoardRow[] {
+export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), scope?: string, stepsOf?: (section: string) => WorkStep[]): BoardRow[] {
 	const groups = groupTasks(scope ? tasks.filter(task => linkKey(task.meta) === scope) : tasks, now);
 	const rows: BoardRow[] = [];
 	const section = (text: string, list: Task[], group: TaskGroup, empty?: string) => {
@@ -66,7 +100,13 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), s
 	for (const work of works) {
 		const list = groups.progress.filter(task => linkKey(task.meta) === work);
 		rows.push({kind: 'work', section: work, count: list.length});
-		for (const task of list) rows.push({kind: 'task', task, group: 'progress', section: work});
+		const steps = stepsOf?.(work) ?? [];
+		const lead = steps.length ? list.find(task => !isAssigned(task)) : undefined;
+		for (const task of list) {
+			if (task !== lead) { rows.push({kind: 'task', task, group: 'progress', section: work}); continue; }
+			rows.push({kind: 'task', task, group: 'progress', section: work, steps: stepCount(steps)});
+			for (const step of steps) rows.push({kind: 'step', section: work, taskId: task.id, step});
+		}
 		if (!list.length) rows.push({kind: 'empty', text: 'No open tasks here · a adds one'});
 	}
 	if (!works.length) section('IN PROGRESS', [], 'progress', 'n on a backlog task starts a session for it · w assigns it to a worktree');
@@ -292,11 +332,18 @@ export function noteItems(sessions: SessionRecord[]): NoteItem[] {
 	return noteBlocks(sessions).flatMap(block => blockItems(block, sessions));
 }
 
+/** Whether each task a note links to is open, done or gone; undefined while the list is not loaded. */
+export function taskLinkLookup(tasks: Task[] | undefined): TaskLinkLookup | undefined {
+	if (!tasks) return undefined;
+	const done = new Map(tasks.map(task => [task.id, task.done]));
+	return id => (!done.has(id) ? 'gone' : done.get(id) ? 'done' : 'open');
+}
+
 /** A note's line as the Notes view shows it (blank lines are left out: undefined). */
-export function noteLine(line: string): {text: string; style: NoteLineStyle} | undefined {
+export function noteLine(line: string, links?: TaskLinkLookup): {text: string; style: NoteLineStyle} | undefined {
 	if (!line.trim()) return undefined;
 	const link = parseNoteTaskLink(line);
-	if (link) return {text: `${link.indent}↗ ${link.title} · in Tasks`, style: 'link'};
+	if (link) return {text: `${link.indent}↗ ${link.title} ${taskLinkSuffix(links ? links(link.id) : undefined)}`, style: 'link'};
 	const item = parseChecklistLine(line);
 	if (item) return {text: `${item.indent}${item.checked ? '☑' : '☐'} ${item.text.trim()}`, style: item.checked ? 'done' : 'open'};
 	const heading = /^#{1,6}[ \t]+(.*)$/.exec(line);
@@ -309,12 +356,12 @@ export function noteLine(line: string): {text: string; style: NoteLineStyle} | u
  * `itemsOnly` (f): only open checklist items. `scope` (v): one worktree (`wt:<id>`), or a main-checkout session
  * (`s:<id>`: its own note and the main checkout's).
  */
-export function notesViewRows(sessions: SessionRecord[], {itemsOnly = false, scope}: {itemsOnly?: boolean; scope?: string} = {}): BoardRow[] {
+export function notesViewRows(sessions: SessionRecord[], {itemsOnly = false, scope, links}: {itemsOnly?: boolean; scope?: string; links?: TaskLinkLookup} = {}): BoardRow[] {
 	const inScope = (block: NoteBlock) => !scope || (scope.startsWith('wt:') ? block.group === scope : block.group === 'main' && (block.section === 'shared' || block.sessionId === scope.slice(2)));
 	const blocks = noteBlocks(sessions).filter(inScope).map(block => {
 		const items = blockItems(block, sessions);
 		const lines = block.text.split('\n').flatMap((raw, line): BoardRow[] => {
-			const shown = noteLine(raw);
+			const shown = noteLine(raw, links);
 			if (!shown || (itemsOnly && shown.style !== 'open')) return [];
 			const item = shown.style === 'open' ? items.find(candidate => candidate.line === line) : undefined;
 			return [{kind: 'noteline', block, line, text: shown.text, style: shown.style, ...item ? {item} : {}}];
@@ -340,6 +387,13 @@ export function noteGroupLabel(group: string, sessions: SessionRecord[]): string
 export function taskCountLabel(tasks: Task[]): string {
 	const open = tasks.filter(task => !task.done).length;
 	return open ? `☐ ${open} task${open === 1 ? '' : 's'} · b` : '';
+}
+
+/** The open checklist items of a worktree's note (from any session of it): what merging or deleting it can send to the backlog. */
+export function worktreeOpenItems(recordId: string | undefined, sessions: SessionRecord[]): string[] {
+	if (!recordId) return [];
+	const note = workNote(`wt:${recordId}`, sessions);
+	return note && !note.readOnly ? openNoteItems(note.text) : [];
 }
 
 /**

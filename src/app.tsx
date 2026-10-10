@@ -20,7 +20,7 @@ import {useNotesFlow} from './notesFlow.js';
 import {TaskBanner, useTasksFlow} from './tasksFlow.js';
 import {useWorktreesFlow} from './worktreesFlow.js';
 import {isAssigned, parseTasks, type Task} from './tasks.js';
-import {linkedTask, linkedTasks, openItemsRemovedWith, otherOpenTasks, taskCountLabel, workKeyOf} from './tasksBoard.js';
+import {linkedTask, linkedTasks, noteSteps, openItemsRemovedWith, otherOpenTasks, stepCount, taskCountLabel, taskLinkLookup, workKeyOf, workNote, worktreeOpenItems} from './tasksBoard.js';
 import {PreviewPane} from './preview.js';
 import {sessionMatchesScope} from './sessionScope.js';
 import {noWorkspaceReason, workspaceKey} from './workspace.js';
@@ -417,6 +417,7 @@ export function MergeConfirmPane({session, sessions, flow, selectedIndex, width,
 		preview: flow?.preview, previewError: flow?.previewError, commitFirst: flow?.commitFirst ?? true,
 		commitMessage: session?.title.trim() ?? '', error: flow?.error, notes: mergeNoteEntries(session, sessions),
 		tasks: started.map(task => task.title), followUps: followUps.map(task => ({title: task.title, ticked: Boolean(flow?.ticks?.includes(task.id))})),
+		openItems: {titles: worktreeOpenItems(session?.worktree?.id, sessions), send: !flow?.keepOpenItems},
 		width: contentWidth, height,
 	});
 	const onTask = flow?.taskCursor !== undefined;
@@ -482,7 +483,7 @@ function cleanupSummary(inspection: SessionCleanupInspection | undefined): strin
 	return inspection.safe ? 'Local cleanup checks passed' : 'Deleting the worktree would lose (typing DELETE overrides):';
 }
 
-function KillConfirmPane({session, sessions, options, selectedIndex, force, width, height, inspection}: {session?: SessionRecord; sessions: SessionRecord[]; options: KillOption[]; selectedIndex: number; force: boolean; width: number; height: number; inspection?: SessionCleanupInspection}) {
+function KillConfirmPane({session, sessions, options, selectedIndex, force, width, height, inspection, openItems = [], keepOpenItems = false}: {session?: SessionRecord; sessions: SessionRecord[]; options: KillOption[]; selectedIndex: number; force: boolean; width: number; height: number; inspection?: SessionCleanupInspection; /** Open items of its worktree's note: sent to the backlog when it is deleted, unless kept (space). */ openItems?: string[]; keepOpenItems?: boolean}) {
 	const contentWidth = Math.max(1, width - 4);
 	// What deleting would lose, in full: the reasons, then the files in the rows the rest of the pane leaves.
 	const loss = inspection && !inspection.safe && !structuralBlockers(inspection).length
@@ -501,8 +502,11 @@ function KillConfirmPane({session, sessions, options, selectedIndex, force, widt
 			<Box marginTop={1} flexDirection="column">
 				{options.map((option, index) => <SelectableRow key={option.kind} selected={index === selectedIndex} text={option.label} width={contentWidth} selectedColor={option.kind === 'cancel' ? THEME.muted : THEME.error} wrap />)}
 			</Box>
+			{openItems.length && options.some(option => option.kind === 'delete' || option.kind === 'delete-branch') ? (
+				<Text color={keepOpenItems ? THEME.muted : THEME.active} wrap="truncate-end">{`${keepOpenItems ? '☐' : '☑'} If deleted: ${openItems.length} open note item${openItems.length === 1 ? '' : 's'} ${keepOpenItems ? 'stay in its (read-only) note' : '→ backlog'}: ${openItems.join(', ')}`}</Text>
+			) : null}
 			<Box marginTop={1}>
-				<Text color={THEME.muted}>enter choose · esc cancel · j/k move</Text>
+				<Text color={THEME.muted}>{`enter choose · esc cancel · j/k move${openItems.length ? ' · space note items' : ''}`}</Text>
 			</Box>
 		</Box>
 	);
@@ -553,7 +557,7 @@ function ActionPickerPane({project, running, dev, selectedIndex, width, height}:
 }
 
 /** The merge confirmation (m) of one session: its preview, the commit-first toggle and a failed attempt's output. */
-interface MergeFlow {sessionId: string; preview?: MergePreview; previewError?: string; commitFirst: boolean; error?: string; /** Follow-ups ticked to be done with this merge. */ ticks?: string[]; /** The selection is on this follow-up (else on the options). */ taskCursor?: number}
+interface MergeFlow {sessionId: string; preview?: MergePreview; previewError?: string; commitFirst: boolean; error?: string; /** Follow-ups ticked to be done with this merge. */ ticks?: string[]; /** The selection is on this follow-up (or, one past them, the note's open items; else on the options). */ taskCursor?: number; /** The note's open items stay in the note (switched off on the confirmation; by default they go to the backlog). */ keepOpenItems?: boolean}
 
 /** The worktree's open tasks a merge confirmation lists: the ones it was started for (ticked by the merge) and its assigned follow-ups. */
 function mergeTasks(tasks: Task[], session?: SessionRecord): {started: Task[]; followUps: Task[]} {
@@ -659,6 +663,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [worktreeIndex, setWorktreeIndex] = useState(0);
 	const [killConfirmIndex, setKillConfirmIndex] = useState(0);
 	const [killConfirmForce, setKillConfirmForce] = useState(false);
+	// Deleting the worktree on stop sends its note's open items to the backlog first, unless space switched that off.
+	const [killKeepOpenItems, setKillKeepOpenItems] = useState(false);
 	const [mergeConfirmIndex, setMergeConfirmIndex] = useState(0);
 	const [mergeFlow, setMergeFlow] = useState<MergeFlow>();
 	const mergeRequestRef = useRef(0);
@@ -1446,7 +1452,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		onAttach: () => { if (selectedSession) attachTo(selectedSession, 'git'); },
 		setBusy, setError, setStatusMessage,
 	});
-	const notesFlow = useNotesFlow({client, session: selectedSession, sessions, focused: mode === 'notes-focus', onExit: () => setMode('browse'), setError, setStatusMessage, onTasks: setTasksDoc});
+	const notesFlow = useNotesFlow({client, session: selectedSession, sessions, focused: mode === 'notes-focus', onExit: () => setMode('browse'), setError, setStatusMessage, onTasks: setTasksDoc, links: tasksDoc ? taskLinkLookup(tasks) : undefined});
 	// The board spans the repository; a session of another checkout is in the sidebar of the Deckhand opened there.
 	const elsewhere = (sessionId: string) => {
 		const target = repoSessions.find(session => session.id === sessionId);
@@ -1732,7 +1738,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setError(undefined);
 		try {
 			const killedSessionId = selectedSession.id;
-			await client.killSession(killedSessionId, deleteWorktree || deleteBranch, deleteBranch, force, allowDataLoss);
+			const sendOpenItems = (deleteWorktree || deleteBranch) && !killKeepOpenItems && worktreeOpenItems(selectedSession.worktree?.id, repoSessions).length > 0;
+			await client.killSession(killedSessionId, deleteWorktree || deleteBranch, deleteBranch, force, allowDataLoss, sendOpenItems);
 			setMode('browse');
 			if (!force) {
 				setTimeout(() => {
@@ -1747,7 +1754,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		} finally {
 			setBusy(false);
 		}
-	}, [client, selectedSession]);
+	}, [client, selectedSession, killKeepOpenItems, repoSessions]);
 
 	const removeSelected = useCallback(async (moveOpenItems = false) => {
 		if (!client || !selectedSession || selectedSession.status !== 'exited') {
@@ -1801,11 +1808,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		const commitFirst = Boolean(flow?.preview?.uncommitted) && (flow?.commitFirst ?? true);
 		const followUpIds = new Set(mergeTasks(tasks, selectedSession).followUps.map(task => task.id));
 		const ticks = (flow?.ticks ?? []).filter(id => followUpIds.has(id));
+		// The note's open items go to the backlog with a clean merge unless the confirmation kept them in the note.
+		const sendOpenItems = worktreeOpenItems(selectedSession.worktree.id, repoSessions).length > 0 && !flow?.keepOpenItems;
 		setBusy(true);
 		setError(undefined);
 		setMergeFlow(current => (current?.sessionId === sessionId ? {...current, error: undefined} : current));
 		try {
-			const result = await client.mergeWorktree(sessionId, mergeMode, cwd, commitFirst, ticks);
+			const result = await client.mergeWorktree(sessionId, mergeMode, cwd, commitFirst, ticks, sendOpenItems);
+			const sent = result.sentItems ? ` · ${result.sentItems} open note item${result.sentItems === 1 ? '' : 's'} sent to the backlog` : '';
 			const committed = result.committed ? `Committed ${result.committed.files} file${result.committed.files === 1 ? '' : 's'}, then ` : '';
 			if (result.conflicted) {
 				setMergeConflict({sessionId, result});
@@ -1817,7 +1827,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setStatusMessage(`Skipped merge: no new commits from ${result.sourceRef} into ${result.targetBranch}`);
 			} else {
 				const applied = `${mergeMode === 'squash' ? 'squash applied' : 'merge applied without commit'} from ${result.sourceRef} into ${result.targetBranch}`;
-				setStatusMessage(committed ? `${committed}${applied}` : `${applied[0]!.toUpperCase()}${applied.slice(1)}`);
+				setStatusMessage(`${committed ? `${committed}${applied}` : `${applied[0]!.toUpperCase()}${applied.slice(1)}`}${sent}`);
 			}
 		} catch (nextError) {
 			// Shown on the confirmation (a failed commit's hook output can be long); nothing was merged.
@@ -1825,7 +1835,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		} finally {
 			setBusy(false);
 		}
-	}, [client, cwd, mergeFlow, selectedSession, tasks]);
+	}, [client, cwd, mergeFlow, selectedSession, tasks, repoSessions]);
 
 	const resolveConflictedMerge = useCallback(async (action: 'keep' | 'abort') => {
 		if (!client || !mergeConflict) return;
@@ -2366,6 +2376,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				const sessionId = selectedSession.id;
 				setKillConfirmIndex(0);
 				setKillConfirmForce(false);
+				setKillKeepOpenItems(false);
 				setMode('confirm-kill');
 				if (selectedSession.worktree?.path && selectedSession.worktree.mode !== 'none') {
 					const requestId = ++cleanupRequestRef.current;
@@ -2599,7 +2610,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			// The follow-ups (listed once the preview is in) come before the options in one j/k cycle; space or enter on
 			// one ticks it, space elsewhere toggles commit-first.
 			const followUps = mergeFlow?.preview ? mergeTasks(tasks, selectedSession).followUps.slice(0, MERGE_FOLLOW_UPS) : [];
-			const taskCursor = mergeFlow?.taskCursor !== undefined && mergeFlow.taskCursor < followUps.length ? mergeFlow.taskCursor : undefined;
+			// One more row after them: the note's open items (to the backlog, or kept in the note).
+			const itemsRow = mergeFlow?.preview && worktreeOpenItems(selectedSession?.worktree?.id, sessions).length ? 1 : 0;
+			const rowCount = followUps.length + itemsRow;
+			const taskCursor = mergeFlow?.taskCursor !== undefined && mergeFlow.taskCursor < rowCount ? mergeFlow.taskCursor : undefined;
+			if ((input === ' ' || key.return) && taskCursor === followUps.length && itemsRow) {
+				setMergeFlow(current => (current ? {...current, keepOpenItems: !current.keepOpenItems} : current));
+				return;
+			}
 			if ((input === ' ' || key.return) && taskCursor !== undefined) {
 				const id = followUps[taskCursor]!.id;
 				setMergeFlow(current => (current ? {...current, ticks: current.ticks?.includes(id) ? current.ticks.filter(other => other !== id) : [...current.ticks ?? [], id]} : current));
@@ -2611,10 +2629,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			}
 			const step = key.upArrow || input === 'k' ? -1 : key.downArrow || input === 'j' ? 1 : 0;
 			if (step) {
-				const count = followUps.length + optionCount;
-				const at = ((taskCursor ?? followUps.length + mergeConfirmIndex) + step + count) % count;
-				setMergeFlow(current => (current ? {...current, taskCursor: at < followUps.length ? at : undefined} : current));
-				if (at >= followUps.length) setMergeConfirmIndex(at - followUps.length);
+				const count = rowCount + optionCount;
+				const at = ((taskCursor ?? rowCount + mergeConfirmIndex) + step + count) % count;
+				setMergeFlow(current => (current ? {...current, taskCursor: at < rowCount ? at : undefined} : current));
+				if (at >= rowCount) setMergeConfirmIndex(at - rowCount);
 				return;
 			}
 			if (key.return) {
@@ -2643,6 +2661,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				setKillConfirmIndex((selectedIndex + 1) % options.length);
 				return;
 			}
+			if (input === ' ') { setKillKeepOpenItems(keep => !keep); return; }
 			if (key.return) {
 				const option = options[selectedIndex]!;
 				if (option.kind === 'kill') void killSelected(false, false, killConfirmForce);
@@ -2759,7 +2778,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 							<DevPane session={selectedSession} dev={dev} width={layout.paneInnerWidth} height={layout.paneInnerHeight} />
 						) : selectedTask ? (
 							<Box flexDirection="column">
-								<TaskBanner task={selectedTask} more={otherOpenTasks(tasks, selectedSession)} sessions={repoSessions} spinnerFrame={spinnerFrame} width={layout.paneInnerWidth} />
+								<TaskBanner task={selectedTask} more={otherOpenTasks(tasks, selectedSession)} steps={selectedTask && !isAssigned(selectedTask) && selectedSession ? stepCount(noteSteps(workNote(workKeyOf(selectedSession), repoSessions)?.text)) : undefined} sessions={repoSessions} spinnerFrame={spinnerFrame} width={layout.paneInnerWidth} />
 								{notesFlow.render(layout.paneInnerWidth, Math.max(1, layout.paneInnerHeight - 2))}
 							</Box>
 						) : (
@@ -2795,6 +2814,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						width={layout.previewWidth}
 						height={layout.contentHeight}
 						inspection={killConfirmInspection}
+						openItems={worktreeOpenItems(selectedSession?.worktree?.id, repoSessions)}
+						keepOpenItems={killKeepOpenItems}
 					/>
 				) : mode === 'confirm-merge' ? (
 					<MergeConfirmPane session={selectedSession} sessions={sessions} flow={mergeFlow?.sessionId === selectedSession?.id ? mergeFlow : undefined} selectedIndex={mergeConfirmIndex} width={layout.previewWidth} height={layout.contentHeight} tasks={tasks} />

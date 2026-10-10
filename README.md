@@ -235,11 +235,16 @@ The Notes tab shows the note of the place you work. A session in a worktree has 
 | `o` | Open (select) the session doing it |
 | `J` / `K` | Reorder within its group |
 | `x` | Delete (press twice) |
-| `tab` | The Notes view: every note in full, grouped by worktree (then the main checkout), checklist items actionable: `a` adds one as a task, `enter` opens the note, `f` shows only open items, `v` only this worktree's |
+| `space` *(on a step)* / `enter` | Tick a step in its note, or untick it / open the note |
+| `tab` | The Notes view: every note in full, grouped by worktree (then the main checkout), checklist items actionable: `a` adds one as a task, `A` sends every open item of the selected note at once, `enter` opens the note, `f` shows only open items, `v` only this worktree's |
 | `E` | Open the task list in Cursor / VS Code |
 | `esc` | Back |
 
 A task started with `n` is linked to its session's worktree (or, in the main checkout, to the session): the board shows the most urgent state of the sessions there (needs you, working, idle, exited), the session's Notes tab and sidebar details name the task (and count the worktree's other open tasks), and the task (`title: details`, one line) is typed into the agent's input once it has started, not sent: edit it and press Enter yourself. Deckhand waits until the agent's screen settles, never types into a menu or question (a folder-trust prompt, for example), and skips it if you start typing first or the agent doesn't settle within two minutes. Merging the worktree (`m`, `M`, or found merged) ticks it, and the merge screen says so; marking done (`space`) ticks it once every session there is done; undoing either reopens it. Follow-ups are never ticked on their own: `m` lists them (up to five) and `space` ticks the ones you finished, and any left open go back to the backlog marked *left open in ⎇ branch* (unmarking the merge puts them back). Work removed or deleted without merging puts its tasks back in the backlog, marked with the branch they were tried in or left open in. Handoffs (`H`) list a worktree's open follow-ups. Done tasks fold away after a week.
+
+**Steps.** The checklist in a worktree's note (a main-checkout session's own note, for work started there) is the breakdown of the task the work was started for: the board lists it under that task (`◆ Ship parser 2/5`, then `☐`/`☑` rows), and the session's Notes tab counts it (`2/5 steps`). `space` on a step ticks it in the note. Notes stay plain Markdown; the board only reads them. A `↗` line in a note (an item sent to Tasks) says where its task is: `· in Tasks`, `· done`, or `· not in Tasks`.
+
+**Nothing left behind.** Merging a worktree (`m`) or deleting it (`x` on a session, or `W`) lists the open items still in its note and sends them to the backlog first, marked *left open in ⎇ branch*, unless you switch that off on the confirmation (`space`). Each becomes a `↗` link in the note.
 
 ### Worktrees
 

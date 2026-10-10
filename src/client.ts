@@ -402,7 +402,7 @@ export class LiveClient {
 		return this.request<WorktreeCleanupInspection>({type: 'inspect-worktree', requestId: randomUUID(), cwd, path: worktreePath, deleteBranch});
 	}
 
-	deleteWorktree(cwd: string, worktreePath: string, options: {branch?: string; deleteBranch?: boolean; stopSessions?: boolean; allowDataLoss?: boolean}): Promise<WorktreeDeleteResult> {
+	deleteWorktree(cwd: string, worktreePath: string, options: {branch?: string; deleteBranch?: boolean; stopSessions?: boolean; allowDataLoss?: boolean; sendOpenItems?: boolean}): Promise<WorktreeDeleteResult> {
 		return this.request<WorktreeDeleteResult>({type: 'delete-worktree', requestId: randomUUID(), cwd, path: worktreePath, ...options});
 	}
 
@@ -410,16 +410,18 @@ export class LiveClient {
 		return this.request<SessionRecord>({type: 'restart', requestId: randomUUID(), sessionId, cols, rows, mode, projectFingerprint});
 	}
 
-	killSession(sessionId: string, deleteWorktree = false, deleteBranch = false, force = false, allowDataLoss = false): Promise<void> {
-		return this.request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree, deleteBranch, force, allowDataLoss});
+	/** `sendOpenItems` (with `deleteWorktree`): first send the worktree note's open checklist items to the backlog. */
+	killSession(sessionId: string, deleteWorktree = false, deleteBranch = false, force = false, allowDataLoss = false, sendOpenItems = false): Promise<void> {
+		return this.request({type: 'kill', requestId: randomUUID(), sessionId, deleteWorktree, deleteBranch, force, allowDataLoss, ...sendOpenItems ? {sendOpenItems: true} : {}});
 	}
 
 	mergePreview(sessionId: string, targetCwd: string): Promise<MergePreview> {
 		return this.request<MergePreview>({type: 'merge-preview', requestId: randomUUID(), sessionId, targetCwd});
 	}
 
-	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false, tickTaskIds: string[] = []): Promise<WorktreeMergeResult> {
-		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd, commitFirst, ...tickTaskIds.length ? {tickTaskIds} : {}});
+	/** `sendOpenItems`: after a clean merge, the worktree note's open checklist items go to the backlog. */
+	mergeWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false, tickTaskIds: string[] = [], sendOpenItems = false): Promise<WorktreeMergeResult> {
+		return this.request<WorktreeMergeResult>({type: 'merge-worktree', requestId: randomUUID(), sessionId, mode, targetCwd, commitFirst, ...tickTaskIds.length ? {tickTaskIds} : {}, ...sendOpenItems ? {sendOpenItems: true} : {}});
 	}
 
 	resolveMerge(sessionId: string, targetCwd: string, action: 'keep' | 'abort'): Promise<SessionRecord> {
@@ -446,6 +448,10 @@ export class LiveClient {
 	returnTaskToNote(cwd: string, taskId: string): Promise<TasksDoc> { return this.request({type: 'return-task-to-note', requestId: randomUUID(), cwd, taskId}); }
 	promoteNoteItem(sessionId: string, section: NoteSection, line: number, revision: string, noteId?: string): Promise<{session: SessionRecord; tasks: TasksDoc}> {
 		return this.request({type: 'promote-note-item', requestId: randomUUID(), sessionId, section, line, revision, ...noteId ? {noteId} : {}});
+	}
+	/** Every open checklist item of one note (at `revision`) to Tasks, as Ctrl+P would send each. */
+	sendOpenItems(sessionId: string, section: NoteSection, revision: string, noteId?: string): Promise<{session: SessionRecord; tasks: TasksDoc; sent: number}> {
+		return this.request({type: 'send-open-items', requestId: randomUUID(), sessionId, section, revision, ...noteId ? {noteId} : {}});
 	}
 	listBranches(cwd: string): Promise<BranchList> { return this.request({type: 'list-branches', requestId: randomUUID(), cwd}); }
 

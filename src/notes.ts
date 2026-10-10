@@ -83,6 +83,25 @@ export function checklistCounts(text: string | undefined): {open: number; done: 
 	return {open, done};
 }
 
+/** The note with the checklist item on `line` (0-based) checked or unchecked; undefined when that line is not one. */
+export function toggleChecklistLine(text: string, line: number): string | undefined {
+	const lines = text.split('\n');
+	const item = lines[line] === undefined ? undefined : parseChecklistLine(lines[line]!);
+	if (!item) return undefined;
+	lines[line] = `${lines[line]!.slice(0, item.box)}${item.checked ? ' ' : 'x'}${lines[line]!.slice(item.box + 1)}`;
+	return lines.join('\n');
+}
+
+/**
+ * Where the task a note's `↗` line links to is: `open`, `done`, or `gone` (no longer in the list). The line says so
+ * (`· in Tasks`, `· done`, `· not in Tasks`); without the list it says `· in Tasks`.
+ */
+export type TaskLinkState = 'open' | 'done' | 'gone';
+export type TaskLinkLookup = (id: string) => TaskLinkState;
+export const taskLinkSuffix = (state?: TaskLinkState) => (state === 'done' ? '· done' : state === 'gone' ? '· not in Tasks' : '· in Tasks');
+/** The task ID of a `↗` line's bookkeeping (`<!-- dh:t=<id> -->`), if any. */
+export const linkedTaskId = (line: string) => /<!--[ \t]*dh:t=([0-9a-z]+)/.exec(line)?.[1];
+
 /** Ctrl+X: checks/unchecks the cursor line's item; a line without one becomes an open item (a plain bullet keeps its bullet). */
 export function toggleChecklist(state: EditorState): EditorState {
 	const {text, cursor} = state;
@@ -139,14 +158,15 @@ function wrapped(text: string, width: number): string[] {
 }
 
 /** The note word-wrapped at `width`: checklist items as `☐ item` / `☑ item` (hanging indent), headings marked. */
-export function noteReadRows(text: string, width: number): NoteRow[] {
+export function noteReadRows(text: string, width: number, links?: TaskLinkLookup): NoteRow[] {
 	const columns = Math.max(1, width);
 	const rows: NoteRow[] = [];
 	for (const raw of visibleText(text).split('\n')) {
 		// A line sent to Tasks (`- ↗ <title> <!-- dh:t=<id> -->`): shown without its bookkeeping.
 		const link = /^([ \t]*)[-*+][ \t]+↗[ \t]+(.*?)[ \t]*(?:<!--[ \t]*dh:[^>]*?-->)?[ \t]*$/.exec(raw);
 		if (link) {
-			for (const line of wrapped(`${link[1]}↗ ${link[2]} · in Tasks`, columns)) rows.push({text: line, kind: 'link'});
+			const id = linkedTaskId(raw);
+			for (const line of wrapped(`${link[1]}↗ ${link[2]} ${taskLinkSuffix(id && links ? links(id) : undefined)}`, columns)) rows.push({text: line, kind: 'link'});
 			continue;
 		}
 		const item = parseChecklistLine(raw);

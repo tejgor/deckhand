@@ -32,7 +32,7 @@ export type TaskLink = {wt: string} | {s: string};
 
 export type TaskOp =
 	/** `id`: given by the daemon when a note line links to the new task; `link`: added already assigned there. */
-	| {type: 'add'; title: string; body?: string; link?: TaskLink; id?: string}
+	| {type: 'add'; title: string; body?: string; link?: TaskLink; id?: string; from?: string}
 	| {type: 'edit'; id: string; title: string; body: string}
 	| {type: 'toggle'; id: string}
 	| {type: 'remove'; id: string}
@@ -178,7 +178,7 @@ export function applyTaskOp(text: string, op: TaskOp, now = new Date()): {text: 
 			const title = cleanTaskTitle(op.title);
 			if (!title) throw new Error('A task needs a title');
 			if (op.id && ids.includes(op.id)) throw new Error('A task with that ID already exists');
-			target = {kind: 'task', bullet: '-', done: false, title, body: cleanBody(op.body ?? '').map(line => `  ${line}`), meta: {t: op.id ?? newTaskId(), ...op.link && {...op.link, assigned: date}, added: date}};
+			target = {kind: 'task', bullet: '-', done: false, title, body: cleanBody(op.body ?? '').map(line => `  ${line}`), meta: {t: op.id ?? newTaskId(), ...op.link && {...op.link, assigned: date}, ...!op.link && op.from ? {from: op.from} : {}, added: date}};
 			// New tasks go after the last open task (the backlog's end), else at the end of the file.
 			let lastOpen = -1;
 			blocks.forEach((block, index) => { if (block.kind === 'task' && !block.done) lastOpen = index; });
@@ -349,6 +349,23 @@ export function promoteNoteLine(noteText: string, line: number, id: string): {ti
 	if (!item || !title) return undefined;
 	lines[line] = noteTaskLinkLine(item.indent, title, id);
 	return {title, done: item.checked, text: lines.join('\n')};
+}
+
+/**
+ * Every open checklist item of a note, to send to Tasks at once: each becomes its `↗` link to a new task (`newId`).
+ * Items without text are left alone. `items` are in note order.
+ */
+export function promoteOpenNoteLines(noteText: string, newId: () => string): {text: string; items: Array<{id: string; title: string}>} {
+	const items: Array<{id: string; title: string}> = [];
+	const lines = noteText.split('\n').map(line => {
+		const item = parseChecklistLine(line);
+		const title = item && !item.checked ? cleanTaskTitle(item.text) : '';
+		if (!item || !title) return line;
+		const id = newId();
+		items.push({id, title});
+		return noteTaskLinkLine(item.indent, title, id);
+	});
+	return {text: lines.join('\n'), items};
 }
 
 /** The line (0-based) of a note that links to task `id` (`- ↗ … <!-- dh:t=<id> -->`), else -1. */
