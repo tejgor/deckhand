@@ -3,7 +3,7 @@ import path from 'node:path';
 import {Box, Text, type Key} from 'ink';
 import type {LiveClient} from './client.js';
 import type {SessionRecord, TasksDoc} from './types.js';
-import {MAX_TASK_BODY, MAX_TASK_TITLE, isAssigned, linkKey, linkOfKey, type Task} from './tasks.js';
+import {MAX_TASK_BODY, MAX_TASK_TITLE, appendNoteItem, linkKey, linkOfKey, type Task} from './tasks.js';
 import {blockItems, boardRows, hasMainTask, leadSession, noteGroupLabel, noteSteps, notesViewRows, pickerCounts, pickerRows, pickerViewOf, rowKey, selectableRow, taskLinkLookup, taskOrigin, taskSessions, taskState, workLabel, workNote, workOptions, workState, type BoardRow, type NoteItem, type PickerView, type WorkOption} from './tasksBoard.js';
 import {toggleChecklistLine} from './notes.js';
 import {editText, wrapRows, wrappedEditorLines, type EditOptions, type EditorState} from './textEditor.js';
@@ -25,17 +25,13 @@ const PICKER_ROWS = 8;
 const capitalize = (text: string) => (text ? `${text[0]!.toUpperCase()}${text.slice(1)}` : text);
 
 /** The w menu: the task, where it is now, the note it came from (if any), the view, the search and the selected row. */
-/**
- * The w menu: the task, where it is now (and whether as that work's own task, `currentMain`), the note it came from (if
- * any), the view, the search, the selected row, and `followUp` (ctrl+f): a work without a ◆ task gets it as a follow-up
- * instead of as its own task.
- */
-interface TaskPicker {taskId: string; title: string; current?: string; currentMain?: boolean; origin?: string; view: PickerView; query: string; index: number; followUp?: boolean}
+interface TaskPicker {taskId: string; title: string; current?: string; origin?: string; view: PickerView; query: string; index: number}
 
 interface TaskEditor {
-	kind: 'add' | 'edit';
+	/** `step`: a new checklist item of `section`'s note (that work has its task already), title only. */
+	kind: 'add' | 'edit' | 'step';
 	id?: string;
-	/** A new task's work key: added already assigned there; undefined adds it to the backlog. */
+	/** A new task's work key (it becomes that work's task, ◆), or the work whose note a step goes into; undefined: the backlog. */
 	section?: string;
 	field: 'title' | 'body';
 	title: EditorState;
@@ -116,14 +112,15 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 
 	const save = (state: TaskEditor) => {
 		const title = state.title.text.trim();
-		if (!title) { setError('A task needs a title'); return; }
+		if (!title) { setError(state.kind === 'step' ? 'A step needs some text' : 'A task needs a title'); return; }
+		if (state.kind === 'step') { addStep(state.section!, title, () => setEditor(undefined)); return; }
 		const before = new Set(tasks.map(task => task.id));
 		const link = state.section ? linkOfKey(state.section) : undefined;
 		if (state.kind === 'add') apply({type: 'add', title, body: state.body.text, ...link ? {link} : {}}, next => {
 			setEditor(undefined);
 			const added = parseAdded(next, before);
 			if (added) setSelected({key: `task:${added}`, index: 0});
-			setStatusMessage(state.section ? `Added to ${workLabel(state.section, sessions)}` : 'Added to the backlog');
+			setStatusMessage(state.section ? `Added as the task of ${workLabel(state.section, sessions)} (◆)` : 'Added to the backlog');
 		});
 		else if (state.id) apply({type: 'edit', id: state.id, title, body: state.body.text}, () => { setEditor(undefined); setStatusMessage('Saved the task'); });
 	};
@@ -131,7 +128,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 	const editorInput = (input: string, key: Partial<Key>, state: TaskEditor) => {
 		if (key.escape) { setEditor(undefined); return; }
 		if (key.ctrl && input === 's') { save(state); return; }
-		if (key.tab) { setEditor({...state, field: state.field === 'title' ? 'body' : 'title'}); return; }
+		if (key.tab) { if (state.kind !== 'step') setEditor({...state, field: state.field === 'title' ? 'body' : 'title'}); return; }
 		if (state.field === 'title') {
 			if (key.return) { save(state); return; }
 			if (key.upArrow || key.downArrow) return;
@@ -146,8 +143,21 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		setEditor({...state, body: {text: next.text, cursor: next.cursor}});
 	};
 
-	// Onto work without a task it was started for, a task becomes that (◆), unless ctrl+f made it a follow-up.
-	const asMain = (state: TaskPicker, section: string | undefined) => Boolean(section) && !state.followUp && !hasMainTask(section!, tasks, state.taskId);
+	// A new step at the end of a work's note (revision-checked, as if typed in its Notes tab).
+	const addStep = (section: string, title: string, then?: () => void) => {
+		const note = workNote(section, sessions);
+		if (!note) { setStatusMessage('Its note is not in this list (archived or filtered?)'); return; }
+		if (note.readOnly) { setStatusMessage('Its worktree was deleted: its note is read-only'); return; }
+		run(() => client!.saveNote(note.sessionId, note.section, appendNoteItem(note.text, title), note.revision, note.noteId), result => {
+			onSession(result.session);
+			if (!result.saved) { setStatusMessage('The note changed meanwhile; try again'); return; }
+			then?.();
+			setStatusMessage(`Added a step to ${workLabel(section, sessions)}: ${truncate(title, 40)}`);
+		});
+	};
+
+	// Onto work without a task, w makes the task that work's (◆); onto work with one, a step in its note.
+	const becomesStep = (state: TaskPicker, section: string | undefined) => Boolean(section) && hasMainTask(section!, tasks, state.taskId);
 	const pickerRowsOf = (state: TaskPicker) => pickerRows(workOptions(sessions, state.current), state.view, state.query, state.origin);
 	// Where the selection starts in a view: where the task is now (without a search), else the first listed match.
 	const pickerStart = (state: TaskPicker) => {
@@ -162,8 +172,6 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		const rows = pickerRowsOf(state);
 		const to = (index: number) => setPicker({...state, index: Math.max(0, Math.min(rows.length - 1, index))});
 		if (key.escape) { if (state.query) openPicker({...state, query: ''}); else setPicker(undefined); return; }
-		// ctrl+f: onto work without a ◆ task, as a follow-up after all (and back). Letters are the search.
-		if (key.ctrl && input === 'f') { setPicker({...state, followUp: !state.followUp}); return; }
 		if (key.tab || key.leftArrow || key.rightArrow) { openPicker({...state, view: state.view === 'worktrees' ? 'sessions' : 'worktrees'}); return; }
 		if (key.upArrow) { to(state.index - 1); return; }
 		if (key.downArrow) { to(state.index + 1); return; }
@@ -187,15 +195,20 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 			});
 			return;
 		}
-		const main = Boolean(option.section) && asMain(state, option.section);
-		if (option.section === state.current && (!option.section || main === Boolean(state.currentMain))) { setPicker(undefined); setStatusMessage('It is already there'); return; }
+		if (option.section === state.current) { setPicker(undefined); setStatusMessage('It is already there'); return; }
+		if (becomesStep(state, option.section)) {
+			run(() => client!.taskToNote(repoRoot, state.taskId, option.section!), next => {
+				onDoc(next);
+				setPicker(undefined);
+				setStatusMessage(`Now a step in the note of ${option.label} (it has its task already): ${truncate(state.title, 40)}`);
+			});
+			return;
+		}
 		const link = option.section ? linkOfKey(option.section) : undefined;
-		apply({type: 'assign', id: state.taskId, ...link ? {link, main} : {}}, () => {
+		apply({type: 'assign', id: state.taskId, ...link ? {link} : {}}, () => {
 			setPicker(undefined);
 			setSelected({key: `task:${state.taskId}`, index: 0});
-			setStatusMessage(!option.section ? 'Moved to the backlog'
-				: main ? `Now the task ${option.label} is for (◆): its note's checklist shows as its steps, merging or finishing it ticks it`
-				: `Moved to ${option.label} as a follow-up: a merge there sends it back to the backlog unless you tick it`);
+			setStatusMessage(!option.section ? 'Moved to the backlog' : `Now the task of ${option.label} (◆): its note's checklist shows as its steps, merging or finishing it ticks it`);
 		});
 	};
 
@@ -259,9 +272,10 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (key.escape) { onExit(); return; }
 		if (key.tab) { setView('notes'); setSelected({index: 0}); return; }
 		// A new task joins the group the selection is in (a worktree's, or the backlog); in the v view, that work's.
+		// a in a work's group: a step in its note (it has its task), or its task when it has none; elsewhere the backlog.
 		if (input === 'a') {
 			const section = scoped ? scope : currentTask?.group === 'progress' ? currentTask.section : currentRow?.kind === 'step' ? currentRow.section : undefined;
-			setEditor({kind: 'add', section, field: 'title', title: {text: '', cursor: 0}, body: {text: '', cursor: 0}});
+			setEditor({kind: section && hasMainTask(section, tasks) ? 'step' : 'add', section, field: 'title', title: {text: '', cursor: 0}, body: {text: '', cursor: 0}});
 			return;
 		}
 		if (input === 'E') {
@@ -286,16 +300,15 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		const {task, group} = currentTask;
 		if (key.return) { setEditor({kind: 'edit', id: task.id, field: 'title', title: {text: task.title, cursor: task.title.length}, body: {text: task.body, cursor: task.body.length}}); return; }
 		if (input === ' ') { apply({type: 'toggle', id: task.id}, () => setStatusMessage(task.done ? `Reopened ${task.title}` : `Done: ${task.title}`)); return; }
-		// An assigned follow-up can get its own worktree too (it moves there); a started task is already being worked on.
 		if (input === 'n') {
-			if (group === 'backlog' || (group === 'progress' && isAssigned(task))) onStart(task);
+			if (group === 'backlog') onStart(task);
 			else setStatusMessage(group === 'progress' ? 'That task is already being worked on (o opens its session)' : 'That task is done; space reopens it');
 			return;
 		}
 		if (input === 'w') {
 			if (task.done) { setStatusMessage('That task is done; space reopens it'); return; }
 			const current = linkKey(task.meta);
-			openPicker({taskId: task.id, title: task.title, current, currentMain: Boolean(current) && !isAssigned(task), origin: taskOrigin(task, sessions), view: pickerViewOf(current), query: ''});
+			openPicker({taskId: task.id, title: task.title, current, origin: taskOrigin(task, sessions), view: pickerViewOf(current), query: ''});
 			return;
 		}
 		if (input === 'o') {
@@ -369,8 +382,8 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 			<Text key="views" wrap="truncate-end">{tab('worktrees', `Worktrees ${counts.worktrees}`)} {tab('sessions', `Sessions ${counts.sessions}`)}<Text color={state.query ? THEME.active : THEME.muted}>{`   ${state.query ? `search: ${state.query}▏` : 'type to search'}`}</Text></Text>,
 			...rows.slice(start, start + PICKER_ROWS).map((option, offset) => {
 				const selected = start + offset === state.index;
-				// Worktrees and sessions say what the task would be there: its own task (◆) or a follow-up.
-				const role = option.kind === 'worktree' || option.kind === 'session' ? (asMain(state, option.section) ? '◆ main task' : 'follow-up') : '';
+				// Worktrees and sessions say what the task would be there: its task (◆), or a step in its note.
+				const role = (option.kind === 'worktree' || option.kind === 'session') && option.section !== state.current ? (becomesStep(state, option.section) ? '→ a step in its note' : '◆ its task') : '';
 				const note = [option.note, role].filter(Boolean).length ? ` ${[option.note, role].filter(Boolean).join(' · ')}` : '';
 				return <Text key={option.section ?? option.kind} inverse={selected} bold={selected} color={selected ? THEME.active : undefined} wrap="truncate-end">
 					{`${selected ? '›' : ' '} ${truncate(option.label, Math.max(1, width - note.length - 2))}`.padEnd(Math.max(0, width - note.length))}<Text color={selected ? undefined : THEME.muted}>{note}</Text>
@@ -391,7 +404,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		const bodyRows = body.lines.slice(start, start + EDITOR_BODY_ROWS);
 		const cursorOf = (line: {before: string; cursor?: string; after: string}, active: boolean) => <Text>{line.before}{active && line.cursor !== undefined ? <Text inverse>{line.cursor}</Text> : line.cursor ?? ''}{line.after}</Text>;
 		return [
-			<Text key="head" wrap="truncate-end"><Text color={THEME.accent} bold>{state.kind === 'add' ? 'New task' : 'Edit task'}</Text>{state.kind === 'add' ? <Text color={THEME.muted}>{` · ${state.section ? workLabel(state.section, sessions) : 'backlog'}`}</Text> : null}</Text>,
+			<Text key="head" wrap="truncate-end"><Text color={THEME.accent} bold>{state.kind === 'step' ? 'New step' : state.kind === 'add' ? 'New task' : 'Edit task'}</Text>{state.kind !== 'edit' ? <Text color={THEME.muted}>{` · ${state.section ? `${state.kind === 'step' ? 'the note of ' : 'the task of '}${workLabel(state.section, sessions)}` : 'backlog'}`}</Text> : null}</Text>,
 			<Text key="title" wrap="truncate-end">{label('Title  ', state.field === 'title')}{state.field === 'title' ? cursorOf(titleLine, true) : truncate(state.title.text, titleWidth)}</Text>,
 			<Text key="body-label">{label('Details', state.field === 'body')}<Text color={THEME.muted}>{state.body.text || state.field === 'body' ? '' : " (optional; typed into the agent's input with the title)"}</Text></Text>,
 			...bodyRows.map((line, index) => <Text key={`body-${index}`} wrap="truncate-end">{'  '}{cursorOf(line, state.field === 'body' && start + index === body.cursorRow)}</Text>),
@@ -399,16 +412,10 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 	};
 
 	const hint = (width: number): string => {
-		if (editor) return fitHint(editor.field === 'title'
+		if (editor) return fitHint(editor.kind === 'step' ? ['enter add to the note', 'esc cancel'] : editor.field === 'title'
 			? ['enter save', 'tab details', 'esc cancel']
 			: ['enter new line', 'ctrl+s save', 'tab title', 'esc cancel'], width, ' • ');
-		if (picker) {
-			// ctrl+f is offered on work without a ◆ task: as a follow-up instead (or back).
-			const on = pickerRowsOf(picker)[picker.index];
-			const choosable = (on?.kind === 'worktree' || on?.kind === 'session') && !hasMainTask(on.section!, tasks, picker.taskId);
-			const role = choosable ? [{text: picker.followUp ? 'ctrl+f as its main task' : 'ctrl+f as a follow-up', short: 'ctrl+f role'}] : [];
-			return fitHint(['enter move here', ...role, 'type to search', {text: 'tab worktrees / sessions', short: 'tab view'}, '↑↓ choose', picker.query ? 'esc clear search' : 'esc cancel'], width, ' • ');
-		}
+		if (picker) return fitHint(['enter move here', 'type to search', {text: 'tab worktrees / sessions', short: 'tab view'}, '↑↓ choose', picker.query ? 'esc clear search' : 'esc cancel'], width, ' • ');
 		if (view === 'notes') {
 			const onItem = currentRow?.kind === 'noteline' && Boolean(currentRow.item);
 			const onNote = currentRow?.kind === 'notehead' || currentRow?.kind === 'noteline';
@@ -498,11 +505,10 @@ function BoardLine({row, selected, width, sessions, spinnerFrame}: {row: BoardRo
 		const color = selected ? THEME.active : row.step.done ? THEME.muted : undefined;
 		return <Text inverse={selected} bold={selected} color={color} wrap="truncate-end">{`${marker}   ${row.step.done ? '☑' : '☐'} ${truncate(row.step.text, Math.max(1, width - 6))}`.padEnd(width)}</Text>;
 	}
-	// In a worktree's group its heading shows the state: the task the work was started for is ◆, a follow-up ☐; the
-	// started task counts its steps (the work note's checklist) on the right.
+	// In a worktree's group its heading shows the state: the task is ◆, counting its steps (the work note's checklist).
 	const inWork = row.group === 'progress';
 	const state = taskState(row.task, sessions, spinnerFrame);
-	const glyph = inWork ? (isAssigned(row.task) ? {text: '☐', color: THEME.muted} : {text: '◆', color: THEME.accentSoft}) : {text: state.glyph, color: state.color};
+	const glyph = inWork ? {text: '◆', color: THEME.accentSoft} : {text: state.glyph, color: state.color};
 	const right = inWork ? (row.steps ? `${row.steps.done}/${row.steps.total}` : '') : truncate([state.where, state.text].filter(Boolean).join('  '), Math.floor(width / 2));
 	const title = truncate(row.task.title, Math.max(1, width - right.length - 6));
 	return (
@@ -537,9 +543,7 @@ function detailLines(row: BoardRow | undefined, sessions: SessionRecord[], spinn
 	if (row?.kind !== 'task') return [];
 	const {task, group} = row;
 	const state = taskState(task, sessions, spinnerFrame);
-	const where = group === 'progress' ? (isAssigned(task)
-		? `Assigned to ${workLabel(linkKey(task.meta)!, sessions)}: a merge sends it back to the backlog unless ticked · n gives it its own worktree`
-		: `Started ${workLabel(linkKey(task.meta)!, sessions)}: merging or marking it done ticks it · o opens it`) : group === 'backlog' ? `${state.text ? `${state.text} · ` : ''}n starts a session for it` : `${state.text}${state.where ? ` ${state.where}` : ''} · space reopens it`;
+	const where = group === 'progress' ? `The task of ${workLabel(linkKey(task.meta)!, sessions)}: merging or marking it done ticks it · o opens it` : group === 'backlog' ? `${state.text ? `${state.text} · ` : ''}n starts a session for it` : `${state.text}${state.where ? ` ${state.where}` : ''} · space reopens it`;
 	// Sent from a note that still links it: w can put it back there.
 	const origin = taskOrigin(task, sessions);
 	const back = origin ? ` · w: back to the note of ${origin}` : '';

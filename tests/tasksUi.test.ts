@@ -46,16 +46,16 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	assert.match(linked, /^- \[ \] Write the docs <!-- dh:t=[0-9a-f]{8} wt=/);
 
 	press('a'); await screen('◆ Task Write the docs'); await screen('b board');
-	// The board groups open tasks by worktree: ◆ the task it was started for. v shows only this session's worktree,
-	// where a adds a follow-up (☐) to it.
+	// The board groups open tasks by worktree: ◆ its task. v shows only this session's worktree, where a (the work
+	// has its task) adds a step: an item of its note, listed under the task.
 	press('b'); await screen('◆ Write the docs'); await screen('⎇ write'); await screen('o session');
 	assert.doesNotMatch(await screen('◆ Write the docs'), /Write the docs +… │/, 'a row fits its pane');
 	press('v'); await screen('v all tasks');
-	press('a'); await screen('New task · ⎇ write'); press('Add tests'); await screen('Add tests');
-	press('\r'); await screen('Added to ⎇ write'); await screen('☐ Add tests');
-	assert.match(await tasksFile(), /- \[ \] Add tests <!-- dh:t=[0-9a-f]{8} wt=[0-9a-f-]{36} assigned=\d{4}-\d\d-\d\d added=/);
+	press('a'); await screen('New step · the note of ⎇ write'); press('Add tests'); await screen('Add tests');
+	press('\r'); await screen('Added a step to ⎇ write'); await screen('☐ Add tests'); await screen('0/1');
+	assert.doesNotMatch(await tasksFile(), /Add tests/);
 	press('v'); await screen('BACKLOG');
-	press('\x1b'); await screen('+1 open here');
+	press('\x1b'); await screen('0/1 steps');
 	press('\x1b'); await screen('enter edit notes');
 
 	// A note's checklist item goes to Tasks with ctrl+p and leaves a ↗ link in the note.
@@ -63,26 +63,26 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('\x14'); await screen('- [ ]'); press('Follow up on review'); await screen('ctrl+p → tasks');
 	press('\x10'); await screen('Sent to Tasks');
 	press('\x1b'); await screen('↗ Follow up on review · in Tasks');
-	// A note item sent from a worktree session lands on that worktree; w moves it to the backlog.
-	press('b'); await screen('☐ Follow up on review');
-	assert.match(await tasksFile(), /- \[ \] Follow up on review <!-- dh:t=[0-9a-f]{8} wt=[0-9a-f-]{36} assigned=\d{4}-\d\d-\d\d added=/);
-	// tab: every note, by worktree; f: only open checklist items (here none: the item became a task).
+	// A note item sent to Tasks is work of its own: the backlog.
+	press('b'); await screen('Follow up on review'); await screen('BACKLOG · 1');
+	assert.match(await tasksFile(), /- \[ \] Follow up on review <!-- dh:t=[0-9a-f]{8} added=/);
+	// tab: every note, by worktree; f: only open checklist items (the step, not the ↗ line).
 	press('\t'); await screen('✎ Notes'); await screen('Worktree note'); await screen('↗ Follow up on review · in Tasks');
-	press('f'); await screen('No open checklist items in these notes');
+	press('f'); await screen('☐ Add tests');
 	press('f'); await screen('↗ Follow up on review · in Tasks');
 	press('\t'); await screen('☐ Tasks');
-	// w: the backlog and the way back to its note come first, then the worktrees (Tab: main-checkout sessions); typing searches.
-	press('G'); await screen('› ☐ Follow up on review');
-	press('w'); await screen('Move “Follow up on review” to'); await screen('↩ Back to its note'); await screen('› ⎇ write');
+	// w: the backlog and the way back to its note come first, then the worktrees (Tab: main-checkout sessions); typing
+	// searches. ⎇ write has its task, so there it would become a step.
+	press('G'); await screen('Follow up on review');
+	press('w'); await screen('Move “Follow up on review” to'); await screen('↩ Back to its note'); await screen('› ⎇ write'); await screen('→ a step in its note');
 	press('\t'); await screen('No sessions in the main checkout');
 	press('\t'); await screen('› ⎇ write');
 	press('zz'); await screen('Nothing in worktrees matches “zz”');
 	press('\x1b'); await screen('type to search');
 	press('\x1b[A'); await screen('› ↩ Back to its note');
 	press('\x1b[A'); await screen('› Backlog · no worktree');
-	press('\r'); await screen('Moved to the backlog'); await screen('BACKLOG · 1');
-	assert.match(await tasksFile(), /- \[ \] Follow up on review <!-- dh:t=[0-9a-f]{8} added=/);
-	// And back to the note it was sent from: an open item there again, gone from the list.
+	press('\r'); await screen('It is already there');
+	// Back to the note it was sent from: an open item there again, gone from the list.
 	press('w'); await screen('↩ Back to its note');
 	press('\x1b[A'); await screen('› ↩ Back to its note');
 	press('\r'); await screen('Back in the note of'); await screen('Nothing waiting');

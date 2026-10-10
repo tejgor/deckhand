@@ -1,5 +1,5 @@
 import type {SessionRecord} from './types.js';
-import {findNoteTaskLink, groupTasks, isAssigned, isLinked, linkKey, linkOfKey, openNoteItems, parseNoteTaskLink, type Task} from './tasks.js';
+import {findNoteTaskLink, groupTasks, isLinked, linkKey, linkOfKey, openNoteItems, parseNoteTaskLink, type Task} from './tasks.js';
 import {noteKey, parseChecklistLine, taskLinkSuffix, type TaskLinkLookup} from './notes.js';
 import {statusWords} from './sidebarModel.js';
 import {THEME, displaySessionTitle, statusColor, statusGlyph} from './ui.js';
@@ -101,7 +101,7 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), s
 		const list = groups.progress.filter(task => linkKey(task.meta) === work);
 		rows.push({kind: 'work', section: work, count: list.length});
 		const steps = stepsOf?.(work) ?? [];
-		const lead = steps.length ? list.find(task => !isAssigned(task)) : undefined;
+		const lead = steps.length ? list[0] : undefined;
 		for (const task of list) {
 			if (task !== lead) { rows.push({kind: 'task', task, group: 'progress', section: work}); continue; }
 			rows.push({kind: 'task', task, group: 'progress', section: work, steps: stepCount(steps)});
@@ -109,7 +109,7 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), s
 		}
 		if (!list.length) rows.push({kind: 'empty', text: 'No open tasks here · a adds one'});
 	}
-	if (!works.length) section('IN PROGRESS', [], 'progress', 'n on a backlog task starts a session for it · w assigns it to a worktree');
+	if (!works.length) section('IN PROGRESS', [], 'progress', 'n on a backlog task starts a session for it · w gives it to a worktree');
 	if (!scope) section('BACKLOG', groups.backlog, 'backlog', tasks.length ? 'Nothing waiting' : 'No tasks yet · a adds one');
 	if (groups.done.length || groups.olderDone.length) {
 		section('DONE · this week', groups.done, 'done');
@@ -121,9 +121,9 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), s
 	return rows;
 }
 
-/** Whether work `section` has an open task it was started for (◆), other than `except`: w then makes a task its follow-up. */
+/** Whether work `section` has an open task (◆) other than `except`: w then puts a task into its note as a step instead. */
 export function hasMainTask(section: string, tasks: Task[], except?: string): boolean {
-	return tasks.some(task => !task.done && task.id !== except && linkKey(task.meta) === section && !isAssigned(task));
+	return tasks.some(task => !task.done && task.id !== except && linkKey(task.meta) === section);
 }
 
 /** The sessions doing a task: every session of its linked worktree incarnation, or its linked (main checkout) session. */
@@ -216,10 +216,10 @@ export function pickerCounts(options: WorkOption[], query: string): Record<Picke
 
 /**
  * Where a task sent from a note came from (the note still holding its `↗` line, among the sessions in view), for w's
- * way back: not a done task, nor one a session was started for, nor a deleted worktree's (read-only) note.
+ * way back: not a done task, nor one some work is for, nor a deleted worktree's (read-only) note.
  */
 export function taskOrigin(task: Task, sessions: SessionRecord[]): string | undefined {
-	if (task.done || (isLinked(task) && !isAssigned(task)) || !task.meta.t) return undefined;
+	if (task.done || isLinked(task) || !task.meta.t) return undefined;
 	for (const session of sessions) {
 		if (findNoteTaskLink(session.notes ?? '', task.id) >= 0) return displaySessionTitle(session, sessions) || 'session';
 		const shared = session.sharedNotes;
@@ -246,10 +246,10 @@ export function linkedTasks(tasks: Task[], session: SessionRecord | undefined): 
 	return tasks.filter(task => isLinked(task) && (task.meta.wt ? task.meta.wt === session.worktree?.id : task.meta.s === session.id));
 }
 
-/** The task the session's work is about: the open one it was started for, else an open assigned one, else a done one. */
+/** The task the session's work is about: the open one, else a done one. */
 export function linkedTask(tasks: Task[], session: SessionRecord | undefined): Task | undefined {
 	const linked = linkedTasks(tasks, session);
-	return linked.find(task => !task.done && !isAssigned(task)) ?? linked.find(task => !task.done) ?? linked.find(task => !isAssigned(task)) ?? linked[0];
+	return linked.find(task => !task.done) ?? linked[0];
 }
 
 /** How many other open tasks the session's work has besides `linkedTask`. */

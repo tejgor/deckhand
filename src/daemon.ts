@@ -27,7 +27,7 @@ import {AgentVersionChecker, findOnPath} from './agentVersionCheck.js';
 import {exportHandoff} from './sessionFeatures.js';
 import {NotesStore, noteFilePath, noteFileStem, type NoteId, type NoteKind} from './notesStore.js';
 import {MAX_NOTES_CHARS, mergeIntoWorktreeNote, repoNoteId, sharedNoteIdentity, showsOwnNote} from './notes.js';
-import {applyTaskOp, clientTaskOp, findNoteTaskLink, isAssigned, isLinked, linkMatches, newTaskId, openNoteItems, parseTasks, promoteNoteLine, promoteOpenNoteLines, returnTaskToNote, taskPrompt, type Task, type TaskLink, type TaskOp} from './tasks.js';
+import {appendNoteItem, applyTaskOp, clientTaskOp, findNoteTaskLink, isLinked, linkOfKey, migrateFollowUps, linkMatches, newTaskId, openNoteItems, parseTasks, promoteNoteLine, promoteOpenNoteLines, returnTaskToNote, taskPrompt, type Task, type TaskLink, type TaskOp} from './tasks.js';
 import {PROTOCOL_VERSION} from './types.js';
 import type {ActionRecord, AgentActivityStatus, AgentSessionRef, AgentUpdateResult, AgentVersions, BranchList, ClientRequest, CreateSessionInput, DevRecord, GitRecord, MergePreview, NoteSaveResult, PreviewRecord, ProjectInfo, RestartMode, ServerMessage, ServerResponse, SessionCleanupInspection, SessionRecord, SessionWorktreeRecord, SharedNote, TasksDoc, TerminalRecord, WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeMarkers, WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview, WorktreeOverviewEntry, WorktreeRecord} from './types.js';
 import type {WorktreeInfo} from './git.js';
@@ -62,7 +62,7 @@ const STOP_FOR_DELETE_MS = 10_000;
 interface WorktreeTarget {root: string; key: string; item?: WorktreeInfo; record?: WorktreeRecord; sessions: SessionRecord[]}
 
 /** A conflicted merge Deckhand started and left in progress, until it is kept or aborted (`resolve-merge`). */
-interface PendingMerge extends ConflictedMerge {sessionId: string; sourceRef: string; sourceSha?: string; targetBranch: string; tickTaskIds?: string[]}
+interface PendingMerge extends ConflictedMerge {sessionId: string; sourceRef: string; sourceSha?: string; targetBranch: string}
 
 interface ClientSubscription {
 	/** The checkout the client was opened in (`subscribe`); it also hears about every session of the same repository (`repoKey`). */
@@ -419,8 +419,6 @@ export class InkDaemon {
 	private agentVersionsTimer?: NodeJS.Timeout;
 	/** Conflicted merges by target worktree root (see PendingMerge). */
 	private readonly pendingMerges = new Map<string, PendingMerge>();
-	/** Assigned tasks the merge confirmation ticked, by worktree record: the merge marks them done with its own task. */
-	private readonly mergeTicks = new Map<string, string[]>();
 	private mergeDetectTimer?: NodeJS.Timeout;
 	private mergeDetection?: Promise<void>;
 	/** Records whose starting commit could not be established (no reflog): their ancestry is never checked. */
@@ -441,6 +439,8 @@ export class InkDaemon {
 		await this.notes.load();
 		// Before the sessions project their notes, so they show the merged worktree notes.
 		await this.mergeWorktreeSessionNotes(stored.sessions);
+		// Before anything writes a task list (it would drop the old follow-up bookkeeping), and before the sessions project their notes.
+		await this.migrateFollowUpTasks(stored.sessions);
 		for (const session of stored.sessions) {
 			this.sessions.set(session.id, session);
 		}
@@ -990,6 +990,9 @@ export class InkDaemon {
 				case 'return-task-to-note':
 					sendMessage(socket, response(message.requestId, await this.returnTaskToNote(message.cwd, message.taskId)));
 					return;
+				case 'task-to-note':
+					sendMessage(socket, response(message.requestId, await this.taskToWorkNote(message.cwd, message.taskId, message.section)));
+					return;
 				case 'list-branches':
 					sendMessage(socket, response(message.requestId, await this.listBranches(message.cwd)));
 					return;
@@ -1014,7 +1017,7 @@ export class InkDaemon {
 					sendMessage(socket, response(message.requestId, await this.mergePreview(message.sessionId, message.targetCwd)));
 					return;
 				case 'merge-worktree':
-					sendMessage(socket, response(message.requestId, await this.mergeSessionWorktree(message.sessionId, message.mode, message.targetCwd, message.commitFirst, Array.isArray(message.tickTaskIds) ? message.tickTaskIds.filter((id): id is string => typeof id === 'string') : [], message.sendOpenItems === true)));
+					sendMessage(socket, response(message.requestId, await this.mergeSessionWorktree(message.sessionId, message.mode, message.targetCwd, message.commitFirst, message.sendOpenItems === true)));
 					return;
 				case 'resolve-merge':
 					sendMessage(socket, response(message.requestId, await this.resolveMerge(message.sessionId, message.targetCwd, message.action)));
@@ -1220,9 +1223,8 @@ export class InkDaemon {
 	private async exportSessionHandoff(session: SessionRecord, includeOutput = false): Promise<string> {
 		const gitContext = session.worktree?.deletedAt ? undefined : await getHandoffGitContext(session.cwd, session.worktree?.baseRef).catch(error => ({commits: [], moreCommits: 0, changes: [], moreChanges: 0, error: errorMessage(error)}));
 		const linked = this.linkedTasksOf(session);
-		const task = linked.find(item => !item.done && !isAssigned(item)) ?? linked.find(item => !isAssigned(item));
-		const followUps = linked.filter(item => !item.done && isAssigned(item)).map(item => item.title);
-		return exportHandoff(session, includeOutput, gitContext, task, followUps);
+		const task = linked.find(item => !item.done) ?? linked[0];
+		return exportHandoff(session, includeOutput, gitContext, task);
 	}
 
 	private async inspectSessionCleanup(sessionId: string, deleteBranch: boolean): Promise<SessionCleanupInspection> {
@@ -1815,23 +1817,16 @@ export class InkDaemon {
 		}
 	}
 
-	/**
-	 * Merged ticks the tasks the worktree was started for (and the assigned ones its confirmation ticked) and sends the
-	 * other assigned ones back to the backlog; unmerged undoes both; deleted unmerged sends them all back.
-	 */
+	/** Merged ticks the worktree's task; unmerged reopens it; deleted unmerged sends it back to the backlog. */
 	private async syncWorktreeTasks(before: WorktreeRecord | undefined, record: WorktreeRecord, branch?: string): Promise<void> {
 		const link = {wt: record.id};
-		const also = this.mergeTicks.get(record.id);
-		this.mergeTicks.delete(record.id);
-		if (!before?.mergedAt && record.mergedAt) {
-			await this.changeLinkedTasks({type: 'tick-linked', link, auto: 'merge', ...also?.length ? {also} : {}});
-			await this.changeLinkedTasks({type: 'release-linked', link, from: branch});
-		} else if (before?.mergedAt && !record.mergedAt) await this.changeLinkedTasks({type: 'reopen-linked', link, auto: 'merge'});
+		if (!before?.mergedAt && record.mergedAt) await this.changeLinkedTasks({type: 'tick-linked', link, auto: 'merge'});
+		else if (before?.mergedAt && !record.mergedAt) await this.changeLinkedTasks({type: 'reopen-linked', link, auto: 'merge'});
 		// Idempotent (only open linked tasks change), so a record superseded at join is covered too.
 		if (record.deletedAt && !record.mergedAt) await this.changeLinkedTasks({type: 'abandon-linked', link, tried: branch});
 	}
 
-	/** D on the last session of a task's work ticks the tasks it was started for (not assigned follow-ups); un-D reopens what D ticked. */
+	/** Done on the last session of a task's work ticks its task; undone reopens what done ticked. */
 	private async syncDoneTasks(session: SessionRecord, done: boolean): Promise<void> {
 		const record = this.worktreeRecordOf(session);
 		const link: TaskLink = record ? {wt: record.id} : {s: session.id};
@@ -1870,7 +1865,7 @@ export class InkDaemon {
 		return this.sendOpenNoteItems({kind: 'worktree', id: record.id}, await this.tasksKeyFor(repoRoot), branch ? {from: branch} : {});
 	}
 
-	/** `A` in the Notes view: every open item of one note to Tasks, landing where Ctrl+P would send each (noteWorkLink). */
+	/** `A` in the Notes view: every open item of one note to the backlog, as Ctrl+P sends each. */
 	private async sendNoteItems(message: Extract<ClientRequest, {type: 'send-open-items'}>): Promise<{session: SessionRecord; tasks: TasksDoc; sent: number}> {
 		const session = this.requireSession(message.sessionId);
 		const note = this.noteOf(session, message.section);
@@ -1879,19 +1874,8 @@ export class InkDaemon {
 			if (session.sharedNotes?.readOnly) throw new Error('Its worktree was deleted: the worktree note is read-only');
 		}
 		const key = await this.tasksKeyFor(session.repoRoot);
-		const link = this.noteWorkLink(session, message.section, note);
-		const sent = await this.sendOpenNoteItems(note, key, {revision: message.revision, ...link ? {link} : {}});
+		const sent = await this.sendOpenNoteItems(note, key, {revision: message.revision});
 		return {session: this.requireSession(session.id), tasks: this.tasksDoc(key), sent};
-	}
-
-	/**
-	 * Where a note's items land on the board: a worktree note's (or a worktree session's) worktree, a main-checkout
-	 * session's session; the main checkout's shared note is the repository's, so its items go to the backlog.
-	 */
-	private noteWorkLink(session: SessionRecord, section: 'session' | 'shared', note: NoteId): TaskLink | undefined {
-		const record = this.worktreeRecordOf(session);
-		return section === 'shared' ? (note.kind === 'worktree' ? {wt: note.id} : undefined)
-			: record ? (record.deletedAt ? undefined : {wt: record.id}) : {s: session.id};
 	}
 
 	/** Sends an open checklist item of a note to its repository's tasks; the line becomes `- ↗ <title> <!-- dh:t=<id> -->`. */
@@ -1910,8 +1894,8 @@ export class InkDaemon {
 		if (!promoted) throw new Error('Put the cursor on a checklist item (- [ ] …) to send it to Tasks');
 		if (promoted.done) throw new Error('That item is already ticked; only open items go to Tasks');
 		const key = await this.tasksKeyFor(session.repoRoot);
-		const link = this.noteWorkLink(session, message.section, note);
-		await this.changeTasks(key, {type: 'add', title: promoted.title, id, ...link ? {link} : {}});
+		// An item sent from a note is work of its own: the backlog (the note's own work's to-dos are its steps).
+		await this.changeTasks(key, {type: 'add', title: promoted.title, id});
 		const saved = await this.notes.save(note, promoted.text, message.revision);
 		if (!saved.saved) {
 			await this.changeTasks(key, {type: 'remove', id}).catch(() => 0);
@@ -1919,6 +1903,61 @@ export class InkDaemon {
 		}
 		if (saved.changed) this.notesChanged(note.kind, noteFileStem(note.id));
 		return {session: this.requireSession(session.id), tasks: this.tasksDoc(key)};
+	}
+
+	/**
+	 * w onto work that has its task already: the task becomes a step of it, an open item at the end of its note (its
+	 * details indented under it), and leaves the list (if that fails, the note is put back).
+	 */
+	private async taskToWorkNote(cwd: string, taskId: string, section: string): Promise<TasksDoc> {
+		const key = await this.tasksKeyFor(cwd);
+		const task = parseTasks(this.notes.get({kind: 'tasks', id: key}).text).find(item => item.id === taskId);
+		if (!task) throw new Error('That task is no longer in the list');
+		if (task.done) throw new Error('That task is done; space reopens it');
+		const link = typeof section === 'string' ? linkOfKey(section) : undefined;
+		if (!link) throw new Error('Invalid work');
+		await this.checkTaskLink(key, link);
+		const note: NoteId = 'wt' in link ? {kind: 'worktree', id: link.wt} : {kind: 'session', id: link.s};
+		const stored = this.notes.get(note);
+		// Sent from this very note: its ↗ line becomes the item again, rather than a second copy at the end.
+		const linkLine = findNoteTaskLink(stored.text, taskId);
+		const text = linkLine >= 0 ? returnTaskToNote(stored.text, linkLine, task) : appendNoteItem(stored.text, task.title, task.body);
+		const saved = await this.notes.save(note, text, stored.revision);
+		if (!saved.saved) throw new Error('Its note changed meanwhile; try again');
+		if (saved.changed) this.notesChanged(note.kind, noteFileStem(note.id));
+		try {
+			await this.changeTasks(key, {type: 'remove', id: taskId});
+		} catch (error) {
+			const now = this.notes.get(note);
+			if ((await this.notes.save(note, stored.text, now.revision)).changed) this.notesChanged(note.kind, noteFileStem(note.id));
+			throw error;
+		}
+		return this.tasksDoc(key);
+	}
+
+	/**
+	 * Follow-ups became steps, once at start (before anything writes a task list, and before the sessions project their
+	 * notes): each open task assigned to work moves into its work's note as an open item (a worktree's note while its
+	 * record is live, a main-checkout session's own); one whose work is gone stays, in the backlog. The notes are written
+	 * before the list, so a crash in between leaves a duplicate, never a lost item.
+	 */
+	private async migrateFollowUpTasks(sessions: SessionRecord[]): Promise<void> {
+		const noteOf = (link: TaskLink): NoteId | undefined => {
+			if ('wt' in link) { const record = this.worktrees.get(link.wt); return record && !record.deletedAt ? {kind: 'worktree', id: link.wt} : undefined; }
+			const session = sessions.find(item => item.id === link.s);
+			return session && !session.worktree?.id ? {kind: 'session', id: link.s} : undefined;
+		};
+		for (const [stem] of this.notes.entries('tasks')) {
+			const tasks: NoteId = {kind: 'tasks', id: stem};
+			const migrated = migrateFollowUps(this.notes.get(tasks).text, link => Boolean(noteOf(link)));
+			if (!migrated) continue;
+			try {
+				for (const item of migrated.moved) await this.notes.modify(noteOf(item.link)!, text => ({text: appendNoteItem(text, item.title, item.body), result: undefined}));
+				// Again on the file as it is (the same text at start), so nothing in it is lost.
+				await this.notes.modify(tasks, text => ({text: migrateFollowUps(text, link => Boolean(noteOf(link)))?.text ?? text, result: undefined}));
+				await this.log(`moved ${migrated.moved.length} follow-up task(s) of ${stem} into their notes as steps`);
+			} catch (error) { await this.log(`migrating the follow-ups of ${stem} failed: ${errorMessage(error)}`); }
+		}
 	}
 
 	/**
@@ -1930,7 +1969,7 @@ export class InkDaemon {
 		const task = parseTasks(this.notes.get({kind: 'tasks', id: key}).text).find(item => item.id === taskId);
 		if (!task) throw new Error('That task is no longer in the list');
 		if (task.done) throw new Error('That task is done; space reopens it');
-		if (isLinked(task) && !isAssigned(task)) throw new Error('A session was started for that task; it stays a task');
+		if (isLinked(task)) throw new Error('Some work is for that task; it stays a task (w: the backlog first)');
 		const origin = await this.taskOrigin(key, taskId);
 		if (!origin) throw new Error('No note links to that task any more (its session was removed, or the ↗ line was edited)');
 		if (origin.readOnly) throw new Error('Its worktree was deleted: that note is read-only');
@@ -1966,14 +2005,15 @@ export class InkDaemon {
 		if (this.workers.has(sessionId) || session.status === 'running') throw new Error('kill the session before removing it');
 		const worktreeId = session.worktree?.id;
 		const lastInWorktree = worktreeId && ![...this.sessions.values()].some(other => other.id !== sessionId && other.worktree?.id === worktreeId);
-		const where = session.worktree?.branch || session.title;
+		const branch = session.worktree?.branch;
 		const items = [
 			...openNoteItems(this.notes.get({kind: 'session', id: sessionId}).text),
 			...lastInWorktree ? openNoteItems(this.notes.get({kind: 'worktree', id: worktreeId}).text) : [],
 		];
 		if (!items.length) return;
 		const key = await this.tasksKeyFor(session.repoRoot);
-		for (const title of items) await this.changeTasks(key, {type: 'add', title, body: `From the notes of ${where} (removed)`});
+		// As when a worktree's work ends: backlog tasks left open in its branch (the notes go to the trash, so no ↗ links).
+		for (const title of items) await this.changeTasks(key, {type: 'add', title, ...branch ? {from: branch} : {}});
 		await this.log(`moved ${items.length} open note item(s) of ${session.title} to tasks`);
 	}
 
@@ -2459,8 +2499,7 @@ export class InkDaemon {
 			const task = parseTasks(this.notes.get({kind: 'tasks', id: await this.tasksKeyFor(input.cwd)}).text).find(item => item.id === input.taskId);
 			if (!task) throw new Error('That task is no longer in the list');
 			if (task.done) throw new Error('That task is done; reopen it (space) to work on it');
-			// An assigned follow-up can get its own worktree (it moves there); a started one is already being worked on.
-			if ((task.meta.wt || task.meta.s) && !isAssigned(task)) throw new Error('That task is already being worked on');
+			if (task.meta.wt || task.meta.s) throw new Error('That task is already being worked on');
 			startPrompt = taskPrompt(task);
 		}
 		if (input.baseBranch !== undefined && (typeof input.baseBranch !== 'string' || (input.worktreeMode ?? 'none') !== 'new')) throw new Error('A base branch applies only to a new worktree');
@@ -2762,7 +2801,7 @@ export class InkDaemon {
 		return getMergePreview(worktreePath, targetCwd);
 	}
 
-	private async mergeSessionWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false, tickTaskIds: string[] = [], sendOpenItems = false): Promise<WorktreeMergeResult> {
+	private async mergeSessionWorktree(sessionId: string, mode: WorktreeMergeMode, targetCwd: string, commitFirst = false, sendOpenItems = false): Promise<WorktreeMergeResult> {
 		const {session, worktreePath} = this.mergeSource(sessionId);
 		const recordId = this.worktreeRecordOf(session)?.id;
 		const {targetRoot, targetHead, indexClean, ...result} = await mergeWorktreeIntoCurrent(worktreePath, targetCwd, mode, commitFirst ? {commitFirst: session.title.trim() || 'Deckhand session'} : {});
@@ -2771,10 +2810,9 @@ export class InkDaemon {
 			await this.log(`${mode} merge skipped for ${session.title} (${result.sourceRef}) into ${result.targetBranch}: ${result.reason ?? 'no new commits'}`);
 		} else if (result.conflicted) {
 			// Left in progress until the user keeps it (marked merged) or aborts it (resolve-merge).
-			this.pendingMerges.set(targetRoot, {sessionId, mode, sourceRef: result.sourceRef, sourceSha: result.sourceSha, targetBranch: result.targetBranch, targetHead, indexClean, tickTaskIds});
+			this.pendingMerges.set(targetRoot, {sessionId, mode, sourceRef: result.sourceRef, sourceSha: result.sourceSha, targetBranch: result.targetBranch, targetHead, indexClean});
 			await this.log(`${mode} merge for ${session.title} (${result.sourceRef}) into ${result.targetBranch} has conflicts in ${result.conflictCount ?? 0} file(s)`);
 		} else {
-			if (recordId && tickTaskIds.length) this.mergeTicks.set(recordId, tickTaskIds);
 			await this.saveMergeMarkers(sessionId, {
 				mergedAt: new Date().toISOString(),
 				mergeMode: mode,
@@ -2806,8 +2844,6 @@ export class InkDaemon {
 		const {session, worktreePath} = this.mergeSource(sessionId);
 		// Without a record of it (e.g. the daemon restarted), the source is described as it is now (no commit is vouched for).
 		const sourceRef = started?.sourceRef ?? (await currentBranch(worktreePath) || await headSha(worktreePath));
-		const recordId = this.worktreeRecordOf(session)?.id;
-		if (recordId && started?.tickTaskIds?.length) this.mergeTicks.set(recordId, started.tickTaskIds);
 		const updated = await this.saveMergeMarkers(sessionId, {
 			mergedAt: new Date().toISOString(),
 			...started ? {mergeMode: started.mode} : {},

@@ -78,7 +78,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 	]},
 	{title: 'Git & PRs', lines: [
 		key('i', 'Workspace overview: branch, changes, diff size, base, upstream'),
-		key('m', 'Merge / squash into this branch, uncommitted (Space: commit first, or tick a follow-up; conflicts: Enter keeps, x aborts)'),
+		key('m', 'Merge / squash into this branch, uncommitted (Space: commit first; conflicts: Enter keeps, x aborts)'),
 		key('→  Enter', 'On the Git tab (the worktree\'s changes, VS Code style): browse them / open lazygit'),
 		heading('Browsing changes (→; ← or Esc back; o opens lazygit)'),
 		key('j k  ↑↓', 'Select a file (g/G or Home/End: first/last)'),
@@ -103,14 +103,14 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		note('Sessions report working, needs input, done, failed or rate-limited (! jumps to them) and what they wait on (a question, a plan, a command, their last line), and can notify you. Claude needs nothing; Codex: switch on, then `deckhand hooks codex` in ~/.codex/hooks.json; Pi has none. "Done" means it stopped, not that it succeeded.'),
 	]},
 	{title: 'Tasks', lines: [
-		note('One list per repository. On a worktree: ◆ the task it was started for (its note\'s checklist under it as steps, 2/5), ☐ a follow-up. A note checkbox becomes a task only when you send it.'),
-		key('b  v', 'The board: a group per worktree with open tasks, backlog, done / only the selected session\'s worktree'),
-		key('a  Enter', 'Add (to the selection\'s group) / edit: Enter saves the title, Tab adds details (Ctrl+S saves); on a step, open its note'),
-		key('n  w', 'Start a session for it (↑↓ picks the base) / move it: backlog, its note, a worktree or session (onto one with no ◆ it becomes its ◆; ctrl+f: follow-up)'),
+		note('One list per repository. A worktree (or main-checkout session) has one task, ◆; its to-dos are its note\'s checklist, shown under it as steps (2/5).'),
+		key('b  v', 'The board: a group per worktree with its task, backlog, done / only the selected session\'s worktree'),
+		key('a  Enter', 'Add a task (in a worktree\'s group: a step to its note) / edit it (Tab: details, Ctrl+S saves); on a step, open its note'),
+		key('n  w', 'Start a session for it (↑↓ picks the base) / move it: backlog, its note, a worktree or session (its task, or a step in its note if it has one)'),
 		key('Space  x', 'Tick or reopen (a step: in its note) / delete (x twice)'),
 		key('o  J K', 'Open the session doing it / reorder (j k, g G move)'),
 		key('Tab  E', 'Every note by worktree (a sends an item, A all its open ones, Enter opens it, f only open items) / the list in your editor'),
-		note('A merge ticks ◆ and sends open ☐ to the backlog unless m ticked them; done ticks ◆; undoing either undoes that. Work removed unmerged, and its note\'s open items when m, x or W end it (Space keeps them), go to the backlog.'),
+		note('Merging, or marking all its sessions done, ticks ◆ (undoing reopens it); work removed unmerged sends it back. m, x and W send the note\'s open items to the backlog too (Space keeps them).'),
 	]},
 	{title: 'Notes', lines: [
 		note('A worktree has one note, shared by its sessions; a main-checkout session has its own and the main checkout\'s. Autosaved Markdown; removed notes go to notes/trash.'),

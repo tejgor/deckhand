@@ -7,7 +7,7 @@ import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 import type {TaskOp} from './tasks.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 44;
+export const PROTOCOL_VERSION = 45;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -467,6 +467,8 @@ export type ClientRequest =
 	| {type: 'promote-note-item'; requestId: string; sessionId: string; section: 'session' | 'shared'; noteId?: string; line: number; revision: string}
 	/** The reverse: a task sent from a note goes back there as a checklist item (its `↗` line), and leaves the list. Responds with the TasksDoc. */
 	| {type: 'return-task-to-note'; requestId: string; cwd: string; taskId: string}
+	/** w onto work that has its task already: the task becomes an open item at the end of that work's note (`section`: `wt:<id>` / `s:<id>`) and leaves the list. */
+	| {type: 'task-to-note'; requestId: string; cwd: string; taskId: string; section: string}
 	| {type: 'list-branches'; requestId: string; cwd: string}
 	| {type: 'create'; requestId: string; input: CreateSessionInput}
 	| {type: 'reorder-session'; requestId: string; sessionId: string; direction: 'up' | 'down'}
@@ -476,9 +478,8 @@ export type ClientRequest =
 	/** What `m` would merge into the worktree at `targetCwd`; read-only. */
 	| {type: 'merge-preview'; requestId: string; sessionId: string; targetCwd: string}
 	/** `commitFirst`: commit the source worktree's uncommitted changes (`git add -A`, message = session title) before merging. */
-	/** `tickTaskIds`: assigned tasks of the worktree the confirmation ticked; the merge marks them done with the task it was started for. */
 	/** `sendOpenItems`: after a clean merge, send the worktree note's open checklist items to the backlog. */
-	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string; commitFirst?: boolean; tickTaskIds?: string[]; sendOpenItems?: boolean}
+	| {type: 'merge-worktree'; requestId: string; sessionId: string; mode: WorktreeMergeMode; targetCwd: string; commitFirst?: boolean; sendOpenItems?: boolean}
 	/** After a conflicted merge: `keep` leaves it in progress and marks the worktree merged; `abort` undoes it. */
 	| {type: 'resolve-merge'; requestId: string; sessionId: string; targetCwd: string; action: 'keep' | 'abort'}
 	| {type: 'mark-session-merged'; requestId: string; sessionId: string; targetCwd: string}

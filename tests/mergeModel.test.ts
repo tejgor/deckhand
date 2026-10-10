@@ -138,31 +138,26 @@ test('rendered: the confirmation fills exactly its pane (warn target, toggle, no
 		assert.ok(lines.some(line => line.includes('❯ Squash merge into release without committing')));
 		assert.equal(lines.some(line => line.includes('cookie flags')), height === 30);
 	}
-	// The worktree's tasks: the started one is ticked by the merge; the follow-ups are rows, the selected one marked.
-	const tasks = parseTasks('- [ ] Add OAuth <!-- dh:t=a wt=w -->\n- [ ] Add tests <!-- dh:t=b wt=w assigned=2026-10-09 -->\n- [ ] Elsewhere <!-- dh:t=c wt=x assigned=2026-10-09 -->');
-	const withTasks = plain(renderToString(React.createElement(MergeConfirmPane, {session, sessions: [session], flow: {...flow, ticks: ['b'], taskCursor: 0}, selectedIndex: 0, width: 84, height: 30, tasks}), {columns: 84})).split('\n');
+	// The worktree's task is ticked by the merge; its note's open items are one row, here selected.
+	const tasks = parseTasks('- [ ] Add OAuth <!-- dh:t=a wt=w -->\n- [ ] Elsewhere <!-- dh:t=c wt=x -->');
+	const withNote = {...session, sharedNotes: {kind: 'worktree', id: 'w', path: '/n/w.md', text: '- [x] Read\n- [ ] Add tests', revision: 'r'}} as SessionRecord;
+	const withTasks = plain(renderToString(React.createElement(MergeConfirmPane, {session: withNote, sessions: [withNote], flow: {...flow, onItems: true}, selectedIndex: 0, width: 84, height: 30, tasks}), {columns: 84})).split('\n');
 	assert.ok(withTasks.some(line => line.includes('◆ Task "Add OAuth" will be marked done')));
-	assert.ok(withTasks.some(line => line.includes('❯ ☑ Add tests · done with this merge')));
+	assert.ok(withTasks.some(line => line.includes('❯ ☑ 1 open note item → backlog: Add tests')));
 	assert.ok(!withTasks.some(line => line.includes('Elsewhere')));
-	assert.ok(!withTasks.some(line => line.includes('❯ Merge into')), 'the options are not selected while a follow-up is');
+	assert.ok(!withTasks.some(line => line.includes('❯ Merge into')), 'the options are not selected while the items row is');
 	const conflict = plain(renderToString(React.createElement(MergeConflictPane, {result: {mode: 'merge', sourceRef: 'auth', targetBranch: 'main', conflicted: true, conflicts: ['src/auth.ts'], conflictCount: 1, stdout: '', stderr: ''}, width: 70}), {columns: 70})).split('\n');
 	assert.deepEqual(conflict.slice(1, -1).map(line => line.slice(2, -1).trimEnd()), ['Merged with conflicts in 1 file', '  src/auth.ts', '', 'enter keep it: resolve it in your editor or the Git tab (esc too)', 'x     abort the merge']);
 });
 
-test('merge confirmation lists the started task (ticked by the merge) and follow-ups as rows space ticks', () => {
-	const layout = mergeConfirmLayout(input({tasks: ['Add OAuth'], followUps: [{title: 'Add tests', ticked: true}, {title: 'Remove debug logging', ticked: false}], height: 30}));
-	assert.deepEqual(texts(layout.details).slice(-2), ['◆ Task "Add OAuth" will be marked done', 'Follow-ups · space ticks the ones you finished']);
-	assert.deepEqual(layout.followUps, ['☑ Add tests · done with this merge', '☐ Remove debug logging · back to the backlog']);
+test('merge confirmation names the worktree\'s task (ticked by the merge) and offers its note\'s open items as one row space switches', () => {
+	const layout = mergeConfirmLayout(input({tasks: ['Add OAuth'], openItems: {titles: ['Add tests', 'Remove debug logging'], send: true}, height: 30, width: 100}));
+	assert.deepEqual(texts(layout.details).at(-1), '◆ Task "Add OAuth" will be marked done');
+	assert.deepEqual(layout.toggles, ['☑ 2 open note items → backlog: Add tests, Remove debug logging']);
 	assert.equal(layout.hint, 'enter choose · space toggle · j/k move · esc cancel');
-	assert.equal(mergeConfirmLayout(input({tasks: ['Add OAuth'], followUps: [{title: 'Add tests', ticked: false}], width: 100})).hint, 'enter choose · space commit first or tick · j/k move · esc cancel');
-	assert.equal(mergeConfirmLayout(input({preview: preview({uncommitted: 0}), followUps: [{title: 'a', ticked: false}], width: 100})).hint, 'enter choose · space tick a follow-up · j/k move · esc cancel');
+	assert.equal(mergeConfirmLayout(input({tasks: ['Add OAuth'], width: 100})).hint, 'enter choose · space commit first · j/k move · esc cancel');
 	assert.ok(mergeConfirmRows(layout) <= 30);
-	// The rows count against the height: the commit subjects give way first.
-	// The follow-ups stay (they are choices): 3 rows above the 13 the essentials need.
-	for (let height = 16; height <= 30; height++) assert.ok(mergeConfirmRows(mergeConfirmLayout(input({followUps: [{title: 'a', ticked: false}, {title: 'b', ticked: false}], height}))) <= height, String(height));
-	const many = mergeConfirmLayout(input({followUps: Array.from({length: 7}, (_, index) => ({title: `f${index}`, ticked: false}))}));
-	assert.equal(many.followUps.length, 5);
-	assert.equal(texts(many.details).at(-1), 'Follow-ups · space ticks finished ones · +2 more go back');
-	// Until the preview arrives nothing is listed (the merge cannot be chosen yet either).
-	assert.deepEqual(mergeConfirmLayout(input({preview: undefined, followUps: [{title: 'a', ticked: false}]})).followUps, []);
+	for (let height = 16; height <= 30; height++) assert.ok(mergeConfirmRows(mergeConfirmLayout(input({openItems: {titles: ['a'], send: false}, height}))) <= height, String(height));
+	// Until the preview arrives nothing is offered (the merge cannot be chosen yet either).
+	assert.deepEqual(mergeConfirmLayout(input({preview: undefined, openItems: {titles: ['a'], send: true}})).toggles, []);
 });
