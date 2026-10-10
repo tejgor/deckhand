@@ -361,6 +361,7 @@ function WorktreePickerPane({
 	worktrees,
 	selectedIndex,
 	query,
+	typing,
 	totalCount,
 	width,
 	height,
@@ -368,6 +369,7 @@ function WorktreePickerPane({
 	worktrees: WorktreeInfoRecord[];
 	selectedIndex: number;
 	query: string;
+	typing: boolean;
 	totalCount: number;
 	width: number;
 	height: number;
@@ -378,7 +380,7 @@ function WorktreePickerPane({
 		<Box flexDirection="column" width={width} height={height} borderStyle="round" borderColor={THEME.borderActive} paddingX={1}>
 			<Text color={THEME.accent} bold>Existing worktree</Text>
 			<Text>
-				Search: <Text color={query ? THEME.active : THEME.muted}>{query || 'type to filter'}</Text>{' '}
+				Search: <Text color={query || typing ? THEME.active : THEME.muted}>{typing ? `${query}▏` : query || '/ to filter'}</Text>{' '}
 				<Text color={THEME.muted}>({countLabel})</Text>
 			</Text>
 			<Box marginTop={1} flexDirection="column">
@@ -387,7 +389,7 @@ function WorktreePickerPane({
 				{worktrees.length > 0 ? <MenuList items={worktrees.map(worktree => ({key: worktree.path, label: worktreeLabel(worktree, contentWidth - 2)}))} selected={selectedIndex} width={contentWidth} rows={Math.max(1, height - 7)} /> : null}
 			</Box>
 			<Box marginTop={1}>
-				<Text color={THEME.muted}>type search · enter select · esc back · ↑↓ move · backspace delete</Text>
+				<Text color={THEME.muted}>{typing ? 'type to filter · enter done · ↑↓ move · esc clear' : `enter select · j/k move · ${query ? '/ edit search · esc clear search' : '/ search · esc back'}`}</Text>
 			</Box>
 		</Box>
 	);
@@ -660,6 +662,8 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	const [worktreeMode, setWorktreeMode] = useState<WorktreeMode>('none');
 	const [worktrees, setWorktrees] = useState<WorktreeInfoRecord[]>([]);
 	const [worktreeQuery, setWorktreeQuery] = useState('');
+	// Typing into the existing-worktree search (after /), until Enter keeps it or Esc clears it.
+	const [worktreeTyping, setWorktreeTyping] = useState(false);
 	const [worktreeIndex, setWorktreeIndex] = useState(0);
 	const [killConfirmIndex, setKillConfirmIndex] = useState(0);
 	const [killConfirmForce, setKillConfirmForce] = useState(false);
@@ -2529,6 +2533,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						.then(items => {
 							setWorktrees(items);
 							setWorktreeQuery('');
+							setWorktreeTyping(false);
 							setWorktreeIndex(0);
 							setMode('pick-worktree');
 						})
@@ -2570,36 +2575,32 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		}
 
 		if (mode === 'pick-worktree') {
-			if (key.escape) {
-				setMode('enter-name');
-				return;
-			}
-			if (key.upArrow) {
+			if (key.upArrow || (!worktreeTyping && input === 'k')) {
 				setWorktreeIndex(index => Math.max(0, index - 1));
 				return;
 			}
-			if (key.downArrow) {
+			if (key.downArrow || (!worktreeTyping && input === 'j')) {
 				setWorktreeIndex(index => Math.min(Math.max(0, filteredWorktrees.length - 1), index + 1));
 				return;
 			}
+			// Searching (/): keys are text until Enter keeps the search or Esc clears it, as in the sidebar's search.
+			if (worktreeTyping) {
+				if (key.escape) { setWorktreeQuery(''); setWorktreeTyping(false); setWorktreeIndex(0); return; }
+				if (key.return) { setWorktreeTyping(false); return; }
+				if (key.backspace || key.delete) { setWorktreeQuery(value => value.slice(0, -1)); setWorktreeIndex(0); return; }
+				if (key.ctrl || key.meta || key.leftArrow || key.rightArrow || key.tab) return;
+				const text = sanitizeNameInput(input);
+				if (text) { setWorktreeQuery(value => value + text); setWorktreeIndex(0); }
+				return;
+			}
+			if (key.escape) {
+				if (worktreeQuery) { setWorktreeQuery(''); setWorktreeIndex(0); } else setMode('enter-name');
+				return;
+			}
+			if (input === '/') { setWorktreeTyping(true); return; }
 			if (key.return && filteredWorktrees[worktreeIndex]) {
 				void submitCreate(filteredWorktrees[worktreeIndex]!.path);
 				return;
-			}
-			if (key.backspace || key.delete) {
-				setWorktreeQuery(value => value.slice(0, -1));
-				setWorktreeIndex(0);
-				return;
-			}
-			if (key.ctrl || key.meta || key.leftArrow || key.rightArrow || key.tab) {
-				return;
-			}
-			if (input) {
-				const text = sanitizeNameInput(input);
-				if (text) {
-					setWorktreeQuery(value => value + text);
-					setWorktreeIndex(0);
-				}
 			}
 			return;
 		}
@@ -2802,6 +2803,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 						worktrees={filteredWorktrees}
 						selectedIndex={worktreeIndex}
 						query={worktreeQuery}
+						typing={worktreeTyping}
 						totalCount={worktrees.length}
 						width={layout.previewWidth}
 						height={layout.contentHeight}

@@ -71,15 +71,22 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('f'); await screen('☐ Add tests');
 	press('f'); await screen('↗ Follow up on review · in Tasks');
 	press('\t'); await screen('☐ Tasks');
-	// w: the backlog and the way back to its note come first, then the worktrees (Tab: main-checkout sessions); typing
-	// searches. ⎇ write has its task, so there it would become a step.
+	// w: the backlog and the way back to its note come first, then the worktrees (Tab: main-checkout sessions); j/k move,
+	// / searches (letters are text only then). ⎇ write has its task, so there it would become a step.
 	press('G'); await screen('Follow up on review');
 	press('w'); await screen('Move “Follow up on review” to'); await screen('↩ Back to its note'); await screen('› ⎇ write'); await screen('→ a step in its note');
 	press('\t'); await screen('No sessions in the main checkout');
 	press('\t'); await screen('› ⎇ write');
+	press('k'); await screen('› ↩ Back to its note');
+	press('j'); await screen('› ⎇ write');
+	press('/'); await screen('esc clear');
 	press('zz'); await screen('Nothing in worktrees matches “zz”');
-	press('\x1b'); await screen('type to search');
-	press('\x1b[A'); await screen('› ↩ Back to its note');
+	press('\x1b'); await screen('/ search');
+	// Enter keeps the search and gives j/k back; Esc then clears it.
+	press('/'); press('wr'); await screen('search: wr▏');
+	press('\r'); await screen('/ edit search'); await screen('› ⎇ write');
+	press('\x1b'); await screen('/ search');
+	press('k'); await screen('› ↩ Back to its note');
 	press('\x1b[A'); await screen('› Backlog · no worktree');
 	press('\r'); await screen('It is already there');
 	// Back to the note it was sent from: an open item there again, gone from the list.
