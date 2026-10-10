@@ -15,7 +15,7 @@ import {attentionReasonLines} from './sidebarModel.js';
 // The Tasks board (b): the repository's task list in the right pane, grouped by the worktree (or main-checkout
 // session) each open task is on, then the backlog; v narrows it to the work of the session it was opened from. Also the
 // open note items not yet tasks (tab), a small editor for adding and editing a task (title, then body), and the w
-// picker that moves a task to a worktree or a main-checkout session (two views, Tab switches; typing searches), back to
+// picker that moves a task to a worktree or a main-checkout session (two views, Tab switches; / searches, as in the sidebar), back to
 // the backlog, or back to the note it was sent from. The daemon owns the file; every change is an op
 // (src/tasks.ts) applied to the file as it is, so an editor's edits are never overwritten.
 
@@ -24,8 +24,11 @@ const EDITOR_BODY_ROWS = 4;
 const PICKER_ROWS = 8;
 const capitalize = (text: string) => (text ? `${text[0]!.toUpperCase()}${text.slice(1)}` : text);
 
-/** The w menu: the task, where it is now, the note it came from (if any), the view, the search and the selected row. */
-interface TaskPicker {taskId: string; title: string; current?: string; origin?: string; view: PickerView; query: string; index: number}
+/**
+ * The w menu: the task, where it is now, the note it came from (if any), the view, the search (`typing` after /, until
+ * Enter keeps it or Esc clears it) and the selected row.
+ */
+interface TaskPicker {taskId: string; title: string; current?: string; origin?: string; view: PickerView; query: string; typing: boolean; index: number}
 
 interface TaskEditor {
 	/** `step`: a new checklist item of `section`'s note (that work has its task already), title only. */
@@ -171,20 +174,29 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 	const pickerInput = (input: string, key: Partial<Key>, state: TaskPicker) => {
 		const rows = pickerRowsOf(state);
 		const to = (index: number) => setPicker({...state, index: Math.max(0, Math.min(rows.length - 1, index))});
-		if (key.escape) { if (state.query) openPicker({...state, query: ''}); else setPicker(undefined); return; }
-		if (key.tab || key.leftArrow || key.rightArrow) { openPicker({...state, view: state.view === 'worktrees' ? 'sessions' : 'worktrees'}); return; }
+		const switchView = () => openPicker({...state, view: state.view === 'worktrees' ? 'sessions' : 'worktrees'});
+		if (key.tab) { switchView(); return; }
 		if (key.upArrow) { to(state.index - 1); return; }
 		if (key.downArrow) { to(state.index + 1); return; }
 		if (key.pageUp) { to(state.index - PICKER_ROWS); return; }
 		if (key.pageDown) { to(state.index + PICKER_ROWS); return; }
-		if (key.home) { to(0); return; }
-		if (key.end) { to(rows.length - 1); return; }
-		if (key.backspace || key.delete) { openPicker({...state, query: state.query.slice(0, -1)}); return; }
-		if (!key.return) {
+		// Searching (/): keys are text until Enter keeps the search or Esc clears it, as in the sidebar's search.
+		if (state.typing) {
+			if (key.escape) { openPicker({...state, query: '', typing: false}); return; }
+			if (key.return) { setPicker({...state, typing: false}); return; }
+			if (key.backspace || key.delete) { openPicker({...state, query: state.query.slice(0, -1)}); return; }
 			const typed = key.ctrl || key.meta ? '' : stripTerminalControls(input);
 			if (typed) openPicker({...state, query: (state.query + typed).slice(0, 64)});
 			return;
 		}
+		if (key.escape) { if (state.query) openPicker({...state, query: ''}); else setPicker(undefined); return; }
+		if (input === '/') { setPicker({...state, typing: true}); return; }
+		if (key.leftArrow || key.rightArrow || input === 'h' || input === 'l') { switchView(); return; }
+		if (input === 'k') { to(state.index - 1); return; }
+		if (input === 'j') { to(state.index + 1); return; }
+		if (key.home || input === 'g') { to(0); return; }
+		if (key.end || input === 'G') { to(rows.length - 1); return; }
+		if (!key.return) return;
 		const option = rows[state.index];
 		if (!option) return;
 		if (option.kind === 'note') {
@@ -308,7 +320,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (input === 'w') {
 			if (task.done) { setStatusMessage('That task is done; space reopens it'); return; }
 			const current = linkKey(task.meta);
-			openPicker({taskId: task.id, title: task.title, current, origin: taskOrigin(task, sessions), view: pickerViewOf(current), query: ''});
+			openPicker({taskId: task.id, title: task.title, current, origin: taskOrigin(task, sessions), view: pickerViewOf(current), query: '', typing: false});
 			return;
 		}
 		if (input === 'o') {
@@ -379,7 +391,7 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		const none = state.query ? `Nothing in ${state.view} matches “${state.query}”` : state.view === 'worktrees' ? 'No worktrees' : 'No sessions in the main checkout';
 		return [
 			<Text key="head" wrap="truncate-end"><Text color={THEME.accent} bold>Move </Text>{truncate(`“${state.title}”`, Math.max(4, width - 12))}<Text color={THEME.accent} bold> to</Text></Text>,
-			<Text key="views" wrap="truncate-end">{tab('worktrees', `Worktrees ${counts.worktrees}`)} {tab('sessions', `Sessions ${counts.sessions}`)}<Text color={state.query ? THEME.active : THEME.muted}>{`   ${state.query ? `search: ${state.query}▏` : 'type to search'}`}</Text></Text>,
+			<Text key="views" wrap="truncate-end">{tab('worktrees', `Worktrees ${counts.worktrees}`)} {tab('sessions', `Sessions ${counts.sessions}`)}<Text color={state.query || state.typing ? THEME.active : THEME.muted}>{`   ${state.typing ? `search: ${state.query}▏` : state.query ? `search: ${state.query}` : '/ search'}`}</Text></Text>,
 			...rows.slice(start, start + PICKER_ROWS).map((option, offset) => {
 				const selected = start + offset === state.index;
 				// Worktrees and sessions say what the task would be there: its task (◆), or a step in its note.
@@ -415,7 +427,9 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		if (editor) return fitHint(editor.kind === 'step' ? ['enter add to the note', 'esc cancel'] : editor.field === 'title'
 			? ['enter save', 'tab details', 'esc cancel']
 			: ['enter new line', 'ctrl+s save', 'tab title', 'esc cancel'], width, ' • ');
-		if (picker) return fitHint(['enter move here', 'type to search', {text: 'tab worktrees / sessions', short: 'tab view'}, '↑↓ choose', picker.query ? 'esc clear search' : 'esc cancel'], width, ' • ');
+		if (picker) return fitHint(picker.typing
+			? ['type to search', 'enter done', '↑↓ choose', 'esc clear']
+			: ['enter move here', {text: 'j/k choose', short: 'j/k'}, picker.query ? '/ edit search' : '/ search', {text: 'tab worktrees / sessions', short: 'tab view'}, picker.query ? 'esc clear search' : 'esc cancel'], width, ' • ');
 		if (view === 'notes') {
 			const onItem = currentRow?.kind === 'noteline' && Boolean(currentRow.item);
 			const onNote = currentRow?.kind === 'notehead' || currentRow?.kind === 'noteline';
