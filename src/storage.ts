@@ -16,6 +16,7 @@ export interface AppConfig {
 	attach_scroll_sensitivity?: number;
 	/** Trusted project fingerprints per trust root, newest first (see trustProjectConfig). */
 	trustedProjects?: Record<string, string[]>;
+	/** Agent signals: unset means on for Claude only (see hooksEnabled); true adds Codex, false turns them off. */
 	agent_hooks?: boolean;
 	notifications?: boolean;
 	/** Global project defaults (deckhand.json schema), kept as stored; validated where used (see globalDefaults). */
@@ -136,7 +137,7 @@ function normalizeAppConfig(parsed: RawConfig): AppConfig {
 			const list = typeof value === 'string' ? [value] : Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 			return list.length ? [[root, list]] : [];
 		})),
-		agent_hooks: parsed.agent_hooks === true,
+		agent_hooks: typeof parsed.agent_hooks === 'boolean' ? parsed.agent_hooks : undefined,
 		notifications: parsed.notifications === true,
 		defaults: parsed.defaults,
 	};

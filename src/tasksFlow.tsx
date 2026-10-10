@@ -9,6 +9,7 @@ import {editText, wrapRows, wrappedEditorLines, type EditOptions, type EditorSta
 import {openInEditor} from './desktop.js';
 import {fitHint} from './menu.js';
 import {THEME, errorMessage, stripTerminalControls, truncate} from './ui.js';
+import {attentionReasonLines} from './sidebarModel.js';
 
 // The Tasks board (b): the repository's task list in the right pane, grouped by the worktree (or main-checkout
 // session) each open task is on, then the backlog; v narrows it to the work of the session it was opened from. Also the
@@ -476,10 +477,14 @@ function detailLines(row: BoardRow | undefined, sessions: SessionRecord[], spinn
 	const origin = taskOrigin(task, sessions);
 	const back = origin ? ` · w: back to the note of ${origin}` : '';
 	const body = task.body ? wrapRows(task.body, Math.max(1, width - 2)).map(range => task.body.slice(range.start, range.end)) : [];
-	const room = Math.max(0, DETAIL_ROWS - 2);
+	// What its work's most urgent session asks or said (agent signals), before the body.
+	const lead = group === 'progress' ? leadSession(taskSessions(task, sessions)) : undefined;
+	const reason = lead ? attentionReasonLines(lead, width, 1)[0]?.[0] : undefined;
+	const room = Math.max(0, DETAIL_ROWS - 2 - (reason ? 1 : 0));
 	return [
 		<Text key="t" bold wrap="truncate-end">{task.title}</Text>,
 		<Text key="w" color={THEME.muted} wrap="truncate-end">{where}{back}</Text>,
+		...reason ? [<Text key="r" color={reason.color} wrap="truncate-end">{reason.text}</Text>] : [],
 		...body.slice(0, room).map((line, index) => <Text key={`b-${index}`} wrap="truncate-end">{`  ${index === room - 1 && body.length > room ? `${line.slice(0, Math.max(0, width - 6))} …` : line}`}</Text>),
 	];
 }

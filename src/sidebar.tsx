@@ -29,8 +29,11 @@ interface SidebarProps {
 	filterMenu?: {selected: SessionFilter; counts: Record<SessionFilter, number>};
 }
 
-// The most rows the details block can use: a rule, the title (two lines), state, location, task and checklist.
-const DETAIL_ROWS = 7;
+// The most rows the details block can use: a rule, the title (two lines), state, why it waits (two lines), location,
+// task and checklist.
+const DETAIL_ROWS = 9;
+// A long list keeps rows for the details only in a sidebar at least this tall (the reason lines did not raise it).
+const DETAIL_MIN_SIDEBAR_ROWS = 21;
 
 function visibleSessions(sessions: SessionRecord[], selectedIndex: number, availableRows: number): SessionRecord[] {
 	if (availableRows <= 0 || sessions.length <= availableRows) return sessions;
@@ -92,7 +95,7 @@ export function Sidebar({sessions, allSessions = sessions, selectedId, width, he
 	const task = selected && taskOf?.(selected);
 	// As many rows as the largest details block of any listed session needs (at most DETAIL_ROWS), so the list keeps
 	// its size while the selection moves; sessions with less leave the rest blank.
-	const detailRows = sessions.length > rowsForSessions - DETAIL_ROWS && rowsForSessions >= DETAIL_ROWS * 3
+	const detailRows = sessions.length > rowsForSessions - DETAIL_ROWS && rowsForSessions >= DETAIL_MIN_SIDEBAR_ROWS
 		? Math.max(0, ...sessions.map(session => sessionDetails(session, allSessions, contentWidth, DETAIL_ROWS, now, installedVersions, taskOf?.(session)).length)) : 0;
 	// A list that scrolls gets a line above and below it saying how many sessions are out of view (and how many of
 	// those need you), kept even when empty so the rows don't jump as the selection moves.

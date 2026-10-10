@@ -1,4 +1,4 @@
-import type {AttentionState} from './agentSignals.js';
+import type {AttentionReason, AttentionState} from './agentSignals.js';
 import type {WorkspaceSummary, CleanupInspection, CreatePrResult} from './workspaceGit.js';
 import type {LoadedProject, ProjectConfig} from './projectConfig.js';
 import type {ConfigTargetKind, ConfigTargets, ProjectConfigDocument, SavedConfigDocument} from './projectConfigDocument.js';
@@ -7,7 +7,7 @@ import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 import type {TaskOp} from './tasks.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 42;
+export const PROTOCOL_VERSION = 43;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 
@@ -226,7 +226,8 @@ export interface SessionRecord {
 	archivedAt?: string;
 	launchId?: string;
 	agentStartedAt?: string;
-	attention?: {state: AttentionState; event: string; at: string};
+	/** The latest agent signal; `reason` (what it asks or said) is held in memory only and never persisted. */
+	attention?: {state: AttentionState; event: string; at: string; reason?: AttentionReason};
 	exitReason?: 'stopped' | 'failed' | 'completed' | 'interrupted';
 	cleanupError?: string;
 	setup?: {command: string; state: 'pending' | 'running' | 'failed' | 'cancelled' | 'complete'; output: string; exitCode?: number | null};
@@ -410,7 +411,7 @@ export type ClientRequest =
 	| {type: 'create-pr'; requestId: string; sessionId: string; branch?: string}
 	| {type: 'archive-session'; requestId: string; sessionId: string; archived: boolean}
 	| {type: 'export-handoff'; requestId: string; sessionId: string; includeOutput?: boolean}
-	| {type: 'agent-hook'; requestId: string; sessionId: string; launchId: string; token: string; payload: unknown}
+	| {type: 'agent-hook'; requestId: string; sessionId: string; launchId: string; token: string; payload: unknown; sentAt?: number}
 	| {type: 'cancel-start'; requestId: string; sessionId: string}
 	| {type: 'run-action'; requestId: string; sessionId: string; action: string; cols: number; rows: number}
 	| {type: 'list'; requestId: string}

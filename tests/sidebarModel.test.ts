@@ -145,6 +145,22 @@ test('sidebar details: title, agent · state · age, location; shrinks with fewe
 	assert.equal(locationText(session('nb', {cwd: '/wt/x', launchWorktreeRoot: '/wt/x', worktree: {mode: 'none', id: 'w7'}}), []), 'worktree x');
 });
 
+test('sidebar details: why a running session waits, under its state; two lines while the location still fits after them', () => {
+	const asking = session('q', {title: 'auth', attention: {state: 'needs-input', event: 'PreToolUse', at: ago(2), reason: {kind: 'question', text: 'asks: Should sessions live in Redis or Postgres?', options: ['Redis', 'Postgres']}}});
+	const details = (item: SessionRecord, free = 10) => sessionDetails(item, [item], 30, free, NOW).map(line => line.map(part => part.text).join(''));
+	assert.deepEqual(details(asking), ['─'.repeat(30), 'auth', '✶ claude · needs input · 2m', 'asks: Should sessions live in', 'Redis or Postgres?', 'main checkout']);
+	// Short of rows: one line, cut; then the location goes.
+	assert.deepEqual(details(asking, 5), ['─'.repeat(30), 'auth', '✶ claude · needs input · 2m', 'asks: Should sessions live in…', 'main checkout']);
+	assert.deepEqual(details(asking, 4), ['─'.repeat(30), 'auth', '✶ claude · needs input · 2m', 'asks: Should sessions live in…']);
+	const lines = sessionDetails(asking, [asking], 30, 10, NOW);
+	assert.equal(lines[3]![0]!.color, 'yellow');
+	// A reply's last line is muted; an exited session's leftover reason is not shown.
+	const said = session('m', {title: 'auth', attention: {state: 'response-ended', event: 'Stop', at: ago(2), reason: {kind: 'message', text: 'said: Shall I push?'}}});
+	assert.deepEqual(details(said).slice(3, 4), ['said: Shall I push?']);
+	assert.equal(sessionDetails(said, [said], 30, 10, NOW)[3]![0]!.color, 'gray');
+	assert.deepEqual(details({...said, status: 'exited', exitReason: 'stopped'}).slice(3), ['main checkout']);
+});
+
 test('sidebar details: state words and their timestamps follow the status glyph inputs; compact ages', () => {
 	const words = (fields: Partial<SessionRecord>) => statusWords(session('s', fields));
 	assert.equal(words({}), 'idle');

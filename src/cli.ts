@@ -7,7 +7,7 @@ import {loadUiState, saveUiState, type UiState} from './uiState.js';
 import {errorMessage} from './ui.js';
 import {request} from './client.js';
 import {randomUUID} from 'node:crypto';
-import {hookSettings} from './agentSignals.js';
+import {hookPayloadFields, hookSettings} from './agentSignals.js';
 import {getConfigDir, isSameConfigDir} from './paths.js';
 import {resetTerminalState} from './terminalState.js';
 import type {RightPaneTab, UiExitResult} from './types.js';
@@ -115,24 +115,7 @@ async function runUi(uiState: UiState): Promise<UiExitResult | undefined> {
 	}
 }
 
-// Only the fields normalizeHook (agentSignals.ts) reads are forwarded; tool
-// inputs/outputs and other payload data never leave the hook process.
-const HOOK_FIELDS = ['hook_event_name', 'session_id', 'agent_id', 'parent_session_id', 'notification_type', 'error', 'error_type'] as const;
 const MAX_HOOK_INPUT_BYTES = 8 * 1024 * 1024;
-const MAX_HOOK_FIELD_LENGTH = 256;
-
-function hookSignalFields(payload: unknown): Record<string, string> {
-	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Hook input must be an object');
-	const raw = payload as Record<string, unknown>;
-	const fields: Record<string, string> = {};
-	for (const field of HOOK_FIELDS) {
-		const value = raw[field];
-		if (value === undefined || value === null || value === false || value === '') continue;
-		// Non-string values keep their truthiness (e.g. agent_id) without copying their contents.
-		fields[field] = typeof value === 'string' ? value.slice(0, MAX_HOOK_FIELD_LENGTH) : typeof value === 'object' ? '[object]' : String(value).slice(0, MAX_HOOK_FIELD_LENGTH);
-	}
-	return fields;
-}
 
 async function main(): Promise<void> {
 	if (process.env.DECKHAND_CHANNEL === 'dev' && ['status', 'stop'].includes(process.argv[2] ?? '')) {
@@ -146,17 +129,19 @@ async function main(): Promise<void> {
 	}
 	if (process.argv[2] === 'hook') {
 		// Hooks are advisory, bounded, and never approve or block agent actions.
+		// Claude runs them async, so they can arrive out of order: the daemon drops a signal older than the last one.
+		const sentAt = Date.now();
 		const inputTimer = setTimeout(() => process.stdin.destroy(new Error('Hook input timed out')), 500);
 		try {
 			let raw = '', bytes = 0;
 			const decoder = new StringDecoder('utf8');
-			// Large PostToolUse payloads are read (bounded) so their event isn't lost; only signal fields are sent.
+			// Large PostToolUse payloads are read (bounded) so their event isn't lost; only signal fields are sent (hookPayloadFields).
 			for await (const chunk of process.stdin) { bytes += Buffer.byteLength(chunk); if (bytes > MAX_HOOK_INPUT_BYTES) throw new Error('Hook input too large'); raw += decoder.write(chunk); }
 			raw += decoder.end(); clearTimeout(inputTimer);
 			const sessionId = process.env.DECKHAND_SESSION_ID;
 			const launchId = process.env.DECKHAND_LAUNCH_ID;
 			const token = process.env.DECKHAND_HOOK_TOKEN;
-			if (sessionId && launchId && token) await request({type: 'agent-hook', requestId: randomUUID(), sessionId, launchId, token, payload: hookSignalFields(JSON.parse(raw))}, 1200);
+			if (sessionId && launchId && token) await request({type: 'agent-hook', requestId: randomUUID(), sessionId, launchId, token, payload: hookPayloadFields(JSON.parse(raw)), sentAt}, 1200);
 		} catch { /* Disconnected/unsupported callbacks must not affect permissions. */ }
 		finally { clearTimeout(inputTimer); }
 		process.stdout.write('{}\n');
