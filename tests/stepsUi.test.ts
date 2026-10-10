@@ -53,3 +53,30 @@ test('steps: the worktree note\'s checklist under its task on the board (space t
 	press('G'); await screen('› ☐ Write tests'); press(' '); await screen('Done: Write tests');
 	press('\t'); await screen('↗ Write tests · done');
 });
+
+test('w onto a session started from the sidebar makes the task its own (◆, with steps); ctrl+f makes it a follow-up instead', {timeout: UI_TEST_TIMEOUT_MS}, async t => {
+	const home = await fs.mkdtemp(path.join(os.tmpdir(), 'deckhand-ui-'));
+	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
+	for (const agent of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, agent), fakeAgent, {mode: 0o755});
+	const {ui} = terminalUi(t, {args: [launcher, '--sandbox'], cwd: home, home, env: {PATH: `${bin}${path.delimiter}${process.env.PATH}`}});
+	const {screen, press} = ui;
+	await screen('DEV (isolated)'); await screen('● ready');
+	// A session started from the sidebar, in a new worktree, with a checklist in its note: no task yet.
+	press('n'); await screen('Choose an agent'); press('\r'); await screen('Workspace: new worktree');
+	press('flaky'); await screen('Name: flaky'); press('\r'); await screen('fake agent ready');
+	press('a'); await screen('enter edit notes'); press('o'); await screen('esc done');
+	press('\x14'); await screen('- [ ]'); press('Reproduce it'); await screen('Reproduce it'); press('\x1b'); await screen('enter edit notes');
+
+	// A task written afterwards, moved there with w: as the work's own task by default (the row says so).
+	press('b'); await screen('No tasks yet · a adds one');
+	press('a'); await screen('New task'); press('Fix flaky test'); await screen('Fix flaky test'); press('\r'); await screen('Added to the backlog');
+	press('w'); await screen('Move “Fix flaky test” to'); await screen('◆ main task'); await screen('ctrl+f as a follow-up');
+	// ctrl+f switches it to a follow-up (and back).
+	press('\x06'); await screen('follow-up'); await screen('ctrl+f as its main task');
+	press('\x06'); await screen('◆ main task');
+	press('\r'); await screen('Now the task ⎇'); await screen('◆ Fix flaky test'); await screen('0/1'); await screen('☐ Reproduce it');
+	// The next task there is a follow-up: the work already has its own, so w offers no other role.
+	press('a'); await screen('New task'); press('Write docs'); await screen('Write docs'); press('\r'); await screen('Added to');
+	press('G'); await screen('› ☐ Write docs');
+	press('w'); await screen('here · follow-up'); press('\r'); await screen('It is already there');
+});

@@ -121,6 +121,11 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), s
 	return rows;
 }
 
+/** Whether work `section` has an open task it was started for (◆), other than `except`: w then makes a task its follow-up. */
+export function hasMainTask(section: string, tasks: Task[], except?: string): boolean {
+	return tasks.some(task => !task.done && task.id !== except && linkKey(task.meta) === section && !isAssigned(task));
+}
+
 /** The sessions doing a task: every session of its linked worktree incarnation, or its linked (main checkout) session. */
 export function taskSessions(task: Pick<Task, 'meta'>, sessions: SessionRecord[]): SessionRecord[] {
 	const section = linkKey(task.meta);
