@@ -15,11 +15,11 @@ const tasks = parseTasks([
 	'- [ ] Add tests <!-- dh:t=t wt=w1 -->',
 	'- [x] Shipped <!-- dh:t=s wt=w1 done=2026-10-08 auto=merge -->',
 ].join('\n'));
-const describe = (rows: BoardRow[]) => rows.map(row => row.kind === 'work' ? `[${row.section} ${row.count}]` : row.kind === 'heading' ? `# ${row.text}` : row.kind === 'task' ? `${row.section}: ${row.task.title}` : row.kind === 'empty' ? `(${row.text})` : row.kind);
+const describe = (rows: BoardRow[]) => rows.map(row => row.kind === 'work' ? `[${row.section} ${row.count}]` : row.kind === 'heading' ? `# ${row.text}` : row.kind === 'task' ? `${row.headsWork ? '◆ ' : ''}${row.section}: ${row.task.title}` : row.kind === 'empty' ? `(${row.text})` : row.kind);
 
-test('board: a group per worktree with open tasks (first task\'s order), then the backlog and done', () => {
+test('board: a group per worktree with open tasks (first task\'s order; a lone task is its own heading), then the backlog and done', () => {
 	assert.deepEqual(describe(boardRows(tasks, false, NOW)), [
-		'[wt:w2 1]', 'wt:w2: Fix flaky e2e',
+		'◆ wt:w2: Fix flaky e2e',
 		'[wt:w1 2]', 'wt:w1: Add OAuth', 'wt:w1: Add tests',
 		'# BACKLOG', 'backlog: Rate-limit export',
 		'# DONE · this week', 'done: Shipped',
@@ -30,7 +30,7 @@ test('board: a group per worktree with open tasks (first task\'s order), then th
 
 test('board: an empty backlog can be selected, so a adds there when every task is on a worktree', () => {
 	const rows = boardRows(parseTasks('- [ ] Add OAuth <!-- dh:t=a wt=w1 -->'), false, NOW);
-	assert.deepEqual(describe(rows), ['[wt:w1 1]', 'wt:w1: Add OAuth', '# BACKLOG', '(Nothing waiting · a adds a task here)']);
+	assert.deepEqual(describe(rows), ['◆ wt:w1: Add OAuth', '# BACKLOG', '(Nothing waiting · a adds a task here)']);
 	assert.deepEqual(rows.filter(selectableRow).map(row => row.kind), ['task', 'empty']);
 	// Other placeholders stay unselectable.
 	assert.equal(boardRows(parseTasks('- [ ] Solo <!-- dh:t=x -->'), false, NOW).filter(selectableRow).length, 1);

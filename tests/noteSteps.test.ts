@@ -28,8 +28,8 @@ test('a work\'s steps: its note\'s checklist (open and ticked, not ↗ links or 
 	const tasks = parseTasks(['- [ ] Add OAuth <!-- dh:t=a wt=w1 -->', '- [ ] Elsewhere <!-- dh:t=e -->'].join('\n'));
 	const rows = boardRows(tasks, false, NOW, undefined, section => noteSteps(workNote(section, sessions)?.text));
 	const describe = (row: BoardRow) => row.kind === 'task' ? `${row.task.title}${row.steps ? ` ${row.steps.done}/${row.steps.total}` : ''}` : row.kind === 'step' ? `  ${row.step.done ? '☑' : '☐'} ${row.step.text}` : row.kind;
-	// Under the work's task (◆), which counts them.
-	assert.deepEqual(rows.slice(0, 6).map(describe), ['work', 'Add OAuth 1/3', '  ☑ Read the spec', '  ☐ Write the parser', '  ☐ Handle tabs', 'heading']);
+	// Under the work's task (◆, its only one, so no heading row), which counts them.
+	assert.deepEqual(rows.slice(0, 5).map(describe), ['Add OAuth 1/3', '  ☑ Read the spec', '  ☐ Write the parser', '  ☐ Handle tabs', 'heading']);
 	// No task on the work: no group, so no steps on the board (the Notes view still lists them).
 	assert.ok(!boardRows(parseTasks('- [ ] Elsewhere <!-- dh:t=e -->'), false, NOW, undefined, () => noteSteps(note)).some(row => row.kind === 'step'));
 	// Space on a step ticks the note's line (and back).
