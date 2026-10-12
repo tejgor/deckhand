@@ -33,8 +33,11 @@ export type BoardRow =
 	| {kind: 'heading'; text: string; count?: string}
 	/** The heading of a worktree's (or main-checkout session's) group: `section` is its work's key (`main`: the main checkout's notes, in the note list); `label` replaces the work's name. */
 	| {kind: 'work'; section: string; count: number; label?: string}
-	/** `section`: the work's key for tasks in progress, else `backlog` or `done`. `steps`: its work note's checklist, done/total. */
-	| {kind: 'task'; task: Task; group: TaskGroup; section: string; steps?: {done: number; total: number}}
+	/**
+	 * `section`: the work's key for tasks in progress, else `backlog` or `done`. `steps`: its work note's checklist, done/total.
+	 * `headsWork`: the only task of its work, so it is the group's heading too (the work's name and state on its right).
+	 */
+	| {kind: 'task'; task: Task; group: TaskGroup; section: string; steps?: {done: number; total: number}; headsWork?: boolean}
 	/** A checklist item of the work's note, shown under the task the work was started for (one of its steps). */
 	| {kind: 'step'; section: string; taskId: string; step: WorkStep}
 	| {kind: 'older'; count: number; shown: boolean}
@@ -101,12 +104,14 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), s
 	if (scope && !works.includes(scope)) works.push(scope);
 	for (const work of works) {
 		const list = groups.progress.filter(task => linkKey(task.meta) === work);
-		rows.push({kind: 'work', section: work, count: list.length});
+		// A work has one task, whose row names the work; a heading only for none (v) or several (a hand-edited list).
+		const headsWork = list.length === 1;
+		if (!headsWork) rows.push({kind: 'work', section: work, count: list.length});
 		const steps = stepsOf?.(work) ?? [];
 		const lead = steps.length ? list[0] : undefined;
 		for (const task of list) {
-			if (task !== lead) { rows.push({kind: 'task', task, group: 'progress', section: work}); continue; }
-			rows.push({kind: 'task', task, group: 'progress', section: work, steps: stepCount(steps)});
+			if (task !== lead) { rows.push({kind: 'task', task, group: 'progress', section: work, ...headsWork ? {headsWork} : {}}); continue; }
+			rows.push({kind: 'task', task, group: 'progress', section: work, steps: stepCount(steps), ...headsWork ? {headsWork} : {}});
 			for (const step of steps) rows.push({kind: 'step', section: work, taskId: task.id, step});
 		}
 		if (!list.length) rows.push({kind: 'empty', text: 'No open tasks here · a adds one'});

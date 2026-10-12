@@ -523,7 +523,22 @@ function BoardLine({row, selected, width, sessions, spinnerFrame}: {row: BoardRo
 		const color = selected ? THEME.active : row.step.done ? THEME.muted : undefined;
 		return <Text inverse={selected} bold={selected} color={color} wrap="truncate-end">{`${marker}   ${row.step.done ? '☑' : '☐'} ${truncate(row.step.text, Math.max(1, width - 6))}`.padEnd(width)}</Text>;
 	}
-	// In a worktree's group its heading shows the state: the task is ◆, counting its steps (the work note's checklist).
+	// A work's only task heads its group: ◆ title, then the work's name, its most urgent session's state and the steps.
+	if (row.headsWork) {
+		const work = workState(row.section, sessions, spinnerFrame);
+		const state = `${work.glyph} ${work.text}`;
+		const steps = row.steps ? `  ${row.steps.done}/${row.steps.total}` : '';
+		const label = truncate(workLabel(row.section, sessions), Math.max(4, Math.floor(width / 2) - state.length - steps.length - 2));
+		const right = `${label}  ${state}${steps}`;
+		const title = truncate(row.task.title, Math.max(1, width - right.length - 6));
+		return (
+			<Text inverse={selected} bold={selected} color={selected ? THEME.active : undefined} wrap="truncate-end">
+				{`${marker} `}<Text color={selected ? undefined : THEME.accentSoft}>◆</Text>{` ${title}`.padEnd(Math.max(0, width - right.length - 3))}
+				<Text color={selected ? undefined : THEME.accentSoft}>{label}</Text>{'  '}<Text color={selected ? undefined : work.color}>{state}</Text><Text color={selected ? undefined : THEME.muted}>{steps}</Text>
+			</Text>
+		);
+	}
+	// Under a work's heading (several tasks) the task is ◆, counting its steps (the work note's checklist).
 	const inWork = row.group === 'progress';
 	const state = taskState(row.task, sessions, spinnerFrame);
 	const glyph = inWork ? {text: '◆', color: THEME.accentSoft} : {text: state.glyph, color: state.color};
