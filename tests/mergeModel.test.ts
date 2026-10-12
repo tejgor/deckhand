@@ -35,7 +35,7 @@ test('merge confirmation: target line, summary with commits, the uncommitted tog
 	assert.equal(layout.details[0]!.color, THEME.muted);
 	assert.equal(layout.details.at(-1)!.color, THEME.active);
 	assert.deepEqual(layout.options, ['Merge into main without committing', 'Squash merge into main without committing', 'Cancel']);
-	assert.equal(layout.hint, 'enter choose · space commit first · j/k move · esc cancel');
+	assert.equal(layout.hint, 'enter choose • space commit first • esc cancel');
 	assert.deepEqual(texts(layout.notes), ['Notes', 'Worktree notes · feat/auth', '  - [ ] review', '  ship it']);
 	assert.ok(mergeConfirmRows(layout) <= 40);
 
@@ -48,7 +48,7 @@ test('merge confirmation: target line, summary with commits, the uncommitted tog
 	// Nothing uncommitted: no toggle and no space in the hint; no commits either: says so.
 	const clean = mergeConfirmLayout(input({preview: preview({uncommitted: 0, commitCount: 1, commits: ['one'], diff: {files: 1, insertions: 1, deletions: 0}})}));
 	assert.deepEqual(texts(clean.details), ['Into main · ~/code/app', '1 commit · 1 file +1 −0', '  one']);
-	assert.equal(clean.hint, 'enter choose · j/k move · esc cancel');
+	assert.equal(clean.hint, 'enter choose • esc cancel');
 	const onlyUncommitted = mergeConfirmLayout(input({preview: preview({commitCount: 0, commits: [], diff: {files: 0, insertions: 0, deletions: 0}, uncommitted: 1})}));
 	assert.deepEqual(texts(onlyUncommitted.details), ['Into main · ~/code/app', 'No new commits · +1 uncommitted file', '1 uncommitted file', '☑ commit them first ("auth refactor")']);
 	assert.equal(texts(mergeConfirmLayout(input({preview: preview({commitCount: 0, commits: [], uncommitted: 0})})).details)[1], 'No new commits');
@@ -154,8 +154,8 @@ test('merge confirmation names the worktree\'s task (ticked by the merge) and of
 	const layout = mergeConfirmLayout(input({tasks: ['Add OAuth'], openItems: {titles: ['Add tests', 'Remove debug logging'], send: true}, height: 30, width: 100}));
 	assert.deepEqual(texts(layout.details).at(-1), '◆ Task "Add OAuth" will be marked done');
 	assert.deepEqual(layout.toggles, ['☑ 2 open note items → backlog: Add tests, Remove debug logging']);
-	assert.equal(layout.hint, 'enter choose · space toggle · j/k move · esc cancel');
-	assert.equal(mergeConfirmLayout(input({tasks: ['Add OAuth'], width: 100})).hint, 'enter choose · space commit first · j/k move · esc cancel');
+	assert.equal(layout.hint, 'enter choose • space toggle • esc cancel');
+	assert.equal(mergeConfirmLayout(input({tasks: ['Add OAuth'], width: 100})).hint, 'enter choose • space commit first • esc cancel');
 	assert.ok(mergeConfirmRows(layout) <= 30);
 	for (let height = 16; height <= 30; height++) assert.ok(mergeConfirmRows(mergeConfirmLayout(input({openItems: {titles: ['a'], send: false}, height}))) <= height, String(height));
 	// Until the preview arrives nothing is offered (the merge cannot be chosen yet either).

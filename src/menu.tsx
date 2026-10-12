@@ -132,7 +132,7 @@ export function MenuDetails({title, lines, width, rows}: {title: string; lines: 
 
 export interface HintPart {text: string; short?: string; /** Higher numbers are dropped first when the hint does not fit. */ drop?: number}
 /** One key-hint line that fits `width`: full texts, then short forms, then dropping the least important parts. */
-export function fitHint(parts: Array<string | HintPart>, width: number, separator = ' · '): string {
+export function fitHint(parts: Array<string | HintPart>, width: number, separator = ' • '): string {
 	let current = parts.map((part, order) => typeof part === 'string' ? {text: part, order} : {...part, order});
 	const join = (list: typeof current, short: boolean) => list.map(part => short ? part.short ?? part.text : part.text).join(separator);
 	if (join(current, false).length <= width) return join(current, false);

@@ -134,7 +134,7 @@ test('Agents screen: one row per agent with versions and status, details of the 
 	assert.ok(render({versions: versions({pi: {}}), selected: 1}).includes('Run `deckhand setup` to install it.'));
 	assert.ok(render({checking: true}).includes('Checking the latest releases…'));
 	const confirm = render({confirming: 'claude'});
-	for (const text of ['Update Claude?', '3 running Claude sessions keep their current version until restarted.', 'Runs claude update.', 'enter update · esc cancel']) assert.ok(confirm.includes(text), `${text}\n${confirm}`);
+	for (const text of ['Update Claude?', '3 running Claude sessions keep their current version until restarted.', 'Runs claude update.', 'enter update • esc cancel']) assert.ok(confirm.includes(text), `${text}\n${confirm}`);
 	assert.ok(render({working: new Set(['claude'])}).includes('Running claude update… sessions keep running.'));
 	assert.ok(render({working: new Set(['claude'])}).includes('updating…'));
 	const done = render({outcomes: {claude: {program: 'claude', ok: true, exitCode: 0, command: 'claude update', output: 'Checking…\nUpdated to 2.1.291', before: '2.1.287', after: '2.1.291', versions: fixture}}});

@@ -290,18 +290,17 @@ export function useWorktreesFlow({client, cwd, sessions, spinnerFrame, onExit, o
 	};
 
 	const hint = (width: number): string => {
-		if (confirm?.override) return fitHint(['type DELETE then enter', 'esc back'], width, ' • ');
-		if (confirm) return fitHint(['enter choose', 'j/k move', ...confirm.entries.some(entry => openItemsOf(entry).length) ? [{text: confirm.keepOpenItems ? 'space send note items' : 'space keep note items', short: 'space note items'}] : [], 'esc cancel'], width, ' • ');
+		if (confirm?.override) return fitHint(['type DELETE then enter', 'esc back'], width);
+		if (confirm) return fitHint(['enter choose', ...confirm.entries.some(entry => openItemsOf(entry).length) ? [{text: confirm.keepOpenItems ? 'space send note items' : 'space keep note items', short: 'space note items'}] : [], 'esc cancel'], width);
 		const onReady = currentRow?.kind === 'heading' && currentRow.group === 'ready';
 		return fitHint([
-			'j/k move',
 			onReady ? {text: 'x delete them all', short: 'x delete all'} : 'x delete',
 			{text: 'enter its session', short: 'enter session', drop: 1},
 			{text: 'M merged', drop: 2},
-			{text: 'E editor', drop: 3},
-			{text: 'R refresh', drop: 2},
-			'esc back',
-		], width, ' • ');
+			{text: 'E open in editor', short: 'E editor', drop: 1},
+			{text: 'R refresh', drop: 3},
+			{text: 'esc back', drop: 2},
+		], width);
 	};
 
 	return {

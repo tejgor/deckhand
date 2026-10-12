@@ -295,13 +295,13 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 		return Boolean(item && !item.checked && item.text.trim());
 	};
 	const hint = (width: number): string => fitHint([
-		'notes edit', 'esc done',
+		'esc done',
 		...hasShared && ownNote ? [{text: activeSection === 'shared' ? 'tab this session' : session?.sharedNotes?.kind === 'repo' ? 'tab main checkout notes' : 'tab worktree notes', short: 'tab switch', drop: 1}] : [],
 		{text: 'ctrl+x toggle ☐', short: 'ctrl+x ☐', drop: 1},
 		{text: 'ctrl+t new item', drop: 2},
 		{text: 'ctrl+o open in editor', short: 'ctrl+o editor', drop: 2},
-		onOpenItem() ? {text: 'ctrl+p → tasks', drop: 2} : {text: 'alt+←/→ words', drop: 3},
-	], width, ' • ');
+		...onOpenItem() ? [{text: 'ctrl+p → tasks', drop: 2}] : [],
+	], width);
 
 	return {
 		focus: () => { if (section === 'shared' && !sharedEditable) setSection('session'); },

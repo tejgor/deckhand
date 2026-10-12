@@ -83,7 +83,7 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('zz'); await screen('Nothing in worktrees matches “zz”');
 	press('\x1b'); await screen('/ search');
 	// Enter keeps the search and gives j/k back; Esc then clears it.
-	press('/'); press('wr'); await screen('search: wr▏');
+	press('/'); await screen('type to search'); press('wr'); await screen('search: wr▏');
 	press('\r'); await screen('/ edit search'); await screen('› ⎇ write');
 	press('\x1b'); await screen('/ search');
 	press('k'); await screen('› ↩ Back to its note');
@@ -96,6 +96,8 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	assert.doesNotMatch(await tasksFile(), /Follow up on review/);
 	// The only task is on a worktree, where a adds a step; the empty backlog can be selected to add a task there.
 	press('g'); await screen('a step •');
+	// A adds a backlog task from there too.
+	press('A'); await screen('New task · backlog'); press('\x1b'); await screen('a step •');
 	press('G'); await screen('› Nothing waiting'); await screen('a add task');
 	press('a'); await screen('New task · backlog');
 	press('\x1b'); await screen('a add task');

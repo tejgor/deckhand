@@ -288,6 +288,11 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 			setEditor({kind: section && hasMainTask(section, tasks) ? 'step' : 'add', section, field: 'title', title: {text: '', cursor: 0}, body: {text: '', cursor: 0}});
 			return;
 		}
+		// A: a new backlog task from anywhere (a adds a step when on a work, which has its task).
+		if (input === 'A') {
+			setEditor({kind: 'add', section: undefined, field: 'title', title: {text: '', cursor: 0}, body: {text: '', cursor: 0}});
+			return;
+		}
 		if (input === 'E') {
 			run(() => client!.openTasks(repoRoot), file => {
 				const label = openInEditor(file, message => setError(`${message}; the task list is ${file}`));
@@ -429,10 +434,10 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 		const addTo = addSection(), addsStep = Boolean(addTo && hasMainTask(addTo, tasks));
 		if (editor) return fitHint(editor.kind === 'step' ? ['enter add to the note', 'esc cancel'] : editor.field === 'title'
 			? ['enter save', 'tab details', 'esc cancel']
-			: ['enter new line', 'ctrl+s save', 'tab title', 'esc cancel'], width, ' • ');
+			: ['enter new line', 'ctrl+s save', 'tab title', 'esc cancel'], width);
 		if (picker) return fitHint(picker.typing
-			? ['type to search', 'enter done', '↑↓ choose', 'esc clear']
-			: ['enter move here', {text: 'j/k choose', short: 'j/k'}, picker.query ? '/ edit search' : '/ search', {text: 'tab worktrees / sessions', short: 'tab view'}, picker.query ? 'esc clear search' : 'esc cancel'], width, ' • ');
+			? ['type to search', 'enter done', '↑↓ move', 'esc clear']
+			: ['enter move here', picker.query ? '/ edit search' : '/ search', {text: 'tab worktrees / sessions', short: 'tab view'}, picker.query ? 'esc clear search' : 'esc cancel'], width);
 		if (view === 'notes') {
 			const onItem = currentRow?.kind === 'noteline' && Boolean(currentRow.item);
 			const onNote = currentRow?.kind === 'notehead' || currentRow?.kind === 'noteline';
@@ -442,26 +447,28 @@ export function useTasksFlow({client, repoRoot, doc, tasks, sessions, spinnerFra
 				{text: 'enter open the note', short: 'enter open'},
 				{text: itemsOnly ? 'f every note' : 'f open items only', short: 'f filter', drop: 1},
 				...scope ? [{text: scoped ? 'v all notes' : 'v this worktree', short: 'v view', drop: 1}] : [],
-				{text: 'j/k move', drop: 2},
-				'tab tasks', 'esc tasks',
-			], width, ' • ');
+				'tab tasks',
+			], width);
 		}
-		if (currentRow?.kind === 'step') return fitHint(['j/k move', {text: currentRow.step.done ? 'space reopen' : 'space tick'}, {text: 'enter open the note', short: 'enter note'}, {text: 'a add step', short: 'a step'}, 'esc back'], width, ' • ');
-		if (currentRow?.kind === 'empty') return fitHint(['j/k move', {text: 'a add task', short: 'a add'}, 'esc back'], width, ' • ');
+		// A (a backlog task) shows wherever a adds a step; E (the list in an editor) everywhere.
+		const newTask = {text: 'A new task', short: 'A task'}, editList = {text: 'E open in editor', short: 'E editor', drop: 1};
+		const back = {text: 'esc back', drop: 2};
+		if (currentRow?.kind === 'step') return fitHint([{text: currentRow.step.done ? 'space reopen' : 'space tick'}, {text: 'enter open the note', short: 'enter note'}, {text: 'a add step', short: 'a step'}, newTask, editList, back], width);
+		if (currentRow?.kind === 'empty') return fitHint([{text: 'a add task', short: 'a add'}, editList, back], width);
 		return fitHint([
-			'j/k move', addsStep ? {text: 'a add step', short: 'a step'} : {text: 'a add task', short: 'a add'},
+			addsStep ? {text: 'a add step', short: 'a step'} : {text: 'a add task', short: 'a add'},
+			...addsStep ? [newTask] : [],
 			{text: 'n start session', short: 'n start'},
 			{text: 'w move to a worktree', short: 'w move'},
 			{text: 'enter edit', drop: 1},
 			{text: 'space done', short: 'space ✓'},
 			...scope ? [{text: scoped ? 'v all tasks' : 'v this worktree', short: 'v view', drop: 1}] : [],
 			{text: 'o open its session', short: 'o session', drop: 1},
-			{text: 'J/K reorder', drop: 2},
 			{text: 'x delete', drop: 2},
 			{text: 'tab notes', drop: 1},
-			{text: 'E editor', drop: 3},
-			'esc back',
-		], width, ' • ');
+			editList,
+			back,
+		], width);
 	};
 
 	return {

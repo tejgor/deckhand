@@ -39,7 +39,7 @@ test('W in a real PTY: merged worktrees grouped, x on the group deletes them and
 	press('a'); await screen('enter edit notes'); press('\r'); await screen('esc done');
 	press('\x14'); await screen('- [ ]'); press('Follow up on perf'); await screen('Follow up on perf'); press('\x1b'); await screen('enter edit notes');
 
-	// The session list's footer lists it beside b tasks.
+	// The session list's footer lists it.
 	press('\x1b[A'); await screen('W worktrees');
 	press('W'); await screen('⎇ Worktrees'); await screen('Merged · safe to delete · 1'); await screen('Main checkout');
 	await screen('scratch'); await screen('not from Deckhand'); await screen('☐1');
@@ -73,7 +73,7 @@ test('W in a real PTY: merged worktrees grouped, x on the group deletes them and
 	press('\x1b'); await screen('Sessions');
 	press('f'); press('A'); await screen('shipped'); await screen('backspace remove');
 	// Removing it for good asks even with nothing open in its notes; Esc keeps it, Enter removes it.
-	press('\x7f'); await screen('Remove “shipped” for good?'); await screen('enter remove · esc keep it');
+	press('\x7f'); await screen('Remove “shipped” for good?'); await screen('enter remove • esc keep it');
 	press('\x1b'); await screen('backspace remove');
 	press('\x7f'); await screen('for good?'); press('\r'); await screen('No sessions');
 });
