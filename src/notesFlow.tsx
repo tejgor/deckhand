@@ -254,7 +254,8 @@ export function useNotesFlow({client, session, sessions, focused, onExit, setErr
 		const sharedNote = session.sharedNotes;
 		const sharedKey = noteKey(session, 'shared');
 		const sharing = sharedKey ? sessions.filter(other => noteKey(other, 'shared') === sharedKey) : [];
-		const count = Math.max(1, sharing.length);
+		// Archived sessions (gone from the active view) are not counted; the one shown always is.
+		const count = Math.max(1, sharing.filter(other => !other.archivedAt || other.id === session.id).length);
 		let sharedInput: NotesSectionInput | undefined;
 		if (sharedNote && shared) {
 			const branch = session.worktree?.branch || sharing.find(other => other.worktree?.branch && !other.worktree.isMain)?.worktree?.branch;

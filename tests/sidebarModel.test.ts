@@ -97,6 +97,18 @@ test('sidebar rows: archived rows dimmed, except in the archived view, which dim
 	assert.ok(rows({rows: list, filter: 'all'})[2]!.parts.some(part => part.text === '▣'));
 });
 
+test('sidebar rows: an archived sub-session (gone from the active view) gives its parent no ▾ ▸, +N or ╎N; the archived view still does', () => {
+	const parent = session('parent', {title: 'parent', ...inAuth, worktree: auth});
+	const child = session('child', {parentSessionId: 'parent', subSessionKind: 'forked', ...inAuth, worktree: auth, status: 'exited', archivedAt: ago(1)});
+	const tree = (filter: SidebarRowsInput['filter'], collapsed: string[] = []) => rows({rows: [parent], allSessions: [parent, child], filter, collapsedSessionIds: new Set(collapsed)})[0]!.parts.filter(part => part.role === 'tree' || part.role === 'count').map(part => part.text);
+	assert.deepEqual(tree('active'), []);
+	assert.deepEqual(tree('active', ['parent']), []);
+	assert.deepEqual(tree('archived'), ['▾ ']);
+	assert.deepEqual(tree('all', ['parent']), ['▸ ', '+1']);
+	assert.equal(locationText(parent, [parent, child]), '⎇ feat/auth');
+	assert.equal(locationText(parent, [parent, {...child, archivedAt: undefined}]), '⎇ feat/auth ╎1');
+});
+
 test('sidebar header: plain count by default, filter/search with counts otherwise, attention count in front of the title', () => {
 	const all = fixture();
 	const header = (fields: Partial<Parameters<typeof sidebarHeader>[0]>) => sidebarHeader({width: 30, filter: 'active', query: '', shown: 6, total: 7, allSessions: all, ...fields});

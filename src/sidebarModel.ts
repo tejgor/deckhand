@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type {ProgramKey, SessionRecord} from './types.js';
 import {sessionOutdated} from './agentVersions.js';
-import {SESSION_FILTER_KEYS, SESSION_FILTERS, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
+import {SESSION_FILTER_KEYS, SESSION_FILTERS, filterSessionList, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
 import {countHiddenSessionDescendants, countSessionDescendants, sessionDepth, sessionHasChildren} from './sessionOrder.js';
 import {THEME, displaySessionTitle, programGlyph, statusColor, statusGlyph, truncate} from './ui.js';
 import {wrapWords} from './menu.js';
@@ -65,16 +65,19 @@ export function sidebarRows({rows, allSessions, firstNumber, numberWidth, select
 	const selectedKey = rows.find(session => session.id === selectedId) ? keys.get(selectedId!) : undefined;
 	// Dev belongs to the workspace: ▶ once, on its first row on screen.
 	const devShown = new Set<string>();
+	// ▾ ▸ and +N count the sub-sessions this view lists (an archived one is gone from the active view); depth and titles
+	// still follow every ancestor.
+	const listed = filterSessionList(allSessions, filter, '');
 	return rows.map((session, index) => {
 		const selected = session.id === selectedId;
 		const key = keys.get(session.id);
 		const sharesSelected = !selected && selectedKey !== undefined && key === selectedKey;
 		const depth = sessionDepth(session, allSessions);
-		const hasChildren = sessionHasChildren(session.id, allSessions);
+		const hasChildren = sessionHasChildren(session.id, listed);
 		const collapsed = collapsedSessionIds.has(session.id);
 		const childCount = collapsed && hasChildren
-			? countSessionDescendants(session.id, allSessions)
-			: countHiddenSessionDescendants(session.id, allSessions, hiddenSessionIds);
+			? countSessionDescendants(session.id, listed)
+			: countHiddenSessionDescendants(session.id, listed, hiddenSessionIds);
 		let dev = false;
 		if (session.devRunning) {
 			dev = key === undefined || !devShown.has(key);
@@ -242,6 +245,7 @@ const MIN_WHERE = 8;
 export function locationText(session: SessionRecord, allSessions: SessionRecord[], width = Infinity, now?: number): string {
 	const key = workspaceKey(session);
 	const sharing = key === undefined ? [] : allSessions.filter(other => other.id !== session.id && workspaceKey(other) === key);
+	const sharers = sharing.filter(other => !other.archivedAt).length;
 	const worktree = session.worktree;
 	let where: string;
 	if (worktree?.deletedAt) where = 'worktree deleted';
@@ -252,7 +256,7 @@ export function locationText(session: SessionRecord, allSessions: SessionRecord[
 		where = branch ? `⎇ ${branch}` : `worktree ${path.basename(key)}`;
 	}
 	const markers = [
-		sharing.length ? `${GUTTER_MARKER}${sharing.length}` : '',
+		sharers ? `${GUTTER_MARKER}${sharers}` : '',
 		session.devRunning ? '▶' : '',
 		isMerged(session) ? '✓' : '',
 		session.doneAt ? doneGlyph(session, now) : '',
