@@ -1164,12 +1164,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	);
 
 	const toggleSelectedCollapse = useCallback(() => {
-		if (!selectedSession || !sessionHasChildren(selectedSession.id, sessions)) {
+		// The sub-sessions this view lists (as the sidebar's ▾ ▸): archived ones are not there.
+		const listed = filterSessionList(sessions, sessionFilter, '');
+		if (!selectedSession || !sessionHasChildren(selectedSession.id, listed)) {
 			setError('selected session has no sub-sessions');
 			return;
 		}
 
-		const descendants = sessionDescendants(selectedSession.id, sessions);
+		const descendants = sessionDescendants(selectedSession.id, listed);
 		const descendantIds = new Set(descendants.map(session => session.id));
 		const exitedDescendants = descendants.filter(session => session.status === 'exited');
 		const exitedDescendantIds = new Set(exitedDescendants.map(session => session.id));
@@ -1209,7 +1211,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			return next;
 		});
 		setStatusMessage('collapsed all sub-sessions');
-	}, [collapsedSessionIds, hiddenExitedSessionIds, selectedSession, sessions]);
+	}, [collapsedSessionIds, hiddenExitedSessionIds, selectedSession, sessionFilter, sessions]);
 
 	const reorderSelected = useCallback(async (direction: 'up' | 'down') => {
 		if (!client || !selectedSession) {
