@@ -21,7 +21,7 @@ import {readCandidateSizes, readSettingsInfo, readWorktreeCandidates} from './se
 import {createPullRequest, getHandoffGitContext, getMergePreview, getWorkspaceSummary, inspectWorkspaceCleanup, mergedIntoDefault, worktreeActivity, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
 import {applyStage, readChangeDiff, readChanges, type ChangesSnapshot, type UntrackedCounts} from './changesGit.js';
 import {emptyChanges, findChange, type ChangesRecord} from './changesModel.js';
-import {attentionMessage, hooksEnabled, normalizeHook, integrationArgs, needsAttention} from './agentSignals.js';
+import {answersPrompt, attentionMessage, hooksEnabled, normalizeHook, integrationArgs, needsAttention} from './agentSignals.js';
 import {AGENTS, agentSpec, launchArgs, newAgentRef, relaunchPlan, sameAgentSessionRef, type LaunchPlan} from './agents.js';
 import {AgentVersionChecker, findOnPath} from './agentVersionCheck.js';
 import {exportHandoff} from './sessionFeatures.js';
@@ -1053,6 +1053,7 @@ export class InkDaemon {
 					const worker = this.workers.get(message.sessionId);
 					if (worker?.draft && /\p{L}/u.test(message.data.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\x1b./g, ''))) this.dropDraft(message.sessionId, 'you typed first');
 					this.sendWorkerEvent(message.sessionId, {type: 'input', target: 'agent', data: message.data});
+					if (answersPrompt(message.data)) this.markAnswered(message.sessionId).catch(error => this.log(`marking ${message.sessionId} answered failed: ${errorMessage(error)}`));
 					return;
 				}
 				case 'resize':
@@ -1260,6 +1261,7 @@ export class InkDaemon {
 			worker.lastHookAt = message.sentAt;
 		}
 		const previous = session.attention;
+		if (signal.idle && previous && previous.state !== 'working' && previous.state !== 'unknown') return;
 		// A native subagent's tool use only shows that the prompt it raised was answered; otherwise the root's state stands.
 		if (signal.fromSubagent && signal.state === 'working' && previous?.state !== 'needs-input') return;
 		const nativeRef = this.acceptedNativeRef(session, signal.nativeRef, signal.event);
@@ -1274,6 +1276,18 @@ export class InkDaemon {
 		}
 		const updated = await this.saveSession({...session, ...(nativeRef ? {agentSessionRef: nativeRef} : {}), attention});
 		if (needsAttention(signal.state) && (previous?.state !== signal.state || reasonChanged)) void this.notify(updated, attentionMessage(signal.state, reason));
+	}
+
+	/**
+	 * You answered what the agent asked (Enter, a digit or Esc typed into it while it needs input): it works again. Claude
+	 * sends no hook until the tool you allowed ends, which can take minutes; hooks that started before the answer are stale.
+	 * A settled screen makes it unknown, as for any working state.
+	 */
+	private async markAnswered(sessionId: string): Promise<void> {
+		const session = this.sessions.get(sessionId), worker = this.workers.get(sessionId);
+		if (!session || !worker || session.status !== 'running' || session.attention?.state !== 'needs-input') return;
+		worker.lastHookAt = Math.max(worker.lastHookAt ?? 0, Date.now());
+		await this.saveSession({...session, attention: {state: 'working', event: 'Answered', at: new Date().toISOString()}});
 	}
 
 	private acceptedNativeRef(session: SessionRecord, ref: AgentSessionRef | undefined, event: string): AgentSessionRef | undefined {
