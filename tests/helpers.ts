@@ -110,7 +110,9 @@ if (process.argv[2] === 'update') {
 }
 // \`codex fork <parent>\` reports its own ID, but first and last also the parent's (a child must never adopt it).
 const forkOf = provider === 'codex' && process.argv[2] === 'fork' ? process.argv[3] : undefined;
-const id = forkOf ? 'fixture-child-codex' : 'fixture-native-' + provider;
+// Claude reports the conversation it runs, as the real one does: --session-id (also a fork's child), else --resume.
+const flag = name => { const at = process.argv.indexOf(name); return at > 1 ? process.argv[at + 1] : undefined; };
+const id = forkOf ? 'fixture-child-codex' : provider === 'claude' ? flag('--session-id') ?? flag('--resume') ?? 'fixture-native-claude' : 'fixture-native-' + provider;
 fs.writeFileSync(path.join(process.env.DECKHAND_HOME, 'trace-' + process.env.DECKHAND_SESSION_ID + '.json'), JSON.stringify({args: process.argv.slice(2), token: process.env.DECKHAND_HOOK_TOKEN, launchId: process.env.DECKHAND_LAUNCH_ID, pid: process.pid}));
 function hook(event, sessionId = id) { return new Promise(resolve => { const child = cp.spawn(process.execPath, [process.env.TEST_CLI, 'hook'], {stdio: ['pipe','ignore','ignore']}); child.stdin.end(JSON.stringify({hook_event_name: event, session_id: sessionId})); child.on('close', resolve); }); }
 const startHooks = () => forkOf ? hook('SessionStart', forkOf).then(() => hook('SessionStart')).then(() => hook('SessionStart', forkOf)) : hook('SessionStart');

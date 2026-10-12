@@ -22,7 +22,8 @@ import {createPullRequest, getHandoffGitContext, getMergePreview, getWorkspaceSu
 import {applyStage, readChangeDiff, readChanges, type ChangesSnapshot, type UntrackedCounts} from './changesGit.js';
 import {emptyChanges, findChange, type ChangesRecord} from './changesModel.js';
 import {answersPrompt, attentionMessage, hooksEnabled, normalizeHook, integrationArgs, needsAttention} from './agentSignals.js';
-import {AGENTS, agentSpec, launchArgs, newAgentRef, relaunchPlan, sameAgentSessionRef, type LaunchPlan} from './agents.js';
+import {AGENTS, agentSpec, forksParentAgain, launchArgs, newAgentRef, relaunchPlan, sameAgentSessionRef, type LaunchPlan} from './agents.js';
+import {latestClaudeConversation} from './claudeTranscripts.js';
 import {AgentVersionChecker, findOnPath} from './agentVersionCheck.js';
 import {exportHandoff} from './sessionFeatures.js';
 import {NotesStore, noteFilePath, noteFileStem, type NoteId, type NoteKind} from './notesStore.js';
@@ -1265,6 +1266,7 @@ export class InkDaemon {
 		// A native subagent's tool use only shows that the prompt it raised was answered; otherwise the root's state stands.
 		if (signal.fromSubagent && signal.state === 'working' && previous?.state !== 'needs-input') return;
 		const nativeRef = this.acceptedNativeRef(session, signal.nativeRef, signal.event);
+		if (nativeRef && session.agentSessionRef) this.log(`${session.id} moved to conversation ${nativeRef.value} (was ${session.agentSessionRef.value}, ${signal.event})`);
 		// A notification's generic text ("Claude is waiting for your input") never replaces the reason it follows.
 		const reason = signal.reason?.kind === 'notice' && previous?.reason ? previous.reason : signal.reason;
 		const attention = {state: signal.state, event: signal.event, at: new Date().toISOString(), ...reason ? {reason} : {}};
@@ -1292,10 +1294,11 @@ export class InkDaemon {
 
 	private acceptedNativeRef(session: SessionRecord, ref: AgentSessionRef | undefined, event: string): AgentSessionRef | undefined {
 		if (!ref || sameAgentSessionRef(ref, session.agentSessionRef)) return undefined;
-		// Identity is established at SessionStart; later events may only fill in a missing ref.
-		if (event !== 'SessionStart' && session.agentSessionRef) return undefined;
-		// Deckhand chose this conversation's ID at launch (forks included); another ID (e.g. after /clear) is not its identity.
-		if (agentSpec(session.program).idAtLaunch && session.agentSessionRef?.kind === 'id') return undefined;
+		// Claude moves to a new conversation ID without exiting (accepting a plan with "clear context", /clear, /resume,
+		// /branch), and s must resume the one on screen. Plan acceptance has sent no SessionStart, so any root event's ID
+		// counts; a native subagent's never reaches here. Others: identity is established at SessionStart, and later
+		// events may only fill in a missing ref.
+		if (!agentSpec(session.program).idAtLaunch && event !== 'SessionStart' && session.agentSessionRef) return undefined;
 		if (session.subSessionKind === 'forked') {
 			// A fork (e.g. a Codex child, which reports its own ID, or a legacy /branch child) never adopts its parent's identity.
 			const parent = session.forkedFromSessionId ? this.sessions.get(session.forkedFromSessionId) : undefined;
@@ -2720,6 +2723,25 @@ export class InkDaemon {
 		return parentRoot && childRoot && parentRoot !== childRoot ? ['--', movedForkPrompt(session, parentRoot, childRoot)] : [];
 	}
 
+	/**
+	 * The session with the Claude conversation it continued in, when its transcripts show one the hooks did not report
+	 * (see claudeTranscripts.ts). Other sessions' conversations (forks) are never followed. Never fails a restart.
+	 */
+	private async continuedConversation(session: SessionRecord, mode: RestartMode, neverStarted: boolean): Promise<SessionRecord> {
+		const ref = session.agentSessionRef;
+		if (mode !== 'resume' || neverStarted || session.program !== 'claude' || ref?.kind !== 'id' || forksParentAgain(session, neverStarted)) return session;
+		const exclude = new Set([...this.sessions.values()].filter(other => other.id !== session.id && other.agentSessionRef?.kind === 'id').map(other => other.agentSessionRef!.value));
+		try {
+			const next = await latestClaudeConversation(ref.value, {cwdHints: [session.cwd, session.launchWorktreeRoot].filter((dir): dir is string => Boolean(dir)), exclude});
+			if (!next) return session;
+			this.log(`${session.id} resumes conversation ${next}, which continued ${ref.value} (Claude transcripts)`);
+			return {...session, agentSessionRef: {...ref, value: next}};
+		} catch (error) {
+			this.log(`reading Claude transcripts for ${session.id} failed: ${errorMessage(error)}`);
+			return session;
+		}
+	}
+
 	private async restartSession(sessionId: string, cols: number, rows: number, mode: RestartMode = 'resume', projectFingerprint?: string): Promise<SessionRecord> {
 		const existing = this.sessions.get(sessionId);
 		if (!existing) {
@@ -2735,8 +2757,8 @@ export class InkDaemon {
 
 		const now = new Date().toISOString();
 		const parsedAgentSessionRef = mode === 'resume' && existing.lastPreview ? readAgentExit(existing, existing.lastPreview).ref : undefined;
-		const restartSource = parsedAgentSessionRef ? {...existing, agentSessionRef: parsedAgentSessionRef} : existing;
 		const neverStarted = Boolean(existing.launchId) && !existing.agentStartedAt;
+		const restartSource = await this.continuedConversation(parsedAgentSessionRef ? {...existing, agentSessionRef: parsedAgentSessionRef} : existing, mode, neverStarted);
 		if (neverStarted && existing.requestedWorktreeMode && existing.requestedWorktreeMode !== 'none' && !existing.worktree?.path) throw new Error('Worktree preparation did not complete. Create a new session to retry instead of launching in the original checkout.');
 		const agent = agentSpec(existing.program);
 		const agentName = buildDeckhandAgentName(existing.title, existing.id, mode === 'fresh' ? `fresh-${Date.now().toString(36)}` : undefined);
