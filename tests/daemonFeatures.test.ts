@@ -22,7 +22,7 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const provider of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, provider), fakeAgent, {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
-	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli};
+	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli, CLAUDE_CONFIG_DIR: path.join(home, '.claude')};
 	const launch = () => { const child = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); child.stderr?.on('data', () => {}); return child; };
 	let daemon = launch();
 	t.after(async () => { await stop(daemon); await fs.rm(root, {recursive: true, force: true}); await fs.rm(home, {recursive: true, force: true}); });
@@ -315,12 +315,35 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		const claude = await create('exact-claude');
 		const started = await waitFor(() => state(claude.id), item => item.status === 'running' && item.attention?.event === 'SessionStart');
 		const id = started.agentSessionRef!.value;
-		assert.equal(started.agentSessionRef!.kind, 'id'); // The hook's other ID did not replace the assigned one.
+		assert.equal(started.agentSessionRef!.kind, 'id');
 		assert.deepEqual((await trace(claude.id)).args.slice(0, 4), ['--session-id', id, '--name', `dh-exact-claude-${claude.id.slice(0, 8)}`]);
 		await killAndWait(claude.id);
 		const resumed = await relaunch(claude.id);
 		assert.deepEqual(resumed.slice(0, 2), ['--resume', id]); assert.ok(!resumed.includes('--session-id'));
+		// Accepting a plan with "clear context" moves Claude to a new conversation and sends no SessionStart: the next
+		// root event's ID is followed, a native subagent's never, and s resumes the conversation on screen.
+		const {launchId, token} = await trace(claude.id);
+		const hook = (payload: object) => call({type: 'agent-hook', sessionId: claude.id, launchId, token, payload, sentAt: Date.now() + 60_000} as any);
+		const implementing = randomUUID();
+		await hook({hook_event_name: 'PermissionRequest', agent_id: 'sub', session_id: randomUUID(), tool_name: 'Bash', tool_input: {command: 'ls'}});
+		assert.equal((await state(claude.id)).agentSessionRef?.value, id);
+		await hook({hook_event_name: 'PreToolUse', tool_name: 'Bash', session_id: implementing});
+		assert.equal((await state(claude.id)).agentSessionRef?.value, implementing);
 		await killAndWait(claude.id);
+		assert.deepEqual((await relaunch(claude.id)).slice(0, 2), ['--resume', implementing]);
+		await killAndWait(claude.id);
+		// Missed hooks: Claude's transcripts show the conversation this one continued in (same --name), so s resumes it.
+		const project = path.join(home, '.claude', 'projects', (await fs.realpath(root)).replace(/[^a-zA-Z0-9]/g, '-'));
+		await fs.mkdir(project, {recursive: true});
+		const later = randomUUID(), title = `dh-exact-claude-${claude.id.slice(0, 8)}`;
+		const line = (record: object) => `${JSON.stringify(record)}\n`;
+		const at = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
+		await fs.writeFile(path.join(project, `${implementing}.jsonl`), line({type: 'custom-title', customTitle: title}) + line({type: 'user', uuid: 'u1', parentUuid: null, timestamp: at(-10)}) + line({type: 'assistant', uuid: 'u2', parentUuid: 'u1', timestamp: at(-9)}));
+		await fs.writeFile(path.join(project, `${later}.jsonl`), line({type: 'custom-title', customTitle: title}) + line({type: 'user', uuid: 'u3', parentUuid: 'u2', timestamp: at(-5)}) + line({type: 'assistant', uuid: 'u4', parentUuid: 'u3', timestamp: at(-4)}));
+		assert.deepEqual((await relaunch(claude.id)).slice(0, 2), ['--resume', later]);
+		assert.equal((await state(claude.id)).agentSessionRef?.value, later);
+		await killAndWait(claude.id);
+		await fs.rm(path.join(home, '.claude'), {recursive: true});
 
 		const realClaude = await fs.readFile(path.join(bin, 'claude'), 'utf8');
 		await fs.writeFile(path.join(bin, 'claude'), `#!/usr/bin/env node\nconsole.log('No conversation found with session ID: ' + process.argv[process.argv.indexOf('--resume') + 1]);\nsetTimeout(() => process.exit(1), 200);\n`, {mode: 0o755});
