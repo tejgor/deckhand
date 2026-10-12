@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {tempDir, withEnv} from './helpers.js';
 import {SESSION_FILTERS, filterForKey, filterSessionList, handoffMarkdown, sessionFilterCounts} from '../src/sessionFeatures.js';
-import {normalizeHook, codexResumeFromOutput, needsAttention, integrationArgs, hookPayloadFields, hooksEnabled, hookSettings, attentionMessage} from '../src/agentSignals.js';
+import {answersPrompt, normalizeHook, codexResumeFromOutput, needsAttention, integrationArgs, hookPayloadFields, hooksEnabled, hookSettings, attentionMessage} from '../src/agentSignals.js';
 import type {SessionRecord} from '../src/types.js';
 const root = {id: 'root', title: 'Parent', cwd: '/repo', program: 'claude', status: 'running', notes: '', repoRoot: '/repo'} as SessionRecord;
 const child = {...root, id: 'child', title: 'Parent / Child', parentSessionId: 'root', archivedAt: 'yesterday', notes: 'special context'};
@@ -71,7 +71,14 @@ test('signals say why a session waits: the question and its options, the plan, t
 	assert.equal(normalizeHook('claude', {hook_event_name: 'Stop', last_assistant_message: '  \n'})?.reason, undefined);
 	assert.deepEqual(normalizeHook('claude', {hook_event_name: 'StopFailure', error_type: 'overloaded'})?.reason, {kind: 'failure', text: 'API overloaded'});
 	assert.equal(normalizeHook('claude', {hook_event_name: 'StopFailure', error_type: 'rate_limit'})?.reason?.text, 'rate limited');
-	assert.deepEqual(normalizeHook('claude', {hook_event_name: 'Notification', notification_type: 'idle_prompt', message: 'Claude is waiting for your input'})?.reason, {kind: 'notice', text: 'Claude is waiting for your input'});
+	// The idle prompt ends a turn (it never asks anything); prompts left waiting need input; other notices are not states.
+	assert.deepEqual(normalizeHook('claude', {hook_event_name: 'Notification', notification_type: 'idle_prompt', message: 'Claude is waiting for your input'}), {state: 'response-ended', event: 'Notification', nativeRef: undefined, reason: {kind: 'notice', text: 'Claude is waiting for your input'}, idle: true});
+	for (const type of ['permission_prompt', 'elicitation_dialog', 'elicitation_url_dialog']) assert.equal(normalizeHook('claude', {hook_event_name: 'Notification', notification_type: type})?.state, 'needs-input', type);
+	assert.equal(normalizeHook('claude', {hook_event_name: 'Notification', notification_type: 'elicitation_complete'}), undefined);
+	assert.equal(normalizeHook('claude', {hook_event_name: 'Notification', notification_type: 'idle_prompt', agent_id: 'sub'}), undefined);
+	// Keys that answer a prompt: Enter, a digit, Esc alone; not arrows, the mouse wheel, letters or a paste.
+	for (const keys of ['\r', '1', '\x1b', 'y\r']) assert.equal(answersPrompt(keys), true, JSON.stringify(keys));
+	for (const keys of ['\x1b[B', '\x1b[<64;10;5M', 'y', '\x1b[200~line 1\nline 2\x1b[201~', '\x1bOA']) assert.equal(answersPrompt(keys), false, JSON.stringify(keys));
 	assert.equal(normalizeHook('claude', {hook_event_name: 'Stop', last_assistant_message: 'x'.repeat(500)})?.reason?.text.length, 'said: '.length + 300);
 	// A native subagent's permission prompt blocks the root's TUI: reported, never with its identity.
 	assert.deepEqual(normalizeHook('claude', {hook_event_name: 'PermissionRequest', agent_id: 'sub', session_id: 'abc', tool_name: 'Bash', tool_input: {command: 'rm x'}}), {state: 'needs-input', event: 'PermissionRequest', reason: {kind: 'permission', text: 'wants to run: rm x'}, fromSubagent: true});

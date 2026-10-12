@@ -10,7 +10,8 @@ export type AttentionState = 'unknown' | 'working' | 'needs-input' | 'response-e
  * or the agent's own notification text. Held in memory only: the daemon never writes it to state.json.
  */
 export interface AttentionReason {kind: 'question' | 'plan' | 'permission' | 'message' | 'failure' | 'notice'; text: string; options?: string[]}
-export interface AgentSignal {state: AttentionState; event: string; nativeRef?: AgentSessionRef; reason?: AttentionReason; fromSubagent?: boolean}
+/** `idle`: Claude's idle prompt, which only ends a working or unknown state (never hides a question or a failure). */
+export interface AgentSignal {state: AttentionState; event: string; nativeRef?: AgentSessionRef; reason?: AttentionReason; fromSubagent?: boolean; idle?: boolean}
 
 // Tools that stop the agent to ask you something. Claude's AskUserQuestion and ExitPlanMode are documented hook
 // targets; Codex's request_user_input is assumed to use the same `questions` shape (not verified against a real payload).
@@ -30,6 +31,7 @@ export function normalizeHook(program: ProgramKey, payload: unknown): AgentSigna
 	if (fromSubagent && !SUBAGENT_EVENTS.has(event)) return undefined;
 	let state: AttentionState;
 	let reason: AttentionReason | undefined;
+	let idle = false;
 	switch (event) {
 		case 'SessionStart': state = 'unknown'; break;
 		case 'UserPromptSubmit': case 'PostToolUse': state = 'working'; break;
@@ -44,18 +46,35 @@ export function normalizeHook(program: ProgramKey, payload: unknown): AgentSigna
 			break;
 		}
 		case 'Interrupt': state = 'unknown'; break;
-		case 'Notification':
-			if (!['permission_prompt', 'idle_prompt', 'elicitation_dialog', 'agent_needs_input'].includes(String(raw.notification_type))) return undefined;
-			state = 'needs-input';
+		case 'Notification': {
+			// The idle prompt (a reply ~60 s old, nothing typed since) means the turn ended, not that a question waits. The
+			// others come once a prompt has waited ~6 s untouched (each keystroke defers them); a permission prompt's is the only
+			// signal of a sandboxed command's network request, which runs no PermissionRequest hooks.
+			const type = String(raw.notification_type);
+			idle = type === 'idle_prompt';
+			if (!idle && !['permission_prompt', 'elicitation_dialog', 'elicitation_url_dialog', 'agent_needs_input'].includes(type)) return undefined;
+			if (idle && fromSubagent) return undefined;
+			state = idle ? 'response-ended' : 'needs-input';
 			if (typeof raw.message === 'string' && oneLine(raw.message)) reason = {kind: 'notice', text: oneLine(raw.message)};
 			break;
+		}
 		default: return undefined;
 	}
 	if (fromSubagent) return {state, event, ...reason ? {reason} : {}, fromSubagent};
 	const id = raw.session_id;
 	const nativeRef = program !== 'pi' && typeof id === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(id)
 		? {provider: program, kind: 'id' as const, value: id} : undefined;
-	return {state, event, nativeRef, ...reason ? {reason} : {}};
+	return {state, event, nativeRef, ...reason ? {reason} : {}, ...idle ? {idle} : {}};
+}
+
+/**
+ * Whether keys typed into the agent answer the prompt on its screen: Enter or a digit (a menu choice), or Esc alone
+ * (declining). Claude sends no hook between your answer and the end of the tool it allowed. Arrow keys and the mouse
+ * only move, and pasted text is not an answer.
+ */
+export function answersPrompt(data: string): boolean {
+	if (data === '\x1b') return true;
+	return /[\r\n0-9]/.test(data.replace(/\x1b\[200~[\s\S]*?\x1b\[201~/g, '').replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, '').replace(/\x1b./g, ''));
 }
 
 const FAILURE_TEXT: Record<string, string> = {

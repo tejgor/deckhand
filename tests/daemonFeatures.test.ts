@@ -59,9 +59,12 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		// An async hook that started earlier arrives late: dropped.
 		await hook({hook_event_name: 'PostToolUse', tool_name: 'Bash'}, at);
 		assert.equal((await state(session.id)).attention?.state, 'needs-input');
-		// The agent's generic notification does not replace the question.
+		// The agent's generic notifications do not replace the question, and the idle prompt never turns needs-input into
+		// response-ended.
 		await hook({hook_event_name: 'Notification', notification_type: 'permission_prompt', message: 'Claude needs your attention'}, at + 2);
-		assert.equal((await state(session.id)).attention?.reason?.text, 'asks: Which DB?');
+		await hook({hook_event_name: 'Notification', notification_type: 'idle_prompt', message: 'Claude is waiting for your input'}, at + 2);
+		const waiting = await state(session.id);
+		assert.equal(waiting.attention?.state, 'needs-input'); assert.equal(waiting.attention?.reason?.text, 'asks: Which DB?');
 		// A native subagent's tool use shows the prompt was answered; it never overrides the root's other states.
 		await hook({hook_event_name: 'PostToolUse', agent_id: 'sub'}, at + 3);
 		const answered = await state(session.id);
@@ -70,6 +73,21 @@ test('daemon features operate in isolated state with fake agents', {timeout: 180
 		assert.deepEqual((await state(session.id)).attention?.reason, {kind: 'message', text: 'said: Shall I push?'});
 		await hook({hook_event_name: 'PostToolUse', agent_id: 'sub'}, at + 5);
 		assert.equal((await state(session.id)).attention?.state, 'response-ended');
+		// The idle prompt after a reply keeps it ended (and its reason), never needs-input.
+		await hook({hook_event_name: 'Notification', notification_type: 'idle_prompt', message: 'Claude is waiting for your input'}, at + 6);
+		const idle = await state(session.id);
+		assert.equal(idle.attention?.state, 'response-ended'); assert.equal(idle.attention?.reason?.text, 'said: Shall I push?');
+		// Answering a permission prompt (Enter typed into the agent) means it works again, before the allowed tool ends.
+		// Arrow keys only move through the menu.
+		await hook({hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: {command: 'npm test'}}, at + 7);
+		const socket = net.createConnection(getSocketPath()); await once(socket, 'connect');
+		writeMessage(socket, {type: 'input', sessionId: session.id, data: '\x1b[B'});
+		await new Promise(resolve => setTimeout(resolve, 300));
+		assert.equal((await state(session.id)).attention?.state, 'needs-input');
+		writeMessage(socket, {type: 'input', sessionId: session.id, data: '\r'});
+		const answered2 = await waitFor(() => state(session.id), item => item.attention?.event === 'Answered');
+		assert.equal(answered2.attention?.state, 'working'); assert.equal(answered2.attention?.reason, undefined);
+		socket.destroy();
 		await killAndWait(session.id);
 	});
 
