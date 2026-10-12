@@ -71,7 +71,7 @@ test('the merge confirmation offers to send the worktree note\'s open items to t
 	const input = {title: 'auth', preview, commitFirst: true, commitMessage: 'auth', notes: [], width: 100, height: 30};
 	const send = mergeConfirmLayout({...input, openItems: {titles: ['Write the parser', 'Handle tabs'], send: true}});
 	assert.deepEqual(send.toggles, ['☑ 2 open note items → backlog: Write the parser, Handle tabs']);
-	assert.equal(send.hint, 'enter choose · space toggle · j/k move · esc cancel');
+	assert.equal(send.hint, 'enter choose • space toggle • esc cancel');
 	const keep = mergeConfirmLayout({...input, openItems: {titles: ['Write the parser'], send: false}});
 	assert.deepEqual(keep.toggles, ['☐ 1 open note item · stay in the note: Write the parser']);
 	// Nothing before the preview arrives.

@@ -268,7 +268,7 @@ function RemoveConfirmPane({session, items, width}: {session?: SessionRecord; it
 				{shown.map((item, index) => <Text key={index} wrap="truncate-end">{`  ☐ ${truncate(item, inner - 4)}`}</Text>)}
 				{items.length > shown.length ? <Text color={THEME.muted}>{`  +${items.length - shown.length} more`}</Text> : null}
 			</Box>
-			<Box marginTop={1}><Text color={THEME.muted} wrap="truncate-end">{items.length ? 'enter move them to Tasks, then remove · x remove anyway · esc cancel' : 'enter remove · esc keep it'}</Text></Box>
+			<Box marginTop={1}><Text color={THEME.muted} wrap="truncate-end">{fitHint(items.length ? [{text: 'enter move them to Tasks, then remove', short: 'enter move to Tasks'}, 'x remove anyway', 'esc cancel'] : ['enter remove', 'esc keep it'], inner)}</Text></Box>
 		</Box>
 	);
 }
@@ -342,8 +342,8 @@ function CreatePane({
 			</Box>
 			{parentTitle ? <Text color={THEME.muted}>Parent: {truncate(parentTitle, Math.max(8, width - 12))}</Text> : null}
 			<Box marginTop={1}>
-				<Text color={THEME.muted}>
-					{mode === 'pick-program' ? 'enter continue · esc cancel · ↑↓ switch' : staysInParent ? 'enter create · esc back' : worktreeMode === 'new' && base && base.count > 1 ? 'tab worktree · ↑↓ base · enter create · esc back' : 'tab worktree · enter create · esc back'}
+				<Text color={THEME.muted} wrap="truncate-end">
+					{fitHint(mode === 'pick-program' ? ['enter continue', 'esc cancel'] : staysInParent ? ['enter create', 'esc back'] : ['tab worktree', ...worktreeMode === 'new' && base && base.count > 1 ? ['↑↓ base'] : [], 'enter create', 'esc back'], contentWidth)}
 				</Text>
 			</Box>
 		</Box>
@@ -389,7 +389,7 @@ function WorktreePickerPane({
 				{worktrees.length > 0 ? <MenuList items={worktrees.map(worktree => ({key: worktree.path, label: worktreeLabel(worktree, contentWidth - 2)}))} selected={selectedIndex} width={contentWidth} rows={Math.max(1, height - 7)} /> : null}
 			</Box>
 			<Box marginTop={1}>
-				<Text color={THEME.muted}>{typing ? 'type to filter · enter done · ↑↓ move · esc clear' : `enter select · j/k move · ${query ? '/ edit search · esc clear search' : '/ search · esc back'}`}</Text>
+				<Text color={THEME.muted} wrap="truncate-end">{fitHint(typing ? ['type to filter', 'enter done', '↑↓ move', 'esc clear'] : ['enter select', query ? '/ edit search' : '/ search', query ? 'esc clear search' : 'esc back'], contentWidth)}</Text>
 			</Box>
 		</Box>
 	);
@@ -508,7 +508,7 @@ function KillConfirmPane({session, sessions, options, selectedIndex, force, widt
 				<Text color={keepOpenItems ? THEME.muted : THEME.active} wrap="truncate-end">{`${keepOpenItems ? '☐' : '☑'} If deleted: ${openItems.length} open note item${openItems.length === 1 ? '' : 's'} ${keepOpenItems ? 'stay in its (read-only) note' : '→ backlog'}: ${openItems.join(', ')}`}</Text>
 			) : null}
 			<Box marginTop={1}>
-				<Text color={THEME.muted}>{`enter choose · esc cancel · j/k move${openItems.length ? ' · space note items' : ''}`}</Text>
+				<Text color={THEME.muted} wrap="truncate-end">{fitHint(['enter choose', ...openItems.length ? ['space note items'] : [], 'esc cancel'], contentWidth)}</Text>
 			</Box>
 		</Box>
 	);
@@ -552,7 +552,7 @@ function ActionPickerPane({project, running, dev, selectedIndex, width, height}:
 			runningName ? {text: `${runningName} is still running in this worktree: x stops it, then run another.`, color: THEME.warn}
 				: {text: 'Runs on the Terminal tab beside your shell (v switches), one action at a time per worktree; Dev keeps running.'},
 		]} : undefined}
-		hint={[{text: 'j/k choose', drop: 1}, onDev ? (dev!.running ? 'enter stop Dev' : 'enter start Dev') : 'enter run', ...runningName && !onDev ? [`x stop ${runningName}`] : [], 'esc cancel']}
+		hint={[onDev ? (dev!.running ? 'enter stop Dev' : 'enter start Dev') : 'enter run', ...runningName && !onDev ? [`x stop ${runningName}`] : [], 'esc cancel']}
 		width={width}
 		height={height}
 	/>;
@@ -581,16 +581,15 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 		case 'help': case 'settings': case 'agents':
 		case 'edit-project': case 'discard-project': case 'workspace-info': case 'review-project': case 'confirm-loss':
 		case 'pick-action': case 'pick-program': case 'enter-name': case 'pick-worktree': case 'confirm-kill': case 'confirm-merge': case 'merge-conflicts':
-		case 'tasks': case 'confirm-remove': case 'worktrees':
+		// Search, Tasks and Worktrees write their own line (the footer).
+		case 'tasks': case 'confirm-remove': case 'worktrees': case 'search':
 			return '';
 		case 'preview-focus': {
-			const method = session?.program === 'claude' ? 'mouse wheel' : 'scrollback';
-			return `scrolling the preview (${method}) • j/k ↑↓ PgUp/PgDn scroll • g/G top/bottom • wheel ×${formatScrollSensitivity(scrollSensitivity)} (+/− speed) • ← back`;
+			return fitHint([{text: 'j/k ↑↓ PgUp/PgDn scroll', short: 'j/k scroll'}, {text: 'g/G top/bottom', drop: 1}, {text: `wheel ×${formatScrollSensitivity(scrollSensitivity)} (+/− speed)`, short: '+/− wheel speed', drop: 2}, '← back'], width);
 		}
-		case 'changes-focus': return 'changes • ← back • j/k select • space stage/unstage • a/A stage/unstage all • enter/E open in editor • J/K scroll diff • o lazygit';
-		case 'notes-focus': return notesHint ?? 'notes edit • esc done';
-		case 'search': return 'type to search • enter keep search • esc clear';
-		case 'pick-filter': return 'filter • a r ! e A * pick • f back to active • j/k move • enter keep • esc cancel';
+		case 'changes-focus': return fitHint([{text: 'space stage/unstage', short: 'space stage'}, {text: 'a/A stage/unstage all', short: 'a/A all', drop: 1}, {text: 'enter/E open in editor', short: 'enter editor'}, {text: 'J/K scroll diff', drop: 2}, {text: 'o lazygit', drop: 1}, '← back'], width);
+		case 'notes-focus': return notesHint ?? 'esc done';
+		case 'pick-filter': return fitHint([{text: 'a r ! e A * pick', short: 'a r ! e A *'}, {text: 'f back to active', short: 'f active', drop: 1}, 'enter keep', 'esc cancel'], width);
 		case 'browse': {
 			// Keep this short; everything else is listed in ? help.
 			const running = session?.status === 'running';
@@ -614,8 +613,11 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 				: session?.status === 'exited' ? {text: 'backspace archive', drop: 2} : undefined;
 			// Higher drop numbers go first when the line is too narrow; ? help always stays.
 			const remove: HintPart | undefined = session?.status === 'exited' && session.archivedAt ? {text: 'backspace remove for good', short: 'backspace remove', drop: 1} : undefined;
-			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, remove, '? help', {text: 'n new', drop: 1}, {text: 'b tasks', drop: 2}, {text: 'W worktrees', drop: 2}, {text: 'C settings', drop: 1}, {text: 'i info', drop: 3}, {text: 'r run', drop: 3}, {text: '/ search', drop: 2}, {text: 'f filter', drop: 2}, {text: 'q quit', drop: 1}];
-			return fitHint(parts.filter((part): part is string | HintPart => Boolean(part)), width, ' • ');
+			// E opens the session's folder (Notes lists its own E, the note); a deleted worktree has no folder.
+			const editor: HintPart | undefined = session && activeTab !== 'notes' && !session.worktree?.deletedAt ? {text: 'E open in editor', short: 'E editor', drop: 2} : undefined;
+			// b (Tasks) is in the header's task count; i and f are in ? help.
+			const parts: Array<string | HintPart | undefined> = [attach, pane, lifecycle, archive, remove, editor, '? help', {text: 'n new', drop: 1}, {text: 'W worktrees', drop: 2}, {text: 'C settings', drop: 1}, {text: 'r run', drop: 3}, {text: '/ search', drop: 2}, {text: 'q quit', drop: 1}];
+			return fitHint(parts.filter((part): part is string | HintPart => Boolean(part)), width);
 		}
 	}
 }
@@ -2698,7 +2700,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Exactly FOOTER_ROWS rows, each truncated, so the layout above never shifts.
 	const footerRows = [
 		<Text key="hint" color={mode === 'search' ? THEME.active : THEME.muted} wrap="truncate-end">
-			{mode === 'search' ? `Search: /${sessionQuery} · enter keep · esc clear` : mode === 'tasks' ? tasksFlow.hint(terminalSize.cols) : mode === 'worktrees' ? worktreesFlow.hint(terminalSize.cols) : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach, mode === 'notes-focus' ? notesFlow.hint(terminalSize.cols) : undefined, hasAction(selectedSession, action) ? {switchHint: showingAction ? 'v shell' : `v ${action.name ?? 'action'} ${actionStatus(action).text}`, finished: showingAction && !action.live} : undefined)}
+			{mode === 'search' ? `Search: /${sessionQuery} • enter keep • esc clear` : mode === 'tasks' ? tasksFlow.hint(terminalSize.cols) : mode === 'worktrees' ? worktreesFlow.hint(terminalSize.cols) : footerHint(mode, activeTab, terminalSize.cols, selectedSession, previewScrollSensitivity, activePaneReadyForAttach, mode === 'notes-focus' ? notesFlow.hint(terminalSize.cols) : undefined, hasAction(selectedSession, action) ? {switchHint: showingAction ? 'v shell' : `v ${action.name ?? 'action'} ${actionStatus(action).text}`, finished: showingAction && !action.live} : undefined)}
 		</Text>,
 		<Text key="messages" wrap="truncate-end">
 			{footerMessages.length > 0

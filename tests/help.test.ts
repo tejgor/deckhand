@@ -28,7 +28,7 @@ test('help search matches keys, descriptions and notes across topics; the pane s
 	assert.match(narrow[1]!, /Help · ◂ Sessions \(2\/11\) ▸ +↓ \d+\/\d+/);
 	assert.ok(narrow.some(line => /PgDn scroll/.test(line)));
 	const search = pane({query: 'lazygit', typing: true}, 110).join('\n');
-	for (const text of ['Help · search', '/ lazygit', '7  Git & PRs', 'On the Git tab', 'enter done']) assert.ok(search.includes(text), text);
+	for (const text of ['Help · search', '/ lazygit', '9  Git & PRs', 'On the Git tab', 'enter done']) assert.ok(search.includes(text), text);
 	assert.ok(pane({query: 'zzz'}, 110).join('\n').includes('Nothing matches "zzz".'));
 });
 

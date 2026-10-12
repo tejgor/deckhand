@@ -102,7 +102,7 @@ export function mergeConfirmLayout(input: MergeConfirmInput): MergeConfirmLayout
 	const toggles = items?.titles.length ? [fit(`${items.send ? '☑' : '☐'} ${plural(items.titles.length, 'open note item')} ${items.send ? '→ backlog' : '· stay in the note'}: ${items.titles.join(', ')}`)] : [];
 	// Space switches the selected row, else commit-first: one hint for both.
 	const space = toggles.length ? {text: 'space toggle', short: 'space toggle'} : preview?.uncommitted ? {text: 'space commit first', short: 'space toggle'} : undefined;
-	const hint = fitHint(['enter choose', ...space ? [space] : [], {text: 'j/k move', drop: 1}, 'esc cancel'], width);
+	const hint = fitHint(['enter choose', ...space ? [space] : [], 'esc cancel'], width);
 	// Border (2), title, the blank and three options, the blank and the hint.
 	let free = Math.max(0, input.height - 2 - 1 - 4 - 2 - head.length - tail.length - toggles.length);
 	const take = (lines: MergeLine[], reserve = 0) => { const shown = lines.slice(0, Math.max(0, free - reserve)); free -= shown.length; return shown; };

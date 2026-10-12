@@ -92,7 +92,7 @@ export function AgentsPane({versions, selected, checking, working = new Set(), o
 		selected={Math.min(selected, items.length - 1)}
 		labelWidth={8}
 		details={details}
-		hint={confirming ? ['enter update', 'esc cancel'] : [{text: 'j/k choose', drop: 1}, 'enter update', {text: 'r re-check', drop: 2}, 'esc back']}
+		hint={confirming ? ['enter update', 'esc cancel'] : ['enter update', {text: 'r re-check', drop: 2}, 'esc back']}
 		width={width}
 		height={height}
 	/>;

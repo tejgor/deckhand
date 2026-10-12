@@ -4,9 +4,9 @@ import {fitHint, menuWindowStart, scrolledListTop, wrapWords} from '../src/menu.
 
 test('fitHint keeps one line: full texts, then short forms, then drops the least important parts', () => {
 	const parts = [{text: '↑↓ move', drop: 2}, {text: 'enter/e open the file that sets it', short: 'enter open'}, 'esc back'];
-	assert.equal(fitHint(parts, 80), '↑↓ move · enter/e open the file that sets it · esc back');
-	assert.equal(fitHint(parts, 31), '↑↓ move · enter open · esc back');
-	assert.equal(fitHint(parts, 22), 'enter open · esc back');
+	assert.equal(fitHint(parts, 80), '↑↓ move • enter/e open the file that sets it • esc back');
+	assert.equal(fitHint(parts, 31), '↑↓ move • enter open • esc back');
+	assert.equal(fitHint(parts, 22), 'enter open • esc back');
 	assert.ok(fitHint(parts, 5).length <= 5);
 });
 
