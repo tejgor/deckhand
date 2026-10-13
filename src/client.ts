@@ -470,6 +470,7 @@ export class LiveClient {
 	saveConfig(target: ConfigTargetKind, cwd: string, raw: string, revision: string | null): Promise<SavedConfigDocument> { return this.request({type: 'save-config', requestId: randomUUID(), target, cwd, raw, revision}); }
 	settingsInfo(cwd: string): Promise<SettingsInfo> { return this.request({type: 'settings-info', requestId: randomUUID(), cwd}); }
 	worktreeCandidates(cwd: string): Promise<WorktreeCandidates> { return this.request({type: 'worktree-candidates', requestId: randomUUID(), cwd}); }
+	globalLinkCandidates(cwd: string): Promise<WorktreeCandidates> { return this.request({type: 'global-link-candidates', requestId: randomUUID(), cwd}); }
 	worktreeCandidateSizes(cwd: string, paths: string[]): Promise<Record<string, number | null>> { return this.request({type: 'worktree-candidate-sizes', requestId: randomUUID(), cwd, paths}); }
 	// The repository of `cwd` (its main checkout's deckhand.json), with trust state and effective settings.
 	projectInfo(cwd: string): Promise<ProjectInfo> { return this.request({type: 'project-info', requestId: randomUUID(), cwd}); }

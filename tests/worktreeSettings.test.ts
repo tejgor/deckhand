@@ -9,6 +9,8 @@ import {getHandoffGitContext, inspectWorkspaceCleanup} from '../src/workspaceGit
 import {handoffMarkdown} from '../src/sessionFeatures.js';
 import type {SessionRecord} from '../src/types.js';
 import {git, repo, tempDir, withEnv} from './helpers.js';
+import {readGlobalLinkCandidates} from '../src/settingsInfo.js';
+import {updateAppConfig} from '../src/storage.js';
 
 test('worktree templates expand known placeholders; validation rejects escapes; merge rules and trust', () => {
 	const vars = {name: 'feat/x', repo: 'app', repoParent: '/dev', repoRoot: '/dev/app', home: '/h'};
@@ -127,4 +129,36 @@ test('worktree.hook false: the hook never runs, is not fingerprinted or reviewed
 	const repoOn = await loadProjectConfig(cwd, off);
 	assert.ok(repoOn.creationHook); assert.equal(projectNeedsReview(repoOn, off), true); assert.equal(resolveSettings(repoOn, off).worktree?.hook, false);
 	assert.equal(resolveSettings(repoOn, trustProjectConfig(repoOn, off)).worktree?.hook, true);
+});
+
+test('global link candidates: global entries with the repos that have them, then paths two or more repos share (no build output); worktrees count as their repo', async t => {
+	const home = await tempDir(t, 'deckhand-global-links-');
+	withEnv(t, {DECKHAND_HOME: home});
+	const [a, b, c] = [await repo(), await repo(), await repo()];
+	t.after(() => Promise.all([a, b, c].map(root => fs.rm(root, {recursive: true, force: true}))));
+	for (const root of [a, b, c]) { await fs.writeFile(path.join(root, '.gitignore'), 'node_modules\ndist\nlocal.cfg\nsecrets.json\n'); await git(root, 'add', '.gitignore'); await git(root, 'commit', '-m', 'ignore'); }
+	for (const root of [a, b]) {
+		await fs.mkdir(path.join(root, 'node_modules')); await fs.writeFile(path.join(root, 'node_modules', 'x'), '');
+		await fs.mkdir(path.join(root, 'dist')); await fs.writeFile(path.join(root, 'dist', 'y'), '');
+		await fs.writeFile(path.join(root, 'local.cfg'), '');
+	}
+	await fs.writeFile(path.join(a, 'only-a.txt'), '');
+	await fs.writeFile(path.join(c, 'secrets.json'), '');
+	const bWorktree = `${b}-wt`; t.after(() => fs.rm(bWorktree, {recursive: true, force: true}));
+	await git(b, 'worktree', 'add', '-b', 'side', bWorktree);
+	await updateAppConfig(current => ({...current, defaults: {worktree: {symlink: ['secrets.json']}}}));
+
+	const result = await readGlobalLinkCandidates(a, [bWorktree, c, b, path.join(home, 'gone')]);
+	const name = (root: string) => path.basename(root);
+	assert.deepEqual(result.repos, [a, b, c].map(name));
+	assert.equal(result.checkout, await fs.realpath(a));
+	assert.deepEqual(result.candidates.map(candidate => [candidate.path, candidate.configured ?? '-', candidate.kind, candidate.repos]), [
+		['secrets.json', 'symlink', 'file', [name(c)]],
+		// Two repos each, the suggested link first; dist (build output) and only-a.txt (one repo) are left out.
+		['node_modules', '-', 'dir', [name(a), name(b)]],
+		['local.cfg', '-', 'file', [name(a), name(b)]],
+	]);
+	// Only this repository known: nothing is shared, and nothing fails.
+	const alone = await readGlobalLinkCandidates(a, []);
+	assert.deepEqual([alone.repos, alone.candidates.map(candidate => candidate.path)], [[name(a)], ['secrets.json']]);
 });

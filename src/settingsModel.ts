@@ -429,8 +429,9 @@ export function textChange(id: SettingId, text: string, entry?: string): {change
 }
 
 /** Linked items: candidates start linked when configured, otherwise as suggested. */
-export function initialLinks(candidates: WorktreeCandidate[]): Record<string, boolean> {
-	return Object.fromEntries(candidates.map(candidate => [candidate.path, candidate.configured ? true : candidate.suggestion === 'link']));
+/** What the picker starts with: configured entries linked, and (unless `suggest` is off, as for Global) the suggested ones. */
+export function initialLinks(candidates: WorktreeCandidate[], suggest = true): Record<string, boolean> {
+	return Object.fromEntries(candidates.map(candidate => [candidate.path, candidate.configured ? true : suggest && candidate.suggestion === 'link']));
 }
 export interface LinkSelection {symlink: string[]; added: string[]; removed: string[]; /** Unlinked here but still linked by the other layer. */ stillLinked: string[]}
 /**

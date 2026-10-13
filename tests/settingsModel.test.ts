@@ -267,3 +267,24 @@ test('Settings pane: two value columns from 64 columns (one, with ◂ ▸, below
 	const command = pane({view: 'actions', actionRow: 1, edit: {kind: 'text', id: 'actions', label: 'Action lint', target: 'repository', step: 'command', entry: 'lint', state: {text: '', cursor: 0}}}, 55).join('\n');
 	assert.ok(command.includes('New action · step 2 of 2: command for lint'));
 });
+
+test('Settings pane, Linked items · Global: the global entries and what your repos share, counted per repo; nothing suggested is preselected', () => {
+	const info = settingsInfo(undefined, GLOBAL);
+	const candidates: WorktreeCandidate[] = [
+		{path: 'shared', kind: 'file', ignored: true, suggestion: 'skip', reason: '', configured: 'symlink', layers: ['global'], repos: ['mono', 'site']},
+		{path: 'node_modules', kind: 'dir', ignored: true, suggestion: 'link', reason: 'dependencies', repos: ['mono', 'site', 'tools']},
+		{path: 'local.cfg', kind: 'file', ignored: true, suggestion: 'skip', reason: '', repos: ['mono', 'tools']},
+	];
+	const links = initialLinks(candidates, false);
+	assert.deepEqual(links, {shared: true, node_modules: false, 'local.cfg': false});
+	const state = {data: {checkout: '/dev/mono', candidates, moreCandidates: 0, repos: ['mono', 'site', 'tools']}, links, initial: links, target: 'global' as const, row: 1};
+	const text = renderToString(React.createElement(SettingsPane, {info, view: 'links', row: 0, actionRow: 0, column: 'global', sizes: {}, links: state, width: 100, height: 20}), {columns: 100});
+	for (const expected of ['Settings › Linked items · Global', 'your 3 repos: mono, site, tools', 'Linked in every repo', '[link] shared', 'in 2 of 3 repos', 'Found in several of your repos', '[skip] node_modules/', 'in 3 of 3 repos', 'suggested: dependencies', 'node_modules/: in mono, site, tools', 'a add a path'])
+		assert.ok(text.includes(expected), `${expected}\n${text}`);
+	// The details name where a link would be skipped.
+	const second = renderToString(React.createElement(SettingsPane, {info, view: 'links', row: 0, actionRow: 0, column: 'global', sizes: {}, links: {...state, row: 2}, width: 100, height: 20}), {columns: 100});
+	assert.ok(second.includes('local.cfg: in mono, tools · not in site (skipped there)'), second);
+	// Only this repository known: it says the This repo column is the place for its files.
+	const alone = renderToString(React.createElement(SettingsPane, {info, view: 'links', row: 0, actionRow: 0, column: 'global', sizes: {}, links: {...state, data: {...state.data, candidates: [], repos: ['mono']}, links: {}, initial: {}, row: 0}, width: 100, height: 20}), {columns: 100});
+	for (const expected of ['Nothing yet', 'Deckhand knows only this repository']) assert.ok(alone.includes(expected), `${expected}\n${alone}`);
+});

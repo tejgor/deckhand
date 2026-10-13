@@ -11,7 +11,7 @@ import {ACTION_COMMAND_EXAMPLES, ACTION_COMMAND_HELP, ACTION_NAME_EXAMPLES, ACTI
 import {SettingsPane, type LinksState, type Notice, type SettingsEdit, type SettingsView} from './settingsPane.js';
 import type {DetailLine} from './menu.js';
 import {THEME, errorMessage} from './ui.js';
-import {expandBranchName} from './worktreeLinks.js';
+import {expandBranchName, validRelativePath} from './worktreeLinks.js';
 
 export type SettingsFlowMode = 'settings' | 'edit-project' | 'discard-project';
 export function isSettingsFlowMode(mode: string): mode is SettingsFlowMode {
@@ -147,12 +147,15 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 		if (!client) return;
 		const current = ++token.current;
 		setBusy(true);
-		void client.worktreeCandidates(cwd).then(data => {
+		// Global links apply to every repository: its picker lists what your repositories share, nothing preselected
+		// (sizes are one checkout's, so it has none).
+		const global = layer === 'global';
+		void (global ? client.globalLinkCandidates(cwd) : client.worktreeCandidates(cwd)).then(data => {
 			setBusy(false);
 			if (token.current !== current) return;
-			const selected = initialLinks(data.candidates);
+			const selected = initialLinks(data.candidates, !global);
 			setLinks({data, links: selected, initial: selected, target: layer, row: 0}); setSizes({}); setView('links'); setNotice(undefined);
-			void loadSizes(client, data, current);
+			if (!global) void loadSizes(client, data, current);
 		}).catch(error => setNotice({text: errorMessage(error), error: true})).finally(() => setBusy(false));
 	};
 
@@ -198,6 +201,19 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 				const command = initialText(info, 'actions', current.target, text);
 				const placeholder = inheritedHint(info, 'actions', current.target, text);
 				setEdit({kind: 'text', id: 'actions', label: `Action ${text}`, target: current.target, entry: text, step: 'command', state: {text: command, cursor: command.length}, ...placeholder ? {placeholder} : {}});
+				return;
+			}
+			// a in Linked items: a path typed in, listed (linked) until Enter saves the picker.
+			if (current.id === 'worktree.links' && links) {
+				const entry = text.trim().replace(/\/+$/, '');
+				if (!validRelativePath(entry)) { setEdit({...current, error: 'A path relative to the repository root (no leading /, no ..)'}); return; }
+				setEdit(undefined);
+				const at = links.data.candidates.findIndex(candidate => candidate.path === entry);
+				if (at >= 0) { setLinks({...links, links: {...links.links, [entry]: true}, row: at}); setNotice({text: `${entry} is already listed; it is linked now (Enter saves)`}); return; }
+				// After the linked rows, so it shows with them.
+				const end = links.data.candidates.filter(candidate => candidate.configured || candidate.added).length;
+				const candidates = [...links.data.candidates.slice(0, end), {path: entry, kind: 'file' as const, ignored: false, suggestion: 'skip' as const, reason: '', added: true}, ...links.data.candidates.slice(end)];
+				setLinks({...links, data: {...links.data, candidates}, links: {...links.links, [entry]: true}, row: end}); setNotice(undefined);
 				return;
 			}
 			const result = textChange(current.id, text, current.entry);
@@ -269,6 +285,7 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 				else { setLinks({...links, links: {...links.links, [candidate.path]: !links.links[candidate.path]}}); setNotice(undefined); }
 				return;
 			}
+			if (input === 'a') { setEdit({kind: 'text', id: 'worktree.links', label: 'Add a path', target: links.target, state: {text: '', cursor: 0}, placeholder: '.env, .claude/settings.local.json'}); return; }
 			if (input === 'E') {
 				if (linksDirty) { setNotice({text: 'Unsaved link changes: Enter saves them (Esc discards) before E opens the raw JSON.', error: true}); return; }
 				editJson(links.target); return;
@@ -277,7 +294,8 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 				if (links.data.candidatesError) { setNotice({text: 'Nothing to save: the candidates could not be listed.', error: true}); return; }
 				const other: ConfigTargetKind = links.target === 'global' ? 'repository' : 'global';
 				const before = ownValue(infoLayer(info, links.target), 'worktree.links');
-				const selection = linkSelection(infoLayer(info, links.target), infoLayer(info, other), links.data.candidates, links.links);
+				// Global covers every repository, so this repo's list never makes a global entry redundant (the reverse does).
+				const selection = linkSelection(infoLayer(info, links.target), links.target === 'global' ? undefined : infoLayer(info, other), links.data.candidates, links.links);
 				if (JSON.stringify(selection.symlink) === JSON.stringify(Array.isArray(before) ? before : [])) {
 					token.current++; setLinks(undefined); setView('main');
 					setNotice({text: `Linked items unchanged${selection.stillLinked.length ? `; still linked by ${targetName(other)}: ${selection.stillLinked.join(', ')} (edit them in that column)`: ''}`, ...selection.stillLinked.length ? {error: true} : {}});
@@ -352,6 +370,9 @@ export function useSettingsFlow({client, mode, setMode, setBusy, setError, setSt
 			const live = check.error && check.error !== edit.error ? [line(check.error, {color: THEME.error})] : check.note ? [line(check.note, {color: THEME.active})] : [];
 			return [...live, line(ACTION_NAME_RULES), line(ACTION_NAME_EXAMPLES)];
 		}
+		if (edit.id === 'worktree.links' && view === 'links') return [line(edit.target === 'global'
+			? 'Relative to each repository\'s root: every new worktree links its repository\'s own copy; a repository without it skips it.'
+			: 'Relative to the repository root: each new worktree links the main checkout\'s copy.')];
 		if (edit.id === 'actions') {
 			const problem = text.trim() ? commandProblem(text) : undefined;
 			return [...problem ? [line(problem, {color: THEME.error})] : [], line(ACTION_COMMAND_HELP), line(ACTION_COMMAND_EXAMPLES)];

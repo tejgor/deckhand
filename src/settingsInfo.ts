@@ -124,9 +124,17 @@ export interface WorktreeCandidate {
 	source?: string;
 	/** Configured but absent from the checkout. */
 	missing?: boolean;
+	/** Global view: the scanned repositories (names) that have it. */
+	repos?: string[];
+	/** Typed in the picker (a), not yet saved. */
+	added?: boolean;
 }
 /** Settings → Linked items: the untracked/ignored entries of the main checkout plus every configured entry. */
-export interface WorktreeCandidates {checkout: string; candidates: WorktreeCandidate[]; moreCandidates: number; candidatesError?: string}
+export interface WorktreeCandidates {
+	checkout: string; candidates: WorktreeCandidate[]; moreCandidates: number; candidatesError?: string;
+	/** Global view (readGlobalLinkCandidates): the repositories scanned, this one first. */
+	repos?: string[];
+}
 
 const LINK_SEGMENTS = new Set(['node_modules', '.venv', 'venv', 'vendor', '.vercel']);
 const SKIP_SEGMENTS: Record<string, string> = {dist: 'build output', build: 'build output', out: 'build output', coverage: 'coverage', '.next': 'build cache', '.turbo': 'build cache', '.cache': 'cache', __pycache__: 'cache', '.pytest_cache': 'cache', '.DS_Store': 'OS clutter'};
@@ -189,6 +197,61 @@ export async function readWorktreeCandidates(cwd: string): Promise<WorktreeCandi
 		const read = await readCandidates(checkout, layers);
 		return {checkout, candidates: read.candidates, moreCandidates: read.more};
 	} catch (error) { return {checkout, candidates: [], moreCandidates: 0, candidatesError: firstLine(error)}; }
+}
+
+const MAX_REPOS = 12, MAX_KNOWN_ROOTS = 40;
+const UNTRACKED_STATUS = ['--no-optional-locks', 'status', '--porcelain=v2', '-z', '--ignored=matching', '--untracked-files=normal'];
+/**
+ * Settings → Linked items · Global: what a link in every repository would do. Global links apply to every repository's
+ * new worktrees, so the candidates are not one checkout's files (those belong in its own column) but the global
+ * entries and the untracked/ignored paths shared by at least two of the user's repositories: the main checkouts of
+ * `cwd` and of `knownRoots` (session roots, most recent first; worktrees resolve to their main checkout), at most
+ * MAX_REPOS. Build output, caches and clutter are never suggested. Each candidate names the repositories that have it.
+ */
+export async function readGlobalLinkCandidates(cwd: string, knownRoots: string[]): Promise<WorktreeCandidates> {
+	const user = await loadAppConfig();
+	let global: WorktreeSettings | undefined;
+	try { global = validateProjectConfig(user.defaults ?? {}, 'defaults').worktree; } catch {}
+	const roots = [...new Set([cwd, ...knownRoots])].slice(0, MAX_KNOWN_ROOTS);
+	const resolved = await Promise.all(roots.map(root => resolveRepoContext(root).then(context => context.mainRoot ?? context.root, () => undefined)));
+	const checkouts = [...new Set(resolved.filter((checkout): checkout is string => Boolean(checkout)))].slice(0, MAX_REPOS);
+	const checkout = checkouts[0] ?? cwd;
+	const scanned = await Promise.all(checkouts.map(async root => {
+		try {
+			const status = parseStatus(await git(root, UNTRACKED_STATUS, {maxBuffer: 32 * 1024 * 1024}));
+			return {root, entries: new Map([...status.untracked.map(file => [file, false] as const), ...status.ignored.map(file => [file, true] as const)].map(([file, ignored]) => [file.replace(/\/$/, ''), ignored]))};
+		} catch { return undefined; }
+	}));
+	const repos = scanned.filter((repo): repo is NonNullable<typeof repo> => Boolean(repo));
+	const name = (root: string) => path.basename(root);
+	const candidates: WorktreeCandidate[] = [];
+	const configured = new Set<string>();
+	for (const entry of global?.symlink ?? []) {
+		configured.add(entry);
+		const having = [];
+		for (const repo of repos) if (await entryKind(path.join(repo.root, entry))) having.push(repo);
+		const kind = having[0] ? await entryKind(path.join(having[0].root, entry)) : undefined;
+		candidates.push({path: entry, kind: kind?.kind ?? 'file', ignored: Boolean(having[0]?.entries.get(entry)), ...classifyCandidate(entry), configured: 'symlink', layers: ['global'], repos: having.map(repo => name(repo.root)), ...having.length ? {} : {missing: true}});
+	}
+	for (const [destination, source] of Object.entries(global?.files ?? {})) {
+		configured.add(destination);
+		candidates.push({path: destination, kind: 'file', ignored: false, ...classifyCandidate(destination), configured: 'files', layers: ['global'], source});
+	}
+	const shared = new Map<string, typeof repos>();
+	for (const repo of repos) for (const file of repo.entries.keys()) {
+		if (!validRelativePath(file) || file === PROJECT_CONFIG_FILE || configured.has(file)) continue;
+		shared.set(file, [...shared.get(file) ?? [], repo]);
+	}
+	const suggestions = [...shared].filter(([, having]) => having.length >= 2)
+		.map(([file, having]) => ({file, having, ...classifyCandidate(file)}))
+		.filter(entry => entry.suggestion === 'link' || !entry.reason)
+		.sort((a, b) => b.having.length - a.having.length || Number(b.suggestion === 'link') - Number(a.suggestion === 'link') || a.file.localeCompare(b.file));
+	const shown = suggestions.slice(0, MAX_CANDIDATES);
+	for (const entry of shown) {
+		const kind = await entryKind(path.join(entry.having[0]!.root, entry.file));
+		candidates.push({path: entry.file, kind: kind?.kind ?? 'file', ignored: Boolean(entry.having[0]!.entries.get(entry.file)), suggestion: entry.suggestion, reason: entry.reason, repos: entry.having.map(repo => name(repo.root))});
+	}
+	return {checkout, candidates, moreCandidates: suggestions.length - shown.length, repos: repos.map(repo => name(repo.root)), ...repos.length ? {} : {candidatesError: 'no repository could be read'}};
 }
 
 const MAX_SIZE_PATHS = 24, SIZE_TIMEOUT_MS = 4000, SIZE_CONCURRENCY = 4;
