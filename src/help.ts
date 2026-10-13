@@ -128,7 +128,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		note('Two columns: Global (every repo) and This repo (deckhand.json in the main checkout; fine to commit). This repo wins.'),
 		key('● ⚠', 'In effect / a repo value that applies once trusted ((built-in): Deckhand\'s default)'),
 		key('j k  ← →', 'Setting / column (Tab too; PgUp/PgDn, Home/End jump)'),
-		key('Enter  x', 'Edit / clear the cell (Actions: a adds, x removes; Linked items: Space, Enter saves)'),
+		key('Enter  x', 'Edit / clear the cell (Actions: a adds, x removes; Linked items: Space, a adds a path, Enter saves)'),
 		key('E  T', 'The column\'s raw JSON (Ctrl+S saves, Ctrl+F formats) / review and trust the repo file'),
 		note('A repo\'s commands only run once you trust it; you\'re asked right before. Your edits here keep it trusted.'),
 		heading('Agent signals (Settings → Agents; on for Claude unless switched off)'),

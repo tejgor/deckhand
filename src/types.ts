@@ -406,6 +406,8 @@ export type ClientRequest =
 	| {type: 'settings-info'; requestId: string; cwd: string}
 	/** Settings → Linked items: untracked/ignored entries of the main checkout plus configured links. Read-only. */
 	| {type: 'worktree-candidates'; requestId: string; cwd: string}
+	/** Settings → Linked items · Global: global entries and paths shared by several of the user's repositories. Read-only. */
+	| {type: 'global-link-candidates'; requestId: string; cwd: string}
 	/** Bounded sizes (KiB, null when unknown) of candidate paths relative to the main checkout. */
 	| {type: 'worktree-candidate-sizes'; requestId: string; cwd: string; paths: string[]}
 	| {type: 'trust-project'; requestId: string; cwd: string; fingerprint: string}

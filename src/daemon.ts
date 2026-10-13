@@ -17,7 +17,7 @@ import {errorMessage} from './ui.js';
 import type {WorktreeSettings} from './worktreeLinks.js';
 import {loadProjectConfig, isProjectTrusted, projectNeedsReview, resolveDevCommand, resolveSettings, resolveSetupCommand, trustProjectConfig, type LoadedProject} from './projectConfig.js';
 import {saveGlobalDefaultsDocument, saveProjectConfigDocument} from './projectConfigDocument.js';
-import {readCandidateSizes, readSettingsInfo, readWorktreeCandidates} from './settingsInfo.js';
+import {readCandidateSizes, readSettingsInfo, readGlobalLinkCandidates, readWorktreeCandidates} from './settingsInfo.js';
 import {createPullRequest, getHandoffGitContext, getMergePreview, getWorkspaceSummary, inspectWorkspaceCleanup, mergedIntoDefault, worktreeActivity, type WorkspaceSummary, type CleanupInspection} from './workspaceGit.js';
 import {applyStage, readChangeDiff, readChanges, type ChangesSnapshot, type UntrackedCounts} from './changesGit.js';
 import {emptyChanges, findChange, type ChangesRecord} from './changesModel.js';
@@ -760,6 +760,11 @@ export class InkDaemon {
 				}
 				case 'settings-info': sendMessage(socket, response(message.requestId, await readSettingsInfo(message.cwd))); return;
 				case 'worktree-candidates': sendMessage(socket, response(message.requestId, await readWorktreeCandidates(message.cwd))); return;
+				case 'global-link-candidates': {
+					// The repositories the user works in: every session's root, most recently updated first.
+					const roots = [...this.sessions.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(session => session.repoRoot);
+					sendMessage(socket, response(message.requestId, await readGlobalLinkCandidates(message.cwd, roots))); return;
+				}
 				case 'worktree-candidate-sizes': sendMessage(socket, response(message.requestId, await readCandidateSizes(message.cwd, message.paths))); return;
 				case 'project-info': {
 					const config = await loadAppConfig();

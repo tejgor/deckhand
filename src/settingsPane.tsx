@@ -215,14 +215,46 @@ function formatSize(kib: number | null | undefined, kind?: WorktreeCandidate['ki
 	return mib < 1024 ? `${mib < 10 ? mib.toFixed(1) : Math.round(mib)} MB` : `${(mib / 1024).toFixed(1)} GB`;
 }
 function candidateAction(candidate: WorktreeCandidate): string {
-	return candidate.missing ? 'missing in checkout'
+	return candidate.added ? 'added here (Enter saves)'
+		: candidate.missing ? 'missing in checkout'
 		: candidate.configured === 'files' ? `files → ${candidate.source}`
+		// In this repo's picker: a global entry links here too, whatever this list says.
+		: candidate.configured && candidate.layers?.length === 1 && candidate.layers[0] === 'global' ? 'linked by Global (every repo)'
 		: candidate.configured ? `configured${candidate.layers?.length ? ` (${candidate.layers.map(layer => layer === 'global' ? 'global' : 'repo').join(', ')})` : ''}`
 		: candidate.reason ? `${candidate.suggestion === 'link' ? 'suggested: ' : ''}${candidate.reason}` : '';
 }
 // Narrow rows drop the "suggested: " prefix ([link]/[skip] already shows the suggestion); the details box has it.
 const fitAction = (text: string, width: number) => text.length > width ? text.replace(/^suggested: /, '') : text;
+/** "in 3 of 4 repos" for the Global picker's rows. */
+const repoCount = (candidate: WorktreeCandidate, total: number) => candidate.configured === 'files' ? `files → ${candidate.source}` : candidate.added ? 'added here' : `in ${candidate.repos?.length ?? 0} of ${total} repo${total === 1 ? '' : 's'}`;
+/** Global: the global entries, then the paths several of your repositories share; a count instead of a size. */
+function globalLinkLines(state: LinksState, inner: number): ListLine[] {
+	const {candidates, moreCandidates, candidatesError, repos = []} = state.data;
+	const lines: ListLine[] = [{text: `Links in every repository's new worktrees · your ${repos.length} repo${repos.length === 1 ? '' : 's'}: ${repos.join(', ') || 'none readable'}`, color: THEME.muted, intro: true}];
+	if (candidatesError) lines.push({text: `Could not list your repositories' files: ${candidatesError}`, color: THEME.error});
+	const linked = candidates.filter(candidate => candidate.configured || candidate.added).length;
+	const countWidth = Math.min(24, Math.max(10, ...candidates.map(candidate => repoCount(candidate, repos.length).length)));
+	const nameWidth = Math.max(8, Math.min(Math.max(8, ...candidates.map(candidate => candidate.path.length + 1)), inner - 2 - 7 - 2 - countWidth - 2 - 10));
+	const row = (candidate: WorktreeCandidate, index: number) => {
+		const on = candidate.configured === 'files' || state.links[candidate.path];
+		const name = `${candidate.path}${candidate.kind === 'dir' ? '/' : ''}`;
+		const reason = candidate.configured || candidate.added ? '' : candidate.reason ? `${candidate.suggestion === 'link' ? 'suggested: ' : ''}${candidate.reason}` : '';
+		const text = `[${on ? 'link' : 'skip'}] ${truncate(visible(name), nameWidth).padEnd(nameWidth)}  ${truncate(repoCount(candidate, repos.length), countWidth).padEnd(countWidth)}  ${reason}`;
+		lines.push({text, row: index, head: true, color: on ? THEME.success : THEME.muted, selected: index === state.row});
+	};
+	lines.push({text: 'Linked in every repo', color: THEME.accentSoft, bold: true, section: true});
+	if (!linked) lines.push({text: '  Nothing yet: space links a path below, a adds one by name.', color: THEME.muted});
+	candidates.slice(0, linked).forEach((candidate, index) => row(candidate, index));
+	lines.push({text: 'Found in several of your repos', color: THEME.accentSoft, bold: true, section: true});
+	if (candidates.length === linked) lines.push({text: repos.length < 2
+		? '  Deckhand knows only this repository; its own files belong in the This repo column.'
+		: `  No untracked or ignored path is in two of your ${repos.length} repos (build output and caches are left out).`, color: THEME.muted});
+	candidates.slice(linked).forEach((candidate, index) => row(candidate, linked + index));
+	if (moreCandidates) lines.push({text: `  +${moreCandidates} more (a adds one by name)`, color: THEME.muted});
+	return lines;
+}
 function linkLines(state: LinksState, sizes: Record<string, number | null>, home: string | undefined, inner: number): ListLine[] {
+	if (state.data.repos) return globalLinkLines(state, inner);
 	const {candidates, moreCandidates, candidatesError} = state.data;
 	const lines: ListLine[] = [];
 	if (candidatesError) lines.push({text: `Could not list untracked/ignored files: ${candidatesError}`, color: THEME.error});
@@ -393,9 +425,15 @@ export function SettingsPane({info, view, row, actionRow, column, edit, editHelp
 	if (view === 'links' && links) {
 		lines = linkLines(links, sizes, info.vars?.home, inner);
 		selected = links.row;
-		hint = ['space link/skip', 'enter save', {text: 'E raw JSON', short: 'E JSON', drop: 1}, 'esc cancel'];
+		hint = ['space link/skip', {text: 'a add a path', short: 'a add'}, 'enter save', {text: 'E raw JSON', short: 'E JSON', drop: 1}, 'esc cancel'];
 		const current = links.data.candidates[links.row];
-		if (current) details.push({text: `${current.path}${current.kind === 'dir' ? '/' : ''}: ${current.configured === 'files' ? `copied from ${current.source} by worktree.files (edit in raw JSON: E)` : candidateAction(current) || (links.links[current.path] ? 'linked' : 'not linked')}`});
+		const repos = links.data.repos;
+		// Global: which of your repositories a link would reach.
+		const reach = (candidate: WorktreeCandidate) => {
+			const having = candidate.repos ?? [], without = (repos ?? []).filter(repo => !having.includes(repo));
+			return `${having.length ? `in ${having.join(', ')}` : 'in none of your repos yet'}${having.length && without.length ? ` · not in ${without.join(', ')} (skipped there)` : ''}`;
+		};
+		if (current) details.push({text: `${current.path}${current.kind === 'dir' ? '/' : ''}: ${current.configured === 'files' ? `copied from ${current.source} by worktree.files (edit in raw JSON: E)` : repos && !current.added ? reach(current) : candidateAction(current) || (links.links[current.path] ? 'linked' : 'not linked')}`});
 		if (JSON.stringify(links.links) !== JSON.stringify(links.initial)) details.push({text: 'Unsaved changes: Enter saves them, Esc discards.', color: THEME.warn});
 	} else if (view === 'actions') {
 		const list = actionLines(info, column, actionRow, inner);
