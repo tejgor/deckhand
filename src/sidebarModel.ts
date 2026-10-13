@@ -17,7 +17,7 @@ export interface SidebarRow {
 	id: string;
 	parts: RowPart[];
 	selected: boolean;
-	/** Archived rows outside the archived view, and context-only ancestors inside it. */
+	/** Archived rows outside the archived view. */
 	dimmed: boolean;
 	/** Marked done (D) and not dimmed: its title is slightly dimmed (muted), its markers stay readable. */
 	done: boolean;
@@ -55,9 +55,9 @@ function isMerged(session: SessionRecord): boolean {
 	return Boolean(session.worktree?.mergedAt || session.mergedAt);
 }
 
-/** Whether a row is dimmed: archived ones, except in the archived view, where the non-archived context ancestors are. */
+/** Whether a row is dimmed: archived ones, except in the archived view (which lists nothing else). */
 export function rowDimmed(session: SessionRecord, filter: SessionFilter): boolean {
-	return filter === 'archived' ? !session.archivedAt : Boolean(session.archivedAt);
+	return filter !== 'archived' && Boolean(session.archivedAt);
 }
 
 export function sidebarRows({rows, allSessions, firstNumber, numberWidth, selectedId, width, spinnerFrame, filter, collapsedSessionIds = new Set(), hiddenSessionIds = new Set(), installedVersions = {}}: SidebarRowsInput): SidebarRow[] {
@@ -72,7 +72,8 @@ export function sidebarRows({rows, allSessions, firstNumber, numberWidth, select
 		const selected = session.id === selectedId;
 		const key = keys.get(session.id);
 		const sharesSelected = !selected && selectedKey !== undefined && key === selectedKey;
-		const depth = sessionDepth(session, allSessions);
+		// Indented under the parents the view lists (an archived sub-session of a live session is top level there).
+		const depth = sessionDepth(session, listed);
 		const hasChildren = sessionHasChildren(session.id, listed);
 		const collapsed = collapsedSessionIds.has(session.id);
 		const childCount = collapsed && hasChildren

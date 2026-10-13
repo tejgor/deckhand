@@ -26,6 +26,9 @@ export function filterSessionList(sessions: SessionRecord[], filter: SessionFilt
 		const haystack = `${session.title} ${session.notes ?? ''} ${session.sharedNotes?.text ?? ''} ${session.program} ${session.worktree?.branch ?? ''} ${session.cwd} ${terms.length && taskTitle ? taskTitle(session) ?? '' : ''}`.toLowerCase();
 		if (!matchesState || !terms.every(term => haystack.includes(term))) continue;
 		ids.add(session.id);
+		// Other views keep a match in its tree (its parents shown for context); the archived view lists only archived
+		// sessions: a parent there would count as archived and take its keys, and a child's title already names it.
+		if (filter === 'archived') continue;
 		let parentId = session.parentSessionId;
 		const seen = new Set([session.id]);
 		while (parentId && byId.has(parentId) && !seen.has(parentId)) {
@@ -34,7 +37,7 @@ export function filterSessionList(sessions: SessionRecord[], filter: SessionFilt
 	}
 	return sessions.filter(session => ids.has(session.id));
 }
-/** How many rows each filter would list with this search (ancestors shown for context included, collapse not applied). */
+/** How many rows each filter would list with this search (ancestors shown for context included outside archived, collapse not applied). */
 export function sessionFilterCounts(sessions: SessionRecord[], query: string, taskTitle?: (session: SessionRecord) => string | undefined): Record<SessionFilter, number> {
 	return Object.fromEntries(SESSION_FILTERS.map(filter => [filter, filterSessionList(sessions, filter, query, taskTitle).length])) as Record<SessionFilter, number>;
 }
