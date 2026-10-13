@@ -33,7 +33,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		note('Deleting a worktree on stop is blocked by uncommitted work or unpushed commits unless you type DELETE.'),
 	]},
 	{title: 'Sidebar', lines: [
-		note('A row: number, tree, status, title, then markers and the agent. Archived rows are dimmed (in the archived view: the parents shown for context).'),
+		note('A row: number, tree, status, title, then markers and the agent. Archived rows are dimmed (except in the archived view, which lists only them).'),
 		key('⠋ ● ◌ ○', 'Starting or working · idle · running, activity unknown · exited'),
 		key('? ◆ ⌛', 'Needs input · response ended (not task success) · rate-limited'),
 		key('!', 'Before the title: failed (red) or interrupted (yellow)'),

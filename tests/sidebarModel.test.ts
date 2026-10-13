@@ -5,6 +5,7 @@ import {renderToString} from 'ink';
 import {filterMenuLines, formatAge, locationText, msUntilAgeChanges, sessionDetails, sidebarHeader, sidebarRows, statusSince, statusWords, type SidebarRowsInput} from '../src/sidebarModel.js';
 import {Sidebar, moreText, partStyle} from '../src/sidebar.js';
 import {sortSessionsForSidebar} from '../src/sessionOrder.js';
+import {filterSessionList} from '../src/sessionFeatures.js';
 import type {SessionRecord} from '../src/types.js';
 
 const NOW = Date.parse('2026-10-05T12:00:00.000Z');
@@ -84,14 +85,22 @@ test('sidebar rows: ▶ once per workspace, on its first row on screen; rows sha
 	assert.deepEqual(marks('e'), [' ▶', ' ', ' ', ' ', '›', ' ', ' ']);
 });
 
-test('sidebar rows: archived rows dimmed, except in the archived view, which dims the context ancestors instead', () => {
+test('sidebar rows: archived rows dimmed, except in the archived view, which lists only archived ones (a sub-session of a live session at top level)', () => {
 	const parent = session('parent', {title: 'parent'});
 	const archivedChild = session('child', {parentSessionId: 'parent', subSessionKind: 'clean', archivedAt: ago(1)});
 	const archived = session('old', {archivedAt: ago(1)});
 	const list = [parent, archivedChild, archived];
 	const dimmed = (filter: SidebarRowsInput['filter'], selectedId?: string) => rows({rows: list, filter, selectedId}).map(row => row.dimmed);
 	assert.deepEqual(dimmed('all'), [false, true, true]);
-	assert.deepEqual(dimmed('archived'), [true, false, false]);
+	// The archived view: no live parent brought along, nothing dimmed, the child not indented (↳ still says what it is).
+	const archivedView = filterSessionList(list, 'archived', '');
+	assert.deepEqual(archivedView.map(item => item.id), ['child', 'old']);
+	const shown = rows({rows: archivedView, allSessions: list, filter: 'archived'});
+	assert.deepEqual(shown.map(row => row.dimmed), [false, false]);
+	assert.equal(shown[0]!.parts.find(part => part.role === 'tree')?.text, '↳ ');
+	// An archived parent keeps its archived child under it.
+	const both = [{...parent, archivedAt: ago(2)}, archivedChild];
+	assert.equal(rows({rows: filterSessionList(both, 'archived', ''), allSessions: both, filter: 'archived'})[1]!.parts.find(part => part.role === 'tree')?.text, '  ↳ ');
 	// The selected row is never dimmed; ▣ stays.
 	assert.deepEqual(dimmed('all', 'old'), [false, true, false]);
 	assert.ok(rows({rows: list, filter: 'all'})[2]!.parts.some(part => part.text === '▣'));
@@ -238,7 +247,8 @@ test('sidebar done marker: ☑ after ✓ in the suffix, dropped after ✓ when n
 	// Dimming: done rows are `done` (muted title), never archive-dimmed for it; archived rules win, the selected row is neither.
 	const flags = (filter: SidebarRowsInput['filter'], selectedId?: string) => rows({rows: list, filter, selectedId}).map(row => `${row.dimmed ? 'dim' : ''}${row.done ? 'done' : ''}` || '-');
 	assert.deepEqual(flags('all'), ['done', 'done', 'dim', '-']);
-	assert.deepEqual(flags('archived'), ['dim', 'dim', 'done', 'dim']);
+	// The archived view dims nothing (it lists only archived sessions).
+	assert.deepEqual(flags('archived'), ['done', 'done', 'done', '-']);
 	assert.deepEqual(flags('all', 'main'), ['done', '-', 'dim', '-']);
 	// Details: ☑ with its age after ✓, before ▣; ☑ alone within a minute or without a time.
 	const detail = (item: SessionRecord) => sessionDetails(item, [item], 48, 10, NOW).map(line => line.map(part => part.text).join('')).at(-1);
