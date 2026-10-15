@@ -101,6 +101,12 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press('G'); await screen('› Nothing waiting'); await screen('a add task');
 	press('a'); await screen('New task · backlog');
 	press('\x1b'); await screen('a add task');
+	// o jumps to the task's session even while the sidebar's filter hides it: the filter goes back to active, so the
+	// session is selected (not the first listed one, or none).
+	press('\x1b'); await screen('enter edit notes');
+	press('f'); press('e'); await screen('No sessions match');
+	press('b'); press('g'); await screen('o session');
+	press('o'); await screen('enter edit notes');
 
 	// Keymap: [ goes to the previous tab (Notes → Dev), x asks before stopping, Esc backs out of it, Space marks done.
 	press('\x1b'); await screen('enter edit notes');
@@ -110,6 +116,7 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	press(' '); await screen('Marked done');
 	// Backspace archives a finished session; in the archived view (f A) Backspace removes it for good.
 	press('X'); await screen('s resume');
+	press('x'); await screen('Already stopped: Backspace archives it, s resumes it');
 	press('\x7f'); await screen('Archived Write the docs'); await screen('No sessions match');
 	press('f'); await screen('A  archived'); press('A'); await screen('A unarchive'); await screen('backspace remove');
 	// Removing always asks; its note has the open item sent back from Tasks, so it is listed and x removes anyway.

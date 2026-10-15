@@ -41,8 +41,11 @@ export type BoardRow =
 	/** A checklist item of the work's note, shown under the task the work was started for (one of its steps). */
 	| {kind: 'step'; section: string; taskId: string; step: WorkStep}
 	| {kind: 'older'; count: number; shown: boolean}
-	/** `addsTo`: an empty backlog, selectable so `a` can add there even when every task is on a worktree. */
-	| {kind: 'empty'; text: string; addsTo?: 'backlog'}
+	/**
+	 * `addsTo`: a placeholder `a` adds to, selectable so it can be reached: an empty backlog (even when every task is on a
+	 * worktree), or the v view's work with no open task.
+	 */
+	| {kind: 'empty'; text: string; addsTo?: 'backlog' | 'work'}
 	/** The Notes view (tab): a note's heading (its open items counted), then each line of it. */
 	| {kind: 'notehead'; block: NoteBlock; open: number}
 	| {kind: 'noteline'; block: NoteBlock; line: number; text: string; style: NoteLineStyle; item?: NoteItem};
@@ -114,7 +117,7 @@ export function boardRows(tasks: Task[], showOlder: boolean, now = new Date(), s
 			rows.push({kind: 'task', task, group: 'progress', section: work, steps: stepCount(steps), ...headsWork ? {headsWork} : {}});
 			for (const step of steps) rows.push({kind: 'step', section: work, taskId: task.id, step});
 		}
-		if (!list.length) rows.push({kind: 'empty', text: 'No open tasks here · a adds one'});
+		if (!list.length) rows.push({kind: 'empty', text: 'No open tasks here · a adds one', addsTo: 'work'});
 	}
 	if (!works.length) section('IN PROGRESS', [], 'progress', 'n on a backlog task starts a session for it · w gives it to a worktree');
 	if (!scope) section('BACKLOG', groups.backlog, 'backlog', tasks.length ? 'Nothing waiting · a adds a task here' : 'No tasks yet · a adds one');
@@ -380,7 +383,7 @@ export function notesViewRows(sessions: SessionRecord[], {itemsOnly = false, sco
 		});
 		return {block, open: items.length, lines};
 	}).filter(entry => entry.lines.length);
-	if (!blocks.length) return [{kind: 'empty', text: itemsOnly ? 'No open checklist items in these notes · f shows every note' : scope ? 'No notes here yet · write one in a session’s Notes tab (a)' : 'No notes yet · write one in a session’s Notes tab (a)'}];
+	if (!blocks.length) return [{kind: 'empty', text: itemsOnly ? 'No open checklist items in these notes · f shows every note' : scope ? 'No notes here yet · esc, then a session’s Notes tab (a in the sidebar)' : 'No notes yet · esc, then a session’s Notes tab (a in the sidebar)'}];
 	return [...new Set(blocks.map(entry => entry.block.group))].flatMap(group => {
 		const inGroup = blocks.filter(entry => entry.block.group === group);
 		return [
