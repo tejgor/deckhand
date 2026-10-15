@@ -545,14 +545,15 @@ function ActionPickerPane({project, running, dev, selectedIndex, width, height}:
 		empty="No actions configured (C → Settings › Actions adds one)"
 		details={onDev ? {title: 'Dev', lines: [
 			{text: devCommand, color: THEME.active, nowrap: true},
-			{text: dev!.running ? 'Running in this worktree: Enter (or x) stops it.' : 'Enter starts it in this worktree; its output is on the Dev tab, shared by every session there.'},
+			{text: dev!.running ? `Running in this worktree: Enter ${runningName ? '' : '(or x) '}stops it.` : 'Enter starts it in this worktree; its output is on the Dev tab, shared by every session there.'},
+			...runningName ? [{text: `${runningName} is still running in this worktree: x stops it.`, color: THEME.warn}] : [],
 		]} : selected ? {title: 'Selected command', lines: [
 			{text: selected.command, color: THEME.active, nowrap: true},
 			...selected.needsTrust ? [{text: `From this repo's deckhand.json, not trusted yet: Enter shows it for review before anything runs${selected.fallback ? ` (s runs the global ${selected.name} instead: ${selected.fallback})` : ''}.`, color: THEME.warn}] : [],
 			runningName ? {text: `${runningName} is still running in this worktree: x stops it, then run another.`, color: THEME.warn}
 				: {text: 'Runs on the Terminal tab beside your shell (v switches), one action at a time per worktree; Dev keeps running.'},
 		]} : undefined}
-		hint={[onDev ? (dev!.running ? 'enter stop Dev' : 'enter start Dev') : 'enter run', ...runningName && !onDev ? [`x stop ${runningName}`] : [], 'esc cancel']}
+		hint={[onDev ? (dev!.running ? 'enter stop Dev' : 'enter start Dev') : 'enter run', ...runningName ? [`x stop ${runningName}`] : [], 'esc cancel']}
 		width={width}
 		height={height}
 	/>;
@@ -1468,11 +1469,25 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		setStatusMessage(`${displaySessionTitle(target, repoSessions)} is in the sidebar of the Deckhand opened in ${compactPath(target.repoRoot, 60)}`);
 		return true;
 	};
+	// Jumping to a session (o on a task, Enter on a note, W) selects it in the sidebar, so it must be listed there: the
+	// search is cleared, a filter that hides it widened (an archived one: all, else active), and in the active view its
+	// collapsed or hidden ancestors are expanded. Otherwise the selection would fall back to the first listed session.
+	const revealSession = (sessionId: string) => {
+		const target = sessions.find(session => session.id === sessionId);
+		setSessionQuery('');
+		if (!target) return;
+		const filter = target.archivedAt ? 'all' : filterSessionList(sessions, sessionFilter, '').some(session => session.id === sessionId) ? sessionFilter : 'active';
+		setSessionFilter(filter);
+		if (filter !== 'active') return;
+		const lineage = new Set([sessionId]);
+		for (let id = target.parentSessionId; id && !lineage.has(id); id = sessions.find(session => session.id === id)?.parentSessionId) lineage.add(id);
+		const without = (ids: Set<string>) => ([...ids].some(id => lineage.has(id)) ? new Set([...ids].filter(id => !lineage.has(id))) : ids);
+		setCollapsedSessionIds(without);
+		setHiddenExitedSessionIds(without);
+	};
 	const goToSession = (sessionId: string) => {
 		if (elsewhere(sessionId)) return;
-		const target = sessions.find(session => session.id === sessionId);
-		if (target?.archivedAt) setSessionFilter('all');
-		setSessionQuery('');
+		revealSession(sessionId);
 		setSelectedId(sessionId);
 		setMode('browse');
 	};
@@ -1483,6 +1498,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 		onGoTo: goToSession,
 		onOpenNote: sessionId => {
 			if (elsewhere(sessionId)) return;
+			revealSession(sessionId);
 			sessionTabsRef.current[sessionId] = 'notes';
 			setSelectedId(sessionId);
 			setActiveTab('notes');
@@ -2116,18 +2132,19 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			if (key.downArrow || input === 'j') setActionIndex(index => Math.min(Math.max(0, rows - 1), index + 1));
 			if (input === 'g' || key.home) setActionIndex(0);
 			if (input === 'G' || key.end) setActionIndex(Math.max(0, rows - 1));
-			if (devRow && actionIndex === 0) {
-				if (key.return || (input === 'x' && (selectedSession?.devRunning || (dev.sessionId === selectedSession?.id && dev.live)))) runDev(() => setMode('pick-action'));
-				return;
-			}
-			const picked = actions[actionIndex - devRow];
-			// x stops the worktree's running action (the picker says which); one runs at a time per worktree.
+			// x stops the worktree's running action (the picker says which) from any row, the Dev row included; one runs
+			// at a time per worktree. Without one, x on the Dev row stops Dev.
 			if (input === 'x' && client && reviewSessionId && action.sessionId === reviewSessionId && action.live) {
 				setBusy(true);
 				void client.stopAction(reviewSessionId).then(() => setStatusMessage(`Stopped ${action.name ?? 'the action'}`))
 					.catch(error => setError(errorMessage(error))).finally(() => setBusy(false));
 				return;
 			}
+			if (devRow && actionIndex === 0) {
+				if (key.return || (input === 'x' && (selectedSession?.devRunning || (dev.sessionId === selectedSession?.id && dev.live)))) runDev(() => setMode('pick-action'));
+				return;
+			}
+			const picked = actions[actionIndex - devRow];
 			if (key.return && picked && actionProject) {
 				if (!client || !reviewSessionId) { setError('select a session to run project actions'); return; }
 				const run = () => {
@@ -2355,7 +2372,14 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				resizeSidebar(input === '<' ? -2 : 2);
 				return;
 			}
-			if (input === 'm' && selectedSession?.worktree?.path && selectedSession.worktree.mode !== 'none' && !selectedSession.worktree.deletedAt) {
+			// m merges the session's worktree; without one it says why, as M does.
+			if (input === 'm' && selectedSession && (!selectedSession.worktree?.path || selectedSession.worktree.mode === 'none' || selectedSession.worktree.deletedAt)) {
+				setStatusMessage(selectedSession.worktree?.deletedAt ? 'Its worktree was deleted: nothing to merge'
+					: selectedSession.requestedWorktreeMode && selectedSession.requestedWorktreeMode !== 'none' && !workspaceKey(selectedSession) ? 'Its worktree is not ready yet'
+						: 'Not in a worktree, so there is nothing to merge. Use Space to mark it done');
+				return;
+			}
+			if (input === 'm' && selectedSession?.worktree?.path) {
 				const sessionId = selectedSession.id;
 				const requestId = ++mergeRequestRef.current;
 				setMergeConfirmIndex(0);
@@ -2383,6 +2407,10 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 			// x asks first (with the worktree's deletion choices); X force-stops at once and keeps any worktree.
 			if (input === 'X' && selectedSession?.status === 'running') {
 				void killSelected(false, false, true);
+				return;
+			}
+			if ((input === 'x' || input === 'X') && selectedSession?.status === 'exited') {
+				setStatusMessage(`Already stopped: Backspace ${selectedSession.archivedAt ? 'removes it for good (asking first)' : 'archives it'}${selectedSession.worktree?.deletedAt ? '' : ', s resumes it'}`);
 				return;
 			}
 			if (input === 'x' && selectedSession?.status === 'running') {

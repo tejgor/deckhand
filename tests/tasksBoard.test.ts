@@ -39,6 +39,8 @@ test('board: an empty backlog can be selected, so a adds there when every task i
 test('board v: only one work\'s group (even empty) and its done tasks', () => {
 	assert.deepEqual(describe(boardRows(tasks, false, NOW, 'wt:w1')), ['[wt:w1 2]', 'wt:w1: Add OAuth', 'wt:w1: Add tests', '# DONE · this week', 'done: Shipped']);
 	assert.deepEqual(describe(boardRows(tasks, false, NOW, 's:main')), ['[s:main 0]', '(No open tasks here · a adds one)']);
+	// Selectable, so the footer offers a (its task) rather than keys that need a task.
+	assert.deepEqual(boardRows(tasks, false, NOW, 's:main').filter(selectableRow).map(row => row.kind), ['empty']);
 });
 
 test('work keys, labels and where w can move a task', () => {
@@ -135,7 +137,7 @@ test('the Notes view: every note in full by worktree, then the main checkout; f 
 	assert.deepEqual(shape(notesViewRows(all, {itemsOnly: true})), ['[⎇ feat/auth 1]', '# worktree note (1)', 'open*: ☐ add tests', '[main checkout 1]', '# triage (1)', 'open*: ☐ main item']);
 	assert.deepEqual(shape(notesViewRows(all, {scope: 'wt:w1'})).slice(0, 2), ['[⎇ feat/auth 1]', '# worktree note (1)']);
 	assert.deepEqual(shape(notesViewRows(all, {scope: 's:triage'})).filter(line => line.startsWith('#')), ['# main checkout note (0)', '# triage (1)']);
-	assert.deepEqual(shape(notesViewRows(all, {scope: 'wt:w2'})), ['(No notes here yet · write one in a session’s Notes tab (a))']);
+	assert.deepEqual(shape(notesViewRows(all, {scope: 'wt:w2'})), ['(No notes here yet · esc, then a session’s Notes tab (a in the sidebar))']);
 	// The open item carries what sending it to Tasks needs.
 	const item = notesViewRows(all).find((row): row is Extract<BoardRow, {kind: 'noteline'}> => row.kind === 'noteline' && Boolean(row.item))!.item!;
 	assert.deepEqual([item.section, item.noteId, item.line, item.title], ['shared', 'worktree:w1', 1, 'add tests']);

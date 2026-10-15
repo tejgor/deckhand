@@ -80,7 +80,7 @@ export function worktreeRows(overview: WorktreeOverview | undefined, sessions: S
 		const sorted = [...entries].sort((left, right) => (lastActivity(right, sessions) ?? 0) - (lastActivity(left, sessions) ?? 0));
 		rows.push({kind: 'heading', group, count: entries.length}, ...sorted.map(entry => ({kind: 'worktree' as const, group, entry})));
 	}
-	if (!overview.entries.some(entry => !entry.isMain)) rows.push({kind: 'empty', text: 'No other worktrees: n then tab creates one with a new session'});
+	if (!overview.entries.some(entry => !entry.isMain)) rows.push({kind: 'empty', text: 'No other worktrees: esc, then n and tab creates one with a new session'});
 	return rows;
 }
 
