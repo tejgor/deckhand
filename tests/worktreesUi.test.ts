@@ -70,7 +70,7 @@ test('W in a real PTY: merged worktrees grouped, x on the group deletes them and
 	assert.match(await git(sandbox, 'branch', '--list', 'scratch'), /scratch/);
 	await screen('No other worktrees');
 	// Its session was stopped and archived: back in the list, f A shows it.
-	press('\x1b'); await screen('Sessions');
+	press('\x1b'); await screen('n new • W worktrees'); await screen('Sessions');
 	press('f'); press('A'); await screen('shipped'); await screen('backspace remove');
 	// Removing it for good asks even with nothing open in its notes; Esc keeps it, Enter removes it.
 	press('\x7f'); await screen('Remove “shipped” for good?'); await screen('enter remove • esc keep it');

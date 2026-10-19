@@ -7,7 +7,7 @@ import type {ChangeDiff, ChangeGroup, ChangesRecord} from './changesModel.js';
 import type {TaskOp} from './tasks.js';
 
 // Bump whenever the daemon/client request or response shape changes.
-export const PROTOCOL_VERSION = 45;
+export const PROTOCOL_VERSION = 46;
 
 export type ProgramKey = 'claude' | 'pi' | 'codex';
 

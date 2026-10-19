@@ -6,13 +6,12 @@ import path from 'node:path';
 import os from 'node:os';
 import net from 'node:net';
 import {once} from 'node:events';
-import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {attachJsonParser, request, writeMessage} from '../src/client.js';
 import {getSocketPath} from '../src/paths.js';
 import {parseTasks} from '../src/tasks.js';
 import type {BranchList, ClientRequest, NoteSaveResult, ServerMessage, SessionRecord, TasksDoc} from '../src/types.js';
-import {cli, git, repo, waitFor, withEnv, fakeAgent, stop} from './helpers.js';
+import {git, repo, waitFor, withEnv, fakeAgent, stop, bin as deckhandBin, spawnCli} from './helpers.js';
 
 /** The end of the daemon's log, printed if it dies (its crash handlers write the cause there, not to stderr). */
 const daemonLogTail = (home: string) => { try { return readFileSync(path.join(home, 'daemon.log'), 'utf8').split('\n').slice(-40).join('\n'); } catch (error) { return String(error); } };
@@ -27,8 +26,8 @@ test('tasks: one list per repository, linked to the work started from it', {time
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const provider of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, provider), fakeAgent, {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
-	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli};
-	const daemon = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']});
+	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: deckhandBin};
+	const daemon = spawnCli(['--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']});
 	let daemonErr = ''; daemon.stderr?.on('data', chunk => { daemonErr += String(chunk); });
 	daemon.on('exit', (code, signal) => { if (code !== 0 && signal !== 'SIGTERM') console.error(`DAEMON EXIT ${code} ${signal}\n${daemonErr}\n${daemonLogTail(home)}`); });
 	t.after(async () => { await stop(daemon); await fs.rm(root, {recursive: true, force: true}); await fs.rm(home, {recursive: true, force: true}); });

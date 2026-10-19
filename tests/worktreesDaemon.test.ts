@@ -5,12 +5,11 @@ import path from 'node:path';
 import os from 'node:os';
 import net from 'node:net';
 import {once} from 'node:events';
-import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {attachJsonParser, request, writeMessage} from '../src/client.js';
 import {getSocketPath} from '../src/paths.js';
 import type {ClientRequest, ServerMessage, SessionRecord, WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeOverview} from '../src/types.js';
-import {cli, repo, git, waitFor, withEnv, fakeAgent, stop} from './helpers.js';
+import {repo, git, waitFor, withEnv, fakeAgent, stop, bin as deckhandBin, spawnCli} from './helpers.js';
 
 // W, the worktree manager, through a real daemon (its own daemon and state directory): the overview of a repository's
 // worktrees (Deckhand's, one made with git, one whose directory is gone, one removed outside Deckhand), and deleting
@@ -21,8 +20,8 @@ test('worktree overview and deletion: merged detection, refusals, stopping sessi
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const provider of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, provider), fakeAgent, {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
-	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1'};
-	const daemon = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); daemon.stderr?.on('data', () => {});
+	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: deckhandBin, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1'};
+	const daemon = spawnCli(['--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); daemon.stderr?.on('data', () => {});
 	t.after(async () => { await stop(daemon); await fs.rm(root, {recursive: true, force: true}); await fs.rm(home, {recursive: true, force: true}); });
 	const call = <T>(message: Omit<Extract<ClientRequest, {requestId: string}>, 'requestId'>) => request<T>({...message, requestId: randomUUID()} as Extract<ClientRequest, {requestId: string}>, 60_000);
 	await waitFor(async () => { try { return await call<{ok: boolean}>({type: 'ping'}); } catch { return {ok: false}; } }, result => result.ok);

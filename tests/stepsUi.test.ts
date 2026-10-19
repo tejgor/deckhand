@@ -50,7 +50,7 @@ test('steps: the worktree note\'s checklist under its task on the board (space t
 	assert.match(await worktreeNote(), /- ↗ Write tests <!-- dh:t=[0-9a-f]{8} -->/);
 	// Its task is in the backlog (work of its own); ticking it shows · done on the ↗ line.
 	press('\t'); await screen('BACKLOG · 1');
-	press('G'); await screen('Write tests'); press(' '); await screen('Done: Write tests');
+	press('G'); await screen('› ○ Write tests'); press(' '); await screen('Done: Write tests');
 	press('\t'); await screen('↗ Write tests · done');
 });
 

@@ -3,11 +3,10 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {request} from '../src/client.js';
 import type {ClientRequest, SessionRecord} from '../src/types.js';
-import {cli, repo, waitFor, withEnv, fakeAgent, stop} from './helpers.js';
+import {repo, waitFor, withEnv, fakeAgent, stop, bin as deckhandBin, spawnCli} from './helpers.js';
 
 // An agent that printed nothing and exited (it could not start): the exited session must say so.
 const silentAgent = `#!/usr/bin/env node
@@ -27,8 +26,8 @@ test('restart finds an agent that moved, refuses one that is gone, and an agent 
 	await fs.writeFile(path.join(first, 'claude'), fakeAgent, {mode: 0o755});
 	await fs.writeFile(path.join(first, 'pi'), silentAgent, {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
-	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: [first, second, path.dirname(process.execPath), '/usr/bin', '/bin'].join(path.delimiter), SHELL: '/bin/sh', TEST_CLI: cli};
-	const daemon = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']});
+	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: [first, second, path.dirname(process.execPath), '/usr/bin', '/bin'].join(path.delimiter), SHELL: '/bin/sh', TEST_CLI: deckhandBin};
+	const daemon = spawnCli(['--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']});
 	daemon.stderr?.on('data', () => {});
 	t.after(async () => { await stop(daemon); await fs.rm(root, {recursive: true, force: true}); await fs.rm(home, {recursive: true, force: true}); });
 	const call = <T>(message: Omit<Extract<ClientRequest, {requestId: string}>, 'requestId'>) => request<T>({...message, requestId: randomUUID()} as Extract<ClientRequest, {requestId: string}>);

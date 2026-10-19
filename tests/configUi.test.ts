@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {exec, launcher, terminalUi, waitFor, UI_TEST_TIMEOUT_MS, UI_WAIT_MS} from './helpers.js';
+import {launcher, terminalUi, waitFor, UI_TEST_TIMEOUT_MS, UI_WAIT_MS, execLauncher} from './helpers.js';
 
 // A stand-in agent (never a real one): stays alive and prints a marker.
 const fakeAgent = `#!/usr/bin/env node
@@ -102,5 +102,5 @@ test('isolated terminal UI asks for trust only when repository config is about t
 	press('\x03'); await screen('Discard unsaved configuration?');
 	press('\x03'); assert.equal(await ui.ended, 0);
 	assert.equal(await fs.readFile(file, 'utf8'), '{"devCommand":"d"}');
-	assert.match((await exec(process.execPath, [launcher, 'status'], {env})).stdout, /Isolated dev daemon running/);
+	assert.match((await execLauncher(['status'], {env})).stdout, /Isolated dev daemon running/);
 });
