@@ -21,8 +21,8 @@ use std::rc::{Rc, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
@@ -30,7 +30,10 @@ use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::sync::{mpsc, oneshot};
 
 use deckhand_core::error::DhError;
-use deckhand_protocol::WorkerMessage;
+use deckhand_protocol::wire::{js_string, js_truthy};
+use deckhand_protocol::{WorkerCommand, WorkerMessage};
+
+use crate::session::{DEFAULT_COLS, DEFAULT_ROWS};
 use deckhand_protocol::ndjson::{self, Frame, LineDecoder};
 use deckhand_protocol::worker_ipc::{Hello, WorkerResponse};
 
@@ -342,6 +345,114 @@ impl ChannelReader {
     }
 }
 
+/// What a session worker makes of a message (TS SessionWorker.handle on `message as WorkerCommand`, which reads its
+/// fields without checking them).
+#[derive(Clone, Debug, PartialEq)]
+pub enum SessionIncoming {
+    /// A command to run.
+    Command(WorkerCommand),
+    /// What TS's `catch` answers: `fail(requestId, error)` (only a message with a `requestId` gets one).
+    Failure { request_id: String, error: String },
+    /// Nothing for TS to do (an unknown agent command, or no `requestId` to answer).
+    Ignored,
+}
+
+/// TS sessionWorker.ts size (`Number.isFinite(value) ? Math.max(1, Math.floor(value)) : fallback`).
+fn ts_size(value: Option<&Value>, fallback: i64) -> i64 {
+    value
+        .and_then(Value::as_f64)
+        .filter(|size| size.is_finite())
+        .map_or(fallback, |size| {
+            // Saturating: a PTY size beyond i64 is clamped by the PTY anyway.
+            #[allow(clippy::cast_possible_truncation)]
+            let floored = size.floor() as i64;
+            floored.max(1)
+        })
+}
+
+/// Decodes a session worker command the way TS uses it. A command whose fields do not fit the types is first read
+/// as TS's code reads it (sizes through `size()`, `force ?? false` as a flag, `scrollOffset` as a number or the
+/// default, the `requestId` as text); one that still cannot run is answered as TS answers it: `start` without a
+/// session fails reading it, and any other command fails the `target !== 'agent'` check with `<target> pane is hosted
+/// by the workspace worker`, unless it targets the agent (then TS's switch does nothing with it).
+pub fn decode_session_command(value: Value) -> SessionIncoming {
+    if let Ok(command) = WorkerCommand::deserialize(&value) {
+        return SessionIncoming::Command(command);
+    }
+    let Value::Object(fields) = &value else {
+        return SessionIncoming::Ignored;
+    };
+    let kind = fields
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let mut read = fields.clone();
+    if let Some(id) = read.get("requestId").filter(|id| !id.is_string()) {
+        let id = js_string(id);
+        read.insert("requestId".to_owned(), Value::String(id));
+    }
+    if matches!(kind.as_str(), "snapshot" | "attach" | "resize" | "start") {
+        for (key, fallback) in [("cols", DEFAULT_COLS), ("rows", DEFAULT_ROWS)] {
+            let fallback = i64::from(fallback);
+            let size = ts_size(read.get(key), fallback);
+            read.insert(key.to_owned(), Value::from(size));
+        }
+    }
+    match read.get("scrollOffset") {
+        Some(Value::Number(offset)) if !offset.is_i64() => {
+            // `scrollOffset = 0` default aside, the snapshot floors it.
+            #[allow(clippy::cast_possible_truncation)]
+            let floored = offset
+                .as_f64()
+                .filter(|offset| offset.is_finite())
+                .map_or(0, |offset| offset.floor() as i64);
+            read.insert("scrollOffset".to_owned(), Value::from(floored));
+        }
+        Some(Value::Number(_)) | None => {}
+        Some(_) => {
+            read.remove("scrollOffset");
+        }
+    }
+    match read.get("force").cloned() {
+        Some(Value::Null) => {
+            read.remove("force");
+        }
+        Some(force) => {
+            read.insert("force".to_owned(), Value::Bool(js_truthy(&force)));
+        }
+        None => {}
+    }
+    let read = Value::Object(read);
+    let error = match WorkerCommand::deserialize(&read) {
+        Ok(command) => return SessionIncoming::Command(command),
+        Err(error) => error,
+    };
+    let Some(request_id) = read.get("requestId").and_then(Value::as_str).map(str::to_owned) else {
+        return SessionIncoming::Ignored;
+    };
+    let failure = |error: String| SessionIncoming::Failure {
+        request_id: request_id.clone(),
+        error,
+    };
+    match kind.as_str() {
+        // startAgent reads `session.command` first.
+        "start" => match fields.get("session") {
+            None => failure("Cannot read properties of undefined (reading 'command')".to_owned()),
+            Some(Value::Null) => failure("Cannot read properties of null (reading 'command')".to_owned()),
+            Some(_) => failure(error.to_string()),
+        },
+        "kill" => failure(error.to_string()),
+        _ => match fields.get("target") {
+            Some(Value::String(target)) if target == "agent" => SessionIncoming::Ignored,
+            target => failure(format!(
+                "{} pane is hosted by the workspace worker",
+                target.map_or_else(|| "undefined".to_owned(), js_string)
+            )),
+        },
+    }
+}
+
 /// TS: `setTimeout(() => process.exit(0), delay).unref?.()`: after `delay`, flushes `channel` and exits the process
 /// with status 0. The timer is detached (it fires even if nothing else runs).
 pub fn exit_after(channel: &WorkerChannel, delay: Duration) {
@@ -440,6 +551,58 @@ mod tests {
             channel.post(&WorkerMessage::Running(Running { pid: 1 }));
             channel.flush().await;
         });
+    }
+
+    #[test]
+    fn session_commands_that_do_not_decode_are_answered_as_ts_answers_them() {
+        use serde_json::json;
+        let failure = |request_id: &str, error: &str| SessionIncoming::Failure {
+            request_id: request_id.to_owned(),
+            error: error.to_owned(),
+        };
+        // A pane TS's session worker does not host, or none: the `target !== 'agent'` check fails it.
+        assert_eq!(
+            decode_session_command(
+                json!({"type": "snapshot", "requestId": "a", "target": "bogus", "cols": 80, "rows": 24})
+            ),
+            failure("a", "bogus pane is hosted by the workspace worker")
+        );
+        assert_eq!(
+            decode_session_command(json!({"type": "bogus", "requestId": "b"})),
+            failure("b", "undefined pane is hosted by the workspace worker")
+        );
+        // An unknown command for the agent: TS's switch does nothing.
+        assert_eq!(
+            decode_session_command(json!({"type": "bogus", "requestId": "c", "target": "agent"})),
+            SessionIncoming::Ignored
+        );
+        // Nothing to answer without a requestId.
+        assert_eq!(
+            decode_session_command(json!({"type": "attach", "target": "bogus"})),
+            SessionIncoming::Ignored
+        );
+        // startAgent reads the session first.
+        assert_eq!(
+            decode_session_command(json!({"type": "start", "requestId": "d", "cols": 80, "rows": 24})),
+            failure("d", "Cannot read properties of undefined (reading 'command')")
+        );
+        // Fields TS reads leniently run: sizes through size(), `force ?? false` as a flag, a numeric requestId.
+        assert_eq!(
+            decode_session_command(
+                json!({"type": "snapshot", "requestId": 7, "target": "agent", "cols": "x", "rows": 30.5, "scrollOffset": "y"})
+            ),
+            SessionIncoming::Command(WorkerCommand::Snapshot(deckhand_protocol::worker_ipc::Snapshot {
+                target: deckhand_protocol::data::AttachTarget::Agent,
+                cols: 80,
+                rows: 30,
+                scroll_offset: None,
+                request_id: "7".into(),
+            }))
+        );
+        assert!(matches!(
+            decode_session_command(json!({"type": "kill", "requestId": "k", "force": 1})),
+            SessionIncoming::Command(WorkerCommand::Kill(ref kill)) if kill.force == Some(true)
+        ));
     }
 
     #[test]

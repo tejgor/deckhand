@@ -15,7 +15,7 @@ use deckhand_core::changes_model::{empty_changes, find_change};
 use deckhand_core::error::{DhError, Result};
 use deckhand_protocol::data::{
     ChangeDiff, ChangeStageResult, ChangesRecord, CreatePrResult, SessionRecord, SessionWorktreeMode,
-    SessionWorktreeRecord, WorkspaceSummary,
+    SessionWorktreeRecord, StageMode, WorkspaceSummary,
 };
 use deckhand_protocol::events::{ChangesUpdated, ServerMessage};
 use deckhand_protocol::wire::{ChangeStage, ChangesDiff, CreatePr, WatchChanges, WorkspaceSummaryRequest};
@@ -29,6 +29,7 @@ use indexmap::{IndexMap, IndexSet};
 use tokio::time::Instant;
 
 use crate::daemon::Daemon;
+use crate::dispatch::as_given;
 use crate::server::{ClientHandle, Connection, send_message};
 use crate::workspaces::WorkspacePane;
 
@@ -367,8 +368,16 @@ impl Daemon {
         if let Some(error) = recent.record.error.as_deref().filter(|error| !error.is_empty()) {
             return Err(DhError::msg(error));
         }
-        let Some(entry) = find_change(&recent.all, request.group, &request.path).cloned() else {
-            return Err(DhError::msg(format!("{} is not in the current changes", request.path)));
+        // TS findChange compares with `===`: a group or path of another type never matches.
+        let found = match (request.group.known(), request.path.known()) {
+            (Some(group), Some(path)) => find_change(&recent.all, *group, path).cloned(),
+            _ => None,
+        };
+        let Some(entry) = found else {
+            return Err(DhError::msg(format!(
+                "{} is not in the current changes",
+                request.path.js_string()
+            )));
         };
         let diff_key = key.clone();
         let diff = self
@@ -383,22 +392,36 @@ impl Daemon {
     pub async fn handle_change_stage(&self, request: &ChangeStage) -> Result<ChangeStageResult> {
         let (session, key) = self.require_workspace(&request.session_id, WorkspacePane::Git)?;
         let watch = self.changes_watch(&key);
-        let target = match (&request.path, request.group) {
-            (Some(path), Some(group)) => Some(StageTarget {
-                group,
-                path: path.clone(),
-            }),
-            _ => None,
-        };
+        // TS: `message.path !== undefined && message.group ? {group, path} : undefined`. A target is matched by its
+        // changeKey (`${group}\0${path}`), so a path of another type is compared as its string and a group that is
+        // not one never matches.
+        let target = (!request.path.is_absent() && request.group.truthy())
+            .then(|| (request.group.known().copied(), as_given(&request.path)));
+        // applyStage tests `mode === 'stage'` for a target and `mode === 'unstage'` without one: any other mode
+        // unstages the one and stages everything.
+        let mode = request.mode.known().copied().unwrap_or(if target.is_some() {
+            StageMode::Unstage
+        } else {
+            StageMode::Stage
+        });
         let result = async {
             let daemon = self.clone();
             let stage_key = key.clone();
-            let mode = request.mode;
             let outcome = self
                 .changes_exclusive(&key, move || async move {
                     daemon.assert_workspace_available(&stage_key)?;
                     // Validated against a status read inside the same exclusive section, so the paths are current.
                     let current = read_with_cache(&stage_key, &watch).await?;
+                    let target = match target {
+                        Some((Some(group), path)) => Some(StageTarget { group, path }),
+                        Some((None, path)) => {
+                            return Err(DhError::msg(format!(
+                                "{path} is not among the {} changes; refresh and try again",
+                                if mode == StageMode::Stage { "unstaged" } else { "staged" }
+                            )));
+                        }
+                        None => None,
+                    };
                     apply_stage(&stage_key, &current, mode, target.as_ref()).await
                 })
                 .await?;

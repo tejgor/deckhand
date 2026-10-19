@@ -21,11 +21,11 @@ use deckhand_protocol::PROTOCOL_VERSION;
 use deckhand_protocol::data::{PingResult, SessionRecord};
 use deckhand_protocol::events::{ServerMessage, SessionRef, SessionUpdated};
 use deckhand_protocol::ndjson::{self, Frame, LineDecoder, MAX_REQUEST_LINE, oversized_request_id, parse_message};
-use deckhand_protocol::wire::{Request, Subscribe, request_type};
+use deckhand_protocol::wire::{Loose, Request, Subscribe, js_string, js_truthy, node_received, request_type};
 use deckhand_sys::async_util::{Task, spawn};
 use indexmap::IndexMap;
 use serde::Deserialize;
-use serde_json::{Map, Number, Value};
+use serde_json::{Map, Value};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 use tokio::net::unix::OwnedWriteHalf;
@@ -183,37 +183,27 @@ pub struct ServerState {
 /// What a received line is, once parsed (TS handleConnection's JSON.parse check plus handleRequest's switch).
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParsedRequest {
-    /// A request this daemon knows.
-    Request(Box<Request>),
+    /// A request this daemon knows, and where its failure is reported: the message's `requestId` when it has the
+    /// key (TS `'requestId' in message`, for every type), as text.
+    Request {
+        request: Box<Request>,
+        reply_to: Option<String>,
+    },
     /// An object with a string `type` no case handles: ignored without a response (the TS switch falls through).
     Ignored,
-    /// A known `type` whose fields do not fit: answered with a failure when it carries a `requestId`.
+    /// A known `type` that could not be decoded (not reached: every request field decodes leniently, see
+    /// [`deckhand_protocol::wire`]); answered with a failure when it carries a `requestId`.
     Invalid {
         request_id: Option<String>,
         message: String,
     },
 }
 
-/// Fractional numbers floored (a JS client may write `cols: 80.5` where the wire types hold integers; the daemon's
-/// clampSize and clampNonNegative floor them); everything else is kept.
-fn floor_numbers(value: Value) -> Value {
-    match value {
-        Value::Number(number) if number.is_f64() => match number.as_f64().map(f64::floor) {
-            // Within ±2^53, so the cast is exact.
-            #[allow(clippy::cast_possible_truncation)]
-            Some(floored) if floored.abs() < 9.0e15 => Value::Number(Number::from(floored as i64)),
-            _ => Value::Number(number),
-        },
-        Value::Array(items) => Value::Array(items.into_iter().map(floor_numbers).collect()),
-        Value::Object(map) => Value::Object(map.into_iter().map(|(key, item)| (key, floor_numbers(item))).collect()),
-        other => other,
-    }
-}
-
 /// Types a line that passed the `{type: string}` check ([`deckhand_protocol::ndjson::parse_message`]).
 ///
-/// TS never validates a known request's fields (a case reads what it needs), so decoding is as lenient as the types
-/// allow: unknown fields are ignored and fractional numbers are floored before a request is given up on.
+/// TS never validates a known request's fields: each case reads what it needs and passes on whatever was sent. The
+/// wire types decode every field leniently into what the daemon needs to do the same (the cases then check values
+/// where and as TS does, with its messages), so a request of a known type always decodes.
 pub fn parse_request(value: Value) -> ParsedRequest {
     let Some(kind) = request_type(&value) else {
         return ParsedRequest::Ignored;
@@ -222,17 +212,19 @@ pub fn parse_request(value: Value) -> ParsedRequest {
         return ParsedRequest::Ignored;
     }
     let kind = kind.to_owned();
-    let request_id = value.get("requestId").and_then(Value::as_str).map(str::to_owned);
-    let error = match Request::deserialize(&value) {
-        Ok(request) => return ParsedRequest::Request(Box::new(request)),
-        Err(error) => error,
-    };
-    if let Ok(request) = serde_json::from_value::<Request>(floor_numbers(value)) {
-        return ParsedRequest::Request(Box::new(request));
-    }
-    ParsedRequest::Invalid {
-        request_id,
-        message: format!("Invalid {kind} request: {error}"),
+    let reply_to = value.get("requestId").map(|id| match id {
+        Value::String(id) => id.clone(),
+        other => js_string(other),
+    });
+    match Request::deserialize(&value) {
+        Ok(request) => ParsedRequest::Request {
+            request: Box::new(request),
+            reply_to,
+        },
+        Err(error) => ParsedRequest::Invalid {
+            request_id: reply_to,
+            message: format!("Invalid {kind} request: {error}"),
+        },
     }
 }
 
@@ -247,16 +239,15 @@ pub fn send_message(client: &ClientHandle, message: &ServerMessage) {
     }
 }
 
-/// TS: daemon.ts clampSize: at least 1 (TS also maps non-finite numbers to `fallback`; the wire types are integers).
-pub fn clamp_size(value: i64, fallback: i64) -> i64 {
-    // Integers are always finite: `fallback` is never needed.
-    let _ = fallback;
-    value.max(1)
+/// TS: daemon.ts clampSize: at least 1; `fallback` for what is not a finite number (`None`; a fraction is already
+/// floored by the request's decoding).
+pub fn clamp_size(value: Option<i64>, fallback: i64) -> i64 {
+    value.map_or(fallback, |value| value.max(1))
 }
 
-/// TS: daemon.ts clampNonNegative.
-pub fn clamp_non_negative(value: i64) -> i64 {
-    value.max(0)
+/// TS: daemon.ts clampNonNegative (0 for what is not a finite number).
+pub fn clamp_non_negative(value: Option<i64>) -> i64 {
+    value.map_or(0, |value| value.max(0))
 }
 
 /// Node's `listen` error: `listen EADDRINUSE: address already in use /path`.
@@ -391,13 +382,15 @@ impl Daemon {
                     };
                     wire_log(WireDir::C2d, &value, None);
                     match parse_request(value) {
-                        ParsedRequest::Request(request) => {
+                        ParsedRequest::Request { request, reply_to } => {
                             // TS starts handleRequest without awaiting it, but its synchronous part (getClient,
                             // synchronous replies) runs before the next line is parsed. Yielding lets the spawned
                             // task get that far first, so replies keep line order and a malformed line later in
                             // the chunk can neither drop this reply nor run cleanup before getClient.
                             let (daemon, conn) = (daemon.clone(), Rc::clone(&conn));
-                            drop(spawn(async move { daemon.handle_request(&conn, *request).await }));
+                            drop(spawn(async move {
+                                daemon.handle_request_from(&conn, *request, reply_to).await
+                            }));
                             tokio::task::yield_now().await;
                         }
                         ParsedRequest::Ignored | ParsedRequest::Invalid { request_id: None, .. } => {}
@@ -485,7 +478,8 @@ impl Daemon {
     /// TS: InkDaemon.inClientScope: the client's checkout's sessions, and those of every checkout of its repository
     /// (an unknown checkout's key is looked up in the background, announcing its sessions when found).
     pub fn in_client_scope(&self, session: &SessionRecord, client: &ClientSubscription) -> bool {
-        let Some(repo_root) = &client.repo_root else {
+        // TS `if (!client.repoRoot) return false`: an empty root is not subscribed either.
+        let Some(repo_root) = client.repo_root.as_deref().filter(|root| !root.is_empty()) else {
             return false;
         };
         if session_matches_scope(session, repo_root) {
@@ -586,11 +580,18 @@ impl Daemon {
         conn: &Connection,
         request: &Subscribe,
     ) -> Result<Vec<Ordered<SessionRecord>>> {
+        // `client.repoRoot = message.repoRoot`: without a root (absent, empty) nothing is in scope and the answer is
+        // empty. A root that is not text is not kept (TS keeps it and fails in its path API on every session, which
+        // is the answer here too when there is one).
+        let repo_root = request.repo_root.known().cloned();
         let mut subscription = self.get_client(&conn.client, |client| {
-            client.repo_root = Some(request.repo_root.clone());
+            client.repo_root.clone_from(&repo_root);
             client.clone()
         });
-        let repo_key = self.tasks_key_for(&request.repo_root).await.ok();
+        let repo_key = match repo_root.as_deref() {
+            Some(root) => self.tasks_key_for(root).await.ok(),
+            None => None,
+        };
         // TS sets the key on the subscription object it holds: a client gone meanwhile is not registered again.
         subscription.repo_key.clone_from(&repo_key);
         if let Some(client) = self.server.borrow_mut().clients.get_mut(&conn.client.id) {
@@ -613,6 +614,15 @@ impl Daemon {
             .map(|client| client.subscription.clone());
         if let Some(current) = current {
             subscription = current;
+        }
+        if let Loose::Other(root) = &request.repo_root
+            && js_truthy(root)
+            && !self.session_list().is_empty()
+        {
+            return Err(DhError::msg(format!(
+                "The \"paths[0]\" argument must be of type string. {}",
+                node_received(Some(root))
+            )));
         }
         let in_scope: Vec<Ordered<SessionRecord>> = self
             .session_list()
@@ -692,11 +702,14 @@ pub(crate) mod tests {
 
     #[test]
     fn sizes_are_clamped_like_the_ts() {
-        assert_eq!(clamp_size(0, 80), 1);
-        assert_eq!(clamp_size(-5, 80), 1);
-        assert_eq!(clamp_size(120, 80), 120);
-        assert_eq!(clamp_non_negative(-1), 0);
-        assert_eq!(clamp_non_negative(7), 7);
+        assert_eq!(clamp_size(Some(0), 80), 1);
+        assert_eq!(clamp_size(Some(-5), 80), 1);
+        assert_eq!(clamp_size(Some(120), 80), 120);
+        // Not a finite number (`'x'`, `null`, absent): the fallback.
+        assert_eq!(clamp_size(None, 80), 80);
+        assert_eq!(clamp_non_negative(Some(-1)), 0);
+        assert_eq!(clamp_non_negative(Some(7)), 7);
+        assert_eq!(clamp_non_negative(None), 0);
         let defaults = ClientSubscription::default();
         assert_eq!((defaults.preview_cols, defaults.preview_rows), (80, 24));
         assert_eq!((defaults.action_cols, defaults.action_rows), (80, 24));
@@ -707,13 +720,15 @@ pub(crate) mod tests {
     #[test]
     fn requests_are_typed_leniently() {
         let parsed = parse_request(json!({"type": "ping", "requestId": "r", "extra": 1}));
-        assert!(matches!(&parsed, ParsedRequest::Request(request) if request.type_name() == "ping"));
+        assert!(
+            matches!(&parsed, ParsedRequest::Request { request, reply_to } if request.type_name() == "ping" && reply_to.as_deref() == Some("r"))
+        );
         assert_eq!(
             parse_request(json!({"type": "nope", "requestId": "r"})),
             ParsedRequest::Ignored
         );
         // Fractional sizes are floored (TS clampSize) instead of refused.
-        let ParsedRequest::Request(request) =
+        let ParsedRequest::Request { request, .. } =
             parse_request(json!({"type": "resize", "sessionId": "s", "cols": 80.7, "rows": 24}))
         else {
             panic!("resize not parsed")
@@ -722,17 +737,86 @@ pub(crate) mod tests {
             serde_json::to_value(&*request).unwrap(),
             json!({"type": "resize", "sessionId": "s", "cols": 80, "rows": 24})
         );
-        let ParsedRequest::Invalid { request_id, message } =
-            parse_request(json!({"type": "subscribe", "requestId": "r"}))
-        else {
-            panic!("expected an invalid request")
-        };
-        assert_eq!(request_id.as_deref(), Some("r"));
-        assert!(message.starts_with("Invalid subscribe request: "), "{message}");
+        // TS reads fields without validating them: a known type is handled whatever it carries, and its failure is
+        // reported wherever a `requestId` is (an input's too).
+        for body in [
+            json!({"type": "subscribe", "requestId": "r"}),
+            json!({"type": "update-agent", "requestId": "r", "program": "nope"}),
+            json!({"type": "input", "requestId": "r", "sessionId": 5}),
+        ] {
+            let ParsedRequest::Request { reply_to, .. } = parse_request(body.clone()) else {
+                panic!("not handled: {body}")
+            };
+            assert_eq!(reply_to.as_deref(), Some("r"));
+        }
         assert!(matches!(
             parse_request(json!({"type": "input", "sessionId": "s"})),
-            ParsedRequest::Invalid { request_id: None, .. }
+            ParsedRequest::Request { reply_to: None, .. }
         ));
+        // A requestId of another type is answered as its string.
+        assert!(matches!(
+            parse_request(json!({"type": "ping", "requestId": 5})),
+            ParsedRequest::Request { reply_to: Some(id), .. } if id == "5"
+        ));
+    }
+
+    /// Sends `line` on a fresh connection and reads the first reply line.
+    async fn first_reply(daemon: &Daemon, line: &str) -> Value {
+        let stream = UnixStream::connect(&daemon.paths.socket).await.unwrap();
+        let (read, mut write) = stream.into_split();
+        let mut read = BufReader::new(read);
+        write.write_all(format!("{line}\n").as_bytes()).await.unwrap();
+        let mut reply = String::new();
+        read.read_line(&mut reply).await.unwrap();
+        serde_json::from_str(&reply).unwrap()
+    }
+
+    #[test]
+    fn fields_are_checked_where_and_as_ts_checks_them() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = test_daemon(dir.path());
+            daemon.listen().await.unwrap();
+            let error = |reply: Value| reply["error"].as_str().unwrap_or_default().to_owned();
+            // updateAgent: `Unknown agent ${String(program)}`.
+            let reply = first_reply(&daemon, r#"{"type":"update-agent","requestId":"a","program":"nope"}"#).await;
+            assert_eq!(
+                (reply["requestId"].clone(), error(reply)),
+                (json!("a"), "Unknown agent nope".to_owned())
+            );
+            let reply = first_reply(&daemon, r#"{"type":"update-agent","requestId":"a"}"#).await;
+            assert_eq!(error(reply), "Unknown agent undefined");
+            // No repository to subscribe to: nothing is in scope.
+            let reply = first_reply(&daemon, r#"{"type":"subscribe","requestId":"s"}"#).await;
+            assert_eq!(
+                reply,
+                json!({"type": "response", "requestId": "s", "ok": true, "data": []})
+            );
+            // tasksKeyFor first (`Invalid repository path`), then clientTaskOp.
+            let reply = first_reply(
+                &daemon,
+                r#"{"type":"task-op","requestId":"t","cwd":5,"op":{"type":"nope"}}"#,
+            )
+            .await;
+            assert_eq!(error(reply), "Invalid repository path");
+            // A session's own lookups: a missing ID names none.
+            let reply = first_reply(&daemon, r#"{"type":"promote-note-item","requestId":"p","line":1.5}"#).await;
+            assert_eq!(error(reply), "Session does not exist");
+            let reply = first_reply(&daemon, r#"{"type":"reorder-session","requestId":"o"}"#).await;
+            assert_eq!(error(reply), "session does not exist");
+            // Without a requestId a success is answered without one (TS `response(undefined, ...)`).
+            let reply = first_reply(&daemon, r#"{"type":"list"}"#).await;
+            assert_eq!(reply, json!({"type": "response", "ok": true, "data": []}));
+            // An input's failure goes to the requestId it carries.
+            let reply = first_reply(&daemon, r#"{"type":"input","requestId":"i","sessionId":"x"}"#).await;
+            assert_eq!(error(reply), "Cannot read properties of undefined (reading 'replace')");
+            // A detach without a session echoes none.
+            let reply = first_reply(&daemon, r#"{"type":"detach"}"#).await;
+            assert_eq!(reply, json!({"type": "detached"}));
+            // Watching nothing (the sizes are not numbers: the client's are kept).
+            let reply = first_reply(&daemon, r#"{"type":"watch-preview","requestId":"w","cols":"x"}"#).await;
+            assert_eq!(reply["data"], json!({"content": "", "live": false}));
+        });
     }
 
     #[test]
@@ -782,6 +866,13 @@ pub(crate) mod tests {
         let linked = session("b", "/wt/feature", "/wt/feature");
         let other = session("c", "/other", "/other");
         assert!(!daemon.in_client_scope(&main, &subscribed(None, None)));
+        // An empty root is falsy in TS: nothing is in scope, not even through a repository key.
+        daemon
+            .server
+            .borrow_mut()
+            .repo_keys
+            .insert("/repo".into(), "key-0".into());
+        assert!(!daemon.in_client_scope(&main, &subscribed(Some(""), Some("key-0"))));
         assert!(daemon.in_client_scope(&main, &subscribed(Some("/repo/"), None)));
         assert!(!daemon.in_client_scope(&linked, &subscribed(Some("/repo"), None)));
         {
@@ -890,16 +981,18 @@ pub(crate) mod tests {
             assert_eq!(answer["data"]["version"], PROTOCOL_VERSION);
             assert_eq!(daemon.server.borrow().clients.len(), 1);
 
-            // A known type with unusable fields fails that request only.
+            // A known type with fields TS cannot use is handled as TS handles it: that request fails, the
+            // connection carries on.
             line.clear();
             write
-                .write_all(b"{\"type\":\"subscribe\",\"requestId\":\"r2\"}\n")
+                .write_all(b"{\"type\":\"update-agent\",\"requestId\":\"r2\",\"program\":[]}\n")
                 .await
                 .unwrap();
             read.read_line(&mut line).await.unwrap();
             let answer: Value = serde_json::from_str(&line).unwrap();
             assert_eq!(answer["requestId"], "r2");
             assert_eq!(answer["ok"], false);
+            assert_eq!(answer["error"], "Unknown agent ");
 
             // An oversized line is answered by its request ID and the connection carries on.
             line.clear();

@@ -4,25 +4,29 @@
 //! never running anything), trusting a reviewed repository configuration, the worktree link candidates, and the branch
 //! list the new-session flow offers.
 
+use deckhand_core::config_draft::MAX_CONFIG_LABEL;
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::locale_compare;
 use deckhand_core::project_config::{is_project_trusted, project_needs_review, resolve_settings, trust_project_config};
+use deckhand_core::project_config_document::check_draft;
 use deckhand_protocol::data::{
     BranchFrom, BranchList, CandidateSizes, ConfigTargetKind, LoadedProject, ProjectInfo, SavedConfigDocument,
     SettingsInfo, WorktreeCandidates,
 };
 use deckhand_protocol::records::AppConfig;
-use deckhand_protocol::wire::{CwdRequest, SaveConfig, TrustProject, WorktreeCandidateSizes};
+use deckhand_protocol::wire::{CwdRequest, Loose, SaveConfig, TrustProject, WorktreeCandidateSizes};
 use deckhand_sys::config::load_project_config;
 use deckhand_sys::config_document::{SaveDocumentOptions, save_global_defaults_document, save_project_config_document};
 use deckhand_sys::git::{BranchWhere, current_branch, find_repo_root, list_local_branches, resolve_default_branch};
 use deckhand_sys::paths;
 use deckhand_sys::settings_info::{
-    read_candidate_sizes, read_global_link_candidates, read_settings_info, read_worktree_candidates,
+    MAX_SIZE_PATHS, read_candidate_sizes, read_global_link_candidates, read_settings_info, read_worktree_candidates,
 };
 use deckhand_sys::storage::{load_app_config, update_app_config};
+use serde_json::Value;
 
 use crate::daemon::Daemon;
+use crate::dispatch::{as_given, path_argument};
 
 /// The configuration's part of the daemon state (none: configuration is read from disk for every request).
 #[derive(Debug, Default)]
@@ -54,14 +58,25 @@ impl Daemon {
     pub async fn handle_save_config(&self, request: &SaveConfig) -> Result<SavedConfigDocument> {
         // Saving never runs anything. A repository file saved here stays trusted when the version it replaces was
         // trusted (or absent), never newly trusting a creation hook; see saved_project_trust.
-        let revision = request.revision.as_deref();
+        // projectConfigDocument.ts checkDraft on what was sent: text first, then a revision that is null or a string.
+        let Some(raw) = request.raw.as_deref() else {
+            return Err(DhError::msg(format!(
+                "Configuration must be text of at most {MAX_CONFIG_LABEL}"
+            )));
+        };
+        check_draft(raw, None)?;
+        let revision = match &request.revision {
+            Loose::Known(revision) => Some(revision.as_str()),
+            Loose::Other(Value::Null) => None,
+            _ => return Err(DhError::msg("Invalid configuration revision")),
+        };
         if request.target == ConfigTargetKind::Global {
-            let document = save_global_defaults_document(&request.raw, revision).await?;
+            let document = save_global_defaults_document(raw, revision).await?;
             return Ok(SavedConfigDocument { document, trust: None });
         }
         save_project_config_document(
-            &request.cwd,
-            &request.raw,
+            &as_given(&request.cwd),
+            raw,
             revision,
             SaveDocumentOptions { keep_trust: true },
         )
@@ -70,19 +85,20 @@ impl Daemon {
 
     /// TS: handleRequest `settings-info` (settingsInfo.ts readSettingsInfo).
     pub async fn handle_settings_info(&self, request: &CwdRequest) -> Result<SettingsInfo> {
-        read_settings_info(&request.cwd).await
+        // Node's path API refuses a non-string before anything else answers (readConfigTargets).
+        read_settings_info(path_argument(&request.cwd, "path")?).await
     }
 
     /// TS: handleRequest `worktree-candidates` (settingsInfo.ts readWorktreeCandidates).
     pub async fn handle_worktree_candidates(&self, request: &CwdRequest) -> Result<WorktreeCandidates> {
-        read_worktree_candidates(&request.cwd).await
+        read_worktree_candidates(&as_given(&request.cwd)).await
     }
 
     /// TS: handleRequest `global-link-candidates`: candidates across every session's repository, most recently
     /// updated first.
     pub async fn handle_global_link_candidates(&self, request: &CwdRequest) -> Result<WorktreeCandidates> {
         let roots = self.link_candidate_roots();
-        read_global_link_candidates(&request.cwd, &roots).await
+        read_global_link_candidates(&as_given(&request.cwd), &roots).await
     }
 
     /// The repositories the user works in: every session's root, most recently updated first (a stable sort, as
@@ -100,21 +116,27 @@ impl Daemon {
 
     /// TS: handleRequest `worktree-candidate-sizes` (settingsInfo.ts readCandidateSizes).
     pub async fn handle_worktree_candidate_sizes(&self, request: &WorktreeCandidateSizes) -> Result<CandidateSizes> {
-        read_candidate_sizes(&request.cwd, &request.paths).await
+        // Anything but an array of strings fails the paths check, as in TS (before the repository is looked up).
+        match &request.paths {
+            Some(paths) => read_candidate_sizes(&as_given(&request.cwd), paths).await,
+            None => Err(DhError::msg(format!(
+                "Pass at most {MAX_SIZE_PATHS} relative candidate paths"
+            ))),
+        }
     }
 
     /// TS: handleRequest `project-info`.
     pub async fn handle_project_info(&self, request: &CwdRequest) -> Result<ProjectInfo> {
         let config = load_app_config().await?;
-        let project = load_project_config(&request.cwd, Some(&config), None).await?;
+        let project = load_project_config(&as_given(&request.cwd), Some(&config), None).await?;
         project_info(project, &config)
     }
 
     /// TS: handleRequest `trust-project` (`Repository configuration changed; review it again before trusting`).
     pub async fn handle_trust_project(&self, request: &TrustProject) -> Result<ProjectInfo> {
         let user = load_app_config().await?;
-        let project = load_project_config(&request.cwd, Some(&user), None).await?;
-        if project.fingerprint != request.fingerprint {
+        let project = load_project_config(&as_given(&request.cwd), Some(&user), None).await?;
+        if request.fingerprint.known() != Some(&project.fingerprint) {
             return Err(DhError::msg(
                 "Repository configuration changed; review it again before trusting",
             ));
@@ -133,8 +155,8 @@ impl Daemon {
 
     /// TS: InkDaemon.listBranches: local branches, current and default branch, the configured branchFrom and whether
     /// a trusted creation hook will create the worktree.
-    pub async fn list_branches(&self, cwd: &str) -> Result<BranchList> {
-        let root = find_repo_root(Some(cwd)).await?;
+    pub async fn list_branches(&self, cwd: Option<&str>) -> Result<BranchList> {
+        let root = find_repo_root(cwd).await?;
         let app_config = load_app_config().await?;
         let project = load_project_config(&root, Some(&app_config), None).await.ok();
         let branch_from = resolve_settings(project.as_ref(), &app_config, &config_dir())
@@ -278,15 +300,15 @@ mod tests {
     fn cwd_request(cwd: &str) -> CwdRequest {
         CwdRequest {
             request_id: "r".to_owned(),
-            cwd: cwd.to_owned(),
+            cwd: cwd.into(),
         }
     }
 
     fn trust_request(cwd: &str, fingerprint: &str) -> TrustProject {
         TrustProject {
             request_id: "r".to_owned(),
-            cwd: cwd.to_owned(),
-            fingerprint: fingerprint.to_owned(),
+            cwd: cwd.into(),
+            fingerprint: fingerprint.into(),
         }
     }
 
@@ -343,7 +365,7 @@ mod tests {
             json!([info.project.fingerprint])
         );
 
-        let branches = block_on(daemon.list_branches(&root)).unwrap();
+        let branches = block_on(daemon.list_branches(Some(&root))).unwrap();
         assert_eq!(branches.branch_from, BranchFrom::Default);
         assert_eq!(branches.hook, None);
     }
@@ -361,7 +383,7 @@ mod tests {
         let error = block_on(daemon.handle_project_info(&cwd_request(&root))).unwrap_err();
         assert!(error.to_string().starts_with("Invalid \"defaults\" in "), "{error}");
         // The branch list falls back to `current` instead.
-        let branches = block_on(daemon.list_branches(&root)).unwrap();
+        let branches = block_on(daemon.list_branches(Some(&root))).unwrap();
         assert_eq!(branches.branch_from, BranchFrom::Current);
     }
 
@@ -371,7 +393,7 @@ mod tests {
         let (_dir, root) = repo();
         tgit(&root, &["branch", "feature"]);
         let daemon = home.daemon();
-        let branches = block_on(daemon.list_branches(&root)).unwrap();
+        let branches = block_on(daemon.list_branches(Some(&root))).unwrap();
         let mut names = branches.branches.clone();
         names.sort();
         assert_eq!(names, ["feature", "main"]);
@@ -386,16 +408,16 @@ mod tests {
         let info = block_on(daemon.handle_project_info(&cwd_request(&root))).unwrap();
         assert!(info.project.creation_hook.is_some());
         assert!(info.needs_review);
-        assert_eq!(block_on(daemon.list_branches(&root)).unwrap().hook, None);
+        assert_eq!(block_on(daemon.list_branches(Some(&root))).unwrap().hook, None);
         block_on(daemon.handle_trust_project(&trust_request(&root, &info.project.fingerprint))).unwrap();
-        let branches = block_on(daemon.list_branches(&root)).unwrap();
+        let branches = block_on(daemon.list_branches(Some(&root))).unwrap();
         assert_eq!(branches.hook, Some(true));
         let value = serde_json::to_value(&branches).unwrap();
         assert_eq!(value["hook"], json!(true));
 
         // A detached HEAD has no current branch.
         tgit(&root, &["checkout", "--detach"]);
-        assert_eq!(block_on(daemon.list_branches(&root)).unwrap().current, None);
+        assert_eq!(block_on(daemon.list_branches(Some(&root))).unwrap().current, None);
     }
 
     #[test]
@@ -403,7 +425,7 @@ mod tests {
         let home = Home::new();
         let dir = tempfile::tempdir().unwrap();
         let daemon = home.daemon();
-        assert!(block_on(daemon.list_branches(&dir.path().to_string_lossy())).is_err());
+        assert!(block_on(daemon.list_branches(Some(&dir.path().to_string_lossy()))).is_err());
     }
 
     #[test]
@@ -414,9 +436,9 @@ mod tests {
         let saved = block_on(daemon.handle_save_config(&SaveConfig {
             request_id: "r".to_owned(),
             target: ConfigTargetKind::Global,
-            cwd: root.clone(),
-            raw: "{\"devCommand\": \"make dev\"}\n".to_owned(),
-            revision: None,
+            cwd: root.clone().into(),
+            raw: Some("{\"devCommand\": \"make dev\"}\n".to_owned()),
+            revision: Loose::Other(Value::Null),
         }))
         .unwrap();
         assert_eq!(saved.document.kind, ConfigTargetKind::Global);
@@ -427,9 +449,9 @@ mod tests {
         let error = block_on(daemon.handle_save_config(&SaveConfig {
             request_id: "r".to_owned(),
             target: ConfigTargetKind::Global,
-            cwd: root.clone(),
-            raw: "{\"devCommand\": \"other\"}\n".to_owned(),
-            revision: None,
+            cwd: root.clone().into(),
+            raw: Some("{\"devCommand\": \"other\"}\n".to_owned()),
+            revision: Loose::Other(Value::Null),
         }))
         .unwrap_err();
         assert_eq!(
@@ -440,9 +462,9 @@ mod tests {
         let saved = block_on(daemon.handle_save_config(&SaveConfig {
             request_id: "r".to_owned(),
             target: ConfigTargetKind::Repository,
-            cwd: root.clone(),
-            raw: "{\"setupCommand\": \"npm ci\"}\n".to_owned(),
-            revision: None,
+            cwd: root.clone().into(),
+            raw: Some("{\"setupCommand\": \"npm ci\"}\n".to_owned()),
+            revision: Loose::Other(Value::Null),
         }))
         .unwrap();
         assert_eq!(saved.document.kind, ConfigTargetKind::Repository);

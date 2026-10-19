@@ -22,7 +22,7 @@ use deckhand_protocol::data::{
     SessionStatus, SetupState,
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage, SessionOutput, SessionRef};
-use deckhand_protocol::wire::{Attach, Detach, Input, Resize, WatchPreview};
+use deckhand_protocol::wire::{Attach, Detach, Input, Loose, Resize, WatchPreview};
 use deckhand_protocol::worker_ipc::WorkerMessage;
 use deckhand_sys::async_util::{Timer, spawn};
 use deckhand_sys::claude_transcripts::{LatestConversationOptions, latest_claude_conversation};
@@ -560,17 +560,30 @@ impl Daemon {
             return Err(DhError::msg("Startup cancelled"));
         }
         let agent_version = launch_version.await;
-        let patched = agent_version.clone();
-        self.patch_session(&session.id, move |current| {
-            current.touch("agentVersion");
-            current.agent_version = patched;
-        });
+        // Unlike TS, where the cached version is usually settled and this await never yields to worker events, the
+        // `--version` read of a changed binary can outlast the agent here: its running message lets a kill through and
+        // the exit record lands meanwhile. The caller's running save would revive it, so the cancel check repeats.
+        let current = self.held_session(&session.id);
+        let same_launch = current
+            .as_ref()
+            .is_some_and(|current| current.launch_id.as_deref() == Some(launch_id.as_str()));
+        if same_launch {
+            let patched = agent_version.clone();
+            self.patch_session(&session.id, move |current| {
+                current.touch("agentVersion");
+                current.agent_version = patched;
+            });
+        }
         // A launch may be the first to see a new installed version (updated outside Deckhand).
         {
             let daemon = self.clone();
             drop(spawn(async move {
                 daemon.publish_agent_versions().await;
             }));
+        }
+        if !same_launch || current.is_some_and(|current| current.status == SessionStatus::Exited) {
+            self.stop_worker(&worker);
+            return Err(DhError::msg("Startup cancelled"));
         }
         started.touch("agentVersion");
         started.agent_version = agent_version;
@@ -917,7 +930,7 @@ impl Daemon {
             client.watched_preview_session_id = request.session_id.clone();
             client.preview_cols = clamp_size(request.cols, client.preview_cols);
             client.preview_rows = clamp_size(request.rows, client.preview_rows);
-            client.preview_scroll_offset = clamp_non_negative(request.scroll_offset.unwrap_or(0));
+            client.preview_scroll_offset = clamp_non_negative(request.scroll_offset);
             (client.preview_cols, client.preview_rows, client.preview_scroll_offset)
         });
         self.get_preview_record(request.session_id.as_deref(), cols, rows, scroll_offset)
@@ -944,8 +957,9 @@ impl Daemon {
         if elsewhere {
             return Err(DhError::msg("session is already attached elsewhere"));
         }
-        let cols = clamp_size(request.cols.unwrap_or(DEFAULT_PREVIEW_COLS), DEFAULT_PREVIEW_COLS);
-        let rows = clamp_size(request.rows.unwrap_or(DEFAULT_PREVIEW_ROWS), DEFAULT_PREVIEW_ROWS);
+        // `clampSize(cols ?? DEFAULT, DEFAULT)`: absent and not a number alike are the default.
+        let cols = clamp_size(request.cols, DEFAULT_PREVIEW_COLS);
+        let rows = clamp_size(request.rows, DEFAULT_PREVIEW_ROWS);
         let payload = object(json!({"type": "attach", "target": "agent", "cols": cols, "rows": rows}));
         let attach_data: Value = self.send_worker_request(&request.session_id, payload).await?;
         let attach_data = object(attach_data);
@@ -985,18 +999,34 @@ impl Daemon {
         let has_draft = self
             .worker_of(&request.session_id)
             .is_some_and(|worker| worker.draft.borrow().is_some());
-        if has_draft && types_letters(&request.data) {
-            self.drop_draft(&request.session_id, Some("you typed first"), true);
+        // TS reads `message.data` as text here and in answersPrompt: anything else is a TypeError there (reported
+        // only to a client that sent a requestId), after the keys went to the agent as sent.
+        if has_draft {
+            let data = request
+                .data
+                .known()
+                .ok_or_else(|| replace_type_error(&request.data, "message.data"))?;
+            if types_letters(data) {
+                self.drop_draft(&request.session_id, Some("you typed first"), true);
+            }
         }
-        self.send_worker_event(
-            &request.session_id,
-            object(json!({"type": "input", "target": "agent", "data": request.data})),
-        );
-        if answers_prompt(&request.data) {
+        let mut event = object(json!({"type": "input", "target": "agent"}));
+        if let Some(data) = request.data.to_value() {
+            event.insert("data".to_owned(), data);
+        }
+        self.send_worker_event(&request.session_id, event);
+        let data = request
+            .data
+            .known()
+            .ok_or_else(|| replace_type_error(&request.data, "data"))?;
+        if answers_prompt(data) {
+            // markAnswered's synchronous part runs now, as TS calls it here: a hook queued behind this input finds
+            // the answer's time already recorded. Only the save goes on in the background.
+            let answered = self.mark_answered(&request.session_id);
             let daemon = self.clone();
             let session_id = request.session_id.clone();
             drop(spawn(async move {
-                if let Err(error) = daemon.mark_answered(&session_id).await {
+                if let Err(error) = answered.await {
                     daemon.log_soon(format!("marking {session_id} answered failed: {error}"));
                 }
             }));
@@ -1006,10 +1036,7 @@ impl Daemon {
 
     /// TS: handleRequest `resize`.
     pub fn handle_resize(&self, request: &Resize) -> Result<()> {
-        self.send_worker_event(
-            &request.session_id,
-            object(json!({"type": "resize", "target": "agent", "cols": request.cols, "rows": request.rows})),
-        );
+        self.send_worker_event(&request.session_id, resize_event("agent", request));
         Ok(())
     }
 
@@ -1038,6 +1065,26 @@ impl Daemon {
         );
         Ok(())
     }
+}
+
+/// V8's TypeError for `<expression>.replace(...)` on a value that is not text.
+fn replace_type_error(value: &Loose<String>, expression: &str) -> DhError {
+    DhError::msg(match value.to_value() {
+        None => "Cannot read properties of undefined (reading 'replace')".to_owned(),
+        Some(Value::Null) => "Cannot read properties of null (reading 'replace')".to_owned(),
+        Some(_) => format!("{expression}.replace is not a function"),
+    })
+}
+
+/// TS: `{type: 'resize', target, cols: message.cols, rows: message.rows}`, the sizes as sent (absent: no key).
+pub(crate) fn resize_event(target: &str, request: &Resize) -> Map<String, Value> {
+    let mut event = object(json!({"type": "resize", "target": target}));
+    for (key, size) in [("cols", request.cols), ("rows", request.rows)] {
+        if let Some(size) = size {
+            event.insert(key.to_owned(), Value::from(size));
+        }
+    }
+    event
 }
 
 /// TS `this.setupProcesses.get(sessionId) === child`.
@@ -1405,8 +1452,8 @@ mod tests {
             let request = WatchPreview {
                 request_id: "r".into(),
                 session_id: Some("x".into()),
-                cols: 0,
-                rows: 50,
+                cols: Some(0),
+                rows: Some(50),
                 scroll_offset: Some(-4),
             };
             let preview = daemon.handle_watch_preview(&conn, &request).await.unwrap();
@@ -1439,8 +1486,8 @@ mod tests {
             daemon
                 .handle_resize(&Resize {
                     session_id: "nope".into(),
-                    cols: 1,
-                    rows: 1,
+                    cols: Some(1),
+                    rows: Some(1),
                 })
                 .unwrap();
         });
@@ -1535,8 +1582,8 @@ mod tests {
             daemon
                 .handle_resize(&Resize {
                     session_id: "s".into(),
-                    cols: 90,
-                    rows: 20,
+                    cols: Some(90),
+                    rows: Some(20),
                 })
                 .unwrap();
             assert_eq!(
@@ -1755,5 +1802,70 @@ mod tests {
             spawn_error("/bin/zsh", &std::io::Error::from_raw_os_error(libc::ENOENT)).to_string(),
             "spawn /bin/zsh ENOENT"
         );
+    }
+
+    // Regression (forks.test.ts / daemonFeatures.test.ts under load): the agent says running, is killed and exits
+    // while the launch still reads a changed binary's `--version`; the launch must not then answer it as running
+    // (its caller's save revived the exited record, so the kill never showed as exited).
+    #[test]
+    fn an_exit_during_the_version_read_is_not_revived_as_running() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let _home = crate::hooks::tests::Home::set(dir.path());
+        let executable = |name: &str, text: &str| {
+            let file = dir.path().join(name);
+            std::fs::write(&file, text).unwrap();
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+            file
+        };
+        let agent = executable("codex", "#!/bin/sh\nsleep 1\necho 'codex-cli 1.2.3'\n");
+        let cwd = dir.path().join("repo");
+        std::fs::create_dir_all(&cwd).unwrap();
+        let cwd = cwd.to_str().unwrap().to_owned();
+        let mut starting = session("s", &cwd, &cwd);
+        starting.command = agent.to_str().unwrap().to_owned();
+        starting.status = SessionStatus::Starting;
+        starting.launch_id = Some("l1".into());
+        let data = dir.path().join("started.json");
+        std::fs::write(&data, serde_json::to_string(&starting).unwrap()).unwrap();
+        // Answers `start` as running at once, then the agent exits 0.3 s later (well inside the 1 s version read).
+        let worker = executable(
+            "worker.sh",
+            &format!(
+                r#"#!/bin/sh
+printf '{{"type":"hello","version":46}}\n' >&3
+while IFS= read -r line <&3; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"requestId":"\([^"]*\)".*/\1/p')
+  case "$line" in
+    *'"type":"start"'*)
+      printf '{{"type":"running","pid":%s}}\n' $$ >&3
+      printf '{{"type":"response","requestId":"%s","ok":true,"data":' "$id" >&3
+      cat '{data}' >&3
+      printf '}}\n' >&3
+      sleep 0.3
+      printf '{{"type":"exit","exitCode":0,"exitSignal":15,"lastPreview":""}}\n' >&3
+      exit 0 ;;
+  esac
+done
+"#,
+                data = data.display()
+            ),
+        );
+        let daemon = Daemon::with_paths(
+            crate::daemon::DaemonOptions {
+                worker_exe: Some(worker),
+            },
+            test_daemon(dir.path()).paths.clone(),
+        );
+        daemon.notes_tasks.borrow_mut().notes = None;
+        put(&daemon, starting.clone());
+        local(async {
+            let result = daemon.start_worker(starting, 80, 24).await;
+            assert_eq!(result.unwrap_err().to_string(), "Startup cancelled");
+            let held = daemon.get_session("s").unwrap();
+            assert_eq!(held.status, SessionStatus::Exited);
+            assert_eq!(held.exit_signal, Some(Some(15)));
+            assert_eq!(held.agent_version.as_deref(), Some("1.2.3"));
+        });
     }
 }

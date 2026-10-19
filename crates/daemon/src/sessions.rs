@@ -20,11 +20,13 @@ use deckhand_core::workspace::workspace_key;
 use deckhand_core::worktree_records::{own_worktree_path, project_worktree};
 use deckhand_protocol::data::{
     AgentActivityStatus, AgentSessionRef, CreateSessionInput, ExitReason, JsNumber, LoadedProject, MoveDirection,
-    OkResult, RestartMode, SessionRecord, SessionSetup, SessionStatus, SessionWorktreeMode, SessionWorktreeRecord,
-    SetupState, SubSessionKind, TaskLink, TaskOp, WorktreeCreator, WorktreeMode, WorktreeOrigin,
+    OkResult, ProgramKey, RestartMode, SessionRecord, SessionSetup, SessionStatus, SessionWorktreeMode,
+    SessionWorktreeRecord, SetupState, SubSessionKind, TaskLink, TaskOp, WorktreeCreator, WorktreeMode, WorktreeOrigin,
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage};
-use deckhand_protocol::wire::{ArchiveSession, ExportHandoff, Remove, SessionRequest, SetSessionDone};
+use deckhand_protocol::wire::{
+    ArchiveSession, ExportHandoff, Remove, SessionRequest, SetSessionDone, js_string, js_truthy, node_received,
+};
 use deckhand_protocol::{KeyOrder, Ordered};
 use deckhand_sys::agent_path::integration_args;
 use deckhand_sys::async_util::{Timer, spawn};
@@ -39,6 +41,7 @@ use deckhand_sys::workspace_git::get_handoff_git_context;
 use deckhand_sys::{config::load_project_config, proc};
 use indexmap::IndexMap;
 use nix::sys::signal::Signal;
+use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use crate::daemon::Daemon;
@@ -48,6 +51,7 @@ use crate::launch::{
     prepare_agent_session_ref,
 };
 use crate::server::send_message;
+use crate::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
 use crate::worktrees::is_linked_worktree_root;
 
 /// The sessions' part of the daemon state.
@@ -325,6 +329,14 @@ pub fn read_agent_exit(session: &SessionRecord, output: &str) -> AgentExitReadin
         failed: false,
         note: None,
     }
+}
+
+/// What a raw `create` input showed that a [`CreateSessionInput`] cannot hold: a `taskId` or `baseBranch` sent as
+/// something other than text (TS refuses them at their own checks).
+#[derive(Clone, Copy, Debug, Default)]
+struct CreateChecks {
+    task_id_not_text: bool,
+    base_branch_not_text: bool,
 }
 
 impl Daemon {
@@ -694,9 +706,110 @@ impl Daemon {
         Ok(left == right)
     }
 
+    /// TS: handleRequest `create`: createSession on the `input` exactly as sent. Its checks of the raw value come in
+    /// createSession's order: the input itself (a TypeError reading `program`), `Unsupported agent`, a handoff into a
+    /// fork, the title (a TypeError for one that is not text), then [`Daemon::create_session`]'s, where a `taskId`
+    /// or `baseBranch` that is not text is refused as TS refuses it.
+    ///
+    /// The rest is read as [`CreateSessionInput`] holds it: an ID of another type names no session (as in TS), an
+    /// unknown `worktreeMode`/`subSessionKind` is none/clean (TS also records the unknown string), a size that is no
+    /// number is the default (the worker's), and a `cwd`/`repoRoot` that is not text is refused with Node's
+    /// path error (TS fails later, in a path API).
+    pub async fn create_session_request(&self, input: Option<&Value>) -> Result<Ordered<SessionRecord>> {
+        let input = match input {
+            None => return Err(DhError::msg("Cannot read properties of undefined (reading 'program')")),
+            Some(Value::Null) => return Err(DhError::msg("Cannot read properties of null (reading 'program')")),
+            Some(input) => input,
+        };
+        let field = |key: &str| input.as_object().and_then(|fields| fields.get(key));
+        let Some(program) = field("program").and_then(|program| ProgramKey::deserialize(program).ok()) else {
+            return Err(DhError::msg("Unsupported agent"));
+        };
+        let id = |key: &str| match field(key) {
+            Some(Value::String(text)) => Some(text.clone()).filter(|text| !text.is_empty()),
+            Some(other) if js_truthy(other) => Some(js_string(other)),
+            _ => None,
+        };
+        let text = |key: &str| field(key).and_then(Value::as_str).map(str::to_owned);
+        let handoff_from_session_id = id("handoffFromSessionId");
+        let sub_session_kind = field("subSessionKind").and_then(|kind| SubSessionKind::deserialize(kind).ok());
+        if handoff_from_session_id.is_some() && field("subSessionKind") == Some(&json!("forked")) {
+            return Err(DhError::msg("Handoffs require a clean session"));
+        }
+        let parent_session_id = id("parentSessionId");
+        let has_parent = parent_session_id
+            .as_deref()
+            .is_some_and(|id| self.get_session(id).is_some());
+        let title = match field("title") {
+            Some(Value::String(title)) => title.clone(),
+            None => return Err(DhError::msg("Cannot read properties of undefined (reading 'trim')")),
+            Some(Value::Null) => return Err(DhError::msg("Cannot read properties of null (reading 'trim')")),
+            Some(_) if has_parent => return Err(DhError::msg("childTitle.trim is not a function")),
+            Some(_) => return Err(DhError::msg("input.title.trim is not a function")),
+        };
+        let path_text = |key: &str| match field(key) {
+            Some(Value::String(path)) => Ok(path.clone()),
+            other => Err(DhError::msg(format!(
+                "The \"paths[0]\" argument must be of type string. {}",
+                node_received(other)
+            ))),
+        };
+        let (cwd, repo_root) = (path_text("cwd")?, path_text("repoRoot")?);
+        let size = |key: &str, fallback: i64| {
+            field(key)
+                .and_then(Value::as_f64)
+                .filter(|size| size.is_finite())
+                .map_or(fallback, |size| {
+                    // Saturating, as the worker clamps it anyway.
+                    #[allow(clippy::cast_possible_truncation)]
+                    let floored = size.floor() as i64;
+                    floored
+                })
+        };
+        // `taskId !== undefined` / `baseBranch !== undefined` with a value that is not text: refused at their checks.
+        let checks = CreateChecks {
+            task_id_not_text: field("taskId").is_some_and(|task| !task.is_string()),
+            base_branch_not_text: field("baseBranch").is_some_and(|branch| !branch.is_string()),
+        };
+        let input = CreateSessionInput {
+            title,
+            program,
+            cwd,
+            repo_root,
+            cols: size("cols", DEFAULT_PREVIEW_COLS),
+            rows: size("rows", DEFAULT_PREVIEW_ROWS),
+            worktree_mode: field("worktreeMode").and_then(|mode| WorktreeMode::deserialize(mode).ok()),
+            existing_worktree_path: text("existingWorktreePath"),
+            parent_session_id,
+            sub_session_kind,
+            handoff_from_session_id,
+            base_branch: if checks.base_branch_not_text {
+                Some(String::new())
+            } else {
+                text("baseBranch")
+            },
+            task_id: if checks.task_id_not_text {
+                Some(String::new())
+            } else {
+                text("taskId")
+            },
+            project_fingerprint: text("projectFingerprint"),
+        };
+        self.create_session_checked(input, checks).await
+    }
+
     /// TS: InkDaemon.createSession: validates (title, parent, fork, task, base branch, handoff), records the session
     /// as starting and finishes it in the background (finishCreateSession, failStartingSession on error).
     pub async fn create_session(&self, input: CreateSessionInput) -> Result<Ordered<SessionRecord>> {
+        self.create_session_checked(input, CreateChecks::default()).await
+    }
+
+    /// [`Daemon::create_session`] with what the raw input showed ([`CreateChecks`]).
+    async fn create_session_checked(
+        &self,
+        input: CreateSessionInput,
+        checks: CreateChecks,
+    ) -> Result<Ordered<SessionRecord>> {
         let forked = input.sub_session_kind == Some(SubSessionKind::Forked);
         let handoff_from = input.handoff_from_session_id.clone().filter(|id| !id.is_empty());
         if handoff_from.is_some() && forked {
@@ -792,7 +905,7 @@ impl Daemon {
             .map_or(0.0, |max| max + 1.0);
         let mut start_prompt = None;
         if let Some(task_id) = input.task_id.as_deref() {
-            if handoff_from.is_some() || parent_session.is_some() {
+            if checks.task_id_not_text || handoff_from.is_some() || parent_session.is_some() {
                 return Err(DhError::msg("Only a new top-level session can start from a task"));
             }
             let key = self.tasks_key_for(&input.cwd).await?;
@@ -814,7 +927,9 @@ impl Daemon {
             }
             start_prompt = Some(task_prompt(&task)).filter(|prompt| !prompt.is_empty());
         }
-        if input.base_branch.is_some() && input.worktree_mode.unwrap_or(WorktreeMode::None) != WorktreeMode::New {
+        if input.base_branch.is_some()
+            && (checks.base_branch_not_text || input.worktree_mode.unwrap_or(WorktreeMode::None) != WorktreeMode::New)
+        {
             return Err(DhError::msg("A base branch applies only to a new worktree"));
         }
         let mut handoff_path = None;
@@ -1319,12 +1434,15 @@ impl Daemon {
     }
 
     /// TS: InkDaemon.restartSession: `s` resumes (or re-forks), `S` starts fresh; retries owed setup first.
+    ///
+    /// `mode` is `None` for a mode the client sent that is neither: TS then tests `mode === 'resume'` and
+    /// `mode === 'fresh'` false alike (relaunched as a resume, without reading the exit hint or the continuation).
     pub async fn restart_session(
         &self,
         session_id: &str,
         cols: i64,
         rows: i64,
-        mode: RestartMode,
+        mode: Option<RestartMode>,
         project_fingerprint: Option<String>,
     ) -> Result<Ordered<SessionRecord>> {
         let Some(existing) = self.get_session(session_id) else {
@@ -1348,9 +1466,9 @@ impl Daemon {
         }
 
         let now = now_iso();
-        let fresh = mode == RestartMode::Fresh;
+        let fresh = mode == Some(RestartMode::Fresh);
         let parsed_agent_session_ref = match existing.last_preview.as_deref() {
-            Some(preview) if mode == RestartMode::Resume && !preview.is_empty() => {
+            Some(preview) if mode == Some(RestartMode::Resume) && !preview.is_empty() => {
                 read_agent_exit(&existing, preview).agent_session_ref
             }
             _ => None,
@@ -1365,7 +1483,10 @@ impl Daemon {
             }
             None => existing.clone(),
         };
-        let restart_source = self.continued_conversation(source, mode, never_started).await;
+        // continuedConversation only follows a resume (`mode !== 'resume'` returns the source).
+        let restart_source = self
+            .continued_conversation(source, mode.unwrap_or(RestartMode::Fresh), never_started)
+            .await;
         if never_started
             && existing
                 .requested_worktree_mode
@@ -2263,7 +2384,7 @@ mod tests {
             let daemon = daemon(dir.path());
             let restart = |id: &'static str, mode: RestartMode| {
                 let daemon = daemon.clone();
-                async move { error(daemon.restart_session(id, 80, 24, mode, None).await) }
+                async move { error(daemon.restart_session(id, 80, 24, Some(mode), None).await) }
             };
             let resume = RestartMode::Resume;
             assert_eq!(restart("gone", resume).await, "session does not exist");

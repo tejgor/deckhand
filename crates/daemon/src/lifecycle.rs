@@ -233,7 +233,11 @@ impl Daemon {
         else {
             return;
         };
-        let _ = file.write_all(line.as_bytes()).await;
+        // A tokio file hands writes to a blocking thread: flushing waits for the line to be written, as appendFile's
+        // promise does (callers rely on the line being there once this returns).
+        if file.write_all(line.as_bytes()).await.is_ok() {
+            let _ = file.flush().await;
+        }
     }
 
     /// TS: InkDaemon.assertNoLiveDaemonFromPidFile: `daemon already appears to be running as pid <pid>` when the pid
@@ -678,6 +682,37 @@ mod tests {
     }
 
     #[test]
+    fn a_logged_line_is_in_the_file_when_log_returns() {
+        // As `await fs.appendFile(...)`: callers (and tests reading the log) rely on the line being written. A FIFO
+        // as the log makes the write wait for its reader, so returning early would show.
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = test_daemon(dir.path());
+        nix::unistd::mkfifo(&daemon.paths.log_file, nix::sys::stat::Mode::from_bits_truncate(0o600)).unwrap();
+        let fifo = daemon.paths.log_file.clone();
+        let reader = std::thread::spawn(move || {
+            use std::io::Read;
+            let mut file = std::fs::File::open(fifo).unwrap();
+            // Nothing is drained for a while: a write larger than the pipe's buffer cannot finish before.
+            std::thread::sleep(Duration::from_millis(300));
+            let mut text = String::new();
+            file.read_to_string(&mut text).unwrap();
+            text.len()
+        });
+        let long = "x".repeat(256 * 1024);
+        // Timed inside the runtime: dropping it waits for its blocking pool, which would hide an early return.
+        let elapsed = local(async {
+            let started = std::time::Instant::now();
+            daemon.log(&long).await;
+            started.elapsed()
+        });
+        assert!(
+            elapsed >= Duration::from_millis(250),
+            "log returned before its line was written"
+        );
+        assert!(reader.join().unwrap() > long.len());
+    }
+
+    #[test]
     fn the_pid_file_names_this_process_and_is_removed_only_while_it_does() {
         let dir = tempfile::tempdir().unwrap();
         let daemon = test_daemon(dir.path());
@@ -847,6 +882,7 @@ mod tests {
     /// A session worker that exits on `kill` (`OBEY` set) or ignores it.
     const SH_WORKER: &str = r#"#!/bin/sh
 printf '{"type":"hello","version":46}\n' >&3
+: > "$KILLS.ready"
 while IFS= read -r line <&3; do
   case "$line" in
     *'"type":"kill"'*) printf '%s\n' "$line" >> "$KILLS"; if [ -n "$OBEY" ]; then exit 0; fi ;;
@@ -857,7 +893,7 @@ done
     fn spawn_worker(dir: &Path, name: &str, obey: bool) -> Rc<crate::launch::WorkerRuntime> {
         use crate::worker_channel::{SpawnOptions, WorkerChannel, WorkerKind};
         use std::cell::{Cell, RefCell};
-        let exe = dir.join("worker.sh");
+        let exe = dir.join(format!("worker-{name}.sh"));
         std::fs::write(&exe, SH_WORKER).unwrap();
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
         let mut env = vec![(
@@ -912,7 +948,16 @@ done
             wait.insert("type".to_owned(), Value::String("wait".to_owned()));
             let channel = stubborn.channel.clone();
             let pending = spawn(async move { channel.request::<Value>(wait).await });
-            tokio::task::yield_now().await;
+            // The grace is measured from cleanup on, so both workers must be up first: on macOS a freshly written
+            // script took ~320 ms to start even alone and over 500 ms in `nextest --workspace` (neither worker had run
+            // its first line when the SIGKILL came, so no kill was recorded).
+            let spawned = std::time::Instant::now();
+            for id in ["a", "b"] {
+                while !dir.path().join(format!("{id}.kills.ready")).exists() {
+                    assert!(spawned.elapsed() < Duration::from_secs(20), "worker {id} never started");
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }
             let started = std::time::Instant::now();
             daemon.cleanup().await;
             let took = started.elapsed();
