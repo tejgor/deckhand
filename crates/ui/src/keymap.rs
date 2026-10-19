@@ -261,4 +261,82 @@ mod tests {
         assert_eq!(unknown_topics(SAMPLE), ["No such topic"]);
         assert!(find_topic("Tasks").is_some());
     }
+
+    use crate::app::modes::{
+        action_picker, browse, confirm, create, filter, preview_focus, review, search, workspace_info,
+    };
+    use crate::flows::{agents, changes, notes, settings, tasks, worktrees};
+
+    fn all_keymaps() -> Vec<(&'static str, Keymap)> {
+        vec![
+            ("browse", browse::KEYMAP),
+            ("review", review::KEYMAP),
+            ("search", search::KEYMAP),
+            ("filter", filter::KEYMAP),
+            ("workspace-info", workspace_info::KEYMAP),
+            ("action-picker", action_picker::KEYMAP),
+            ("preview-focus", preview_focus::KEYMAP),
+            ("pick-program", create::PICK_PROGRAM_KEYMAP),
+            ("enter-name", create::ENTER_NAME_KEYMAP),
+            ("pick-worktree", create::PICK_WORKTREE_KEYMAP),
+            ("confirm-kill", confirm::KILL_KEYMAP),
+            ("confirm-merge", confirm::MERGE_KEYMAP),
+            ("confirm-remove", confirm::REMOVE_KEYMAP),
+            ("agents", agents::KEYMAP),
+            ("notes", notes::KEYMAP),
+            ("settings", settings::KEYMAP),
+            ("changes", changes::KEYMAP),
+            ("tasks", tasks::KEYMAP),
+            ("worktrees", worktrees::KEYMAP),
+        ]
+    }
+
+    // covers: B-U6-01 every key the browse view handles has a line in the ? guide
+    #[test]
+    fn every_key_the_browse_view_handles_has_a_line_in_the_guide() {
+        assert!(!handled_chars(browse::KEYMAP).is_empty());
+        let missing = undocumented_in_guide(browse::KEYMAP);
+        assert!(
+            missing.is_empty(),
+            "browse keys missing from the help guide: {}",
+            missing.join(" ")
+        );
+    }
+
+    // covers: B-U6-02 every key the Tasks board handles is in the guide's Tasks topic
+    #[test]
+    fn every_key_the_tasks_board_handles_is_in_the_guides_tasks_topic() {
+        assert!(find_topic("Tasks").is_some());
+        assert!(!handled_chars(tasks::KEYMAP).is_empty());
+        let missing = undocumented_in_topic(tasks::KEYMAP, "Tasks");
+        assert!(
+            missing.is_empty(),
+            "Tasks keys missing from the Tasks help topic: {}",
+            missing.join(" ")
+        );
+    }
+
+    // covers: B-U6-03 every key the worktree manager handles is in the guide's Worktrees topic
+    #[test]
+    fn every_key_the_worktree_manager_handles_is_in_the_guides_worktrees_topic() {
+        assert!(find_topic("Worktrees").is_some());
+        assert!(!handled_chars(worktrees::KEYMAP).is_empty());
+        let missing = undocumented_in_topic(worktrees::KEYMAP, "Worktrees");
+        assert!(
+            missing.is_empty(),
+            "Worktrees keys missing from the Worktrees help topic: {}",
+            missing.join(" ")
+        );
+    }
+
+    #[test]
+    fn every_keymap_names_real_guide_topics() {
+        for (name, keymap) in all_keymaps() {
+            assert!(
+                unknown_topics(keymap).is_empty(),
+                "{name} names unknown topics: {:?}",
+                unknown_topics(keymap)
+            );
+        }
+    }
 }

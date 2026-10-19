@@ -4,7 +4,7 @@ title = "keymap <-> help coverage test"
 crate = "ui"
 ts_sources = ["src/help.ts", "src/app.tsx"]
 rust_paths = ["crates/ui/src/keymap.rs"]
-deps = ["A2", "A3", "A4", "A5"]
+deps = ["A2", "A3", "A4", "A5", "F1", "F2", "F3", "F4", "F5", "F6"]
 ts_tests = ["tests/keysDocumented.test.ts"]
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
 ts_suites = []
