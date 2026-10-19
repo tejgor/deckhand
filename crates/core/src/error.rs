@@ -367,6 +367,13 @@ struct JsonScanner<'a> {
 
 type Scan = std::result::Result<(), JsonFault>;
 
+/// A container the scanner is inside of.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Container {
+    Object,
+    Array,
+}
+
 impl JsonScanner<'_> {
     fn peek(&self) -> Option<u16> {
         self.units.get(self.pos).copied()
@@ -388,7 +395,7 @@ impl JsonScanner<'_> {
 
     fn document(&mut self) -> Scan {
         self.skip_whitespace();
-        self.value(0)?;
+        self.value()?;
         self.skip_whitespace();
         if self.peek().is_some() {
             return Err(JsonFault::At(
@@ -399,91 +406,86 @@ impl JsonScanner<'_> {
         Ok(())
     }
 
-    fn value(&mut self, depth: usize) -> Scan {
-        if depth > 4096 {
-            return Err(JsonFault::Token(self.pos));
-        }
-        self.skip_whitespace();
-        match self.peek().and_then(|unit| u8::try_from(unit).ok()) {
-            Some(b'"') => self.string(),
-            Some(b'-' | b'0'..=b'9') => self.number(),
-            Some(b't') => self.literal("true"),
-            Some(b'f') => self.literal("false"),
-            Some(b'n') => self.literal("null"),
-            Some(b'{') => self.object(depth),
-            Some(b'[') => self.array(depth),
-            _ => Err(JsonFault::Token(self.pos)),
-        }
-    }
-
-    fn object(&mut self, depth: usize) -> Scan {
-        self.pos += 1;
-        self.skip_whitespace();
-        if self.is(b'}') {
-            self.pos += 1;
-            return Ok(());
-        }
-        let mut first = true;
-        loop {
+    /// One value, iteratively: open containers live on an explicit stack, so any nesting depth is scanned (as V8's
+    /// JSON.parse does) without growing the call stack.
+    fn value(&mut self) -> Scan {
+        let mut open: Vec<Container> = Vec::new();
+        'value: loop {
             self.skip_whitespace();
-            if !self.is(b'"') {
-                let message = if first {
-                    "Expected property name or '}' in JSON at position %"
-                } else {
-                    "Expected double-quoted property name in JSON at position %"
+            match self.peek().and_then(|unit| u8::try_from(unit).ok()) {
+                Some(b'"') => self.string()?,
+                Some(b'-' | b'0'..=b'9') => self.number()?,
+                Some(b't') => self.literal("true")?,
+                Some(b'f') => self.literal("false")?,
+                Some(b'n') => self.literal("null")?,
+                Some(b'{') => {
+                    self.pos += 1;
+                    self.skip_whitespace();
+                    if self.is(b'}') {
+                        self.pos += 1;
+                    } else {
+                        self.property_name(true)?;
+                        open.push(Container::Object);
+                        continue 'value;
+                    }
+                }
+                Some(b'[') => {
+                    self.pos += 1;
+                    self.skip_whitespace();
+                    if self.is(b']') {
+                        self.pos += 1;
+                    } else {
+                        open.push(Container::Array);
+                        continue 'value;
+                    }
+                }
+                _ => return Err(JsonFault::Token(self.pos)),
+            }
+            // A value ended: continue its container, closing every container it completes.
+            while let Some(&container) = open.last() {
+                self.skip_whitespace();
+                if self.is(b',') {
+                    self.pos += 1;
+                    if container == Container::Object {
+                        self.property_name(false)?;
+                    }
+                    continue 'value;
+                }
+                let (close, message) = match container {
+                    Container::Object => (b'}', "Expected ',' or '}' after property value in JSON at position %"),
+                    Container::Array => (b']', "Expected ',' or ']' after array element in JSON at position %"),
                 };
-                return Err(JsonFault::At(message, self.pos));
-            }
-            first = false;
-            self.string()?;
-            self.skip_whitespace();
-            if !self.is(b':') {
-                return Err(JsonFault::At(
-                    "Expected ':' after property name in JSON at position %",
-                    self.pos,
-                ));
-            }
-            self.pos += 1;
-            self.value(depth + 1)?;
-            self.skip_whitespace();
-            if self.is(b',') {
+                if !self.is(close) {
+                    return Err(JsonFault::At(message, self.pos));
+                }
                 self.pos += 1;
-                continue;
+                open.pop();
             }
-            if self.is(b'}') {
-                self.pos += 1;
-                return Ok(());
-            }
-            return Err(JsonFault::At(
-                "Expected ',' or '}' after property value in JSON at position %",
-                self.pos,
-            ));
+            return Ok(());
         }
     }
 
-    fn array(&mut self, depth: usize) -> Scan {
-        self.pos += 1;
+    /// `"name" :` inside an object (`first`: right after `{`, where V8 also accepts `}`).
+    fn property_name(&mut self, first: bool) -> Scan {
         self.skip_whitespace();
-        if self.is(b']') {
-            self.pos += 1;
-            return Ok(());
+        if !self.is(b'"') {
+            let message = if first {
+                "Expected property name or '}' in JSON at position %"
+            } else {
+                "Expected double-quoted property name in JSON at position %"
+            };
+            return Err(JsonFault::At(message, self.pos));
         }
-        loop {
-            self.value(depth + 1)?;
-            self.skip_whitespace();
-            if self.is(b',') {
-                self.pos += 1;
-                continue;
-            }
-            if self.is(b']') {
-                self.pos += 1;
-                return Ok(());
-            }
+        self.string()?;
+        self.skip_whitespace();
+        if !self.is(b':') {
             return Err(JsonFault::At(
-                "Expected ',' or ']' after array element in JSON at position %",
+                "Expected ':' after property name in JSON at position %",
                 self.pos,
             ));
         }
+        self.pos += 1;
+        Ok(())
     }
 
     fn literal(&mut self, word: &str) -> Scan {
@@ -651,6 +653,32 @@ mod tests {
         assert_eq!(
             DhError::json_parse("{").to_string(),
             "Expected property name or '}' in JSON at position 1 (line 1 column 2)"
+        );
+    }
+
+    #[test]
+    fn json_parse_message_scans_any_depth() {
+        // V8's JSON.parse is iterative: it accepts (and reports errors in) arbitrarily deep input.
+        let depth = 1_000_000;
+        assert_eq!(
+            json_parse_message(&format!("{}{}", "[".repeat(depth), "]".repeat(depth))),
+            None
+        );
+        let objects = format!("{}1{}", "{\"a\":".repeat(depth), "}".repeat(depth));
+        assert_eq!(json_parse_message(&objects), None);
+        let mixed = format!("{}null{}", "[{\"k\":".repeat(depth), "}]".repeat(depth));
+        assert_eq!(json_parse_message(&mixed), None);
+        assert_eq!(
+            json_parse_message(&format!("{}x", "[".repeat(depth))).as_deref(),
+            Some("Unexpected token 'x', ...\"[[[[[[[[[[x\" is not valid JSON")
+        );
+        assert_eq!(
+            json_parse_message(&"[".repeat(depth)).as_deref(),
+            Some("Unexpected end of JSON input")
+        );
+        assert_eq!(
+            json_parse_message(&format!("{}{}", "[".repeat(depth), "]".repeat(depth - 1))).as_deref(),
+            Some("Expected ',' or ']' after array element in JSON at position 1999999 (line 1 column 2000000)")
         );
     }
 

@@ -172,6 +172,9 @@ pub struct AgentSessionRef {
     pub provider: ProgramKey,
     pub kind: AgentSessionRefKind,
     pub value: String,
+    /// Keys this version does not know (kept, as the TS spreads keep them).
+    #[serde(flatten)]
+    pub extra: IndexMap<String, Value>,
 }
 
 /// Worktree settings links applied when the worktree was created (worktreeLinks.ts LinkResult).
@@ -180,6 +183,9 @@ pub struct AgentSessionRef {
 pub struct WorktreeLinks {
     pub linked: Vec<String>,
     pub notes: Vec<String>,
+    /// Keys this version does not know (kept, as the TS spreads keep them).
+    #[serde(flatten)]
+    pub extra: IndexMap<String, Value>,
 }
 
 /// types.ts SessionWorktreeRecord. Order: creation literal (git.ts), then baseRef and id as the daemon adds them,
@@ -270,6 +276,9 @@ pub struct SessionAttention {
     pub event: String,
     pub at: String,
     pub reason: Option<AttentionReason>,
+    /// Keys this version does not know (kept, as the TS spreads keep them).
+    #[serde(flatten)]
+    pub extra: IndexMap<String, Value>,
 }
 
 /// SessionRecord.setup: the setup command's progress.
@@ -282,6 +291,9 @@ pub struct SessionSetup {
     pub output: String,
     #[serde(default, with = "::serde_with::rust::double_option")]
     pub exit_code: Option<Option<i64>>,
+    /// Keys this version does not know (kept, as the TS spreads keep them).
+    #[serde(flatten)]
+    pub extra: IndexMap<String, Value>,
 }
 
 /// A note file as the daemon last read it (types.ts NoteFile).
@@ -338,7 +350,8 @@ pub struct SessionRecord {
     pub sub_session_kind: Option<SubSessionKind>,
     pub forked_from_session_id: Option<String>,
     pub forked_from_agent_session_ref: Option<AgentSessionRef>,
-    pub sidebar_order: Option<i64>,
+    /// Any JS number (TS writes back what it read; sessionOrder.ts orderValue reads a non-finite one as 0).
+    pub sidebar_order: Option<JsNumber>,
     pub notes: Option<String>,
     pub notes_file: Option<NoteFile>,
     pub shared_notes: Option<SharedNote>,

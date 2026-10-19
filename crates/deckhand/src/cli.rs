@@ -131,14 +131,19 @@ pub async fn run(command: Command) -> Result<ExitCode, DhError> {
         Command::WorkspaceWorker => run_workspace_worker().await?,
         Command::Daemon => run_daemon().await?,
         Command::Setup(args) => setup::run_setup(&args).await?,
-        // TS: doctor is setup and exits 0 whatever it finds; the port's Codex hooks check only adds its report.
-        Command::Doctor(args) => {
-            doctor::run_doctor(&args).await?;
-        }
+        Command::Doctor(args) => return Ok(doctor_exit_code(doctor::run_doctor(&args).await?)),
         Command::Version => print_line(&version_line()),
         Command::Ui => ui_loop::run_ui_loop().await?,
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// The exit status of `deckhand doctor [--check]`. TS doctor is setup and exits 0 whatever it finds; the port's Codex
+/// hooks check only adds its report, so problems found (e.g. stale Codex hooks) are not a failure either.
+pub fn doctor_exit_code(status: doctor::DoctorStatus) -> ExitCode {
+    match status {
+        doctor::DoctorStatus::Healthy | doctor::DoctorStatus::Problems => ExitCode::SUCCESS,
+    }
 }
 
 /// A fresh request id (TS `randomUUID()`).
@@ -231,6 +236,57 @@ mod tests {
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|arg| (*arg).to_owned()).collect()
+    }
+
+    #[test]
+    fn doctor_exits_zero_whatever_it_finds() {
+        assert_eq!(doctor_exit_code(doctor::DoctorStatus::Healthy), ExitCode::SUCCESS);
+        assert_eq!(doctor_exit_code(doctor::DoctorStatus::Problems), ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn doctor_check_with_stale_codex_hooks_exits_zero() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempfile::tempdir().expect("tempdir");
+        let dir = |name: &str| {
+            let path = root.path().join(name);
+            std::fs::create_dir(&path).expect("mkdir");
+            path
+        };
+        let (home, deckhand_home, codex_home, bin) = (dir("home"), dir("deckhand"), dir("codex"), dir("bin"));
+        // A scratch login shell (setup probes `$SHELL -ic 'command -v <tool>'`) with an empty PATH: no rc files run
+        // and no agent is found (nor started).
+        let shell = root.path().join("sh");
+        std::fs::write(
+            &shell,
+            "#!/bin/sh\n[ \"$1\" = -ic ] || exit 64\nexec /bin/sh -c \"$2\"\n",
+        )
+        .expect("shell");
+        std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        let stale = "'/usr/local/bin/node' '/Users/me/deckhand/dist/cli.js' 'hook'";
+        let hooks = serde_json::json!({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": stale}]}]}});
+        std::fs::write(codex_home.join(doctor::CODEX_HOOKS_FILE), hooks.to_string()).expect("hooks.json");
+        // SAFETY: nextest runs each test in its own process, so nothing else reads the environment concurrently.
+        unsafe {
+            std::env::set_var("HOME", &home);
+            std::env::set_var(paths::HOME_ENV, &deckhand_home);
+            std::env::set_var(doctor::CODEX_HOME_ENV, &codex_home);
+            std::env::set_var("SHELL", &shell);
+            std::env::set_var("PATH", &bin);
+        }
+        let status = crate::block_on_local(doctor::run_doctor(&args(&["--check"])))
+            .expect("runtime")
+            .expect("doctor");
+        assert_eq!(status, doctor::DoctorStatus::Problems);
+        let code = crate::block_on_local(run(Command::Doctor(args(&["--check"]))))
+            .expect("runtime")
+            .expect("doctor");
+        assert_eq!(code, ExitCode::SUCCESS);
+        // Doctor only reads the Codex home.
+        assert_eq!(
+            std::fs::read_to_string(codex_home.join(doctor::CODEX_HOOKS_FILE)).expect("hooks.json"),
+            hooks.to_string()
+        );
     }
 
     #[test]

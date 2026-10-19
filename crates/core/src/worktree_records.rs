@@ -1003,12 +1003,6 @@ mod tests {
         ];
         for expected in after["sessions"].as_array().unwrap() {
             let id = expected["id"].as_str().unwrap();
-            // deckhand_protocol's WorktreeLinks keeps no unknown keys yet (reported as a frozen change request), so
-            // `worktree.links.futureLinksField` (MIGRATIONS.md row 19) is not checked here.
-            let mut expected = expected.clone();
-            if let Some(links) = expected.pointer_mut("/worktree/links").and_then(Value::as_object_mut) {
-                links.shift_remove("futureLinksField");
-            }
             let got = serde_json::to_value(done.sessions.iter().find(|item| item.id == id).unwrap()).unwrap();
             for field in fields {
                 assert_eq!(

@@ -567,6 +567,7 @@ pub(crate) mod tests {
             event: event.into(),
             at: at.into(),
             reason: None,
+            extra: Default::default(),
         })
     }
 

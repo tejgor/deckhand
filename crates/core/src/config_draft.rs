@@ -8,6 +8,11 @@
 //! number formatting), duplicate keys keep their first position with the last value, integer-like keys move to the
 //! front in ascending order (V8's element ordering), and lone surrogates in strings survive as `\udxxx` escapes.
 //! Parsing and printing are iterative over a flat arena, so deep nesting cannot overflow the stack.
+//!
+//! The one limit is nesting depth ([`MAX_STRINGIFY_DEPTH`]): `JSON.parse` accepts any depth, but V8's
+//! `JSON.stringify` recurses per level and throws `RangeError: Maximum call stack size exceeded` past a few thousand
+//! levels (the exact depth depends on the stack in use; about 6170 under Node 24 with the default stack). Printing
+//! is also quadratic in depth (each level is indented), so an unbounded depth would mean gigabytes of output.
 
 use indexmap::IndexMap;
 
@@ -18,6 +23,13 @@ pub const MAX_CONFIG_BYTES: usize = 64 * 1024;
 
 /// TS: configDraft.ts MAX_CONFIG_LABEL.
 pub const MAX_CONFIG_LABEL: &str = "64 KiB";
+
+/// The deepest value (the root is at depth 1) [`format_config_json`] prints; deeper input fails as V8's recursive
+/// `JSON.stringify` does (see the module docs; V8's own limit depends on its stack, this one is fixed).
+pub const MAX_STRINGIFY_DEPTH: usize = 6144;
+
+/// V8's RangeError message for a stack overflow.
+const STACK_OVERFLOW_MESSAGE: &str = "Maximum call stack size exceeded";
 
 /// TS: configDraft.ts formatConfigJson (`JSON.stringify(JSON.parse(text), null, 2)` plus a newline; the parse error
 /// is JSON.parse's message, see `DhError::json_parse`).
@@ -32,8 +44,15 @@ pub fn format_config_json(text: &str) -> Result<String> {
         units: &units,
         pos: 0,
         nodes: Vec::new(),
+        too_deep: false,
     };
-    let root = parser.document().ok_or_else(|| DhError::json_parse(text))?;
+    let root = parser.document().ok_or_else(|| {
+        if parser.too_deep {
+            DhError::msg(STACK_OVERFLOW_MESSAGE)
+        } else {
+            DhError::json_parse(text)
+        }
+    })?;
     let mut out = String::new();
     stringify(&parser.nodes, root, &mut out);
     out.push('\n');
@@ -60,6 +79,8 @@ struct Parser<'a> {
     units: &'a [u16],
     pos: usize,
     nodes: Vec<Node>,
+    /// Set when [`Parser::document`] stopped at a value deeper than [`MAX_STRINGIFY_DEPTH`].
+    too_deep: bool,
 }
 
 impl Parser<'_> {
@@ -106,6 +127,10 @@ impl Parser<'_> {
         let mut stack: Vec<Frame> = Vec::new();
         loop {
             // A value starts here (or a container opens).
+            if stack.len() >= MAX_STRINGIFY_DEPTH {
+                self.too_deep = true;
+                return None;
+            }
             self.skip_whitespace();
             let mut value = match self.peek()? {
                 0x7b => {
@@ -431,11 +456,26 @@ mod tests {
 
     #[test]
     fn deep_nesting_does_not_overflow() {
-        let text = format!("{}{}", "[".repeat(4000), "]".repeat(4000));
-        assert!(format_config_json(&text).is_ok());
-        // Past the JSON scanner's depth limit: an error, not a crash.
-        let text = format!("{}{}", "[".repeat(100_000), "]".repeat(100_000));
-        assert!(format_config_json(&text).is_err());
+        let nested = |depth: usize| format!("{}{}", "[".repeat(depth), "]".repeat(depth));
+        assert!(format_config_json(&nested(5000)).is_ok());
+        assert!(format_config_json(&nested(MAX_STRINGIFY_DEPTH)).is_ok());
+        // Valid JSON (JSON.parse accepts any depth) that JSON.stringify cannot print: V8's RangeError, not a crash.
+        for depth in [MAX_STRINGIFY_DEPTH + 1, 100_000, 1_000_000] {
+            assert_eq!(
+                format_config_json(&nested(depth)).unwrap_err().to_string(),
+                "Maximum call stack size exceeded"
+            );
+        }
+        let objects = |depth: usize| format!("{}1{}", "{\"a\":".repeat(depth), "}".repeat(depth));
+        assert!(format_config_json(&objects(MAX_STRINGIFY_DEPTH - 1)).is_ok());
+        assert!(format_config_json(&objects(MAX_STRINGIFY_DEPTH)).is_err());
+        // Bad JSON deep inside still gets JSON.parse's message.
+        assert_eq!(
+            format_config_json(&format!("{}x", "[".repeat(100_000)))
+                .unwrap_err()
+                .to_string(),
+            "Unexpected token 'x', ...\"[[[[[[[[[[x\" is not valid JSON"
+        );
     }
 
     #[test]

@@ -185,6 +185,7 @@ impl AgentSpec {
                     provider: ProgramKey::Claude,
                     kind,
                     value: value.to_owned(),
+                    extra: Default::default(),
                 })
             }
             ProgramKey::Codex => codex_resume_from_output(output),
@@ -298,6 +299,7 @@ pub fn new_agent_ref(program: ProgramKey) -> Option<AgentSessionRef> {
         provider: program,
         kind: AgentSessionRefKind::Id,
         value: uuid::Uuid::new_v4().to_string(),
+        extra: Default::default(),
     })
 }
 
@@ -397,6 +399,7 @@ pub(crate) mod tests {
             provider,
             kind: AgentSessionRefKind::Id,
             value: value.to_owned(),
+            extra: Default::default(),
         }
     }
 
@@ -437,6 +440,7 @@ pub(crate) mod tests {
             provider,
             kind,
             value: value.to_owned(),
+            extra: Default::default(),
         };
         use ProgramKey::{Claude, Codex, Pi};
         assert_eq!(

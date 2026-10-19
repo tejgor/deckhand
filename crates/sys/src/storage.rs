@@ -364,6 +364,8 @@ fn interrupted(mut session: Ordered<SessionRecord>, now: &str) -> Ordered<Sessio
         event: "DaemonRestart".to_owned(),
         at: now.to_owned(),
         reason: None,
+        // A fresh literal: unknown keys of the old attention are lost (MIGRATIONS.md row 14).
+        extra: Default::default(),
     });
     reset_child_order(&mut session, "attention");
     if let Some(setup) = session.setup.as_mut()
@@ -1531,18 +1533,10 @@ pub(crate) mod tests {
         });
     }
 
-    /// Removes `key` from the object at `pointer` (when there is one).
-    fn remove_key(value: &mut Value, pointer: &str, key: &str) {
-        if let Some(object) = value.pointer_mut(pointer).and_then(Value::as_object_mut) {
-            object.shift_remove(key);
-        }
-    }
-
     /// fixtures/parity/storage/mark-exited-home-v45 (recorded by parity/gen/storage.gen.ts, not listed in the
-    /// manifest): the v45 legacy state.json recovered on daemon start, written byte for byte as TS writes it, except
-    /// for unknown keys inside `agentSessionRef`, `worktree.links`, `setup` and an exited session's `attention`,
-    /// which the protocol records (AgentSessionRef, WorktreeLinks, SessionSetup, SessionAttention) do not keep yet
-    /// (fixtures/state/MIGRATIONS.md row 19; reported as a frozen protocol change).
+    /// manifest): the v45 legacy state.json recovered on daemon start, written byte for byte as TS writes it. Unknown
+    /// keys inside `agentSessionRef`, `worktree.links`, `setup` and an exited session's `attention` round-trip
+    /// (fixtures/state/MIGRATIONS.md row 19); a live session's `attention` is replaced (row 14).
     #[test]
     fn legacy_home_state_recovers_like_ts() {
         let case = deckhand_parity::fixtures_root().join("storage/mark-exited-home-v45");
@@ -1552,17 +1546,17 @@ pub(crate) mod tests {
         let _determinism = Determinism::install();
         block_on(mark_all_non_exited_sessions_exited()).expect("recovered");
         let written = std::fs::read_to_string(home.path().join("state.json")).unwrap();
-        let mut expected: Value =
-            serde_json::from_str(&std::fs::read_to_string(case.join("after/state.json")).unwrap()).unwrap();
-        let sessions = expected["sessions"].as_array().map_or(0, Vec::len);
-        for index in 0..sessions {
-            let at = format!("/sessions/{index}");
-            remove_key(&mut expected, &format!("{at}/agentSessionRef"), "futureRefField");
-            remove_key(&mut expected, &format!("{at}/worktree/links"), "futureLinksField");
-            remove_key(&mut expected, &format!("{at}/setup"), "futureSetupField");
-            remove_key(&mut expected, &format!("{at}/attention"), "futureAttentionField");
+        let expected = std::fs::read_to_string(case.join("after/state.json")).unwrap();
+        assert_eq!(written, expected);
+        // Guard: the fixture still exercises every row 19 nested key.
+        for key in [
+            "futureRefField",
+            "futureLinksField",
+            "futureSetupField",
+            "futureAttentionField",
+        ] {
+            assert!(written.contains(&format!("\"{key}\"")), "{key}");
         }
-        assert_eq!(written, to_ts_file_text(&expected).unwrap());
         assert_eq!(
             std::fs::metadata(home.path().join("state.json")).unwrap().mode() & 0o777,
             FILE_MODE
@@ -1652,6 +1646,35 @@ pub(crate) mod tests {
             .collect();
         files.sort();
         assert_eq!(files, ["state.json"]);
+    }
+
+    #[test]
+    fn fractional_sidebar_order_loads_and_is_written_back_as_read() {
+        let home = temp_home();
+        let _home = Home::set(home.path());
+        let _determinism = Determinism::install();
+        let session = |id: &str, order: &str| {
+            format!(
+                r#"{{"id":"{id}","title":"t","program":"claude","command":"claude","cwd":"/r","repoRoot":"/r","status":"running","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","sidebarOrder":{order}}}"#
+            )
+        };
+        std::fs::write(
+            home.path().join("state.json"),
+            format!(
+                r#"{{"sessions":[{},{},{}],"worktrees":[]}}"#,
+                session("a", "1.5"),
+                session("b", "-0.25"),
+                session("c", "2.0")
+            ),
+        )
+        .unwrap();
+        let state = block_on(mark_all_non_exited_sessions_exited()).expect("recovered");
+        assert_eq!(state.sessions.len(), 3);
+        let written = std::fs::read_to_string(home.path().join("state.json")).unwrap();
+        assert!(written.contains(r#""sidebarOrder": 1.5,"#), "{written}");
+        assert!(written.contains(r#""sidebarOrder": -0.25,"#), "{written}");
+        // `JSON.parse('2.0')` is 2.
+        assert!(written.contains(r#""sidebarOrder": 2,"#), "{written}");
     }
 
     #[test]

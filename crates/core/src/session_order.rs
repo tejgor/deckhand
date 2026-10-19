@@ -47,15 +47,31 @@ fn by_id<S: SessionLike>(sessions: &[S]) -> HashMap<&str, &SessionRecord> {
         .collect()
 }
 
-/// TS: sessionOrder.ts orderValue (a finite `sidebarOrder`, else 0).
-pub fn order_value(session: &SessionRecord) -> i64 {
-    session.sidebar_order.unwrap_or(0)
+/// TS: sessionOrder.ts orderValue (a finite `sidebarOrder`, else 0; fractions kept).
+pub fn order_value(session: &SessionRecord) -> f64 {
+    session
+        .sidebar_order
+        .map(|order| order.0)
+        .filter(|order| order.is_finite())
+        .unwrap_or(0.0)
+}
+
+/// The `orderValue(a) - orderValue(b)` of compareSessionOrder (finite operands: never NaN, 0 only when equal).
+pub fn order_delta(a: &SessionRecord, b: &SessionRecord) -> f64 {
+    order_value(a) - order_value(b)
 }
 
 /// TS: sessionOrder.ts compareSessionOrder (`sidebarOrder`, then `createdAt`, then `id`, both by localeCompare).
 pub fn compare_session_order(a: &SessionRecord, b: &SessionRecord) -> Ordering {
-    order_value(a)
-        .cmp(&order_value(b))
+    let delta = order_delta(a, b);
+    let by_order = if delta > 0.0 {
+        Ordering::Greater
+    } else if delta < 0.0 {
+        Ordering::Less
+    } else {
+        Ordering::Equal
+    };
+    by_order
         .then_with(|| locale_compare(&a.created_at, &b.created_at))
         .then_with(|| locale_compare(&a.id, &b.id))
 }
@@ -227,6 +243,7 @@ pub fn filter_collapsed_sessions<'a, S: SessionLike>(
 mod tests {
     use super::*;
     use deckhand_parity::{Case, replay};
+    use deckhand_protocol::data::JsNumber;
 
     fn sessions(case: &Case, index: usize) -> Result<Vec<Ordered<SessionRecord>>, String> {
         case.arg_as(index)
@@ -243,8 +260,9 @@ mod tests {
             let b: SessionRecord = case.arg_as(1)?;
             // TS returns the raw `sidebarOrder` difference when it is not zero, else localeCompare's -1/0/1.
             let ordering = compare_session_order(&a, &b);
-            let delta = order_value(&a).saturating_sub(order_value(&b));
-            Ok::<_, String>(if delta != 0 { delta } else { ordering as i64 })
+            let delta = order_delta(&a, &b);
+            #[allow(clippy::cast_precision_loss)]
+            Ok::<_, String>(JsNumber(if delta != 0.0 { delta } else { ordering as i64 as f64 }))
         });
     }
 
@@ -324,6 +342,39 @@ mod tests {
                     .collect::<Vec<_>>(),
             )
         });
+    }
+
+    #[test]
+    fn fractional_sidebar_orders_sort_and_round_trip() {
+        let make = |id: &str, order: serde_json::Value| -> Ordered<SessionRecord> {
+            serde_json::from_value(serde_json::json!({
+                "id": id, "title": "t", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r",
+                "status": "running", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z",
+                "sidebarOrder": order,
+            }))
+            .unwrap()
+        };
+        let list = vec![
+            make("a", serde_json::json!(1.5)),
+            make("b", serde_json::json!(1.25)),
+            make("c", serde_json::json!(1)),
+            make("d", serde_json::json!(-0.5)),
+        ];
+        let ids: Vec<&str> = sort_sessions_for_sidebar(&list)
+            .into_iter()
+            .map(|item| item.id.as_str())
+            .collect();
+        assert_eq!(ids, ["d", "c", "b", "a"]);
+        assert_eq!(order_delta(&list[0], &list[1]), 0.25);
+        let written: Vec<String> = list
+            .iter()
+            .map(|item| serde_json::to_value(item).unwrap()["sidebarOrder"].to_string())
+            .collect();
+        assert_eq!(written, ["1.5", "1.25", "1", "-0.5"]);
+        // A non-finite order (only possible in memory) reads as 0, as Number.isFinite rejects it.
+        let mut infinite = list[2].clone();
+        infinite.sidebar_order = Some(JsNumber(f64::INFINITY));
+        assert_eq!(order_value(&infinite), 0.0);
     }
 
     #[test]

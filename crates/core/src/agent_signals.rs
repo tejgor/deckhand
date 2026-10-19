@@ -270,6 +270,7 @@ pub fn normalize_hook(program: ProgramKey, payload: &Value) -> Result<Option<Age
             provider: program,
             kind: AgentSessionRefKind::Id,
             value: id.to_owned(),
+            extra: Default::default(),
         });
     Ok(Some(AgentSignal {
         state,
@@ -656,6 +657,7 @@ pub fn codex_resume_from_output(output: &str) -> Option<AgentSessionRef> {
         provider: ProgramKey::Codex,
         kind: AgentSessionRefKind::Id,
         value: id,
+        extra: Default::default(),
     })
 }
 
