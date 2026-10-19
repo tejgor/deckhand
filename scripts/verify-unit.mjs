@@ -419,6 +419,16 @@ async function checkTsTests(ctx) {
 		if (!exists(file)) { problems.push(`ts_test ${file} does not exist`); continue; }
 		for (const entry of listTestTitles(path.join(ROOT, file))) titles.push({file, ...entry});
 	}
+	// Titles other units deferred to this one are this unit's to cover (or to defer again).
+	for (const other of allManifests()) {
+		if (other.unit === unit || !other.manifest) continue;
+		for (const entry of other.manifest.deferred_tests ?? []) {
+			if (entry.to !== unit || titles.some(title => title.title === entry.title)) continue;
+			const source = (other.manifest.ts_tests ?? []).filter(exists).flatMap(file => listTestTitles(path.join(ROOT, file)).map(test => ({file, ...test}))).find(test => test.title === entry.title);
+			if (source) titles.push({...source, inherited_from: other.unit});
+			else problems.push(`${other.unit} defers ${JSON.stringify(entry.title)} to ${unit}, but no test in ${other.unit}'s ts_tests has that title`);
+		}
+	}
 	const covers = listCovers(manifest);
 	const ids = new Map();
 	for (const cover of covers) {
@@ -448,7 +458,7 @@ async function checkTsTests(ctx) {
 		if (coverers.some(cover => passed(cover.fn))) { covered++; continue; }
 		if (deferred.has(entry.title)) { deferredCount++; continue; }
 		if (coverers.length) notPassed.push({title: entry.title, file: entry.file, line: entry.line, rust: coverers.map(cover => `${cover.file}:${cover.line} fn ${cover.fn ?? '?'}`), problem: statuses ? 'the covering Rust test did not pass (see the tests check)' : 'the tests check did not run'});
-		else missing.push({title: entry.title, file: entry.file, line: entry.line, ...(entry.dynamic ? {dynamic: true} : {})});
+		else missing.push({title: entry.title, file: entry.file, line: entry.line, ...(entry.dynamic ? {dynamic: true} : {}), ...(entry.inherited_from ? {inherited_from: entry.inherited_from} : {})});
 		if (entry.dynamic) dynamic.push(entry.title);
 	}
 	const next = covers.filter(cover => cover.unit === unit).reduce((max, cover) => Math.max(max, Number(cover.id.split('-').at(-1))), 0) + 1;
