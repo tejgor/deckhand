@@ -1,0 +1,6 @@
+{
+  "fn": "readGlobalDefaultsDocument",
+  "args": [],
+  "async": true,
+  "throws": "Unexpected end of JSON input"
+}

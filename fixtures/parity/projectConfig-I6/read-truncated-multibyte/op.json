@@ -1,0 +1,11 @@
+{
+  "fn": "readBoundedUtf8",
+  "args": [
+    "$ROOT/a.json",
+    {
+      "max": 1024
+    }
+  ],
+  "async": true,
+  "throws": "The encoded data was not valid for encoding utf-8"
+}

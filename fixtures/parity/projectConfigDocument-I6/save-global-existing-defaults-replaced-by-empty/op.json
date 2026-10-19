@@ -1,0 +1,16 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "{}",
+    "694a2c0cf837a11cb310889e83ae0c8ad43aca68cea8c6c8904bc70f49ff3ea0"
+  ],
+  "async": true,
+  "ret": {
+    "kind": "global",
+    "root": "$ROOT",
+    "path": "$ROOT/config.json",
+    "raw": "{}\n",
+    "revision": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "exists": true
+  }
+}

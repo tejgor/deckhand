@@ -1,0 +1,9 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "",
+    null
+  ],
+  "async": true,
+  "throws": "Unexpected end of JSON input"
+}

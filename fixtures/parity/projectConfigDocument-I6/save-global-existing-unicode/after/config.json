@@ -1,0 +1,9 @@
+{
+  "defaults": {
+    "devCommand": "echo 日本語 😀 é é",
+    "actions": {
+      "Unicode": "echo 👨‍👩"
+    },
+    "setupCommand": "日本語"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "before": [
+    {
+      "path": "main",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "main",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ]
+}

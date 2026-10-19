@@ -1,0 +1,35 @@
+{
+  "fn": "applyWorktreeLinks",
+  "args": [
+    {
+      "files": {
+        "../x": "ok",
+        "/abs": "ok",
+        ".git/hooks/x": "ok",
+        "good": "ok"
+      }
+    },
+    {
+      "launchRoot": "$ROOT/launch",
+      "worktreeRoot": "$ROOT/wt",
+      "vars": {
+        "name": "feature x",
+        "repo": "proj",
+        "repoParent": "$ROOT",
+        "repoRoot": "$ROOT/launch",
+        "home": "$ROOT/home"
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "linked": [
+      "good"
+    ],
+    "notes": [
+      "../x: invalid destination",
+      "/abs: invalid destination",
+      ".git/hooks/x: invalid destination"
+    ]
+  }
+}

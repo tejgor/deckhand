@@ -1,0 +1,7 @@
+{
+  "worktree": {
+    "symlink": [
+      "../x"
+    ]
+  }
+}

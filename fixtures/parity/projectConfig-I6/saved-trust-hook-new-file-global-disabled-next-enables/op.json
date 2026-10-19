@@ -1,0 +1,26 @@
+{
+  "fn": "savedProjectTrust",
+  "args": [
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "/trust/root 日本語 😀"
+    },
+    {
+      "raw": "",
+      "exists": false
+    },
+    "{\n  \"worktree\": {\n    \"hook\": true\n  }\n}\n",
+    {
+      "defaults": {
+        "worktree": {
+          "hook": false
+        }
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "trust": "hook"
+  }
+}

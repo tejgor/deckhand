@@ -1,0 +1,13 @@
+{
+  "fn": "readGlobalDefaultsDocument",
+  "args": [],
+  "async": true,
+  "ret": {
+    "kind": "global",
+    "root": "$ROOT",
+    "path": "$ROOT/config.json",
+    "raw": "\"text\"\n",
+    "revision": "1e1d0f251d3a76fa2b1bfc81164078572623403887db02988b504b0492e9f076",
+    "exists": true
+  }
+}

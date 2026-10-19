@@ -1,0 +1,24 @@
+{
+  "fn": "applyWorktreeLinks",
+  "args": [
+    {},
+    {
+      "launchRoot": "$ROOT/launch",
+      "worktreeRoot": "$ROOT/no-such-worktree",
+      "vars": {
+        "name": "feature x",
+        "repo": "proj",
+        "repoParent": "$ROOT",
+        "repoRoot": "$ROOT/launch",
+        "home": "$ROOT/home"
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "linked": [],
+    "notes": [
+      "worktree unavailable: ENOENT: no such file or directory, realpath '$ROOT/no-such-worktree'"
+    ]
+  }
+}
