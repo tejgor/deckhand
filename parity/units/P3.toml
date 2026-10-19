@@ -10,9 +10,9 @@ ts_tests = ["tests/notes.test.ts", "tests/noteSteps.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["notes/budgetSections", "notes/checklistCounts", "notes/checklistLabel", "notes/continueChecklist", "notes/fitFirst", "notes/fitReadRows", "notes/insertChecklistItem", "notes/linkedTaskId", "notes/mergeIntoWorktreeNote", "notes/noteKey", "notes/noteReadRows", "notes/noteRevision", "notes/openChecklistText", "notes/parseChecklistLine", "notes/repoNoteId", "notes/sharedNoteIdentity", "notes/showsOwnNote", "notes/taskLinkSuffix", "notes/toggleChecklist", "notes/toggleChecklistLine", "notes/visibleText"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
-utf16_fields = {}
+utf16_fields = { "notes/toggleChecklist" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" }, "notes/insertChecklistItem" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" }, "notes/continueChecklist" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" } }
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
 deferred_tests = []

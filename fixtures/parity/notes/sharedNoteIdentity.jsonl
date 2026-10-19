@@ -1,0 +1,15 @@
+{"args":[{"cwd":"/repo","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"cwd":"/repo","worktree":{"mode":"attached","path":"/repo/","isMain":true}}],"ret":{"kind":"repo","id":"816fc349d3faebf8"}}
+{"args":[{"cwd":"/repo/sub","launchWorktreeRoot":"/repo","worktree":{"mode":"none"}}],"ret":{"kind":"repo","id":"816fc349d3faebf8"}}
+{"args":[{"cwd":"/tmp/repo","launchWorktreeRoot":"/tmp/root"}],"ret":{"kind":"repo","id":"a454081e779f81c0"}}
+{"args":[{"cwd":"/tmp/repo","requestedWorktreeMode":"none"}],"ret":{"kind":"repo","id":"b6fe87a9b936bea6"}}
+{"args":[{"cwd":"/tmp/repo","requestedWorktreeMode":"worktree"}],"ret":{"$u":1}}
+{"args":[{"cwd":"/tmp/repo","worktree":{"id":"","path":"/tmp/wt","mode":"worktree"}}],"ret":{"kind":"repo","id":"ced5e8d7d14397e6"}}
+{"args":[{"cwd":"/tmp/repo","worktree":{"id":"w1","path":"","mode":"worktree"}}],"ret":{"kind":"worktree","id":"w1"}}
+{"args":[{"cwd":"/tmp/repo","worktree":{"id":"w1","path":"/tmp/wt","mode":"worktree","deletedAt":"2026-01-01T00:00:00.000Z"}}],"ret":{"kind":"worktree","id":"w1"}}
+{"args":[{"cwd":"/tmp/repo","worktree":{"id":"w1","path":"/tmp/wt","mode":"worktree"}}],"ret":{"kind":"worktree","id":"w1"}}
+{"args":[{"cwd":"/tmp/repo","worktree":{"id":"w1","path":"/tmp/x","mode":"none"}}],"ret":{"kind":"worktree","id":"w1"}}
+{"args":[{"cwd":"/tmp/repo"}],"ret":{"kind":"repo","id":"b6fe87a9b936bea6"}}
+{"args":[{"cwd":"/tmp/repo/","launchWorktreeRoot":"/tmp/中/"}],"ret":{"kind":"repo","id":"15d519b0d78e313b"}}
+{"args":[{"cwd":"/wt/a","worktree":{"mode":"managed","id":"rec","path":"/wt/a","deletedAt":"yesterday"}}],"ret":{"kind":"worktree","id":"rec"}}
+{"args":[{"cwd":"/wt/a","worktree":{"mode":"none","id":"rec"}}],"ret":{"kind":"worktree","id":"rec"}}
