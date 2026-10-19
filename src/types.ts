@@ -232,6 +232,8 @@ export interface SessionRecord {
 	agentStartedAt?: string;
 	/** The latest agent signal; `reason` (what it asks or said) is held in memory only and never persisted. */
 	attention?: {state: AttentionState; event: string; at: string; reason?: AttentionReason};
+	/** UI only: the response-ended reply was read (attached to the agent since it arrived); never sent by the daemon. */
+	replyRead?: boolean;
 	exitReason?: 'stopped' | 'failed' | 'completed' | 'interrupted';
 	cleanupError?: string;
 	setup?: {command: string; state: 'pending' | 'running' | 'failed' | 'cancelled' | 'complete'; output: string; exitCode?: number | null};

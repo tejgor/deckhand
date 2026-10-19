@@ -8,6 +8,8 @@ export interface UiState {
 	selectedId?: string; activeTab?: RightPaneTab; sidebarWidth?: number;
 	sessionFilter?: SessionFilter; sessionQuery?: string;
 	sessionTabs: Record<string, RightPaneTab>; collapsedSessionIds: string[]; hiddenExitedSessionIds: string[];
+	/** Session ID → when you last detached from its agent: a reply that arrived before then is read. */
+	readReplies: Record<string, string>;
 }
 const tabs = new Set(['preview', 'terminal', 'git', 'dev', 'notes']);
 export function normalizeUiState(raw: unknown): UiState {
@@ -21,6 +23,7 @@ export function normalizeUiState(raw: unknown): UiState {
 		sidebarWidth: typeof value.sidebarWidth === 'number' && Number.isFinite(value.sidebarWidth) ? value.sidebarWidth : undefined,
 		sessionTabs: Object.fromEntries(Object.entries(value.sessionTabs && typeof value.sessionTabs === 'object' ? value.sessionTabs : {}).filter(([, tab]) => typeof tab === 'string' && tabs.has(tab))) as Record<string, RightPaneTab>,
 		collapsedSessionIds: strings(value.collapsedSessionIds), hiddenExitedSessionIds: strings(value.hiddenExitedSessionIds),
+		readReplies: Object.fromEntries(Object.entries(value.readReplies && typeof value.readReplies === 'object' ? value.readReplies : {}).filter(([, at]) => typeof at === 'string').slice(-1000)),
 	};
 }
 async function readAll(): Promise<Record<string, UiState>> {

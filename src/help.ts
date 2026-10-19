@@ -35,7 +35,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 	{title: 'Sidebar', lines: [
 		note('A row: number, tree, status, title, then markers and the agent. Archived rows are dimmed (except in the archived view, which lists only them).'),
 		key('⠋ ● ◌ ○', 'Starting or working · idle · running, activity unknown · exited'),
-		key('? ◆ ⌛', 'Needs input · response ended (not task success) · rate-limited'),
+		key('? ◆ ⌛', 'Needs input · unread reply (attaching reads it) · rate-limited'),
 		key('!', 'Before the title: failed (red) or interrupted (yellow)'),
 		key('▾ ▸', 'Has sub-sessions: expanded / collapsed (c)'),
 		key('↳ ⑂', 'Clean / forked sub-session'),
@@ -52,7 +52,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
 		key('1-9  0', 'Select by number (0 is 10; with more than 10, type the number: Enter or a short pause selects, Esc clears)'),
 		key('/', 'Search titles, notes, tasks, agent, branch and path (Enter keeps it, Esc clears)'),
 		key('f', 'Filter menu: a active · r running · ! attention · e exited · A archived · * all; f f back to active (the sidebar header names any other)'),
-		key('!', 'Next session that needs attention'),
+		key('!', 'Next session that needs attention: blocked ones first, then unread replies'),
 		key('J K', 'Move the session down / up among its siblings'),
 		key('c', 'Hide exited children → collapse → expand'),
 		key('< >', 'Narrow / widen the sidebar'),

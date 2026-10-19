@@ -13,7 +13,7 @@ import {isSettingsFlowMode, useSettingsFlow} from './settingsFlow.js';
 import {useHelp} from './helpPane.js';
 import {useAgentsFlow} from './agentsFlow.js';
 import {installedVersions, updateHint} from './agentVersions.js';
-import {SESSION_FILTERS, filterForKey, filterSessionList, sessionFilterCounts, sessionNeedsAttention, type SessionFilter} from './sessionFeatures.js';
+import {SESSION_FILTERS, filterForKey, filterSessionList, sessionBlocked, sessionFilterCounts, sessionNeedsAttention, withReplyRead, type SessionFilter} from './sessionFeatures.js';
 import {useChangesFlow} from './changesFlow.js';
 import {emptyChanges, type ChangesRecord} from './changesModel.js';
 import {useNotesFlow} from './notesFlow.js';
@@ -155,6 +155,8 @@ interface AppProps {
 	initialSessionTabs?: Record<string, RightPaneTab>;
 	initialCollapsedSessionIds?: string[];
 	initialHiddenExitedSessionIds?: string[];
+	/** Session ID → when you last detached from its agent (src/uiState.ts); a response-ended reply from before then is read. */
+	readReplies?: Record<string, string>;
 	initialSessionFilter?: SessionFilter;
 	initialSessionQuery?: string;
 	/** The Terminal tab's view (shell or last action), kept across attaches by the caller. */
@@ -623,7 +625,7 @@ function footerHint(mode: Mode, activeTab: RightPaneTab, width: number, session?
 	}
 }
 
-export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialTerminalView, onTerminalViewChange, initialSidebarWidth, initialSessionTabs, initialCollapsedSessionIds, initialHiddenExitedSessionIds, initialSessionFilter, initialSessionQuery, onSessionVisibilityChange, onSelectedIdChange, onActiveTabChange, onSessionTabChange, onSidebarWidthChange, onCollapsedSessionIdsChange, onHiddenExitedSessionIdsChange}: AppProps) {
+export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initialTerminalView, onTerminalViewChange, initialSidebarWidth, initialSessionTabs, initialCollapsedSessionIds, initialHiddenExitedSessionIds, readReplies, initialSessionFilter, initialSessionQuery, onSessionVisibilityChange, onSelectedIdChange, onActiveTabChange, onSessionTabChange, onSidebarWidthChange, onCollapsedSessionIdsChange, onHiddenExitedSessionIdsChange}: AppProps) {
 	const {exit} = useApp();
 	const [mode, setMode] = useState<Mode>('browse');
 	const [sessionFilter, setSessionFilter] = useState<SessionFilter>(initialSessionFilter ?? 'active');
@@ -653,7 +655,7 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 	// Every session of the repository (the daemon sends all its checkouts'), for the Tasks board; the sidebar and the
 	// rest of the UI work with `sessions`, the ones of the checkout this UI was opened in.
 	const [repoSessions, setSessions] = useState<SessionRecord[]>([]);
-	const sessions = useMemo(() => repoSessions.filter(session => sessionMatchesScope(session, repoRoot)), [repoSessions, repoRoot]);
+	const sessions = useMemo(() => repoSessions.filter(session => sessionMatchesScope(session, repoRoot)).map(session => withReplyRead(session, readReplies)), [repoSessions, repoRoot, readReplies]);
 	const [sessionsLoaded, setSessionsLoaded] = useState(false);
 	const [collapsedSessionIds, setCollapsedSessionIds] = useState<Set<string>>(() => new Set(initialCollapsedSessionIds ?? []));
 	const [hiddenExitedSessionIds, setHiddenExitedSessionIds] = useState<Set<string>>(() => new Set(initialHiddenExitedSessionIds ?? []));
@@ -2224,7 +2226,9 @@ export function App({repoRoot, cwd, initialSelectedId, initialActiveTab, initial
 				return;
 			}
 			if (input === '!') {
-				const targets = sessions.filter(session => !session.archivedAt && sessionNeedsAttention(session));
+				// Blocked sessions first, then unread replies.
+				const waiting = sessions.filter(session => !session.archivedAt && sessionNeedsAttention(session));
+				const targets = [...waiting.filter(sessionBlocked), ...waiting.filter(session => !sessionBlocked(session))];
 				const next = targets[(targets.findIndex(session => session.id === selectedId) + 1) % Math.max(1, targets.length)];
 				if (next) { setSessionFilter('attention'); setSessionQuery(''); setSelectedId(next.id); } else setStatusMessage('No known attention requests');
 				return;
