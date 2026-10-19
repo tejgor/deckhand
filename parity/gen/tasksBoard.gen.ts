@@ -37,7 +37,7 @@ const sharedArb = fc.oneof(fc.constant(undefined), fc.record({kind: fc.constantF
 const sessionArb = (index: number) => fc.record({
 	wt: fc.option(fc.constantFrom(...wts), {nil: undefined}),
 	title: textArb,
-	status: fc.constantFrom('running', 'starting', 'exited', 'stopped'),
+	status: fc.constantFrom('running', 'starting', 'exited'),
 	attention: fc.option(fc.constantFrom('needs-input', 'failed', 'limited', 'working', 'response-ended', 'unknown'), {nil: undefined}),
 	agentStatus: fc.option(fc.constantFrom('active', 'idle'), {nil: undefined}),
 	archived: fc.boolean(),
@@ -139,7 +139,7 @@ call('worktreeOpenItems', board.worktreeOpenItems, [undefined, base]); call('wor
 call('leadSession', board.leadSession, [[]]);
 call('workOptions', board.workOptions, [[]]); call('workOptions', board.workOptions, [[], 'wt:w1']);
 call('workOptions', board.workOptions, [base]); call('workOptions', board.workOptions, [base, 'wt:w1']); call('workOptions', board.workOptions, [base, 's:main']);
-call('workOptions', board.workOptions, [[session('moved', {cwd: '/x', requestedWorktreeMode: 'managed'} as Partial<SessionRecord>), inWorktree('del', 'w9', 'gone', {worktree: {mode: 'managed', id: 'w9', path: '/wt/gone', branch: 'gone', deletedAt: '2026-10-01T00:00:00Z'}} as Partial<SessionRecord>), session('ok')], 's:ok']);
+call('workOptions', board.workOptions, [[session('moved', {cwd: '/x', requestedWorktreeMode: 'new'} as Partial<SessionRecord>), inWorktree('del', 'w9', 'gone', {worktree: {mode: 'managed', id: 'w9', path: '/wt/gone', branch: 'gone', deletedAt: '2026-10-01T00:00:00Z'}} as Partial<SessionRecord>), session('ok')], 's:ok']);
 const opts = board.workOptions([...base, session('notes', {title: 'triage notes'}), session('spike', {title: 'perf spike'}), session('emoji', {title: '😀 Ünï 中文'})], 'wt:w1');
 for (const view of ['worktrees', 'sessions'] as const) for (const query of ['', '  ', 'tests', 'PERF spike', 'perf  spike', 'zzz', '😀', '中文', 'ünï', 'auth e2e', '⎇']) for (const origin of [undefined, '', 'triage notes', '⎇ feat/auth']) call('pickerRows', board.pickerRows, [opts, view, query, origin]);
 for (const query of ['', 'e2e', 'main', 'x', '😀', ' \t ']) call('pickerCounts', board.pickerCounts, [opts, query]);
@@ -166,8 +166,31 @@ for (const row of board.notesViewRows(noted).concat(board.boardRows(baseTasks, t
 for (const row of [{kind: 'empty', text: 'x'}, {kind: 'empty', text: 'x', addsTo: 'work'}, {kind: 'older', count: 2, shown: true}, {kind: 'heading', text: 'H'}, {kind: 'work', section: 'wt:w1', count: 1}, {kind: 'step', section: 'wt:w1', taskId: 't', step: {line: 3, text: 's', done: false}}]) { call('selectableRow', board.selectableRow, [row]); call('rowKey', board.rowKey, [row]); }
 
 // ---- 3. Mutations of what the tests (and the cases above) passed -------------------------------------------------
+// A mutation can leave the declared types (a string union edited to `runing`, a task's required `done` deleted):
+// those inputs cannot occur (the protocol and parseTasks build these values) and are skipped.
+const UNIONS: Record<string, readonly string[]> = {
+	status: ['starting', 'running', 'exited'], program: ['claude', 'pi', 'codex'], requestedWorktreeMode: ['none', 'new', 'existing'],
+	agentStatus: ['unknown', 'active', 'idle'], exitReason: ['stopped', 'failed', 'completed', 'interrupted'], auto: ['merge', 'done'],
+	'worktree.mode': ['none', 'managed', 'attached'], 'attention.state': ['unknown', 'working', 'needs-input', 'response-ended', 'failed', 'limited'],
+	'sharedNotes.kind': ['worktree', 'repo'], kind: ['backlog', 'note', 'worktree', 'session'],
+};
+const typeValid = (value: unknown, parentKey = ''): boolean => {
+	if (Array.isArray(value)) return value.every(item => typeValid(item, parentKey));
+	if (!value || typeof value !== 'object') return true;
+	const object = value as Record<string, unknown>;
+	if ('meta' in object && 'id' in object && typeof object.done !== 'boolean') return false;
+	return Object.entries(object).every(([key, item]) => {
+		const allowed = UNIONS[`${parentKey}.${key}`] ?? UNIONS[key];
+		if (allowed && typeof item === 'string' && !allowed.includes(item)) return false;
+		return typeValid(item, key);
+	});
+};
+const PICKER_VIEWS = ['worktrees', 'sessions'];
 for (const name of ['boardRows', 'workLabel', 'workOptions', 'pickerRows', 'noteLine', 'noteSteps', 'taskState', 'hasMainTask', 'workNote', 'noteItems', 'notesViewRows', 'taskOrigin', 'openItemsRemovedWith']) {
-	for (const args of mutate(recorder.argsOf(name).slice(0, 60), {variants: 2})) call(name, fns[name]!, args);
+	for (const args of mutate(recorder.argsOf(name).slice(0, 60), {variants: 2})) {
+		if (!typeValid(args) || (name === 'pickerRows' && !PICKER_VIEWS.includes(args[1] as string))) continue;
+		call(name, fns[name]!, args);
+	}
 }
 
 // ---- 4. fast-check samples with fixed seeds ----------------------------------------------------------------------
