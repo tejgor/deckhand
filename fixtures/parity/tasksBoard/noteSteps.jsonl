@@ -1,0 +1,115 @@
+{"args":["   \n- [ ] bZ‍中Z\n- [ ] é中Z😀"],"ret":[{"line":1,"text":"bZ‍中Z","done":false},{"line":2,"text":"é中Z😀","done":false}]}
+{"args":["   \n- [x] done item\n- [ ] 0a \n- [ ] ß 😀éß_é_"],"ret":[{"line":1,"text":"done item","done":true},{"line":2,"text":"0a","done":false},{"line":3,"text":"ß 😀éß_é_","done":false}]}
+{"args":["   \n-[ ] bad\n- [ ]  /- 😀\t😀a‍b\n   "],"ret":[{"line":2,"text":"/- 😀\t😀a‍b","done":false}]}
+{"args":["  - ↗ nested link <!-- dh:t=ab -->\n  - ↗ nested link <!-- dh:t=ab -->\n- [ ] 0\n* [X] ticked"],"ret":[{"line":2,"text":"0","done":false},{"line":3,"text":"ticked","done":true}]}
+{"args":["  - ↗ nested link <!-- dh:t=ab -->\n- [ ] ‍-\n- [ ] éb\n- [ ] /0a"],"ret":[{"line":1,"text":"‍-","done":false},{"line":2,"text":"éb","done":false},{"line":3,"text":"/0a","done":false}]}
+{"args":["  - ↗ nested link <!-- dh:t=ab -->\n\n-[ ] bad\n* [X] ticked\n- [ ] 00aß"],"ret":[{"line":3,"text":"ticked","done":true},{"line":4,"text":"00aß","done":false}]}
+{"args":[" "],"ret":[]}
+{"args":[""],"ret":[]}
+{"args":["# Heading\n* [X] ticked"],"ret":[{"line":1,"text":"ticked","done":true}]}
+{"args":["### Sub  \n# Heading\n- [ ] ééa.\nplain text   \n- [ ] \té\n### Sub  "],"ret":[{"line":2,"text":"ééa.","done":false},{"line":4,"text":"é","done":false}]}
+{"args":["### Sub  \n- [ ] -0-‍éZß中 中\n- [ ] _Zb_\n- [ ]  \t\n-[ ] bad\n- [x] done item"],"ret":[{"line":1,"text":"-0-‍éZß中 中","done":false},{"line":2,"text":"_Zb_","done":false},{"line":5,"text":"done item","done":true}]}
+{"args":["### Sub  \n- [x] 中文\n- [ ] -é\n中\nplain text   \n- [ ] \n\n中\né‍-éb\n- [x] done item"],"ret":[{"line":1,"text":"中文","done":true},{"line":2,"text":"-é","done":false},{"line":9,"text":"done item","done":true}]}
+{"args":["- [  ] 😀\r\n- [x] 中"],"ret":[{"line":1,"text":"中","done":true}]}
+{"args":["- [ ] "],"ret":[]}
+{"args":["- [ ] -0é中\n- [ ] ‍\n.éé\t"],"ret":[{"line":0,"text":"-0é中","done":false},{"line":1,"text":"‍","done":false}]}
+{"args":["- [ ] -Z\néé\n- [ ] 中.\t-Z\t_-\n\n- [ ] 中b0\n- [ ] é_éb\n0\n😀b\n  + [ ] indented"],"ret":[{"line":0,"text":"-Z","done":false},{"line":2,"text":"中.\t-Z\t_-","done":false},{"line":4,"text":"中b0","done":false},{"line":5,"text":"é_éb","done":false},{"line":8,"text":"indented","done":false}]}
+{"args":["- [ ] -😀a\n‍.\t‍\n- bullet\n* [X] ticked\n  - ↗ nested link <!-- dh:t=ab -->\n### Sub  "],"ret":[{"line":0,"text":"-😀a","done":false},{"line":3,"text":"ticked","done":true}]}
+{"args":["- [ ] .ß\n"],"ret":[{"line":0,"text":".ß","done":false}]}
+{"args":["- [ ] .中-/‍0\té_\n- [ ] .\nba 😀00Z_\n-[ ] bad\n- [ ] /aß0\n* [X] ticked\n- [ ] Z‍"],"ret":[{"line":0,"text":".中-/‍0\té_","done":false},{"line":1,"text":".","done":false},{"line":4,"text":"/aß0","done":false},{"line":5,"text":"ticked","done":true},{"line":6,"text":"Z‍","done":false}]}
+{"args":["- [ ] /ß \n- [ ] ß_--中/_b😀\n- [ ] é😀Zß中\nplain text   "],"ret":[{"line":0,"text":"/ß","done":false},{"line":1,"text":"ß_--中/_b😀","done":false},{"line":2,"text":"é😀Zß中","done":false}]}
+{"args":["- [ ] 0"],"ret":[{"line":0,"text":"0","done":false}]}
+{"args":["- [ ] 0\n- [ ] aß\t_中"],"ret":[{"line":0,"text":"0","done":false},{"line":1,"text":"aß\t_中","done":false}]}
+{"args":["- [ ] Z‍\né /"],"ret":[{"line":0,"text":"Z‍","done":false}]}
+{"args":["- [ ] \n"],"ret":[]}
+{"args":["- [ ] \n- [ ] 0/Z😀0\n- [x] 中文\n### Sub  "],"ret":[{"line":1,"text":"0/Z😀0","done":false},{"line":2,"text":"中文","done":true}]}
+{"args":["- [ ] \n- [ ] b\néb\n\té \nplain text   \n\n### Sub  \n- [ ] 😀 emoji item"],"ret":[{"line":1,"text":"b","done":false},{"line":7,"text":"😀 emoji item","done":false}]}
+{"args":["- [ ] \t/éZ😀\n- ↗ sent <!-- dh:t=1234abcd -->"],"ret":[{"line":0,"text":"/éZ😀","done":false}]}
+{"args":["- [ ] \t_\t \n- [x] done item\n- [x] done item\n- [ ] ‍"],"ret":[{"line":0,"text":"_","done":false},{"line":1,"text":"done item","done":true},{"line":2,"text":"done item","done":true},{"line":3,"text":"‍","done":false}]}
+{"args":["- [ ] \t‍\n- [ ] \t‍Zaß\t\n- [ ] 中b‍\t_ \t0\t\n- [ ] ‍😀éé"],"ret":[{"line":0,"text":"‍","done":false},{"line":1,"text":"‍Zaß","done":false},{"line":2,"text":"中b‍\t_ \t0","done":false},{"line":3,"text":"‍😀éé","done":false}]}
+{"args":["- [ ] \t中ab/ /😀é"],"ret":[{"line":0,"text":"中ab/ /😀é","done":false}]}
+{"args":["- [ ] _\n\té\t/é0-\n-[ ] bad"],"ret":[{"line":0,"text":"_","done":false}]}
+{"args":["- [ ] a\n- [x] b\n- [ ]   \n- [ ]\n　- [ ] x\n- ↗ link <!-- dh:t=1 -->"],"ret":[{"line":0,"text":"a","done":false},{"line":1,"text":"b","done":true}]}
+{"args":["- [ ] a\n- [x] b\n- [ ]   \n- [ ]\n　- [ ] x\n- ↗link <!-- dh:t=1 -->"],"ret":[{"line":0,"text":"a","done":false},{"line":1,"text":"b","done":true}]}
+{"args":["- [ ] aaé\t\n- [ ] /_/éa\n\n- [ ] \n- [ ]\n- [ ]  \n /.-\n- [ ] . 0é-"],"ret":[{"line":0,"text":"aaé","done":false},{"line":1,"text":"/_/éa","done":false},{"line":7,"text":". 0é-","done":false}]}
+{"args":["- [ ] aßZ//b\n- [ ] \n中\na.\n- ↗ sent <!-- dh:t=1234abcd -->\n- [ ]\n- [ ] _\t.\n"],"ret":[{"line":0,"text":"aßZ//b","done":false},{"line":6,"text":"_\t.","done":false}]}
+{"args":["- [ ] a‍\n- [ ] Z‍\ta"],"ret":[{"line":0,"text":"a‍","done":false},{"line":1,"text":"Z‍\ta","done":false}]}
+{"args":["- [ ] open item\n- [ ]  -..é😀ß\n- [x] 中文\n- [ ] .éé\n"],"ret":[{"line":0,"text":"open item","done":false},{"line":1,"text":"-..é😀ß","done":false},{"line":2,"text":"中文","done":true},{"line":3,"text":".éé","done":false}]}
+{"args":["- [ ] ß.😀é ßß\né0\n- [ ] é  _é0\n\n\n- [ ] 😀.b-😀\n- [ ]  😀‍\n.😀😀"],"ret":[{"line":0,"text":"ß.😀é ßß","done":false},{"line":2,"text":"é  _é0","done":false},{"line":5,"text":"😀.b-😀","done":false},{"line":6,"text":"😀‍","done":false}]}
+{"args":["- [ ] ß_\n- [x] done item\n- [ ] \t\n- [ ] open item\n- [ ] open item\n- [ ] -ß0-Zé "],"ret":[{"line":0,"text":"ß_","done":false},{"line":1,"text":"done item","done":true},{"line":3,"text":"open item","done":false},{"line":4,"text":"open item","done":false},{"line":5,"text":"-ß0-Zé","done":false}]}
+{"args":["- [ ] ß😀b中Z"],"ret":[{"line":0,"text":"ß😀b中Z","done":false}]}
+{"args":["- [ ] é_0a‍_b"],"ret":[{"line":0,"text":"é_0a‍_b","done":false}]}
+{"args":["- [ ] éé\t\n- [ ] ‍‍0"],"ret":[{"line":0,"text":"éé","done":false},{"line":1,"text":"‍‍0","done":false}]}
+{"args":["- [ ] 中ééaé -‍中\t\n- [ ] ß\t.😀ZZ\t\n- [ ] 😀b中"],"ret":[{"line":0,"text":"中ééaé -‍中","done":false},{"line":1,"text":"ß\t.😀ZZ","done":false},{"line":2,"text":"😀b中","done":false}]}
+{"args":["- [ ] 😀 emoji item\n* [X] ticked\n   \n### Sub  \n- [x] 中文\n- [ ] ß._😀éb\n_"],"ret":[{"line":0,"text":"😀 emoji item","done":false},{"line":1,"text":"ticked","done":true},{"line":4,"text":"中文","done":true},{"line":5,"text":"ß._😀éb","done":false}]}
+{"args":["- [ ] 😀-\n"],"ret":[{"line":0,"text":"😀-","done":false}]}
+{"args":["- [ ] 😀.\tßéé\tß\n- [ ] ß.aa_‍_中a\n- [ ] \n- [ ] open item\n- [ ] bé_"],"ret":[{"line":0,"text":"😀.\tßéé\tß","done":false},{"line":1,"text":"ß.aa_‍_中a","done":false},{"line":3,"text":"open item","done":false},{"line":4,"text":"bé_","done":false}]}
+{"args":["- [ ] 😀\r\n- [x] 中"],"ret":[{"line":0,"text":"😀","done":false},{"line":1,"text":"中","done":true}]}
+{"args":["- [ ]\n- [ ] open item\n- [ ] \n   \n- [ ] "],"ret":[{"line":1,"text":"open item","done":false}]}
+{"args":["- [ ]\n- [ ] open item\n\n* [X] ticked\n- [ ] 😀 emoji item"],"ret":[{"line":1,"text":"open item","done":false},{"line":3,"text":"ticked","done":true},{"line":4,"text":"😀 emoji item","done":false}]}
+{"args":["- [x] done item\n  - ↗ nested link <!-- dh:t=ab -->\n- [ ] 0\n\n- [ ] .\n- [ ] é中.ß Z\n### Sub  "],"ret":[{"line":0,"text":"done item","done":true},{"line":2,"text":"0","done":false},{"line":4,"text":".","done":false},{"line":5,"text":"é中.ß Z","done":false}]}
+{"args":["- [x] done item\n- [ ] a"],"ret":[{"line":0,"text":"done item","done":true},{"line":1,"text":"a","done":false}]}
+{"args":["- bullet\n- [ ] 😀 "],"ret":[{"line":1,"text":"😀","done":false}]}
+{"args":["-"],"ret":[]}
+{"args":["-.中é😀0ßZß"],"ret":[]}
+{"args":["-\tZ😀😀中"],"ret":[]}
+{"args":["-b é 😀Z\t.😀"],"ret":[]}
+{"args":["-‍bb‍a\tZ"],"ret":[]}
+{"args":[". é/"],"ret":[]}
+{"args":[".Z"],"ret":[]}
+{"args":[".\tbb中"],"ret":[]}
+{"args":[".ßZa\né😀‍é\t"],"ret":[]}
+{"args":[".中‍\n"],"ret":[]}
+{"args":["/"],"ret":[]}
+{"args":["00."],"ret":[]}
+{"args":["0\n/-"],"ret":[]}
+{"args":["0b\t中😀é-😀_é"],"ret":[]}
+{"args":["0é中0"],"ret":[]}
+{"args":["Z.aé"],"ret":[]}
+{"args":["ZZ‍.0"],"ret":[]}
+{"args":["Z_"],"ret":[]}
+{"args":["Z_ß"],"ret":[]}
+{"args":["Za/0中😀"],"ret":[]}
+{"args":["Zb"],"ret":[]}
+{"args":["Zß😀\t\tßa0a\n"],"ret":[]}
+{"args":["\n  - [ ]    padded   "],"ret":[{"line":1,"text":"padded","done":false}]}
+{"args":["\n- [ ] ZZ😀0\n_\n- [ ] 00ß\t-中Z‍"],"ret":[{"line":1,"text":"ZZ😀0","done":false},{"line":3,"text":"00ß\t-中Z‍","done":false}]}
+{"args":["\n\n  - [ ]    padded   "],"ret":[{"line":2,"text":"padded","done":false}]}
+{"args":["\n\n  - [ ]    padded   \n\n  - [ ]    padded   "],"ret":[{"line":2,"text":"padded","done":false},{"line":4,"text":"padded","done":false}]}
+{"args":["\n\nß\t."],"ret":[]}
+{"args":["\nb😀Za中_"],"ret":[]}
+{"args":["\nß😀ßb.中"],"ret":[]}
+{"args":["\ta_Z-/\t"],"ret":[]}
+{"args":["\tb0\n"],"ret":[]}
+{"args":["_-_0aaé/Z"],"ret":[]}
+{"args":["_.Zé中中ß"],"ret":[]}
+{"args":["_//‍ß--"],"ret":[]}
+{"args":["_/bZ\n‍😀😀é"],"ret":[]}
+{"args":["_a/0Z"],"ret":[]}
+{"args":["_ß0ß😀\t"],"ret":[]}
+{"args":["_‍_‍/0Zé\n"],"ret":[]}
+{"args":["aßé中‍"],"ret":[]}
+{"args":["a‍\n"],"ret":[]}
+{"args":["a中"],"ret":[]}
+{"args":["b éa /‍a"],"ret":[]}
+{"args":["b"],"ret":[]}
+{"args":["b\tb"],"ret":[]}
+{"args":["b‍ ßé"],"ret":[]}
+{"args":["b‍\t😀.aaé"],"ret":[]}
+{"args":["é-Z_é"],"ret":[]}
+{"args":["é.é\n\n"],"ret":[]}
+{"args":["plain text   "],"ret":[]}
+{"args":["plain text   \n### Sub  \n- ↗ sent <!-- dh:t=1234abcd -->\n- [ ] Zé.\t ß\n ba\n- [ ] a/ \tß_\t"],"ret":[{"line":3,"text":"Zé.\t ß","done":false},{"line":5,"text":"a/ \tß_","done":false}]}
+{"args":["plain text   \n- [ ] aZb‍_Z_\n- [ ] "],"ret":[{"line":1,"text":"aZb‍_Z_","done":false}]}
+{"args":["plain text   \n-[ ] bad\n  - ↗ nested link <!-- dh:t=ab -->\n- [ ] -\n‍\n- [ ] ‍a.Z😀."],"ret":[{"line":3,"text":"-","done":false},{"line":5,"text":"‍a.Z😀.","done":false}]}
+{"args":["ß"],"ret":[]}
+{"args":["ß/éa./中//_"],"ret":[]}
+{"args":["ß‍中é.a_"],"ret":[]}
+{"args":["é"],"ret":[]}
+{"args":["é.0‍Z./b"],"ret":[]}
+{"args":["éééß0-ééa"],"ret":[]}
+{"args":["中‍"],"ret":[]}
+{"args":["😀/"],"ret":[]}
+{"args":["😀é"],"ret":[]}
+{"args":["😀é Z "],"ret":[]}
+{"args":[{"$u":1}],"ret":[]}
