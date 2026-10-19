@@ -5,7 +5,7 @@ crate = "sys"
 ts_sources = ["src/projectConfig.ts", "src/projectConfigDocument.ts", "src/worktreeLinks.ts"]
 rust_paths = ["crates/sys/src/config.rs", "crates/sys/src/config_document.rs", "crates/sys/src/worktree_links.rs"]
 deps = ["I1", "I3", "P2", "P10"]
-ts_tests = ["tests/creationTrust.test.ts", "tests/worktreeSettings.test.ts"]
+ts_tests = ["tests/creationTrust.test.ts", "tests/worktreeSettings.test.ts", "tests/projectConfig.test.ts", "tests/projectConfigDocument.test.ts", "tests/storage.test.ts"]
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
 ts_suites = []
 
@@ -263,9 +263,23 @@ fixtures = [
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "handoffs list commit subjects and changed file names, never diff content", to = "I4", reason = "asserts workspaceGit getHandoffGitContext (and sessionFeatures handoffMarkdown); nothing of projectConfig/projectConfigDocument/worktreeLinks" },
+  { title = "global link candidates: global entries with the repos that have them, then paths two or more repos share (no build output); worktrees count as their repo", to = "I7", reason = "asserts settingsInfo readGlobalLinkCandidates only" },
+  { title = "strict project schema rejects malformed/unknown commands and defaults", to = "P10", reason = "pure validateProjectConfig (deckhand_core::project_config); tests/projectConfig.test.ts is listed here only for the titles P10 deferred to I6" },
+  { title = "effective settings: global defaults overlaid by the repository override only while trusted (its agent/workspace suggestions always); actions merge by name", to = "P10", reason = "pure resolveSettings/globalDefaults (deckhand_core::project_config); listed here only for the titles P10 deferred to I6" },
+  { title = "explainSettings: sources per row, pending untrusted values, list merges, legacy and built-in defaults; values equal resolveSettings", to = "P10", reason = "pure explainSettings (deckhand_core::project_config); listed here only for the titles P10 deferred to I6" },
+  { title = "crash recovery marks live sessions interrupted and keeps their identity, archive state and notes", to = "I1", reason = "storage.ts state recovery; tests/storage.test.ts is listed here only for the global-defaults title I1 deferred to I6" },
+  { title = "config is private, keeps unknown keys without writing absent defaults, and reads legacy single-fingerprint trust", to = "I1", reason = "storage.ts config I/O; listed here only for the title I1 deferred to I6" },
+  { title = "config updates serialize within and across processes and recover from a stale lock", to = "I1", reason = "storage.ts config lock; listed here only for the title I1 deferred to I6" },
+  { title = "UI state is validated and stored per repository", to = "I1", reason = "uiState/storage; listed here only for the title I1 deferred to I6" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+notes = [
+  "I6 hand-off: B-I6-03 (worktreeSettings.test.ts 'links resolve real targets, ...') ports everything except `inspectWorkspaceCleanup(worktree, 'main', {deleteBranch: true}).safe === true` (workspaceGit.ts, a todo!(\"I4\") stub when I6 was ported). I4 should assert it in workspace_git.rs on a worktree holding symlinks made by deckhand_sys::worktree_links::apply_worktree_links (symlinked node_modules / backend/.env must count as disposable).",
+  "Fixtures: fixtures/parity/worktreeLinks-I6/apply-symlink-dir/{before,after}/launch/node_modules/pkg/index.js are gitignored by the repo's `node_modules` rule; they are force-added (git add -f). Any regeneration that re-adds the module directory must force-add them again.",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
