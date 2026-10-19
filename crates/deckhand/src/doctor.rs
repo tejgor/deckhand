@@ -3,7 +3,10 @@
 //! In TS `deckhand doctor` is `deckhand setup`. The port adds one check: Codex's own hook config (`hooks.json` and
 //! `config.toml` in `$CODEX_HOME`, else `~/.codex`) may still call the TS bridge (`node ... cli.js hook`), which no
 //! longer exists after switching to the Rust binary, or another Deckhand install. Doctor only READS those files and
-//! prints how to regenerate them (`deckhand hooks codex`); it never writes to the Codex home.
+//! prints how to regenerate them (`deckhand hooks codex`); it never writes to the Codex home. Whether a hook calls
+//! this Deckhand at all (missing / another install's) is only reported when the user turned agent hooks on
+//! (`agent_hooks: true`), as TS settingsInfo.ts readSettingsInfo gates its Codex hooks hint; stale bridge commands are
+//! reported either way.
 
 // B1 wires `deckhand doctor` into the binary; until then only the tests reach these items.
 #![allow(dead_code)]
@@ -43,6 +46,9 @@ pub struct CodexHookReport {
     pub state: Option<CodexHookState>,
     /// The commands that still call the TS bridge ([`is_stale_node_hook`]).
     pub stale: Vec<String>,
+    /// The user's `agent_hooks` setting is `true`: only then is `state` a problem (TS settingsInfo.ts readSettingsInfo
+    /// reads the Codex hooks only when `user.agent_hooks === true`).
+    pub agent_hooks: bool,
 }
 
 /// `$CODEX_HOME` (non-empty), else `<home>/.codex` (TS: settingsInfo.ts readCodexHooks `dir`).
@@ -150,9 +156,9 @@ async fn read_text(file: &Path) -> Option<String> {
 }
 
 /// Reads (never writes) `codex_home`'s `hooks.json` and `config.toml` and checks them against `expected` (this
-/// Deckhand's printed hook command, `crate::hooks::printed_hook_command`). `None` when `codex_home` is not a
-/// directory: Codex isn't used here.
-pub async fn read_codex_hook_report(codex_home: &Path, expected: &str) -> Option<CodexHookReport> {
+/// Deckhand's printed hook command, `crate::hooks::printed_hook_command`). `agent_hooks` is the user's setting
+/// ([`CodexHookReport::agent_hooks`]). `None` when `codex_home` is not a directory: Codex isn't used here.
+pub async fn read_codex_hook_report(codex_home: &Path, expected: &str, agent_hooks: bool) -> Option<CodexHookReport> {
     if !tokio::fs::metadata(codex_home).await.is_ok_and(|meta| meta.is_dir()) {
         return None;
     }
@@ -168,45 +174,60 @@ pub async fn read_codex_hook_report(codex_home: &Path, expected: &str) -> Option
         commands,
         state,
         stale,
+        agent_hooks,
     })
 }
 
-/// Whether the report needs action (stale bridge commands, or no hook calling this Deckhand).
+/// Whether the report needs action (stale bridge commands, or, with agent hooks on, no hook calling this Deckhand).
 pub fn codex_hook_report_has_problems(report: &CodexHookReport) -> bool {
-    !report.stale.is_empty() || report.state.is_some()
+    !report.stale.is_empty() || install_problem(report).is_some()
 }
 
-/// The report as text: each stale command, the state (`missing`/`other`), and the fix: save the output of
-/// `regenerate` (`deckhand hooks codex`) as `<file>` (merge it into the `hooks` object when the file exists), then
-/// trust it with `/hooks` in Codex.
+/// `report.state` when it counts: only with agent hooks on.
+fn install_problem(report: &CodexHookReport) -> Option<CodexHookState> {
+    report.state.filter(|_| report.agent_hooks)
+}
+
+/// The report as text: each stale command, the state (`missing`/`other`, with agent hooks on), and the fix: save the
+/// output of `regenerate` (`deckhand hooks codex`) as `<file>` (merge it into the `hooks` object when the file exists),
+/// then trust it with `/hooks` in Codex. Empty when agent hooks are off and nothing is stale (TS prints nothing).
 pub fn format_codex_hook_report(report: &CodexHookReport, regenerate: &str) -> String {
     let file = report.file.to_string_lossy();
     if !codex_hook_report_has_problems(report) {
-        return format!("✓ Codex hooks call this Deckhand ({file})\n");
+        return if report.agent_hooks {
+            format!("✓ Codex hooks call this Deckhand ({file})\n")
+        } else {
+            String::new()
+        };
     }
+    let state = install_problem(report);
     let mut text = format!("Codex hooks ({file}):\n");
     for command in &report.stale {
         text.push_str(&format!(
             "• Stale hook (the TypeScript bridge, node ... cli.js hook, which no longer exists): {command}\n"
         ));
     }
-    match report.state {
+    match state {
         Some(CodexHookState::Other) => text.push_str("• Codex hooks call another Deckhand install.\n"),
         Some(CodexHookState::Missing) => text.push_str("• No Codex hook calls this Deckhand.\n"),
         None => {}
     }
-    let fix = match (report.state, report.file_exists) {
+    let fix = match (state, report.file_exists) {
         // This Deckhand's hook is already there: only the stale entries must go.
         (None, _) => format!("Fix: remove the stale hooks from {file}"),
         (Some(_), true) => format!("Fix: merge the `hooks` object printed by `{regenerate}` into {file}"),
         (Some(_), false) => format!("Fix: save the output of `{regenerate}` as {file}"),
     };
     text.push_str(&fix);
-    if !report.stale.is_empty() && report.state.is_some() {
+    if !report.stale.is_empty() && state.is_some() {
         text.push_str(", replacing the stale hooks");
     }
     if !report.stale.is_empty() {
         text.push_str(&format!(" (and from {CODEX_CONFIG_FILE}, if any are there)"));
+    }
+    if !report.agent_hooks {
+        // Agent hooks are off, so Deckhand needs no Codex hook: the stale ones can go, or be replaced.
+        text.push_str(&format!(", or replace them with the hooks printed by `{regenerate}`"));
     }
     text.push_str(", then trust them with /hooks in Codex.\n");
     text
@@ -221,9 +242,15 @@ pub fn regenerate_command(dev_channel: bool) -> &'static str {
     }
 }
 
-/// The Codex part of doctor: prints the report for `codex_home` (nothing when Codex isn't used here).
-async fn codex_hook_check(codex_home: &Path, expected: &str, regenerate: &str) -> (DoctorStatus, Option<String>) {
-    let Some(report) = read_codex_hook_report(codex_home, expected).await else {
+/// The Codex part of doctor: prints the report for `codex_home` (nothing when Codex isn't used here, or when agent
+/// hooks are off and no hook is stale).
+async fn codex_hook_check(
+    codex_home: &Path,
+    expected: &str,
+    regenerate: &str,
+    agent_hooks: bool,
+) -> (DoctorStatus, Option<String>) {
+    let Some(report) = read_codex_hook_report(codex_home, expected, agent_hooks).await else {
         return (DoctorStatus::Healthy, None);
     };
     let status = if codex_hook_report_has_problems(&report) {
@@ -231,7 +258,15 @@ async fn codex_hook_check(codex_home: &Path, expected: &str, regenerate: &str) -
     } else {
         DoctorStatus::Healthy
     };
-    (status, Some(format_codex_hook_report(&report, regenerate)))
+    let text = format_codex_hook_report(&report, regenerate);
+    (status, (!text.is_empty()).then_some(text))
+}
+
+/// The user's `agent_hooks` setting is `true` (TS: `user.agent_hooks === true`); an unreadable config counts as off.
+async fn agent_hooks_enabled() -> bool {
+    deckhand_sys::storage::load_app_config()
+        .await
+        .is_ok_and(|config| config.agent_hooks == Some(true))
 }
 
 /// `deckhand doctor [--check] [--yes|-y]`: `crate::setup::run_setup(args)`, then the Codex hooks check.
@@ -244,7 +279,8 @@ pub async fn run_doctor(args: &[String]) -> Result<DoctorStatus, DhError> {
     }
     let expected = crate::hooks::printed_hook_command(&crate::hooks::hooks_executable()?);
     let regenerate = regenerate_command(deckhand_sys::paths::is_dev_channel());
-    let (status, text) = codex_hook_check(&home, &expected, regenerate).await;
+    let agent_hooks = agent_hooks_enabled().await;
+    let (status, text) = codex_hook_check(&home, &expected, regenerate, agent_hooks).await;
     if let Some(text) = text {
         crate::setup::write_stdout(&text);
     }
@@ -284,8 +320,13 @@ mod tests {
         format!(r#"{{"hooks":{{{}}}}}"#, body.join(","))
     }
 
+    /// The report with agent hooks on (the install check runs).
     fn report(dir: &Path) -> Option<CodexHookReport> {
-        runtime().block_on(read_codex_hook_report(dir, EXPECTED))
+        runtime().block_on(read_codex_hook_report(dir, EXPECTED, true))
+    }
+
+    fn check(dir: &Path, agent_hooks: bool) -> (DoctorStatus, Option<String>) {
+        runtime().block_on(codex_hook_check(dir, EXPECTED, "deckhand hooks codex", agent_hooks))
     }
 
     #[test]
@@ -341,8 +382,9 @@ mod tests {
         let file = dir.path().join("file");
         std::fs::write(&file, "x").expect("write");
         assert_eq!(report(&file), None);
-        let (status, text) = runtime().block_on(codex_hook_check(&file, EXPECTED, "deckhand hooks codex"));
-        assert_eq!((status, text), (DoctorStatus::Healthy, None));
+        for agent_hooks in [true, false] {
+            assert_eq!(check(&file, agent_hooks), (DoctorStatus::Healthy, None));
+        }
     }
 
     #[test]
@@ -363,6 +405,7 @@ mod tests {
                 commands: vec![STALE.into(), "echo hi".into(), "node /old/cli.js hook".into()],
                 state: Some(CodexHookState::Other),
                 stale: vec![STALE.into(), "node /old/cli.js hook".into()],
+                agent_hooks: true,
             }
         );
         assert!(codex_hook_report_has_problems(&found));
@@ -378,7 +421,7 @@ mod tests {
                  hooks (and from config.toml, if any are there), then trust them with /hooks in Codex.\n"
             )
         );
-        let (status, _) = runtime().block_on(codex_hook_check(dir.path(), EXPECTED, "deckhand hooks codex"));
+        let (status, _) = check(dir.path(), true);
         assert_eq!(status, DoctorStatus::Problems);
     }
 
@@ -394,9 +437,47 @@ mod tests {
             format_codex_hook_report(&found, "deckhand hooks codex"),
             format!("✓ Codex hooks call this Deckhand ({})\n", found.file.to_string_lossy())
         );
-        let (status, text) = runtime().block_on(codex_hook_check(dir.path(), EXPECTED, "deckhand hooks codex"));
+        let (status, text) = check(dir.path(), true);
         assert_eq!(status, DoctorStatus::Healthy);
         assert!(text.is_some_and(|text| text.starts_with('✓')));
+        // Agent hooks off: TS prints nothing about Codex hooks.
+        assert_eq!(check(dir.path(), false), (DoctorStatus::Healthy, None));
+    }
+
+    #[test]
+    fn missing_or_other_hooks_are_fine_with_agent_hooks_off() {
+        // TS settingsInfo.ts reads the Codex hooks only when `user.agent_hooks === true`.
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert_eq!(check(dir.path(), false), (DoctorStatus::Healthy, None));
+        std::fs::write(dir.path().join(CODEX_HOOKS_FILE), hooks_json(&["echo hi"])).expect("write");
+        assert_eq!(check(dir.path(), false), (DoctorStatus::Healthy, None));
+        std::fs::write(
+            dir.path().join(CODEX_HOOKS_FILE),
+            hooks_json(&["'/other/deckhand' 'hook'"]),
+        )
+        .expect("write");
+        assert_eq!(check(dir.path(), false), (DoctorStatus::Healthy, None));
+        // With agent hooks on, the same file is a problem.
+        assert_eq!(check(dir.path(), true).0, DoctorStatus::Problems);
+    }
+
+    #[test]
+    fn stale_bridges_are_reported_with_agent_hooks_off() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::write(dir.path().join(CODEX_HOOKS_FILE), hooks_json(&[STALE, "echo hi"])).expect("write");
+        let file = dir.path().join(CODEX_HOOKS_FILE).to_string_lossy().into_owned();
+        assert_eq!(
+            check(dir.path(), false),
+            (
+                DoctorStatus::Problems,
+                Some(format!(
+                    "Codex hooks ({file}):\n\
+                     • Stale hook (the TypeScript bridge, node ... cli.js hook, which no longer exists): {STALE}\n\
+                     Fix: remove the stale hooks from {file} (and from config.toml, if any are there), or replace \
+                     them with the hooks printed by `deckhand hooks codex`, then trust them with /hooks in Codex.\n"
+                ))
+            )
+        );
     }
 
     #[test]
