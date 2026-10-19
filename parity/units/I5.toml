@@ -21,4 +21,11 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"processTree.ts:ProcessSnapshot" = "deckhand_sys::process_tree::ProcessSnapshot"
+"processTree.ts:snapshotDescendants" = "deckhand_sys::process_tree::snapshot_descendants"
+"processTree.ts:survivors" = "deckhand_sys::process_tree::survivors"
+"processTree.ts:killSurvivors" = "deckhand_sys::process_tree::kill_survivors"
+"claudeTranscripts.ts:claudeProjectsDir" = "deckhand_sys::claude_transcripts::claude_projects_dir"
+"claudeTranscripts.ts:claudeProjectKey" = "deckhand_sys::claude_transcripts::claude_project_key"
+"claudeTranscripts.ts:LatestConversationOptions" = "deckhand_sys::claude_transcripts::LatestConversationOptions"
+"claudeTranscripts.ts:latestClaudeConversation" = "deckhand_sys::claude_transcripts::latest_claude_conversation"
