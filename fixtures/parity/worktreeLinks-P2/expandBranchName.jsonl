@@ -1,0 +1,317 @@
+{"args":["  ~{name}",{"name":"a b","user":"x"}],"ret":"  ~a b"}
+{"args":[" ",{"name":"a b","user":"x"}],"ret":" "}
+{"args":[" ",{"name":"x/y","user":"u"}],"ret":" "}
+{"args":[" :}{x}",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \" :}{x}\""}
+{"args":[" a",{"name":"..","user":"u"}],"ret":" a"}
+{"args":[" b.é",{"name":"..","user":"u"}],"ret":" b.é"}
+{"args":[" b:😀b{x}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {x} in branch name \" b:😀b{x}\""}
+{"args":[" {name}{name}",{"name":"..","user":"u"}],"ret":" ...."}
+{"args":[" {{x}}",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \" {{x}}\""}
+{"args":[" 😀b.é@",{"name":"feat","user":"me"}],"ret":" 😀b.é@"}
+{"args":["",{"name":"","user":""}],"ret":""}
+{"args":["",{"name":"..","user":"u"}],"ret":""}
+{"args":["",{"name":"a b","user":"x"}],"ret":""}
+{"args":["",{"name":"feat","user":"me"}],"ret":""}
+{"args":["",{"name":"x/y","user":"u"}],"ret":""}
+{"args":["",{"name":"功能😀","user":"émile"}],"ret":""}
+{"args":["- ~",{"name":"feat","user":"me"}],"ret":"- ~"}
+{"args":["-",{"name":"feat","user":"me"}],"ret":"-"}
+{"args":["-",{"name":"x/y","user":"u"}],"ret":"-"}
+{"args":["-",{"name":"功能😀","user":"émile"}],"ret":"-"}
+{"args":["-/.{name}{b",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"-/.{name}{b\""}
+{"args":["-/{user}",{"name":"a b","user":"x"}],"ret":"-/x"}
+{"args":["-/{😀",{"name":"","user":""}],"throws":"Unbalanced braces in \"-/{😀\""}
+{"args":["-:😀",{"name":"","user":""}],"ret":"-:😀"}
+{"args":["-@:{a",{"name":"","user":""}],"throws":"Unbalanced braces in \"-@:{a\""}
+{"args":["-{user}{x}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {x} in branch name \"-{user}{x}\""}
+{"args":["-{user}é/",{"name":"feat","user":"me"}],"ret":"-meé/"}
+{"args":["-{user}é😀",{"name":"..","user":"u"}],"ret":"-ué😀"}
+{"args":["-}{x} ",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"-}{x} \""}
+{"args":["-中{user}@",{"name":"x/y","user":"u"}],"ret":"-中u@"}
+{"args":["-😀{x}.b中",{"name":"..","user":"u"}],"throws":"Unknown placeholder {x} in branch name \"-😀{x}.b中\""}
+{"args":["-😀~~--",{"name":"功能😀","user":"émile"}],"ret":"-😀~~--"}
+{"args":["-😀😀a}@",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"-😀😀a}@\""}
+{"args":[".",{"name":"","user":""}],"ret":"."}
+{"args":[".",{"name":"feat","user":"me"}],"ret":"."}
+{"args":[".",{"name":"功能😀","user":"émile"}],"ret":"."}
+{"args":[".-",{"name":"x/y","user":"u"}],"ret":".-"}
+{"args":[".:",{"name":"功能😀","user":"émile"}],"ret":".:"}
+{"args":[".:.{name}中{x}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {x} in branch name \".:.{name}中{x}\""}
+{"args":[".:é{name}{x}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {x} in branch name \".:é{name}{x}\""}
+{"args":[".@/  -",{"name":"a b","user":"x"}],"ret":".@/  -"}
+{"args":[".@@{user}-😀",{"name":"x/y","user":"u"}],"ret":".@@u-😀"}
+{"args":[".b中@",{"name":"..","user":"u"}],"ret":".b中@"}
+{"args":[".{name}",{"name":"功能😀","user":"émile"}],"ret":".功能😀"}
+{"args":[".}{/",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \".}{/\""}
+{"args":[".~",{"name":"a b","user":"x"}],"ret":".~"}
+{"args":[".😀é",{"name":"x/y","user":"u"}],"ret":".😀é"}
+{"args":["/",{"name":"","user":""}],"ret":"/"}
+{"args":["/",{"name":"x/y","user":"u"}],"ret":"/"}
+{"args":["/--",{"name":"feat","user":"me"}],"ret":"/--"}
+{"args":["/-~",{"name":"功能😀","user":"émile"}],"ret":"/-~"}
+{"args":["/:{user}a",{"name":"功能😀","user":"émile"}],"ret":"/:émilea"}
+{"args":["/b",{"name":"..","user":"u"}],"ret":"/b"}
+{"args":["/{name}",{"name":"..","user":"u"}],"ret":"/.."}
+{"args":["/{x}{user}}}a",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"/{x}{user}}}a\""}
+{"args":["/中😀}",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"/中😀}\""}
+{"args":["/😀  ",{"name":"feat","user":"me"}],"ret":"/😀  "}
+{"args":[":",{"name":"","user":""}],"ret":":"}
+{"args":[":.b{",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \":.b{\""}
+{"args":[":@a}:",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \":@a}:\""}
+{"args":[":ba}//",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \":ba}//\""}
+{"args":[":{",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \":{\""}
+{"args":[":{name} -{name}a",{"name":"a b","user":"x"}],"ret":":a b -a ba"}
+{"args":[":{name}.}",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \":{name}.}\""}
+{"args":[":{x}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {x} in branch name \":{x}\""}
+{"args":[":~{x}中}é",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \":~{x}中}é\""}
+{"args":[":é{user}a",{"name":"feat","user":"me"}],"ret":":émea"}
+{"args":["@",{"name":"","user":""}],"ret":"@"}
+{"args":["@",{"name":"..","user":"u"}],"ret":"@"}
+{"args":["@",{"name":"feat","user":"me"}],"ret":"@"}
+{"args":["@/中",{"name":"","user":""}],"ret":"@/中"}
+{"args":["@@ .-{name}",{"name":"feat","user":"me"}],"ret":"@@ .-feat"}
+{"args":["@a b ",{"name":"a b","user":"x"}],"ret":"@a b "}
+{"args":["@a中中",{"name":"","user":""}],"ret":"@a中中"}
+{"args":["@{name}a中:",{"name":"a b","user":"x"}],"ret":"@a ba中:"}
+{"args":["@{user}-.",{"name":"feat","user":"me"}],"ret":"@me-."}
+{"args":["@{user}~",{"name":"","user":""}],"ret":"@~"}
+{"args":["@{x}a ",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {x} in branch name \"@{x}a \""}
+{"args":["@{x}é",{"name":"","user":""}],"throws":"Unknown placeholder {x} in branch name \"@{x}é\""}
+{"args":["@{中~",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"@{中~\""}
+{"args":["@}/",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"@}/\""}
+{"args":["@é{x}",{"name":"..","user":"u"}],"throws":"Unknown placeholder {x} in branch name \"@é{x}\""}
+{"args":["@中b ",{"name":"..","user":"u"}],"ret":"@中b "}
+{"args":["@中b",{"name":"a b","user":"x"}],"ret":"@中b"}
+{"args":["@😀:",{"name":"feat","user":"me"}],"ret":"@😀:"}
+{"args":["a",{"name":"a b","user":"x"}],"ret":"a"}
+{"args":["a",{"name":"x/y","user":"u"}],"ret":"a"}
+{"args":["a",{"name":"功能😀","user":"émile"}],"ret":"a"}
+{"args":["a{",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"a{\""}
+{"args":["a{/a--",{"name":"","user":""}],"throws":"Unbalanced braces in \"a{/a--\""}
+{"args":["a{name}b{user}c{name}",{"name":"","user":""}],"ret":"abc"}
+{"args":["a{name}b{user}c{name}",{"name":"..","user":"u"}],"ret":"a..buc.."}
+{"args":["a{name}b{user}c{name}",{"name":"a b","user":"x"}],"ret":"aa bbxca b"}
+{"args":["a{name}b{user}c{name}",{"name":"feat","user":"me"}],"ret":"afeatbmecfeat"}
+{"args":["a{name}b{user}c{name}",{"name":"x/y","user":"u"}],"ret":"ax/ybucx/y"}
+{"args":["a{name}b{user}c{name}",{"name":"功能😀","user":"émile"}],"ret":"a功能😀bémilec功能😀"}
+{"args":["a{{}:",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"a{{}:\""}
+{"args":["a}{x}a",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"a}{x}a\""}
+{"args":["aé😀~",{"name":"x/y","user":"u"}],"ret":"aé😀~"}
+{"args":["b",{"name":"","user":""}],"ret":"b"}
+{"args":["b",{"name":"x/y","user":"u"}],"ret":"b"}
+{"args":["b-{x}-",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {x} in branch name \"b-{x}-\""}
+{"args":["b-}{:@",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"b-}{:@\""}
+{"args":["b/{name}:中{user}",{"name":"x/y","user":"u"}],"ret":"b/x/y:中u"}
+{"args":["b:-.",{"name":"a b","user":"x"}],"ret":"b:-."}
+{"args":["b:😀",{"name":"功能😀","user":"émile"}],"ret":"b:😀"}
+{"args":["b@{x}中é",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {x} in branch name \"b@{x}中é\""}
+{"args":["ba",{"name":"feat","user":"me"}],"ret":"ba"}
+{"args":["b{",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"b{\""}
+{"args":["b{x}:",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {x} in branch name \"b{x}:\""}
+{"args":["b{x}a",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {x} in branch name \"b{x}a\""}
+{"args":["b{x}}中~",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"b{x}}中~\""}
+{"args":["béé{user}",{"name":"feat","user":"me"}],"ret":"bééme"}
+{"args":["b中{{user}.{x}",{"name":"","user":""}],"throws":"Unbalanced braces in \"b中{{user}.{x}\""}
+{"args":["feature/{name}",{"name":"","user":""}],"ret":"feature/"}
+{"args":["feature/{name}",{"name":"..","user":"u"}],"ret":"feature/.."}
+{"args":["feature/{name}",{"name":"a b","user":"x"}],"ret":"feature/a b"}
+{"args":["feature/{name}",{"name":"feat","user":"me"}],"ret":"feature/feat"}
+{"args":["feature/{name}",{"name":"x/y","user":"u"}],"ret":"feature/x/y"}
+{"args":["feature/{name}",{"name":"功能😀","user":"émile"}],"ret":"feature/功能😀"}
+{"args":["{",{"name":"","user":""}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{/{",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"{/{\""}
+{"args":["{Name}",{"name":"","user":""}],"throws":"Unknown placeholder {Name} in branch name \"{Name}\""}
+{"args":["{Name}",{"name":"..","user":"u"}],"throws":"Unknown placeholder {Name} in branch name \"{Name}\""}
+{"args":["{Name}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {Name} in branch name \"{Name}\""}
+{"args":["{Name}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {Name} in branch name \"{Name}\""}
+{"args":["{Name}",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {Name} in branch name \"{Name}\""}
+{"args":["{Name}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {Name} in branch name \"{Name}\""}
+{"args":["{__proto__}",{"name":"","user":""}],"throws":"Unknown placeholder {__proto__} in branch name \"{__proto__}\""}
+{"args":["{__proto__}",{"name":"..","user":"u"}],"throws":"Unknown placeholder {__proto__} in branch name \"{__proto__}\""}
+{"args":["{__proto__}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {__proto__} in branch name \"{__proto__}\""}
+{"args":["{__proto__}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {__proto__} in branch name \"{__proto__}\""}
+{"args":["{__proto__}",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {__proto__} in branch name \"{__proto__}\""}
+{"args":["{__proto__}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {__proto__} in branch name \"{__proto__}\""}
+{"args":["{a//é@",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"{a//é@\""}
+{"args":["{constructor}",{"name":"","user":""}],"throws":"Unknown placeholder {constructor} in branch name \"{constructor}\""}
+{"args":["{constructor}",{"name":"..","user":"u"}],"throws":"Unknown placeholder {constructor} in branch name \"{constructor}\""}
+{"args":["{constructor}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {constructor} in branch name \"{constructor}\""}
+{"args":["{constructor}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {constructor} in branch name \"{constructor}\""}
+{"args":["{constructor}",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {constructor} in branch name \"{constructor}\""}
+{"args":["{constructor}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {constructor} in branch name \"{constructor}\""}
+{"args":["{name",{"name":"","user":""}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name}",{"name":"","user":""}],"ret":""}
+{"args":["{name}",{"name":"..","user":"u"}],"ret":".."}
+{"args":["{name}",{"name":"a b","user":"x"}],"ret":"a b"}
+{"args":["{name}",{"name":"feat","user":"me"}],"ret":"feat"}
+{"args":["{name}",{"name":"x/y","user":"u"}],"ret":"x/y"}
+{"args":["{name}",{"name":"功能😀","user":"émile"}],"ret":"功能😀"}
+{"args":["{name}- {@/",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"{name}- {@/\""}
+{"args":["{name}-",{"name":"a b","user":"x"}],"ret":"a b-"}
+{"args":["{name}-{user}",{"name":"","user":""}],"ret":"-"}
+{"args":["{name}-{user}",{"name":"..","user":"u"}],"ret":"..-u"}
+{"args":["{name}-{user}",{"name":"a b","user":"x"}],"ret":"a b-x"}
+{"args":["{name}-{user}",{"name":"feat","user":"me"}],"ret":"feat-me"}
+{"args":["{name}-{user}",{"name":"x/y","user":"u"}],"ret":"x/y-u"}
+{"args":["{name}-{user}",{"name":"功能😀","user":"émile"}],"ret":"功能😀-émile"}
+{"args":["{name}-é}中",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"{name}-é}中\""}
+{"args":["{name}.é",{"name":"a b","user":"x"}],"ret":"a b.é"}
+{"args":["{name}:@",{"name":"功能😀","user":"émile"}],"ret":"功能😀:@"}
+{"args":["{name}{{x}",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"{name}{{x}\""}
+{"args":["{repo}",{"name":"","user":""}],"throws":"Unknown placeholder {repo} in branch name \"{repo}\""}
+{"args":["{repo}",{"name":"..","user":"u"}],"throws":"Unknown placeholder {repo} in branch name \"{repo}\""}
+{"args":["{repo}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {repo} in branch name \"{repo}\""}
+{"args":["{repo}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {repo} in branch name \"{repo}\""}
+{"args":["{repo}",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {repo} in branch name \"{repo}\""}
+{"args":["{repo}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {repo} in branch name \"{repo}\""}
+{"args":["{toString}",{"name":"","user":""}],"throws":"Unknown placeholder {toString} in branch name \"{toString}\""}
+{"args":["{toString}",{"name":"..","user":"u"}],"throws":"Unknown placeholder {toString} in branch name \"{toString}\""}
+{"args":["{toString}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {toString} in branch name \"{toString}\""}
+{"args":["{toString}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {toString} in branch name \"{toString}\""}
+{"args":["{toString}",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {toString} in branch name \"{toString}\""}
+{"args":["{toString}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {toString} in branch name \"{toString}\""}
+{"args":["{user}",{"name":"","user":""}],"ret":""}
+{"args":["{user}",{"name":"..","user":"u"}],"ret":"u"}
+{"args":["{user}",{"name":"a b","user":"x"}],"ret":"x"}
+{"args":["{user}",{"name":"feat","user":"me"}],"ret":"me"}
+{"args":["{user}",{"name":"x/y","user":"u"}],"ret":"u"}
+{"args":["{user}",{"name":"功能😀","user":"émile"}],"ret":"émile"}
+{"args":["{user}-:{a",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"{user}-:{a\""}
+{"args":["{user}/{name}",{"name":"","user":""}],"ret":"/"}
+{"args":["{user}/{name}",{"name":"..","user":"u"}],"ret":"u/.."}
+{"args":["{user}/{name}",{"name":"a b","user":"x"}],"ret":"x/a b"}
+{"args":["{user}/{name}",{"name":"feat","user":"me"}],"ret":"me/feat"}
+{"args":["{user}/{name}",{"name":"x/y","user":"u"}],"ret":"u/x/y"}
+{"args":["{user}/{name}",{"name":"功能😀","user":"émile"}],"ret":"émile/功能😀"}
+{"args":["{user}:",{"name":"..","user":"u"}],"ret":"u:"}
+{"args":["{user}b中a",{"name":"功能😀","user":"émile"}],"ret":"émileb中a"}
+{"args":["{user}{-",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"{user}{-\""}
+{"args":["{user}{aa",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"{user}{aa\""}
+{"args":["{user}{name}-}{/",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"{user}{name}-}{/\""}
+{"args":["{user}{name}:-{user}",{"name":"","user":""}],"ret":":-"}
+{"args":["{user}{{name}:{user}",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"{user}{{name}:{user}\""}
+{"args":["{user}}",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"{user}}\""}
+{"args":["{user}é",{"name":"..","user":"u"}],"ret":"ué"}
+{"args":["{user}é:中{user}",{"name":"","user":""}],"ret":"é:中"}
+{"args":["{user}é{name}",{"name":"..","user":"u"}],"ret":"ué.."}
+{"args":["{user}中{}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {} in branch name \"{user}中{}\""}
+{"args":["{user}😀",{"name":"功能😀","user":"émile"}],"ret":"émile😀"}
+{"args":["{user}😀:///",{"name":"..","user":"u"}],"ret":"u😀:///"}
+{"args":["{user}😀{",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"{user}😀{\""}
+{"args":["{x} /",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {x} in branch name \"{x} /\""}
+{"args":["{x} {.😀é",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"{x} {.😀é\""}
+{"args":["{x} {user}:",{"name":"","user":""}],"throws":"Unknown placeholder {x} in branch name \"{x} {user}:\""}
+{"args":["{x}",{"name":"","user":""}],"throws":"Unknown placeholder {x} in branch name \"{x}\""}
+{"args":["{x}",{"name":"..","user":"u"}],"throws":"Unknown placeholder {x} in branch name \"{x}\""}
+{"args":["{x}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {x} in branch name \"{x}\""}
+{"args":["{x}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {x} in branch name \"{x}\""}
+{"args":["{x}",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {x} in branch name \"{x}\""}
+{"args":["{x}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {x} in branch name \"{x}\""}
+{"args":["{x}.{user}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {x} in branch name \"{x}.{user}\""}
+{"args":["{x}{",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"{x}{\""}
+{"args":["{x}{name}é {name}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {x} in branch name \"{x}{name}é {name}\""}
+{"args":["{x}{user}~@",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {x} in branch name \"{x}{user}~@\""}
+{"args":["{x}{user}😀{user}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {x} in branch name \"{x}{user}😀{user}\""}
+{"args":["{x}{x} {",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"{x}{x} {\""}
+{"args":["{x}{x}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {x} in branch name \"{x}{x}\""}
+{"args":["{x}~",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {x} in branch name \"{x}~\""}
+{"args":["{x}~",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {x} in branch name \"{x}~\""}
+{"args":["{x}~bé",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {x} in branch name \"{x}~bé\""}
+{"args":["{x}éa",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {x} in branch name \"{x}éa\""}
+{"args":["{x}中",{"name":"","user":""}],"throws":"Unknown placeholder {x} in branch name \"{x}中\""}
+{"args":["{x}中-{name}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {x} in branch name \"{x}中-{name}\""}
+{"args":["{{name}}",{"name":"","user":""}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{name}}",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{name}}",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{name}}",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{name}}",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{name}}",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{user}中.@ ",{"name":"","user":""}],"throws":"Unbalanced braces in \"{{user}中.@ \""}
+{"args":["{{x}{x}{name}:",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"{{x}{x}{name}:\""}
+{"args":["{}",{"name":"","user":""}],"throws":"Unknown placeholder {} in branch name \"{}\""}
+{"args":["{}",{"name":"..","user":"u"}],"throws":"Unknown placeholder {} in branch name \"{}\""}
+{"args":["{}",{"name":"a b","user":"x"}],"throws":"Unknown placeholder {} in branch name \"{}\""}
+{"args":["{}",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {} in branch name \"{}\""}
+{"args":["{}",{"name":"x/y","user":"u"}],"throws":"Unknown placeholder {} in branch name \"{}\""}
+{"args":["{}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {} in branch name \"{}\""}
+{"args":["{~}é",{"name":"feat","user":"me"}],"throws":"Unknown placeholder {~} in branch name \"{~}é\""}
+{"args":["{é",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"{é\""}
+{"args":["{😀😀",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"{😀😀\""}
+{"args":["}",{"name":"","user":""}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}-",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"}-\""}
+{"args":["}.:",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"}.:\""}
+{"args":["}/{@.",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"}/{@.\""}
+{"args":["}: b.",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"}: b.\""}
+{"args":["}:",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"}:\""}
+{"args":["}a/{x}}~",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"}a/{x}}~\""}
+{"args":["}b.é@b",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"}b.é@b\""}
+{"args":["}{x}{{name}b",{"name":"功能😀","user":"émile"}],"throws":"Unbalanced braces in \"}{x}{{name}b\""}
+{"args":["}}",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"}}\""}
+{"args":["}~中",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"}~中\""}
+{"args":["~",{"name":"功能😀","user":"émile"}],"ret":"~"}
+{"args":["~-}中",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"~-}中\""}
+{"args":["~{x}: ",{"name":"..","user":"u"}],"throws":"Unknown placeholder {x} in branch name \"~{x}: \""}
+{"args":["~~{name}",{"name":"功能😀","user":"émile"}],"ret":"~~功能😀"}
+{"args":["~中.",{"name":"feat","user":"me"}],"ret":"~中."}
+{"args":["~😀",{"name":"","user":""}],"ret":"~😀"}
+{"args":["é {user}.~",{"name":"feat","user":"me"}],"ret":"é me.~"}
+{"args":["é",{"name":"功能😀","user":"émile"}],"ret":"é"}
+{"args":["é/{name}",{"name":"","user":""}],"ret":"é/"}
+{"args":["é/{name}",{"name":"..","user":"u"}],"ret":"é/.."}
+{"args":["é/{name}",{"name":"a b","user":"x"}],"ret":"é/a b"}
+{"args":["é/{name}",{"name":"feat","user":"me"}],"ret":"é/feat"}
+{"args":["é/{name}",{"name":"x/y","user":"u"}],"ret":"é/x/y"}
+{"args":["é/{name}",{"name":"功能😀","user":"émile"}],"ret":"é/功能😀"}
+{"args":["éab{{x}",{"name":"feat","user":"me"}],"throws":"Unbalanced braces in \"éab{{x}\""}
+{"args":["éb😀}{user}{user}",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"éb😀}{user}{user}\""}
+{"args":["é{name}{user}b@",{"name":"..","user":"u"}],"ret":"é..ub@"}
+{"args":["é{user}-",{"name":"功能😀","user":"émile"}],"ret":"éémile-"}
+{"args":["é{x}😀中",{"name":"..","user":"u"}],"throws":"Unknown placeholder {x} in branch name \"é{x}😀中\""}
+{"args":["éééé{name}}",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"éééé{name}}\""}
+{"args":["中",{"name":"","user":""}],"ret":"中"}
+{"args":["中",{"name":"..","user":"u"}],"ret":"中"}
+{"args":["中",{"name":"功能😀","user":"émile"}],"ret":"中"}
+{"args":["中b {-}",{"name":"功能😀","user":"émile"}],"throws":"Unknown placeholder {-} in branch name \"中b {-}\""}
+{"args":["中{user}",{"name":"x/y","user":"u"}],"ret":"中u"}
+{"args":["中}.",{"name":"","user":""}],"throws":"Unbalanced braces in \"中}.\""}
+{"args":["中~{x}{:",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"中~{x}{:\""}
+{"args":["中中",{"name":"a b","user":"x"}],"ret":"中中"}
+{"args":["中中@@{name}.",{"name":"","user":""}],"ret":"中中@@."}
+{"args":["中😀",{"name":"..","user":"u"}],"ret":"中😀"}
+{"args":["用户/{name}",{"name":"","user":""}],"ret":"用户/"}
+{"args":["用户/{name}",{"name":"..","user":"u"}],"ret":"用户/.."}
+{"args":["用户/{name}",{"name":"a b","user":"x"}],"ret":"用户/a b"}
+{"args":["用户/{name}",{"name":"feat","user":"me"}],"ret":"用户/feat"}
+{"args":["用户/{name}",{"name":"x/y","user":"u"}],"ret":"用户/x/y"}
+{"args":["用户/{name}",{"name":"功能😀","user":"émile"}],"ret":"用户/功能😀"}
+{"args":["😀",{"name":"","user":""}],"ret":"😀"}
+{"args":["😀",{"name":"功能😀","user":"émile"}],"ret":"😀"}
+{"args":["😀.",{"name":"x/y","user":"u"}],"ret":"😀."}
+{"args":["😀:@{user}中",{"name":"","user":""}],"ret":"😀:@中"}
+{"args":["😀a}@é",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"😀a}@é\""}
+{"args":["😀b",{"name":"feat","user":"me"}],"ret":"😀b"}
+{"args":["😀{",{"name":"a b","user":"x"}],"throws":"Unbalanced braces in \"😀{\""}
+{"args":["😀{",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"😀{\""}
+{"args":["😀{name}:@-",{"name":"","user":""}],"ret":"😀:@-"}
+{"args":["😀{name}@",{"name":"","user":""}],"ret":"😀@"}
+{"args":["😀{user}",{"name":"feat","user":"me"}],"ret":"😀me"}
+{"args":["😀{user}@-.",{"name":"..","user":"u"}],"ret":"😀u@-."}
+{"args":["😀{user}😀{user}{",{"name":"x/y","user":"u"}],"throws":"Unbalanced braces in \"😀{user}😀{user}{\""}
+{"args":["😀{x}{user}{user}",{"name":"","user":""}],"throws":"Unknown placeholder {x} in branch name \"😀{x}{user}{user}\""}
+{"args":["😀é{x}",{"name":"","user":""}],"throws":"Unknown placeholder {x} in branch name \"😀é{x}\""}
+{"args":["😀😀 .}-",{"name":"..","user":"u"}],"throws":"Unbalanced braces in \"😀😀 .}-\""}
