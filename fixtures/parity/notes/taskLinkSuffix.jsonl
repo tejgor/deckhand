@@ -1,0 +1,4 @@
+{"args":["done"],"ret":"· done"}
+{"args":["gone"],"ret":"· not in Tasks"}
+{"args":["open"],"ret":"· in Tasks"}
+{"args":[{"$u":1}],"ret":"· in Tasks"}
