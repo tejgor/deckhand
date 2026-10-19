@@ -18,6 +18,11 @@ utf16_fields = {}
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+# Wave 0 hand-off notes for this unit.
+notes = [
+  "Implement crates/deckhand/src/ui_loop.rs run_ui calling deckhand_ui::app::run(AppProps) with StdinReader/RawMode/spawn_resize_watcher from event_loop.rs; drop the duplicate TerminalView type in ui_loop if ui defines one.",
+  "Screen goldens from the TS UI: fixtures/ui/*.txt|json (README lists key scripts and normalisations) — compare your screens where applicable.",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

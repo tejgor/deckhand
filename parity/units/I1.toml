@@ -18,6 +18,11 @@ utf16_fields = {}
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+# Wave 0 hand-off notes for this unit.
+notes = [
+  "Legacy-state parity: fixtures/state/home-v45 (+ home-v45.after-idle, read-responses.jsonl, sandbox.json, MIGRATIONS.md, README.md). Port every migration in fixtures/state/MIGRATIONS.md that lives in storage.ts/uiState.ts; write Rust tests that load home-v45 and re-save, comparing to what TS writes (byte-exact JSON, key order via deckhand_protocol::Ordered<T>, modes 0600/0700). ui-state migrations happen in the UI process only (normalizeUiState).",
+  "async_util spawns with spawn_local: tests must run inside a tokio LocalSet.",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

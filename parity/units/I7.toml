@@ -18,6 +18,11 @@ utf16_fields = {}
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+# Wave 0 hand-off notes for this unit.
+notes = [
+  "agent_path::hook_command must resolve the executable like deckhand::hooks: the `deckhand` on $PATH when it is the same inode as current_exe, else current_exe — Settings' expected Codex hook command, Claude --settings, and `deckhand hooks` must agree.",
+  "Settings must detect stale Codex hook entries (`node ... cli.js hook`) and warn; never write ~/.codex.",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

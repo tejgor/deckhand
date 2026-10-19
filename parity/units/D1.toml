@@ -3,7 +3,7 @@ wave = 2
 title = "daemon core state, server, worker channel"
 crate = "daemon"
 ts_sources = ["src/daemon.ts"]
-rust_paths = ["crates/daemon/src/daemon.rs", "crates/daemon/src/server.rs", "crates/daemon/src/worker_channel.rs"]
+rust_paths = ["crates/daemon/src/daemon.rs", "crates/daemon/src/dispatch.rs", "crates/daemon/src/server.rs", "crates/daemon/src/worker_channel.rs"]
 deps = ["W1"]
 ts_tests = []
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
@@ -18,6 +18,11 @@ utf16_fields = {}
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+# Wave 0 hand-off notes for this unit.
+notes = [
+  "You also own crates/daemon/src/dispatch.rs (completed in Wave 0; adjust only if needed). Decide ParsedRequest::Invalid handling to match TS (TS does not validate fields of a known type; prefer lenient decoding so a TS client's messages are never rejected where TS accepts them).",
+  "Use deckhand_protocol::Ordered<T> for sessions/pane records/project configs so state.json and wire output keep TS key order.",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

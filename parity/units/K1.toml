@@ -18,6 +18,11 @@ utf16_fields = {}
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+# Wave 0 hand-off notes for this unit.
+notes = [
+  "Replace the private sys_paths shim in client.rs with deckhand_sys::paths (now implemented).",
+  "Refuse to replace a live daemon whose protocol version differs: error text must tell the user to kill <pid> (G6).",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

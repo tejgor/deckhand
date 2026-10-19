@@ -18,6 +18,11 @@ utf16_fields = {}
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+# Wave 0 hand-off notes for this unit.
+notes = [
+  "cli.rs run_session_worker/run_workspace_worker/run_daemon must call deckhand_worker::session::run_session_worker, deckhand_worker::workspace::run_workspace_worker, deckhand_daemon::run_daemon inside the current_thread runtime + LocalSet; exit codes as TS.",
+  "UI entry: call deckhand::ui_loop::run_ui (A1 implements it in Wave 3); keep it a stub call here.",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

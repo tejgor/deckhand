@@ -18,6 +18,11 @@ utf16_fields = {}
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+# Wave 0 hand-off notes for this unit.
+notes = [
+  "Gate: fixtures/term/*.golden.json (15 streams in fixtures/term/streams/, regenerate with node --import tsx parity/gen/term.gen.ts). Write a Rust test that replays every stream through deckhand_term::alacritty + preview and compares to the goldens (xterm screen snapshot AND TerminalPreview output, incl. checkpoints/resizes). Adapt headless::ScreenSnapshot to the golden shape. synthetic-c1-controls is an allowlist candidate (alacritty C1 handling); OSC 8 / underline style are not in the goldens.",
+  "tests/nodePty.test.ts tests node-pty's signIfNeeded, which the port drops: add it to deferred_tests with to = \"drop\".",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

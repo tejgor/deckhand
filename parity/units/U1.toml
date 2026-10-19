@@ -18,6 +18,10 @@ utf16_fields = {}
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+# Wave 0 hand-off notes for this unit.
+notes = [
+  "menu.tsx pure helpers and data types live in deckhand_core::display; the components (SelectableRow, SelectableCell, MenuList, DetailText, MenuDetails, MenuPane) are yours.",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

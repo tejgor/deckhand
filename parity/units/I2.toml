@@ -18,6 +18,11 @@ utf16_fields = {}
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
+# Wave 0 hand-off notes for this unit.
+notes = [
+  "Legacy notes in fixtures/state/home-v45/notes/** must load and round-trip unchanged.",
+  "Remove the Wave 0 #[allow(dead_code)] markers once implemented.",
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
