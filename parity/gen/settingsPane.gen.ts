@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
-import {Recorder, fixturesRoot, installDeterminism, prng} from '../lib.ts';
+import {REPO_ROOT, Recorder, installDeterminism, prng} from '../lib.ts';
 
 // Chalk reads the color level when it loads, so ink and the sources are imported after this.
 process.env.FORCE_COLOR = '3';
@@ -75,12 +75,12 @@ function renderScreen(element: React.ReactElement, width: number, height: number
 
 // Scenarios -----------------------------------------------------------------------------------------------------------
 
-const read = (file: string) => fs.readFileSync(path.join(fixturesRoot(), 'settingsModel', file), 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line));
+const read = (file: string) => fs.readFileSync(path.join(REPO_ROOT, 'fixtures', 'parity', 'settingsModel', file), 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line));
 
 // Distinct infos from the recorded settingsModel inputs, one per (state, review, layers present, actions, codex hook)
 // combination, so every header and cell variety shows up.
 const seen = new Map<string, any>();
-for (const file of fs.readdirSync(path.join(fixturesRoot(), 'settingsModel')).sort()) {
+for (const file of fs.readdirSync(path.join(REPO_ROOT, 'fixtures', 'parity', 'settingsModel')).sort()) {
 	if (!file.endsWith('.jsonl')) continue;
 	for (const entry of read(file)) {
 		for (const arg of entry.args) {

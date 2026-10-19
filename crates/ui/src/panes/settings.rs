@@ -2280,3 +2280,369 @@ mod helper_tests {
         let _ = input_line(&state, 8, Some("hint"));
     }
 }
+
+#[cfg(test)]
+mod ts_tests {
+    //! Ports of the Settings pane tests in tests/settingsModel.test.ts (the settingsModel ones are P9's).
+
+    use super::test_support::styled_lines;
+    use super::*;
+    use deckhand_core::settings_model::{choice_options, initial_links};
+    use deckhand_protocol::order::Ordered;
+    use regex::Regex;
+
+    /// settingsInfo(REPO, GLOBAL) and settingsInfo(undefined, GLOBAL) as the TS test helper builds them.
+    const INFOS: &str = r##"{"repo":{"cwd":"/dev/mono","repo":"mono","repository":{"state":"untrusted","path":"/dev/mono/deckhand.json"},"needsReview":true,"rows":[{"key":"defaultAgent","value":"pi","source":"global","raw":"pi"},{"key":"defaultWorkspace","value":"none","source":"built-in default"},{"key":"devCommand","value":"dev","source":"built-in default","pending":{"value":"npm run dev","raw":"npm run dev"}},{"key":"setupCommand","value":"—","source":"not set"},{"key":"actions","entry":"test","value":"—","source":"not set","pending":{"value":"npm test","raw":"npm test"}},{"key":"worktree.location","value":"/state/worktrees/<name>","source":"built-in default","pending":{"value":"/dev/worktrees/<name>","raw":"{repoParent}/worktrees/{name}"}},{"key":"worktree.branchFrom","value":"origin","source":"global","raw":"origin"},{"key":"worktree.branchName","value":"<name>","source":"built-in default"},{"key":"worktree.hook","value":"on","source":"built-in default","note":"no .claude/scripts/create-worktree.sh detected"},{"key":"worktree.symlink","entry":"shared","value":"shared","source":"global","raw":"shared"},{"key":"worktree.files","entry":"backend/.env","value":"—","source":"not set","pending":{"value":"/dev/b.env","raw":"{repoParent}/b.env"}}],"targets":{"global":{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"pi\",\"worktree\":{\"symlink\":[\"shared\"],\"branchFrom\":\"origin\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},"repository":{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"devCommand\":\"npm run dev\",\"actions\":{\"test\":\"npm test\"},\"worktree\":{\"location\":\"{repoParent}/worktrees/{name}\",\"files\":{\"backend/.env\":\"{repoParent}/b.env\"}}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true}},"vars":{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"},"defaultLocation":"/state/worktrees/<name>","insideIgnored":false,"user":"me","notifications":false},"global":{"cwd":"/dev/mono","repo":"mono","repository":{"state":"absent","path":"/dev/mono/deckhand.json"},"needsReview":false,"rows":[{"key":"defaultAgent","value":"pi","source":"global","raw":"pi"},{"key":"defaultWorkspace","value":"none","source":"built-in default"},{"key":"devCommand","value":"dev","source":"built-in default"},{"key":"setupCommand","value":"—","source":"not set"},{"key":"actions","value":"—","source":"not set"},{"key":"worktree.location","value":"/state/worktrees/<name>","source":"built-in default"},{"key":"worktree.branchFrom","value":"origin","source":"global","raw":"origin"},{"key":"worktree.branchName","value":"<name>","source":"built-in default"},{"key":"worktree.hook","value":"on","source":"built-in default","note":"no .claude/scripts/create-worktree.sh detected"},{"key":"worktree.symlink","entry":"shared","value":"shared","source":"global","raw":"shared"},{"key":"worktree.files","value":"—","source":"not set"}],"targets":{"global":{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"pi\",\"worktree\":{\"symlink\":[\"shared\"],\"branchFrom\":\"origin\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},"repository":{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{}","revision":null,"exists":false}},"vars":{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"},"defaultLocation":"/state/worktrees/<name>","insideIgnored":false,"user":"me","notifications":false}}"##;
+
+    fn info(which: &str) -> SettingsInfo {
+        let all: serde_json::Value = serde_json::from_str(INFOS).expect("the infos are valid JSON");
+        serde_json::from_value(all[which].clone()).expect("the info is a SettingsInfo")
+    }
+
+    /// `renderToString(createElement(SettingsPane, props), {columns: width}).split('\n')`.
+    struct Pane<'a> {
+        info: &'a SettingsInfo,
+        view: SettingsView,
+        row: usize,
+        action_row: usize,
+        column: ConfigTargetKind,
+        edit: Option<SettingsEdit>,
+        help: Option<Vec<DetailLine>>,
+        links: Option<LinksState>,
+        width: u16,
+        height: u16,
+    }
+
+    impl<'a> Pane<'a> {
+        fn new(info: &'a SettingsInfo) -> Self {
+            Pane {
+                info,
+                view: SettingsView::Main,
+                row: 2,
+                action_row: 0,
+                column: ConfigTargetKind::Repository,
+                edit: None,
+                help: None,
+                links: None,
+                width: 100,
+                height: 30,
+            }
+        }
+
+        fn lines(&self) -> Vec<String> {
+            let sizes = IndexMap::new();
+            let props = SettingsPaneProps {
+                info: self.info,
+                view: self.view,
+                row: self.row,
+                action_row: self.action_row,
+                column: self.column,
+                edit: self.edit.as_ref(),
+                edit_help: self.help.as_deref(),
+                links: self.links.as_ref(),
+                sizes: &sizes,
+                notice: None,
+            };
+            let area = Rect::new(0, 0, self.width, self.height);
+            let mut buf = Buffer::empty(area);
+            render_settings_pane(&props, &mut SettingsScroll::default(), &mut buf, area);
+            let marker = Regex::new("⟦[^⟧]*⟧").expect("valid regex");
+            styled_lines(&buf)
+                .iter()
+                .map(|line| marker.replace_all(line, "").into_owned())
+                .collect()
+        }
+    }
+
+    fn any_matches(lines: &[String], pattern: &str) -> bool {
+        let regex = Regex::new(pattern).expect("valid regex");
+        lines.iter().any(|line| regex.is_match(line))
+    }
+
+    fn any_contains(lines: &[String], text: &str) -> bool {
+        lines.iter().any(|line| line.contains(text))
+    }
+
+    fn line_with<'a>(lines: &'a [String], text: &str) -> &'a str {
+        lines
+            .iter()
+            .find(|line| line.contains(text))
+            .unwrap_or_else(|| panic!("no line has {text:?} in {lines:#?}"))
+    }
+
+    fn matches(line: &str, pattern: &str) -> bool {
+        Regex::new(pattern).expect("valid regex").is_match(line)
+    }
+
+    fn text_edit(id: SettingId, label: &str, target: ConfigTargetKind) -> SettingsEdit {
+        SettingsEdit::Text {
+            id,
+            label: label.to_owned(),
+            target,
+            state: EditorState::default(),
+            error: None,
+            entry: None,
+            step: None,
+            placeholder: None,
+        }
+    }
+
+    // covers: B-U5-01 Settings pane: two value columns from 64 columns (one, with ◂ ▸, below); an option's warning is on its own line under its full path; edits are titled "<Setting> · <Layer>"
+    #[test]
+    fn settings_pane_two_value_columns_from_64_columns() {
+        let info = info("repo");
+        let wide = Pane::new(&info).lines();
+        assert!(any_matches(&wide, r"Global \(all repos\) +This repo"));
+        assert!(matches(
+            line_with(&wide, "Dev command"),
+            r"❯ Dev command +● dev \(built-in\) +npm run dev ⚠ needs trust"
+        ));
+        assert!(any_contains(
+            &wide,
+            "This repo · Applies once trusted — you'll be asked the first time it runs (or press T)"
+        ));
+        assert!(!matches(&wide.join("\n"), r"Saves to|until trusted|pending"));
+        // Narrow: only the selected column, with the indicator; ←→ (the flow) switches it.
+        let narrow = Pane {
+            width: 55,
+            ..Pane::new(&info)
+        }
+        .lines();
+        assert!(any_contains(&narrow, "◂ Global | This repo ▸"));
+        assert!(matches(
+            line_with(&narrow, "Dev command"),
+            r"Dev command +npm run dev ⚠"
+        ));
+        assert!(!matches(&narrow.join("\n"), r"dev \(built-in\)"));
+        let global = Pane {
+            width: 55,
+            column: ConfigTargetKind::Global,
+            ..Pane::new(&info)
+        }
+        .lines();
+        assert!(matches(
+            line_with(&global, "Dev command"),
+            r"Dev command +● dev \(built-in\)"
+        ));
+        assert!(any_contains(&global, "Built-in · No Dev command is set, so d runs"));
+        let options = choice_options(&info, SettingId::WorktreeLocation, ConfigTargetKind::Repository);
+        for index in [0, 2] {
+            let lines = Pane {
+                row: 5,
+                edit: Some(SettingsEdit::Choice {
+                    id: SettingId::WorktreeLocation,
+                    label: "Location".to_owned(),
+                    target: ConfigTargetKind::Repository,
+                    options: options.clone(),
+                    index,
+                    current: Some(1),
+                }),
+                ..Pane::new(&info)
+            }
+            .lines();
+            assert!(any_contains(&lines, "Location · This repo"));
+            let inside = lines
+                .iter()
+                .position(|line| line.contains("inside repo"))
+                .expect("the inside repo option is shown");
+            assert!(matches(&lines[inside], r"inside repo +/dev/mono/\.worktrees/<name> "));
+            assert!(!lines[inside].contains('⚠'));
+            assert!(matches(
+                &lines[inside + 1],
+                r"^\W+⚠ \.worktrees/ is not gitignored — worktrees would show up as untracked files"
+            ));
+        }
+        // An empty text input shows what applies without a value here.
+        let empty = |edit| {
+            Pane {
+                column: ConfigTargetKind::Global,
+                edit: Some(edit),
+                ..Pane::new(&info)
+            }
+            .lines()
+        };
+        let mut devcommand = text_edit(SettingId::DevCommand, "Dev command", ConfigTargetKind::Global);
+        if let SettingsEdit::Text { placeholder, .. } = &mut devcommand {
+            *placeholder = Some("built-in: dev".to_owned());
+        }
+        assert!(any_matches(&empty(devcommand.clone()), r"Dev command · Global"));
+        assert!(any_matches(&empty(devcommand), r"› +built-in: dev"));
+        // Adding an action: numbered steps, the rules and examples, a live error; the Actions list is one layer's.
+        let mut name = text_edit(SettingId::Actions, "New action", ConfigTargetKind::Repository);
+        if let SettingsEdit::Text { step, state, .. } = &mut name {
+            *step = Some(ActionStep::Name);
+            *state = EditorState {
+                text: " bad".to_owned(),
+                cursor: 4,
+                ..EditorState::default()
+            };
+        }
+        let help = |text: &str, color| DetailLine {
+            text: text.to_owned(),
+            color,
+            ..DetailLine::default()
+        };
+        let adding = Pane {
+            view: SettingsView::Actions,
+            action_row: 1,
+            edit: Some(name),
+            help: Some(vec![
+                help("can't start with a space", Some("red")),
+                help(
+                    "letters, numbers, spaces, _ . - · starts with a letter or number · up to 48 characters",
+                    None,
+                ),
+                help("e.g. test · lint frontend · db.migrate", None),
+            ]),
+            width: 55,
+            ..Pane::new(&info)
+        }
+        .lines()
+        .join("\n");
+        for text in [
+            "Settings › Actions · This repo",
+            "New action · step 1 of 2: name",
+            "can't start with a space",
+            "letters, numbers, spaces",
+            "e.g. test · lint frontend · db.migrate",
+        ] {
+            assert!(adding.contains(text), "{text}\n{adding}");
+        }
+        let mut command = text_edit(SettingId::Actions, "Action lint", ConfigTargetKind::Repository);
+        if let SettingsEdit::Text { step, entry, .. } = &mut command {
+            *step = Some(ActionStep::Command);
+            *entry = Some("lint".to_owned());
+        }
+        let command = Pane {
+            view: SettingsView::Actions,
+            action_row: 1,
+            edit: Some(command),
+            width: 55,
+            ..Pane::new(&info)
+        }
+        .lines()
+        .join("\n");
+        assert!(
+            command.contains("New action · step 2 of 2: command for lint"),
+            "{command}"
+        );
+    }
+
+    fn candidate(path: &str, kind: CandidateKind, suggestion: CandidateSuggestion, reason: &str) -> WorktreeCandidate {
+        WorktreeCandidate {
+            path: path.to_owned(),
+            kind,
+            target: None,
+            ignored: true,
+            suggestion,
+            reason: reason.to_owned(),
+            configured: None,
+            source: None,
+            layers: None,
+            repos: None,
+            missing: None,
+            added: None,
+        }
+    }
+
+    fn repos(names: &[&str]) -> Option<Vec<String>> {
+        Some(names.iter().map(|name| (*name).to_owned()).collect())
+    }
+
+    // covers: B-U5-02 Settings pane, Linked items · Global: the global entries and what your repos share, counted per repo; nothing suggested is preselected
+    #[test]
+    fn settings_pane_linked_items_global() {
+        let info = info("global");
+        let candidates = vec![
+            WorktreeCandidate {
+                configured: Some(CandidateConfigured::Symlink),
+                layers: Some(vec![ConfigTargetKind::Global]),
+                repos: repos(&["mono", "site"]),
+                ..candidate("shared", CandidateKind::File, CandidateSuggestion::Skip, "")
+            },
+            WorktreeCandidate {
+                repos: repos(&["mono", "site", "tools"]),
+                ..candidate(
+                    "node_modules",
+                    CandidateKind::Dir,
+                    CandidateSuggestion::Link,
+                    "dependencies",
+                )
+            },
+            WorktreeCandidate {
+                repos: repos(&["mono", "tools"]),
+                ..candidate("local.cfg", CandidateKind::File, CandidateSuggestion::Skip, "")
+            },
+        ];
+        let links = initial_links(&candidates, false);
+        let expected: IndexMap<String, bool> = [("shared", true), ("node_modules", false), ("local.cfg", false)]
+            .into_iter()
+            .map(|(path, on)| (path.to_owned(), on))
+            .collect();
+        assert_eq!(links, expected);
+        let state = LinksState {
+            data: WorktreeCandidates {
+                checkout: "/dev/mono".to_owned(),
+                candidates: candidates.into_iter().map(Ordered::new).collect(),
+                more_candidates: 0,
+                repos: repos(&["mono", "site", "tools"]),
+                candidates_error: None,
+            },
+            links: links.clone(),
+            initial: links,
+            target: ConfigTargetKind::Global,
+            row: 1,
+        };
+        let pane = |links: LinksState| Pane {
+            view: SettingsView::Links,
+            row: 0,
+            column: ConfigTargetKind::Global,
+            links: Some(links),
+            height: 20,
+            ..Pane::new(&info)
+        };
+        let text = pane(state.clone()).lines().join("\n");
+        for expected in [
+            "Settings › Linked items · Global",
+            "your 3 repos: mono, site, tools",
+            "Linked in every repo",
+            "[link] shared",
+            "in 2 of 3 repos",
+            "Found in several of your repos",
+            "[skip] node_modules/",
+            "in 3 of 3 repos",
+            "suggested: dependencies",
+            "node_modules/: in mono, site, tools",
+            "a add a path",
+        ] {
+            assert!(text.contains(expected), "{expected}\n{text}");
+        }
+        // The details name where a link would be skipped.
+        let second = pane(LinksState {
+            row: 2,
+            ..state.clone()
+        })
+        .lines()
+        .join("\n");
+        assert!(
+            second.contains("local.cfg: in mono, tools · not in site (skipped there)"),
+            "{second}"
+        );
+        // Only this repository known: it says the This repo column is the place for its files.
+        let mut data = state.data.clone();
+        data.candidates = Vec::new();
+        data.repos = repos(&["mono"]);
+        let alone = pane(LinksState {
+            data,
+            links: IndexMap::new(),
+            initial: IndexMap::new(),
+            row: 0,
+            ..state
+        })
+        .lines()
+        .join("\n");
+        for expected in ["Nothing yet", "Deckhand knows only this repository"] {
+            assert!(alone.contains(expected), "{expected}\n{alone}");
+        }
+    }
+}
