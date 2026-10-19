@@ -21,4 +21,18 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"agentVersionCheck.ts:LATEST_MAX_AGE_MS" = "deckhand_sys::agent_version_check::LATEST_MAX_AGE"
+"agentVersionCheck.ts:findOnPath" = "deckhand_sys::agent_version_check::find_on_path"
+"agentVersionCheck.ts:RunResult" = "deckhand_sys::agent_version_check::RunResult"
+"agentVersionCheck.ts:runBounded" = "deckhand_sys::agent_version_check::run_bounded"
+"agentVersionCheck.ts:LatestLookup" = "deckhand_sys::agent_version_check::LatestLookup"
+"agentVersionCheck.ts:npmLatest" = "deckhand_sys::agent_version_check::npm_latest"
+"agentVersionCheck.ts:InstalledVersion" = "deckhand_sys::agent_version_check::InstalledVersion"
+"agentVersionCheck.ts:UpdateOutcome" = "deckhand_sys::agent_version_check::UpdateOutcome"
+"agentVersionCheck.ts:AgentVersionChecker" = "deckhand_sys::agent_version_check::AgentVersionChecker"
+"desktop.ts:EditorCommand" = "deckhand_protocol::data::EditorCommand"
+"desktop.ts:openInEditor" = "deckhand_sys::desktop::open_in_editor"
+"desktop.ts:openUrl" = "deckhand_sys::desktop::open_url"
+"desktop.ts:resolveTerminalEditor" = "deckhand_sys::desktop::resolve_terminal_editor"
+"desktop.ts:isVimFamily" = "deckhand_sys::desktop::is_vim_family"
+"desktop.ts:terminalEditorArgs" = "deckhand_sys::desktop::terminal_editor_args"

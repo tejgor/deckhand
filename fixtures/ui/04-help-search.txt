@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Help · search                                                                                                                  │
+│   1 Start here      │ / merge                                                                                                  │
+│   2 Sessions        │                                                                                                          │
+│   3 Sidebar         │ 1  Start here                                                                                            │
+│   4 Find & organize │ b  W  Tasks: the repository's task list (n starts a session from one) / Worktrees: what is merged,       │
+│   5 Panes           │       delete them                                                                                        │
+│   6 Notes           │                                                                                                          │
+│   7 Tasks           │ 2  Sessions                                                                                              │
+│   8 Worktrees       │ Space  Mark done / not done (☑; any session, not the same as merged)                                     │
+│   9 Git & PRs       │ m  M   Merge the worktree into this branch (see Git & PRs) / mark it merged without merging (✓)          │
+│  10 Dev & actions   │                                                                                                          │
+│  11 Settings        │ 3  Sidebar                                                                                               │
+│                     │ ▣ ✓ ☑  Archived · merged · done (Space; its title muted)                                                 │
+│                     │                                                                                                          │
+│                     │ 7  Tasks                                                                                                 │
+│                     │ Merging, or marking all its sessions done, ticks ◆ (undoing reopens it); work removed unmerged sends it  │
+│                     │ back. m, x and W send the note's open items to the backlog too (Space keeps them).                       │
+│                     │                                                                                                          │
+│                     │ 8  Worktrees                                                                                             │
+│                     │ W lists every worktree of the repository (Deckhand's or not) by what to do with it: merged and safe to   │
+│                     │ delete, merged with leftovers, in progress, idle (nothing running for 14 days), missing (directory       │
+│                     │ gone), and the main checkout.                                                                            │
+│                     │                                                                                                          │
+│                     │ x     On the "Merged · safe to delete" heading: delete all of them and their branches, one confirmation  │
+│                     │ M  E  Mark it merged or clear the marker / open it in your editor                                        │
+│                     │                                                                                                          │
+│                     │ 9  Git & PRs                                                                                             │
+│                     │ m  Merge / squash into this branch, uncommitted (Space: commit first; conflicts: Enter keeps, x aborts)  │
+│ type to search • ↑↓ scroll • enter done • esc clear                                                                            │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

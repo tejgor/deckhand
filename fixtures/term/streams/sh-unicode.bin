@@ -1,0 +1,18 @@
+[?1034h$ printf '日本語のテキスト 中文 한국어\n '
+日本語のテキスト 中文 한국어
+$ printf '🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end\n' [A
+🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end
+$ printf 'e\314\201 a\314\210\314\243 n\ 314\203 Z\315\221\315\222\n'
+é ạ̈ ñ Z͑͒
+$ printf '%s\n' 123456789012345678901234 5678901234567890 next
+1234567890123456789012345678901234567890
+next
+$ printf '123456789012345678901234567890 12345678日本\n12345678901234567890123456 7890123456789日\n'
+12345678901234567890123456789012345678日本
+123456789012345678901234567890123456789日
+$ printf 'a long line that wraps around  the forty column terminal more than once : 日本語 🎉 done\n'
+a long line that wraps around the forty column terminal more than once: 日本語 🎉 done
+$ [K$ [K$ printf 'after resize 日本 🎉\n'
+after resize 日本 🎉
+$ exit
+exit

@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Settings · demo                                                                                     deckhand.json: needs trust │
+│                        Global (all repos)                       This repo                                                      │
+│  General                                                                                                                       │
+│   Default agent      ● claude (built-in)                        —                                                              │
+│   Default workspace  ● no worktree (built-in)                   —                                                              │
+│  Commands                                                                                                                      │
+│ ❯ Dev command        ● dev (built-in)                           echo dev-ready ⚠ needs trust                                   │
+│   Setup command        —                                        —                                                              │
+│   Actions              —                                        test ⚠ needs trust                                             │
+│  Worktrees                                                                                                                     │
+│   Location           ● …****/home/worktrees/<name> (built-in)   —                                                              │
+│   Branch from        ● current checkout (built-in)              —                                                              │
+│   Branch name        ● {name} (built-in)                        —                                                              │
+│   Linked items         —                                        —                                                              │
+│   Creation hook      ● on (built-in)                            —                                                              │
+│  Agents                                                                                                                        │
+│   Agent signals      ● on (built-in)                            global only                                                    │
+│   Notifications      ● off (built-in)                           global only                                                    │
+│ ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Built-in default · No Dev command is set, so d runs a shell command named `dev`.                                           │ │
+│ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│ ←→ global/repo • enter edit • x clear • E JSON • T trust • esc                                                                 │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

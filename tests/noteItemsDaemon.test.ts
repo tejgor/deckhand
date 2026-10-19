@@ -3,12 +3,11 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {request} from '../src/client.js';
 import {parseTasks} from '../src/tasks.js';
 import type {ClientRequest, NoteSaveResult, SessionRecord, TasksDoc, WorktreeDeleteResult, WorktreeMergeResult} from '../src/types.js';
-import {cli, repo, git, waitFor, withEnv, fakeAgent, stop} from './helpers.js';
+import {repo, git, waitFor, withEnv, fakeAgent, stop, bin as deckhandBin, spawnCli} from './helpers.js';
 
 // A note's open checklist items sent to Tasks at once, through a real daemon (its own daemon and state directory):
 // `A` in the Notes view (send-open-items), and at the end of a worktree's work: a clean merge, deleting it from W,
@@ -20,8 +19,8 @@ test('open note items go to Tasks at once: A, a merge, deletion from W and x wit
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const provider of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, provider), fakeAgent, {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
-	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1'};
-	const launch = () => { const child = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); child.stderr?.on('data', () => {}); return child; };
+	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: deckhandBin, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1'};
+	const launch = () => { const child = spawnCli(['--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); child.stderr?.on('data', () => {}); return child; };
 	let daemon = launch();
 	t.after(async () => { await stop(daemon); await fs.rm(root, {recursive: true, force: true}); await fs.rm(home, {recursive: true, force: true}); });
 	const call = <T>(message: Omit<Extract<ClientRequest, {requestId: string}>, 'requestId'>) => request<T>({...message, requestId: randomUUID()} as Extract<ClientRequest, {requestId: string}>, 60_000);

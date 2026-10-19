@@ -1,0 +1,10762 @@
+[
+	{
+		"name": "printable \"a\"",
+		"chunks": [
+			[
+				97
+			]
+		],
+		"events": [
+			{
+				"sequence": "a",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"z\"",
+		"chunks": [
+			[
+				122
+			]
+		],
+		"events": [
+			{
+				"sequence": "z",
+				"input": "z",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"A\"",
+		"chunks": [
+			[
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "A",
+				"input": "A",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"Z\"",
+		"chunks": [
+			[
+				90
+			]
+		],
+		"events": [
+			{
+				"sequence": "Z",
+				"input": "Z",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"0\"",
+		"chunks": [
+			[
+				48
+			]
+		],
+		"events": [
+			{
+				"sequence": "0",
+				"input": "0",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"9\"",
+		"chunks": [
+			[
+				57
+			]
+		],
+		"events": [
+			{
+				"sequence": "9",
+				"input": "9",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \" \"",
+		"chunks": [
+			[
+				32
+			]
+		],
+		"events": [
+			{
+				"sequence": " ",
+				"input": " ",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"~\"",
+		"chunks": [
+			[
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "~",
+				"input": "~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"!\"",
+		"chunks": [
+			[
+				33
+			]
+		],
+		"events": [
+			{
+				"sequence": "!",
+				"input": "!",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"?\"",
+		"chunks": [
+			[
+				63
+			]
+		],
+		"events": [
+			{
+				"sequence": "?",
+				"input": "?",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"/\"",
+		"chunks": [
+			[
+				47
+			]
+		],
+		"events": [
+			{
+				"sequence": "/",
+				"input": "/",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"\\\\\"",
+		"chunks": [
+			[
+				92
+			]
+		],
+		"events": [
+			{
+				"sequence": "\\",
+				"input": "\\",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"[\"",
+		"chunks": [
+			[
+				91
+			]
+		],
+		"events": [
+			{
+				"sequence": "[",
+				"input": "[",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"]\"",
+		"chunks": [
+			[
+				93
+			]
+		],
+		"events": [
+			{
+				"sequence": "]",
+				"input": "]",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"<\"",
+		"chunks": [
+			[
+				60
+			]
+		],
+		"events": [
+			{
+				"sequence": "<",
+				"input": "<",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \">\"",
+		"chunks": [
+			[
+				62
+			]
+		],
+		"events": [
+			{
+				"sequence": ">",
+				"input": ">",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"+\"",
+		"chunks": [
+			[
+				43
+			]
+		],
+		"events": [
+			{
+				"sequence": "+",
+				"input": "+",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"=\"",
+		"chunks": [
+			[
+				61
+			]
+		],
+		"events": [
+			{
+				"sequence": "=",
+				"input": "=",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"-\"",
+		"chunks": [
+			[
+				45
+			]
+		],
+		"events": [
+			{
+				"sequence": "-",
+				"input": "-",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \".\"",
+		"chunks": [
+			[
+				46
+			]
+		],
+		"events": [
+			{
+				"sequence": ".",
+				"input": ".",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \",\"",
+		"chunks": [
+			[
+				44
+			]
+		],
+		"events": [
+			{
+				"sequence": ",",
+				"input": ",",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"'\"",
+		"chunks": [
+			[
+				39
+			]
+		],
+		"events": [
+			{
+				"sequence": "'",
+				"input": "'",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"\\\"\"",
+		"chunks": [
+			[
+				34
+			]
+		],
+		"events": [
+			{
+				"sequence": "\"",
+				"input": "\"",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"`\"",
+		"chunks": [
+			[
+				96
+			]
+		],
+		"events": [
+			{
+				"sequence": "`",
+				"input": "`",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"{\"",
+		"chunks": [
+			[
+				123
+			]
+		],
+		"events": [
+			{
+				"sequence": "{",
+				"input": "{",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"|\"",
+		"chunks": [
+			[
+				124
+			]
+		],
+		"events": [
+			{
+				"sequence": "|",
+				"input": "|",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "printable \"}\"",
+		"chunks": [
+			[
+				125
+			]
+		],
+		"events": [
+			{
+				"sequence": "}",
+				"input": "}",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "two-byte utf-8",
+		"chunks": [
+			[
+				195,
+				169
+			]
+		],
+		"events": [
+			{
+				"sequence": "é",
+				"input": "é",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "three-byte utf-8",
+		"chunks": [
+			[
+				230,
+				151,
+				165
+			]
+		],
+		"events": [
+			{
+				"sequence": "日",
+				"input": "日",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "four-byte utf-8 emoji",
+		"chunks": [
+			[
+				240,
+				159,
+				152,
+				128
+			]
+		],
+		"events": [
+			{
+				"sequence": "😀",
+				"input": "😀",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "emoji with skin tone",
+		"chunks": [
+			[
+				240,
+				159,
+				145,
+				141,
+				240,
+				159,
+				143,
+				189
+			]
+		],
+		"events": [
+			{
+				"sequence": "👍🏽",
+				"input": "👍🏽",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "combining accent",
+		"chunks": [
+			[
+				101,
+				204,
+				129
+			]
+		],
+		"events": [
+			{
+				"sequence": "é",
+				"input": "é",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "zwj family emoji",
+		"chunks": [
+			[
+				240,
+				159,
+				145,
+				168,
+				226,
+				128,
+				141,
+				240,
+				159,
+				145,
+				169,
+				226,
+				128,
+				141,
+				240,
+				159,
+				145,
+				167
+			]
+		],
+		"events": [
+			{
+				"sequence": "👨‍👩‍👧",
+				"input": "👨‍👩‍👧",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "return",
+		"chunks": [
+			[
+				13
+			]
+		],
+		"events": [
+			{
+				"sequence": "\r",
+				"input": "\r",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": true,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "linefeed",
+		"chunks": [
+			[
+				10
+			]
+		],
+		"events": [
+			{
+				"sequence": "\n",
+				"input": "\n",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "crlf",
+		"chunks": [
+			[
+				13,
+				10
+			]
+		],
+		"events": [
+			{
+				"sequence": "\r\n",
+				"input": "\r\n",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "tab",
+		"chunks": [
+			[
+				9
+			]
+		],
+		"events": [
+			{
+				"sequence": "\t",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": true,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "backspace ctrl-h",
+		"chunks": [
+			[
+				8
+			]
+		],
+		"events": [
+			{
+				"sequence": "\b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": true,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete 0x7f",
+		"chunks": [
+			[
+				127
+			]
+		],
+		"events": [
+			{
+				"sequence": "",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "lone escape flushed",
+		"chunks": [
+			[
+				27
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": true,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "lone escape then flush tick",
+		"chunks": [
+			[
+				27
+			],
+			null
+		],
+		"events": [
+			{
+				"sequence": "\u001b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": true,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-space nul",
+		"chunks": [
+			[
+				0
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0000",
+				"input": "`",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-a",
+		"chunks": [
+			[
+				1
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0001",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-b",
+		"chunks": [
+			[
+				2
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0002",
+				"input": "b",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-c",
+		"chunks": [
+			[
+				3
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0003",
+				"input": "c",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-d",
+		"chunks": [
+			[
+				4
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0004",
+				"input": "d",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-e",
+		"chunks": [
+			[
+				5
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0005",
+				"input": "e",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-f",
+		"chunks": [
+			[
+				6
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0006",
+				"input": "f",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-g",
+		"chunks": [
+			[
+				7
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0007",
+				"input": "g",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-h",
+		"chunks": [
+			[
+				8
+			]
+		],
+		"events": [
+			{
+				"sequence": "\b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": true,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-i",
+		"chunks": [
+			[
+				9
+			]
+		],
+		"events": [
+			{
+				"sequence": "\t",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": true,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-j",
+		"chunks": [
+			[
+				10
+			]
+		],
+		"events": [
+			{
+				"sequence": "\n",
+				"input": "\n",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-k",
+		"chunks": [
+			[
+				11
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u000b",
+				"input": "k",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-l",
+		"chunks": [
+			[
+				12
+			]
+		],
+		"events": [
+			{
+				"sequence": "\f",
+				"input": "l",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-m",
+		"chunks": [
+			[
+				13
+			]
+		],
+		"events": [
+			{
+				"sequence": "\r",
+				"input": "\r",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": true,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-n",
+		"chunks": [
+			[
+				14
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u000e",
+				"input": "n",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-o",
+		"chunks": [
+			[
+				15
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u000f",
+				"input": "o",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-p",
+		"chunks": [
+			[
+				16
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0010",
+				"input": "p",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-q",
+		"chunks": [
+			[
+				17
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0011",
+				"input": "q",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-r",
+		"chunks": [
+			[
+				18
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0012",
+				"input": "r",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-s",
+		"chunks": [
+			[
+				19
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0013",
+				"input": "s",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-t",
+		"chunks": [
+			[
+				20
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0014",
+				"input": "t",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-u",
+		"chunks": [
+			[
+				21
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0015",
+				"input": "u",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-v",
+		"chunks": [
+			[
+				22
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0016",
+				"input": "v",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-w",
+		"chunks": [
+			[
+				23
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0017",
+				"input": "w",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-x",
+		"chunks": [
+			[
+				24
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0018",
+				"input": "x",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-y",
+		"chunks": [
+			[
+				25
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u0019",
+				"input": "y",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-z",
+		"chunks": [
+			[
+				26
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001a",
+				"input": "z",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-backslash",
+		"chunks": [
+			[
+				28
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001c",
+				"input": "\u001c",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-close-bracket",
+		"chunks": [
+			[
+				29
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001d",
+				"input": "\u001d",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-caret",
+		"chunks": [
+			[
+				30
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001e",
+				"input": "\u001e",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-underscore",
+		"chunks": [
+			[
+				31
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001f",
+				"input": "\u001f",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi up",
+		"chunks": [
+			[
+				27,
+				91,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 up",
+		"chunks": [
+			[
+				27,
+				79,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOA",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi down",
+		"chunks": [
+			[
+				27,
+				91,
+				66
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[B",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": true,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 down",
+		"chunks": [
+			[
+				27,
+				79,
+				66
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOB",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": true,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi right",
+		"chunks": [
+			[
+				27,
+				91,
+				67
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[C",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": true,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 right",
+		"chunks": [
+			[
+				27,
+				79,
+				67
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOC",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": true,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi left",
+		"chunks": [
+			[
+				27,
+				91,
+				68
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[D",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": true,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 left",
+		"chunks": [
+			[
+				27,
+				79,
+				68
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOD",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": true,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi clear",
+		"chunks": [
+			[
+				27,
+				91,
+				69
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[E",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 clear",
+		"chunks": [
+			[
+				27,
+				79,
+				69
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOE",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi end",
+		"chunks": [
+			[
+				27,
+				91,
+				70
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[F",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": true,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 end",
+		"chunks": [
+			[
+				27,
+				79,
+				70
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOF",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": true,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi home",
+		"chunks": [
+			[
+				27,
+				91,
+				72
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[H",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": true,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 home",
+		"chunks": [
+			[
+				27,
+				79,
+				72
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOH",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": true,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi 1~",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": true,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi 2~",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[2~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi 3~",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi 4~",
+		"chunks": [
+			[
+				27,
+				91,
+				52,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[4~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": true,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi 5~",
+		"chunks": [
+			[
+				27,
+				91,
+				53,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[5~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": true,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi 6~",
+		"chunks": [
+			[
+				27,
+				91,
+				54,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[6~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": true,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi 7~",
+		"chunks": [
+			[
+				27,
+				91,
+				55,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[7~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": true,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi 8~",
+		"chunks": [
+			[
+				27,
+				91,
+				56,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[8~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": true,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 11~",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				49,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[11~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 12~",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				50,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[12~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 13~",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				51,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[13~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 14~",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				52,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[14~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 15~",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				53,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[15~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 17~",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				55,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[17~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 18~",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				56,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[18~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 19~",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				57,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[19~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 20~",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				48,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[20~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 21~",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				49,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[21~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 23~",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				51,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[23~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "function key 24~",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				52,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[24~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 function P",
+		"chunks": [
+			[
+				27,
+				79,
+				80
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOP",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 function Q",
+		"chunks": [
+			[
+				27,
+				79,
+				81
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOQ",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 function R",
+		"chunks": [
+			[
+				27,
+				79,
+				82
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOR",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 function S",
+		"chunks": [
+			[
+				27,
+				79,
+				83
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOS",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "cygwin function [[A",
+		"chunks": [
+			[
+				27,
+				91,
+				91,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[[A",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "cygwin function [[B",
+		"chunks": [
+			[
+				27,
+				91,
+				91,
+				66
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[[B",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "cygwin function [[C",
+		"chunks": [
+			[
+				27,
+				91,
+				91,
+				67
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[[C",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "cygwin function [[D",
+		"chunks": [
+			[
+				27,
+				91,
+				91,
+				68
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[[D",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "cygwin function [[E",
+		"chunks": [
+			[
+				27,
+				91,
+				91,
+				69
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[[E",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "putty pageup",
+		"chunks": [
+			[
+				27,
+				91,
+				91,
+				53,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[[5~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": true,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "shift-tab",
+		"chunks": [
+			[
+				27,
+				91,
+				90
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[Z",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": true,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "up modifier 2",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				50,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;2A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete modifier 2",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				50,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;2~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "up modifier 3",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				51,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;3A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete modifier 3",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				51,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;3~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "up modifier 4",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				52,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;4A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete modifier 4",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				52,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;4~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "up modifier 5",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				53,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;5A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete modifier 5",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				53,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;5~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "up modifier 6",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				54,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;6A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete modifier 6",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				54,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;6~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "up modifier 7",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				55,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;7A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete modifier 7",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				55,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;7~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "up modifier 8",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				56,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;8A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete modifier 8",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				56,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;8~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "up modifier 9",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				57,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;9A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete modifier 9",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				57,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;9~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "up modifier 10",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				49,
+				48,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;10A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "delete modifier 10",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				49,
+				48,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;10~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-right",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				53,
+				67
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;5C",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": true,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-left",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				53,
+				68
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;5D",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": true,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "alt-right",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				51,
+				67
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;3C",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": true,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-home",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				53,
+				72
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;5H",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": true,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ctrl-end",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				53,
+				70
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;5F",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": true,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "shift-pagedown",
+		"chunks": [
+			[
+				27,
+				91,
+				54,
+				59,
+				50,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[6;2~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": true,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt shift a",
+		"chunks": [
+			[
+				27,
+				91,
+				97
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[a",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt shift b",
+		"chunks": [
+			[
+				27,
+				91,
+				98
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": true,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt shift c",
+		"chunks": [
+			[
+				27,
+				91,
+				99
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[c",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": true,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt shift d",
+		"chunks": [
+			[
+				27,
+				91,
+				100
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[d",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": true,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt shift e",
+		"chunks": [
+			[
+				27,
+				91,
+				101
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[e",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt ctrl Oa",
+		"chunks": [
+			[
+				27,
+				79,
+				97
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOa",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt ctrl Ob",
+		"chunks": [
+			[
+				27,
+				79,
+				98
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOb",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": true,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt ctrl Oc",
+		"chunks": [
+			[
+				27,
+				79,
+				99
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOc",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": true,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt ctrl Od",
+		"chunks": [
+			[
+				27,
+				79,
+				100
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOd",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": true,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt ctrl Oe",
+		"chunks": [
+			[
+				27,
+				79,
+				101
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bOe",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 2$",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				36
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[2$",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 3$",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				36
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3$",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 5$",
+		"chunks": [
+			[
+				27,
+				91,
+				53,
+				36
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[5$",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": true,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 6$",
+		"chunks": [
+			[
+				27,
+				91,
+				54,
+				36
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[6$",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": true,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 7$",
+		"chunks": [
+			[
+				27,
+				91,
+				55,
+				36
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[7$",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": true,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 8$",
+		"chunks": [
+			[
+				27,
+				91,
+				56,
+				36
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[8$",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": true,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 2^",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				94
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[2^",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 3^",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				94
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3^",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 5^",
+		"chunks": [
+			[
+				27,
+				91,
+				53,
+				94
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[5^",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": true,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 6^",
+		"chunks": [
+			[
+				27,
+				91,
+				54,
+				94
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[6^",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": true,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 7^",
+		"chunks": [
+			[
+				27,
+				91,
+				55,
+				94
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[7^",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": true,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "rxvt 8^",
+		"chunks": [
+			[
+				27,
+				91,
+				56,
+				94
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[8^",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": true,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta a",
+		"chunks": [
+			[
+				27,
+				97
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001ba",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta b",
+		"chunks": [
+			[
+				27,
+				98
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bb",
+				"input": "b",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta f",
+		"chunks": [
+			[
+				27,
+				102
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bf",
+				"input": "f",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta B",
+		"chunks": [
+			[
+				27,
+				66
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bB",
+				"input": "B",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta F",
+		"chunks": [
+			[
+				27,
+				70
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bF",
+				"input": "F",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta Z",
+		"chunks": [
+			[
+				27,
+				90
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bZ",
+				"input": "Z",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta 1",
+		"chunks": [
+			[
+				27,
+				49
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b1",
+				"input": "1",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta 0",
+		"chunks": [
+			[
+				27,
+				48
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b0",
+				"input": "0",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta dot",
+		"chunks": [
+			[
+				27,
+				46
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b.",
+				"input": ".",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta space",
+		"chunks": [
+			[
+				27,
+				32
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b ",
+				"input": " ",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta return",
+		"chunks": [
+			[
+				27,
+				13
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\r",
+				"input": "\r",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": true,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta backspace 0x7f",
+		"chunks": [
+			[
+				27,
+				127
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta backspace ctrl-h",
+		"chunks": [
+			[
+				27,
+				8
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": true,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta tab",
+		"chunks": [
+			[
+				27,
+				9
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\t",
+				"input": "\t",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta ctrl-a",
+		"chunks": [
+			[
+				27,
+				1
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\u0001",
+				"input": "\u0001",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta two-byte",
+		"chunks": [
+			[
+				27,
+				195,
+				169
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bé",
+				"input": "é",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta emoji",
+		"chunks": [
+			[
+				27,
+				240,
+				159,
+				152,
+				128
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b😀",
+				"input": "😀",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta bracket",
+		"chunks": [
+			[
+				27,
+				91
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[",
+				"input": "[",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta O",
+		"chunks": [
+			[
+				27,
+				79
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bO",
+				"input": "O",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "double escape",
+		"chunks": [
+			[
+				27,
+				27
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\u001b",
+				"input": "\u001b",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": true,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "triple escape",
+		"chunks": [
+			[
+				27,
+				27,
+				27
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\u001b",
+				"input": "\u001b",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": true,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": true,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "option up",
+		"chunks": [
+			[
+				27,
+				27,
+				91,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "option ss3 up",
+		"chunks": [
+			[
+				27,
+				27,
+				79,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\u001bOA",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "option pagedown",
+		"chunks": [
+			[
+				27,
+				27,
+				91,
+				54,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\u001b[6~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": true,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "escape then letter split",
+		"chunks": [
+			[
+				27
+			],
+			[
+				97
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001ba",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "escape then letter flushed between",
+		"chunks": [
+			[
+				27
+			],
+			null,
+			[
+				97
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": true,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "a",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "typed fast",
+		"chunks": [
+			[
+				97,
+				98,
+				99
+			]
+		],
+		"events": [
+			{
+				"sequence": "abc",
+				"input": "abc",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "jj",
+		"chunks": [
+			[
+				106,
+				106
+			]
+		],
+		"events": [
+			{
+				"sequence": "jj",
+				"input": "jj",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "dd",
+		"chunks": [
+			[
+				100,
+				100
+			]
+		],
+		"events": [
+			{
+				"sequence": "dd",
+				"input": "dd",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "fr",
+		"chunks": [
+			[
+				102,
+				114
+			]
+		],
+		"events": [
+			{
+				"sequence": "fr",
+				"input": "fr",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "text with newline",
+		"chunks": [
+			[
+				104,
+				101,
+				108,
+				108,
+				111,
+				10,
+				119,
+				111,
+				114,
+				108,
+				100
+			]
+		],
+		"events": [
+			{
+				"sequence": "hello\nworld",
+				"input": "hello\nworld",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "two arrows",
+		"chunks": [
+			[
+				27,
+				91,
+				65,
+				27,
+				91,
+				66
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[B",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": true,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "text around arrow",
+		"chunks": [
+			[
+				97,
+				27,
+				91,
+				65,
+				98
+			]
+		],
+		"events": [
+			{
+				"sequence": "a",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "b",
+				"input": "b",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "arrow then text",
+		"chunks": [
+			[
+				27,
+				91,
+				67,
+				120,
+				121,
+				122
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[C",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": true,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "xyz",
+				"input": "xyz",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "escape then arrow",
+		"chunks": [
+			[
+				27,
+				27,
+				91,
+				66,
+				27
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\u001b[B",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": true,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": true,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "meta then text",
+		"chunks": [
+			[
+				27,
+				98,
+				120,
+				121,
+				122
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bb",
+				"input": "b",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "xyz",
+				"input": "xyz",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "many arrows",
+		"chunks": [
+			[
+				27,
+				91,
+				65,
+				27,
+				91,
+				65,
+				27,
+				91,
+				65,
+				27,
+				91,
+				65,
+				27,
+				91,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "controls run together",
+		"chunks": [
+			[
+				13,
+				13,
+				9,
+				127
+			]
+		],
+		"events": [
+			{
+				"sequence": "\r\r\t",
+				"input": "\r\r\t",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "bracketed paste",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				48,
+				48,
+				126,
+				112,
+				97,
+				115,
+				116,
+				101,
+				100,
+				32,
+				116,
+				101,
+				120,
+				116,
+				27,
+				91,
+				50,
+				48,
+				49,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[200~",
+				"input": "[200~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "pasted text",
+				"input": "pasted text",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[201~",
+				"input": "[201~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "bracketed paste multi-line",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				48,
+				48,
+				126,
+				108,
+				105,
+				110,
+				101,
+				32,
+				111,
+				110,
+				101,
+				13,
+				10,
+				108,
+				105,
+				110,
+				101,
+				32,
+				116,
+				119,
+				111,
+				9,
+				101,
+				110,
+				100,
+				27,
+				91,
+				50,
+				48,
+				49,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[200~",
+				"input": "[200~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "line one\r\nline two\tend",
+				"input": "line one\r\nline two\tend",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[201~",
+				"input": "[201~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "bracketed paste split",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				48,
+				48,
+				126,
+				102,
+				105,
+				114,
+				115,
+				116
+			],
+			[
+				32,
+				104,
+				97,
+				108,
+				102
+			],
+			[
+				32,
+				115,
+				101,
+				99,
+				111,
+				110,
+				100,
+				27,
+				91,
+				50
+			],
+			[
+				48,
+				49,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[200~",
+				"input": "[200~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "first",
+				"input": "first",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": " half",
+				"input": " half",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": " second",
+				"input": " second",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[201~",
+				"input": "[201~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "bracketed paste with escape inside",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				48,
+				48,
+				126,
+				97,
+				27,
+				98,
+				27,
+				91,
+				50,
+				48,
+				49,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[200~",
+				"input": "[200~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "a",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001bb",
+				"input": "b",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[201~",
+				"input": "[201~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "plain paste",
+		"chunks": [
+			[
+				112,
+				97,
+				115,
+				116,
+				101,
+				100,
+				32,
+				119,
+				105,
+				116,
+				104,
+				111,
+				117,
+				116,
+				32,
+				98,
+				114,
+				97,
+				99,
+				107,
+				101,
+				116,
+				115,
+				44,
+				32,
+				97,
+				32,
+				108,
+				111,
+				110,
+				103,
+				32,
+				108,
+				105,
+				110,
+				101
+			]
+		],
+		"events": [
+			{
+				"sequence": "pasted without brackets, a long line",
+				"input": "pasted without brackets, a long line",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "sgr wheel up",
+		"chunks": [
+			[
+				27,
+				91,
+				60,
+				54,
+				52,
+				59,
+				49,
+				48,
+				59,
+				53,
+				77
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[<64;10;5M",
+				"input": "[<64;10;5M",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "sgr wheel down twice",
+		"chunks": [
+			[
+				27,
+				91,
+				60,
+				54,
+				53,
+				59,
+				49,
+				48,
+				59,
+				53,
+				77,
+				27,
+				91,
+				60,
+				54,
+				53,
+				59,
+				49,
+				48,
+				59,
+				53,
+				77
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[<65;10;5M",
+				"input": "[<65;10;5M",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "\u001b[<65;10;5M",
+				"input": "[<65;10;5M",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "sgr release",
+		"chunks": [
+			[
+				27,
+				91,
+				60,
+				48,
+				59,
+				51,
+				59,
+				52,
+				109
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[<0;3;4m",
+				"input": "[<0;3;4m",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "legacy mouse",
+		"chunks": [
+			[
+				27,
+				91,
+				77,
+				96,
+				33,
+				33
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[M",
+				"input": "[M",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "`!!",
+				"input": "`!!",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "urxvt mouse",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				54,
+				59,
+				49,
+				48,
+				59,
+				53,
+				77
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[96;10;5M",
+				"input": "[96;10;5M",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "focus in",
+		"chunks": [
+			[
+				27,
+				91,
+				73
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[I",
+				"input": "[I",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "focus out",
+		"chunks": [
+			[
+				27,
+				91,
+				79
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[O",
+				"input": "[O",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "device attributes reply",
+		"chunks": [
+			[
+				27,
+				91,
+				63,
+				49,
+				59,
+				50,
+				99
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[?1;2c",
+				"input": "[?1;2c",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "cursor position reply",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				50,
+				59,
+				52,
+				48,
+				82
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[12;40R",
+				"input": "[12;40R",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "csi with bell inside",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				7,
+				120
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[",
+				"input": "[",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "1\u0007x",
+				"input": "1\u0007x",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "osc-looking",
+		"chunks": [
+			[
+				27,
+				93,
+				48,
+				59,
+				116,
+				105,
+				116,
+				108,
+				101,
+				7
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b]",
+				"input": "]",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "0;title\u0007",
+				"input": "0;title\u0007",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "incomplete csi flushed",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				53
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;5",
+				"input": "[1;5",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "incomplete csi completed",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59
+			],
+			[
+				53,
+				67
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;5C",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": true,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "split csi",
+		"chunks": [
+			[
+				27,
+				91
+			],
+			[
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "split escape",
+		"chunks": [
+			[
+				27
+			],
+			[
+				91,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "escape bracket flushed",
+		"chunks": [
+			[
+				27,
+				91
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[",
+				"input": "[",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "escape O flushed",
+		"chunks": [
+			[
+				27,
+				79
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bO",
+				"input": "O",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "ss3 non-final",
+		"chunks": [
+			[
+				27,
+				79,
+				49
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001bO",
+				"input": "O",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			},
+			{
+				"sequence": "1",
+				"input": "1",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "escape escape bracket split",
+		"chunks": [
+			[
+				27,
+				27
+			],
+			[
+				91,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b\u001b[A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "utf-8 split 2+1",
+		"chunks": [
+			[
+				230,
+				151
+			],
+			[
+				165
+			]
+		],
+		"events": [
+			{
+				"sequence": "日",
+				"input": "日",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "utf-8 split 1+3",
+		"chunks": [
+			[
+				240
+			],
+			[
+				159,
+				152,
+				128
+			]
+		],
+		"events": [
+			{
+				"sequence": "😀",
+				"input": "😀",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "utf-8 split byte by byte",
+		"chunks": [
+			[
+				240
+			],
+			[
+				159
+			],
+			[
+				152
+			],
+			[
+				128
+			]
+		],
+		"events": [
+			{
+				"sequence": "😀",
+				"input": "😀",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "invalid byte",
+		"chunks": [
+			[
+				255
+			]
+		],
+		"events": [
+			{
+				"sequence": "�",
+				"input": "�",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "lone continuation",
+		"chunks": [
+			[
+				128
+			]
+		],
+		"events": [
+			{
+				"sequence": "�",
+				"input": "�",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "truncated sequence then ascii",
+		"chunks": [
+			[
+				230,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "�A",
+				"input": "�A",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "high byte alt (macOS meta sends)",
+		"chunks": [
+			[
+				233
+			]
+		],
+		"events": []
+	},
+	{
+		"name": "latin-1 meta f",
+		"chunks": [
+			[
+				230
+			]
+		],
+		"events": []
+	},
+	{
+		"name": "kitty a",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				55,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[97u",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty ctrl-a",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				55,
+				59,
+				53,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[97;5u",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty shift-enter",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				51,
+				59,
+				50,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[13;2u",
+				"input": "\r",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": true,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty enter",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				51,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[13u",
+				"input": "\r",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": true,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty space",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				50,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[32u",
+				"input": " ",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty escape",
+		"chunks": [
+			[
+				27,
+				91,
+				50,
+				55,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[27u",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": true,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": true,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty tab",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[9u",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": true,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty backspace",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				50,
+				55,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[127u",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty ctrl code 3",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				53,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;5u",
+				"input": "c",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty super-a",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				55,
+				59,
+				57,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[97;9u",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": true,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty caps-lock a",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				55,
+				59,
+				54,
+				53,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[97;65u",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": true,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty release a",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				55,
+				59,
+				49,
+				58,
+				51,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[97;1:3u",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "release"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty repeat a",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				55,
+				59,
+				49,
+				58,
+				50,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[97;1:2u",
+				"input": "a",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "repeat"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty text field",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				55,
+				59,
+				50,
+				59,
+				54,
+				53,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[97;2;65u",
+				"input": "A",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty keypad 0",
+		"chunks": [
+			[
+				27,
+				91,
+				53,
+				55,
+				51,
+				57,
+				57,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[57399u",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty invalid codepoint",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				49,
+				49,
+				52,
+				49,
+				49,
+				50,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1114112u",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty surrogate codepoint",
+		"chunks": [
+			[
+				27,
+				91,
+				53,
+				53,
+				50,
+				57,
+				54,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[55296u",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty special up press",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				49,
+				58,
+				49,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;1:1A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty special up release",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				59,
+				49,
+				58,
+				51,
+				65
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[1;1:3A",
+				"input": "",
+				"key": {
+					"upArrow": true,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "release"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty special delete repeat",
+		"chunks": [
+			[
+				27,
+				91,
+				51,
+				59,
+				53,
+				58,
+				50,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[3;5:2~",
+				"input": "",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": true,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": true,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "repeat"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty special unknown",
+		"chunks": [
+			[
+				27,
+				91,
+				57,
+				59,
+				49,
+				58,
+				49,
+				126
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[9;1:1~",
+				"input": "[9;1:1~",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty uppercase",
+		"chunks": [
+			[
+				27,
+				91,
+				54,
+				53,
+				59,
+				50,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[65;2u",
+				"input": "A",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": true,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	},
+	{
+		"name": "kitty emoji",
+		"chunks": [
+			[
+				27,
+				91,
+				49,
+				50,
+				56,
+				53,
+				49,
+				50,
+				117
+			]
+		],
+		"events": [
+			{
+				"sequence": "\u001b[128512u",
+				"input": "😀",
+				"key": {
+					"upArrow": false,
+					"downArrow": false,
+					"leftArrow": false,
+					"rightArrow": false,
+					"pageDown": false,
+					"pageUp": false,
+					"home": false,
+					"end": false,
+					"return": false,
+					"escape": false,
+					"ctrl": false,
+					"shift": false,
+					"tab": false,
+					"backspace": false,
+					"delete": false,
+					"meta": false,
+					"super": false,
+					"hyper": false,
+					"capsLock": false,
+					"numLock": false,
+					"eventType": "press"
+				}
+			}
+		]
+	}
+]

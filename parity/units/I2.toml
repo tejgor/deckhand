@@ -21,4 +21,13 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"notesStore.ts:NoteKind" = "deckhand_sys::notes_store::NoteKind"
+"notesStore.ts:NoteId" = "deckhand_sys::notes_store::NoteId"
+"notesStore.ts:StoredNote" = "deckhand_sys::notes_store::StoredNote"
+"notesStore.ts:TRASH_DIRECTORY" = "deckhand_sys::notes_store::TRASH_DIRECTORY"
+"notesStore.ts:trashFileName" = "deckhand_sys::notes_store::trash_file_name"
+"notesStore.ts:noteFileStem" = "deckhand_sys::notes_store::note_file_stem"
+"notesStore.ts:noteFilePath" = "deckhand_sys::notes_store::note_file_path"
+"notesStore.ts:NotesStore" = "deckhand_sys::notes_store::NotesStore"
+"notesVim.ts:NOTES_VIM_SCRIPT" = "deckhand_sys::notes_vim::NOTES_VIM_SCRIPT"
+"notesVim.ts:writeNotesVimScript" = "deckhand_sys::notes_vim::write_notes_vim_script"

@@ -3,12 +3,11 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {createLiveClient, request} from '../src/client.js';
 import {sessionOutdated} from '../src/agentVersions.js';
 import type {AgentUpdateResult, AgentVersions, ClientRequest, SessionRecord} from '../src/types.js';
-import {cli, repo, waitFor, withEnv, fakeAgent, stop} from './helpers.js';
+import {repo, waitFor, withEnv, fakeAgent, stop, bin as deckhandBin, spawnCli} from './helpers.js';
 
 // Agent versions and updates against a real daemon with fake agents (its own daemon, beside the other daemon tests).
 // The daemon's PATH holds only the fakes, node and the system directories, so no real agent can ever be run here.
@@ -23,8 +22,8 @@ test('agent versions and updates with fake agents', {timeout: 120000}, async t =
 	await fs.writeFile(path.join(bin, 'pi'), fakeAgent.replace("if (process.argv[2] === 'update') {", "if (process.argv[2] === 'update') { fs.appendFileSync(path.join(process.env.DECKHAND_HOME, 'updates.log'), JSON.stringify({provider, args: process.argv.slice(2)}) + '\\n'); console.log('Updating pi...'); console.error('npm error code EACCES'); process.exit(1); }\nif (false) {"), {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
 	// The latest releases are stubbed (never npm): Claude and Codex have newer ones, Pi's is unknown.
-	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: JSON.stringify({claude: '1.0.1', codex: '1.0.5'}), PATH: [bin, tools, '/usr/bin', '/bin'].join(path.delimiter), SHELL: '/bin/sh', TEST_CLI: cli};
-	const daemon = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']});
+	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: JSON.stringify({claude: '1.0.1', codex: '1.0.5'}), PATH: [bin, tools, '/usr/bin', '/bin'].join(path.delimiter), SHELL: '/bin/sh', TEST_CLI: deckhandBin};
+	const daemon = spawnCli(['--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']});
 	daemon.stderr?.on('data', () => {});
 	t.after(async () => { await stop(daemon); await fs.rm(root, {recursive: true, force: true}); await fs.rm(home, {recursive: true, force: true}); });
 	const call = <T>(message: Omit<Extract<ClientRequest, {requestId: string}>, 'requestId'>) => request<T>({...message, requestId: randomUUID()} as Extract<ClientRequest, {requestId: string}>);

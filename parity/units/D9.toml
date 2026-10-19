@@ -21,4 +21,17 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"daemon.ts:MERGE_DETECT_MS" = "deckhand_daemon::merge::MERGE_DETECT_INTERVAL"
+"daemon.ts:MERGE_DETECT_MAX" = "deckhand_daemon::merge::MERGE_DETECT_MAX"
+"daemon.ts:PendingMerge" = "deckhand_daemon::merge::PendingMerge"
+"daemon.ts:defaultBranchRefs" = "deckhand_daemon::merge::default_branch_refs"
+"daemon.ts:mergeSource" = "deckhand_daemon::daemon::Daemon::merge_source"
+"daemon.ts:mergePreview" = "deckhand_daemon::daemon::Daemon::merge_preview"
+"daemon.ts:mergeSessionWorktree" = "deckhand_daemon::daemon::Daemon::merge_session_worktree"
+"daemon.ts:resolveMerge" = "deckhand_daemon::daemon::Daemon::resolve_merge"
+"daemon.ts:saveMergeMarkers" = "deckhand_daemon::daemon::Daemon::save_merge_markers"
+"daemon.ts:markSessionMerged" = "deckhand_daemon::daemon::Daemon::mark_session_merged"
+"daemon.ts:detectMerges" = "deckhand_daemon::daemon::Daemon::detect_merges"
+"daemon.ts:runMergeDetection" = "deckhand_daemon::daemon::Daemon::run_merge_detection"
+"daemon.ts:detectMergeFromSummary" = "deckhand_daemon::daemon::Daemon::detect_merge_from_summary"
+"daemon.ts:markDetectedMerge" = "deckhand_daemon::daemon::Daemon::mark_detected_merge"

@@ -21,4 +21,8 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"agentsFlow.tsx:AgentUpdateOutcome" = "deckhand_ui::flows::agents::AgentUpdateOutcome"
+"agentsFlow.tsx:AgentsPaneProps" = "deckhand_ui::flows::agents::AgentsPaneProps"
+"agentsFlow.tsx:AgentsPane" = "deckhand_ui::flows::agents::render_agents_pane"
+"agentsFlow.tsx:AgentsFlow" = "deckhand_ui::flows::agents::AgentsFlow"
+"agentsFlow.tsx:useAgentsFlow" = "deckhand_ui::flows::agents::AgentsFlow"

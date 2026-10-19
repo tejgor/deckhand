@@ -1,0 +1,2131 @@
+{
+  "name": "synthetic-edge-cases",
+  "source": "synthetic",
+  "description": "Small-screen parser edge cases: pending wrap at the last column, a wide char that does not fit the last column, DECAWM off, combining marks and emoji sequences, tab stops, ICH/DCH/ECH/IL/DL/REP, DECSC/DECRC, origin mode in a scroll region, RI/IND/NEL, IRM, DECALN, OSC titles and hyperlinks, DCS/APC strings, ED 3, RIS, and clamped/no-op resizes.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 20,
+  "rows": 6,
+  "scrollOffsets": [0, 1, 3, 100],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 20,
+      "rows": 6
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 20
+    },
+    {
+      "op": "checkpoint",
+      "label": "pending-wrap",
+      "at": 20,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 20,
+          "y": 0
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 6,
+        "lines": ["12345678901234567890", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H12345678901234567890\u001b[1;21H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "12345678901234567890"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "12345678901234567890"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "12345678901234567890"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "12345678901234567890"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "12345678901234567890"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 20,
+      "to": 51
+    },
+    {
+      "op": "write",
+      "from": 51,
+      "to": 98
+    },
+    {
+      "op": "checkpoint",
+      "label": "wide-at-edge",
+      "at": 98,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 5
+        },
+        "baseY": 2,
+        "viewportY": 2,
+        "length": 8,
+        "lines": ["12345678901234567890", "next", "123456789012345678日", "1234567890123456789", "日", ""],
+        "wrapped": [4],
+        "attrs": {},
+        "wide": {
+          "2": [18],
+          "4": [0]
+        },
+        "scrollback": ["12345678901234567890", "X"],
+        "scrollbackWrapped": [1],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H12345678901234567890\u001b[2;1Hnext\u001b[3;1H123456789012345678日\u001b[4;1H1234567890123456789\u001b[5;1H日\u001b[6;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nnext\n123456789012345678日\n1234567890123456789\n日"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "12345678901234567890\nnext\n123456789012345678日\n1234567890123456789\n日"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "X\n12345678901234567890\nnext\n123456789012345678日\n1234567890123456789\n日"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\n123456789012345678日\n1234567890123456789"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\n123456789012345678日\n1234567890123456789"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\n123456789012345678日\n1234567890123456789"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "12345678901234567890\nnext\n123456789012345678日\n1234567890123456789\n日"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 2
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 98,
+      "to": 136
+    },
+    {
+      "op": "write",
+      "from": 136,
+      "to": 191
+    },
+    {
+      "op": "checkpoint",
+      "label": "combining",
+      "at": 191,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 5
+        },
+        "baseY": 4,
+        "viewportY": 4,
+        "length": 10,
+        "lines": ["123456789012345678日", "1234567890123456789", "日", "abcdefghijklmnopqrsz", "é ạ̈ 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ x", ""],
+        "wrapped": [2],
+        "attrs": {},
+        "wide": {
+          "0": [18],
+          "2": [0]
+        },
+        "scrollback": ["12345678901234567890", "X", "12345678901234567890", "next"],
+        "scrollbackWrapped": [1],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nnext\n123456789012345678日\n1234567890123456789\n日"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H123456789012345678日\u001b[2;1H1234567890123456789\u001b[3;1H日\u001b[4;1Habcdefghijklmnopqrsz\u001b[5;1Hé ạ̈ 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ x\u001b[6;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "123456789012345678日\n1234567890123456789\n日\nabcdefghijklmnopqrsz\né ạ̈ 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ x"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "123456789012345678日\n1234567890123456789\n日\nabcdefghijklmnopqrsz\né ạ̈ 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ x"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "next\n123456789012345678日\n1234567890123456789\n日\nabcdefghijklmnopqrsz\né ạ̈ 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ x"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "X\n12345678901234567890\nnext\n123456789012345678日\n1234567890123456789\n日"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\n123456789012345678日\n1234567890123456789"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\n123456789012345678日\n1234567890123456789"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "123456789012345678日\n1234567890123456789\n日\nabcdefghijklmnopqrsz\né ạ̈ 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ x"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 4
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 191,
+      "to": 221
+    },
+    {
+      "op": "write",
+      "from": 221,
+      "to": 230
+    },
+    {
+      "op": "write",
+      "from": 230,
+      "to": 253
+    },
+    {
+      "op": "write",
+      "from": 253,
+      "to": 299
+    },
+    {
+      "op": "write",
+      "from": 299,
+      "to": 310
+    },
+    {
+      "op": "checkpoint",
+      "label": "tabs-and-editing",
+      "at": 310,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 5,
+          "y": 4
+        },
+        "baseY": 4,
+        "viewportY": 4,
+        "length": 10,
+        "lines": ["a  b    c          d", "", "x       z", "a   cdeij", "=====", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["12345678901234567890", "X", "12345678901234567890", "next"],
+        "scrollbackWrapped": [1],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "123456789012345678日\n1234567890123456789\n日\nabcdefghijklmnopqrsz\né ạ̈ 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ x"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Ha  b    c          d\u001b[3;1Hx       z\u001b[4;1Ha   cdeij\u001b[5;1H=====\u001b[5;6H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "a  b    c          d\n\nx       z\na   cdeij\n====="
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "a  b    c          d\n\nx       z\na   cdeij\n====="
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "next\na  b    c          d\n\nx       z\na   cdeij\n====="
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "X\n12345678901234567890\nnext\na  b    c          d\n\nx       z"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\na  b    c          d"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\na  b    c          d"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "a  b    c          d\n\nx       z\na   cdeij\n====="
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 4
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 310,
+      "to": 333
+    },
+    {
+      "op": "write",
+      "from": 333,
+      "to": 351
+    },
+    {
+      "op": "write",
+      "from": 351,
+      "to": 383
+    },
+    {
+      "op": "checkpoint",
+      "label": "lines-and-saves",
+      "at": 383,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 6,
+          "y": 5
+        },
+        "baseY": 4,
+        "viewportY": 4,
+        "length": 10,
+        "lines": ["@", "", "2 %", "3", "5", "    #&"],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["12345678901234567890", "X", "12345678901234567890", "next"],
+        "scrollbackWrapped": [1],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "a  b    c          d\n\nx       z\na   cdeij\n====="
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H@\u001b[3;1H2 %\u001b[4;1H3\u001b[5;1H5\u001b[6;1H    #&\u001b[6;7H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "@\n\n2 %\n3\n5\n    #&"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "@\n\n2 %\n3\n5\n    #&"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "next\n@\n\n2 %\n3\n5"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "X\n12345678901234567890\nnext\n@\n\n2 %"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\n@"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\n@"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "@\n\n2 %\n3\n5\n    #&"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 4
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 383,
+      "to": 437
+    },
+    {
+      "op": "write",
+      "from": 437,
+      "to": 469
+    },
+    {
+      "op": "checkpoint",
+      "label": "regions",
+      "at": 469,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 5,
+          "y": 5
+        },
+        "baseY": 6,
+        "viewportY": 6,
+        "length": 12,
+        "lines": ["@", "2 %", "bottom", "scrolled", "", "index"],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["12345678901234567890", "X", "12345678901234567890", "next", "reverse", ""],
+        "scrollbackWrapped": [1],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "@\n\n2 %\n3\n5\n    #&"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H@\u001b[2;1H2 %\u001b[3;1Hbottom\u001b[4;1Hscrolled\u001b[6;1Hindex\u001b[6;6H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "@\n2 %\nbottom\nscrolled\n\nindex"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "@\n2 %\nbottom\nscrolled\n\nindex"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "\n@\n2 %\nbottom\nscrolled"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "next\nreverse\n\n@\n2 %\nbottom"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\nreverse"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 6,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\nreverse"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "@\n2 %\nbottom\nscrolled\n\nindex"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 469,
+      "to": 489
+    },
+    {
+      "op": "checkpoint",
+      "label": "decaln",
+      "at": 489,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 0
+        },
+        "baseY": 6,
+        "viewportY": 6,
+        "length": 12,
+        "lines": ["EEEEEEEEEEEEEEEEEEEE", "EEEEEEEEEEEEEEEEEEEE", "EEEEEEEEEEEEEEEEEEEE", "EEEEEEEEEEEEEEEEEEEE", "EEEEEEEEEEEEEEEEEEEE", "EEEEEEEEEEEEEEEEEEEE"],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["12345678901234567890", "X", "12345678901234567890", "next", "reverse", ""],
+        "scrollbackWrapped": [1],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "@\n2 %\nbottom\nscrolled\n\nindex"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1HEEEEEEEEEEEEEEEEEEEE\u001b[2;1HEEEEEEEEEEEEEEEEEEEE\u001b[3;1HEEEEEEEEEEEEEEEEEEEE\u001b[4;1HEEEEEEEEEEEEEEEEEEEE\u001b[5;1HEEEEEEEEEEEEEEEEEEEE\u001b[6;1HEEEEEEEEEEEEEEEEEEEE\u001b[1;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "EEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "EEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "next\nreverse\n\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\nreverse"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 6,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\nreverse"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "EEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 489,
+      "to": 578
+    },
+    {
+      "op": "write",
+      "from": 578,
+      "to": 677
+    },
+    {
+      "op": "checkpoint",
+      "label": "strings-ignored",
+      "at": 677,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 2
+        },
+        "baseY": 6,
+        "viewportY": 6,
+        "length": 12,
+        "lines": ["link plain", " still here", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 4, "d", "d", "u"]]
+        },
+        "wide": {},
+        "scrollback": ["12345678901234567890", "X", "12345678901234567890", "next", "reverse", ""],
+        "scrollbackWrapped": [1],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "EEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE\nEEEEEEEEEEEEEEEEEEEE"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hlink plain\u001b[2;1H still here\u001b[3;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "link plain\n still here"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "link plain\n still here"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "\nlink plain\n still here"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "next\nreverse\n\nlink plain\n still here"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\nreverse"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 6,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\nreverse"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "link plain\n still here"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 677,
+      "to": 773
+    },
+    {
+      "op": "checkpoint",
+      "label": "with-scrollback",
+      "at": 773,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 7,
+          "y": 5
+        },
+        "baseY": 14,
+        "viewportY": 14,
+        "length": 20,
+        "lines": ["line 6", "line 7", "line 8", "line 9", "line 10", "line 11"],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["12345678901234567890", "X", "12345678901234567890", "next", "reverse", "", "link plain", " still here", "line 0", "line 1", "line 2", "line 3", "line 4", "line 5"],
+        "scrollbackWrapped": [1],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "link plain\n still here"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hline 6\u001b[2;1Hline 7\u001b[3;1Hline 8\u001b[4;1Hline 9\u001b[5;1Hline 10\u001b[6;1Hline 11\u001b[6;8H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 14
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "line 5\nline 6\nline 7\nline 8\nline 9\nline 10"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 14
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "line 3\nline 4\nline 5\nline 6\nline 7\nline 8"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 14
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\nreverse"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 14,
+            "maxScrollOffset": 14
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "12345678901234567890\nX\n12345678901234567890\nnext\nreverse"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 14
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 773,
+      "to": 777
+    },
+    {
+      "op": "checkpoint",
+      "label": "scrollback-cleared",
+      "at": 777,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 7,
+          "y": 5
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 6,
+        "lines": ["line 6", "line 7", "line 8", "line 9", "line 10", "line 11"],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hline 6\u001b[2;1Hline 7\u001b[3;1Hline 8\u001b[4;1Hline 9\u001b[5;1Hline 10\u001b[6;1Hline 11\u001b[6;8H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 0,
+      "rows": 0
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-0x0",
+      "at": 777,
+      "screen": {
+        "cols": 2,
+        "rows": 1,
+        "buffer": "normal",
+        "cursor": {
+          "x": 1,
+          "y": 0
+        },
+        "baseY": 16,
+        "viewportY": 16,
+        "length": 17,
+        "lines": ["li"],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["li", "ne", " 6", "li", "ne", " 7", "li", "ne", " 8", "li", "ne", " 9", "li", "ne", " 1", "0"],
+        "scrollbackWrapped": [1, 2, 4, 5, 7, 8, 10, 11, 13, 14, 15],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nline 11"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hli\u001b[1;2H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "li"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "li"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 16
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "0"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 16
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "ne"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 16
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "li"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 16,
+            "maxScrollOffset": 16
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "li"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "li"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 16
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 777,
+      "to": 781
+    },
+    {
+      "op": "checkpoint",
+      "label": "clamped-1x1",
+      "at": 781,
+      "screen": {
+        "cols": 2,
+        "rows": 1,
+        "buffer": "normal",
+        "cursor": {
+          "x": 1,
+          "y": 0
+        },
+        "baseY": 18,
+        "viewportY": 18,
+        "length": 19,
+        "lines": ["y"],
+        "wrapped": [0],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["li", "ne", " 6", "li", "ne", " 7", "li", "ne", " 8", "li", "ne", " 9", "li", "ne", " 1", "0", "lt", "in"],
+        "scrollbackWrapped": [1, 2, 4, 5, 7, 8, 10, 11, 13, 14, 15, 17],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "li"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hy\u001b[1;2H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "y"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "y"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 18
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "in"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 18
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "0"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 18
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "li"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 18,
+            "maxScrollOffset": 18
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "li"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "y"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 18
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 20,
+      "rows": 6
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-20x6",
+      "at": 781,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 1,
+          "y": 5
+        },
+        "baseY": 2,
+        "viewportY": 2,
+        "length": 8,
+        "lines": ["line 8", "line 9", "line 10", "lt", "in", "y"],
+        "wrapped": [4, 5],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["line 6", "line 7"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "y"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hline 8\u001b[2;1Hline 9\u001b[3;1Hline 10\u001b[4;1Hlt\u001b[5;1Hin\u001b[6;1Hy\u001b[6;2H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 8\nline 9\nline 10\nlt\nin\ny"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "line 8\nline 9\nline 10\nlt\nin\ny"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "line 7\nline 8\nline 9\nline 10\nlt\nin"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nlt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nlt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nlt"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "line 8\nline 9\nline 10\nlt\nin\ny"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 2
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 20,
+      "rows": 6
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-20x6",
+      "at": 781,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 1,
+          "y": 5
+        },
+        "baseY": 2,
+        "viewportY": 2,
+        "length": 8,
+        "lines": ["line 8", "line 9", "line 10", "lt", "in", "y"],
+        "wrapped": [4, 5],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["line 6", "line 7"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 8\nline 9\nline 10\nlt\nin\ny"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hline 8\u001b[2;1Hline 9\u001b[3;1Hline 10\u001b[4;1Hlt\u001b[5;1Hin\u001b[6;1Hy\u001b[6;2H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 8\nline 9\nline 10\nlt\nin\ny"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "line 8\nline 9\nline 10\nlt\nin\ny"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "line 7\nline 8\nline 9\nline 10\nlt\nin"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nlt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nlt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 2
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nlt"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "line 8\nline 9\nline 10\nlt\nin\ny"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 2
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 781,
+      "to": 795
+    },
+    {
+      "op": "checkpoint",
+      "label": "resized-back",
+      "at": 795,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 12,
+          "y": 5
+        },
+        "baseY": 3,
+        "viewportY": 3,
+        "length": 9,
+        "lines": ["line 9", "line 10", "lt", "in", "y", "back to 20x6"],
+        "wrapped": [3, 4],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["line 6", "line 7", "line 8"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 8\nline 9\nline 10\nlt\nin\ny"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hline 9\u001b[2;1Hline 10\u001b[3;1Hlt\u001b[4;1Hin\u001b[5;1Hy\u001b[6;1Hback to 20x6\u001b[6;13H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 9\nline 10\nlt\nin\ny\nback to 20x6"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "line 9\nline 10\nlt\nin\ny\nback to 20x6"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 3
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "line 8\nline 9\nline 10\nlt\nin\ny"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 3
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nlt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 3
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nlt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 3,
+            "maxScrollOffset": 3
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 6\nline 7\nline 8\nline 9\nline 10\nlt"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "line 9\nline 10\nlt\nin\ny\nback to 20x6"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 3
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 795,
+      "to": 823
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-ris",
+      "at": 823,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 12,
+          "y": 0
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 6,
+        "lines": [" after reset", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "line 9\nline 10\nlt\nin\ny\nback to 20x6"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H after reset\u001b[1;13H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " after reset"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " after reset"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 823,
+      "screen": {
+        "cols": 20,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 12,
+          "y": 0
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 6,
+        "lines": [" after reset", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "window title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": " after reset"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H after reset\u001b[1;13H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " after reset"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [3],
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [100],
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [100],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " after reset"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": " after reset"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    }
+  ]
+}

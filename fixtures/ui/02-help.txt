@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Help · Start here                                                                                                              │
+│ ❯ 1 Start here      │ The session list on the left, the pane on the right: → steps in, ← or Esc back out. Everywhere: Enter    │
+│   2 Sessions        │ opens, Space toggles, E opens your editor; in lists a adds, x removes (on the session list: a Notes      │
+│   3 Sidebar         │ tab, x stop).                                                                                            │
+│   4 Find & organize │                                                                                                          │
+│   5 Panes           │ n         New session: agent, name, Tab for the workspace (↑↓ a new worktree's base), Enter launches     │
+│   6 Notes           │ j k  ↑↓   Select a session (or type its number)                                                          │
+│   7 Tasks           │ Enter  o  Open it full screen: the agent, or what the tab shows (shell, Git, Dev); on Notes, Enter       │
+│   8 Worktrees       │           edits them here, o in vim                                                                      │
+│   9 Git & PRs       │ Ctrl+]    Back to Deckhand from full screen (Ctrl+Space works too)                                       │
+│  10 Dev & actions   │ Tab  [ ]  Next / previous tab: Preview, Terminal, Git, Dev, Notes (Shift+Tab goes back too)              │
+│  11 Settings        │ b  W      Tasks: the repository's task list (n starts a session from one) / Worktrees: what is merged,   │
+│                     │           delete them                                                                                    │
+│                     │ C  U      Settings / Agents: versions and updates (Enter updates, r re-checks)                           │
+│                     │ ?         This guide (↑↓ or 1-9 pick a topic, / searches, Esc closes)                                    │
+│                     │ q         Quit the UI (agents and the daemon keep running); everywhere else Esc goes back                │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│                     │                                                                                                          │
+│ ↑↓ topic • 1-9 jump • / search • esc close                                                                                     │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

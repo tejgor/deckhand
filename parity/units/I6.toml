@@ -21,4 +21,13 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"projectConfig.ts:readBoundedUtf8" = "deckhand_sys::config::read_bounded_utf8"
+"projectConfig.ts:loadProjectConfig" = "deckhand_sys::config::load_project_config"
+"projectConfig.ts:savedProjectTrust" = "deckhand_sys::config::saved_project_trust"
+"projectConfigDocument.ts:readConfigTargets" = "deckhand_sys::config_document::read_config_targets"
+"projectConfigDocument.ts:readProjectConfigDocument" = "deckhand_sys::config_document::read_project_config_document"
+"projectConfigDocument.ts:saveProjectConfigDocument" = "deckhand_sys::config_document::save_project_config_document"
+"projectConfigDocument.ts:readGlobalDefaultsDocument" = "deckhand_sys::config_document::read_global_defaults_document"
+"projectConfigDocument.ts:saveGlobalDefaultsDocument" = "deckhand_sys::config_document::save_global_defaults_document"
+"worktreeLinks.ts:userSlug" = "deckhand_sys::worktree_links::user_slug"
+"worktreeLinks.ts:applyWorktreeLinks" = "deckhand_sys::worktree_links::apply_worktree_links"

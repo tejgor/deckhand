@@ -316,6 +316,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -455,6 +456,9 @@ dependencies = [
  "deckhand-protocol",
  "libc",
  "nix",
+ "serde",
+ "serde_json",
+ "serde_with",
  "tempfile",
  "thiserror",
  "tokio",
@@ -471,8 +475,13 @@ dependencies = [
  "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
+ "deckhand-term",
  "futures",
+ "indexmap 2.14.2",
+ "libc",
+ "nix",
  "ratatui",
+ "regex",
  "serde",
  "serde_json",
  "tempfile",

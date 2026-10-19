@@ -1,0 +1,2275 @@
+{
+  "name": "synthetic-scrollback-reflow",
+  "source": "synthetic",
+  "description": "Scrollback and reflow: wrapped long lines, styled runs crossing the wrap, resizes narrower/wider/shorter/taller in the normal buffer (lines move between scrollback and screen), a resize inside the alternate screen, and scroll offsets across the scrollback.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 30,
+  "rows": 8,
+  "scrollOffsets": [0, 1, 4, 10, 25, 1000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 30,
+      "rows": 8
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 45
+    },
+    {
+      "op": "write",
+      "from": 45,
+      "to": 55
+    },
+    {
+      "op": "write",
+      "from": 55,
+      "to": 65
+    },
+    {
+      "op": "write",
+      "from": 65,
+      "to": 92
+    },
+    {
+      "op": "write",
+      "from": 92,
+      "to": 152
+    },
+    {
+      "op": "write",
+      "from": 152,
+      "to": 162
+    },
+    {
+      "op": "write",
+      "from": 162,
+      "to": 189
+    },
+    {
+      "op": "write",
+      "from": 189,
+      "to": 199
+    },
+    {
+      "op": "write",
+      "from": 199,
+      "to": 291
+    },
+    {
+      "op": "write",
+      "from": 291,
+      "to": 318
+    },
+    {
+      "op": "write",
+      "from": 318,
+      "to": 328
+    },
+    {
+      "op": "write",
+      "from": 328,
+      "to": 338
+    },
+    {
+      "op": "write",
+      "from": 338,
+      "to": 407
+    },
+    {
+      "op": "write",
+      "from": 407,
+      "to": 417
+    },
+    {
+      "op": "write",
+      "from": 417,
+      "to": 427
+    },
+    {
+      "op": "write",
+      "from": 427,
+      "to": 454
+    },
+    {
+      "op": "write",
+      "from": 454,
+      "to": 538
+    },
+    {
+      "op": "write",
+      "from": 538,
+      "to": 548
+    },
+    {
+      "op": "write",
+      "from": 548,
+      "to": 575
+    },
+    {
+      "op": "write",
+      "from": 575,
+      "to": 585
+    },
+    {
+      "op": "write",
+      "from": 585,
+      "to": 629
+    },
+    {
+      "op": "write",
+      "from": 629,
+      "to": 656
+    },
+    {
+      "op": "write",
+      "from": 656,
+      "to": 666
+    },
+    {
+      "op": "write",
+      "from": 666,
+      "to": 676
+    },
+    {
+      "op": "write",
+      "from": 676,
+      "to": 769
+    },
+    {
+      "op": "write",
+      "from": 769,
+      "to": 779
+    },
+    {
+      "op": "write",
+      "from": 779,
+      "to": 789
+    },
+    {
+      "op": "write",
+      "from": 789,
+      "to": 816
+    },
+    {
+      "op": "write",
+      "from": 816,
+      "to": 852
+    },
+    {
+      "op": "write",
+      "from": 852,
+      "to": 862
+    },
+    {
+      "op": "write",
+      "from": 862,
+      "to": 889
+    },
+    {
+      "op": "write",
+      "from": 889,
+      "to": 899
+    },
+    {
+      "op": "write",
+      "from": 899,
+      "to": 967
+    },
+    {
+      "op": "write",
+      "from": 967,
+      "to": 994
+    },
+    {
+      "op": "write",
+      "from": 994,
+      "to": 1004
+    },
+    {
+      "op": "write",
+      "from": 1004,
+      "to": 1014
+    },
+    {
+      "op": "write",
+      "from": 1014,
+      "to": 1059
+    },
+    {
+      "op": "write",
+      "from": 1059,
+      "to": 1069
+    },
+    {
+      "op": "write",
+      "from": 1069,
+      "to": 1079
+    },
+    {
+      "op": "write",
+      "from": 1079,
+      "to": 1106
+    },
+    {
+      "op": "write",
+      "from": 1106,
+      "to": 1108
+    },
+    {
+      "op": "checkpoint",
+      "label": "filled",
+      "at": 1108,
+      "screen": {
+        "cols": 30,
+        "rows": 8,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 7
+        },
+        "baseY": 45,
+        "viewportY": 45,
+        "length": 53,
+        "lines": ["34 short", "35 short", "36 a somewhat longer line wrap", "ped-", "37 short", "38 short", "39 a somewhat longer line", "$ "],
+        "wrapped": [3],
+        "attrs": {
+          "2": [[26, 4, "p16:2", "d", ""]],
+          "3": [[0, 4, "p16:2", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": ["00 a somewhat longer line wrap", "ped-", "01 short", "02 short", "03 a somewhat longer line", "04 short wrapped-wrapped-wrapp", "ed-wrapped-wrapped-", "05 short", "06 a somewhat longer line", "07 short", "08 short wrapped-wrapped-wrapp", "ed-wrapped-wrapped-wrapped-wra", "pped-wrapped-wrapped-", "09 a somewhat longer line", "10 short", "11 short", "12 a somewhat longer line wrap", "ped-wrapped-wrapped-wrapped-", "13 short", "14 short", "15 a somewhat longer line", "16 short wrapped-wrapped-wrapp", "ed-wrapped-wrapped-wrapped-wra", "pped-wrapped-", "17 short", "18 a somewhat longer line", "19 short", "20 short wrapped-wrapped-wrapp", "ed-", "21 a somewhat longer line", "22 short", "23 short", "24 a somewhat longer line wrap", "ped-wrapped-wrapped-wrapped-wr", "apped-wrapped-wrapped-", "25 short", "26 short", "27 a somewhat longer line", "28 short wrapped-wrapped-", "29 short", "30 a somewhat longer line", "31 short", "32 short wrapped-wrapped-wrapp", "ed-wrapped-wrapped-wrapped-", "33 a somewhat longer line"],
+        "scrollbackWrapped": [1, 6, 11, 12, 17, 22, 23, 28, 33, 34, 43],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H34 short\u001b[2;1H35 short\u001b[3;1H36 a somewhat longer line wrap\u001b[4;1Hped-\u001b[5;1H37 short\u001b[6;1H38 short\u001b[7;1H39 a somewhat longer line\u001b[8;1H$ \u001b[8;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "34 short\n35 short\n36 a somewhat longer line wrap\nped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "34 short\n35 short\n36 a somewhat longer line wrap\nped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 45
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrap\nped-\n37 short\n38 short\n39 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 45
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "31 short\n32 short wrapped-wrapped-wrapp\ned-wrapped-wrapped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrap\nped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 45
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "25 short\n26 short\n27 a somewhat longer line\n28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapp"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 45
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "15 a somewhat longer line\n16 short wrapped-wrapped-wrapp\ned-wrapped-wrapped-wrapped-wra\npped-wrapped-\n17 short\n18 a somewhat longer line\n19 short\n20 short wrapped-wrapped-wrapp"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 45
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer line wrap\nped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapp\ned-wrapped-wrapped-\n05 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 45,
+            "maxScrollOffset": 45
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer line wrap\nped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapp\ned-wrapped-wrapped-\n05 short"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "34 short\n35 short\n36 a somewhat longer line wrap\nped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 45
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 20,
+      "rows": 8
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-20x8",
+      "at": 1108,
+      "screen": {
+        "cols": 20,
+        "rows": 8,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 7
+        },
+        "baseY": 64,
+        "viewportY": 64,
+        "length": 72,
+        "lines": ["35 short", "36 a somewhat longer", " line wrapped-", "37 short", "38 short", "39 a somewhat longer", " line", "$ "],
+        "wrapped": [2, 6],
+        "attrs": {
+          "2": [[6, 8, "p16:2", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": ["00 a somewhat longer", " line wrapped-", "01 short", "02 short", "03 a somewhat longer", " line", "04 short wrapped-wra", "pped-wrapped-wrapped", "-wrapped-", "05 short", "06 a somewhat longer", " line", "07 short", "08 short wrapped-wra", "pped-wrapped-wrapped", "-wrapped-wrapped-wra", "pped-wrapped-wrapped", "-", "09 a somewhat longer", " line", "10 short", "11 short", "12 a somewhat longer", " line wrapped-wrappe", "d-wrapped-wrapped-", "13 short", "14 short", "15 a somewhat longer", " line", "16 short wrapped-wra", "pped-wrapped-wrapped", "-wrapped-wrapped-wra", "pped-wrapped-", "17 short", "18 a somewhat longer", " line", "19 short", "20 short wrapped-wra", "pped-wrapped-", "21 a somewhat longer", " line", "22 short", "23 short", "24 a somewhat longer", " line wrapped-wrappe", "d-wrapped-wrapped-wr", "apped-wrapped-wrappe", "d-", "25 short", "26 short", "27 a somewhat longer", " line", "28 short wrapped-wra", "pped-", "29 short", "30 a somewhat longer", " line", "31 short", "32 short wrapped-wra", "pped-wrapped-wrapped", "-wrapped-wrapped-", "33 a somewhat longer", " line", "34 short"],
+        "scrollbackWrapped": [1, 5, 7, 8, 11, 14, 15, 16, 17, 19, 23, 24, 28, 30, 31, 32, 35, 38, 40, 44, 45, 46, 47, 51, 53, 56, 59, 60, 62],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "34 short\n35 short\n36 a somewhat longer line wrap\nped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H35 short\u001b[2;1H36 a somewhat longer\u001b[3;1H line wrapped-\u001b[4;1H37 short\u001b[5;1H38 short\u001b[6;1H39 a somewhat longer\u001b[7;1H line\u001b[8;1H$ \u001b[8;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "34 short\n35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "-wrapped-wrapped-\n33 a somewhat longer\n line\n34 short\n35 short\n36 a somewhat longer\n line wrapped-\n37 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "29 short\n30 a somewhat longer\n line\n31 short\n32 short wrapped-wra\npped-wrapped-wrapped\n-wrapped-wrapped-\n33 a somewhat longer"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "21 a somewhat longer\n line\n22 short\n23 short\n24 a somewhat longer\n line wrapped-wrappe\nd-wrapped-wrapped-wr\napped-wrapped-wrappe"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer\n line wrapped-\n01 short\n02 short\n03 a somewhat longer\n line\n04 short wrapped-wra\npped-wrapped-wrapped"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 64,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer\n line wrapped-\n01 short\n02 short\n03 a somewhat longer\n line\n04 short wrapped-wra\npped-wrapped-wrapped"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 64
+          }
+        }
+      ]
+    },
+    {
+      "op": "checkpoint",
+      "label": "narrower",
+      "at": 1108,
+      "screen": {
+        "cols": 20,
+        "rows": 8,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 7
+        },
+        "baseY": 64,
+        "viewportY": 64,
+        "length": 72,
+        "lines": ["35 short", "36 a somewhat longer", " line wrapped-", "37 short", "38 short", "39 a somewhat longer", " line", "$ "],
+        "wrapped": [2, 6],
+        "attrs": {
+          "2": [[6, 8, "p16:2", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": ["00 a somewhat longer", " line wrapped-", "01 short", "02 short", "03 a somewhat longer", " line", "04 short wrapped-wra", "pped-wrapped-wrapped", "-wrapped-", "05 short", "06 a somewhat longer", " line", "07 short", "08 short wrapped-wra", "pped-wrapped-wrapped", "-wrapped-wrapped-wra", "pped-wrapped-wrapped", "-", "09 a somewhat longer", " line", "10 short", "11 short", "12 a somewhat longer", " line wrapped-wrappe", "d-wrapped-wrapped-", "13 short", "14 short", "15 a somewhat longer", " line", "16 short wrapped-wra", "pped-wrapped-wrapped", "-wrapped-wrapped-wra", "pped-wrapped-", "17 short", "18 a somewhat longer", " line", "19 short", "20 short wrapped-wra", "pped-wrapped-", "21 a somewhat longer", " line", "22 short", "23 short", "24 a somewhat longer", " line wrapped-wrappe", "d-wrapped-wrapped-wr", "apped-wrapped-wrappe", "d-", "25 short", "26 short", "27 a somewhat longer", " line", "28 short wrapped-wra", "pped-", "29 short", "30 a somewhat longer", " line", "31 short", "32 short wrapped-wra", "pped-wrapped-wrapped", "-wrapped-wrapped-", "33 a somewhat longer", " line", "34 short"],
+        "scrollbackWrapped": [1, 5, 7, 8, 11, 14, 15, 16, 17, 19, 23, 24, 28, 30, 31, 32, 35, 38, 40, 44, 45, 46, 47, 51, 53, 56, 59, 60, 62],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H35 short\u001b[2;1H36 a somewhat longer\u001b[3;1H line wrapped-\u001b[4;1H37 short\u001b[5;1H38 short\u001b[6;1H39 a somewhat longer\u001b[7;1H line\u001b[8;1H$ \u001b[8;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "34 short\n35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "-wrapped-wrapped-\n33 a somewhat longer\n line\n34 short\n35 short\n36 a somewhat longer\n line wrapped-\n37 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "29 short\n30 a somewhat longer\n line\n31 short\n32 short wrapped-wra\npped-wrapped-wrapped\n-wrapped-wrapped-\n33 a somewhat longer"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "21 a somewhat longer\n line\n22 short\n23 short\n24 a somewhat longer\n line wrapped-wrappe\nd-wrapped-wrapped-wr\napped-wrapped-wrappe"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer\n line wrapped-\n01 short\n02 short\n03 a somewhat longer\n line\n04 short wrapped-wra\npped-wrapped-wrapped"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 64,
+            "maxScrollOffset": 64
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer\n line wrapped-\n01 short\n02 short\n03 a somewhat longer\n line\n04 short wrapped-wra\npped-wrapped-wrapped"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 64
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 45,
+      "rows": 8
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-45x8",
+      "at": 1108,
+      "screen": {
+        "cols": 45,
+        "rows": 8,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 7
+        },
+        "baseY": 39,
+        "viewportY": 39,
+        "length": 47,
+        "lines": ["33 a somewhat longer line", "34 short", "35 short", "36 a somewhat longer line wrapped-", "37 short", "38 short", "39 a somewhat longer line", "$ "],
+        "wrapped": [],
+        "attrs": {
+          "3": [[26, 8, "p16:2", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": ["00 a somewhat longer line wrapped-", "01 short", "02 short", "03 a somewhat longer line", "04 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-", "05 short", "06 a somewhat longer line", "07 short", "08 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-wrapped-", "09 a somewhat longer line", "10 short", "11 short", "12 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-", "13 short", "14 short", "15 a somewhat longer line", "16 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-", "17 short", "18 a somewhat longer line", "19 short", "20 short wrapped-wrapped-wrapped-", "21 a somewhat longer line", "22 short", "23 short", "24 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-wrapped-wrapped-wrapped-", "25 short", "26 short", "27 a somewhat longer line", "28 short wrapped-wrapped-", "29 short", "30 a somewhat longer line", "31 short", "32 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-"],
+        "scrollbackWrapped": [5, 10, 15, 20, 29, 38],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "35 short\n36 a somewhat longer\n line wrapped-\n37 short\n38 short\n39 a somewhat longer\n line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H33 a somewhat longer line\u001b[2;1H34 short\u001b[3;1H35 short\u001b[4;1H36 a somewhat longer line wrapped-\u001b[5;1H37 short\u001b[6;1H38 short\u001b[7;1H39 a somewhat longer line\u001b[8;1H$ \u001b[8;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "ped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "pped-wrapped-wrapped-wrapped-wrapped-\n25 short\n26 short\n27 a somewhat longer line\n28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "12 a somewhat longer line wrapped-wrapped-wra\npped-wrapped-\n13 short\n14 short\n15 a somewhat longer line\n16 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-\n17 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapped-wrapped-wrap\nped-\n05 short\n06 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 39,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapped-wrapped-wrap\nped-\n05 short\n06 a somewhat longer line"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 39
+          }
+        }
+      ]
+    },
+    {
+      "op": "checkpoint",
+      "label": "wider",
+      "at": 1108,
+      "screen": {
+        "cols": 45,
+        "rows": 8,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 7
+        },
+        "baseY": 39,
+        "viewportY": 39,
+        "length": 47,
+        "lines": ["33 a somewhat longer line", "34 short", "35 short", "36 a somewhat longer line wrapped-", "37 short", "38 short", "39 a somewhat longer line", "$ "],
+        "wrapped": [],
+        "attrs": {
+          "3": [[26, 8, "p16:2", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": ["00 a somewhat longer line wrapped-", "01 short", "02 short", "03 a somewhat longer line", "04 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-", "05 short", "06 a somewhat longer line", "07 short", "08 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-wrapped-", "09 a somewhat longer line", "10 short", "11 short", "12 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-", "13 short", "14 short", "15 a somewhat longer line", "16 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-", "17 short", "18 a somewhat longer line", "19 short", "20 short wrapped-wrapped-wrapped-", "21 a somewhat longer line", "22 short", "23 short", "24 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-wrapped-wrapped-wrapped-", "25 short", "26 short", "27 a somewhat longer line", "28 short wrapped-wrapped-", "29 short", "30 a somewhat longer line", "31 short", "32 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-"],
+        "scrollbackWrapped": [5, 10, 15, 20, 29, 38],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H33 a somewhat longer line\u001b[2;1H34 short\u001b[3;1H35 short\u001b[4;1H36 a somewhat longer line wrapped-\u001b[5;1H37 short\u001b[6;1H38 short\u001b[7;1H39 a somewhat longer line\u001b[8;1H$ \u001b[8;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "ped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "pped-wrapped-wrapped-wrapped-wrapped-\n25 short\n26 short\n27 a somewhat longer line\n28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "12 a somewhat longer line wrapped-wrapped-wra\npped-wrapped-\n13 short\n14 short\n15 a somewhat longer line\n16 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-\n17 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapped-wrapped-wrap\nped-\n05 short\n06 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 39,
+            "maxScrollOffset": 39
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapped-wrapped-wrap\nped-\n05 short\n06 a somewhat longer line"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 39
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 45,
+      "rows": 4
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-45x4",
+      "at": 1108,
+      "screen": {
+        "cols": 45,
+        "rows": 4,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 3
+        },
+        "baseY": 43,
+        "viewportY": 43,
+        "length": 47,
+        "lines": ["37 short", "38 short", "39 a somewhat longer line", "$ "],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["00 a somewhat longer line wrapped-", "01 short", "02 short", "03 a somewhat longer line", "04 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-", "05 short", "06 a somewhat longer line", "07 short", "08 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-wrapped-", "09 a somewhat longer line", "10 short", "11 short", "12 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-", "13 short", "14 short", "15 a somewhat longer line", "16 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-", "17 short", "18 a somewhat longer line", "19 short", "20 short wrapped-wrapped-wrapped-", "21 a somewhat longer line", "22 short", "23 short", "24 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-wrapped-wrapped-wrapped-", "25 short", "26 short", "27 a somewhat longer line", "28 short wrapped-wrapped-", "29 short", "30 a somewhat longer line", "31 short", "32 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-", "33 a somewhat longer line", "34 short", "35 short", "36 a somewhat longer line wrapped-"],
+        "scrollbackWrapped": [5, 10, 15, 20, 29, 38],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H37 short\u001b[2;1H38 short\u001b[3;1H39 a somewhat longer line\u001b[4;1H$ \u001b[4;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "15 a somewhat longer line\n16 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-\n17 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 43,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 43
+          }
+        }
+      ]
+    },
+    {
+      "op": "checkpoint",
+      "label": "shorter",
+      "at": 1108,
+      "screen": {
+        "cols": 45,
+        "rows": 4,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 3
+        },
+        "baseY": 43,
+        "viewportY": 43,
+        "length": 47,
+        "lines": ["37 short", "38 short", "39 a somewhat longer line", "$ "],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["00 a somewhat longer line wrapped-", "01 short", "02 short", "03 a somewhat longer line", "04 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-", "05 short", "06 a somewhat longer line", "07 short", "08 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-wrapped-", "09 a somewhat longer line", "10 short", "11 short", "12 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-", "13 short", "14 short", "15 a somewhat longer line", "16 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-", "17 short", "18 a somewhat longer line", "19 short", "20 short wrapped-wrapped-wrapped-", "21 a somewhat longer line", "22 short", "23 short", "24 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-wrapped-wrapped-wrapped-", "25 short", "26 short", "27 a somewhat longer line", "28 short wrapped-wrapped-", "29 short", "30 a somewhat longer line", "31 short", "32 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-", "33 a somewhat longer line", "34 short", "35 short", "36 a somewhat longer line wrapped-"],
+        "scrollbackWrapped": [5, 10, 15, 20, 29, 38],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H37 short\u001b[2;1H38 short\u001b[3;1H39 a somewhat longer line\u001b[4;1H$ \u001b[4;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "15 a somewhat longer line\n16 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-\n17 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 43,
+            "maxScrollOffset": 43
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 43
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 45,
+      "rows": 12
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-45x12",
+      "at": 1108,
+      "screen": {
+        "cols": 45,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 11
+        },
+        "baseY": 35,
+        "viewportY": 35,
+        "length": 47,
+        "lines": ["30 a somewhat longer line", "31 short", "32 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-", "33 a somewhat longer line", "34 short", "35 short", "36 a somewhat longer line wrapped-", "37 short", "38 short", "39 a somewhat longer line", "$ "],
+        "wrapped": [3],
+        "attrs": {
+          "2": [[9, 36, "p16:2", "d", ""]],
+          "3": [[0, 12, "p16:2", "d", ""]],
+          "7": [[26, 8, "p16:2", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": ["00 a somewhat longer line wrapped-", "01 short", "02 short", "03 a somewhat longer line", "04 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-", "05 short", "06 a somewhat longer line", "07 short", "08 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-wrapped-", "09 a somewhat longer line", "10 short", "11 short", "12 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-", "13 short", "14 short", "15 a somewhat longer line", "16 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-", "17 short", "18 a somewhat longer line", "19 short", "20 short wrapped-wrapped-wrapped-", "21 a somewhat longer line", "22 short", "23 short", "24 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-wrapped-wrapped-wrapped-", "25 short", "26 short", "27 a somewhat longer line", "28 short wrapped-wrapped-", "29 short"],
+        "scrollbackWrapped": [5, 10, 15, 20, 29],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H30 a somewhat longer line\u001b[2;1H31 short\u001b[3;1H32 short wrapped-wrapped-wrapped-wrapped-wrap\u001b[4;1Hped-wrapped-\u001b[5;1H33 a somewhat longer line\u001b[6;1H34 short\u001b[7;1H35 short\u001b[8;1H36 a somewhat longer line wrapped-\u001b[9;1H37 short\u001b[10;1H38 short\u001b[11;1H39 a somewhat longer line\u001b[12;1H$ \u001b[12;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "29 short\n30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "26 short\n27 a somewhat longer line\n28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "21 a somewhat longer line\n22 short\n23 short\n24 a somewhat longer line wrapped-wrapped-wra\npped-wrapped-wrapped-wrapped-wrapped-\n25 short\n26 short\n27 a somewhat longer line\n28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "ped-wrapped-wrapped-wrapped-wrapped-\n09 a somewhat longer line\n10 short\n11 short\n12 a somewhat longer line wrapped-wrapped-wra\npped-wrapped-\n13 short\n14 short\n15 a somewhat longer line\n16 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-\n17 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapped-wrapped-wrap\nped-\n05 short\n06 a somewhat longer line\n07 short\n08 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-wrapped-\n09 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 35,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapped-wrapped-wrap\nped-\n05 short\n06 a somewhat longer line\n07 short\n08 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-wrapped-\n09 a somewhat longer line"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        }
+      ]
+    },
+    {
+      "op": "checkpoint",
+      "label": "taller",
+      "at": 1108,
+      "screen": {
+        "cols": 45,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 11
+        },
+        "baseY": 35,
+        "viewportY": 35,
+        "length": 47,
+        "lines": ["30 a somewhat longer line", "31 short", "32 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-", "33 a somewhat longer line", "34 short", "35 short", "36 a somewhat longer line wrapped-", "37 short", "38 short", "39 a somewhat longer line", "$ "],
+        "wrapped": [3],
+        "attrs": {
+          "2": [[9, 36, "p16:2", "d", ""]],
+          "3": [[0, 12, "p16:2", "d", ""]],
+          "7": [[26, 8, "p16:2", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": ["00 a somewhat longer line wrapped-", "01 short", "02 short", "03 a somewhat longer line", "04 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-", "05 short", "06 a somewhat longer line", "07 short", "08 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-wrapped-", "09 a somewhat longer line", "10 short", "11 short", "12 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-", "13 short", "14 short", "15 a somewhat longer line", "16 short wrapped-wrapped-wrapped-wrapped-wrap", "ped-wrapped-wrapped-wrapped-", "17 short", "18 a somewhat longer line", "19 short", "20 short wrapped-wrapped-wrapped-", "21 a somewhat longer line", "22 short", "23 short", "24 a somewhat longer line wrapped-wrapped-wra", "pped-wrapped-wrapped-wrapped-wrapped-", "25 short", "26 short", "27 a somewhat longer line", "28 short wrapped-wrapped-", "29 short"],
+        "scrollbackWrapped": [5, 10, 15, 20, 29],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H30 a somewhat longer line\u001b[2;1H31 short\u001b[3;1H32 short wrapped-wrapped-wrapped-wrapped-wrap\u001b[4;1Hped-wrapped-\u001b[5;1H33 a somewhat longer line\u001b[6;1H34 short\u001b[7;1H35 short\u001b[8;1H36 a somewhat longer line wrapped-\u001b[9;1H37 short\u001b[10;1H38 short\u001b[11;1H39 a somewhat longer line\u001b[12;1H$ \u001b[12;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "29 short\n30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "26 short\n27 a somewhat longer line\n28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "21 a somewhat longer line\n22 short\n23 short\n24 a somewhat longer line wrapped-wrapped-wra\npped-wrapped-wrapped-wrapped-wrapped-\n25 short\n26 short\n27 a somewhat longer line\n28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "ped-wrapped-wrapped-wrapped-wrapped-\n09 a somewhat longer line\n10 short\n11 short\n12 a somewhat longer line wrapped-wrapped-wra\npped-wrapped-\n13 short\n14 short\n15 a somewhat longer line\n16 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-\n17 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapped-wrapped-wrap\nped-\n05 short\n06 a somewhat longer line\n07 short\n08 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-wrapped-\n09 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 35,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer line wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-wrapped-wrapped-wrap\nped-\n05 short\n06 a somewhat longer line\n07 short\n08 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-wrapped-wrapped-wrapped-\n09 a somewhat longer line"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1108,
+      "to": 1146
+    },
+    {
+      "op": "checkpoint",
+      "label": "alt",
+      "at": 1146,
+      "screen": {
+        "cols": 45,
+        "rows": 12,
+        "buffer": "alternate",
+        "cursor": {
+          "x": 11,
+          "y": 1
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 12,
+        "lines": ["alt screen", "second line", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-wrapped-wrapped-wrap\nped-wrapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Halt screen\u001b[2;1Hsecond line\u001b[2;12H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 25,
+      "rows": 6
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-25x6",
+      "at": 1146,
+      "screen": {
+        "cols": 25,
+        "rows": 6,
+        "buffer": "alternate",
+        "cursor": {
+          "x": 11,
+          "y": 1
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 6,
+        "lines": ["alt screen", "second line", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Halt screen\u001b[2;1Hsecond line\u001b[2;12H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "checkpoint",
+      "label": "alt-resized",
+      "at": 1146,
+      "screen": {
+        "cols": 25,
+        "rows": 6,
+        "buffer": "alternate",
+        "cursor": {
+          "x": 11,
+          "y": 1
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 6,
+        "lines": ["alt screen", "second line", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Halt screen\u001b[2;1Hsecond line\u001b[2;12H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1146,
+      "to": 1154
+    },
+    {
+      "op": "checkpoint",
+      "label": "normal-again",
+      "at": 1154,
+      "screen": {
+        "cols": 25,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 5
+        },
+        "baseY": 51,
+        "viewportY": 51,
+        "length": 57,
+        "lines": ["36 a somewhat longer line", " wrapped-", "37 short", "38 short", "39 a somewhat longer line", "$ "],
+        "wrapped": [1],
+        "attrs": {
+          "1": [[1, 8, "p16:2", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": ["00 a somewhat longer line", " wrapped-", "01 short", "02 short", "03 a somewhat longer line", "04 short wrapped-wrapped-", "wrapped-wrapped-wrapped-", "05 short", "06 a somewhat longer line", "07 short", "08 short wrapped-wrapped-", "wrapped-wrapped-wrapped-w", "rapped-wrapped-wrapped-wr", "apped-", "09 a somewhat longer line", "10 short", "11 short", "12 a somewhat longer line", " wrapped-wrapped-wrapped-", "wrapped-", "13 short", "14 short", "15 a somewhat longer line", "16 short wrapped-wrapped-", "wrapped-wrapped-wrapped-w", "rapped-wrapped-wrapped-", "17 short", "18 a somewhat longer line", "19 short", "20 short wrapped-wrapped-", "wrapped-", "21 a somewhat longer line", "22 short", "23 short", "24 a somewhat longer line", " wrapped-wrapped-wrapped-", "wrapped-wrapped-wrapped-w", "rapped-", "25 short", "26 short", "27 a somewhat longer line", "28 short wrapped-wrapped-", "29 short", "30 a somewhat longer line", "31 short", "32 short wrapped-wrapped-", "wrapped-wrapped-wrapped-w", "rapped-", "33 a somewhat longer line", "34 short", "35 short"],
+        "scrollbackWrapped": [1, 6, 11, 12, 13, 18, 19, 24, 25, 30, 35, 36, 37, 46, 47],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "alt screen\nsecond line"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H36 a somewhat longer line\u001b[2;1H wrapped-\u001b[3;1H37 short\u001b[4;1H38 short\u001b[5;1H39 a somewhat longer line\u001b[6;1H$ \u001b[6;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "36 a somewhat longer line\n wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "36 a somewhat longer line\n wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 51
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "35 short\n36 a somewhat longer line\n wrapped-\n37 short\n38 short\n39 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 51
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "rapped-\n33 a somewhat longer line\n34 short\n35 short\n36 a somewhat longer line\n wrapped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 51
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "28 short wrapped-wrapped-\n29 short\n30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-\nwrapped-wrapped-wrapped-w"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 51
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "17 short\n18 a somewhat longer line\n19 short\n20 short wrapped-wrapped-\nwrapped-\n21 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 51
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer line\n wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 51,
+            "maxScrollOffset": 51
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer line\n wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "36 a somewhat longer line\n wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 51
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1154,
+      "to": 1173
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 1173,
+      "screen": {
+        "cols": 25,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 5
+        },
+        "baseY": 53,
+        "viewportY": 53,
+        "length": 59,
+        "lines": ["37 short", "38 short", "39 a somewhat longer line", "$ echo done", "done", "$ "],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["00 a somewhat longer line", " wrapped-", "01 short", "02 short", "03 a somewhat longer line", "04 short wrapped-wrapped-", "wrapped-wrapped-wrapped-", "05 short", "06 a somewhat longer line", "07 short", "08 short wrapped-wrapped-", "wrapped-wrapped-wrapped-w", "rapped-wrapped-wrapped-wr", "apped-", "09 a somewhat longer line", "10 short", "11 short", "12 a somewhat longer line", " wrapped-wrapped-wrapped-", "wrapped-", "13 short", "14 short", "15 a somewhat longer line", "16 short wrapped-wrapped-", "wrapped-wrapped-wrapped-w", "rapped-wrapped-wrapped-", "17 short", "18 a somewhat longer line", "19 short", "20 short wrapped-wrapped-", "wrapped-", "21 a somewhat longer line", "22 short", "23 short", "24 a somewhat longer line", " wrapped-wrapped-wrapped-", "wrapped-wrapped-wrapped-w", "rapped-", "25 short", "26 short", "27 a somewhat longer line", "28 short wrapped-wrapped-", "29 short", "30 a somewhat longer line", "31 short", "32 short wrapped-wrapped-", "wrapped-wrapped-wrapped-w", "rapped-", "33 a somewhat longer line", "34 short", "35 short", "36 a somewhat longer line", " wrapped-"],
+        "scrollbackWrapped": [1, 6, 11, 12, 13, 18, 19, 24, 25, 30, 35, 36, 37, 46, 47, 52],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "36 a somewhat longer line\n wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H37 short\u001b[2;1H38 short\u001b[3;1H39 a somewhat longer line\u001b[4;1H$ echo done\u001b[5;1Hdone\u001b[6;1H$ \u001b[6;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ echo done\ndone\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ echo done\ndone\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 53
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": " wrapped-\n37 short\n38 short\n39 a somewhat longer line\n$ echo done\ndone"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 53
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [4],
+          "result": "34 short\n35 short\n36 a somewhat longer line\n wrapped-\n37 short\n38 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [4],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 53
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [10],
+          "result": "30 a somewhat longer line\n31 short\n32 short wrapped-wrapped-\nwrapped-wrapped-wrapped-w\nrapped-\n33 a somewhat longer line"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [10],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 53
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [25],
+          "result": "19 short\n20 short wrapped-wrapped-\nwrapped-\n21 a somewhat longer line\n22 short\n23 short"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [25],
+          "result": {
+            "scrollOffset": 25,
+            "maxScrollOffset": 53
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000],
+          "result": "00 a somewhat longer line\n wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000],
+          "result": {
+            "scrollOffset": 53,
+            "maxScrollOffset": 53
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "00 a somewhat longer line\n wrapped-\n01 short\n02 short\n03 a somewhat longer line\n04 short wrapped-wrapped-"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "37 short\n38 short\n39 a somewhat longer line\n$ echo done\ndone\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 53
+          }
+        }
+      ]
+    }
+  ]
+}

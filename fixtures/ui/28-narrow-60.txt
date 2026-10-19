@@ -1,0 +1,36 @@
+deckhand                                             ● ready
+…*************/demo
+╭──────────────────────╮ ╭─────────────────────────────────╮
+│ Sessions           0 │ │ ◈       ⌁ t:Te  ⑂    ▹     ✎    │
+│                      │ │ p:Pre   rminal  g:G  d:D   a:No │
+│ No sessions yet.     │ │ view            it   ev    tes  │
+│ Press n to create.   │ │                                 │
+│                      │ │ No sessions yet. Press n to cr… │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+│                      │ │                                 │
+╰──────────────────────╯ ╰─────────────────────────────────╯
+? help • n new • W worktrees • C settings • q quit
+
+

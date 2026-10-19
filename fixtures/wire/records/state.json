@@ -1,0 +1,1770 @@
+{
+  "sessions": [
+    {
+      "id": "fdee9d47-9a04-440d-8761-e3d488dd61bf",
+      "title": "legacy",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/tmp/deckhand-test-hmmSTY",
+      "repoRoot": "/tmp/deckhand-test-hmmSTY",
+      "launchWorktreeRoot": "/tmp/deckhand-test-hmmSTY",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "createdAt": "2026-10-19T15:08:33.923Z",
+      "updatedAt": "2026-10-19T15:08:33.923Z",
+      "futureField": {
+        "kept": true
+      }
+    },
+    {
+      "id": "195f50ff-36eb-410c-926f-317df845c200",
+      "launchId": "3b693909-33bc-4a1a-b023-fee2e26341bd",
+      "title": "Merge me",
+      "program": "claude",
+      "command": "/tmp/deckhand-tasks-OjrqXk/bin/claude",
+      "args": [],
+      "cwd": "/tmp/deckhand-test-oXJdic",
+      "repoRoot": "/tmp/deckhand-test-oXJdic",
+      "launchCwd": "/tmp/deckhand-test-oXJdic",
+      "launchWorktreeRoot": "/tmp/deckhand-test-oXJdic",
+      "worktree": {
+        "mode": "none"
+      },
+      "requestedWorktreeMode": "new",
+      "startPrompt": "Merge me",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:48.946Z",
+      "createdAt": "2026-10-19T15:08:48.946Z",
+      "updatedAt": "2026-10-19T15:08:48.946Z",
+      "lastPreview": "",
+      "sidebarOrder": 0
+    },
+    {
+      "id": "87d5eae0-e780-4e9e-8c76-18ac4e94a77b",
+      "launchId": "9801420a-951f-4d99-86a7-365b35829fd0",
+      "title": "items one",
+      "program": "claude",
+      "command": "/private/tmp/deckhand-items-DuRhbT/bin/claude",
+      "args": [],
+      "cwd": "/private/tmp/deckhand-test-rAndJe",
+      "repoRoot": "/private/tmp/deckhand-test-rAndJe",
+      "launchCwd": "/private/tmp/deckhand-test-rAndJe",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-rAndJe",
+      "worktree": {
+        "mode": "none"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:33.689Z",
+      "createdAt": "2026-10-19T15:08:33.689Z",
+      "updatedAt": "2026-10-19T15:08:33.689Z",
+      "lastPreview": "",
+      "sidebarOrder": 0
+    },
+    {
+      "id": "20a69646-e6c8-408e-abd4-75ad0730f108",
+      "launchId": "370dad12-c6fa-47c5-b059-dd1a43a527ec",
+      "title": "reasons",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "8db9d6bc-b7a4-46a5-9ec0-ef00ca0b49db",
+        "--name",
+        "dh-reasons-20a69646"
+      ],
+      "cwd": "/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:31.616Z",
+      "createdAt": "2026-10-19T15:08:31.616Z",
+      "updatedAt": "2026-10-19T15:08:31.950Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "8db9d6bc-b7a4-46a5-9ec0-ef00ca0b49db"
+      }
+    },
+    {
+      "id": "e1f37e6d-4b10-4028-910d-046174520620",
+      "launchId": "01e10faf-a0b1-4857-a497-576e88b8a404",
+      "title": "moves",
+      "program": "claude",
+      "command": "/tmp/deckhand-path-ZIuTXS/bin2/claude",
+      "args": [
+        "--resume",
+        "f291ab11-534b-4578-ab58-0ab314bbf3b4"
+      ],
+      "cwd": "/tmp/deckhand-test-E6m7p8",
+      "repoRoot": "/tmp/deckhand-test-E6m7p8",
+      "launchCwd": "/tmp/deckhand-test-E6m7p8",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-E6m7p8",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:32.252Z",
+      "createdAt": "2026-10-19T15:08:31.608Z",
+      "updatedAt": "2026-10-19T15:08:32.390Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "f291ab11-534b-4578-ab58-0ab314bbf3b4"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:32.390Z",
+      "pid": 8054
+    },
+    {
+      "id": "e1f37e6d-4b10-4028-910d-046174520620",
+      "launchId": "01e10faf-a0b1-4857-a497-576e88b8a404",
+      "title": "moves",
+      "program": "claude",
+      "command": "/tmp/deckhand-path-ZIuTXS/bin2/claude",
+      "args": [
+        "--resume",
+        "f291ab11-534b-4578-ab58-0ab314bbf3b4"
+      ],
+      "cwd": "/tmp/deckhand-test-E6m7p8",
+      "repoRoot": "/tmp/deckhand-test-E6m7p8",
+      "launchCwd": "/tmp/deckhand-test-E6m7p8",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-E6m7p8",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:32.252Z",
+      "createdAt": "2026-10-19T15:08:31.608Z",
+      "updatedAt": "2026-10-19T15:08:32.390Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "f291ab11-534b-4578-ab58-0ab314bbf3b4"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:32.390Z",
+      "pid": 8054,
+      "exitReason": "stopped"
+    },
+    {
+      "id": "e1f37e6d-4b10-4028-910d-046174520620",
+      "launchId": "01e10faf-a0b1-4857-a497-576e88b8a404",
+      "title": "moves",
+      "program": "claude",
+      "command": "/tmp/deckhand-path-ZIuTXS/bin2/claude",
+      "args": [
+        "--resume",
+        "f291ab11-534b-4578-ab58-0ab314bbf3b4"
+      ],
+      "cwd": "/tmp/deckhand-test-E6m7p8",
+      "repoRoot": "/tmp/deckhand-test-E6m7p8",
+      "launchCwd": "/tmp/deckhand-test-E6m7p8",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-E6m7p8",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:32.409Z",
+      "createdAt": "2026-10-19T15:08:31.608Z",
+      "updatedAt": "2026-10-19T15:08:32.409Z",
+      "lastPreview": "claude was stopped by signal 15 before showing anything: it failed to start.\nCommand: /tmp/deckhand-path-ZIuTXS/bin2/claude --resume f291ab11-534b-4578-ab58-0ab314bbf3b4\nCheck that it runs in a terminal; s or S tries again.",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "f291ab11-534b-4578-ab58-0ab314bbf3b4"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:32.390Z",
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "195f50ff-36eb-410c-926f-317df845c200",
+      "launchId": "3b693909-33bc-4a1a-b023-fee2e26341bd",
+      "title": "Merge me",
+      "program": "claude",
+      "command": "/tmp/deckhand-tasks-OjrqXk/bin/claude",
+      "args": [
+        "--session-id",
+        "fe2c88e7-25a1-4813-9c38-c1e588ab722a",
+        "--name",
+        "dh-merge_me-195f50ff"
+      ],
+      "cwd": "/private/tmp/deckhand-tasks-OjrqXk/worktrees/merge_me",
+      "repoRoot": "/tmp/deckhand-test-oXJdic",
+      "launchCwd": "/tmp/deckhand-test-oXJdic",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-oXJdic",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-tasks-OjrqXk/worktrees/merge_me",
+        "branch": "merge_me",
+        "head": "64285fc3064505802179e5c19dff743e2433058b",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "merge_me",
+        "baseRef": "main",
+        "id": "7d4c5c4a-d579-4b29-b7d8-b79e069c173a"
+      },
+      "requestedWorktreeMode": "new",
+      "startPrompt": "Merge me",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:48.946Z",
+      "createdAt": "2026-10-19T15:08:48.946Z",
+      "updatedAt": "2026-10-19T15:08:49.259Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "fe2c88e7-25a1-4813-9c38-c1e588ab722a"
+      }
+    },
+    {
+      "id": "87d5eae0-e780-4e9e-8c76-18ac4e94a77b",
+      "launchId": "9801420a-951f-4d99-86a7-365b35829fd0",
+      "title": "items one",
+      "program": "claude",
+      "command": "/private/tmp/deckhand-items-DuRhbT/bin/claude",
+      "args": [
+        "--session-id",
+        "8d49163c-ca36-4b2d-aab2-a68c03af517f",
+        "--name",
+        "dh-items_one-87d5eae0"
+      ],
+      "cwd": "/private/tmp/deckhand-items-DuRhbT/worktrees/items_one",
+      "repoRoot": "/private/tmp/deckhand-test-rAndJe",
+      "launchCwd": "/private/tmp/deckhand-test-rAndJe",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-rAndJe",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-items-DuRhbT/worktrees/items_one",
+        "branch": "items_one",
+        "head": "0dc102099097914a5146f1fc8112ba218e7d2988",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "items_one",
+        "baseRef": "main",
+        "id": "2acdd99f-f0f1-47bd-b608-7bfea472904f"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:33.689Z",
+      "createdAt": "2026-10-19T15:08:33.689Z",
+      "updatedAt": "2026-10-19T15:08:34.133Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "8d49163c-ca36-4b2d-aab2-a68c03af517f"
+      }
+    },
+    {
+      "id": "333520ad-9627-4d15-941b-03a27fe271e7",
+      "launchId": "d0b1a3f0-31c4-4c60-bb77-bc127cf47ee8",
+      "title": "Second task",
+      "program": "claude",
+      "command": "/tmp/deckhand-tasks-OjrqXk/bin/claude",
+      "args": [
+        "--session-id",
+        "08269816-df45-458f-a5b1-c50fa651a0bd",
+        "--name",
+        "dh-second_task-333520ad",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/tmp/deckhand-test-oXJdic",
+      "repoRoot": "/tmp/deckhand-test-oXJdic",
+      "launchCwd": "/tmp/deckhand-test-oXJdic",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-oXJdic",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "startPrompt": "Second task",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:40.930Z",
+      "createdAt": "2026-10-19T15:08:40.930Z",
+      "updatedAt": "2026-10-19T15:08:40.988Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "08269816-df45-458f-a5b1-c50fa651a0bd"
+      }
+    },
+    {
+      "id": "e1f37e6d-4b10-4028-910d-046174520620",
+      "launchId": "4e6f0e13-82a8-4359-8419-354658a6a87b",
+      "title": "moves",
+      "program": "claude",
+      "command": "/tmp/deckhand-path-ZIuTXS/bin1/claude",
+      "args": [
+        "--session-id",
+        "f291ab11-534b-4578-ab58-0ab314bbf3b4",
+        "--name",
+        "dh-moves-e1f37e6d",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/tmp/deckhand-test-E6m7p8",
+      "repoRoot": "/tmp/deckhand-test-E6m7p8",
+      "launchCwd": "/tmp/deckhand-test-E6m7p8",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-E6m7p8",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:31.608Z",
+      "createdAt": "2026-10-19T15:08:31.608Z",
+      "updatedAt": "2026-10-19T15:08:32.202Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "f291ab11-534b-4578-ab58-0ab314bbf3b4"
+      },
+      "pid": 7634,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:32.202Z"
+    },
+    {
+      "id": "e1f37e6d-4b10-4028-910d-046174520620",
+      "launchId": "4e6f0e13-82a8-4359-8419-354658a6a87b",
+      "title": "moves",
+      "program": "claude",
+      "command": "/tmp/deckhand-path-ZIuTXS/bin1/claude",
+      "args": [
+        "--session-id",
+        "f291ab11-534b-4578-ab58-0ab314bbf3b4",
+        "--name",
+        "dh-moves-e1f37e6d",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/tmp/deckhand-test-E6m7p8",
+      "repoRoot": "/tmp/deckhand-test-E6m7p8",
+      "launchCwd": "/tmp/deckhand-test-E6m7p8",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-E6m7p8",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:31.608Z",
+      "createdAt": "2026-10-19T15:08:31.608Z",
+      "updatedAt": "2026-10-19T15:08:32.202Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "f291ab11-534b-4578-ab58-0ab314bbf3b4"
+      },
+      "pid": 7634,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:32.202Z",
+      "exitReason": "stopped"
+    },
+    {
+      "id": "333520ad-9627-4d15-941b-03a27fe271e7",
+      "launchId": "d0b1a3f0-31c4-4c60-bb77-bc127cf47ee8",
+      "title": "Second task",
+      "program": "claude",
+      "command": "/tmp/deckhand-tasks-OjrqXk/bin/claude",
+      "args": [
+        "--session-id",
+        "08269816-df45-458f-a5b1-c50fa651a0bd",
+        "--name",
+        "dh-second_task-333520ad",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/tmp/deckhand-test-oXJdic",
+      "repoRoot": "/tmp/deckhand-test-oXJdic",
+      "launchCwd": "/tmp/deckhand-test-oXJdic",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-oXJdic",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "startPrompt": "Second task",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:40.930Z",
+      "createdAt": "2026-10-19T15:08:40.930Z",
+      "updatedAt": "2026-10-19T15:08:41.072Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "08269816-df45-458f-a5b1-c50fa651a0bd"
+      },
+      "pid": 31451,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:41.072Z"
+    },
+    {
+      "id": "5f91e295-2f03-4b50-a60f-666eac1db7b7",
+      "launchId": "bf5076e6-c49c-4cc1-82f4-60afc610da5a",
+      "title": "tidy readme",
+      "program": "claude",
+      "command": "/tmp/deckhand-merge-bmEdt7/bin/claude",
+      "args": [
+        "--session-id",
+        "d033d172-1075-40ac-baa8-0f7c12ce2167",
+        "--name",
+        "dh-tidy_readme-5f91e295",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/private/tmp/deckhand-test-77Eoqg",
+      "repoRoot": "/private/tmp/deckhand-test-77Eoqg",
+      "launchCwd": "/private/tmp/deckhand-test-77Eoqg",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-77Eoqg",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:32.547Z",
+      "createdAt": "2026-10-19T15:08:32.547Z",
+      "updatedAt": "2026-10-19T15:08:33.839Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "d033d172-1075-40ac-baa8-0f7c12ce2167"
+      },
+      "pid": 11130,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:33.823Z",
+      "doneAt": "2026-10-19T15:08:33.835Z"
+    },
+    {
+      "id": "20a69646-e6c8-408e-abd4-75ad0730f108",
+      "launchId": "370dad12-c6fa-47c5-b059-dd1a43a527ec",
+      "title": "reasons",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "8db9d6bc-b7a4-46a5-9ec0-ef00ca0b49db",
+        "--name",
+        "dh-reasons-20a69646",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:38.637Z",
+      "createdAt": "2026-10-19T15:08:31.616Z",
+      "updatedAt": "2026-10-19T15:08:33.360Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "8db9d6bc-b7a4-46a5-9ec0-ef00ca0b49db"
+      },
+      "pid": 10348,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:33.360Z",
+      "attention": {
+        "state": "working",
+        "event": "Answered",
+        "at": "2026-10-19T15:08:38.990Z"
+      }
+    },
+    {
+      "id": "20a69646-e6c8-408e-abd4-75ad0730f108",
+      "launchId": "370dad12-c6fa-47c5-b059-dd1a43a527ec",
+      "title": "reasons",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "8db9d6bc-b7a4-46a5-9ec0-ef00ca0b49db",
+        "--name",
+        "dh-reasons-20a69646",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:38.637Z",
+      "createdAt": "2026-10-19T15:08:31.616Z",
+      "updatedAt": "2026-10-19T15:08:33.360Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "8db9d6bc-b7a4-46a5-9ec0-ef00ca0b49db"
+      },
+      "pid": 10348,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:33.360Z",
+      "attention": {
+        "state": "working",
+        "event": "Answered",
+        "at": "2026-10-19T15:08:38.990Z"
+      },
+      "exitReason": "stopped"
+    },
+    {
+      "id": "20a69646-e6c8-408e-abd4-75ad0730f108",
+      "launchId": "370dad12-c6fa-47c5-b059-dd1a43a527ec",
+      "title": "reasons",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "8db9d6bc-b7a4-46a5-9ec0-ef00ca0b49db",
+        "--name",
+        "dh-reasons-20a69646",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:38.999Z",
+      "createdAt": "2026-10-19T15:08:31.616Z",
+      "updatedAt": "2026-10-19T15:08:38.999Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "8db9d6bc-b7a4-46a5-9ec0-ef00ca0b49db"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:33.360Z",
+      "attention": {
+        "state": "working",
+        "event": "Answered",
+        "at": "2026-10-19T15:08:38.990Z"
+      },
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "88e2baad-ba9b-46db-905d-f57a6ca6acd0",
+      "launchId": "ff66ecc3-1315-4fd5-a024-b42a8937e651",
+      "title": "shipped feature",
+      "program": "claude",
+      "command": "/private/tmp/deckhand-worktrees-Ebmze5/bin/claude",
+      "args": [
+        "--session-id",
+        "1c46c78f-27b7-40c6-89ab-4c381dff5ae5",
+        "--name",
+        "dh-shipped_feature-88e2baad",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/private/tmp/deckhand-worktrees-Ebmze5/worktrees/shipped_feature",
+      "repoRoot": "/private/tmp/deckhand-test-mms9nQ",
+      "launchCwd": "/private/tmp/deckhand-test-mms9nQ",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-mms9nQ",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-worktrees-Ebmze5/worktrees/shipped_feature",
+        "branch": "shipped_feature",
+        "head": "91f36027abd39313aa2873ff17430f485cd7a320",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "shipped_feature",
+        "baseRef": "main",
+        "id": "16a7d95b-3c5c-4a80-b238-b1be6a3a24a5"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "running",
+      "agentStatus": "active",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:39.654Z",
+      "createdAt": "2026-10-19T15:08:38.870Z",
+      "updatedAt": "2026-10-19T15:08:39.748Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "1c46c78f-27b7-40c6-89ab-4c381dff5ae5"
+      },
+      "pid": 26199,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:39.419Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:39.494Z"
+      }
+    },
+    {
+      "id": "ed081b6c-cac1-4b09-b3a1-e0ee1b5edc2e",
+      "launchId": "2ec3e3cc-55a6-409a-b29b-d423fb007a41",
+      "title": "in worktree",
+      "program": "claude",
+      "command": "/tmp/deckhand-tasks-OjrqXk/bin/claude",
+      "args": [
+        "--session-id",
+        "73d2389d-a8e7-44e1-8018-bced517bfa66",
+        "--name",
+        "dh-in_worktree-ed081b6c",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/tmp/deckhand-tasks-OjrqXk/other-worktree",
+      "repoRoot": "/tmp/deckhand-tasks-OjrqXk/other-worktree",
+      "launchCwd": "/tmp/deckhand-tasks-OjrqXk/other-worktree",
+      "launchWorktreeRoot": "/private/tmp/deckhand-tasks-OjrqXk/other-worktree",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "other",
+        "id": "440c6d98-a498-4d42-ac30-adb155d37a0a"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:48.274Z",
+      "createdAt": "2026-10-19T15:08:48.274Z",
+      "updatedAt": "2026-10-19T15:08:48.549Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "73d2389d-a8e7-44e1-8018-bced517bfa66"
+      },
+      "pid": 41230,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:48.549Z"
+    },
+    {
+      "id": "b3f259b0-7c16-4640-bf90-3cc3da304ef7",
+      "launchId": "d6761df4-10de-421a-a20e-dad2e0a4a4bc",
+      "title": "context",
+      "program": "codex",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/codex",
+      "args": [
+        "resume",
+        "fixture-native-codex"
+      ],
+      "cwd": "/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:39.771Z",
+      "createdAt": "2026-10-19T15:08:39.037Z",
+      "updatedAt": "2026-10-19T15:08:39.771Z",
+      "lastPreview": "codex was stopped by signal 15 before showing anything: it failed to start.\nCommand: /tmp/deckhand-state-IRZCCU/bin/codex resume fixture-native-codex\nCheck that it runs in a terminal; s or S tries again.",
+      "sidebarOrder": 1,
+      "agentVersion": "1.0.0",
+      "agentSessionRef": {
+        "provider": "codex",
+        "kind": "id",
+        "value": "fixture-native-codex"
+      },
+      "agentStartedAt": "2026-10-19T15:08:39.721Z",
+      "devRunning": false,
+      "exitCode": 0,
+      "exitSignal": 15,
+      "exitReason": "stopped"
+    },
+    {
+      "id": "09f8fd43-6370-48e8-ab6f-cbc920ea69a2",
+      "launchId": "b5f2ef35-4666-4ccd-ab33-0f1643f826f7",
+      "title": "unreviewed-setup",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "c807bbf0-5c08-4c82-bc23-7043629a3e99",
+        "--name",
+        "dh-unreviewed-setup-09f8fd43"
+      ],
+      "cwd": "/private/tmp/deckhand-state-IRZCCU/worktrees/unreviewed-setup",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/unreviewed-setup",
+        "branch": "unreviewed-setup",
+        "head": "c581f2e2a5e7c06b2875dca637c34f0fa6f7bdad",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "unreviewed-setup",
+        "baseRef": "main",
+        "id": "09b278aa-0b91-41ec-8e28-d3383536c7fe"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:41.594Z",
+      "createdAt": "2026-10-19T15:08:39.840Z",
+      "updatedAt": "2026-10-19T15:08:41.747Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 2,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "c807bbf0-5c08-4c82-bc23-7043629a3e99"
+      },
+      "setup": {
+        "command": "touch repo-setup; node -e \"const fs=require('fs'); if(!fs.existsSync('.attempt')){fs.writeFileSync('.attempt','1');console.log('first attempt');process.exit(1)} console.log('setup complete')\"",
+        "state": "complete",
+        "output": "",
+        "exitCode": 0
+      },
+      "agentVersion": "1.0.0",
+      "exitCode": 0,
+      "exitSignal": 15,
+      "exitReason": "stopped",
+      "agentStartedAt": "2026-10-19T15:08:41.190Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:41.269Z"
+      }
+    },
+    {
+      "id": "c27d9103-b054-40bd-a09a-9d69fd350760",
+      "launchId": "27f3d0ee-53ff-4323-9536-f41e7967d07c",
+      "title": "skipped-setup",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "b6be60d2-536c-435c-84ce-612f3fc5b37c",
+        "--name",
+        "dh-skipped-setup-c27d9103",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/private/tmp/deckhand-state-IRZCCU/worktrees/skipped-setup",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/skipped-setup",
+        "branch": "skipped-setup",
+        "head": "c581f2e2a5e7c06b2875dca637c34f0fa6f7bdad",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "skipped-setup",
+        "baseRef": "main",
+        "id": "191957a1-0e42-4a33-ba41-9dcfa656d22f"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:40.825Z",
+      "createdAt": "2026-10-19T15:08:40.094Z",
+      "updatedAt": "2026-10-19T15:08:40.825Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 3,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "b6be60d2-536c-435c-84ce-612f3fc5b37c"
+      },
+      "setup": {
+        "command": "touch global-setup",
+        "state": "complete",
+        "output": "",
+        "exitCode": 0
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:40.455Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:40.528Z"
+      },
+      "devRunning": false,
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "e0159ff9-507b-43f9-afb1-506e5fda5a2f",
+      "launchId": "f55a084d-4e32-4772-8555-ca84fa0beaa4",
+      "title": "shared-feature",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "6dd73176-10eb-47e2-ade0-fe37deb270eb",
+        "--name",
+        "dh-shared-feature-e0159ff9",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/private/tmp/deckhand-state-IRZCCU/worktrees/shared-feature",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/shared-feature",
+        "branch": "shared-feature",
+        "head": "0890fd03ef8fd733afa5456ff3e5730fb7b6f6e9",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "shared-feature",
+        "baseRef": "main",
+        "id": "713bb6be-c98f-4768-802e-19285611d4b6"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:42.531Z",
+      "createdAt": "2026-10-19T15:08:41.827Z",
+      "updatedAt": "2026-10-19T15:08:42.531Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 4,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "6dd73176-10eb-47e2-ade0-fe37deb270eb"
+      },
+      "agentVersion": "1.0.0",
+      "handoffPath": "/tmp/deckhand-state-IRZCCU/handoffs/e0159ff9-507b-43f9-afb1-506e5fda5a2f-86128d20.md",
+      "agentStartedAt": "2026-10-19T15:08:42.112Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:42.181Z"
+      },
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "e8ab60a0-76e1-47c8-b553-248bf5e96c21",
+      "launchId": "3b252c9d-3f0e-4126-a9f2-61b7fc8bfef8",
+      "title": "shared-feature / review",
+      "program": "pi",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/pi",
+      "args": [
+        "--session-id",
+        "9c497f5f-e333-4f60-9160-90ae6ba32404",
+        "--name",
+        "dh-shared-feature-review-e8ab60a0",
+        "--",
+        "Read the handoff document at /tmp/deckhand-state-IRZCCU/handoffs/e0159ff9-507b-43f9-afb1-506e5fda5a2f-86128d20.md. Use it as task context, inspect the workspace, and continue the work described there. Keep all normal permission checks."
+      ],
+      "cwd": "/private/tmp/deckhand-state-IRZCCU/worktrees/shared-feature",
+      "repoRoot": "/private/tmp/deckhand-state-IRZCCU/worktrees/shared-feature",
+      "launchCwd": "/private/tmp/deckhand-state-IRZCCU/worktrees/shared-feature",
+      "launchWorktreeRoot": "/private/tmp/deckhand-state-IRZCCU/worktrees/shared-feature",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "shared-feature",
+        "id": "713bb6be-c98f-4768-802e-19285611d4b6"
+      },
+      "requestedWorktreeMode": "none",
+      "handoffPath": "/tmp/deckhand-state-IRZCCU/handoffs/e0159ff9-507b-43f9-afb1-506e5fda5a2f-86128d20.md",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:42.488Z",
+      "createdAt": "2026-10-19T15:08:42.205Z",
+      "updatedAt": "2026-10-19T15:08:42.488Z",
+      "lastPreview": "ready",
+      "parentSessionId": "e0159ff9-507b-43f9-afb1-506e5fda5a2f",
+      "subSessionKind": "clean",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "pi",
+        "kind": "id",
+        "value": "9c497f5f-e333-4f60-9160-90ae6ba32404"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:42.355Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:42.412Z"
+      },
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "a878bbe9-75f7-45e6-81a1-8fc0366b506c",
+      "launchId": "54bab369-f807-4dd4-a75c-1707d646e2f5",
+      "title": "unknown-codex",
+      "program": "codex",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/codex",
+      "args": [],
+      "cwd": "/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:42.701Z",
+      "createdAt": "2026-10-19T15:08:42.572Z",
+      "updatedAt": "2026-10-19T15:08:42.701Z",
+      "lastPreview": "codex was stopped by signal 15 before showing anything: it failed to start.\nCommand: /tmp/deckhand-state-IRZCCU/bin/codex\nCheck that it runs in a terminal; s or S tries again.",
+      "sidebarOrder": 5,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:42.680Z",
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "67afe7ae-1f90-46d6-b822-c6d002a3324e",
+      "launchId": "e971f580-7456-436b-b062-9c99c76a407d",
+      "title": "cancel-setup",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "f0a8ce2d-75fb-471f-b0bf-535eaf12c48d",
+        "--name",
+        "dh-cancel-setup-67afe7ae"
+      ],
+      "cwd": "/private/tmp/deckhand-state-IRZCCU/worktrees/cancel-setup",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/cancel-setup",
+        "branch": "cancel-setup",
+        "head": "fd80295ad929125a2e40b1356c03acbb50e0fdbc",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "cancel-setup",
+        "baseRef": "main",
+        "id": "4d6f1db2-2b17-4cbc-89d8-f32dfc37c49a"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "exited",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:42.967Z",
+      "createdAt": "2026-10-19T15:08:42.798Z",
+      "updatedAt": "2026-10-19T15:08:42.967Z",
+      "lastPreview": "Setup cancelled; worktree retained.",
+      "sidebarOrder": 6,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "f0a8ce2d-75fb-471f-b0bf-535eaf12c48d"
+      },
+      "setup": {
+        "command": "node -e \"require('fs').writeFileSync('setup.pid', String(process.pid)); setTimeout(()=>{},300000)\"",
+        "state": "cancelled",
+        "output": ""
+      },
+      "exitReason": "stopped"
+    },
+    {
+      "id": "d8d6f0ff-3c2e-4db3-89e2-82fbd2162807",
+      "launchId": "c8314942-e581-4ad9-9888-a1fc46ce4655",
+      "title": "main-checkout",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "be5ed92d-24b7-4c10-ab76-2e98b96258fc",
+        "--name",
+        "dh-main-checkout-d8d6f0ff",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/private/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "attached",
+        "path": "/private/tmp/deckhand-test-Gt8S8I",
+        "branch": "main",
+        "head": "fd80295ad929125a2e40b1356c03acbb50e0fdbc",
+        "isMain": true,
+        "origin": "selected",
+        "creator": "picker",
+        "name": "main",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "existing",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:43.250Z",
+      "createdAt": "2026-10-19T15:08:43.023Z",
+      "updatedAt": "2026-10-19T15:08:43.250Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 7,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "be5ed92d-24b7-4c10-ab76-2e98b96258fc"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:43.113Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:43.173Z"
+      },
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "fd926896-9fa4-4c59-a52e-76ac3798476c",
+      "launchId": "b7393181-9c1f-4b2f-9458-63c12f1e31b1",
+      "title": "linked-wt",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "e3b50961-9dec-4b90-befc-fc16f5dd4224",
+        "--name",
+        "dh-linked-wt-fd926896",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/private/tmp/deckhand-state-IRZCCU/custom/deckhand-test-Gt8S8I/linked-wt",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-state-IRZCCU/custom/deckhand-test-Gt8S8I/linked-wt",
+        "branch": "linked-wt",
+        "head": "395d17414df3dbc5f64d31f64dcaed9b59c92379",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "linked-wt",
+        "links": {
+          "linked": [
+            "deps",
+            "config/.env.local"
+          ],
+          "notes": [
+            "missing: source missing, skipped"
+          ]
+        },
+        "baseRef": "main",
+        "id": "518e3067-c04d-416c-91e2-f7ce78baa81d"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:44.318Z",
+      "createdAt": "2026-10-19T15:08:43.293Z",
+      "updatedAt": "2026-10-19T15:08:44.394Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 8,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "e3b50961-9dec-4b90-befc-fc16f5dd4224"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:43.495Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:43.551Z"
+      },
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "e6ffe9e4-364c-4c2f-9ceb-cab1955aebbc",
+      "launchId": "ab3b7623-e308-416b-abe3-492eefdab5c6",
+      "title": "exact-claude",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--resume",
+        "dh-legacy"
+      ],
+      "cwd": "/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:47.710Z",
+      "createdAt": "2026-10-19T15:08:44.529Z",
+      "updatedAt": "2026-10-19T15:08:47.710Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 10,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "dh-legacy"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:47.494Z",
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15,
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:47.589Z"
+      }
+    },
+    {
+      "id": "7a04469a-48ba-40bb-8a11-d0e8955e53ca",
+      "launchId": "377972f0-f74f-42a1-85e9-935f741b3653",
+      "title": "exact-pi / branch",
+      "program": "pi",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/pi",
+      "args": [
+        "--session-id",
+        "67d745bb-dc1e-4e74-9bbe-41d4c679b287"
+      ],
+      "cwd": "/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:46.989Z",
+      "createdAt": "2026-10-19T15:08:45.859Z",
+      "updatedAt": "2026-10-19T15:08:46.989Z",
+      "lastPreview": "pi was stopped by signal 15 before showing anything: it failed to start.\nCommand: /tmp/deckhand-state-IRZCCU/bin/pi --session-id 67d745bb-dc1e-4e74-9bbe-41d4c679b287\nCheck that it runs in a terminal; s or S tries again.",
+      "parentSessionId": "959897b1-13e9-4a8a-badc-34b8212fd6e7",
+      "subSessionKind": "forked",
+      "forkedFromSessionId": "959897b1-13e9-4a8a-badc-34b8212fd6e7",
+      "forkedFromAgentSessionRef": {
+        "provider": "pi",
+        "kind": "id",
+        "value": "f7afe501-f398-48d6-9cff-161738ec0dc9"
+      },
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "pi",
+        "kind": "id",
+        "value": "67d745bb-dc1e-4e74-9bbe-41d4c679b287"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:46.942Z",
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "566c90d3-a47b-4c88-9685-fd750294bb3f",
+      "launchId": "1f8969c7-531d-499e-80fe-366ad6035341",
+      "title": "ws-shared",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "d6f2337e-dc81-4492-b388-1b3eb38573d3",
+        "--name",
+        "dh-ws-shared-566c90d3",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/private/tmp/deckhand-state-IRZCCU/worktrees/ws-shared",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/ws-shared",
+        "branch": "ws-shared",
+        "head": "395d17414df3dbc5f64d31f64dcaed9b59c92379",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "ws-shared",
+        "baseRef": "main",
+        "id": "c1cb0cda-738e-4a7d-be40-f26f77d4e47f"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:49.893Z",
+      "createdAt": "2026-10-19T15:08:47.777Z",
+      "updatedAt": "2026-10-19T15:08:50.082Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 12,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "d6f2337e-dc81-4492-b388-1b3eb38573d3"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:48.286Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:48.454Z"
+      },
+      "devRunning": false,
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "34a1c670-f5bf-40e3-8e03-d04fd47c59be",
+      "launchId": "6d9eda67-bb38-4933-8107-35980e74bb91",
+      "title": "term-attached",
+      "program": "pi",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/pi",
+      "args": [
+        "--session-id",
+        "793fa690-da4e-4fa6-aad7-23dabefbb6ca",
+        "--name",
+        "dh-term-attached-34a1c670"
+      ],
+      "cwd": "/private/tmp/deckhand-state-IRZCCU/worktrees/term-shared",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "attached",
+        "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/term-shared",
+        "branch": "term-shared",
+        "head": "395d17414df3dbc5f64d31f64dcaed9b59c92379",
+        "isMain": false,
+        "origin": "selected",
+        "creator": "picker",
+        "name": "term-shared",
+        "baseRef": "main",
+        "id": "ad45dd97-6cc0-4648-b273-4c0a25222916"
+      },
+      "requestedWorktreeMode": "existing",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:53.207Z",
+      "createdAt": "2026-10-19T15:08:50.593Z",
+      "updatedAt": "2026-10-19T15:08:54.130Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 15,
+      "agentSessionRef": {
+        "provider": "pi",
+        "kind": "id",
+        "value": "793fa690-da4e-4fa6-aad7-23dabefbb6ca"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:50.906Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:51.084Z"
+      },
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15,
+      "devRunning": false
+    },
+    {
+      "id": "7025be4e-570c-4187-b22f-8100fbd0dc59",
+      "launchId": "bd2103e4-e681-4b63-abf5-207cbc3ab910",
+      "title": "changes-a",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "6568c8d6-052b-45ea-809b-8345f7e515f0",
+        "--name",
+        "dh-changes-a-7025be4e",
+        "--settings",
+        "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'/home/user/.nvm/versions/node/v24.14.1/bin/node' '/src/deckhand/dist/cli.js' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+      ],
+      "cwd": "/private/tmp/deckhand-state-IRZCCU/worktrees/changes-a",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "managed",
+        "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/changes-a",
+        "branch": "changes-a",
+        "head": "395d17414df3dbc5f64d31f64dcaed9b59c92379",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "changes-a",
+        "baseRef": "main",
+        "id": "c53b47c4-e5fe-4f40-aaee-178d67a29c3b"
+      },
+      "requestedWorktreeMode": "new",
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-10-19T15:09:00.834Z",
+      "createdAt": "2026-10-19T15:08:54.416Z",
+      "updatedAt": "2026-10-19T15:09:00.834Z",
+      "lastPreview": "ready",
+      "sidebarOrder": 16,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "6568c8d6-052b-45ea-809b-8345f7e515f0"
+      },
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:54.788Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:54.935Z"
+      },
+      "exitReason": "stopped",
+      "exitCode": 0,
+      "exitSignal": 15
+    },
+    {
+      "id": "04e427b5-7d94-4035-a6bb-85c243f5a136",
+      "launchId": "50c23e10-ea53-4db8-9466-95ee364a262b",
+      "title": "merge-a / merge-b",
+      "program": "pi",
+      "command": "/tmp/deckhand-notes-KVhaQl/bin/pi",
+      "args": [],
+      "cwd": "/private/tmp/deckhand-notes-KVhaQl/worktrees/merge-a",
+      "repoRoot": "/tmp/deckhand-test-hmmSTY",
+      "launchCwd": "/private/tmp/deckhand-notes-KVhaQl/worktrees/merge-a",
+      "launchWorktreeRoot": "/private/tmp/deckhand-notes-KVhaQl/worktrees/merge-a",
+      "worktree": {
+        "mode": "none"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:38.197Z",
+      "createdAt": "2026-10-19T15:08:38.197Z",
+      "updatedAt": "2026-10-19T15:08:38.197Z",
+      "lastPreview": "",
+      "parentSessionId": "c5621039-4d38-4669-94ac-4ef1771a1f22",
+      "subSessionKind": "clean",
+      "sidebarOrder": 0
+    },
+    {
+      "id": "5bea5d69-2f39-40c8-b6f5-a1658522c8cf",
+      "launchId": "8b770d5f-0795-408f-8e87-ea07e7a1a88c",
+      "title": "before update",
+      "program": "claude",
+      "command": "/tmp/deckhand-agent-updates-6kRTGa/bin/claude",
+      "args": [
+        "--session-id",
+        "436cf24d-35c3-4397-95b3-3909f70320a6",
+        "--name",
+        "dh-before_update-5bea5d69-fresh-mvfe32xj"
+      ],
+      "cwd": "/tmp/deckhand-test-JEQq40",
+      "repoRoot": "/tmp/deckhand-test-JEQq40",
+      "launchCwd": "/tmp/deckhand-test-JEQq40",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-JEQq40",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:33.559Z",
+      "createdAt": "2026-10-19T15:08:32.614Z",
+      "updatedAt": "2026-10-19T15:08:33.559Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "436cf24d-35c3-4397-95b3-3909f70320a6"
+      },
+      "agentVersion": "1.0.0"
+    },
+    {
+      "id": "5bea5d69-2f39-40c8-b6f5-a1658522c8cf",
+      "launchId": "8b770d5f-0795-408f-8e87-ea07e7a1a88c",
+      "title": "before update",
+      "program": "claude",
+      "command": "/tmp/deckhand-agent-updates-6kRTGa/bin/claude",
+      "args": [
+        "--session-id",
+        "436cf24d-35c3-4397-95b3-3909f70320a6",
+        "--name",
+        "dh-before_update-5bea5d69-fresh-mvfe32xj"
+      ],
+      "cwd": "/tmp/deckhand-test-JEQq40",
+      "repoRoot": "/tmp/deckhand-test-JEQq40",
+      "launchCwd": "/tmp/deckhand-test-JEQq40",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-JEQq40",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:33.559Z",
+      "createdAt": "2026-10-19T15:08:32.614Z",
+      "updatedAt": "2026-10-19T15:08:33.681Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "436cf24d-35c3-4397-95b3-3909f70320a6"
+      },
+      "agentVersion": "1.0.1",
+      "pid": 10824,
+      "agentStartedAt": "2026-10-19T15:08:33.681Z"
+    },
+    {
+      "id": "ebda6136-9340-4e5d-96e1-c667b546188e",
+      "launchId": "8417da42-d859-48f3-a17a-8517807f9b56",
+      "title": "records-main-3",
+      "program": "claude",
+      "command": "/tmp/deckhand-state-IRZCCU/bin/claude",
+      "args": [
+        "--session-id",
+        "bd4a7e86-1e59-4c87-892c-a866f1c8af87",
+        "--name",
+        "dh-records-main-3-ebda6136"
+      ],
+      "cwd": "/private/tmp/deckhand-test-Gt8S8I",
+      "repoRoot": "/tmp/deckhand-test-Gt8S8I",
+      "launchCwd": "/tmp/deckhand-test-Gt8S8I",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-Gt8S8I",
+      "worktree": {
+        "mode": "attached",
+        "path": "/private/tmp/deckhand-test-Gt8S8I",
+        "branch": "main",
+        "head": "c7878e7d98559256181f27b0ba5383a33126409a",
+        "isMain": true,
+        "origin": "selected",
+        "creator": "picker",
+        "name": "main",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "existing",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:09:01.716Z",
+      "createdAt": "2026-10-19T15:09:01.716Z",
+      "updatedAt": "2026-10-19T15:09:01.750Z",
+      "lastPreview": "",
+      "sidebarOrder": 22,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "bd4a7e86-1e59-4c87-892c-a866f1c8af87"
+      }
+    },
+    {
+      "id": "5bea5d69-2f39-40c8-b6f5-a1658522c8cf",
+      "launchId": "8b770d5f-0795-408f-8e87-ea07e7a1a88c",
+      "title": "before update",
+      "program": "claude",
+      "command": "/tmp/deckhand-agent-updates-6kRTGa/bin/claude",
+      "args": [
+        "--session-id",
+        "436cf24d-35c3-4397-95b3-3909f70320a6",
+        "--name",
+        "dh-before_update-5bea5d69-fresh-mvfe32xj"
+      ],
+      "cwd": "/tmp/deckhand-test-JEQq40",
+      "repoRoot": "/tmp/deckhand-test-JEQq40",
+      "launchCwd": "/tmp/deckhand-test-JEQq40",
+      "launchWorktreeRoot": "/private/tmp/deckhand-test-JEQq40",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "main"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:33.559Z",
+      "createdAt": "2026-10-19T15:08:32.614Z",
+      "updatedAt": "2026-10-19T15:08:33.681Z",
+      "lastPreview": "",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "436cf24d-35c3-4397-95b3-3909f70320a6"
+      },
+      "agentVersion": "1.0.1",
+      "pid": 10824,
+      "agentStartedAt": "2026-10-19T15:08:33.681Z",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-10-19T15:08:33.811Z"
+      }
+    },
+    {
+      "id": "04e427b5-7d94-4035-a6bb-85c243f5a136",
+      "launchId": "50c23e10-ea53-4db8-9466-95ee364a262b",
+      "title": "merge-a / merge-b",
+      "program": "pi",
+      "command": "/tmp/deckhand-notes-KVhaQl/bin/pi",
+      "args": [
+        "--session-id",
+        "0a0ba395-d8bb-429f-864a-13ffdb6684c5",
+        "--name",
+        "dh-merge-a-merge-b-04e427b5"
+      ],
+      "cwd": "/private/tmp/deckhand-notes-KVhaQl/worktrees/merge-a",
+      "repoRoot": "/tmp/deckhand-test-hmmSTY",
+      "launchCwd": "/private/tmp/deckhand-notes-KVhaQl/worktrees/merge-a",
+      "launchWorktreeRoot": "/private/tmp/deckhand-notes-KVhaQl/worktrees/merge-a",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "merge-a",
+        "id": "c43e10a9-6ff8-4290-a63b-a495672f80d1"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "starting",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:38.197Z",
+      "createdAt": "2026-10-19T15:08:38.197Z",
+      "updatedAt": "2026-10-19T15:08:38.278Z",
+      "lastPreview": "",
+      "parentSessionId": "c5621039-4d38-4669-94ac-4ef1771a1f22",
+      "subSessionKind": "clean",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "pi",
+        "kind": "id",
+        "value": "0a0ba395-d8bb-429f-864a-13ffdb6684c5"
+      }
+    },
+    {
+      "id": "04e427b5-7d94-4035-a6bb-85c243f5a136",
+      "launchId": "50c23e10-ea53-4db8-9466-95ee364a262b",
+      "title": "merge-a / merge-b",
+      "program": "pi",
+      "command": "/tmp/deckhand-notes-KVhaQl/bin/pi",
+      "args": [
+        "--session-id",
+        "0a0ba395-d8bb-429f-864a-13ffdb6684c5",
+        "--name",
+        "dh-merge-a-merge-b-04e427b5"
+      ],
+      "cwd": "/private/tmp/deckhand-notes-KVhaQl/worktrees/merge-a",
+      "repoRoot": "/tmp/deckhand-test-hmmSTY",
+      "launchCwd": "/private/tmp/deckhand-notes-KVhaQl/worktrees/merge-a",
+      "launchWorktreeRoot": "/private/tmp/deckhand-notes-KVhaQl/worktrees/merge-a",
+      "worktree": {
+        "mode": "none",
+        "baseRef": "merge-a",
+        "id": "c43e10a9-6ff8-4290-a63b-a495672f80d1"
+      },
+      "requestedWorktreeMode": "none",
+      "status": "running",
+      "agentStatus": "unknown",
+      "agentStatusUpdatedAt": "2026-10-19T15:08:38.197Z",
+      "createdAt": "2026-10-19T15:08:38.197Z",
+      "updatedAt": "2026-10-19T15:08:38.446Z",
+      "lastPreview": "",
+      "parentSessionId": "c5621039-4d38-4669-94ac-4ef1771a1f22",
+      "subSessionKind": "clean",
+      "sidebarOrder": 0,
+      "agentSessionRef": {
+        "provider": "pi",
+        "kind": "id",
+        "value": "0a0ba395-d8bb-429f-864a-13ffdb6684c5"
+      },
+      "pid": 23499,
+      "agentVersion": "1.0.0",
+      "agentStartedAt": "2026-10-19T15:08:38.446Z"
+    }
+  ],
+  "worktrees": [
+    {
+      "id": "7d4c5c4a-d579-4b29-b7d8-b79e069c173a",
+      "path": "/private/tmp/deckhand-tasks-OjrqXk/worktrees/merge_me",
+      "createdAt": "2026-10-19T15:08:48.946Z",
+      "baseSha": "64285fc3064505802179e5c19dff743e2433058b",
+      "mergeDismissedTip": "0123456789abcdef0123456789abcdef01234567"
+    },
+    {
+      "id": "2acdd99f-f0f1-47bd-b608-7bfea472904f",
+      "path": "/private/tmp/deckhand-items-DuRhbT/worktrees/items_one",
+      "createdAt": "2026-10-19T15:08:33.689Z",
+      "baseSha": "0dc102099097914a5146f1fc8112ba218e7d2988"
+    },
+    {
+      "id": "b2c40076-fb2b-49e0-adbb-72eb792e994f",
+      "path": "/private/tmp/deckhand-notes-KVhaQl/worktrees/notes-a",
+      "createdAt": "2026-10-19T15:08:35.148Z",
+      "baseSha": "0dc102099097914a5146f1fc8112ba218e7d2988"
+    },
+    {
+      "id": "16a7d95b-3c5c-4a80-b238-b1be6a3a24a5",
+      "path": "/private/tmp/deckhand-worktrees-Ebmze5/worktrees/shipped_feature",
+      "createdAt": "2026-10-19T15:08:38.870Z",
+      "baseSha": "91f36027abd39313aa2873ff17430f485cd7a320",
+      "mergedAt": "2026-10-19T15:08:39.748Z",
+      "mergeTargetBranch": "main",
+      "mergeSourceRef": "shipped_feature",
+      "mergeSourceSha": "d19007710b9c2ee45ba57db6277ebc612b490b76",
+      "mergeDetected": "ancestor"
+    },
+    {
+      "id": "09b278aa-0b91-41ec-8e28-d3383536c7fe",
+      "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/unreviewed-setup",
+      "createdAt": "2026-10-19T15:08:39.840Z",
+      "baseSha": "c581f2e2a5e7c06b2875dca637c34f0fa6f7bdad",
+      "deletedAt": "2026-10-19T15:08:41.747Z"
+    },
+    {
+      "id": "191957a1-0e42-4a33-ba41-9dcfa656d22f",
+      "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/skipped-setup",
+      "createdAt": "2026-10-19T15:08:40.094Z",
+      "baseSha": "c581f2e2a5e7c06b2875dca637c34f0fa6f7bdad"
+    },
+    {
+      "id": "713bb6be-c98f-4768-802e-19285611d4b6",
+      "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/shared-feature",
+      "createdAt": "2026-10-19T15:08:41.827Z",
+      "baseSha": "0890fd03ef8fd733afa5456ff3e5730fb7b6f6e9"
+    },
+    {
+      "id": "4d6f1db2-2b17-4cbc-89d8-f32dfc37c49a",
+      "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/cancel-setup",
+      "createdAt": "2026-10-19T15:08:42.798Z",
+      "baseSha": "fd80295ad929125a2e40b1356c03acbb50e0fdbc"
+    },
+    {
+      "id": "518e3067-c04d-416c-91e2-f7ce78baa81d",
+      "path": "/private/tmp/deckhand-state-IRZCCU/custom/deckhand-test-Gt8S8I/linked-wt",
+      "createdAt": "2026-10-19T15:08:43.293Z",
+      "baseSha": "395d17414df3dbc5f64d31f64dcaed9b59c92379",
+      "deletedAt": "2026-10-19T15:08:44.394Z"
+    },
+    {
+      "id": "c1cb0cda-738e-4a7d-be40-f26f77d4e47f",
+      "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/ws-shared",
+      "createdAt": "2026-10-19T15:08:47.777Z",
+      "baseSha": "395d17414df3dbc5f64d31f64dcaed9b59c92379",
+      "deletedAt": "2026-10-19T15:08:50.082Z"
+    },
+    {
+      "id": "ad45dd97-6cc0-4648-b273-4c0a25222916",
+      "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/term-shared",
+      "createdAt": "2026-10-19T15:08:50.240Z",
+      "baseSha": "395d17414df3dbc5f64d31f64dcaed9b59c92379",
+      "deletedAt": "2026-10-19T15:08:54.130Z"
+    },
+    {
+      "id": "c53b47c4-e5fe-4f40-aaee-178d67a29c3b",
+      "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/changes-a",
+      "createdAt": "2026-10-19T15:08:54.416Z",
+      "baseSha": "395d17414df3dbc5f64d31f64dcaed9b59c92379"
+    },
+    {
+      "id": "f9166f61-1aa0-44d2-95e0-dfb829040a9d",
+      "path": "/private/tmp/deckhand-state-IRZCCU/worktrees/records-a",
+      "createdAt": "2026-10-19T15:09:01.300Z",
+      "baseSha": "395d17414df3dbc5f64d31f64dcaed9b59c92379"
+    }
+  ]
+}

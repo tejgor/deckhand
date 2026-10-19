@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Discard unsaved configuration?                                                                                                 │
+│ <TMP>/demo/deckhand.json                                                                                                       │
+│                                                                                                                                │
+│ Your draft has unsaved changes. Discarding closes this draft without writing it and returns to Settings; earlier saves are not │
+│  undone.                                                                                                                       │
+│                                                                                                                                │
+│ Enter discards the draft. Escape returns to editing.                                                                           │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│ enter discard · esc keep editing                                                                                               │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

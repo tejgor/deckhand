@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭─────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions            5 · ! 2 │ │ Deleting the worktree would lose (typing DELETE overrides):                                    │
+│  1 ? alpha                ✶ │ │ · 1 untracked file(s)                                                                          │
+│  2 ▾ ● beta               ✶ │ │   Files (M changed · ? untracked · ! ignored):                                                 │
+│  3   ↳ ◆ gamma            ✶ │ │     ? draft.txt                                                                                │
+│  4   ⑂ ● delta            ✶ │ │ Kill "eps"?                                                                                    │
+│› 5 ● eps                  ✶ │ │ <TMP>/home/worktrees/eps                                                                       │
+│                             │ │                                                                                                │
+│                             │ │ ❯ Kill only, keep worktree (restartable)                                                       │
+│                             │ │   Kill and delete worktree (not restartable)                                                   │
+│                             │ │   Kill, delete worktree and branch (not restartable)                                           │
+│                             │ │   Cancel                                                                                       │
+│                             │ │                                                                                                │
+│                             │ │ enter choose • esc cancel                                                                      │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│ ─────────────────────────── │ │                                                                                                │
+│ eps                         │ │                                                                                                │
+│ ✶ claude · idle · now       │ │                                                                                                │
+│ ⎇ eps                       │ │                                                                                                │
+╰─────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

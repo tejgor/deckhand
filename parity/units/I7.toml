@@ -21,4 +21,19 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"settingsInfo.ts:SettingsInfo" = "deckhand_protocol::data::SettingsInfo"
+"settingsInfo.ts:CodexHookStatus" = "deckhand_protocol::data::CodexHookStatus"
+"settingsInfo.ts:codexHookCommands" = "deckhand_sys::settings_info::codex_hook_commands"
+"settingsInfo.ts:codexHookState" = "deckhand_sys::settings_info::codex_hook_state"
+"settingsInfo.ts:readSettingsInfo" = "deckhand_sys::settings_info::read_settings_info"
+"settingsInfo.ts:CandidateKind" = "deckhand_protocol::data::CandidateKind"
+"settingsInfo.ts:WorktreeCandidate" = "deckhand_protocol::data::WorktreeCandidate"
+"settingsInfo.ts:WorktreeCandidates" = "deckhand_protocol::data::WorktreeCandidates"
+"settingsInfo.ts:classifyCandidate" = "deckhand_sys::settings_info::classify_candidate"
+"settingsInfo.ts:readWorktreeCandidates" = "deckhand_sys::settings_info::read_worktree_candidates"
+"settingsInfo.ts:readGlobalLinkCandidates" = "deckhand_sys::settings_info::read_global_link_candidates"
+"settingsInfo.ts:readCandidateSizes" = "deckhand_sys::settings_info::read_candidate_sizes"
+"sessionFeatures.ts:exportHandoff" = "deckhand_sys::session_features::export_handoff"
+"agentSignals.ts:hookCommand" = "deckhand_sys::agent_path::hook_command"
+"agentSignals.ts:hookSettings" = "deckhand_sys::agent_path::hook_settings"
+"agentSignals.ts:integrationArgs" = "deckhand_sys::agent_path::integration_args"

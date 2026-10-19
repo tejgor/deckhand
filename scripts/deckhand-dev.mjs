@@ -57,7 +57,7 @@ async function populateSandbox(cwd, final) {
 }
 export async function main(args = process.argv.slice(2)) {
 	if (args.includes('--help')) {
-		console.log('Usage: node scripts/deckhand-dev.mjs [--source] [--sandbox] [status|stop]\n\nBuilt CLI by default; --source uses tsx. State: ~/.deckhand-dev, override with DECKHAND_DEV_HOME.\n--sandbox opens a disposable Git repo. No npm link/global install required.');
+		console.log('Usage: node scripts/deckhand-dev.mjs [--source] [--sandbox] [status|stop]\n\nBuilt CLI by default; --source uses tsx. State: ~/.deckhand-dev, override with DECKHAND_DEV_HOME.\n--sandbox opens a disposable Git repo. No npm link/global install required.\nDECKHAND_TEST_BIN=<path> runs that deckhand executable instead (e.g. target/debug/deckhand).');
 		return;
 	}
 	const home = await isolatedHome();
@@ -66,12 +66,16 @@ export async function main(args = process.argv.slice(2)) {
 	const cwd = args.includes('--sandbox') ? await createSandbox(home) : process.cwd();
 	const forwarded = args.filter(arg => !['--source', '--sandbox'].includes(arg));
 	if (['setup', 'doctor'].includes(forwarded[0]) && !forwarded.includes('--check')) throw new Error('The isolated launcher does not install global agent tools. Use setup --check for read-only inspection.');
-	const entry = path.join(project, source ? 'src/cli.ts' : 'dist/cli.js');
-	try { await fs.access(entry); } catch { throw new Error('Build this checkout first: npm run build'); }
+	// DECKHAND_TEST_BIN (absolute, or relative to this checkout) runs that executable in place of node + the CLI entry,
+	// e.g. a native build under test; --source then only sets DECKHAND_DEV.
+	const testBin = process.env.DECKHAND_TEST_BIN ? path.resolve(project, process.env.DECKHAND_TEST_BIN) : undefined;
+	const entry = testBin ?? path.join(project, source ? 'src/cli.ts' : 'dist/cli.js');
+	try { await fs.access(entry); } catch { throw new Error(testBin ? `DECKHAND_TEST_BIN not found: ${testBin}` : 'Build this checkout first: npm run build'); }
 	const env = {...process.env, DECKHAND_HOME: home, DECKHAND_CHANNEL: 'dev', DECKHAND_DEV: source ? '1' : '0'};
 	for (const key of ['DECKHAND_SESSION_ID', 'DECKHAND_LAUNCH_ID', 'DECKHAND_HOOK_TOKEN']) delete env[key];
 	console.error(`Deckhand dev · isolated state: ${home}\nWorkspace: ${cwd}`);
-	const child = spawn(process.execPath, [...(source ? ['--import', import.meta.resolve('tsx')] : []), entry, ...forwarded], {cwd, env, stdio: 'inherit'});
+	const [command, commandArgs] = testBin ? [testBin, forwarded] : [process.execPath, [...(source ? ['--import', import.meta.resolve('tsx')] : []), entry, ...forwarded]];
+	const child = spawn(command, commandArgs, {cwd, env, stdio: 'inherit'});
 	for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));
 	const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', code => resolve(code ?? 1)); });
 	process.exitCode = code;

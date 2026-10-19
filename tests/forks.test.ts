@@ -3,11 +3,10 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {request} from '../src/client.js';
 import type {ClientRequest, SessionRecord} from '../src/types.js';
-import {cli, repo, waitFor, withEnv, fakeAgent, withoutHooks, stop} from './helpers.js';
+import {repo, waitFor, withEnv, fakeAgent, withoutHooks, stop, bin as deckhandBin, spawnCli} from './helpers.js';
 import {loadState, saveState} from '../src/storage.js';
 
 // Forked sub-sessions against a real daemon with fake agents (its own daemon, so it runs beside daemonFeatures).
@@ -17,8 +16,8 @@ test('forked sub-sessions with fake agents', {timeout: 120000}, async t => {
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const provider of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, provider), fakeAgent, {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
-	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli};
-	const launch = () => { const child = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); child.stderr?.on('data', () => {}); return child; };
+	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: deckhandBin};
+	const launch = () => { const child = spawnCli(['--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); child.stderr?.on('data', () => {}); return child; };
 	let daemon = launch();
 	t.after(async () => { await stop(daemon); await fs.rm(root, {recursive: true, force: true}); await fs.rm(home, {recursive: true, force: true}); });
 	const call = <T>(message: Omit<Extract<ClientRequest, {requestId: string}>, 'requestId'>) => request<T>({...message, requestId: randomUUID()} as Extract<ClientRequest, {requestId: string}>);

@@ -21,4 +21,17 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"storage.ts:InkState" = "deckhand_protocol::records::StateFile"
+"storage.ts:AppConfig" = "deckhand_protocol::records::AppConfig"
+"storage.ts:ensureConfigDir" = "deckhand_sys::storage::ensure_config_dir"
+"storage.ts:loadState" = "deckhand_sys::storage::load_state"
+"storage.ts:saveState" = "deckhand_sys::storage::save_state"
+"storage.ts:markAllNonExitedSessionsExited" = "deckhand_sys::storage::mark_all_non_exited_sessions_exited"
+"storage.ts:sortSessionsNewestFirst" = "deckhand_sys::storage::sort_sessions_newest_first"
+"storage.ts:loadAppConfig" = "deckhand_sys::storage::load_app_config"
+"storage.ts:updateAppConfig" = "deckhand_sys::storage::update_app_config"
+"storage.ts:stateFileDisplayPath" = "deckhand_sys::storage::state_file_display_path"
+"uiState.ts:UiState" = "deckhand_protocol::records::UiState"
+"uiState.ts:normalizeUiState" = "deckhand_protocol::records::UiState::normalize"
+"uiState.ts:loadUiState" = "deckhand_sys::ui_state::load_ui_state"
+"uiState.ts:saveUiState" = "deckhand_sys::ui_state::save_ui_state"

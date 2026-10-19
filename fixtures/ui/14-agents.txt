@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Agents                                                                                                                         │
+│ Running sessions keep their version until restarted (↑ in the sidebar).                                                        │
+│                                                                                                                                │
+│ ❯ Claude    1.0.0     latest ?                                                                                  latest unknown │
+│   Pi        1.0.0     latest ?                                                                                  latest unknown │
+│   Codex     1.0.0     latest ?                                                                                  latest unknown │
+│                                                                                                                                │
+│ ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Claude · latest unknown                                                                                                    │ │
+│ │ Installed  1.0.0  …/bin/claude                                                                                             │ │
+│ │ Latest     unknown  npm @anthropic-ai/claude-code · checked just now                                                       │ │
+│ │ Update     claude update                                                                                                   │ │
+│ │ Sessions   none running                                                                                                    │ │
+│ │ latest unknown: not listed in DECKHAND_AGENT_LATEST                                                                        │ │
+│ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│ enter update • r re-check • esc back                                                                                           │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

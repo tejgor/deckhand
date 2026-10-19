@@ -68,12 +68,12 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	assert.match(await tasksFile(), /- \[ \] Follow up on review <!-- dh:t=[0-9a-f]{8} added=/);
 	// tab: every note, by worktree; f: only open checklist items (the step, not the ↗ line).
 	press('\t'); await screen('✎ Notes'); await screen('Worktree note'); await screen('↗ Follow up on review · in Tasks');
-	press('f'); await screen('☐ Add tests');
+	press('f'); await screen('f every note'); await screen('☐ Add tests');
 	press('f'); await screen('↗ Follow up on review · in Tasks');
 	press('\t'); await screen('☐ Tasks');
 	// w: the backlog and the way back to its note come first, then the worktrees (Tab: main-checkout sessions); j/k move,
 	// / searches (letters are text only then). ⎇ write has its task, so there it would become a step.
-	press('G'); await screen('Follow up on review');
+	press('G'); await screen('› ○ Follow up on review');
 	press('w'); await screen('Move “Follow up on review” to'); await screen('↩ Back to its note'); await screen('› ⎇ write'); await screen('→ a step in its note');
 	press('\t'); await screen('No sessions in the main checkout');
 	press('\t'); await screen('› ⎇ write');
@@ -105,7 +105,9 @@ test('Tasks board: b opens it, a adds a task, n starts a session from it (base b
 	// session is selected (not the first listed one, or none).
 	press('\x1b'); await screen('enter edit notes');
 	press('f'); press('e'); await screen('No sessions match');
-	press('b'); press('g'); await screen('o session');
+	// One key per wait (a g read before the board is open goes to the session list), and '• o session' (the hint)
+	// because the sidebar beside the board says "No sessions match", which contains "o session".
+	press('b'); await screen('☐ Tasks · sandbox'); press('g'); await screen('• o session');
 	press('o'); await screen('enter edit notes');
 
 	// Keymap: [ goes to the previous tab (Notes → Dev), x asks before stopping, Esc backs out of it, Space marks done.

@@ -1,0 +1,44 @@
+00 a somewhat longer line [32mwrapped-[0m
+01 short
+02 short
+03 a somewhat longer line
+04 short [32mwrapped-wrapped-wrapped-wrapped-wrapped-[0m
+05 short
+06 a somewhat longer line
+07 short
+08 short [32mwrapped-wrapped-wrapped-wrapped-wrapped-wrapped-wrapped-wrapped-wrapped-[0m
+09 a somewhat longer line
+10 short
+11 short
+12 a somewhat longer line [32mwrapped-wrapped-wrapped-wrapped-[0m
+13 short
+14 short
+15 a somewhat longer line
+16 short [32mwrapped-wrapped-wrapped-wrapped-wrapped-wrapped-wrapped-wrapped-[0m
+17 short
+18 a somewhat longer line
+19 short
+20 short [32mwrapped-wrapped-wrapped-[0m
+21 a somewhat longer line
+22 short
+23 short
+24 a somewhat longer line [32mwrapped-wrapped-wrapped-wrapped-wrapped-wrapped-wrapped-[0m
+25 short
+26 short
+27 a somewhat longer line
+28 short [32mwrapped-wrapped-[0m
+29 short
+30 a somewhat longer line
+31 short
+32 short [32mwrapped-wrapped-wrapped-wrapped-wrapped-wrapped-[0m
+33 a somewhat longer line
+34 short
+35 short
+36 a somewhat longer line [32mwrapped-[0m
+37 short
+38 short
+39 a somewhat longer line
+$ [?1049h[H[2Jalt screen
+second line[?1049lecho done
+done
+$ 

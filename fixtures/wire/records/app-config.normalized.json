@@ -1,0 +1,1 @@
+{"dev_command":"npm run dev","attach_scroll_sensitivity":1.5,"trustedProjects":{"/old/repo":["abc123"],"/repo":["f1","f0"]},"agent_hooks":true,"notifications":false,"defaults":{"defaultAgent":"pi","actions":{"test":"npm test"}}}

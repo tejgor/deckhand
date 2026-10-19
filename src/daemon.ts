@@ -5,6 +5,7 @@ import {execFile, fork, spawn, type ChildProcess} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import {StringDecoder} from 'node:string_decoder';
+import {appendFileSync} from 'node:fs';
 import {getConfigDir, getCliEntryPath, getDaemonLogPath, getDaemonPidPath, getSocketPath, getWorkerDir, getWorkerLogPath, getWorkerPidPath} from './paths.js';
 import {abortMerge, branchCreationCommit, createWorktreeForSession, currentBranch, deleteLocalBranch, findGitCommonDir, findRepoRoot, headSha, listWorktrees, mergeWorktreeIntoCurrent, optionalGit, listLocalBranches, pruneWorktrees, removeWorktree, resolveDefaultBranch, resolveRepoContext, sanitizeWorktreeName, type ConflictedMerge} from './git.js';
 import {ensureNodePtyReady} from './nodePty.js';
@@ -196,8 +197,18 @@ function startsOnView(pane: WorkspacePane): boolean {
 	return pane === 'terminal' || pane === 'git';
 }
 
+// DECKHAND_WIRE_LOG=<dir> (test/porting aid, off by default): every message sent or received is appended to
+// <dir>/daemon-<pid>.jsonl as {dir, msg} (IPC lines also name the worker kind) so the Rust port can replay the corpus.
+function wireLog(dir: 'c2d' | 'd2c' | 'd2w' | 'w2d', msg: unknown, worker?: 'session' | 'workspace'): void {
+	const logDir = process.env.DECKHAND_WIRE_LOG;
+	if (!logDir) return;
+	try { appendFileSync(path.join(logDir, `daemon-${process.pid}.jsonl`), `${JSON.stringify(worker ? {dir, worker, msg} : {dir, msg})}\n`); } catch {}
+}
+const channelKind = (worker: WorkerChannel): 'session' | 'workspace' => 'key' in worker ? 'workspace' : 'session';
+
 function sendMessage(socket: net.Socket, message: ServerMessage): void {
 	if (!socket.destroyed) {
+		wireLog('d2c', message);
 		socket.write(`${JSON.stringify(message)}\n`);
 	}
 }
@@ -610,7 +621,7 @@ export class InkDaemon {
 				worker.process.once('exit', () => { clearTimeout(timer); resolve(); });
 			});
 			try {
-				if (worker.process.connected) worker.process.send?.({type: 'kill', requestId: randomUUID(), force: true});
+				if (worker.process.connected) { const kill = {type: 'kill', requestId: randomUUID(), force: true}; wireLog('d2w', kill, 'session'); worker.process.send?.(kill); }
 			} catch {
 				// Fall through to direct worker termination.
 			}
@@ -699,6 +710,7 @@ export class InkDaemon {
 				let message: ClientRequest;
 				try { message = JSON.parse(line) as ClientRequest; if (!message || typeof message.type !== 'string') throw new Error('invalid request'); }
 				catch { void this.log('closing client after malformed request'); socket.destroy(); return; }
+				wireLog('c2d', message);
 				void this.handleRequest(socket, message, sessionId => {
 					attachedSessionId = sessionId;
 				});
@@ -1382,6 +1394,7 @@ export class InkDaemon {
 		child.stdout?.on('data', chunk => void fs.appendFile(logPath, chunk).catch(() => {}));
 		child.stderr?.on('data', chunk => void fs.appendFile(logPath, chunk).catch(() => {}));
 		// A failure handling one event is logged: an unhandled rejection would stop the daemon and every agent with it.
+		child.on('message', message => wireLog('w2d', message, 'session'));
 		child.on('message', message => void this.handleWorkerMessage(session.id, message as WorkerEvent, worker).catch(error => this.log(`handling a worker event of ${session.id} failed: ${errorMessage(error)}`)));
 		child.on('exit', () => {
 			if (this.workers.get(session.id) === worker) void this.handleWorkerProcessExit(session.id);
@@ -1416,7 +1429,7 @@ export class InkDaemon {
 	}
 
 	private stopWorker(worker: WorkerRuntime): void {
-		try { if (worker.process.connected) worker.process.send?.({type: 'kill', requestId: randomUUID(), force: true}); } catch {}
+		try { if (worker.process.connected) { const kill = {type: 'kill', requestId: randomUUID(), force: true}; wireLog('d2w', kill, 'session'); worker.process.send?.(kill); } } catch {}
 		setTimeout(() => { if (worker.process.exitCode === null && worker.process.signalCode === null) { try { worker.process.kill('SIGKILL'); } catch {} } }, WORKER_KILL_GRACE_MS).unref?.();
 	}
 
@@ -1438,7 +1451,9 @@ export class InkDaemon {
 			}, WORKER_REQUEST_TIMEOUT_MS);
 			timer.unref?.();
 			worker.pending.set(requestId, {resolve: value => resolve(value as T), reject, timer});
-			worker.process.send?.({...payload, requestId}, error => {
+			const message = {...payload, requestId};
+			wireLog('d2w', message, channelKind(worker));
+			worker.process.send?.(message, error => {
 				if (error) {
 					const pending = worker.pending.get(requestId);
 					if (pending) clearTimeout(pending.timer);
@@ -1456,6 +1471,7 @@ export class InkDaemon {
 
 	private sendChannelEvent(worker: WorkerChannel, payload: Record<string, unknown>): void {
 		if (!worker.exited && worker.process.connected) {
+			wireLog('d2w', payload, channelKind(worker));
 			worker.process.send?.(payload);
 		}
 	}
@@ -2155,6 +2171,7 @@ export class InkDaemon {
 		const logPath = getWorkerLogPath(id);
 		child.stdout?.on('data', chunk => void fs.appendFile(logPath, chunk).catch(() => {}));
 		child.stderr?.on('data', chunk => void fs.appendFile(logPath, chunk).catch(() => {}));
+		child.on('message', message => wireLog('w2d', message, 'workspace'));
 		child.on('message', message => void this.handleWorkspaceMessage(workspace, message as WorkspaceEvent));
 		child.on('exit', () => void this.handleWorkspaceExit(workspace));
 		this.workspaces.set(key, workspace);

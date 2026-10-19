@@ -30,6 +30,7 @@ libc = { workspace = true }
 crossterm = { workspace = true }
 ratatui = { workspace = true }
 thiserror = { workspace = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
 deckhand-parity = { workspace = true }

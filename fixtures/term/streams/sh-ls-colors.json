@@ -1,0 +1,106 @@
+{
+  "name": "sh-ls-colors",
+  "source": "sh",
+  "description": "/bin/sh: ls with colours (CLICOLOR_FORCE) over directories, executables, symlinks, hidden and spaced names.",
+  "cols": 80,
+  "rows": 24,
+  "chunks": [
+    10,
+    7,
+    252,
+    2,
+    6,
+    7,
+    184,
+    84,
+    2,
+    13,
+    259,
+    2,
+    7,
+    11,
+    2,
+    20,
+    82,
+    2,
+    4,
+    2,
+    6
+  ],
+  "events": [
+    {
+      "at": 271,
+      "type": "checkpoint",
+      "label": "ls"
+    },
+    {
+      "at": 554,
+      "type": "checkpoint",
+      "label": "ls-1"
+    },
+    {
+      "at": 828,
+      "type": "checkpoint",
+      "label": "ls-F"
+    },
+    {
+      "at": 848,
+      "type": "checkpoint",
+      "label": "cleared"
+    }
+  ],
+  "recording": {
+    "command": "/bin/sh -i",
+    "environment": {
+      "HOME": "$SANDBOX/home",
+      "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+      "TERM": "xterm-256color",
+      "LANG": "en_US.UTF-8",
+      "LC_ALL": "en_US.UTF-8",
+      "SHELL": "/bin/sh",
+      "PS1": "$ ",
+      "PS2": "> ",
+      "TZ": "UTC",
+      "BASH_SILENCE_DEPRECATION_WARNING": "1",
+      "XDG_CONFIG_HOME": "$SANDBOX/home/.config",
+      "XDG_STATE_HOME": "$SANDBOX/home/.local/state",
+      "XDG_CACHE_HOME": "$SANDBOX/home/.cache",
+      "XDG_DATA_HOME": "$SANDBOX/home/.local/share",
+      "GIT_CONFIG_GLOBAL": "/dev/null",
+      "GIT_CONFIG_NOSYSTEM": "1",
+      "CLICOLOR": "1",
+      "CLICOLOR_FORCE": "1",
+      "LSCOLORS": "ExGxFxdaCxDaDahbadacec"
+    },
+    "steps": [
+      {
+        "send": "ls -G\r"
+      },
+      {
+        "checkpoint": "ls"
+      },
+      {
+        "send": "ls -G -a -1\r"
+      },
+      {
+        "checkpoint": "ls-1"
+      },
+      {
+        "send": "ls -G -F -C\r"
+      },
+      {
+        "checkpoint": "ls-F"
+      },
+      {
+        "send": "clear\r"
+      },
+      {
+        "checkpoint": "cleared"
+      },
+      {
+        "send": "ls -G -1 | head -3\r"
+      }
+    ],
+    "exit": "exit\r"
+  }
+}

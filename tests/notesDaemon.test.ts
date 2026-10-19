@@ -5,12 +5,11 @@ import path from 'node:path';
 import os from 'node:os';
 import net from 'node:net';
 import {once} from 'node:events';
-import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {attachJsonParser, request, writeMessage} from '../src/client.js';
 import {getSocketPath} from '../src/paths.js';
 import type {ClientRequest, NoteSaveResult, ServerMessage, SessionRecord} from '../src/types.js';
-import {cli, repo, waitFor, withEnv, fakeAgent, stop} from './helpers.js';
+import {repo, waitFor, withEnv, fakeAgent, stop, bin as deckhandBin, spawnCli} from './helpers.js';
 import {loadState, saveState} from '../src/storage.js';
 
 // Notes against a real daemon with fake agents (its own daemon and state directory, so it runs beside the others).
@@ -20,8 +19,8 @@ test('notes are Markdown files: legacy migration, revision-checked saves, editor
 	const bin = path.join(home, 'bin'); await fs.mkdir(bin);
 	for (const provider of ['claude', 'pi', 'codex']) await fs.writeFile(path.join(bin, provider), fakeAgent, {mode: 0o755});
 	withEnv(t, {DECKHAND_HOME: home});
-	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: cli};
-	const launch = () => { const child = spawn(process.execPath, [cli, '--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); child.stderr?.on('data', () => {}); return child; };
+	const env = {...process.env, HOME: home, DECKHAND_HOME: home, DECKHAND_DEV: '0', DECKHAND_AGENT_LATEST: '{}', PATH: `${bin}${path.delimiter}${process.env.PATH}`, SHELL: '/bin/sh', TEST_CLI: deckhandBin};
+	const launch = () => { const child = spawnCli(['--daemon'], {cwd: root, env, stdio: ['ignore', 'ignore', 'pipe']}); child.stderr?.on('data', () => {}); return child; };
 	const call = <T>(message: Omit<Extract<ClientRequest, {requestId: string}>, 'requestId'>) => request<T>({...message, requestId: randomUUID()} as Extract<ClientRequest, {requestId: string}>);
 	const ready = () => waitFor(async () => { try { return await call<{ok: boolean}>({type: 'ping'}); } catch { return {ok: false}; } }, result => result.ok);
 	const state = (id: string) => call<SessionRecord[]>({type: 'list'}).then(items => items.find(item => item.id === id)!);

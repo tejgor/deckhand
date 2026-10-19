@@ -21,4 +21,5 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"worktreesFlow.tsx:WorktreesFlow" = "deckhand_ui::flows::worktrees::WorktreesFlow"
+"worktreesFlow.tsx:useWorktreesFlow" = "deckhand_ui::flows::worktrees::WorktreesFlow"
