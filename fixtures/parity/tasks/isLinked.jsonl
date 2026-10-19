@@ -1,0 +1,9 @@
+{"args":[{"meta":{"done":"2026-10-01","auto":"merge"}}],"ret":false}
+{"args":[{"meta":{"s":""}}],"ret":false}
+{"args":[{"meta":{"s":"s1"}}],"ret":true}
+{"args":[{"meta":{"t":"x"}}],"ret":false}
+{"args":[{"meta":{"wt":"","s":"s"}}],"ret":true}
+{"args":[{"meta":{"wt":""}}],"ret":false}
+{"args":[{"meta":{"wt":"w1","s":"s1"}}],"ret":true}
+{"args":[{"meta":{"wt":"w1"}}],"ret":true}
+{"args":[{"meta":{}}],"ret":false}

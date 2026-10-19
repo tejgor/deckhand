@@ -1,0 +1,50 @@
+{"args":["x"],"throws":"Unknown task change"}
+{"args":[5],"throws":"Unknown task change"}
+{"args":[[]],"throws":"Unknown task change"}
+{"args":[null],"throws":"Unknown task change"}
+{"args":[{"$u":1}],"throws":"Unknown task change"}
+{"args":[{"type":"abandon-linked"}],"throws":"Unknown task change"}
+{"args":[{"type":"add","title":"T","body":"B"}],"ret":{"type":"add","title":"T","body":"B"}}
+{"args":[{"type":"add","title":"T","body":5}],"ret":{"type":"add","title":"T"}}
+{"args":[{"type":"add","title":"T","id":"forged","from":"x"}],"ret":{"type":"add","title":"T"}}
+{"args":[{"type":"add","title":"T","link":"wt:a"}],"throws":"Invalid task change: link"}
+{"args":[{"type":"add","title":"T","link":null}],"throws":"Invalid task change: link"}
+{"args":[{"type":"add","title":"T","link":{"s":"s1"}}],"ret":{"type":"add","title":"T","link":{"s":"s1"}}}
+{"args":[{"type":"add","title":"T","link":{"wt":""}}],"throws":"Invalid task change: link"}
+{"args":[{"type":"add","title":"T","link":{"wt":"a","s":"b"}}],"throws":"Invalid task change: link"}
+{"args":[{"type":"add","title":"T","link":{"wt":"w1"}}],"ret":{"type":"add","title":"T","link":{"wt":"w1"}}}
+{"args":[{"type":"add","title":"T","link":{"wt":1}}],"throws":"Invalid task change: link"}
+{"args":[{"type":"add","title":"T","link":{}}],"throws":"Invalid task change: link"}
+{"args":[{"type":"add","title":"T"}],"ret":{"type":"add","title":"T"}}
+{"args":[{"type":"add","title":"x","link":{"wt":"w1"}}],"ret":{"type":"add","title":"x","link":{"wt":"w1"}}}
+{"args":[{"type":"add","title":5}],"throws":"Invalid task change: title"}
+{"args":[{"type":"add"}],"throws":"Invalid task change: title"}
+{"args":[{"type":"assign","id":"a","link":{"s":"s"}}],"ret":{"type":"assign","id":"a","link":{"s":"s"}}}
+{"args":[{"type":"assign","id":"a","link":{"s":"s1"}}],"ret":{"type":"assign","id":"a","link":{"s":"s1"}}}
+{"args":[{"type":"assign","id":"a","link":{"wt":""}}],"throws":"Invalid task change: link"}
+{"args":[{"type":"assign","id":"a","link":{"wt":"w","s":"s"}}],"throws":"Invalid task change: link"}
+{"args":[{"type":"assign","id":"a","link":{"wt":"w"}}],"ret":{"type":"assign","id":"a","link":{"wt":"w"}}}
+{"args":[{"type":"assign","id":"a","link":{}}],"throws":"Invalid task change: link"}
+{"args":[{"type":"assign","id":"a"}],"ret":{"type":"assign","id":"a"}}
+{"args":[{"type":"assign","id":1}],"throws":"Invalid task change: id"}
+{"args":[{"type":"assign"}],"throws":"Invalid task change: id"}
+{"args":[{"type":"edit","id":"a","body":"b"}],"throws":"Invalid task change: title"}
+{"args":[{"type":"edit","id":"a","title":"t","body":"b"}],"ret":{"type":"edit","id":"a","title":"t","body":"b"}}
+{"args":[{"type":"edit","id":"a","title":"t"}],"throws":"Invalid task change: body"}
+{"args":[{"type":"edit","title":"t","body":"b"}],"throws":"Invalid task change: id"}
+{"args":[{"type":"link","id":"a","link":{"wt":"w"}}],"throws":"Unknown task change"}
+{"args":[{"type":"move","id":"a","target":"b","after":"yes"}],"ret":{"type":"move","id":"a","target":"b"}}
+{"args":[{"type":"move","id":"a","target":"b","after":false}],"ret":{"type":"move","id":"a","target":"b"}}
+{"args":[{"type":"move","id":"a","target":"b","after":true}],"ret":{"type":"move","id":"a","target":"b","after":true}}
+{"args":[{"type":"move","id":"a","target":"b"}],"ret":{"type":"move","id":"a","target":"b"}}
+{"args":[{"type":"move","id":"a"}],"throws":"Invalid task change: target"}
+{"args":[{"type":"nope"}],"throws":"Unknown task change"}
+{"args":[{"type":"remove","id":""}],"ret":{"type":"remove","id":""}}
+{"args":[{"type":"remove","id":"a"}],"ret":{"type":"remove","id":"a"}}
+{"args":[{"type":"tick-linked","link":{"wt":"w"},"auto":"merge"}],"throws":"Unknown task change"}
+{"args":[{"type":"tick-linked","link":{"wt":"w"}}],"throws":"Unknown task change"}
+{"args":[{"type":"toggle","id":"a","extra":1}],"ret":{"type":"toggle","id":"a"}}
+{"args":[{"type":"toggle","id":"a"}],"ret":{"type":"toggle","id":"a"}}
+{"args":[{"type":"toggle"}],"throws":"Invalid task change: id"}
+{"args":[{"type":5}],"throws":"Unknown task change"}
+{"args":[{}],"throws":"Unknown task change"}
