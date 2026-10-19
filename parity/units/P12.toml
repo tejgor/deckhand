@@ -10,7 +10,35 @@ ts_tests = ["tests/help.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = [
+	"detailTexts/cleanupOverrideText",
+	"detailTexts/createPrConfirmText",
+	"detailTexts/projectActions",
+	"detailTexts/trustReviewText",
+	"detailTexts/workspaceSummaryText",
+	"help/HELP_TOPICS",
+	"menu/SELECTION_MARKER",
+	"menu/fitHint",
+	"menu/fitParts",
+	"menu/menuDetailsRows",
+	"menu/menuWindowStart",
+	"menu/scrolledListTop",
+	"menu/wrapWords",
+	"ui/DISPLAY_CONTROL_PATTERN",
+	"ui/THEME",
+	"ui/compactPath",
+	"ui/compactPathHome",
+	"ui/displaySessionTitle",
+	"ui/errorMessage",
+	"ui/fitLines",
+	"ui/plainTerminalText",
+	"ui/programGlyph",
+	"ui/statusColor",
+	"ui/statusGlyph",
+	"ui/statusLabel",
+	"ui/stripTerminalControls",
+	"ui/truncate",
+]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
