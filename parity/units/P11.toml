@@ -28,7 +28,10 @@ utf16_fields = {
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
-allowlist = []
+allowlist = [
+  { fixture = "textEditor/wordLeft", case = 95, reason = "mutated cursor -1: a negative UTF-16 offset has no byte-offset (usize) form in the Rust API" },
+  { fixture = "textEditor/wordRight", case = 94, reason = "mutated cursor -1: a negative UTF-16 offset has no byte-offset (usize) form in the Rust API" },
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
