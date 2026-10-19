@@ -18,6 +18,9 @@ libc = { workspace = true }
 alacritty_terminal = { workspace = true }
 unicode-width = { workspace = true }
 thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
 
 [dev-dependencies]
 deckhand-parity = { workspace = true }
