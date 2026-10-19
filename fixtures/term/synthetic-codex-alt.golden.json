@@ -1,0 +1,1184 @@
+{
+  "name": "synthetic-codex-alt",
+  "source": "synthetic",
+  "description": "Imitates a ratatui full-screen view (codex transcript overlay): normal-screen history, alternate screen enter (1049), full paint and cell diffs, mouse/keyboard modes, a resize repaint inside the alternate screen, leaving it restores the normal screen and cursor.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 90,
+  "rows": 28,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 90,
+      "rows": 28
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 843
+    },
+    {
+      "op": "checkpoint",
+      "label": "normal-before",
+      "at": 843,
+      "screen": {
+        "cols": 90,
+        "rows": 28,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 27
+        },
+        "baseY": 7,
+        "viewportY": 7,
+        "length": 35,
+        "lines": ["$ normal screen line 8", "$ normal screen line 9", "$ normal screen line 10", "$ normal screen line 11", "$ normal screen line 12", "$ normal screen line 13", "$ normal screen line 14", "$ normal screen line 15", "$ normal screen line 16", "$ normal screen line 17", "$ normal screen line 18", "$ normal screen line 19", "$ normal screen line 20", "$ normal screen line 21", "$ normal screen line 22", "$ normal screen line 23", "$ normal screen line 24", "$ normal screen line 25", "$ normal screen line 26", "$ normal screen line 27", "$ normal screen line 28", "$ normal screen line 29", "$ normal screen line 30", "$ normal screen line 31", "$ normal screen line 32", "$ normal screen line 33", "$ normal screen line 34", "$ "],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["$ normal screen line 1", "$ normal screen line 2", "$ normal screen line 3", "$ normal screen line 4", "$ normal screen line 5", "$ normal screen line 6", "$ normal screen line 7"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ normal screen line 8\u001b[2;1H$ normal screen line 9\u001b[3;1H$ normal screen line 10\u001b[4;1H$ normal screen line 11\u001b[5;1H$ normal screen line 12\u001b[6;1H$ normal screen line 13\u001b[7;1H$ normal screen line 14\u001b[8;1H$ normal screen line 15\u001b[9;1H$ normal screen line 16\u001b[10;1H$ normal screen line 17\u001b[11;1H$ normal screen line 18\u001b[12;1H$ normal screen line 19\u001b[13;1H$ normal screen line 20\u001b[14;1H$ normal screen line 21\u001b[15;1H$ normal screen line 22\u001b[16;1H$ normal screen line 23\u001b[17;1H$ normal screen line 24\u001b[18;1H$ normal screen line 25\u001b[19;1H$ normal screen line 26\u001b[20;1H$ normal screen line 27\u001b[21;1H$ normal screen line 28\u001b[22;1H$ normal screen line 29\u001b[23;1H$ normal screen line 30\u001b[24;1H$ normal screen line 31\u001b[25;1H$ normal screen line 32\u001b[26;1H$ normal screen line 33\u001b[27;1H$ normal screen line 34\u001b[28;1H$ \u001b[28;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ normal screen line 7\n$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ normal screen line 6\n$ normal screen line 7\n$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ normal screen line 1\n$ normal screen line 2\n$ normal screen line 3\n$ normal screen line 4\n$ normal screen line 5\n$ normal screen line 6\n$ normal screen line 7\n$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ normal screen line 1\n$ normal screen line 2\n$ normal screen line 3\n$ normal screen line 4\n$ normal screen line 5\n$ normal screen line 6\n$ normal screen line 7\n$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ normal screen line 1\n$ normal screen line 2\n$ normal screen line 3\n$ normal screen line 4\n$ normal screen line 5\n$ normal screen line 6\n$ normal screen line 7\n$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 843,
+      "to": 884
+    },
+    {
+      "op": "write",
+      "from": 884,
+      "to": 3197
+    },
+    {
+      "op": "checkpoint",
+      "label": "alt-painted",
+      "at": 3197,
+      "screen": {
+        "cols": 90,
+        "rows": 28,
+        "buffer": "alternate",
+        "cursor": {
+          "x": 38,
+          "y": 27
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 28,
+        "lines": [" T R A N S C R I P T                                                   1/80", "user message 1  ✔ 完了", "codex message 2 ═", "codex message 3 ══", "codex message 4 ═══", "codex message 5 ════", "user message 6 ═════", "codex message 7 ══════", "codex message 8 ═══════ ✔ 完了", "codex message 9 ════════", "codex message 10 ═════════", "user message 11 ══════════", "codex message 12 ═══════════", "codex message 13", "codex message 14 ═", "codex message 15 ══ ✔ 完了", "user message 16 ═══", "codex message 17 ════", "codex message 18 ═════", "codex message 19 ══════", "codex message 20 ═══════", "user message 21 ════════", "codex message 22 ═════════ ✔ 完了", "codex message 23 ══════════", "codex message 24 ═══════════", "codex message 25", "user message 26 ═", " ↑/↓ scroll   PgUp/PgDn page   q quit "],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 21, "d", "d", "r"], [71, 4, "d", "d", "d"]],
+          "1": [[0, 5, "p16:6", "d", "b"], [15, 7, "p16:2", "d", ""]],
+          "2": [[0, 6, "p16:5", "d", "b"], [16, 1, "p256:208", "d", ""]],
+          "3": [[0, 6, "p16:5", "d", "b"], [16, 2, "p256:208", "d", ""]],
+          "4": [[0, 6, "p16:5", "d", "b"], [16, 3, "p256:208", "d", ""]],
+          "5": [[0, 6, "p16:5", "d", "b"], [16, 4, "p256:208", "d", ""]],
+          "6": [[0, 5, "p16:6", "d", "b"], [15, 5, "p256:208", "d", ""]],
+          "7": [[0, 6, "p16:5", "d", "b"], [16, 6, "p256:208", "d", ""]],
+          "8": [[0, 6, "p16:5", "d", "b"], [16, 7, "p256:208", "d", ""], [23, 7, "p16:2", "d", ""]],
+          "9": [[0, 6, "p16:5", "d", "b"], [16, 8, "p256:208", "d", ""]],
+          "10": [[0, 6, "p16:5", "d", "b"], [17, 9, "p256:208", "d", ""]],
+          "11": [[0, 5, "p16:6", "d", "b"], [16, 10, "p256:208", "d", ""]],
+          "12": [[0, 6, "p16:5", "d", "b"], [17, 11, "p256:208", "d", ""]],
+          "13": [[0, 6, "p16:5", "d", "b"]],
+          "14": [[0, 6, "p16:5", "d", "b"], [17, 1, "p256:208", "d", ""]],
+          "15": [[0, 6, "p16:5", "d", "b"], [17, 2, "p256:208", "d", ""], [19, 7, "p16:2", "d", ""]],
+          "16": [[0, 5, "p16:6", "d", "b"], [16, 3, "p256:208", "d", ""]],
+          "17": [[0, 6, "p16:5", "d", "b"], [17, 4, "p256:208", "d", ""]],
+          "18": [[0, 6, "p16:5", "d", "b"], [17, 5, "p256:208", "d", ""]],
+          "19": [[0, 6, "p16:5", "d", "b"], [17, 6, "p256:208", "d", ""]],
+          "20": [[0, 6, "p16:5", "d", "b"], [17, 7, "p256:208", "d", ""]],
+          "21": [[0, 5, "p16:6", "d", "b"], [16, 8, "p256:208", "d", ""]],
+          "22": [[0, 6, "p16:5", "d", "b"], [17, 9, "p256:208", "d", ""], [26, 7, "p16:2", "d", ""]],
+          "23": [[0, 6, "p16:5", "d", "b"], [17, 10, "p256:208", "d", ""]],
+          "24": [[0, 6, "p16:5", "d", "b"], [17, 11, "p256:208", "d", ""]],
+          "25": [[0, 6, "p16:5", "d", "b"]],
+          "26": [[0, 5, "p16:6", "d", "b"], [16, 1, "p256:208", "d", ""]],
+          "27": [[0, 38, "rgb:e6e6e6", "rgb:28283c", ""]]
+        },
+        "wide": {
+          "1": [18, 20],
+          "8": [26, 28],
+          "15": [22, 24],
+          "22": [29, 31]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "drag",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H T R A N S C R I P T                                                   1/80\u001b[2;1Huser message 1  ✔ 完了\u001b[3;1Hcodex message 2 ═\u001b[4;1Hcodex message 3 ══\u001b[5;1Hcodex message 4 ═══\u001b[6;1Hcodex message 5 ════\u001b[7;1Huser message 6 ═════\u001b[8;1Hcodex message 7 ══════\u001b[9;1Hcodex message 8 ═══════ ✔ 完了\u001b[10;1Hcodex message 9 ════════\u001b[11;1Hcodex message 10 ═════════\u001b[12;1Huser message 11 ══════════\u001b[13;1Hcodex message 12 ═══════════\u001b[14;1Hcodex message 13\u001b[15;1Hcodex message 14 ═\u001b[16;1Hcodex message 15 ══ ✔ 完了\u001b[17;1Huser message 16 ═══\u001b[18;1Hcodex message 17 ════\u001b[19;1Hcodex message 18 ═════\u001b[20;1Hcodex message 19 ══════\u001b[21;1Hcodex message 20 ═══════\u001b[22;1Huser message 21 ════════\u001b[23;1Hcodex message 22 ═════════ ✔ 完了\u001b[24;1Hcodex message 23 ══════════\u001b[25;1Hcodex message 24 ═══════════\u001b[26;1Hcodex message 25\u001b[27;1Huser message 26 ═\u001b[28;1H ↑/↓ scroll   PgUp/PgDn page   q quit \u001b[28;39H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 3197,
+      "to": 4648
+    },
+    {
+      "op": "write",
+      "from": 4648,
+      "to": 6070
+    },
+    {
+      "op": "write",
+      "from": 6070,
+      "to": 7511
+    },
+    {
+      "op": "write",
+      "from": 7511,
+      "to": 9045
+    },
+    {
+      "op": "write",
+      "from": 9045,
+      "to": 10215
+    },
+    {
+      "op": "checkpoint",
+      "label": "alt-scrolled",
+      "at": 10215,
+      "screen": {
+        "cols": 90,
+        "rows": 28,
+        "buffer": "alternate",
+        "cursor": {
+          "x": 34,
+          "y": 26
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 28,
+        "lines": [" T R A N S C R I P T                                                   26/80", "user message 26 ═         ", "codex message 27 ══         ", "codex message 28 ═══", "codex message 29 ════ ✔ 完了", "codex message 30 ═════        ", "user message 31 ══════        ", "codex message 32 ═══════      ", "codex message 33 ════════     ", "codex message 34 ═════════  ", "codex message 35 ══════════ ", "user message 36 ═══════════ ✔ 完了", "codex message 37                 ", "codex message 38 ═         ", "codex message 39 ══         ", "codex message 40 ═══      ", "user message 41 ════   ", "codex message 42 ═════  ", "codex message 43 ══════ ✔ 完了", "codex message 44 ═══════         ", "codex message 45 ════════        ", "user message 46 ═════════        ", "codex message 47 ══════════      ", "codex message 48 ═══════════", "codex message 49            ", "codex message 50 ═ ✔ 完了  ", "user message 51 ══                ", " ↑/↓ scroll   PgUp/PgDn page   q quit "],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 21, "d", "d", "r"], [71, 5, "d", "d", "d"]],
+          "1": [[0, 5, "p16:6", "d", "b"], [16, 1, "p256:208", "d", ""]],
+          "2": [[0, 6, "p16:5", "d", "b"], [17, 2, "p256:208", "d", ""]],
+          "3": [[0, 6, "p16:5", "d", "b"], [17, 3, "p256:208", "d", ""]],
+          "4": [[0, 6, "p16:5", "d", "b"], [17, 4, "p256:208", "d", ""], [21, 7, "p16:2", "d", ""]],
+          "5": [[0, 6, "p16:5", "d", "b"], [17, 5, "p256:208", "d", ""]],
+          "6": [[0, 5, "p16:6", "d", "b"], [16, 6, "p256:208", "d", ""]],
+          "7": [[0, 6, "p16:5", "d", "b"], [17, 7, "p256:208", "d", ""]],
+          "8": [[0, 6, "p16:5", "d", "b"], [17, 8, "p256:208", "d", ""]],
+          "9": [[0, 6, "p16:5", "d", "b"], [17, 9, "p256:208", "d", ""]],
+          "10": [[0, 6, "p16:5", "d", "b"], [17, 10, "p256:208", "d", ""]],
+          "11": [[0, 5, "p16:6", "d", "b"], [16, 11, "p256:208", "d", ""], [27, 7, "p16:2", "d", ""]],
+          "12": [[0, 6, "p16:5", "d", "b"]],
+          "13": [[0, 6, "p16:5", "d", "b"], [17, 1, "p256:208", "d", ""]],
+          "14": [[0, 6, "p16:5", "d", "b"], [17, 2, "p256:208", "d", ""]],
+          "15": [[0, 6, "p16:5", "d", "b"], [17, 3, "p256:208", "d", ""]],
+          "16": [[0, 5, "p16:6", "d", "b"], [16, 4, "p256:208", "d", ""]],
+          "17": [[0, 6, "p16:5", "d", "b"], [17, 5, "p256:208", "d", ""]],
+          "18": [[0, 6, "p16:5", "d", "b"], [17, 6, "p256:208", "d", ""], [23, 7, "p16:2", "d", ""]],
+          "19": [[0, 6, "p16:5", "d", "b"], [17, 7, "p256:208", "d", ""]],
+          "20": [[0, 6, "p16:5", "d", "b"], [17, 8, "p256:208", "d", ""]],
+          "21": [[0, 5, "p16:6", "d", "b"], [16, 9, "p256:208", "d", ""]],
+          "22": [[0, 6, "p16:5", "d", "b"], [17, 10, "p256:208", "d", ""]],
+          "23": [[0, 6, "p16:5", "d", "b"], [17, 11, "p256:208", "d", ""]],
+          "24": [[0, 6, "p16:5", "d", "b"]],
+          "25": [[0, 6, "p16:5", "d", "b"], [17, 1, "p256:208", "d", ""], [18, 7, "p16:2", "d", ""]],
+          "26": [[0, 5, "p16:6", "d", "b"], [16, 2, "p256:208", "d", ""]],
+          "27": [[0, 38, "rgb:e6e6e6", "rgb:28283c", ""]]
+        },
+        "wide": {
+          "4": [24, 26],
+          "11": [30, 32],
+          "18": [26, 28],
+          "25": [21, 23]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "drag",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": " T R A N S C R I P T                                                   1/80\nuser message 1  ✔ 完了\ncodex message 2 ═\ncodex message 3 ══\ncodex message 4 ═══\ncodex message 5 ════\nuser message 6 ═════\ncodex message 7 ══════\ncodex message 8 ═══════ ✔ 完了\ncodex message 9 ════════\ncodex message 10 ═════════\nuser message 11 ══════════\ncodex message 12 ═══════════\ncodex message 13\ncodex message 14 ═\ncodex message 15 ══ ✔ 完了\nuser message 16 ═══\ncodex message 17 ════\ncodex message 18 ═════\ncodex message 19 ══════\ncodex message 20 ═══════\nuser message 21 ════════\ncodex message 22 ═════════ ✔ 完了\ncodex message 23 ══════════\ncodex message 24 ═══════════\ncodex message 25\nuser message 26 ═\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H T R A N S C R I P T                                                   26/80\u001b[2;1Huser message 26 ═         \u001b[3;1Hcodex message 27 ══         \u001b[4;1Hcodex message 28 ═══\u001b[5;1Hcodex message 29 ════ ✔ 完了\u001b[6;1Hcodex message 30 ═════        \u001b[7;1Huser message 31 ══════        \u001b[8;1Hcodex message 32 ═══════      \u001b[9;1Hcodex message 33 ════════     \u001b[10;1Hcodex message 34 ═════════  \u001b[11;1Hcodex message 35 ══════════ \u001b[12;1Huser message 36 ═══════════ ✔ 完了\u001b[13;1Hcodex message 37                 \u001b[14;1Hcodex message 38 ═         \u001b[15;1Hcodex message 39 ══         \u001b[16;1Hcodex message 40 ═══      \u001b[17;1Huser message 41 ════   \u001b[18;1Hcodex message 42 ═════  \u001b[19;1Hcodex message 43 ══════ ✔ 完了\u001b[20;1Hcodex message 44 ═══════         \u001b[21;1Hcodex message 45 ════════        \u001b[22;1Huser message 46 ═════════        \u001b[23;1Hcodex message 47 ══════════      \u001b[24;1Hcodex message 48 ═══════════\u001b[25;1Hcodex message 49            \u001b[26;1Hcodex message 50 ═ ✔ 完了  \u001b[27;1Huser message 51 ══                \u001b[28;1H ↑/↓ scroll   PgUp/PgDn page   q quit \u001b[27;35H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 70,
+      "rows": 16
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-70x16",
+      "at": 10215,
+      "screen": {
+        "cols": 70,
+        "rows": 16,
+        "buffer": "alternate",
+        "cursor": {
+          "x": 34,
+          "y": 15
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 16,
+        "lines": ["user message 36 ═══════════ ✔ 完了", "codex message 37                 ", "codex message 38 ═         ", "codex message 39 ══         ", "codex message 40 ═══      ", "user message 41 ════   ", "codex message 42 ═════  ", "codex message 43 ══════ ✔ 完了", "codex message 44 ═══════         ", "codex message 45 ════════        ", "user message 46 ═════════        ", "codex message 47 ══════════      ", "codex message 48 ═══════════", "codex message 49            ", "codex message 50 ═ ✔ 完了  ", "user message 51 ══                "],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 5, "p16:6", "d", "b"], [16, 11, "p256:208", "d", ""], [27, 7, "p16:2", "d", ""]],
+          "1": [[0, 6, "p16:5", "d", "b"]],
+          "2": [[0, 6, "p16:5", "d", "b"], [17, 1, "p256:208", "d", ""]],
+          "3": [[0, 6, "p16:5", "d", "b"], [17, 2, "p256:208", "d", ""]],
+          "4": [[0, 6, "p16:5", "d", "b"], [17, 3, "p256:208", "d", ""]],
+          "5": [[0, 5, "p16:6", "d", "b"], [16, 4, "p256:208", "d", ""]],
+          "6": [[0, 6, "p16:5", "d", "b"], [17, 5, "p256:208", "d", ""]],
+          "7": [[0, 6, "p16:5", "d", "b"], [17, 6, "p256:208", "d", ""], [23, 7, "p16:2", "d", ""]],
+          "8": [[0, 6, "p16:5", "d", "b"], [17, 7, "p256:208", "d", ""]],
+          "9": [[0, 6, "p16:5", "d", "b"], [17, 8, "p256:208", "d", ""]],
+          "10": [[0, 5, "p16:6", "d", "b"], [16, 9, "p256:208", "d", ""]],
+          "11": [[0, 6, "p16:5", "d", "b"], [17, 10, "p256:208", "d", ""]],
+          "12": [[0, 6, "p16:5", "d", "b"], [17, 11, "p256:208", "d", ""]],
+          "13": [[0, 6, "p16:5", "d", "b"]],
+          "14": [[0, 6, "p16:5", "d", "b"], [17, 1, "p256:208", "d", ""], [18, 7, "p16:2", "d", ""]],
+          "15": [[0, 5, "p16:6", "d", "b"], [16, 2, "p256:208", "d", ""]]
+        },
+        "wide": {
+          "0": [30, 32],
+          "7": [26, 28],
+          "14": [21, 23]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "drag",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": " T R A N S C R I P T                                                   26/80\nuser message 26 ═         \ncodex message 27 ══         \ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════        \nuser message 31 ══════        \ncodex message 32 ═══════      \ncodex message 33 ════════     \ncodex message 34 ═════════  \ncodex message 35 ══════════ \nuser message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                \n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Huser message 36 ═══════════ ✔ 完了\u001b[2;1Hcodex message 37                 \u001b[3;1Hcodex message 38 ═         \u001b[4;1Hcodex message 39 ══         \u001b[5;1Hcodex message 40 ═══      \u001b[6;1Huser message 41 ════   \u001b[7;1Hcodex message 42 ═════  \u001b[8;1Hcodex message 43 ══════ ✔ 完了\u001b[9;1Hcodex message 44 ═══════         \u001b[10;1Hcodex message 45 ════════        \u001b[11;1Huser message 46 ═════════        \u001b[12;1Hcodex message 47 ══════════      \u001b[13;1Hcodex message 48 ═══════════\u001b[14;1Hcodex message 49            \u001b[15;1Hcodex message 50 ═ ✔ 完了  \u001b[16;1Huser message 51 ══                \u001b[16;35H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 10215,
+      "to": 11535
+    },
+    {
+      "op": "checkpoint",
+      "label": "alt-resized",
+      "at": 11535,
+      "screen": {
+        "cols": 70,
+        "rows": 16,
+        "buffer": "alternate",
+        "cursor": {
+          "x": 38,
+          "y": 15
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 16,
+        "lines": [" T R A N S C R I P T                               26/80", "user message 26 ═", "codex message 27 ══", "codex message 28 ═══", "codex message 29 ════ ✔ 完了", "codex message 30 ═════", "user message 31 ══════", "codex message 32 ═══════", "codex message 33 ════════", "codex message 34 ═════════", "codex message 35 ══════════", "user message 36 ═══════════ ✔ 完了", "codex message 37", "codex message 38 ═", "codex message 39 ══", " ↑/↓ scroll   PgUp/PgDn page   q quit "],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 21, "d", "d", "r"], [51, 5, "d", "d", "d"]],
+          "1": [[0, 5, "p16:6", "d", "b"], [16, 1, "p256:208", "d", ""]],
+          "2": [[0, 6, "p16:5", "d", "b"], [17, 2, "p256:208", "d", ""]],
+          "3": [[0, 6, "p16:5", "d", "b"], [17, 3, "p256:208", "d", ""]],
+          "4": [[0, 6, "p16:5", "d", "b"], [17, 4, "p256:208", "d", ""], [21, 7, "p16:2", "d", ""]],
+          "5": [[0, 6, "p16:5", "d", "b"], [17, 5, "p256:208", "d", ""]],
+          "6": [[0, 5, "p16:6", "d", "b"], [16, 6, "p256:208", "d", ""]],
+          "7": [[0, 6, "p16:5", "d", "b"], [17, 7, "p256:208", "d", ""]],
+          "8": [[0, 6, "p16:5", "d", "b"], [17, 8, "p256:208", "d", ""]],
+          "9": [[0, 6, "p16:5", "d", "b"], [17, 9, "p256:208", "d", ""]],
+          "10": [[0, 6, "p16:5", "d", "b"], [17, 10, "p256:208", "d", ""]],
+          "11": [[0, 5, "p16:6", "d", "b"], [16, 11, "p256:208", "d", ""], [27, 7, "p16:2", "d", ""]],
+          "12": [[0, 6, "p16:5", "d", "b"]],
+          "13": [[0, 6, "p16:5", "d", "b"], [17, 1, "p256:208", "d", ""]],
+          "14": [[0, 6, "p16:5", "d", "b"], [17, 2, "p256:208", "d", ""]],
+          "15": [[0, 38, "rgb:e6e6e6", "rgb:28283c", ""]]
+        },
+        "wide": {
+          "4": [24, 26],
+          "11": [30, 32]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "drag",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "user message 36 ═══════════ ✔ 完了\ncodex message 37                 \ncodex message 38 ═         \ncodex message 39 ══         \ncodex message 40 ═══      \nuser message 41 ════   \ncodex message 42 ═════  \ncodex message 43 ══════ ✔ 完了\ncodex message 44 ═══════         \ncodex message 45 ════════        \nuser message 46 ═════════        \ncodex message 47 ══════════      \ncodex message 48 ═══════════\ncodex message 49            \ncodex message 50 ═ ✔ 完了  \nuser message 51 ══                "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H T R A N S C R I P T                               26/80\u001b[2;1Huser message 26 ═\u001b[3;1Hcodex message 27 ══\u001b[4;1Hcodex message 28 ═══\u001b[5;1Hcodex message 29 ════ ✔ 完了\u001b[6;1Hcodex message 30 ═════\u001b[7;1Huser message 31 ══════\u001b[8;1Hcodex message 32 ═══════\u001b[9;1Hcodex message 33 ════════\u001b[10;1Hcodex message 34 ═════════\u001b[11;1Hcodex message 35 ══════════\u001b[12;1Huser message 36 ═══════════ ✔ 完了\u001b[13;1Hcodex message 37\u001b[14;1Hcodex message 38 ═\u001b[15;1Hcodex message 39 ══\u001b[16;1H ↑/↓ scroll   PgUp/PgDn page   q quit \u001b[16;39H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 11535,
+      "to": 11578
+    },
+    {
+      "op": "checkpoint",
+      "label": "normal-after",
+      "at": 11578,
+      "screen": {
+        "cols": 70,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 15
+        },
+        "baseY": 19,
+        "viewportY": 19,
+        "length": 35,
+        "lines": ["$ normal screen line 20", "$ normal screen line 21", "$ normal screen line 22", "$ normal screen line 23", "$ normal screen line 24", "$ normal screen line 25", "$ normal screen line 26", "$ normal screen line 27", "$ normal screen line 28", "$ normal screen line 29", "$ normal screen line 30", "$ normal screen line 31", "$ normal screen line 32", "$ normal screen line 33", "$ normal screen line 34", "$ "],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["$ normal screen line 1", "$ normal screen line 2", "$ normal screen line 3", "$ normal screen line 4", "$ normal screen line 5", "$ normal screen line 6", "$ normal screen line 7", "$ normal screen line 8", "$ normal screen line 9", "$ normal screen line 10", "$ normal screen line 11", "$ normal screen line 12", "$ normal screen line 13", "$ normal screen line 14", "$ normal screen line 15", "$ normal screen line 16", "$ normal screen line 17", "$ normal screen line 18", "$ normal screen line 19"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": " T R A N S C R I P T                               26/80\nuser message 26 ═\ncodex message 27 ══\ncodex message 28 ═══\ncodex message 29 ════ ✔ 完了\ncodex message 30 ═════\nuser message 31 ══════\ncodex message 32 ═══════\ncodex message 33 ════════\ncodex message 34 ═════════\ncodex message 35 ══════════\nuser message 36 ═══════════ ✔ 完了\ncodex message 37\ncodex message 38 ═\ncodex message 39 ══\n ↑/↓ scroll   PgUp/PgDn page   q quit "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ normal screen line 20\u001b[2;1H$ normal screen line 21\u001b[3;1H$ normal screen line 22\u001b[4;1H$ normal screen line 23\u001b[5;1H$ normal screen line 24\u001b[6;1H$ normal screen line 25\u001b[7;1H$ normal screen line 26\u001b[8;1H$ normal screen line 27\u001b[9;1H$ normal screen line 28\u001b[10;1H$ normal screen line 29\u001b[11;1H$ normal screen line 30\u001b[12;1H$ normal screen line 31\u001b[13;1H$ normal screen line 32\u001b[14;1H$ normal screen line 33\u001b[15;1H$ normal screen line 34\u001b[16;1H$ \u001b[16;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ normal screen line 1\n$ normal screen line 2\n$ normal screen line 3\n$ normal screen line 4\n$ normal screen line 5\n$ normal screen line 6\n$ normal screen line 7\n$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 19,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ normal screen line 1\n$ normal screen line 2\n$ normal screen line 3\n$ normal screen line 4\n$ normal screen line 5\n$ normal screen line 6\n$ normal screen line 7\n$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 19
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 11578,
+      "to": 11597
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 11597,
+      "screen": {
+        "cols": 70,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 15
+        },
+        "baseY": 21,
+        "viewportY": 21,
+        "length": 37,
+        "lines": ["$ normal screen line 22", "$ normal screen line 23", "$ normal screen line 24", "$ normal screen line 25", "$ normal screen line 26", "$ normal screen line 27", "$ normal screen line 28", "$ normal screen line 29", "$ normal screen line 30", "$ normal screen line 31", "$ normal screen line 32", "$ normal screen line 33", "$ normal screen line 34", "$ echo back", "back", "$ "],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["$ normal screen line 1", "$ normal screen line 2", "$ normal screen line 3", "$ normal screen line 4", "$ normal screen line 5", "$ normal screen line 6", "$ normal screen line 7", "$ normal screen line 8", "$ normal screen line 9", "$ normal screen line 10", "$ normal screen line 11", "$ normal screen line 12", "$ normal screen line 13", "$ normal screen line 14", "$ normal screen line 15", "$ normal screen line 16", "$ normal screen line 17", "$ normal screen line 18", "$ normal screen line 19", "$ normal screen line 20", "$ normal screen line 21"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ normal screen line 22\u001b[2;1H$ normal screen line 23\u001b[3;1H$ normal screen line 24\u001b[4;1H$ normal screen line 25\u001b[5;1H$ normal screen line 26\u001b[6;1H$ normal screen line 27\u001b[7;1H$ normal screen line 28\u001b[8;1H$ normal screen line 29\u001b[9;1H$ normal screen line 30\u001b[10;1H$ normal screen line 31\u001b[11;1H$ normal screen line 32\u001b[12;1H$ normal screen line 33\u001b[13;1H$ normal screen line 34\u001b[14;1H$ echo back\u001b[15;1Hback\u001b[16;1H$ \u001b[16;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ echo back\nback\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ echo back\nback\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 21
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ echo back\nback"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 21
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ echo back"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 21
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ normal screen line 15\n$ normal screen line 16\n$ normal screen line 17\n$ normal screen line 18\n$ normal screen line 19\n$ normal screen line 20\n$ normal screen line 21\n$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 21
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ echo back\nback\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 21
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ normal screen line 1\n$ normal screen line 2\n$ normal screen line 3\n$ normal screen line 4\n$ normal screen line 5\n$ normal screen line 6\n$ normal screen line 7\n$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 21,
+            "maxScrollOffset": 21
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ normal screen line 1\n$ normal screen line 2\n$ normal screen line 3\n$ normal screen line 4\n$ normal screen line 5\n$ normal screen line 6\n$ normal screen line 7\n$ normal screen line 8\n$ normal screen line 9\n$ normal screen line 10\n$ normal screen line 11\n$ normal screen line 12\n$ normal screen line 13\n$ normal screen line 14\n$ normal screen line 15\n$ normal screen line 16"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ normal screen line 22\n$ normal screen line 23\n$ normal screen line 24\n$ normal screen line 25\n$ normal screen line 26\n$ normal screen line 27\n$ normal screen line 28\n$ normal screen line 29\n$ normal screen line 30\n$ normal screen line 31\n$ normal screen line 32\n$ normal screen line 33\n$ normal screen line 34\n$ echo back\nback\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 21
+          }
+        }
+      ]
+    }
+  ]
+}

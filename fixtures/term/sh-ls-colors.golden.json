@@ -1,0 +1,868 @@
+{
+  "name": "sh-ls-colors",
+  "source": "sh",
+  "description": "/bin/sh: ls with colours (CLICOLOR_FORCE) over directories, executables, symlinks, hidden and spaced names.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 80,
+  "rows": 24,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 80,
+      "rows": 24
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 10
+    },
+    {
+      "op": "write",
+      "from": 10,
+      "to": 17
+    },
+    {
+      "op": "write",
+      "from": 17,
+      "to": 269
+    },
+    {
+      "op": "write",
+      "from": 269,
+      "to": 271
+    },
+    {
+      "op": "checkpoint",
+      "label": "ls",
+      "at": 271,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 4
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ ls -G", "archive.tar.gz       file.txt             other dir", "broken-link          link-to-dir          run.sh", "directory            name with spaces.txt", "$ ", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "1": [[42, 9, "p16:4", "p16:2", ""]],
+          "2": [[0, 11, "p16:6", "d", "b"], [21, 11, "p16:6", "d", "b"], [42, 6, "p16:2", "d", "b"]],
+          "3": [[0, 9, "p16:4", "d", "b"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ ls -G\u001b[2;1Harchive.tar.gz       file.txt             other dir\u001b[3;1Hbroken-link          link-to-dir          run.sh\u001b[4;1Hdirectory            name with spaces.txt\u001b[5;1H$ \u001b[5;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 271,
+      "to": 277
+    },
+    {
+      "op": "write",
+      "from": 277,
+      "to": 284
+    },
+    {
+      "op": "write",
+      "from": 284,
+      "to": 468
+    },
+    {
+      "op": "write",
+      "from": 468,
+      "to": 552
+    },
+    {
+      "op": "write",
+      "from": 552,
+      "to": 554
+    },
+    {
+      "op": "checkpoint",
+      "label": "ls-1",
+      "at": 554,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 16
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ ls -G", "archive.tar.gz       file.txt             other dir", "broken-link          link-to-dir          run.sh", "directory            name with spaces.txt", "$ ls -G -a -1", ".", "..", ".hidden", "archive.tar.gz", "broken-link", "directory", "file.txt", "link-to-dir", "name with spaces.txt", "other dir", "run.sh", "$ ", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "1": [[42, 9, "p16:4", "p16:2", ""]],
+          "2": [[0, 11, "p16:6", "d", "b"], [21, 11, "p16:6", "d", "b"], [42, 6, "p16:2", "d", "b"]],
+          "3": [[0, 9, "p16:4", "d", "b"]],
+          "5": [[0, 1, "p16:4", "d", "b"]],
+          "6": [[0, 2, "p16:4", "d", "b"]],
+          "9": [[0, 11, "p16:6", "d", "b"]],
+          "10": [[0, 9, "p16:4", "d", "b"]],
+          "12": [[0, 11, "p16:6", "d", "b"]],
+          "14": [[0, 9, "p16:4", "p16:2", ""]],
+          "15": [[0, 6, "p16:2", "d", "b"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ ls -G\u001b[2;1Harchive.tar.gz       file.txt             other dir\u001b[3;1Hbroken-link          link-to-dir          run.sh\u001b[4;1Hdirectory            name with spaces.txt\u001b[5;1H$ ls -G -a -1\u001b[6;1H.\u001b[7;1H..\u001b[8;1H.hidden\u001b[9;1Harchive.tar.gz\u001b[10;1Hbroken-link\u001b[11;1Hdirectory\u001b[12;1Hfile.txt\u001b[13;1Hlink-to-dir\u001b[14;1Hname with spaces.txt\u001b[15;1Hother dir\u001b[16;1Hrun.sh\u001b[17;1H$ \u001b[17;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 554,
+      "to": 567
+    },
+    {
+      "op": "write",
+      "from": 567,
+      "to": 826
+    },
+    {
+      "op": "write",
+      "from": 826,
+      "to": 828
+    },
+    {
+      "op": "checkpoint",
+      "label": "ls-F",
+      "at": 828,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 20
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ ls -G", "archive.tar.gz       file.txt             other dir", "broken-link          link-to-dir          run.sh", "directory            name with spaces.txt", "$ ls -G -a -1", ".", "..", ".hidden", "archive.tar.gz", "broken-link", "directory", "file.txt", "link-to-dir", "name with spaces.txt", "other dir", "run.sh", "$ ls -G -F -C", "archive.tar.gz        file.txt              other dir/", "broken-link@          link-to-dir@          run.sh*", "directory/            name with spaces.txt", "$ ", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "1": [[42, 9, "p16:4", "p16:2", ""]],
+          "2": [[0, 11, "p16:6", "d", "b"], [21, 11, "p16:6", "d", "b"], [42, 6, "p16:2", "d", "b"]],
+          "3": [[0, 9, "p16:4", "d", "b"]],
+          "5": [[0, 1, "p16:4", "d", "b"]],
+          "6": [[0, 2, "p16:4", "d", "b"]],
+          "9": [[0, 11, "p16:6", "d", "b"]],
+          "10": [[0, 9, "p16:4", "d", "b"]],
+          "12": [[0, 11, "p16:6", "d", "b"]],
+          "14": [[0, 9, "p16:4", "p16:2", ""]],
+          "15": [[0, 6, "p16:2", "d", "b"]],
+          "17": [[44, 9, "p16:4", "p16:2", ""]],
+          "18": [[0, 11, "p16:6", "d", "b"], [22, 11, "p16:6", "d", "b"], [44, 6, "p16:2", "d", "b"]],
+          "19": [[0, 9, "p16:4", "d", "b"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ ls -G\u001b[2;1Harchive.tar.gz       file.txt             other dir\u001b[3;1Hbroken-link          link-to-dir          run.sh\u001b[4;1Hdirectory            name with spaces.txt\u001b[5;1H$ ls -G -a -1\u001b[6;1H.\u001b[7;1H..\u001b[8;1H.hidden\u001b[9;1Harchive.tar.gz\u001b[10;1Hbroken-link\u001b[11;1Hdirectory\u001b[12;1Hfile.txt\u001b[13;1Hlink-to-dir\u001b[14;1Hname with spaces.txt\u001b[15;1Hother dir\u001b[16;1Hrun.sh\u001b[17;1H$ ls -G -F -C\u001b[18;1Harchive.tar.gz        file.txt              other dir/\u001b[19;1Hbroken-link@          link-to-dir@          run.sh*\u001b[20;1Hdirectory/            name with spaces.txt\u001b[21;1H$ \u001b[21;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 828,
+      "to": 835
+    },
+    {
+      "op": "write",
+      "from": 835,
+      "to": 846
+    },
+    {
+      "op": "write",
+      "from": 846,
+      "to": 848
+    },
+    {
+      "op": "checkpoint",
+      "label": "cleared",
+      "at": 848,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 0
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ ", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G\narchive.tar.gz       file.txt             other dir\nbroken-link          link-to-dir          run.sh\ndirectory            name with spaces.txt\n$ ls -G -a -1\n.\n..\n.hidden\narchive.tar.gz\nbroken-link\ndirectory\nfile.txt\nlink-to-dir\nname with spaces.txt\nother dir\nrun.sh\n$ ls -G -F -C\narchive.tar.gz        file.txt              other dir/\nbroken-link@          link-to-dir@          run.sh*\ndirectory/            name with spaces.txt\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ \u001b[1;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 848,
+      "to": 868
+    },
+    {
+      "op": "write",
+      "from": 868,
+      "to": 950
+    },
+    {
+      "op": "write",
+      "from": 950,
+      "to": 952
+    },
+    {
+      "op": "write",
+      "from": 952,
+      "to": 956
+    },
+    {
+      "op": "write",
+      "from": 956,
+      "to": 958
+    },
+    {
+      "op": "write",
+      "from": 958,
+      "to": 964
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 964,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 6
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ ls -G -1 | head -3", "archive.tar.gz", "broken-link", "directory", "$ exit", "exit", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "2": [[0, 11, "p16:6", "d", "b"]],
+          "3": [[0, 9, "p16:4", "d", "b"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ ls -G -1 | head -3\u001b[2;1Harchive.tar.gz\u001b[3;1Hbroken-link\u001b[4;1Hdirectory\u001b[5;1H$ exit\u001b[6;1Hexit\u001b[7;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G -1 | head -3\narchive.tar.gz\nbroken-link\ndirectory\n$ exit\nexit"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ ls -G -1 | head -3\narchive.tar.gz\nbroken-link\ndirectory\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ ls -G -1 | head -3\narchive.tar.gz\nbroken-link\ndirectory\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ ls -G -1 | head -3\narchive.tar.gz\nbroken-link\ndirectory\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ ls -G -1 | head -3\narchive.tar.gz\nbroken-link\ndirectory\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ ls -G -1 | head -3\narchive.tar.gz\nbroken-link\ndirectory\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ ls -G -1 | head -3\narchive.tar.gz\nbroken-link\ndirectory\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ ls -G -1 | head -3\narchive.tar.gz\nbroken-link\ndirectory\n$ exit\nexit"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ ls -G -1 | head -3\narchive.tar.gz\nbroken-link\ndirectory\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    }
+  ]
+}

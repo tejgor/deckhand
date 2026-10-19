@@ -1,0 +1,352 @@
+{
+  "name": "sh-unicode",
+  "source": "sh",
+  "description": "/bin/sh: wide CJK, emoji (ZWJ, flags, variation selectors), combining marks, wrapping exactly at the last column and wide chars at the edge, then resizes that reflow the wrapped lines.",
+  "cols": 40,
+  "rows": 12,
+  "chunks": [
+    10,
+    5,
+    12,
+    6,
+    3,
+    6,
+    8,
+    3,
+    3,
+    3,
+    1,
+    4,
+    2,
+    43,
+    2,
+    8,
+    9,
+    3,
+    4,
+    1,
+    4,
+    14,
+    23,
+    2,
+    3,
+    4,
+    4,
+    9,
+    72,
+    2,
+    6,
+    18,
+    10,
+    1,
+    5,
+    3,
+    9,
+    3,
+    5,
+    1,
+    3,
+    6,
+    21,
+    2,
+    11,
+    19,
+    7,
+    4,
+    2,
+    1,
+    2,
+    1,
+    2,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    1,
+    1,
+    3,
+    48,
+    2,
+    2,
+    14,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1,
+    2,
+    2,
+    1,
+    2,
+    1,
+    2,
+    1,
+    1,
+    4,
+    1,
+    1,
+    2,
+    1,
+    2,
+    3,
+    3,
+    2,
+    5,
+    2,
+    1,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    3,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    1,
+    2,
+    2,
+    1,
+    4,
+    1,
+    3,
+    90,
+    2,
+    11,
+    10,
+    1,
+    1,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    5,
+    4,
+    1,
+    1,
+    1,
+    2,
+    1,
+    1,
+    1,
+    2,
+    2,
+    1,
+    2,
+    1,
+    2,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    4,
+    1,
+    3,
+    3,
+    4,
+    5,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    3,
+    93,
+    2,
+    6,
+    6,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    1,
+    1,
+    2,
+    1,
+    1,
+    2,
+    2,
+    11,
+    3,
+    2,
+    26,
+    2,
+    6,
+    6
+  ],
+  "events": [
+    {
+      "at": 111,
+      "type": "checkpoint",
+      "label": "cjk"
+    },
+    {
+      "at": 273,
+      "type": "checkpoint",
+      "label": "emoji"
+    },
+    {
+      "at": 366,
+      "type": "checkpoint",
+      "label": "combining"
+    },
+    {
+      "at": 479,
+      "type": "checkpoint",
+      "label": "exact-width"
+    },
+    {
+      "at": 676,
+      "type": "checkpoint",
+      "label": "wide-at-edge"
+    },
+    {
+      "at": 879,
+      "type": "checkpoint",
+      "label": "wrapped"
+    },
+    {
+      "at": 879,
+      "type": "resize",
+      "cols": 30,
+      "rows": 12
+    },
+    {
+      "at": 885,
+      "type": "checkpoint",
+      "label": "resized-30"
+    },
+    {
+      "at": 885,
+      "type": "resize",
+      "cols": 55,
+      "rows": 12
+    },
+    {
+      "at": 885,
+      "type": "checkpoint",
+      "label": "resized-55"
+    }
+  ],
+  "recording": {
+    "command": "/bin/sh -i",
+    "environment": {
+      "HOME": "$SANDBOX/home",
+      "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+      "TERM": "xterm-256color",
+      "LANG": "en_US.UTF-8",
+      "LC_ALL": "en_US.UTF-8",
+      "SHELL": "/bin/sh",
+      "PS1": "$ ",
+      "PS2": "> ",
+      "TZ": "UTC",
+      "BASH_SILENCE_DEPRECATION_WARNING": "1",
+      "XDG_CONFIG_HOME": "$SANDBOX/home/.config",
+      "XDG_STATE_HOME": "$SANDBOX/home/.local/state",
+      "XDG_CACHE_HOME": "$SANDBOX/home/.cache",
+      "XDG_DATA_HOME": "$SANDBOX/home/.local/share",
+      "GIT_CONFIG_GLOBAL": "/dev/null",
+      "GIT_CONFIG_NOSYSTEM": "1"
+    },
+    "steps": [
+      {
+        "send": "printf '日本語のテキスト 中文 한국어\\n'\r"
+      },
+      {
+        "checkpoint": "cjk"
+      },
+      {
+        "send": "printf '🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end\\n'\r"
+      },
+      {
+        "checkpoint": "emoji"
+      },
+      {
+        "send": "printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\221\\315\\222\\n'\r"
+      },
+      {
+        "checkpoint": "combining"
+      },
+      {
+        "send": "printf '%s\\n' 1234567890123456789012345678901234567890 next\r"
+      },
+      {
+        "checkpoint": "exact-width"
+      },
+      {
+        "send": "printf '12345678901234567890123456789012345678日本\\n123456789012345678901234567890123456789日\\n'\r"
+      },
+      {
+        "checkpoint": "wide-at-edge"
+      },
+      {
+        "send": "printf 'a long line that wraps around the forty column terminal more than once: 日本語 🎉 done\\n'\r"
+      },
+      {
+        "checkpoint": "wrapped"
+      },
+      {
+        "resize": [
+          30,
+          12
+        ]
+      },
+      {
+        "checkpoint": "resized-30"
+      },
+      {
+        "resize": [
+          55,
+          12
+        ]
+      },
+      {
+        "checkpoint": "resized-55"
+      },
+      {
+        "send": "printf 'after resize 日本 🎉\\n'\r"
+      }
+    ],
+    "exit": "exit\r"
+  }
+}

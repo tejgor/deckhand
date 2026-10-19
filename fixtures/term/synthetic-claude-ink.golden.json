@@ -1,0 +1,1626 @@
+{
+  "name": "synthetic-claude-ink",
+  "source": "synthetic",
+  "description": "Imitates claude (Ink): DEC 2026 frames redrawn in place with eraseLines (2K + cursor-up), static history written above the live frame, a frame taller than the screen, clear-and-rerender on resize, terminal modes on start/exit.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 80,
+  "rows": 24,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 80,
+      "rows": 24
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 47
+    },
+    {
+      "op": "write",
+      "from": 47,
+      "to": 1628
+    },
+    {
+      "op": "checkpoint",
+      "label": "welcome",
+      "at": 1628,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 12
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["╭────────────────────────────────────────────────╮", "│ ✻ Welcome to Claude Code!                      │", "│                                                │", "│   /help for help, /status for your current setup │", "│                                                │", "│   cwd: /tmp/fixture/project                    │", "╰────────────────────────────────────────────────╯", "", "╭──────────────────────────────────────────────────────────────────────────────╮", "│ > Try \"refactor src/app.tsx\"                                                 │", "╰──────────────────────────────────────────────────────────────────────────────╯", "  ? for shortcuts", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 50, "rgb:d77757", "d", ""]],
+          "1": [[0, 1, "rgb:d77757", "d", ""], [2, 1, "rgb:d77757", "d", ""], [15, 11, "d", "d", "b"], [49, 1, "rgb:d77757", "d", ""]],
+          "2": [[0, 1, "rgb:d77757", "d", ""], [49, 1, "rgb:d77757", "d", ""]],
+          "3": [[0, 1, "rgb:d77757", "d", ""], [4, 46, "d", "d", "d"], [51, 1, "rgb:d77757", "d", ""]],
+          "4": [[0, 1, "rgb:d77757", "d", ""], [49, 1, "rgb:d77757", "d", ""]],
+          "5": [[0, 1, "rgb:d77757", "d", ""], [4, 25, "d", "d", "d"], [49, 1, "rgb:d77757", "d", ""]],
+          "6": [[0, 50, "rgb:d77757", "d", ""]],
+          "8": [[0, 80, "p256:246", "d", ""]],
+          "9": [[0, 1, "p256:246", "d", ""], [4, 26, "d", "d", "d"], [79, 1, "p256:246", "d", ""]],
+          "10": [[0, 80, "p256:246", "d", ""]],
+          "11": [[2, 15, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": "✳ Claude Code"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H╭────────────────────────────────────────────────╮\u001b[2;1H│ ✻ Welcome to Claude Code!                      │\u001b[3;1H│                                                │\u001b[4;1H│   /help for help, /status for your current setup │\u001b[5;1H│                                                │\u001b[6;1H│   cwd: /tmp/fixture/project                    │\u001b[7;1H╰────────────────────────────────────────────────╯\u001b[9;1H╭──────────────────────────────────────────────────────────────────────────────╮\u001b[10;1H│ > Try \"refactor src/app.tsx\"                                                 │\u001b[11;1H╰──────────────────────────────────────────────────────────────────────────────╯\u001b[12;1H  ? for shortcuts\u001b[13;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1628,
+      "to": 3304
+    },
+    {
+      "op": "write",
+      "from": 3304,
+      "to": 4980
+    },
+    {
+      "op": "write",
+      "from": 4980,
+      "to": 6656
+    },
+    {
+      "op": "write",
+      "from": 6656,
+      "to": 8332
+    },
+    {
+      "op": "write",
+      "from": 8332,
+      "to": 10008
+    },
+    {
+      "op": "write",
+      "from": 10008,
+      "to": 11684
+    },
+    {
+      "op": "write",
+      "from": 11684,
+      "to": 13360
+    },
+    {
+      "op": "write",
+      "from": 13360,
+      "to": 15036
+    },
+    {
+      "op": "write",
+      "from": 15036,
+      "to": 16712
+    },
+    {
+      "op": "write",
+      "from": 16712,
+      "to": 18388
+    },
+    {
+      "op": "write",
+      "from": 18388,
+      "to": 20064
+    },
+    {
+      "op": "write",
+      "from": 20064,
+      "to": 21740
+    },
+    {
+      "op": "write",
+      "from": 21740,
+      "to": 23416
+    },
+    {
+      "op": "write",
+      "from": 23416,
+      "to": 25092
+    },
+    {
+      "op": "checkpoint",
+      "label": "typed",
+      "at": 25092,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 12
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["╭────────────────────────────────────────────────╮", "│ ✻ Welcome to Claude Code!                      │", "│                                                │", "│   /help for help, /status for your current setup │", "│                                                │", "│   cwd: /tmp/fixture/project                    │", "╰────────────────────────────────────────────────╯", "", "╭──────────────────────────────────────────────────────────────────────────────╮", "│ > list the files                                                             │", "╰──────────────────────────────────────────────────────────────────────────────╯", "  ? for shortcuts", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 50, "rgb:d77757", "d", ""]],
+          "1": [[0, 1, "rgb:d77757", "d", ""], [2, 1, "rgb:d77757", "d", ""], [15, 11, "d", "d", "b"], [49, 1, "rgb:d77757", "d", ""]],
+          "2": [[0, 1, "rgb:d77757", "d", ""], [49, 1, "rgb:d77757", "d", ""]],
+          "3": [[0, 1, "rgb:d77757", "d", ""], [4, 46, "d", "d", "d"], [51, 1, "rgb:d77757", "d", ""]],
+          "4": [[0, 1, "rgb:d77757", "d", ""], [49, 1, "rgb:d77757", "d", ""]],
+          "5": [[0, 1, "rgb:d77757", "d", ""], [4, 25, "d", "d", "d"], [49, 1, "rgb:d77757", "d", ""]],
+          "6": [[0, 50, "rgb:d77757", "d", ""]],
+          "8": [[0, 80, "p256:246", "d", ""]],
+          "9": [[0, 1, "p256:246", "d", ""], [79, 1, "p256:246", "d", ""]],
+          "10": [[0, 80, "p256:246", "d", ""]],
+          "11": [[2, 15, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": "✳ Claude Code"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H╭────────────────────────────────────────────────╮\u001b[2;1H│ ✻ Welcome to Claude Code!                      │\u001b[3;1H│                                                │\u001b[4;1H│   /help for help, /status for your current setup │\u001b[5;1H│                                                │\u001b[6;1H│   cwd: /tmp/fixture/project                    │\u001b[7;1H╰────────────────────────────────────────────────╯\u001b[9;1H╭──────────────────────────────────────────────────────────────────────────────╮\u001b[10;1H│ > list the files                                                             │\u001b[11;1H╰──────────────────────────────────────────────────────────────────────────────╯\u001b[12;1H  ? for shortcuts\u001b[13;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 25092,
+      "to": 26908
+    },
+    {
+      "op": "write",
+      "from": 26908,
+      "to": 27758
+    },
+    {
+      "op": "write",
+      "from": 27758,
+      "to": 28608
+    },
+    {
+      "op": "write",
+      "from": 28608,
+      "to": 29459
+    },
+    {
+      "op": "write",
+      "from": 29459,
+      "to": 30309
+    },
+    {
+      "op": "write",
+      "from": 30309,
+      "to": 31160
+    },
+    {
+      "op": "write",
+      "from": 31160,
+      "to": 32011
+    },
+    {
+      "op": "write",
+      "from": 32011,
+      "to": 32862
+    },
+    {
+      "op": "write",
+      "from": 32862,
+      "to": 33713
+    },
+    {
+      "op": "write",
+      "from": 33713,
+      "to": 34564
+    },
+    {
+      "op": "write",
+      "from": 34564,
+      "to": 35415
+    },
+    {
+      "op": "write",
+      "from": 35415,
+      "to": 36266
+    },
+    {
+      "op": "checkpoint",
+      "label": "thinking",
+      "at": 36266,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 16
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["╭────────────────────────────────────────────────╮", "│ ✻ Welcome to Claude Code!                      │", "│                                                │", "│   /help for help, /status for your current setup │", "│                                                │", "│   cwd: /tmp/fixture/project                    │", "╰────────────────────────────────────────────────╯", "", "> list the files", "", "✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)", "", "╭──────────────────────────────────────────────────────────────────────────────╮", "│ > Try \"refactor src/app.tsx\"                                                 │", "╰──────────────────────────────────────────────────────────────────────────────╯", "  esc to interrupt", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 50, "rgb:d77757", "d", ""]],
+          "1": [[0, 1, "rgb:d77757", "d", ""], [2, 1, "rgb:d77757", "d", ""], [15, 11, "d", "d", "b"], [49, 1, "rgb:d77757", "d", ""]],
+          "2": [[0, 1, "rgb:d77757", "d", ""], [49, 1, "rgb:d77757", "d", ""]],
+          "3": [[0, 1, "rgb:d77757", "d", ""], [4, 46, "d", "d", "d"], [51, 1, "rgb:d77757", "d", ""]],
+          "4": [[0, 1, "rgb:d77757", "d", ""], [49, 1, "rgb:d77757", "d", ""]],
+          "5": [[0, 1, "rgb:d77757", "d", ""], [4, 25, "d", "d", "d"], [49, 1, "rgb:d77757", "d", ""]],
+          "6": [[0, 50, "rgb:d77757", "d", ""]],
+          "8": [[0, 16, "p256:246", "d", ""]],
+          "10": [[0, 1, "rgb:d77757", "d", ""], [2, 9, "rgb:d77757", "d", ""], [12, 38, "d", "d", "d"]],
+          "12": [[0, 80, "p256:246", "d", ""]],
+          "13": [[0, 1, "p256:246", "d", ""], [4, 26, "d", "d", "d"], [79, 1, "p256:246", "d", ""]],
+          "14": [[0, 80, "p256:246", "d", ""]],
+          "15": [[2, 16, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": "✳ Claude Code"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > list the files                                                             │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H╭────────────────────────────────────────────────╮\u001b[2;1H│ ✻ Welcome to Claude Code!                      │\u001b[3;1H│                                                │\u001b[4;1H│   /help for help, /status for your current setup │\u001b[5;1H│                                                │\u001b[6;1H│   cwd: /tmp/fixture/project                    │\u001b[7;1H╰────────────────────────────────────────────────╯\u001b[9;1H> list the files\u001b[11;1H✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\u001b[13;1H╭──────────────────────────────────────────────────────────────────────────────╮\u001b[14;1H│ > Try \"refactor src/app.tsx\"                                                 │\u001b[15;1H╰──────────────────────────────────────────────────────────────────────────────╯\u001b[16;1H  esc to interrupt\u001b[17;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 36266,
+      "to": 38145
+    },
+    {
+      "op": "checkpoint",
+      "label": "tool-output",
+      "at": 38145,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 23
+        },
+        "baseY": 10,
+        "viewportY": 10,
+        "length": 34,
+        "lines": ["⏺ Bash(ls -la)", "  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts", "     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts", "     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts", "     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts", "     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts", "     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts", "     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts", "     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts", "     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts", "     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts", "     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts", "     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts", "     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts", "     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts", "     … +32 lines (ctrl+r to expand)", "", "✳ Running…", "", "╭──────────────────────────────────────────────────────────────────────────────╮", "│ > Try \"refactor src/app.tsx\"                                                 │", "╰──────────────────────────────────────────────────────────────────────────────╯", "  esc to interrupt", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "b"]],
+          "1": [[5, 56, "d", "d", "d"]],
+          "2": [[5, 56, "d", "d", "d"]],
+          "3": [[5, 56, "d", "d", "d"]],
+          "4": [[5, 56, "d", "d", "d"]],
+          "5": [[5, 56, "d", "d", "d"]],
+          "6": [[5, 56, "d", "d", "d"]],
+          "7": [[5, 56, "d", "d", "d"]],
+          "8": [[5, 56, "d", "d", "d"]],
+          "9": [[5, 56, "d", "d", "d"]],
+          "10": [[5, 56, "d", "d", "d"]],
+          "11": [[5, 56, "d", "d", "d"]],
+          "12": [[5, 56, "d", "d", "d"]],
+          "13": [[5, 56, "d", "d", "d"]],
+          "14": [[5, 56, "d", "d", "d"]],
+          "15": [[5, 30, "d", "d", "d"]],
+          "17": [[0, 1, "rgb:d77757", "d", ""], [2, 8, "rgb:d77757", "d", ""]],
+          "19": [[0, 80, "p256:246", "d", ""]],
+          "20": [[0, 1, "p256:246", "d", ""], [4, 26, "d", "d", "d"], [79, 1, "p256:246", "d", ""]],
+          "21": [[0, 80, "p256:246", "d", ""]],
+          "22": [[2, 16, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": ["╭────────────────────────────────────────────────╮", "│ ✻ Welcome to Claude Code!                      │", "│                                                │", "│   /help for help, /status for your current setup │", "│                                                │", "│   cwd: /tmp/fixture/project                    │", "╰────────────────────────────────────────────────╯", "", "> list the files", ""],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": "✳ Claude Code"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n✢ Thinking… (3s · ↑ 407 tokens · esc to interrupt)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H⏺ Bash(ls -la)\u001b[2;1H  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\u001b[3;1H     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\u001b[4;1H     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\u001b[5;1H     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\u001b[6;1H     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\u001b[7;1H     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\u001b[8;1H     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\u001b[9;1H     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\u001b[10;1H     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\u001b[11;1H     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\u001b[12;1H     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\u001b[13;1H     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\u001b[14;1H     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts\u001b[15;1H     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts\u001b[16;1H     … +32 lines (ctrl+r to expand)\u001b[18;1H✳ Running…\u001b[20;1H╭──────────────────────────────────────────────────────────────────────────────╮\u001b[21;1H│ > Try \"refactor src/app.tsx\"                                                 │\u001b[22;1H╰──────────────────────────────────────────────────────────────────────────────╯\u001b[23;1H  esc to interrupt\u001b[24;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts\n     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts\n     … +32 lines (ctrl+r to expand)\n\n✳ Running…\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts\n     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts\n     … +32 lines (ctrl+r to expand)\n\n✳ Running…\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 10
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts\n     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts\n     … +32 lines (ctrl+r to expand)\n\n✳ Running…\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 10
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts\n     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts\n     … +32 lines (ctrl+r to expand)\n\n✳ Running…\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 10
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts\n     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts\n     … +32 lines (ctrl+r to expand)"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 10
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts\n     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts\n     … +32 lines (ctrl+r to expand)\n\n✳ Running…\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 10
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 10,
+            "maxScrollOffset": 10
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts\n     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts\n     … +32 lines (ctrl+r to expand)\n\n✳ Running…\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 10
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 38145,
+      "to": 40344
+    },
+    {
+      "op": "write",
+      "from": 40344,
+      "to": 42476
+    },
+    {
+      "op": "checkpoint",
+      "label": "taller-than-screen",
+      "at": 42476,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 23
+        },
+        "baseY": 35,
+        "viewportY": 35,
+        "length": 59,
+        "lines": ["│ streaming line 2: lorem ipsum dolor ✓", "│ streaming line 3: lorem ipsum dolor sit am ✓", "│ streaming line 4: lorem ipsum dolor sit amet  ✓", "│ streaming line 5: lorem ipsum dolor sit amet  ✓", "│ streaming line 6: lorem ipsum dolor sit amet  ✓", "│ streaming line 7: lorem ipsum  ✓", "│ streaming line 8: lorem ipsum dolor s ✓", "│ streaming line 9: lorem ipsum dolor sit amet ✓", "│ streaming line 10: lorem ipsum dolor sit amet  ✓", "│ streaming line 11: lorem ipsum dolor sit amet  ✓", "│ streaming line 12: lorem ipsum dolor sit amet  ✓", "│ streaming line 13: lorem ipsum do ✓", "│ streaming line 14: lorem ipsum dolor sit ✓", "│ streaming line 15: lorem ipsum dolor sit amet  ✓", "│ streaming line 16: lorem ipsum dolor sit amet  ✓", "│ streaming line 17: lorem ipsum dolor sit amet  ✓", "│ streaming line 18: lorem ipsum dolor sit amet  ✓", "│ streaming line 19: lorem ipsum dolo ✓", "│ streaming line 20: lorem ipsum dolor sit a ✓", "╭──────────────────────────────────────────────────────────────────────────────╮", "│ > Try \"refactor src/app.tsx\"                                                 │", "╰──────────────────────────────────────────────────────────────────────────────╯", "  esc to interrupt", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 1, "p16:6", "d", ""]],
+          "1": [[0, 1, "p16:5", "d", ""]],
+          "2": [[0, 1, "p16:6", "d", ""]],
+          "3": [[0, 1, "p16:5", "d", ""]],
+          "4": [[0, 1, "p16:6", "d", ""]],
+          "5": [[0, 1, "p16:5", "d", ""]],
+          "6": [[0, 1, "p16:6", "d", ""]],
+          "7": [[0, 1, "p16:5", "d", ""]],
+          "8": [[0, 1, "p16:6", "d", ""]],
+          "9": [[0, 1, "p16:5", "d", ""]],
+          "10": [[0, 1, "p16:6", "d", ""]],
+          "11": [[0, 1, "p16:5", "d", ""]],
+          "12": [[0, 1, "p16:6", "d", ""]],
+          "13": [[0, 1, "p16:5", "d", ""]],
+          "14": [[0, 1, "p16:6", "d", ""]],
+          "15": [[0, 1, "p16:5", "d", ""]],
+          "16": [[0, 1, "p16:6", "d", ""]],
+          "17": [[0, 1, "p16:5", "d", ""]],
+          "18": [[0, 1, "p16:6", "d", ""]],
+          "19": [[0, 80, "p256:246", "d", ""]],
+          "20": [[0, 1, "p256:246", "d", ""], [4, 26, "d", "d", "d"], [79, 1, "p256:246", "d", ""]],
+          "21": [[0, 80, "p256:246", "d", ""]],
+          "22": [[2, 16, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": ["╭────────────────────────────────────────────────╮", "│ ✻ Welcome to Claude Code!                      │", "│                                                │", "│   /help for help, /status for your current setup │", "│                                                │", "│   cwd: /tmp/fixture/project                    │", "╰────────────────────────────────────────────────╯", "", "> list the files", "", "⏺ Bash(ls -la)", "  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts", "     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts", "     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts", "     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts", "     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts", "     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts", "     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts", "     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts", "     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts", "     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts", "     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts", "     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts", "     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts", "     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts", "     … +32 lines (ctrl+r to expand)", "", "│ streaming line 1: lorem ipsu", "│ streaming line 2: lorem ipsum dolor", "│ streaming line 3: lorem ipsum dolor sit am", "│ streaming line 4: lorem ipsum dolor sit amet ", "│ streaming line 5: lorem ipsum dolor sit amet ", "│ streaming line 6: lorem ipsum dolor sit amet ", "│ streaming line 7: lorem ipsum ", "│ streaming line 1: lorem ipsu ✓"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": "✳ Claude Code"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts\n     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts\n     … +32 lines (ctrl+r to expand)\n\n✳ Running…\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H│ streaming line 2: lorem ipsum dolor ✓\u001b[2;1H│ streaming line 3: lorem ipsum dolor sit am ✓\u001b[3;1H│ streaming line 4: lorem ipsum dolor sit amet  ✓\u001b[4;1H│ streaming line 5: lorem ipsum dolor sit amet  ✓\u001b[5;1H│ streaming line 6: lorem ipsum dolor sit amet  ✓\u001b[6;1H│ streaming line 7: lorem ipsum  ✓\u001b[7;1H│ streaming line 8: lorem ipsum dolor s ✓\u001b[8;1H│ streaming line 9: lorem ipsum dolor sit amet ✓\u001b[9;1H│ streaming line 10: lorem ipsum dolor sit amet  ✓\u001b[10;1H│ streaming line 11: lorem ipsum dolor sit amet  ✓\u001b[11;1H│ streaming line 12: lorem ipsum dolor sit amet  ✓\u001b[12;1H│ streaming line 13: lorem ipsum do ✓\u001b[13;1H│ streaming line 14: lorem ipsum dolor sit ✓\u001b[14;1H│ streaming line 15: lorem ipsum dolor sit amet  ✓\u001b[15;1H│ streaming line 16: lorem ipsum dolor sit amet  ✓\u001b[16;1H│ streaming line 17: lorem ipsum dolor sit amet  ✓\u001b[17;1H│ streaming line 18: lorem ipsum dolor sit amet  ✓\u001b[18;1H│ streaming line 19: lorem ipsum dolo ✓\u001b[19;1H│ streaming line 20: lorem ipsum dolor sit a ✓\u001b[20;1H╭──────────────────────────────────────────────────────────────────────────────╮\u001b[21;1H│ > Try \"refactor src/app.tsx\"                                                 │\u001b[22;1H╰──────────────────────────────────────────────────────────────────────────────╯\u001b[23;1H  esc to interrupt\u001b[24;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "│ streaming line 2: lorem ipsum dolor ✓\n│ streaming line 3: lorem ipsum dolor sit am ✓\n│ streaming line 4: lorem ipsum dolor sit amet  ✓\n│ streaming line 5: lorem ipsum dolor sit amet  ✓\n│ streaming line 6: lorem ipsum dolor sit amet  ✓\n│ streaming line 7: lorem ipsum  ✓\n│ streaming line 8: lorem ipsum dolor s ✓\n│ streaming line 9: lorem ipsum dolor sit amet ✓\n│ streaming line 10: lorem ipsum dolor sit amet  ✓\n│ streaming line 11: lorem ipsum dolor sit amet  ✓\n│ streaming line 12: lorem ipsum dolor sit amet  ✓\n│ streaming line 13: lorem ipsum do ✓\n│ streaming line 14: lorem ipsum dolor sit ✓\n│ streaming line 15: lorem ipsum dolor sit amet  ✓\n│ streaming line 16: lorem ipsum dolor sit amet  ✓\n│ streaming line 17: lorem ipsum dolor sit amet  ✓\n│ streaming line 18: lorem ipsum dolor sit amet  ✓\n│ streaming line 19: lorem ipsum dolo ✓\n│ streaming line 20: lorem ipsum dolor sit a ✓\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "│ streaming line 2: lorem ipsum dolor ✓\n│ streaming line 3: lorem ipsum dolor sit am ✓\n│ streaming line 4: lorem ipsum dolor sit amet  ✓\n│ streaming line 5: lorem ipsum dolor sit amet  ✓\n│ streaming line 6: lorem ipsum dolor sit amet  ✓\n│ streaming line 7: lorem ipsum  ✓\n│ streaming line 8: lorem ipsum dolor s ✓\n│ streaming line 9: lorem ipsum dolor sit amet ✓\n│ streaming line 10: lorem ipsum dolor sit amet  ✓\n│ streaming line 11: lorem ipsum dolor sit amet  ✓\n│ streaming line 12: lorem ipsum dolor sit amet  ✓\n│ streaming line 13: lorem ipsum do ✓\n│ streaming line 14: lorem ipsum dolor sit ✓\n│ streaming line 15: lorem ipsum dolor sit amet  ✓\n│ streaming line 16: lorem ipsum dolor sit amet  ✓\n│ streaming line 17: lorem ipsum dolor sit amet  ✓\n│ streaming line 18: lorem ipsum dolor sit amet  ✓\n│ streaming line 19: lorem ipsum dolo ✓\n│ streaming line 20: lorem ipsum dolor sit a ✓\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "│ streaming line 1: lorem ipsu ✓\n│ streaming line 2: lorem ipsum dolor ✓\n│ streaming line 3: lorem ipsum dolor sit am ✓\n│ streaming line 4: lorem ipsum dolor sit amet  ✓\n│ streaming line 5: lorem ipsum dolor sit amet  ✓\n│ streaming line 6: lorem ipsum dolor sit amet  ✓\n│ streaming line 7: lorem ipsum  ✓\n│ streaming line 8: lorem ipsum dolor s ✓\n│ streaming line 9: lorem ipsum dolor sit amet ✓\n│ streaming line 10: lorem ipsum dolor sit amet  ✓\n│ streaming line 11: lorem ipsum dolor sit amet  ✓\n│ streaming line 12: lorem ipsum dolor sit amet  ✓\n│ streaming line 13: lorem ipsum do ✓\n│ streaming line 14: lorem ipsum dolor sit ✓\n│ streaming line 15: lorem ipsum dolor sit amet  ✓\n│ streaming line 16: lorem ipsum dolor sit amet  ✓\n│ streaming line 17: lorem ipsum dolor sit amet  ✓\n│ streaming line 18: lorem ipsum dolor sit amet  ✓\n│ streaming line 19: lorem ipsum dolo ✓\n│ streaming line 20: lorem ipsum dolor sit a ✓\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "│ streaming line 7: lorem ipsum \n│ streaming line 1: lorem ipsu ✓\n│ streaming line 2: lorem ipsum dolor ✓\n│ streaming line 3: lorem ipsum dolor sit am ✓\n│ streaming line 4: lorem ipsum dolor sit amet  ✓\n│ streaming line 5: lorem ipsum dolor sit amet  ✓\n│ streaming line 6: lorem ipsum dolor sit amet  ✓\n│ streaming line 7: lorem ipsum  ✓\n│ streaming line 8: lorem ipsum dolor s ✓\n│ streaming line 9: lorem ipsum dolor sit amet ✓\n│ streaming line 10: lorem ipsum dolor sit amet  ✓\n│ streaming line 11: lorem ipsum dolor sit amet  ✓\n│ streaming line 12: lorem ipsum dolor sit amet  ✓\n│ streaming line 13: lorem ipsum do ✓\n│ streaming line 14: lorem ipsum dolor sit ✓\n│ streaming line 15: lorem ipsum dolor sit amet  ✓\n│ streaming line 16: lorem ipsum dolor sit amet  ✓\n│ streaming line 17: lorem ipsum dolor sit amet  ✓\n│ streaming line 18: lorem ipsum dolor sit amet  ✓\n│ streaming line 19: lorem ipsum dolo ✓\n│ streaming line 20: lorem ipsum dolor sit a ✓\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "│ streaming line 2: lorem ipsum dolor\n│ streaming line 3: lorem ipsum dolor sit am\n│ streaming line 4: lorem ipsum dolor sit amet \n│ streaming line 5: lorem ipsum dolor sit amet \n│ streaming line 6: lorem ipsum dolor sit amet \n│ streaming line 7: lorem ipsum \n│ streaming line 1: lorem ipsu ✓\n│ streaming line 2: lorem ipsum dolor ✓\n│ streaming line 3: lorem ipsum dolor sit am ✓\n│ streaming line 4: lorem ipsum dolor sit amet  ✓\n│ streaming line 5: lorem ipsum dolor sit amet  ✓\n│ streaming line 6: lorem ipsum dolor sit amet  ✓\n│ streaming line 7: lorem ipsum  ✓\n│ streaming line 8: lorem ipsum dolor s ✓\n│ streaming line 9: lorem ipsum dolor sit amet ✓\n│ streaming line 10: lorem ipsum dolor sit amet  ✓\n│ streaming line 11: lorem ipsum dolor sit amet  ✓\n│ streaming line 12: lorem ipsum dolor sit amet  ✓\n│ streaming line 13: lorem ipsum do ✓\n│ streaming line 14: lorem ipsum dolor sit ✓\n│ streaming line 15: lorem ipsum dolor sit amet  ✓\n│ streaming line 16: lorem ipsum dolor sit amet  ✓\n│ streaming line 17: lorem ipsum dolor sit amet  ✓\n│ streaming line 18: lorem ipsum dolor sit amet  ✓"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "│ streaming line 2: lorem ipsum dolor ✓\n│ streaming line 3: lorem ipsum dolor sit am ✓\n│ streaming line 4: lorem ipsum dolor sit amet  ✓\n│ streaming line 5: lorem ipsum dolor sit amet  ✓\n│ streaming line 6: lorem ipsum dolor sit amet  ✓\n│ streaming line 7: lorem ipsum  ✓\n│ streaming line 8: lorem ipsum dolor s ✓\n│ streaming line 9: lorem ipsum dolor sit amet ✓\n│ streaming line 10: lorem ipsum dolor sit amet  ✓\n│ streaming line 11: lorem ipsum dolor sit amet  ✓\n│ streaming line 12: lorem ipsum dolor sit amet  ✓\n│ streaming line 13: lorem ipsum do ✓\n│ streaming line 14: lorem ipsum dolor sit ✓\n│ streaming line 15: lorem ipsum dolor sit amet  ✓\n│ streaming line 16: lorem ipsum dolor sit amet  ✓\n│ streaming line 17: lorem ipsum dolor sit amet  ✓\n│ streaming line 18: lorem ipsum dolor sit amet  ✓\n│ streaming line 19: lorem ipsum dolo ✓\n│ streaming line 20: lorem ipsum dolor sit a ✓\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 35,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "│ streaming line 2: lorem ipsum dolor ✓\n│ streaming line 3: lorem ipsum dolor sit am ✓\n│ streaming line 4: lorem ipsum dolor sit amet  ✓\n│ streaming line 5: lorem ipsum dolor sit amet  ✓\n│ streaming line 6: lorem ipsum dolor sit amet  ✓\n│ streaming line 7: lorem ipsum  ✓\n│ streaming line 8: lorem ipsum dolor s ✓\n│ streaming line 9: lorem ipsum dolor sit amet ✓\n│ streaming line 10: lorem ipsum dolor sit amet  ✓\n│ streaming line 11: lorem ipsum dolor sit amet  ✓\n│ streaming line 12: lorem ipsum dolor sit amet  ✓\n│ streaming line 13: lorem ipsum do ✓\n│ streaming line 14: lorem ipsum dolor sit ✓\n│ streaming line 15: lorem ipsum dolor sit amet  ✓\n│ streaming line 16: lorem ipsum dolor sit amet  ✓\n│ streaming line 17: lorem ipsum dolor sit amet  ✓\n│ streaming line 18: lorem ipsum dolor sit amet  ✓\n│ streaming line 19: lorem ipsum dolo ✓\n│ streaming line 20: lorem ipsum dolor sit a ✓\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 42476,
+      "to": 43549
+    },
+    {
+      "op": "checkpoint",
+      "label": "reply",
+      "at": 43549,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 10
+        },
+        "baseY": 35,
+        "viewportY": 35,
+        "length": 59,
+        "lines": ["⏺ There are 46 files. The largest are:", "", "  - src/daemon.ts (3 309 lines)", "  - src/app.tsx", "  - 日本語のファイル名.md (wide characters)", "", "╭──────────────────────────────────────────────────────────────────────────────╮", "│ > Try \"refactor src/app.tsx\"                                                 │", "╰──────────────────────────────────────────────────────────────────────────────╯", "  ? for shortcuts", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 1, "p16:7", "d", ""], [12, 8, "d", "d", "b"]],
+          "2": [[4, 13, "p16:6", "d", ""]],
+          "3": [[4, 11, "p16:6", "d", ""]],
+          "4": [[26, 17, "d", "d", "d"]],
+          "6": [[0, 80, "p256:246", "d", ""]],
+          "7": [[0, 1, "p256:246", "d", ""], [4, 26, "d", "d", "d"], [79, 1, "p256:246", "d", ""]],
+          "8": [[0, 80, "p256:246", "d", ""]],
+          "9": [[2, 15, "d", "d", "d"]]
+        },
+        "wide": {
+          "4": [4, 6, 8, 10, 12, 14, 16, 18, 20]
+        },
+        "scrollback": ["╭────────────────────────────────────────────────╮", "│ ✻ Welcome to Claude Code!                      │", "│                                                │", "│   /help for help, /status for your current setup │", "│                                                │", "│   cwd: /tmp/fixture/project                    │", "╰────────────────────────────────────────────────╯", "", "> list the files", "", "⏺ Bash(ls -la)", "  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts", "     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts", "     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts", "     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts", "     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts", "     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts", "     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts", "     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts", "     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts", "     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts", "     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts", "     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts", "     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts", "     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.ts", "     … +32 lines (ctrl+r to expand)", "", "│ streaming line 1: lorem ipsu", "│ streaming line 2: lorem ipsum dolor", "│ streaming line 3: lorem ipsum dolor sit am", "│ streaming line 4: lorem ipsum dolor sit amet ", "│ streaming line 5: lorem ipsum dolor sit amet ", "│ streaming line 6: lorem ipsum dolor sit amet ", "│ streaming line 7: lorem ipsum ", "│ streaming line 1: lorem ipsu ✓"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": "✳ Claude Code"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "│ streaming line 2: lorem ipsum dolor ✓\n│ streaming line 3: lorem ipsum dolor sit am ✓\n│ streaming line 4: lorem ipsum dolor sit amet  ✓\n│ streaming line 5: lorem ipsum dolor sit amet  ✓\n│ streaming line 6: lorem ipsum dolor sit amet  ✓\n│ streaming line 7: lorem ipsum  ✓\n│ streaming line 8: lorem ipsum dolor s ✓\n│ streaming line 9: lorem ipsum dolor sit amet ✓\n│ streaming line 10: lorem ipsum dolor sit amet  ✓\n│ streaming line 11: lorem ipsum dolor sit amet  ✓\n│ streaming line 12: lorem ipsum dolor sit amet  ✓\n│ streaming line 13: lorem ipsum do ✓\n│ streaming line 14: lorem ipsum dolor sit ✓\n│ streaming line 15: lorem ipsum dolor sit amet  ✓\n│ streaming line 16: lorem ipsum dolor sit amet  ✓\n│ streaming line 17: lorem ipsum dolor sit amet  ✓\n│ streaming line 18: lorem ipsum dolor sit amet  ✓\n│ streaming line 19: lorem ipsum dolo ✓\n│ streaming line 20: lorem ipsum dolor sit a ✓\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  esc to interrupt"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H⏺ There are 46 files. The largest are:\u001b[3;1H  - src/daemon.ts (3 309 lines)\u001b[4;1H  - src/app.tsx\u001b[5;1H  - 日本語のファイル名.md (wide characters)\u001b[7;1H╭──────────────────────────────────────────────────────────────────────────────╮\u001b[8;1H│ > Try \"refactor src/app.tsx\"                                                 │\u001b[9;1H╰──────────────────────────────────────────────────────────────────────────────╯\u001b[10;1H  ? for shortcuts\u001b[11;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "│ streaming line 1: lorem ipsu ✓\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "│ streaming line 7: lorem ipsum \n│ streaming line 1: lorem ipsu ✓\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "│ streaming line 2: lorem ipsum dolor\n│ streaming line 3: lorem ipsum dolor sit am\n│ streaming line 4: lorem ipsum dolor sit amet \n│ streaming line 5: lorem ipsum dolor sit amet \n│ streaming line 6: lorem ipsum dolor sit amet \n│ streaming line 7: lorem ipsum \n│ streaming line 1: lorem ipsu ✓\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 35,
+            "maxScrollOffset": 35
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.ts\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.ts\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.ts\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.ts\n     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.ts\n     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.ts\n     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.ts\n     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.ts\n     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.ts\n     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.ts\n     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.ts\n     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.ts\n     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.ts"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 35
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 60,
+      "rows": 18
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-60x18",
+      "at": 43549,
+      "screen": {
+        "cols": 60,
+        "rows": 18,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 10
+        },
+        "baseY": 52,
+        "viewportY": 52,
+        "length": 70,
+        "lines": ["  - src/app.tsx", "  - 日本語のファイル名.md (wide characters)", "", "╭───────────────────────────────────────────────────────────", "───────────────────╮", "│ > Try \"refactor src/app.tsx\"                              ", "                   │", "╰───────────────────────────────────────────────────────────", "───────────────────╯", "  ? for shortcuts", "", "", "", "", "", "", "", ""],
+        "wrapped": [4, 6, 8],
+        "attrs": {
+          "0": [[4, 11, "p16:6", "d", ""]],
+          "1": [[26, 17, "d", "d", "d"]],
+          "3": [[0, 60, "p256:246", "d", ""]],
+          "4": [[0, 20, "p256:246", "d", ""]],
+          "5": [[0, 1, "p256:246", "d", ""], [4, 26, "d", "d", "d"]],
+          "6": [[19, 1, "p256:246", "d", ""]],
+          "7": [[0, 60, "p256:246", "d", ""]],
+          "8": [[0, 20, "p256:246", "d", ""]],
+          "9": [[2, 15, "d", "d", "d"]]
+        },
+        "wide": {
+          "1": [4, 6, 8, 10, 12, 14, 16, 18, 20]
+        },
+        "scrollback": ["╭────────────────────────────────────────────────╮", "│ ✻ Welcome to Claude Code!                      │", "│                                                │", "│   /help for help, /status for your current setup │", "│                                                │", "│   cwd: /tmp/fixture/project                    │", "╰────────────────────────────────────────────────╯", "", "> list the files", "", "⏺ Bash(ls -la)", "  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.t", "s", "     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.t", "s", "     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.t", "s", "     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.t", "s", "     -rw-r--r--  1 user  staff    188 Oct 19 12:04 file-04.t", "s", "     -rw-r--r--  1 user  staff    205 Oct 19 12:05 file-05.t", "s", "     -rw-r--r--  1 user  staff    222 Oct 19 12:06 file-06.t", "s", "     -rw-r--r--  1 user  staff    239 Oct 19 12:07 file-07.t", "s", "     -rw-r--r--  1 user  staff    256 Oct 19 12:08 file-08.t", "s", "     -rw-r--r--  1 user  staff    273 Oct 19 12:09 file-09.t", "s", "     -rw-r--r--  1 user  staff    290 Oct 19 12:00 file-10.t", "s", "     -rw-r--r--  1 user  staff    307 Oct 19 12:01 file-11.t", "s", "     -rw-r--r--  1 user  staff    324 Oct 19 12:02 file-12.t", "s", "     -rw-r--r--  1 user  staff    341 Oct 19 12:03 file-13.t", "s", "     … +32 lines (ctrl+r to expand)", "", "│ streaming line 1: lorem ipsu", "│ streaming line 2: lorem ipsum dolor", "│ streaming line 3: lorem ipsum dolor sit am", "│ streaming line 4: lorem ipsum dolor sit amet ", "│ streaming line 5: lorem ipsum dolor sit amet ", "│ streaming line 6: lorem ipsum dolor sit amet ", "│ streaming line 7: lorem ipsum ", "│ streaming line 1: lorem ipsu ✓", "⏺ There are 46 files. The largest are:", "", "  - src/daemon.ts (3 309 lines)"],
+        "scrollbackWrapped": [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": "✳ Claude Code"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                                                 │\n╰──────────────────────────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H  - src/app.tsx\u001b[2;1H  - 日本語のファイル名.md (wide characters)\u001b[4;1H╭───────────────────────────────────────────────────────────\u001b[5;1H───────────────────╮\u001b[6;1H│ > Try \"refactor src/app.tsx\"                              \u001b[7;1H                   │\u001b[8;1H╰───────────────────────────────────────────────────────────\u001b[9;1H───────────────────╯\u001b[10;1H  ? for shortcuts\u001b[11;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭───────────────────────────────────────────────────────────\n───────────────────╮\n│ > Try \"refactor src/app.tsx\"                              \n                   │\n╰───────────────────────────────────────────────────────────\n───────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭───────────────────────────────────────────────────────────\n───────────────────╮\n│ > Try \"refactor src/app.tsx\"                              \n                   │\n╰───────────────────────────────────────────────────────────\n───────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 52
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭───────────────────────────────────────────────────────────\n───────────────────╮\n│ > Try \"refactor src/app.tsx\"                              \n                   │\n╰───────────────────────────────────────────────────────────\n───────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 52
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭───────────────────────────────────────────────────────────\n───────────────────╮\n│ > Try \"refactor src/app.tsx\"                              \n                   │\n╰───────────────────────────────────────────────────────────\n───────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 52
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "│ streaming line 5: lorem ipsum dolor sit amet \n│ streaming line 6: lorem ipsum dolor sit amet \n│ streaming line 7: lorem ipsum \n│ streaming line 1: lorem ipsu ✓\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭───────────────────────────────────────────────────────────\n───────────────────╮\n│ > Try \"refactor src/app.tsx\"                              \n                   │\n╰───────────────────────────────────────────────────────────\n───────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 52
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭───────────────────────────────────────────────────────────\n───────────────────╮\n│ > Try \"refactor src/app.tsx\"                              \n                   │\n╰───────────────────────────────────────────────────────────\n───────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 52
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.t\ns\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.t\ns\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.t\ns\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.t"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 52,
+            "maxScrollOffset": 52
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n│                                                │\n│   /help for help, /status for your current setup │\n│                                                │\n│   cwd: /tmp/fixture/project                    │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ Bash(ls -la)\n  ⎿  -rw-r--r--  1 user  staff    120 Oct 19 12:00 file-00.t\ns\n     -rw-r--r--  1 user  staff    137 Oct 19 12:01 file-01.t\ns\n     -rw-r--r--  1 user  staff    154 Oct 19 12:02 file-02.t\ns\n     -rw-r--r--  1 user  staff    171 Oct 19 12:03 file-03.t"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭───────────────────────────────────────────────────────────\n───────────────────╮\n│ > Try \"refactor src/app.tsx\"                              \n                   │\n╰───────────────────────────────────────────────────────────\n───────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 52
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 43549,
+      "to": 43576
+    },
+    {
+      "op": "write",
+      "from": 43576,
+      "to": 44827
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize",
+      "at": 44827,
+      "screen": {
+        "cols": 60,
+        "rows": 18,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 16
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 18,
+        "lines": ["╭────────────────────────────────────────────────╮", "│ ✻ Welcome to Claude Code!                      │", "╰────────────────────────────────────────────────╯", "", "> list the files", "", "⏺ There are 46 files. The largest are:", "", "  - src/daemon.ts (3 309 lines)", "  - src/app.tsx", "  - 日本語のファイル名.md (wide characters)", "", "╭──────────────────────────────────────────────────────────╮", "│ > Try \"refactor src/app.tsx\"                             │", "╰──────────────────────────────────────────────────────────╯", "  ? for shortcuts", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 50, "rgb:d77757", "d", ""]],
+          "1": [[0, 1, "rgb:d77757", "d", ""], [2, 1, "rgb:d77757", "d", ""], [15, 11, "d", "d", "b"], [49, 1, "rgb:d77757", "d", ""]],
+          "2": [[0, 50, "rgb:d77757", "d", ""]],
+          "4": [[0, 16, "p256:246", "d", ""]],
+          "6": [[0, 1, "p16:7", "d", ""], [12, 8, "d", "d", "b"]],
+          "8": [[4, 13, "p16:6", "d", ""]],
+          "9": [[4, 11, "p16:6", "d", ""]],
+          "10": [[26, 17, "d", "d", "d"]],
+          "12": [[0, 60, "p256:246", "d", ""]],
+          "13": [[0, 1, "p256:246", "d", ""], [4, 26, "d", "d", "d"], [59, 1, "p256:246", "d", ""]],
+          "14": [[0, 60, "p256:246", "d", ""]],
+          "15": [[2, 15, "d", "d", "d"]]
+        },
+        "wide": {
+          "10": [4, 6, 8, 10, 12, 14, 16, 18, 20]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": "✳ Claude Code"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭───────────────────────────────────────────────────────────\n───────────────────╮\n│ > Try \"refactor src/app.tsx\"                              \n                   │\n╰───────────────────────────────────────────────────────────\n───────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H╭────────────────────────────────────────────────╮\u001b[2;1H│ ✻ Welcome to Claude Code!                      │\u001b[3;1H╰────────────────────────────────────────────────╯\u001b[5;1H> list the files\u001b[7;1H⏺ There are 46 files. The largest are:\u001b[9;1H  - src/daemon.ts (3 309 lines)\u001b[10;1H  - src/app.tsx\u001b[11;1H  - 日本語のファイル名.md (wide characters)\u001b[13;1H╭──────────────────────────────────────────────────────────╮\u001b[14;1H│ > Try \"refactor src/app.tsx\"                             │\u001b[15;1H╰──────────────────────────────────────────────────────────╯\u001b[16;1H  ? for shortcuts\u001b[17;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 44827,
+      "to": 45397
+    },
+    {
+      "op": "write",
+      "from": 45397,
+      "to": 45977
+    },
+    {
+      "op": "write",
+      "from": 45977,
+      "to": 46010
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 46010,
+      "screen": {
+        "cols": 60,
+        "rows": 18,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 17
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 18,
+        "lines": ["╭────────────────────────────────────────────────╮", "│ ✻ Welcome to Claude Code!                      │", "╰────────────────────────────────────────────────╯", "", "> list the files", "", "⏺ There are 46 files. The largest are:", "", "  - src/daemon.ts (3 309 lines)", "  - src/app.tsx", "  - 日本語のファイル名.md (wide characters)", "", "╭──────────────────────────────────────────────────────────╮", "│ > Try \"refactor src/app.tsx\"                             │", "╰──────────────────────────────────────────────────────────╯", "  ? for shortcuts", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 50, "rgb:d77757", "d", ""]],
+          "1": [[0, 1, "rgb:d77757", "d", ""], [2, 1, "rgb:d77757", "d", ""], [15, 11, "d", "d", "b"], [49, 1, "rgb:d77757", "d", ""]],
+          "2": [[0, 50, "rgb:d77757", "d", ""]],
+          "4": [[0, 16, "p256:246", "d", ""]],
+          "6": [[0, 1, "p16:7", "d", ""], [12, 8, "d", "d", "b"]],
+          "8": [[4, 13, "p16:6", "d", ""]],
+          "9": [[4, 11, "p16:6", "d", ""]],
+          "10": [[26, 17, "d", "d", "d"]],
+          "12": [[0, 60, "p256:246", "d", ""]],
+          "13": [[0, 1, "p256:246", "d", ""], [4, 26, "d", "d", "d"], [59, 1, "p256:246", "d", ""]],
+          "14": [[0, 60, "p256:246", "d", ""]],
+          "15": [[2, 15, "d", "d", "d"]]
+        },
+        "wide": {
+          "10": [4, 6, 8, 10, 12, 14, 16, 18, 20]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": ""
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H╭────────────────────────────────────────────────╮\u001b[2;1H│ ✻ Welcome to Claude Code!                      │\u001b[3;1H╰────────────────────────────────────────────────╯\u001b[5;1H> list the files\u001b[7;1H⏺ There are 46 files. The largest are:\u001b[9;1H  - src/daemon.ts (3 309 lines)\u001b[10;1H  - src/app.tsx\u001b[11;1H  - 日本語のファイル名.md (wide characters)\u001b[13;1H╭──────────────────────────────────────────────────────────╮\u001b[14;1H│ > Try \"refactor src/app.tsx\"                             │\u001b[15;1H╰──────────────────────────────────────────────────────────╯\u001b[16;1H  ? for shortcuts\u001b[18;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "╭────────────────────────────────────────────────╮\n│ ✻ Welcome to Claude Code!                      │\n╰────────────────────────────────────────────────╯\n\n> list the files\n\n⏺ There are 46 files. The largest are:\n\n  - src/daemon.ts (3 309 lines)\n  - src/app.tsx\n  - 日本語のファイル名.md (wide characters)\n\n╭──────────────────────────────────────────────────────────╮\n│ > Try \"refactor src/app.tsx\"                             │\n╰──────────────────────────────────────────────────────────╯\n  ? for shortcuts"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    }
+  ]
+}

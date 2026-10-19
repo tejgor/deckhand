@@ -1,0 +1,126 @@
+{
+  "name": "synthetic-edge-cases",
+  "source": "synthetic",
+  "description": "Small-screen parser edge cases: pending wrap at the last column, a wide char that does not fit the last column, DECAWM off, combining marks and emoji sequences, tab stops, ICH/DCH/ECH/IL/DL/REP, DECSC/DECRC, origin mode in a scroll region, RI/IND/NEL, IRM, DECALN, OSC titles and hyperlinks, DCS/APC strings, ED 3, RIS, and clamped/no-op resizes.",
+  "cols": 20,
+  "rows": 6,
+  "chunks": [
+    20,
+    31,
+    47,
+    38,
+    55,
+    30,
+    9,
+    23,
+    46,
+    11,
+    23,
+    18,
+    32,
+    54,
+    32,
+    20,
+    89,
+    99,
+    96,
+    4,
+    4,
+    14,
+    28
+  ],
+  "events": [
+    {
+      "at": 20,
+      "type": "checkpoint",
+      "label": "pending-wrap"
+    },
+    {
+      "at": 98,
+      "type": "checkpoint",
+      "label": "wide-at-edge"
+    },
+    {
+      "at": 191,
+      "type": "checkpoint",
+      "label": "combining"
+    },
+    {
+      "at": 310,
+      "type": "checkpoint",
+      "label": "tabs-and-editing"
+    },
+    {
+      "at": 383,
+      "type": "checkpoint",
+      "label": "lines-and-saves"
+    },
+    {
+      "at": 469,
+      "type": "checkpoint",
+      "label": "regions"
+    },
+    {
+      "at": 489,
+      "type": "checkpoint",
+      "label": "decaln"
+    },
+    {
+      "at": 677,
+      "type": "checkpoint",
+      "label": "strings-ignored"
+    },
+    {
+      "at": 773,
+      "type": "checkpoint",
+      "label": "with-scrollback"
+    },
+    {
+      "at": 777,
+      "type": "checkpoint",
+      "label": "scrollback-cleared"
+    },
+    {
+      "at": 777,
+      "type": "resize",
+      "cols": 0,
+      "rows": 0
+    },
+    {
+      "at": 781,
+      "type": "checkpoint",
+      "label": "clamped-1x1"
+    },
+    {
+      "at": 781,
+      "type": "resize",
+      "cols": 20,
+      "rows": 6
+    },
+    {
+      "at": 781,
+      "type": "resize",
+      "cols": 20,
+      "rows": 6
+    },
+    {
+      "at": 795,
+      "type": "checkpoint",
+      "label": "resized-back"
+    },
+    {
+      "at": 823,
+      "type": "checkpoint",
+      "label": "after-ris"
+    }
+  ],
+  "scrollOffsets": [
+    0,
+    1,
+    3,
+    100
+  ],
+  "recording": {
+    "generator": "parity/gen/streams/synthetic.ts"
+  }
+}

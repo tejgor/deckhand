@@ -1,0 +1,171 @@
+{
+  "name": "sh-scrollback",
+  "source": "sh",
+  "description": "/bin/sh: long outputs filling scrollback (seq, a 200-column line), resizes narrower/wider/shorter while scrollback exists, scroll offsets deep into it.",
+  "cols": 50,
+  "rows": 10,
+  "chunks": [
+    10,
+    5,
+    6,
+    51,
+    196,
+    32,
+    20,
+    16,
+    16,
+    12,
+    16,
+    12,
+    16,
+    15,
+    20,
+    15,
+    20,
+    15,
+    15,
+    20,
+    20,
+    15,
+    20,
+    20,
+    15,
+    20,
+    20,
+    5,
+    2,
+    2,
+    15,
+    2,
+    2,
+    202,
+    2,
+    6,
+    13,
+    8,
+    15,
+    2,
+    6,
+    6
+  ],
+  "events": [
+    {
+      "at": 665,
+      "type": "checkpoint",
+      "label": "seq"
+    },
+    {
+      "at": 890,
+      "type": "checkpoint",
+      "label": "long-line"
+    },
+    {
+      "at": 890,
+      "type": "resize",
+      "cols": 30,
+      "rows": 10
+    },
+    {
+      "at": 896,
+      "type": "checkpoint",
+      "label": "narrower"
+    },
+    {
+      "at": 896,
+      "type": "resize",
+      "cols": 70,
+      "rows": 15
+    },
+    {
+      "at": 896,
+      "type": "checkpoint",
+      "label": "wider-taller"
+    },
+    {
+      "at": 896,
+      "type": "resize",
+      "cols": 70,
+      "rows": 5
+    },
+    {
+      "at": 896,
+      "type": "checkpoint",
+      "label": "shorter"
+    }
+  ],
+  "scrollOffsets": [
+    0,
+    1,
+    5,
+    40,
+    100,
+    1000000,
+    -1
+  ],
+  "recording": {
+    "command": "/bin/sh -i",
+    "environment": {
+      "HOME": "$SANDBOX/home",
+      "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+      "TERM": "xterm-256color",
+      "LANG": "en_US.UTF-8",
+      "LC_ALL": "en_US.UTF-8",
+      "SHELL": "/bin/sh",
+      "PS1": "$ ",
+      "PS2": "> ",
+      "TZ": "UTC",
+      "BASH_SILENCE_DEPRECATION_WARNING": "1",
+      "XDG_CONFIG_HOME": "$SANDBOX/home/.config",
+      "XDG_STATE_HOME": "$SANDBOX/home/.local/state",
+      "XDG_CACHE_HOME": "$SANDBOX/home/.cache",
+      "XDG_DATA_HOME": "$SANDBOX/home/.local/share",
+      "GIT_CONFIG_GLOBAL": "/dev/null",
+      "GIT_CONFIG_NOSYSTEM": "1"
+    },
+    "steps": [
+      {
+        "send": "seq 1 150\r"
+      },
+      {
+        "checkpoint": "seq"
+      },
+      {
+        "send": "printf '%0200d\\n' 7\r"
+      },
+      {
+        "checkpoint": "long-line"
+      },
+      {
+        "resize": [
+          30,
+          10
+        ]
+      },
+      {
+        "checkpoint": "narrower"
+      },
+      {
+        "resize": [
+          70,
+          15
+        ]
+      },
+      {
+        "checkpoint": "wider-taller"
+      },
+      {
+        "resize": [
+          70,
+          5
+        ]
+      },
+      {
+        "checkpoint": "shorter"
+      },
+      {
+        "send": "seq 1 5\r"
+      }
+    ],
+    "exit": "exit\r"
+  }
+}

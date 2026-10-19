@@ -1,0 +1,56 @@
+{
+  "name": "synthetic-codex-alt",
+  "source": "synthetic",
+  "description": "Imitates a ratatui full-screen view (codex transcript overlay): normal-screen history, alternate screen enter (1049), full paint and cell diffs, mouse/keyboard modes, a resize repaint inside the alternate screen, leaving it restores the normal screen and cursor.",
+  "cols": 90,
+  "rows": 28,
+  "chunks": [
+    843,
+    41,
+    2313,
+    1451,
+    1422,
+    1441,
+    1534,
+    1170,
+    1320,
+    43,
+    19
+  ],
+  "events": [
+    {
+      "at": 843,
+      "type": "checkpoint",
+      "label": "normal-before"
+    },
+    {
+      "at": 3197,
+      "type": "checkpoint",
+      "label": "alt-painted"
+    },
+    {
+      "at": 10215,
+      "type": "checkpoint",
+      "label": "alt-scrolled"
+    },
+    {
+      "at": 10215,
+      "type": "resize",
+      "cols": 70,
+      "rows": 16
+    },
+    {
+      "at": 11535,
+      "type": "checkpoint",
+      "label": "alt-resized"
+    },
+    {
+      "at": 11578,
+      "type": "checkpoint",
+      "label": "normal-after"
+    }
+  ],
+  "recording": {
+    "generator": "parity/gen/streams/synthetic.ts"
+  }
+}

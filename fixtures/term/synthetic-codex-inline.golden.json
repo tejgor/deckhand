@@ -1,0 +1,1350 @@
+{
+  "name": "synthetic-codex-inline",
+  "source": "synthetic",
+  "description": "Imitates codex (ratatui inline viewport): crossterm modes, cursor position query, history inserted above the viewport through a scroll region (DECSTBM + CUP + CRLF), cell-diff redraws with CUP/SGR runs, the viewport reaching the bottom, a resize, exit.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 100,
+  "rows": 30,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 100,
+      "rows": 30
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 9
+    },
+    {
+      "op": "write",
+      "from": 9,
+      "to": 34
+    },
+    {
+      "op": "write",
+      "from": 34,
+      "to": 219
+    },
+    {
+      "op": "checkpoint",
+      "label": "started",
+      "at": 219,
+      "screen": {
+        "cols": 100,
+        "rows": 30,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 1
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 30,
+        "lines": ["$ codex", "▌ Ask Codex to do anything", "", " ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "1": [[0, 26, "d", "d", "d"]],
+          "3": [[0, 46, "d", "d", "d"], [46, 39, "p16:6", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ codex\u001b[2;1H▌ Ask Codex to do anything\u001b[4;1H ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left\u001b[2;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 219,
+      "to": 398
+    },
+    {
+      "op": "write",
+      "from": 398,
+      "to": 575
+    },
+    {
+      "op": "write",
+      "from": 575,
+      "to": 637
+    },
+    {
+      "op": "write",
+      "from": 637,
+      "to": 672
+    },
+    {
+      "op": "write",
+      "from": 672,
+      "to": 707
+    },
+    {
+      "op": "write",
+      "from": 707,
+      "to": 742
+    },
+    {
+      "op": "write",
+      "from": 742,
+      "to": 777
+    },
+    {
+      "op": "write",
+      "from": 777,
+      "to": 812
+    },
+    {
+      "op": "write",
+      "from": 812,
+      "to": 848
+    },
+    {
+      "op": "write",
+      "from": 848,
+      "to": 877
+    },
+    {
+      "op": "write",
+      "from": 877,
+      "to": 914
+    },
+    {
+      "op": "write",
+      "from": 914,
+      "to": 951
+    },
+    {
+      "op": "write",
+      "from": 951,
+      "to": 988
+    },
+    {
+      "op": "write",
+      "from": 988,
+      "to": 1017
+    },
+    {
+      "op": "write",
+      "from": 1017,
+      "to": 1054
+    },
+    {
+      "op": "write",
+      "from": 1054,
+      "to": 1091
+    },
+    {
+      "op": "write",
+      "from": 1091,
+      "to": 1128
+    },
+    {
+      "op": "write",
+      "from": 1128,
+      "to": 1165
+    },
+    {
+      "op": "write",
+      "from": 1165,
+      "to": 1202
+    },
+    {
+      "op": "checkpoint",
+      "label": "typed",
+      "at": 1202,
+      "screen": {
+        "cols": 100,
+        "rows": 30,
+        "buffer": "normal",
+        "cursor": {
+          "x": 19,
+          "y": 6
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 30,
+        "lines": ["$ codex", ">_ OpenAI Codex (v0.0.0-fixture)", " ", "model: gpt-5-codex high", "directory: /tmp/fixture/project", " ", "▌ explain the build       ", "", " ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "1": [[0, 15, "d", "d", "b"], [15, 17, "d", "d", "d"]],
+          "3": [[0, 7, "d", "d", "d"], [7, 16, "p16:6", "d", ""]],
+          "4": [[0, 11, "d", "d", "d"]],
+          "8": [[0, 46, "d", "d", "d"], [46, 39, "p16:6", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ codex\u001b[2;1H>_ OpenAI Codex (v0.0.0-fixture)\u001b[3;1H \u001b[4;1Hmodel: gpt-5-codex high\u001b[5;1Hdirectory: /tmp/fixture/project\u001b[6;1H \u001b[7;1H▌ explain the build       \u001b[9;1H ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left\u001b[7;20H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1202,
+      "to": 1273
+    },
+    {
+      "op": "write",
+      "from": 1273,
+      "to": 1486
+    },
+    {
+      "op": "write",
+      "from": 1486,
+      "to": 1548
+    },
+    {
+      "op": "write",
+      "from": 1548,
+      "to": 1610
+    },
+    {
+      "op": "write",
+      "from": 1610,
+      "to": 1672
+    },
+    {
+      "op": "write",
+      "from": 1672,
+      "to": 1734
+    },
+    {
+      "op": "write",
+      "from": 1734,
+      "to": 1796
+    },
+    {
+      "op": "checkpoint",
+      "label": "working",
+      "at": 1796,
+      "screen": {
+        "cols": 100,
+        "rows": 30,
+        "buffer": "normal",
+        "cursor": {
+          "x": 12,
+          "y": 9
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 30,
+        "lines": ["$ codex", ">_ OpenAI Codex (v0.0.0-fixture)", " ", "model: gpt-5-codex high", "directory: /tmp/fixture/project", " ", "user", "explain the build", " ", "⠴ Working (5s • Esc to interrupt)", "▌ Ask Codex to do anything", "", " ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "1": [[0, 15, "d", "d", "b"], [15, 17, "d", "d", "d"]],
+          "3": [[0, 7, "d", "d", "d"], [7, 16, "p16:6", "d", ""]],
+          "4": [[0, 11, "d", "d", "d"]],
+          "6": [[0, 4, "p16:6", "d", "b"]],
+          "9": [[0, 2, "p16:6", "d", ""], [2, 7, "d", "d", "b"], [9, 24, "d", "d", "d"]],
+          "10": [[0, 26, "d", "d", "d"]],
+          "12": [[0, 46, "d", "d", "d"], [46, 19, "p16:6", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \n▌ explain the build       \n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   gpt-5-codex high · 100% context left"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ codex\u001b[2;1H>_ OpenAI Codex (v0.0.0-fixture)\u001b[3;1H \u001b[4;1Hmodel: gpt-5-codex high\u001b[5;1Hdirectory: /tmp/fixture/project\u001b[6;1H \u001b[7;1Huser\u001b[8;1Hexplain the build\u001b[9;1H \u001b[10;1H⠴ Working (5s • Esc to interrupt)\u001b[11;1H▌ Ask Codex to do anything\u001b[13;1H ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left\u001b[10;13H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1796,
+      "to": 2427
+    },
+    {
+      "op": "write",
+      "from": 2427,
+      "to": 2640
+    },
+    {
+      "op": "write",
+      "from": 2640,
+      "to": 3275
+    },
+    {
+      "op": "write",
+      "from": 3275,
+      "to": 3488
+    },
+    {
+      "op": "write",
+      "from": 3488,
+      "to": 4116
+    },
+    {
+      "op": "write",
+      "from": 4116,
+      "to": 4188
+    },
+    {
+      "op": "write",
+      "from": 4188,
+      "to": 4816
+    },
+    {
+      "op": "write",
+      "from": 4816,
+      "to": 4888
+    },
+    {
+      "op": "checkpoint",
+      "label": "history-scrolled",
+      "at": 4888,
+      "screen": {
+        "cols": 100,
+        "rows": 30,
+        "buffer": "normal",
+        "cursor": {
+          "x": 51,
+          "y": 27
+        },
+        "baseY": 17,
+        "viewportY": 17,
+        "length": 47,
+        "lines": ["codex", "• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············", "• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············", " ", "codex", "• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············", "• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············", " ", "codex", "• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············", "• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············", " ", "⠸ Working (9s • Esc to interrupt)", "▌ Ask Codex to do anything", "", " ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   93% context left", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 5, "p16:5", "d", "b"]],
+          "1": [[10, 20, "p16:3", "d", ""]],
+          "2": [[10, 20, "p16:3", "d", ""]],
+          "3": [[10, 20, "p16:3", "d", ""]],
+          "4": [[11, 20, "p16:3", "d", ""]],
+          "5": [[11, 20, "p16:3", "d", ""]],
+          "6": [[11, 20, "p16:3", "d", ""]],
+          "8": [[0, 5, "p16:5", "d", "b"]],
+          "9": [[11, 20, "p16:3", "d", ""]],
+          "10": [[11, 20, "p16:3", "d", ""]],
+          "11": [[11, 20, "p16:3", "d", ""]],
+          "12": [[11, 20, "p16:3", "d", ""]],
+          "13": [[11, 20, "p16:3", "d", ""]],
+          "14": [[11, 20, "p16:3", "d", ""]],
+          "16": [[0, 5, "p16:5", "d", "b"]],
+          "17": [[11, 20, "p16:3", "d", ""]],
+          "18": [[11, 20, "p16:3", "d", ""]],
+          "19": [[11, 20, "p16:3", "d", ""]],
+          "20": [[11, 20, "p16:3", "d", ""]],
+          "21": [[11, 20, "p16:3", "d", ""]],
+          "22": [[11, 20, "p16:3", "d", ""]],
+          "24": [[0, 2, "p16:6", "d", ""], [2, 7, "d", "d", "b"], [9, 24, "d", "d", "d"]],
+          "25": [[0, 26, "d", "d", "d"]],
+          "27": [[0, 46, "d", "d", "d"], [46, 19, "p16:6", "d", ""]]
+        },
+        "wide": {
+          "1": [56, 58, 60],
+          "2": [56, 58, 60],
+          "3": [56, 58, 60],
+          "4": [57, 59, 61],
+          "5": [57, 59, 61],
+          "6": [57, 59, 61],
+          "9": [57, 59, 61],
+          "10": [57, 59, 61],
+          "11": [57, 59, 61],
+          "12": [57, 59, 61],
+          "13": [57, 59, 61],
+          "14": [57, 59, 61],
+          "17": [57, 59, 61],
+          "18": [57, 59, 61],
+          "19": [57, 59, 61],
+          "20": [57, 59, 61],
+          "21": [57, 59, 61],
+          "22": [57, 59, 61]
+        },
+        "scrollback": ["$ codex", ">_ OpenAI Codex (v0.0.0-fixture)", " ", "model: gpt-5-codex high", "directory: /tmp/fixture/project", " ", "user", "explain the build", " ", "codex", "• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············", "• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············", " "],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \n⠴ Working (5s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   98% context left"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hcodex\u001b[2;1H• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \u001b[3;1H• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\u001b[4;1H• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\u001b[5;1H• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\u001b[6;1H• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\u001b[7;1H• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\u001b[8;1H \u001b[9;1Hcodex\u001b[10;1H• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \u001b[11;1H• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\u001b[12;1H• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\u001b[13;1H• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\u001b[14;1H• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\u001b[15;1H• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\u001b[16;1H \u001b[17;1Hcodex\u001b[18;1H• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \u001b[19;1H• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\u001b[20;1H• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\u001b[21;1H• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\u001b[22;1H• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\u001b[23;1H• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\u001b[24;1H \u001b[25;1H⠸ Working (9s • Esc to interrupt)\u001b[26;1H▌ Ask Codex to do anything\u001b[28;1H ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   93% context left\u001b[28;52H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "codex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \n⠸ Working (9s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   93% context left"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "codex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \n⠸ Working (9s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   93% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 17
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": " \ncodex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \n⠸ Working (9s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   93% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 17
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \n⠸ Working (9s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   93% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 17
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 17
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "codex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \n⠸ Working (9s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   93% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 17
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \ncodex\n• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 17,
+            "maxScrollOffset": 17
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \ncodex\n• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "codex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \n⠸ Working (9s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   93% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 17
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 4888,
+      "to": 5185
+    },
+    {
+      "op": "resize",
+      "cols": 72,
+      "rows": 20
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-72x20",
+      "at": 5185,
+      "screen": {
+        "cols": 72,
+        "rows": 20,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 19
+        },
+        "baseY": 33,
+        "viewportY": 33,
+        "length": 53,
+        "lines": ["• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·", "• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "····", "• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·······", " ", "codex", "• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·", "• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "····", "• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·······", " ", "▌ Ask Codex to do anything       "],
+        "wrapped": [2, 4, 6, 13, 15, 17],
+        "attrs": {
+          "0": [[11, 20, "p16:3", "d", ""]],
+          "1": [[11, 20, "p16:3", "d", ""]],
+          "3": [[11, 20, "p16:3", "d", ""]],
+          "5": [[11, 20, "p16:3", "d", ""]],
+          "8": [[0, 5, "p16:5", "d", "b"]],
+          "9": [[11, 20, "p16:3", "d", ""]],
+          "10": [[11, 20, "p16:3", "d", ""]],
+          "11": [[11, 20, "p16:3", "d", ""]],
+          "12": [[11, 20, "p16:3", "d", ""]],
+          "14": [[11, 20, "p16:3", "d", ""]],
+          "16": [[11, 20, "p16:3", "d", ""]],
+          "19": [[0, 26, "d", "d", "d"]]
+        },
+        "wide": {
+          "0": [57, 59, 61],
+          "1": [57, 59, 61],
+          "3": [57, 59, 61],
+          "5": [57, 59, 61],
+          "9": [57, 59, 61],
+          "10": [57, 59, 61],
+          "11": [57, 59, 61],
+          "12": [57, 59, 61],
+          "14": [57, 59, 61],
+          "16": [57, 59, 61]
+        },
+        "scrollback": ["$ codex", ">_ OpenAI Codex (v0.0.0-fixture)", " ", "model: gpt-5-codex high", "directory: /tmp/fixture/project", " ", "user", "explain the build", " ", "codex", "• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "···", "• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "······", " ", "codex", "• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·", "• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "····", "• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·······", " ", "codex", "• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···"],
+        "scrollbackWrapped": [15, 17, 24, 26, 28],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "codex\n• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ············\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···············\n \n⠸ Working (9s • Esc to interrupt)\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   93% context left"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\u001b[2;1H• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[3;1H·\u001b[4;1H• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[5;1H····\u001b[6;1H• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[7;1H·······\u001b[8;1H \u001b[9;1Hcodex\u001b[10;1H• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \u001b[11;1H• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\u001b[12;1H• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\u001b[13;1H• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[14;1H·\u001b[15;1H• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[16;1H····\u001b[17;1H• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[18;1H·······\u001b[19;1H \u001b[20;1H▌ Ask Codex to do anything       \u001b[20;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \n▌ Ask Codex to do anything       "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \n▌ Ask Codex to do anything       "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "····\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \n▌ Ask Codex to do anything       "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \ncodex\n• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n···\n• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n······\n \ncodex"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 33,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \ncodex\n• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n···\n• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n······\n \ncodex"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \n▌ Ask Codex to do anything       "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 33
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 5185,
+      "to": 5362
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize",
+      "at": 5362,
+      "screen": {
+        "cols": 72,
+        "rows": 20,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 14
+        },
+        "baseY": 33,
+        "viewportY": 33,
+        "length": 53,
+        "lines": ["• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·", "• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "····", "• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·······", " ", "codex", "• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·", "▌ Ask Codex to do anything", "", " ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   92% context left", "", "", ""],
+        "wrapped": [2, 4, 6, 13],
+        "attrs": {
+          "0": [[11, 20, "p16:3", "d", ""]],
+          "1": [[11, 20, "p16:3", "d", ""]],
+          "3": [[11, 20, "p16:3", "d", ""]],
+          "5": [[11, 20, "p16:3", "d", ""]],
+          "8": [[0, 5, "p16:5", "d", "b"]],
+          "9": [[11, 20, "p16:3", "d", ""]],
+          "10": [[11, 20, "p16:3", "d", ""]],
+          "11": [[11, 20, "p16:3", "d", ""]],
+          "12": [[11, 20, "p16:3", "d", ""]],
+          "14": [[0, 26, "d", "d", "d"]],
+          "16": [[0, 46, "d", "d", "d"], [46, 19, "p16:6", "d", ""]]
+        },
+        "wide": {
+          "0": [57, 59, 61],
+          "1": [57, 59, 61],
+          "3": [57, 59, 61],
+          "5": [57, 59, 61],
+          "9": [57, 59, 61],
+          "10": [57, 59, 61],
+          "11": [57, 59, 61],
+          "12": [57, 59, 61]
+        },
+        "scrollback": ["$ codex", ">_ OpenAI Codex (v0.0.0-fixture)", " ", "model: gpt-5-codex high", "directory: /tmp/fixture/project", " ", "user", "explain the build", " ", "codex", "• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "···", "• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "······", " ", "codex", "• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·", "• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "····", "• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·······", " ", "codex", "• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···"],
+        "scrollbackWrapped": [15, 17, 24, 26, 28],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 23: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 24: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \n▌ Ask Codex to do anything       "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\u001b[2;1H• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[3;1H·\u001b[4;1H• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[5;1H····\u001b[6;1H• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[7;1H·······\u001b[8;1H \u001b[9;1Hcodex\u001b[10;1H• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \u001b[11;1H• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\u001b[12;1H• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\u001b[13;1H• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[14;1H·\u001b[15;1H▌ Ask Codex to do anything\u001b[17;1H ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   92% context left\u001b[15;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   92% context left"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   92% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   92% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   92% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "····\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   92% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \ncodex\n• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n···\n• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n······\n \ncodex"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 33,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \ncodex\n• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n···\n• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n······\n \ncodex"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   92% context left"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 33
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 5362,
+      "to": 5399
+    },
+    {
+      "op": "write",
+      "from": 5399,
+      "to": 5454
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 5454,
+      "screen": {
+        "cols": 72,
+        "rows": 20,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 15
+        },
+        "baseY": 33,
+        "viewportY": 33,
+        "length": 53,
+        "lines": ["• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·", "• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "····", "• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·······", " ", "codex", "• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·", "Token usage: total=1234 input=1000 output=234", "", "", "", "", ""],
+        "wrapped": [2, 4, 6, 13],
+        "attrs": {
+          "0": [[11, 20, "p16:3", "d", ""]],
+          "1": [[11, 20, "p16:3", "d", ""]],
+          "3": [[11, 20, "p16:3", "d", ""]],
+          "5": [[11, 20, "p16:3", "d", ""]],
+          "8": [[0, 5, "p16:5", "d", "b"]],
+          "9": [[11, 20, "p16:3", "d", ""]],
+          "10": [[11, 20, "p16:3", "d", ""]],
+          "11": [[11, 20, "p16:3", "d", ""]],
+          "12": [[11, 20, "p16:3", "d", ""]],
+          "14": [[0, 45, "d", "d", "d"]]
+        },
+        "wide": {
+          "0": [57, 59, 61],
+          "1": [57, 59, 61],
+          "3": [57, 59, 61],
+          "5": [57, 59, 61],
+          "9": [57, 59, 61],
+          "10": [57, 59, 61],
+          "11": [57, 59, 61],
+          "12": [57, 59, 61]
+        },
+        "scrollback": ["$ codex", ">_ OpenAI Codex (v0.0.0-fixture)", " ", "model: gpt-5-codex high", "directory: /tmp/fixture/project", " ", "user", "explain the build", " ", "codex", "• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "···", "• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········", "······", " ", "codex", "• step 7: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 8: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···", "• step 9: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······", "• step 10: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·", "• step 11: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "····", "• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········", "·······", " ", "codex", "• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ", "• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···"],
+        "scrollbackWrapped": [15, 17, 24, 26, 28],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n▌ Ask Codex to do anything\n\n ⏎ send   ⇧⏎ newline   ⌃T transcript   ⌃C quit   92% context left"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\u001b[2;1H• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[3;1H·\u001b[4;1H• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[5;1H····\u001b[6;1H• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[7;1H·······\u001b[8;1H \u001b[9;1Hcodex\u001b[10;1H• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \u001b[11;1H• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\u001b[12;1H• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\u001b[13;1H• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\u001b[14;1H·\u001b[15;1HToken usage: total=1234 input=1000 output=234\u001b[16;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\nToken usage: total=1234 input=1000 output=234"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\nToken usage: total=1234 input=1000 output=234"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\nToken usage: total=1234 input=1000 output=234"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\nToken usage: total=1234 input=1000 output=234"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "····\n• step 12: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 13: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 14: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\nToken usage: total=1234 input=1000 output=234"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \ncodex\n• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n···\n• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n······\n \ncodex"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 33,
+            "maxScrollOffset": 33
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ codex\n>_ OpenAI Codex (v0.0.0-fixture)\n \nmodel: gpt-5-codex high\ndirectory: /tmp/fixture/project\n \nuser\nexplain the build\n \ncodex\n• step 1: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 2: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 3: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 4: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n• step 5: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n···\n• step 6: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ·········\n······\n \ncodex"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "• step 15: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 16: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\n• step 17: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n····\n• step 18: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·······\n \ncodex\n• step 19: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 \n• step 20: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ···\n• step 21: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ······\n• step 22: tsc -p tsconfig.json compiles src/ to dist/ — 日本語 ········\n·\nToken usage: total=1234 input=1000 output=234"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 33
+          }
+        }
+      ]
+    }
+  ]
+}

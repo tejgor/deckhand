@@ -1,0 +1,3562 @@
+{
+  "name": "sh-cursor",
+  "source": "sh",
+  "description": "/bin/sh: cursor movement (CUP/CUU/CUD/CUF/CUB/CHA/VPA), erase in line/display, insert/delete, scroll regions with scrolling, tabs, save/restore, clear.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 60,
+  "rows": 16,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 60,
+      "rows": 16
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 10
+    },
+    {
+      "op": "write",
+      "from": 10,
+      "to": 14
+    },
+    {
+      "op": "write",
+      "from": 14,
+      "to": 24
+    },
+    {
+      "op": "write",
+      "from": 24,
+      "to": 25
+    },
+    {
+      "op": "write",
+      "from": 25,
+      "to": 28
+    },
+    {
+      "op": "write",
+      "from": 28,
+      "to": 30
+    },
+    {
+      "op": "write",
+      "from": 30,
+      "to": 32
+    },
+    {
+      "op": "write",
+      "from": 32,
+      "to": 34
+    },
+    {
+      "op": "write",
+      "from": 34,
+      "to": 48
+    },
+    {
+      "op": "write",
+      "from": 48,
+      "to": 49
+    },
+    {
+      "op": "write",
+      "from": 49,
+      "to": 51
+    },
+    {
+      "op": "write",
+      "from": 51,
+      "to": 52
+    },
+    {
+      "op": "write",
+      "from": 52,
+      "to": 53
+    },
+    {
+      "op": "write",
+      "from": 53,
+      "to": 55
+    },
+    {
+      "op": "write",
+      "from": 55,
+      "to": 56
+    },
+    {
+      "op": "write",
+      "from": 56,
+      "to": 57
+    },
+    {
+      "op": "write",
+      "from": 57,
+      "to": 58
+    },
+    {
+      "op": "write",
+      "from": 58,
+      "to": 60
+    },
+    {
+      "op": "write",
+      "from": 60,
+      "to": 61
+    },
+    {
+      "op": "write",
+      "from": 61,
+      "to": 64
+    },
+    {
+      "op": "write",
+      "from": 64,
+      "to": 65
+    },
+    {
+      "op": "write",
+      "from": 65,
+      "to": 66
+    },
+    {
+      "op": "write",
+      "from": 66,
+      "to": 67
+    },
+    {
+      "op": "write",
+      "from": 67,
+      "to": 73
+    },
+    {
+      "op": "write",
+      "from": 73,
+      "to": 75
+    },
+    {
+      "op": "write",
+      "from": 75,
+      "to": 77
+    },
+    {
+      "op": "write",
+      "from": 77,
+      "to": 79
+    },
+    {
+      "op": "write",
+      "from": 79,
+      "to": 80
+    },
+    {
+      "op": "write",
+      "from": 80,
+      "to": 82
+    },
+    {
+      "op": "write",
+      "from": 82,
+      "to": 83
+    },
+    {
+      "op": "write",
+      "from": 83,
+      "to": 85
+    },
+    {
+      "op": "write",
+      "from": 85,
+      "to": 88
+    },
+    {
+      "op": "write",
+      "from": 88,
+      "to": 90
+    },
+    {
+      "op": "write",
+      "from": 90,
+      "to": 91
+    },
+    {
+      "op": "write",
+      "from": 91,
+      "to": 92
+    },
+    {
+      "op": "write",
+      "from": 92,
+      "to": 94
+    },
+    {
+      "op": "write",
+      "from": 94,
+      "to": 95
+    },
+    {
+      "op": "write",
+      "from": 95,
+      "to": 97
+    },
+    {
+      "op": "write",
+      "from": 97,
+      "to": 98
+    },
+    {
+      "op": "write",
+      "from": 98,
+      "to": 99
+    },
+    {
+      "op": "write",
+      "from": 99,
+      "to": 101
+    },
+    {
+      "op": "write",
+      "from": 101,
+      "to": 102
+    },
+    {
+      "op": "write",
+      "from": 102,
+      "to": 103
+    },
+    {
+      "op": "write",
+      "from": 103,
+      "to": 104
+    },
+    {
+      "op": "write",
+      "from": 104,
+      "to": 106
+    },
+    {
+      "op": "write",
+      "from": 106,
+      "to": 108
+    },
+    {
+      "op": "write",
+      "from": 108,
+      "to": 109
+    },
+    {
+      "op": "write",
+      "from": 109,
+      "to": 113
+    },
+    {
+      "op": "write",
+      "from": 113,
+      "to": 206
+    },
+    {
+      "op": "checkpoint",
+      "label": "moves",
+      "at": 206,
+      "screen": {
+        "cols": 60,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 8
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 16,
+        "lines": ["0123456up9", "", "    abc", "         down    ricol20", "", "", "", "                        vpa8", "$ ", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H0123456up9\u001b[3;1H    abc\u001b[4;1H         down    ricol20\u001b[8;1H                        vpa8\u001b[9;1H$ \u001b[9;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 206,
+      "to": 208
+    },
+    {
+      "op": "write",
+      "from": 208,
+      "to": 213
+    },
+    {
+      "op": "write",
+      "from": 213,
+      "to": 214
+    },
+    {
+      "op": "write",
+      "from": 214,
+      "to": 216
+    },
+    {
+      "op": "write",
+      "from": 216,
+      "to": 219
+    },
+    {
+      "op": "write",
+      "from": 219,
+      "to": 220
+    },
+    {
+      "op": "write",
+      "from": 220,
+      "to": 221
+    },
+    {
+      "op": "write",
+      "from": 221,
+      "to": 222
+    },
+    {
+      "op": "write",
+      "from": 222,
+      "to": 224
+    },
+    {
+      "op": "write",
+      "from": 224,
+      "to": 227
+    },
+    {
+      "op": "write",
+      "from": 227,
+      "to": 229
+    },
+    {
+      "op": "write",
+      "from": 229,
+      "to": 230
+    },
+    {
+      "op": "write",
+      "from": 230,
+      "to": 233
+    },
+    {
+      "op": "write",
+      "from": 233,
+      "to": 234
+    },
+    {
+      "op": "write",
+      "from": 234,
+      "to": 235
+    },
+    {
+      "op": "write",
+      "from": 235,
+      "to": 236
+    },
+    {
+      "op": "write",
+      "from": 236,
+      "to": 237
+    },
+    {
+      "op": "write",
+      "from": 237,
+      "to": 238
+    },
+    {
+      "op": "write",
+      "from": 238,
+      "to": 239
+    },
+    {
+      "op": "write",
+      "from": 239,
+      "to": 240
+    },
+    {
+      "op": "write",
+      "from": 240,
+      "to": 241
+    },
+    {
+      "op": "write",
+      "from": 241,
+      "to": 242
+    },
+    {
+      "op": "write",
+      "from": 242,
+      "to": 243
+    },
+    {
+      "op": "write",
+      "from": 243,
+      "to": 244
+    },
+    {
+      "op": "write",
+      "from": 244,
+      "to": 245
+    },
+    {
+      "op": "write",
+      "from": 245,
+      "to": 246
+    },
+    {
+      "op": "write",
+      "from": 246,
+      "to": 247
+    },
+    {
+      "op": "write",
+      "from": 247,
+      "to": 250
+    },
+    {
+      "op": "write",
+      "from": 250,
+      "to": 252
+    },
+    {
+      "op": "write",
+      "from": 252,
+      "to": 259
+    },
+    {
+      "op": "write",
+      "from": 259,
+      "to": 262
+    },
+    {
+      "op": "write",
+      "from": 262,
+      "to": 266
+    },
+    {
+      "op": "write",
+      "from": 266,
+      "to": 268
+    },
+    {
+      "op": "write",
+      "from": 268,
+      "to": 270
+    },
+    {
+      "op": "write",
+      "from": 270,
+      "to": 271
+    },
+    {
+      "op": "write",
+      "from": 271,
+      "to": 272
+    },
+    {
+      "op": "write",
+      "from": 272,
+      "to": 273
+    },
+    {
+      "op": "write",
+      "from": 273,
+      "to": 274
+    },
+    {
+      "op": "write",
+      "from": 274,
+      "to": 275
+    },
+    {
+      "op": "write",
+      "from": 275,
+      "to": 276
+    },
+    {
+      "op": "write",
+      "from": 276,
+      "to": 277
+    },
+    {
+      "op": "write",
+      "from": 277,
+      "to": 279
+    },
+    {
+      "op": "write",
+      "from": 279,
+      "to": 281
+    },
+    {
+      "op": "write",
+      "from": 281,
+      "to": 282
+    },
+    {
+      "op": "write",
+      "from": 282,
+      "to": 283
+    },
+    {
+      "op": "write",
+      "from": 283,
+      "to": 286
+    },
+    {
+      "op": "write",
+      "from": 286,
+      "to": 290
+    },
+    {
+      "op": "write",
+      "from": 290,
+      "to": 292
+    },
+    {
+      "op": "write",
+      "from": 292,
+      "to": 293
+    },
+    {
+      "op": "write",
+      "from": 293,
+      "to": 294
+    },
+    {
+      "op": "write",
+      "from": 294,
+      "to": 295
+    },
+    {
+      "op": "write",
+      "from": 295,
+      "to": 296
+    },
+    {
+      "op": "write",
+      "from": 296,
+      "to": 297
+    },
+    {
+      "op": "write",
+      "from": 297,
+      "to": 298
+    },
+    {
+      "op": "write",
+      "from": 298,
+      "to": 299
+    },
+    {
+      "op": "write",
+      "from": 299,
+      "to": 300
+    },
+    {
+      "op": "write",
+      "from": 300,
+      "to": 303
+    },
+    {
+      "op": "write",
+      "from": 303,
+      "to": 306
+    },
+    {
+      "op": "write",
+      "from": 306,
+      "to": 378
+    },
+    {
+      "op": "write",
+      "from": 378,
+      "to": 380
+    },
+    {
+      "op": "checkpoint",
+      "label": "erase-line",
+      "at": 380,
+      "screen": {
+        "cols": 60,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 13
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 16,
+        "lines": ["0123456up9", "", "    abc", "         down    ricol20", "", "", "", "                        vpa8", "$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start", "\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'", "erase-me-t|", "         |start", "          |", "$ ", "", ""],
+        "wrapped": [9],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H0123456up9\u001b[3;1H    abc\u001b[4;1H         down    ricol20\u001b[8;1H                        vpa8\u001b[9;1H$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\u001b[10;1H\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\u001b[11;1Herase-me-t|\u001b[12;1H         |start\u001b[13;1H          |\u001b[14;1H$ \u001b[14;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 380,
+      "to": 387
+    },
+    {
+      "op": "write",
+      "from": 387,
+      "to": 402
+    },
+    {
+      "op": "write",
+      "from": 402,
+      "to": 404
+    },
+    {
+      "op": "write",
+      "from": 404,
+      "to": 406
+    },
+    {
+      "op": "write",
+      "from": 406,
+      "to": 408
+    },
+    {
+      "op": "write",
+      "from": 408,
+      "to": 409
+    },
+    {
+      "op": "write",
+      "from": 409,
+      "to": 410
+    },
+    {
+      "op": "write",
+      "from": 410,
+      "to": 412
+    },
+    {
+      "op": "write",
+      "from": 412,
+      "to": 414
+    },
+    {
+      "op": "write",
+      "from": 414,
+      "to": 416
+    },
+    {
+      "op": "write",
+      "from": 416,
+      "to": 417
+    },
+    {
+      "op": "write",
+      "from": 417,
+      "to": 418
+    },
+    {
+      "op": "write",
+      "from": 418,
+      "to": 420
+    },
+    {
+      "op": "write",
+      "from": 420,
+      "to": 421
+    },
+    {
+      "op": "write",
+      "from": 421,
+      "to": 422
+    },
+    {
+      "op": "write",
+      "from": 422,
+      "to": 423
+    },
+    {
+      "op": "write",
+      "from": 423,
+      "to": 424
+    },
+    {
+      "op": "write",
+      "from": 424,
+      "to": 426
+    },
+    {
+      "op": "write",
+      "from": 426,
+      "to": 427
+    },
+    {
+      "op": "write",
+      "from": 427,
+      "to": 428
+    },
+    {
+      "op": "write",
+      "from": 428,
+      "to": 429
+    },
+    {
+      "op": "write",
+      "from": 429,
+      "to": 433
+    },
+    {
+      "op": "write",
+      "from": 433,
+      "to": 442
+    },
+    {
+      "op": "write",
+      "from": 442,
+      "to": 445
+    },
+    {
+      "op": "write",
+      "from": 445,
+      "to": 447
+    },
+    {
+      "op": "write",
+      "from": 447,
+      "to": 448
+    },
+    {
+      "op": "write",
+      "from": 448,
+      "to": 451
+    },
+    {
+      "op": "write",
+      "from": 451,
+      "to": 483
+    },
+    {
+      "op": "write",
+      "from": 483,
+      "to": 485
+    },
+    {
+      "op": "checkpoint",
+      "label": "erase-display",
+      "at": 485,
+      "screen": {
+        "cols": 60,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 2
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 16,
+        "lines": ["", "", "$   abc", "         down    ricol20", "fi", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0123456up9\n\n    abc\n         down    ricol20\n\n\n\n                        vpa8\n$ printf 'erase-me-to-the-end\\033[9D\\033[K|\\nerase-the-start\n\\033[6D\\033[1K|\\nwhole-line\\033[2K|\\n'\nerase-me-t|\n         |start\n          |\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[3;1H$   abc\u001b[4;1H         down    ricol20\u001b[5;1Hfi\u001b[3;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 485,
+      "to": 491
+    },
+    {
+      "op": "write",
+      "from": 491,
+      "to": 506
+    },
+    {
+      "op": "write",
+      "from": 506,
+      "to": 509
+    },
+    {
+      "op": "write",
+      "from": 509,
+      "to": 510
+    },
+    {
+      "op": "write",
+      "from": 510,
+      "to": 512
+    },
+    {
+      "op": "write",
+      "from": 512,
+      "to": 513
+    },
+    {
+      "op": "write",
+      "from": 513,
+      "to": 514
+    },
+    {
+      "op": "write",
+      "from": 514,
+      "to": 515
+    },
+    {
+      "op": "write",
+      "from": 515,
+      "to": 516
+    },
+    {
+      "op": "write",
+      "from": 516,
+      "to": 518
+    },
+    {
+      "op": "write",
+      "from": 518,
+      "to": 520
+    },
+    {
+      "op": "write",
+      "from": 520,
+      "to": 521
+    },
+    {
+      "op": "write",
+      "from": 521,
+      "to": 522
+    },
+    {
+      "op": "write",
+      "from": 522,
+      "to": 523
+    },
+    {
+      "op": "write",
+      "from": 523,
+      "to": 524
+    },
+    {
+      "op": "write",
+      "from": 524,
+      "to": 525
+    },
+    {
+      "op": "write",
+      "from": 525,
+      "to": 526
+    },
+    {
+      "op": "write",
+      "from": 526,
+      "to": 527
+    },
+    {
+      "op": "write",
+      "from": 527,
+      "to": 528
+    },
+    {
+      "op": "write",
+      "from": 528,
+      "to": 529
+    },
+    {
+      "op": "write",
+      "from": 529,
+      "to": 530
+    },
+    {
+      "op": "write",
+      "from": 530,
+      "to": 531
+    },
+    {
+      "op": "write",
+      "from": 531,
+      "to": 532
+    },
+    {
+      "op": "write",
+      "from": 532,
+      "to": 533
+    },
+    {
+      "op": "write",
+      "from": 533,
+      "to": 534
+    },
+    {
+      "op": "write",
+      "from": 534,
+      "to": 535
+    },
+    {
+      "op": "write",
+      "from": 535,
+      "to": 536
+    },
+    {
+      "op": "write",
+      "from": 536,
+      "to": 537
+    },
+    {
+      "op": "write",
+      "from": 537,
+      "to": 538
+    },
+    {
+      "op": "write",
+      "from": 538,
+      "to": 539
+    },
+    {
+      "op": "write",
+      "from": 539,
+      "to": 540
+    },
+    {
+      "op": "write",
+      "from": 540,
+      "to": 541
+    },
+    {
+      "op": "write",
+      "from": 541,
+      "to": 542
+    },
+    {
+      "op": "write",
+      "from": 542,
+      "to": 546
+    },
+    {
+      "op": "write",
+      "from": 546,
+      "to": 547
+    },
+    {
+      "op": "write",
+      "from": 547,
+      "to": 549
+    },
+    {
+      "op": "write",
+      "from": 549,
+      "to": 550
+    },
+    {
+      "op": "write",
+      "from": 550,
+      "to": 551
+    },
+    {
+      "op": "write",
+      "from": 551,
+      "to": 552
+    },
+    {
+      "op": "write",
+      "from": 552,
+      "to": 554
+    },
+    {
+      "op": "write",
+      "from": 554,
+      "to": 556
+    },
+    {
+      "op": "write",
+      "from": 556,
+      "to": 557
+    },
+    {
+      "op": "write",
+      "from": 557,
+      "to": 558
+    },
+    {
+      "op": "write",
+      "from": 558,
+      "to": 559
+    },
+    {
+      "op": "write",
+      "from": 559,
+      "to": 560
+    },
+    {
+      "op": "write",
+      "from": 560,
+      "to": 561
+    },
+    {
+      "op": "write",
+      "from": 561,
+      "to": 562
+    },
+    {
+      "op": "write",
+      "from": 562,
+      "to": 563
+    },
+    {
+      "op": "write",
+      "from": 563,
+      "to": 564
+    },
+    {
+      "op": "write",
+      "from": 564,
+      "to": 565
+    },
+    {
+      "op": "write",
+      "from": 565,
+      "to": 566
+    },
+    {
+      "op": "write",
+      "from": 566,
+      "to": 567
+    },
+    {
+      "op": "write",
+      "from": 567,
+      "to": 568
+    },
+    {
+      "op": "write",
+      "from": 568,
+      "to": 570
+    },
+    {
+      "op": "write",
+      "from": 570,
+      "to": 571
+    },
+    {
+      "op": "write",
+      "from": 571,
+      "to": 572
+    },
+    {
+      "op": "write",
+      "from": 572,
+      "to": 573
+    },
+    {
+      "op": "write",
+      "from": 573,
+      "to": 574
+    },
+    {
+      "op": "write",
+      "from": 574,
+      "to": 575
+    },
+    {
+      "op": "write",
+      "from": 575,
+      "to": 576
+    },
+    {
+      "op": "write",
+      "from": 576,
+      "to": 577
+    },
+    {
+      "op": "write",
+      "from": 577,
+      "to": 578
+    },
+    {
+      "op": "write",
+      "from": 578,
+      "to": 579
+    },
+    {
+      "op": "write",
+      "from": 579,
+      "to": 580
+    },
+    {
+      "op": "write",
+      "from": 580,
+      "to": 581
+    },
+    {
+      "op": "write",
+      "from": 581,
+      "to": 582
+    },
+    {
+      "op": "write",
+      "from": 582,
+      "to": 583
+    },
+    {
+      "op": "write",
+      "from": 583,
+      "to": 584
+    },
+    {
+      "op": "write",
+      "from": 584,
+      "to": 585
+    },
+    {
+      "op": "write",
+      "from": 585,
+      "to": 586
+    },
+    {
+      "op": "write",
+      "from": 586,
+      "to": 587
+    },
+    {
+      "op": "write",
+      "from": 587,
+      "to": 588
+    },
+    {
+      "op": "write",
+      "from": 588,
+      "to": 589
+    },
+    {
+      "op": "write",
+      "from": 589,
+      "to": 590
+    },
+    {
+      "op": "write",
+      "from": 590,
+      "to": 591
+    },
+    {
+      "op": "write",
+      "from": 591,
+      "to": 592
+    },
+    {
+      "op": "write",
+      "from": 592,
+      "to": 593
+    },
+    {
+      "op": "write",
+      "from": 593,
+      "to": 594
+    },
+    {
+      "op": "write",
+      "from": 594,
+      "to": 595
+    },
+    {
+      "op": "write",
+      "from": 595,
+      "to": 596
+    },
+    {
+      "op": "write",
+      "from": 596,
+      "to": 597
+    },
+    {
+      "op": "write",
+      "from": 597,
+      "to": 598
+    },
+    {
+      "op": "write",
+      "from": 598,
+      "to": 599
+    },
+    {
+      "op": "write",
+      "from": 599,
+      "to": 600
+    },
+    {
+      "op": "write",
+      "from": 600,
+      "to": 601
+    },
+    {
+      "op": "write",
+      "from": 601,
+      "to": 602
+    },
+    {
+      "op": "write",
+      "from": 602,
+      "to": 603
+    },
+    {
+      "op": "write",
+      "from": 603,
+      "to": 604
+    },
+    {
+      "op": "write",
+      "from": 604,
+      "to": 607
+    },
+    {
+      "op": "write",
+      "from": 607,
+      "to": 609
+    },
+    {
+      "op": "write",
+      "from": 609,
+      "to": 611
+    },
+    {
+      "op": "write",
+      "from": 611,
+      "to": 612
+    },
+    {
+      "op": "write",
+      "from": 612,
+      "to": 613
+    },
+    {
+      "op": "write",
+      "from": 613,
+      "to": 614
+    },
+    {
+      "op": "write",
+      "from": 614,
+      "to": 615
+    },
+    {
+      "op": "write",
+      "from": 615,
+      "to": 616
+    },
+    {
+      "op": "write",
+      "from": 616,
+      "to": 617
+    },
+    {
+      "op": "write",
+      "from": 617,
+      "to": 618
+    },
+    {
+      "op": "write",
+      "from": 618,
+      "to": 619
+    },
+    {
+      "op": "write",
+      "from": 619,
+      "to": 620
+    },
+    {
+      "op": "write",
+      "from": 620,
+      "to": 621
+    },
+    {
+      "op": "write",
+      "from": 621,
+      "to": 622
+    },
+    {
+      "op": "write",
+      "from": 622,
+      "to": 623
+    },
+    {
+      "op": "write",
+      "from": 623,
+      "to": 624
+    },
+    {
+      "op": "write",
+      "from": 624,
+      "to": 625
+    },
+    {
+      "op": "write",
+      "from": 625,
+      "to": 626
+    },
+    {
+      "op": "write",
+      "from": 626,
+      "to": 627
+    },
+    {
+      "op": "write",
+      "from": 627,
+      "to": 628
+    },
+    {
+      "op": "write",
+      "from": 628,
+      "to": 629
+    },
+    {
+      "op": "write",
+      "from": 629,
+      "to": 630
+    },
+    {
+      "op": "write",
+      "from": 630,
+      "to": 631
+    },
+    {
+      "op": "write",
+      "from": 631,
+      "to": 632
+    },
+    {
+      "op": "write",
+      "from": 632,
+      "to": 633
+    },
+    {
+      "op": "write",
+      "from": 633,
+      "to": 634
+    },
+    {
+      "op": "write",
+      "from": 634,
+      "to": 635
+    },
+    {
+      "op": "write",
+      "from": 635,
+      "to": 636
+    },
+    {
+      "op": "write",
+      "from": 636,
+      "to": 637
+    },
+    {
+      "op": "write",
+      "from": 637,
+      "to": 638
+    },
+    {
+      "op": "write",
+      "from": 638,
+      "to": 639
+    },
+    {
+      "op": "write",
+      "from": 639,
+      "to": 640
+    },
+    {
+      "op": "write",
+      "from": 640,
+      "to": 641
+    },
+    {
+      "op": "write",
+      "from": 641,
+      "to": 642
+    },
+    {
+      "op": "write",
+      "from": 642,
+      "to": 643
+    },
+    {
+      "op": "write",
+      "from": 643,
+      "to": 644
+    },
+    {
+      "op": "write",
+      "from": 644,
+      "to": 645
+    },
+    {
+      "op": "write",
+      "from": 645,
+      "to": 646
+    },
+    {
+      "op": "write",
+      "from": 646,
+      "to": 648
+    },
+    {
+      "op": "write",
+      "from": 648,
+      "to": 650
+    },
+    {
+      "op": "write",
+      "from": 650,
+      "to": 651
+    },
+    {
+      "op": "write",
+      "from": 651,
+      "to": 652
+    },
+    {
+      "op": "write",
+      "from": 652,
+      "to": 653
+    },
+    {
+      "op": "write",
+      "from": 653,
+      "to": 654
+    },
+    {
+      "op": "write",
+      "from": 654,
+      "to": 655
+    },
+    {
+      "op": "write",
+      "from": 655,
+      "to": 656
+    },
+    {
+      "op": "write",
+      "from": 656,
+      "to": 657
+    },
+    {
+      "op": "write",
+      "from": 657,
+      "to": 658
+    },
+    {
+      "op": "write",
+      "from": 658,
+      "to": 659
+    },
+    {
+      "op": "write",
+      "from": 659,
+      "to": 660
+    },
+    {
+      "op": "write",
+      "from": 660,
+      "to": 661
+    },
+    {
+      "op": "write",
+      "from": 661,
+      "to": 662
+    },
+    {
+      "op": "write",
+      "from": 662,
+      "to": 663
+    },
+    {
+      "op": "write",
+      "from": 663,
+      "to": 664
+    },
+    {
+      "op": "write",
+      "from": 664,
+      "to": 665
+    },
+    {
+      "op": "write",
+      "from": 665,
+      "to": 666
+    },
+    {
+      "op": "write",
+      "from": 666,
+      "to": 669
+    },
+    {
+      "op": "write",
+      "from": 669,
+      "to": 670
+    },
+    {
+      "op": "write",
+      "from": 670,
+      "to": 671
+    },
+    {
+      "op": "write",
+      "from": 671,
+      "to": 672
+    },
+    {
+      "op": "write",
+      "from": 672,
+      "to": 673
+    },
+    {
+      "op": "write",
+      "from": 673,
+      "to": 674
+    },
+    {
+      "op": "write",
+      "from": 674,
+      "to": 675
+    },
+    {
+      "op": "write",
+      "from": 675,
+      "to": 678
+    },
+    {
+      "op": "write",
+      "from": 678,
+      "to": 679
+    },
+    {
+      "op": "write",
+      "from": 679,
+      "to": 680
+    },
+    {
+      "op": "write",
+      "from": 680,
+      "to": 681
+    },
+    {
+      "op": "write",
+      "from": 681,
+      "to": 682
+    },
+    {
+      "op": "write",
+      "from": 682,
+      "to": 683
+    },
+    {
+      "op": "write",
+      "from": 683,
+      "to": 684
+    },
+    {
+      "op": "write",
+      "from": 684,
+      "to": 685
+    },
+    {
+      "op": "write",
+      "from": 685,
+      "to": 686
+    },
+    {
+      "op": "write",
+      "from": 686,
+      "to": 687
+    },
+    {
+      "op": "write",
+      "from": 687,
+      "to": 688
+    },
+    {
+      "op": "write",
+      "from": 688,
+      "to": 689
+    },
+    {
+      "op": "write",
+      "from": 689,
+      "to": 690
+    },
+    {
+      "op": "write",
+      "from": 690,
+      "to": 691
+    },
+    {
+      "op": "write",
+      "from": 691,
+      "to": 692
+    },
+    {
+      "op": "write",
+      "from": 692,
+      "to": 693
+    },
+    {
+      "op": "write",
+      "from": 693,
+      "to": 694
+    },
+    {
+      "op": "write",
+      "from": 694,
+      "to": 695
+    },
+    {
+      "op": "write",
+      "from": 695,
+      "to": 696
+    },
+    {
+      "op": "write",
+      "from": 696,
+      "to": 697
+    },
+    {
+      "op": "write",
+      "from": 697,
+      "to": 698
+    },
+    {
+      "op": "write",
+      "from": 698,
+      "to": 699
+    },
+    {
+      "op": "write",
+      "from": 699,
+      "to": 700
+    },
+    {
+      "op": "write",
+      "from": 700,
+      "to": 701
+    },
+    {
+      "op": "write",
+      "from": 701,
+      "to": 702
+    },
+    {
+      "op": "write",
+      "from": 702,
+      "to": 703
+    },
+    {
+      "op": "write",
+      "from": 703,
+      "to": 704
+    },
+    {
+      "op": "write",
+      "from": 704,
+      "to": 705
+    },
+    {
+      "op": "write",
+      "from": 705,
+      "to": 706
+    },
+    {
+      "op": "write",
+      "from": 706,
+      "to": 707
+    },
+    {
+      "op": "write",
+      "from": 707,
+      "to": 708
+    },
+    {
+      "op": "write",
+      "from": 708,
+      "to": 709
+    },
+    {
+      "op": "write",
+      "from": 709,
+      "to": 710
+    },
+    {
+      "op": "write",
+      "from": 710,
+      "to": 711
+    },
+    {
+      "op": "write",
+      "from": 711,
+      "to": 712
+    },
+    {
+      "op": "write",
+      "from": 712,
+      "to": 713
+    },
+    {
+      "op": "write",
+      "from": 713,
+      "to": 714
+    },
+    {
+      "op": "write",
+      "from": 714,
+      "to": 715
+    },
+    {
+      "op": "write",
+      "from": 715,
+      "to": 716
+    },
+    {
+      "op": "write",
+      "from": 716,
+      "to": 717
+    },
+    {
+      "op": "write",
+      "from": 717,
+      "to": 718
+    },
+    {
+      "op": "write",
+      "from": 718,
+      "to": 720
+    },
+    {
+      "op": "write",
+      "from": 720,
+      "to": 721
+    },
+    {
+      "op": "write",
+      "from": 721,
+      "to": 722
+    },
+    {
+      "op": "write",
+      "from": 722,
+      "to": 723
+    },
+    {
+      "op": "write",
+      "from": 723,
+      "to": 724
+    },
+    {
+      "op": "write",
+      "from": 724,
+      "to": 725
+    },
+    {
+      "op": "write",
+      "from": 725,
+      "to": 726
+    },
+    {
+      "op": "write",
+      "from": 726,
+      "to": 727
+    },
+    {
+      "op": "write",
+      "from": 727,
+      "to": 728
+    },
+    {
+      "op": "write",
+      "from": 728,
+      "to": 733
+    },
+    {
+      "op": "write",
+      "from": 733,
+      "to": 735
+    },
+    {
+      "op": "write",
+      "from": 735,
+      "to": 742
+    },
+    {
+      "op": "write",
+      "from": 742,
+      "to": 749
+    },
+    {
+      "op": "write",
+      "from": 749,
+      "to": 770
+    },
+    {
+      "op": "write",
+      "from": 770,
+      "to": 777
+    },
+    {
+      "op": "write",
+      "from": 777,
+      "to": 784
+    },
+    {
+      "op": "write",
+      "from": 784,
+      "to": 798
+    },
+    {
+      "op": "write",
+      "from": 798,
+      "to": 821
+    },
+    {
+      "op": "write",
+      "from": 821,
+      "to": 829
+    },
+    {
+      "op": "write",
+      "from": 829,
+      "to": 837
+    },
+    {
+      "op": "write",
+      "from": 837,
+      "to": 845
+    },
+    {
+      "op": "write",
+      "from": 845,
+      "to": 859
+    },
+    {
+      "op": "write",
+      "from": 859,
+      "to": 867
+    },
+    {
+      "op": "write",
+      "from": 867,
+      "to": 877
+    },
+    {
+      "op": "write",
+      "from": 877,
+      "to": 879
+    },
+    {
+      "op": "write",
+      "from": 879,
+      "to": 887
+    },
+    {
+      "op": "write",
+      "from": 887,
+      "to": 897
+    },
+    {
+      "op": "write",
+      "from": 897,
+      "to": 920
+    },
+    {
+      "op": "write",
+      "from": 920,
+      "to": 922
+    },
+    {
+      "op": "checkpoint",
+      "label": "scroll-region",
+      "at": 922,
+      "screen": {
+        "cols": 60,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 14
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 16,
+        "lines": ["row 1", "row 2", "rev", "", "row 7", "row 8", "region 1", "region 2", "row 9", "row 10", "row 11", "row 12", "row 13", "row 14", "$ ", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "\n\n$   abc\n         down    ricol20\nfi"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hrow 1\u001b[2;1Hrow 2\u001b[3;1Hrev\u001b[5;1Hrow 7\u001b[6;1Hrow 8\u001b[7;1Hregion 1\u001b[8;1Hregion 2\u001b[9;1Hrow 9\u001b[10;1Hrow 10\u001b[11;1Hrow 11\u001b[12;1Hrow 12\u001b[13;1Hrow 13\u001b[14;1Hrow 14\u001b[15;1H$ \u001b[15;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 922,
+      "to": 926
+    },
+    {
+      "op": "write",
+      "from": 926,
+      "to": 941
+    },
+    {
+      "op": "write",
+      "from": 941,
+      "to": 944
+    },
+    {
+      "op": "write",
+      "from": 944,
+      "to": 945
+    },
+    {
+      "op": "write",
+      "from": 945,
+      "to": 947
+    },
+    {
+      "op": "write",
+      "from": 947,
+      "to": 948
+    },
+    {
+      "op": "write",
+      "from": 948,
+      "to": 949
+    },
+    {
+      "op": "write",
+      "from": 949,
+      "to": 950
+    },
+    {
+      "op": "write",
+      "from": 950,
+      "to": 951
+    },
+    {
+      "op": "write",
+      "from": 951,
+      "to": 952
+    },
+    {
+      "op": "write",
+      "from": 952,
+      "to": 953
+    },
+    {
+      "op": "write",
+      "from": 953,
+      "to": 954
+    },
+    {
+      "op": "write",
+      "from": 954,
+      "to": 955
+    },
+    {
+      "op": "write",
+      "from": 955,
+      "to": 956
+    },
+    {
+      "op": "write",
+      "from": 956,
+      "to": 967
+    },
+    {
+      "op": "write",
+      "from": 967,
+      "to": 975
+    },
+    {
+      "op": "write",
+      "from": 975,
+      "to": 977
+    },
+    {
+      "op": "write",
+      "from": 977,
+      "to": 978
+    },
+    {
+      "op": "write",
+      "from": 978,
+      "to": 982
+    },
+    {
+      "op": "write",
+      "from": 982,
+      "to": 984
+    },
+    {
+      "op": "write",
+      "from": 984,
+      "to": 985
+    },
+    {
+      "op": "write",
+      "from": 985,
+      "to": 987
+    },
+    {
+      "op": "write",
+      "from": 987,
+      "to": 989
+    },
+    {
+      "op": "write",
+      "from": 989,
+      "to": 990
+    },
+    {
+      "op": "write",
+      "from": 990,
+      "to": 992
+    },
+    {
+      "op": "write",
+      "from": 992,
+      "to": 993
+    },
+    {
+      "op": "write",
+      "from": 993,
+      "to": 995
+    },
+    {
+      "op": "write",
+      "from": 995,
+      "to": 996
+    },
+    {
+      "op": "write",
+      "from": 996,
+      "to": 998
+    },
+    {
+      "op": "write",
+      "from": 998,
+      "to": 999
+    },
+    {
+      "op": "write",
+      "from": 999,
+      "to": 1000
+    },
+    {
+      "op": "write",
+      "from": 1000,
+      "to": 1002
+    },
+    {
+      "op": "write",
+      "from": 1002,
+      "to": 1003
+    },
+    {
+      "op": "write",
+      "from": 1003,
+      "to": 1004
+    },
+    {
+      "op": "write",
+      "from": 1004,
+      "to": 1005
+    },
+    {
+      "op": "write",
+      "from": 1005,
+      "to": 1006
+    },
+    {
+      "op": "write",
+      "from": 1006,
+      "to": 1008
+    },
+    {
+      "op": "write",
+      "from": 1008,
+      "to": 1014
+    },
+    {
+      "op": "write",
+      "from": 1014,
+      "to": 1068
+    },
+    {
+      "op": "write",
+      "from": 1068,
+      "to": 1070
+    },
+    {
+      "op": "checkpoint",
+      "label": "tabs",
+      "at": 1070,
+      "screen": {
+        "cols": 60,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 15
+        },
+        "baseY": 4,
+        "viewportY": 4,
+        "length": 20,
+        "lines": ["row 7", "row 8", "region 1", "region 2", "row 9", "row 10", "row 11", "row 12", "row 13", "row 14", "$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5", "G\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'", "a       b       c       d       e       f       g       h", "12345678        9", "x   y                                                      y", "$ "],
+        "wrapped": [11],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["row 1", "row 2", "rev", ""],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hrow 7\u001b[2;1Hrow 8\u001b[3;1Hregion 1\u001b[4;1Hregion 2\u001b[5;1Hrow 9\u001b[6;1Hrow 10\u001b[7;1Hrow 11\u001b[8;1Hrow 12\u001b[9;1Hrow 13\u001b[10;1Hrow 14\u001b[11;1H$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\u001b[12;1HG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\u001b[13;1Ha       b       c       d       e       f       g       h\u001b[14;1H12345678        9\u001b[15;1Hx   y                                                      y\u001b[16;1H$ \u001b[16;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "row 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "row 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "rev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "row 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 4,
+            "maxScrollOffset": 4
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "row 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 4
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1070,
+      "to": 1080
+    },
+    {
+      "op": "write",
+      "from": 1080,
+      "to": 1110
+    },
+    {
+      "op": "write",
+      "from": 1110,
+      "to": 1116
+    },
+    {
+      "op": "write",
+      "from": 1116,
+      "to": 1117
+    },
+    {
+      "op": "write",
+      "from": 1117,
+      "to": 1118
+    },
+    {
+      "op": "write",
+      "from": 1118,
+      "to": 1119
+    },
+    {
+      "op": "write",
+      "from": 1119,
+      "to": 1120
+    },
+    {
+      "op": "write",
+      "from": 1120,
+      "to": 1121
+    },
+    {
+      "op": "write",
+      "from": 1121,
+      "to": 1122
+    },
+    {
+      "op": "write",
+      "from": 1122,
+      "to": 1123
+    },
+    {
+      "op": "write",
+      "from": 1123,
+      "to": 1126
+    },
+    {
+      "op": "write",
+      "from": 1126,
+      "to": 1137
+    },
+    {
+      "op": "write",
+      "from": 1137,
+      "to": 1140
+    },
+    {
+      "op": "write",
+      "from": 1140,
+      "to": 1142
+    },
+    {
+      "op": "write",
+      "from": 1142,
+      "to": 1143
+    },
+    {
+      "op": "write",
+      "from": 1143,
+      "to": 1144
+    },
+    {
+      "op": "write",
+      "from": 1144,
+      "to": 1145
+    },
+    {
+      "op": "write",
+      "from": 1145,
+      "to": 1146
+    },
+    {
+      "op": "write",
+      "from": 1146,
+      "to": 1148
+    },
+    {
+      "op": "write",
+      "from": 1148,
+      "to": 1151
+    },
+    {
+      "op": "write",
+      "from": 1151,
+      "to": 1152
+    },
+    {
+      "op": "write",
+      "from": 1152,
+      "to": 1153
+    },
+    {
+      "op": "write",
+      "from": 1153,
+      "to": 1155
+    },
+    {
+      "op": "write",
+      "from": 1155,
+      "to": 1157
+    },
+    {
+      "op": "write",
+      "from": 1157,
+      "to": 1158
+    },
+    {
+      "op": "write",
+      "from": 1158,
+      "to": 1159
+    },
+    {
+      "op": "write",
+      "from": 1159,
+      "to": 1160
+    },
+    {
+      "op": "write",
+      "from": 1160,
+      "to": 1161
+    },
+    {
+      "op": "write",
+      "from": 1161,
+      "to": 1162
+    },
+    {
+      "op": "write",
+      "from": 1162,
+      "to": 1164
+    },
+    {
+      "op": "write",
+      "from": 1164,
+      "to": 1165
+    },
+    {
+      "op": "write",
+      "from": 1165,
+      "to": 1166
+    },
+    {
+      "op": "write",
+      "from": 1166,
+      "to": 1167
+    },
+    {
+      "op": "write",
+      "from": 1167,
+      "to": 1168
+    },
+    {
+      "op": "write",
+      "from": 1168,
+      "to": 1170
+    },
+    {
+      "op": "write",
+      "from": 1170,
+      "to": 1171
+    },
+    {
+      "op": "write",
+      "from": 1171,
+      "to": 1172
+    },
+    {
+      "op": "write",
+      "from": 1172,
+      "to": 1173
+    },
+    {
+      "op": "write",
+      "from": 1173,
+      "to": 1176
+    },
+    {
+      "op": "write",
+      "from": 1176,
+      "to": 1177
+    },
+    {
+      "op": "write",
+      "from": 1177,
+      "to": 1178
+    },
+    {
+      "op": "write",
+      "from": 1178,
+      "to": 1180
+    },
+    {
+      "op": "write",
+      "from": 1180,
+      "to": 1182
+    },
+    {
+      "op": "write",
+      "from": 1182,
+      "to": 1183
+    },
+    {
+      "op": "write",
+      "from": 1183,
+      "to": 1184
+    },
+    {
+      "op": "write",
+      "from": 1184,
+      "to": 1185
+    },
+    {
+      "op": "write",
+      "from": 1185,
+      "to": 1187
+    },
+    {
+      "op": "write",
+      "from": 1187,
+      "to": 1189
+    },
+    {
+      "op": "write",
+      "from": 1189,
+      "to": 1194
+    },
+    {
+      "op": "write",
+      "from": 1194,
+      "to": 1202
+    },
+    {
+      "op": "write",
+      "from": 1202,
+      "to": 1289
+    },
+    {
+      "op": "write",
+      "from": 1289,
+      "to": 1291
+    },
+    {
+      "op": "checkpoint",
+      "label": "edit-and-save",
+      "at": 1291,
+      "screen": {
+        "cols": 60,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 15
+        },
+        "baseY": 9,
+        "viewportY": 9,
+        "length": 25,
+        "lines": ["csi-saved", "row 11", "row 12", "row 13", "row 14", "$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5", "G\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'", "a       b       c       d       e       f       g       h", "12345678        9", "x   y                                                      y", "$ printf 'abcdefgh\\033[3D\\033[2@++\\033[2P\\033[3X\\n\\0337\\033[", "1;1HSAVED\\0338restored \\033[s\\033[2;1Hcsi-saved\\033[urestore", "d-csi\\n'", "abcde++", "restored restored-csi", "$ "],
+        "wrapped": [6, 11, 12],
+        "attrs": {},
+        "wide": {},
+        "scrollback": ["row 1", "row 2", "rev", "", "row 7", "row 8", "region 1", "region 2", "SAVED"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "row 7\nrow 8\nregion 1\nregion 2\nrow 9\nrow 10\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hcsi-saved\u001b[2;1Hrow 11\u001b[3;1Hrow 12\u001b[4;1Hrow 13\u001b[5;1Hrow 14\u001b[6;1H$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\u001b[7;1HG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\u001b[8;1Ha       b       c       d       e       f       g       h\u001b[9;1H12345678        9\u001b[10;1Hx   y                                                      y\u001b[11;1H$ printf 'abcdefgh\\033[3D\\033[2@++\\033[2P\\033[3X\\n\\0337\\033[\u001b[12;1H1;1HSAVED\\0338restored \\033[s\\033[2;1Hcsi-saved\\033[urestore\u001b[13;1Hd-csi\\n'\u001b[14;1Habcde++\u001b[15;1Hrestored restored-csi\u001b[16;1H$ \u001b[16;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "csi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ printf 'abcdefgh\\033[3D\\033[2@++\\033[2P\\033[3X\\n\\0337\\033[\n1;1HSAVED\\0338restored \\033[s\\033[2;1Hcsi-saved\\033[urestore\nd-csi\\n'\nabcde++\nrestored restored-csi\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "csi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ printf 'abcdefgh\\033[3D\\033[2@++\\033[2P\\033[3X\\n\\0337\\033[\n1;1HSAVED\\0338restored \\033[s\\033[2;1Hcsi-saved\\033[urestore\nd-csi\\n'\nabcde++\nrestored restored-csi\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 9
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "SAVED\ncsi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ printf 'abcdefgh\\033[3D\\033[2@++\\033[2P\\033[3X\\n\\0337\\033[\n1;1HSAVED\\0338restored \\033[s\\033[2;1Hcsi-saved\\033[urestore\nd-csi\\n'\nabcde++\nrestored restored-csi"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 9
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "region 2\nSAVED\ncsi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ printf 'abcdefgh\\033[3D\\033[2@++\\033[2P\\033[3X\\n\\0337\\033[\n1;1HSAVED\\0338restored \\033[s\\033[2;1Hcsi-saved\\033[urestore\nd-csi\\n'\nabcde++"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 9
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "rev\n\nrow 7\nrow 8\nregion 1\nregion 2\nSAVED\ncsi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 9
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "csi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ printf 'abcdefgh\\033[3D\\033[2@++\\033[2P\\033[3X\\n\\0337\\033[\n1;1HSAVED\\0338restored \\033[s\\033[2;1Hcsi-saved\\033[urestore\nd-csi\\n'\nabcde++\nrestored restored-csi\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 9
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nSAVED\ncsi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 9,
+            "maxScrollOffset": 9
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "row 1\nrow 2\nrev\n\nrow 7\nrow 8\nregion 1\nregion 2\nSAVED\ncsi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "csi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ printf 'abcdefgh\\033[3D\\033[2@++\\033[2P\\033[3X\\n\\0337\\033[\n1;1HSAVED\\0338restored \\033[s\\033[2;1Hcsi-saved\\033[urestore\nd-csi\\n'\nabcde++\nrestored restored-csi\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 9
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1291,
+      "to": 1295
+    },
+    {
+      "op": "write",
+      "from": 1295,
+      "to": 1309
+    },
+    {
+      "op": "write",
+      "from": 1309,
+      "to": 1311
+    },
+    {
+      "op": "write",
+      "from": 1311,
+      "to": 1313
+    },
+    {
+      "op": "write",
+      "from": 1313,
+      "to": 1314
+    },
+    {
+      "op": "write",
+      "from": 1314,
+      "to": 1316
+    },
+    {
+      "op": "write",
+      "from": 1316,
+      "to": 1317
+    },
+    {
+      "op": "write",
+      "from": 1317,
+      "to": 1318
+    },
+    {
+      "op": "write",
+      "from": 1318,
+      "to": 1319
+    },
+    {
+      "op": "write",
+      "from": 1319,
+      "to": 1320
+    },
+    {
+      "op": "write",
+      "from": 1320,
+      "to": 1321
+    },
+    {
+      "op": "write",
+      "from": 1321,
+      "to": 1323
+    },
+    {
+      "op": "write",
+      "from": 1323,
+      "to": 1325
+    },
+    {
+      "op": "write",
+      "from": 1325,
+      "to": 1326
+    },
+    {
+      "op": "write",
+      "from": 1326,
+      "to": 1327
+    },
+    {
+      "op": "write",
+      "from": 1327,
+      "to": 1328
+    },
+    {
+      "op": "write",
+      "from": 1328,
+      "to": 1329
+    },
+    {
+      "op": "write",
+      "from": 1329,
+      "to": 1330
+    },
+    {
+      "op": "write",
+      "from": 1330,
+      "to": 1331
+    },
+    {
+      "op": "write",
+      "from": 1331,
+      "to": 1332
+    },
+    {
+      "op": "write",
+      "from": 1332,
+      "to": 1334
+    },
+    {
+      "op": "write",
+      "from": 1334,
+      "to": 1354
+    },
+    {
+      "op": "write",
+      "from": 1354,
+      "to": 1356
+    },
+    {
+      "op": "write",
+      "from": 1356,
+      "to": 1359
+    },
+    {
+      "op": "write",
+      "from": 1359,
+      "to": 1363
+    },
+    {
+      "op": "write",
+      "from": 1363,
+      "to": 1374
+    },
+    {
+      "op": "write",
+      "from": 1374,
+      "to": 1376
+    },
+    {
+      "op": "checkpoint",
+      "label": "cleared",
+      "at": 1376,
+      "screen": {
+        "cols": 60,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 0
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 16,
+        "lines": ["$ ", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "csi-saved\nrow 11\nrow 12\nrow 13\nrow 14\n$ printf 'a\\tb\\tc\\td\\te\\tf\\tg\\th\\n12345678\\t9\\n\\033[3g\\033[5\nG\\033H\\033[1Gx\\ty\\ty\\n\\033[3g'\na       b       c       d       e       f       g       h\n12345678        9\nx   y                                                      y\n$ printf 'abcdefgh\\033[3D\\033[2@++\\033[2P\\033[3X\\n\\0337\\033[\n1;1HSAVED\\0338restored \\033[s\\033[2;1Hcsi-saved\\033[urestore\nd-csi\\n'\nabcde++\nrestored restored-csi\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ \u001b[1;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1376,
+      "to": 1379
+    },
+    {
+      "op": "write",
+      "from": 1379,
+      "to": 1382
+    },
+    {
+      "op": "write",
+      "from": 1382,
+      "to": 1388
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 1388,
+      "screen": {
+        "cols": 60,
+        "rows": 16,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 2
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 16,
+        "lines": ["$ exit", "exit", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ exit\u001b[2;1Hexit\u001b[3;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ exit\nexit"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ exit\nexit"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "name": "synthetic-codex-inline",
+  "source": "synthetic",
+  "description": "Imitates codex (ratatui inline viewport): crossterm modes, cursor position query, history inserted above the viewport through a scroll region (DECSTBM + CUP + CRLF), cell-diff redraws with CUP/SGR runs, the viewport reaching the bottom, a resize, exit.",
+  "cols": 100,
+  "rows": 30,
+  "chunks": [
+    9,
+    25,
+    185,
+    179,
+    177,
+    62,
+    35,
+    35,
+    35,
+    35,
+    35,
+    36,
+    29,
+    37,
+    37,
+    37,
+    29,
+    37,
+    37,
+    37,
+    37,
+    37,
+    71,
+    213,
+    62,
+    62,
+    62,
+    62,
+    62,
+    631,
+    213,
+    635,
+    213,
+    628,
+    72,
+    628,
+    72,
+    297,
+    177,
+    37,
+    55
+  ],
+  "events": [
+    {
+      "at": 219,
+      "type": "checkpoint",
+      "label": "started"
+    },
+    {
+      "at": 1202,
+      "type": "checkpoint",
+      "label": "typed"
+    },
+    {
+      "at": 1796,
+      "type": "checkpoint",
+      "label": "working"
+    },
+    {
+      "at": 4888,
+      "type": "checkpoint",
+      "label": "history-scrolled"
+    },
+    {
+      "at": 5185,
+      "type": "resize",
+      "cols": 72,
+      "rows": 20
+    },
+    {
+      "at": 5362,
+      "type": "checkpoint",
+      "label": "after-resize"
+    }
+  ],
+  "recording": {
+    "generator": "parity/gen/streams/synthetic.ts"
+  }
+}

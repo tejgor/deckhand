@@ -1,0 +1,21 @@
+[?1034h$ printf 'before alt\n'
+before alt
+$ printf '\033[?1049h\033[H\033[2Jinside 1049\033[5;10Hmiddle'
+[?1049h[H[2Jinside 1049[5;10Hmiddle$ printf '\033[?1049l'
+[?1049l$ printf '\033[?47hinside 47\033[?47l \033[?1047hinside 1047\033[?1047l\n'
+[?47hinside 47[?47l [?1047hinside 1047[?1047l
+$ tput smcup; printf "tput alt\n"
+[?1049htput alt
+$ tput rmcup
+[?1049l$ printf '\033[?2026hsynchronized\033[2;1Hframe\033[?2026l\n'
+[?2026hsynchronized[2;1Hframe[?2026l
+$ printf '\033[?2004h\033[?1000h\033[?1006h\033[?1004h\033[?1h\033=\033[?25lmode s on\n'
+[?2004h[?1000h[?1006h[?1004h[?1h=[?25lmodes on
+$ printf '\033[?2004l\033[?1000l\033[?1006l\033[?1004l\033[?1l\033>\033[?25hmode s off\n'
+[?2004l[?1000l[?1006l[?1004l[?1l>[?25hmodes off
+$ printf '\033]0;title zero\007\033]2;title two\033\\titled\n'
+]0;title zero]2;title two\titled
+$ printf '\033]8;;https://example.invalid/page\033\\a link\033]8;;\033\\ and \03 3]8;id=x;file:///tmp/f\007another\033]8;;\007\n'
+]8;;https://example.invalid/page\a link]8;;\ and ]8;id=x;file:///tmp/fanother]8;;
+$ exit
+exit
