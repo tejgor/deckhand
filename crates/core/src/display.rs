@@ -10,7 +10,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-use crate::jsstr::{is_js_whitespace, js_collapse_whitespace, js_len, js_slice, js_split_whitespace, js_trim};
+use crate::jsstr::{js_collapse_whitespace, js_len, js_slice, js_split_whitespace, js_trim};
 use crate::session_order::SessionLike;
 use deckhand_protocol::data::{
     AgentActivityStatus, AttentionState, ExitReason, ProgramKey, SessionRecord, SessionStatus, SetupState,
@@ -241,7 +241,6 @@ pub fn display_session_title<S: SessionLike>(session: &SessionRecord, sessions: 
         _ => normalized.as_str(),
     };
     // TS: `.replace(/\s+\/\s+/g, '/')`. Whitespace runs are single spaces by now, so `\s+` is exactly one space.
-    debug_assert!(!local.chars().any(|ch| ch != ' ' && is_js_whitespace(ch)));
     local.replace(" / ", "/")
 }
 
