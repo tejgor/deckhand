@@ -1,9 +1,9 @@
 id = "S1"
 wave = 3
 title = "deckhand-dev sandbox launcher in POSIX sh"
-crate = "scripts"
+crate = "e2e"
 ts_sources = ["scripts/deckhand-dev.mjs"]
-rust_paths = ["scripts/deckhand-dev.sh"]
+rust_paths = ["scripts/deckhand-dev.sh", "crates/e2e/tests/dev_launcher.rs"]
 deps = []
 ts_tests = ["tests/devLauncher.test.ts"]
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
