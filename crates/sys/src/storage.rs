@@ -1920,4 +1920,114 @@ pub(crate) mod tests {
         assert_eq!(written["trustedProjects"].as_object().map(|map| map.len()), Some(12));
         assert!(!lock.exists());
     }
+
+    // ---- tests/worktreeRecords.test.ts (deferred to I1 by P2) --------------------------------------------------
+
+    fn at(minute: u32) -> String {
+        format!("2026-01-01T00:{minute:02}:00.000Z")
+    }
+
+    /// tests/worktreeRecords.test.ts `session(id, created, worktree, extra)`, as raw JSON.
+    fn legacy(id: &str, created: u32, worktree: Value, extra: Value) -> Value {
+        let cwd = worktree.get("path").cloned().unwrap_or(json!("/repo"));
+        let mut value = json!({
+            "id": id, "title": id, "program": "claude", "command": "claude", "cwd": cwd, "repoRoot": "/repo",
+            "launchWorktreeRoot": "/repo", "worktree": worktree, "status": "exited", "createdAt": at(created),
+            "updatedAt": at(created),
+        });
+        for (key, entry) in extra.as_object().cloned().unwrap_or_default() {
+            value[key] = entry;
+        }
+        value
+    }
+
+    fn managed(mode: &str, extra: Value) -> Value {
+        let mut value = json!({"mode": mode, "path": "/wt/feature", "branch": "feature", "isMain": false});
+        for (key, entry) in extra.as_object().cloned().unwrap_or_default() {
+            value[key] = entry;
+        }
+        value
+    }
+
+    fn legacy_sessions() -> Vec<Value> {
+        vec![
+            legacy(
+                "a",
+                1,
+                managed(
+                    "managed",
+                    json!({"mergedAt": at(10), "mergeMode": "squash", "mergeTargetBranch": "main", "mergeSourceRef": "feature", "deletedAt": at(30)}),
+                ),
+                json!({}),
+            ),
+            legacy(
+                "b",
+                2,
+                managed(
+                    "attached",
+                    json!({"mergedAt": at(20), "mergeTargetBranch": "main", "mergeSourceRef": "feature", "mergeMarkedManually": true}),
+                ),
+                json!({}),
+            ),
+            legacy(
+                "child",
+                3,
+                json!({"mode": "none"}),
+                json!({"cwd": "/wt/feature", "launchWorktreeRoot": "/wt/feature", "requestedWorktreeMode": "none", "mergedAt": at(5), "mergeTargetBranch": "main", "mergeSourceRef": "feature", "mergeMarkedManually": true}),
+            ),
+            legacy(
+                "restarted",
+                4,
+                managed("attached", json!({})),
+                json!({"agentStartedAt": at(45)}),
+            ),
+            legacy("new", 40, managed("managed", json!({})), json!({})),
+            legacy(
+                "other",
+                5,
+                managed(
+                    "managed",
+                    json!({"path": "/wt/other", "mergedAt": at(8), "mergeMode": "merge", "mergeTargetBranch": "main", "mergeSourceRef": "other"}),
+                ),
+                json!({}),
+            ),
+            legacy(
+                "main-none",
+                6,
+                json!({"mode": "none"}),
+                json!({"mergedAt": at(9), "mergeTargetBranch": "main", "mergeSourceRef": "main", "mergeMarkedManually": true}),
+            ),
+            legacy(
+                "main-attached",
+                7,
+                json!({"mode": "attached", "path": "/repo", "isMain": true, "mergedAt": at(9), "mergeTargetBranch": "dev", "mergeSourceRef": "main", "mergeMarkedManually": true}),
+                json!({}),
+            ),
+            legacy(
+                "waiting",
+                8,
+                json!({"mode": "none"}),
+                json!({"launchWorktreeRoot": "/wt/feature", "requestedWorktreeMode": "new"}),
+            ),
+        ]
+    }
+
+    // covers: B-I1-05 a legacy state.json is migrated on daemon start and written back with records only
+    #[test]
+    fn legacy_state_is_migrated_on_daemon_start() {
+        let home = temp_home();
+        let _home = Home::set(home.path());
+        let file = home.path().join("state.json");
+        std::fs::write(&file, json!({"sessions": legacy_sessions()}).to_string()).unwrap();
+        let recovered = block_on(mark_all_non_exited_sessions_exited()).expect("recovered");
+        let written: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+        assert_eq!(written, serde_json::to_value(&recovered).unwrap());
+        assert_eq!(written["worktrees"].as_array().map(|records| records.len()), Some(3));
+        assert!(written["sessions"].as_array().unwrap().iter().all(|item| {
+            let worktree = &item["worktree"];
+            worktree.get("id").is_none_or(|id| id.is_null() || id == "")
+                || (worktree.get("mergedAt").is_none() && worktree.get("deletedAt").is_none())
+        }));
+        assert_eq!(block_on(load_state()).expect("loaded"), recovered);
+    }
 }
