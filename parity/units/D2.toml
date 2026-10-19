@@ -21,4 +21,14 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"daemon.ts:persistedSession" = "deckhand_daemon::lifecycle::persisted_session"
+"daemon.ts:isProcessAlive" = "deckhand_daemon::lifecycle::is_process_alive"
+"daemon.ts:start" = "deckhand_daemon::daemon::Daemon::start"
+"daemon.ts:log" = "deckhand_daemon::daemon::Daemon::log"
+"daemon.ts:assertNoLiveDaemonFromPidFile" = "deckhand_daemon::daemon::Daemon::assert_no_live_daemon_from_pid_file"
+"daemon.ts:writePidFile" = "deckhand_daemon::daemon::Daemon::write_pid_file"
+"daemon.ts:removePidFile" = "deckhand_daemon::daemon::Daemon::remove_pid_file"
+"daemon.ts:setupProcessHandlers" = "deckhand_daemon::daemon::Daemon::setup_process_handlers"
+"daemon.ts:cleanup" = "deckhand_daemon::daemon::Daemon::cleanup"
+"daemon.ts:persist" = "deckhand_daemon::daemon::Daemon::persist"
+"daemon.ts:handleRequest.shutdown" = "deckhand_daemon::daemon::Daemon::handle_shutdown"

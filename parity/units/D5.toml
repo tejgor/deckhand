@@ -21,4 +21,19 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"daemon.ts:AGENT_VERSIONS_TICK_MS" = "deckhand_daemon::agents::AGENT_VERSIONS_TICK"
+"daemon.ts:publishAgentVersions" = "deckhand_daemon::daemon::Daemon::publish_agent_versions"
+"daemon.ts:refreshAgentVersions" = "deckhand_daemon::daemon::Daemon::refresh_agent_versions"
+"daemon.ts:updateAgent" = "deckhand_daemon::daemon::Daemon::update_agent"
+"daemon.ts:handleRequest.agent-versions" = "deckhand_daemon::daemon::Daemon::handle_agent_versions"
+"daemon.ts:DRAFT_WAIT_MS" = "deckhand_daemon::hooks::DRAFT_WAIT"
+"daemon.ts:DRAFT_SETTLE_MS" = "deckhand_daemon::hooks::DRAFT_SETTLE"
+"daemon.ts:AGENT_PROMPT_PATTERN" = "deckhand_daemon::hooks::AGENT_PROMPT_PATTERN"
+"daemon.ts:execFileAsync" = "drop: promisify(execFile) for notify; deckhand_sys::proc::exec does that"
+"daemon.ts:handleAgentHook" = "deckhand_daemon::daemon::Daemon::handle_agent_hook"
+"daemon.ts:markAnswered" = "deckhand_daemon::daemon::Daemon::mark_answered"
+"daemon.ts:acceptedNativeRef" = "deckhand_daemon::daemon::Daemon::accepted_native_ref"
+"daemon.ts:notify" = "deckhand_daemon::daemon::Daemon::notify"
+"daemon.ts:setWorkerAgentStatus" = "deckhand_daemon::daemon::Daemon::set_worker_agent_status"
+"daemon.ts:typeDraft" = "deckhand_daemon::daemon::Daemon::type_draft"
+"daemon.ts:dropDraft" = "deckhand_daemon::daemon::Daemon::drop_draft"
