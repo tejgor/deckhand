@@ -31,8 +31,8 @@ use deckhand_protocol::data::{
 };
 use deckhand_protocol::wire::{
     AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest, DeleteWorktree,
-    ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, MergeWorktree, OpenNote, PromoteNoteItem, Remove,
-    ReorderSession, RequestOnly, ResolveMerge, Restart, ReturnTaskToNote, RunAction, SaveConfig, SaveNote,
+    ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose, MergeWorktree, OpenNote, PromoteNoteItem,
+    Remove, ReorderSession, RequestOnly, ResolveMerge, Restart, ReturnTaskToNote, RunAction, SaveConfig, SaveNote,
     SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetSessionDone, Subscribe, TaskOpRequest,
     TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview, WorkspaceSummaryRequest,
     WorktreeCandidateSizes,
@@ -424,7 +424,7 @@ impl LiveClient {
     pub fn subscribe(&self, repo_root: &str) -> Reply<Vec<SessionRecord>> {
         self.request(Request::Subscribe(Subscribe {
             request_id: new_request_id(),
-            repo_root: repo_root.to_owned(),
+            repo_root: repo_root.into(),
         }))
     }
 
@@ -439,8 +439,8 @@ impl LiveClient {
         self.request(Request::WatchPreview(WatchPreview {
             request_id: new_request_id(),
             session_id: session_id.map(str::to_owned),
-            cols,
-            rows,
+            cols: Some(cols),
+            rows: Some(rows),
             scroll_offset: Some(scroll_offset.unwrap_or(0)),
         }))
     }
@@ -450,8 +450,8 @@ impl LiveClient {
         self.request(Request::WatchTerminal(WatchPane {
             request_id: new_request_id(),
             session_id: session_id.map(str::to_owned),
-            cols,
-            rows,
+            cols: Some(cols),
+            rows: Some(rows),
         }))
     }
 
@@ -468,8 +468,8 @@ impl LiveClient {
         self.request(Request::ChangesDiff(ChangesDiff {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            group,
-            path: path.to_owned(),
+            group: group.into(),
+            path: path.into(),
         }))
     }
 
@@ -481,13 +481,13 @@ impl LiveClient {
         entry: Option<StageEntry>,
     ) -> Reply<ChangeStageResult> {
         let (group, path) = match entry {
-            Some(entry) => (Some(entry.group), Some(entry.path)),
-            None => (None, None),
+            Some(entry) => (entry.group.into(), entry.path.into()),
+            None => (Loose::Absent, Loose::Absent),
         };
         self.request(Request::ChangeStage(ChangeStage {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            mode,
+            mode: mode.into(),
             group,
             path,
         }))
@@ -498,8 +498,8 @@ impl LiveClient {
         self.request(Request::WatchDev(WatchPane {
             request_id: new_request_id(),
             session_id: session_id.map(str::to_owned),
-            cols,
-            rows,
+            cols: Some(cols),
+            rows: Some(rows),
         }))
     }
 
@@ -508,8 +508,8 @@ impl LiveClient {
         self.request(Request::StartDev(SessionSizeRequest {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            cols,
-            rows,
+            cols: Some(cols),
+            rows: Some(rows),
         }))
     }
 
@@ -527,9 +527,10 @@ impl LiveClient {
 
     /// TS: LiveClient.createSession.
     pub fn create_session(&self, input: CreateSessionInput) -> Reply<SessionRecord> {
+        // The daemon reads the input as sent (createSession's checks); a well-formed one always serialises.
         self.request(Request::Create(Create {
             request_id: new_request_id(),
-            input,
+            input: serde_json::to_value(&input).ok(),
         }))
     }
 
@@ -562,7 +563,7 @@ impl LiveClient {
     ) -> Reply<WorktreeCleanupInspection> {
         self.request(Request::InspectWorktree(InspectWorktree {
             request_id: new_request_id(),
-            cwd: cwd.to_owned(),
+            cwd: cwd.into(),
             path: worktree_path.to_owned(),
             delete_branch: Some(delete_branch),
         }))
@@ -577,7 +578,7 @@ impl LiveClient {
     ) -> Reply<WorktreeDeleteResult> {
         self.request(Request::DeleteWorktree(DeleteWorktree {
             request_id: new_request_id(),
-            cwd: cwd.to_owned(),
+            cwd: cwd.into(),
             path: worktree_path.to_owned(),
             branch: options.branch,
             delete_branch: options.delete_branch,
@@ -599,9 +600,9 @@ impl LiveClient {
         self.request(Request::Restart(Restart {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            cols,
-            rows,
-            mode: Some(mode.unwrap_or(RestartMode::Resume)),
+            cols: Some(cols),
+            rows: Some(rows),
+            mode: mode.unwrap_or(RestartMode::Resume).into(),
             project_fingerprint: project_fingerprint.map(str::to_owned),
         }))
     }
@@ -635,8 +636,8 @@ impl LiveClient {
         self.request(Request::MergeWorktree(MergeWorktree {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            mode,
-            target_cwd: target_cwd.to_owned(),
+            mode: mode.into(),
+            target_cwd: target_cwd.into(),
             commit_first: Some(options.commit_first),
             send_open_items: only_true(options.send_open_items),
         }))
@@ -652,7 +653,7 @@ impl LiveClient {
         self.request(Request::ResolveMerge(ResolveMerge {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            target_cwd: target_cwd.to_owned(),
+            target_cwd: target_cwd.into(),
             action,
         }))
     }
@@ -688,9 +689,11 @@ impl LiveClient {
 
     /// TS: LiveClient.taskOp.
     pub fn task_op(&self, cwd: &str, op: TaskOp) -> Reply<TasksDoc> {
+        // The op travels as JSON; the daemon checks it with tasks.ts clientTaskOp.
+        let op = serde_json::to_value(&op).unwrap_or(Value::Null);
         self.request(Request::TaskOp(TaskOpRequest {
             request_id: new_request_id(),
-            cwd: cwd.to_owned(),
+            cwd: cwd.into(),
             op,
         }))
     }
@@ -704,7 +707,7 @@ impl LiveClient {
     pub fn return_task_to_note(&self, cwd: &str, task_id: &str) -> Reply<TasksDoc> {
         self.request(Request::ReturnTaskToNote(ReturnTaskToNote {
             request_id: new_request_id(),
-            cwd: cwd.to_owned(),
+            cwd: cwd.into(),
             task_id: task_id.to_owned(),
         }))
     }
@@ -713,9 +716,9 @@ impl LiveClient {
     pub fn task_to_note(&self, cwd: &str, task_id: &str, section: &str) -> Reply<TasksDoc> {
         self.request(Request::TaskToNote(TaskToNote {
             request_id: new_request_id(),
-            cwd: cwd.to_owned(),
+            cwd: cwd.into(),
             task_id: task_id.to_owned(),
-            section: section.to_owned(),
+            section: Some(section.to_owned()),
         }))
     }
 
@@ -731,10 +734,10 @@ impl LiveClient {
         self.request(Request::PromoteNoteItem(PromoteNoteItem {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            section,
-            line,
-            revision: revision.to_owned(),
-            note_id: non_empty(note_id),
+            section: section.into(),
+            line: Some(line),
+            revision: Some(revision.to_owned()),
+            note_id: non_empty(note_id).map_or(Loose::Absent, Loose::Known),
         }))
     }
 
@@ -749,9 +752,9 @@ impl LiveClient {
         self.request(Request::SendOpenItems(SendOpenItems {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            section,
-            revision: revision.to_owned(),
-            note_id: non_empty(note_id),
+            section: section.into(),
+            revision: revision.into(),
+            note_id: non_empty(note_id).map_or(Loose::Absent, Loose::Known),
         }))
     }
 
@@ -773,10 +776,10 @@ impl LiveClient {
         self.request(Request::SaveNote(SaveNote {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            section,
-            note_id: note_id.map(str::to_owned),
-            text: text.to_owned(),
-            revision: revision.to_owned(),
+            section: section.into(),
+            note_id: note_id.map_or(Loose::Absent, Loose::from),
+            text: Some(text.to_owned()),
+            revision: Some(revision.to_owned()),
         }))
     }
 
@@ -785,7 +788,7 @@ impl LiveClient {
         self.request(Request::OpenNote(OpenNote {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            section,
+            section: section.into(),
         }))
     }
 
@@ -800,9 +803,9 @@ impl LiveClient {
         self.request(Request::SaveConfig(SaveConfig {
             request_id: new_request_id(),
             target,
-            cwd: cwd.to_owned(),
-            raw: raw.to_owned(),
-            revision: revision.map(str::to_owned),
+            cwd: cwd.into(),
+            raw: Some(raw.to_owned()),
+            revision: revision.map_or(Loose::Other(Value::Null), Loose::from),
         }))
     }
 
@@ -825,8 +828,8 @@ impl LiveClient {
     pub fn worktree_candidate_sizes(&self, cwd: &str, paths: &[String]) -> Reply<CandidateSizes> {
         self.request(Request::WorktreeCandidateSizes(WorktreeCandidateSizes {
             request_id: new_request_id(),
-            cwd: cwd.to_owned(),
-            paths: paths.to_vec(),
+            cwd: cwd.into(),
+            paths: Some(paths.to_vec()),
         }))
     }
 
@@ -840,8 +843,8 @@ impl LiveClient {
     pub fn trust_project(&self, cwd: &str, fingerprint: &str) -> Reply<ProjectInfo> {
         self.request(Request::TrustProject(TrustProject {
             request_id: new_request_id(),
-            cwd: cwd.to_owned(),
-            fingerprint: fingerprint.to_owned(),
+            cwd: cwd.into(),
+            fingerprint: fingerprint.into(),
         }))
     }
 
@@ -895,9 +898,9 @@ impl LiveClient {
         self.request(Request::RunAction(RunAction {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            action: action.to_owned(),
-            cols,
-            rows,
+            action: action.into(),
+            cols: Some(cols),
+            rows: Some(rows),
         }))
     }
 
@@ -906,8 +909,8 @@ impl LiveClient {
         self.request(Request::WatchAction(WatchPane {
             request_id: new_request_id(),
             session_id: session_id.map(str::to_owned),
-            cols,
-            rows,
+            cols: Some(cols),
+            rows: Some(rows),
         }))
     }
 
@@ -935,7 +938,7 @@ impl LiveClient {
     pub fn update_agent(&self, program: ProgramKey) -> Reply<AgentUpdateResult> {
         self.request(Request::UpdateAgent(UpdateAgent {
             request_id: new_request_id(),
-            program,
+            program: program.into(),
         }))
     }
 
@@ -946,7 +949,7 @@ impl LiveClient {
         }
         let message = Request::Input(Input {
             session_id: session_id.to_owned(),
-            data: data.to_owned(),
+            data: data.into(),
         });
         if let Ok(line) = frame_message(&message) {
             let _ = self.outgoing.send(line);
@@ -975,7 +978,7 @@ impl LiveClient {
 fn cwd_request(cwd: &str) -> CwdRequest {
     CwdRequest {
         request_id: new_request_id(),
-        cwd: cwd.to_owned(),
+        cwd: cwd.into(),
     }
 }
 
@@ -990,7 +993,7 @@ fn session_target(session_id: &str, target_cwd: &str) -> SessionTargetRequest {
     SessionTargetRequest {
         request_id: new_request_id(),
         session_id: session_id.to_owned(),
-        target_cwd: target_cwd.to_owned(),
+        target_cwd: target_cwd.into(),
     }
 }
 

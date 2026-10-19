@@ -34,6 +34,7 @@ use serde_json::{Map, Value, json};
 
 use crate::daemon::Daemon;
 use crate::dispatch::response;
+use crate::launch::resize_event;
 use crate::server::{ClientHandle, Connection, DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS, clamp_size, send_message};
 use crate::worker_channel::{ChannelEvent, ChannelEvents, SpawnOptions, WorkerChannel, WorkerKind, worker_exe};
 
@@ -727,8 +728,9 @@ impl Daemon {
                 pane.attach_name()
             )));
         }
-        let cols = clamp_size(cols.unwrap_or(DEFAULT_PREVIEW_COLS), DEFAULT_PREVIEW_COLS);
-        let rows = clamp_size(rows.unwrap_or(DEFAULT_PREVIEW_ROWS), DEFAULT_PREVIEW_ROWS);
+        // `clampSize(cols ?? DEFAULT, DEFAULT)`: absent and not a number alike are the default.
+        let cols = clamp_size(cols, DEFAULT_PREVIEW_COLS);
+        let rows = clamp_size(rows, DEFAULT_PREVIEW_ROWS);
         let attach_data: Value = self
             .request_pane(
                 &workspace,
@@ -766,8 +768,8 @@ impl Daemon {
         session_id: &str,
         key: &str,
         command: &str,
-        cols: i64,
-        rows: i64,
+        cols: Option<i64>,
+        rows: Option<i64>,
     ) -> Result<WorkspacePaneRecord> {
         let workspace = self.open_workspace(key).await?;
         let dev: WorkspacePaneRecord = self
@@ -796,8 +798,8 @@ impl Daemon {
         key: &str,
         name: &str,
         command: &str,
-        cols: i64,
-        rows: i64,
+        cols: Option<i64>,
+        rows: Option<i64>,
     ) -> Result<WorkspacePaneRecord> {
         let workspace = self.open_workspace(key).await?;
         let action: WorkspacePaneRecord = self
@@ -913,10 +915,12 @@ impl Daemon {
         let config = load_app_config().await?;
         let project = load_project_config(&session.cwd, Some(&config), None).await?;
         let settings = resolve_settings(Some(&project), &config, &self.config_dir_string())?;
+        // `Object.hasOwn(actions, message.action)` looks the value up as its string.
+        let action = request.action.js_string();
         let command = settings
             .actions
             .as_ref()
-            .and_then(|actions| actions.get(&request.action))
+            .and_then(|actions| actions.get(&action))
             .filter(|command| !command.is_empty())
             .cloned();
         let Some(command) = command else {
@@ -924,7 +928,7 @@ impl Daemon {
                 .config
                 .actions
                 .as_ref()
-                .is_some_and(|actions| actions.contains_key(&request.action));
+                .is_some_and(|actions| actions.contains_key(&action));
             if listed {
                 return Err(DhError::msg(
                     "Review and trust deckhand.json first (r, then the action, or T in Settings)",
@@ -932,7 +936,7 @@ impl Daemon {
             }
             return Err(DhError::msg("Unknown project action"));
         };
-        self.start_workspace_action(&session.id, &key, &request.action, &command, request.cols, request.rows)
+        self.start_workspace_action(&session.id, &key, &action, &command, request.cols, request.rows)
             .await
     }
 
@@ -996,11 +1000,12 @@ impl Daemon {
     /// TS: handleRequest `<pane>-input`.
     pub fn handle_pane_input(&self, pane: WorkspacePane, request: &Input) -> Result<()> {
         if let Some(workspace) = self.workspace_of_session(&request.session_id) {
-            workspace.channel.send_event(payload(json!({
-                "type": "input",
-                "target": pane.as_str(),
-                "data": request.data,
-            })));
+            // `data: message.data`, forwarded as sent (`undefined` writes no key).
+            let mut event = payload(json!({"type": "input", "target": pane.as_str()}));
+            if let Some(data) = request.data.to_value() {
+                event.insert("data".to_owned(), data);
+            }
+            workspace.channel.send_event(event);
         }
         Ok(())
     }
@@ -1008,12 +1013,7 @@ impl Daemon {
     /// TS: handleRequest `<pane>-resize`.
     pub fn handle_pane_resize(&self, pane: WorkspacePane, request: &Resize) -> Result<()> {
         if let Some(workspace) = self.workspace_of_session(&request.session_id) {
-            workspace.channel.send_event(payload(json!({
-                "type": "resize",
-                "target": pane.as_str(),
-                "cols": request.cols,
-                "rows": request.rows,
-            })));
+            workspace.channel.send_event(resize_event(pane.as_str(), request));
         }
         Ok(())
     }
@@ -1378,8 +1378,8 @@ mod tests {
             let watch = |session_id: Option<&str>, cols, rows| WatchPane {
                 request_id: "r".into(),
                 session_id: session_id.map(str::to_owned),
-                cols,
-                rows,
+                cols: Some(cols),
+                rows: Some(rows),
             };
             let none = daemon
                 .handle_watch_pane(&conn, WorkspacePane::Dev, &watch(None, 0, -3))
@@ -1534,7 +1534,11 @@ mod tests {
             let starting = {
                 let daemon = daemon.clone();
                 let root = root.clone();
-                spawn(async move { daemon.start_workspace_dev("s1", &root, "npm run dev", 0, 50).await })
+                spawn(async move {
+                    daemon
+                        .start_workspace_dev("s1", &root, "npm run dev", Some(0), Some(50))
+                        .await
+                })
             };
             let request = fake.next().await;
             let mut sent = request.as_object().unwrap().clone();
@@ -1683,8 +1687,8 @@ mod tests {
                     WorkspacePane::Git,
                     &Resize {
                         session_id: "s1".into(),
-                        cols: 90,
-                        rows: 30,
+                        cols: Some(90),
+                        rows: Some(30),
                     },
                 )
                 .unwrap();
@@ -1956,8 +1960,8 @@ mod tests {
                 request_id: "r".into(),
                 session_id: session_id.into(),
                 action: action.into(),
-                cols: 80,
-                rows: 24,
+                cols: Some(80),
+                rows: Some(24),
             };
             let error = |result: Result<WorkspacePaneRecord>| result.unwrap_err().to_string();
             assert_eq!(

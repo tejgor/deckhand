@@ -27,7 +27,7 @@ use deckhand_protocol::data::{
 };
 use deckhand_protocol::events::{ServerMessage, TasksUpdated};
 use deckhand_protocol::records::WorktreeRecord;
-use deckhand_protocol::wire::{CwdRequest, OpenNote, PromoteNoteItem, SaveNote, SendOpenItems, TaskOpRequest};
+use deckhand_protocol::wire::{CwdRequest, Loose, OpenNote, PromoteNoteItem, SaveNote, SendOpenItems, TaskOpRequest};
 use deckhand_protocol::{KeyOrder, Ordered};
 use deckhand_sys::async_util::{SharedTask, spawn};
 use deckhand_sys::git::resolve_repo_context;
@@ -101,6 +101,20 @@ fn path_text(path: &Path) -> String {
 /// `{...stored.tooLarge ? {tooLarge: true} : {}}`.
 fn only_true(value: Option<bool>) -> Option<bool> {
     value.filter(|&flag| flag)
+}
+
+/// The note a request's `section` names (TS noteOf: `section === 'session'` is the session's own, anything else its
+/// shared one).
+fn note_section(section: &Loose<NoteSection>) -> NoteSection {
+    match section {
+        Loose::Known(NoteSection::Session) => NoteSection::Session,
+        _ => NoteSection::Shared,
+    }
+}
+
+/// `message.section === 'shared'` (the shared note's checks apply only then).
+fn is_shared_section(section: &Loose<NoteSection>) -> bool {
+    section.known() == Some(&NoteSection::Shared)
 }
 
 fn session_note(id: &str) -> NoteId {
@@ -300,17 +314,20 @@ impl Daemon {
     /// note is read-only`): revision-checked.
     pub async fn save_note(&self, message: &SaveNote) -> Result<NoteSaveResult> {
         let session = self.require_session(&message.session_id)?;
-        // `Invalid note` (text or revision not a string) is refused by the typed request already.
-        if message.section == NoteSection::Session && !shows_own_note(&session) {
+        let (Some(text), Some(revision)) = (message.text.as_deref(), message.revision.as_deref()) else {
+            return Err(DhError::msg("Invalid note"));
+        };
+        let section = note_section(&message.section);
+        if section == NoteSection::Session && !shows_own_note(&session) {
             return Err(DhError::msg(
                 "A session in a worktree writes in the worktree’s note (shared by its sessions)",
             ));
         }
-        let note = self.note_of(&session, message.section)?;
-        if message.section == NoteSection::Shared {
-            self.check_shared_note(&session, &note, message.note_id.as_deref(), "saved")?;
+        let note = self.note_of(&session, section)?;
+        if is_shared_section(&message.section) {
+            self.check_shared_note(&session, &note, &message.note_id, "saved")?;
         }
-        let result = self.notes().save(&note, &message.text, &message.revision).await?;
+        let result = self.notes().save(&note, text, revision).await?;
         if result.changed {
             self.notes_changed(note.kind, &note_file_stem(&note.id));
         }
@@ -325,12 +342,11 @@ impl Daemon {
         &self,
         session: &SessionRecord,
         note: &NoteId,
-        note_id: Option<&str>,
+        note_id: &Loose<String>,
         done: &str,
     ) -> Result<()> {
-        if let Some(note_id) = note_id
-            && note_id != format!("{}:{}", note.kind.as_str(), note.id)
-        {
+        // `noteId !== undefined && noteId !== '<kind>:<id>'`: a value of another type never matches.
+        if !note_id.is_absent() && note_id.known() != Some(&format!("{}:{}", note.kind.as_str(), note.id)) {
             return Err(DhError::msg(format!(
                 "This session now shares another note; nothing was {done}"
             )));
@@ -343,6 +359,14 @@ impl Daemon {
             return Err(DhError::msg("Its worktree was deleted: the worktree note is read-only"));
         }
         Ok(())
+    }
+
+    /// tasksKeyFor on a request's `cwd`: `typeof cwd !== 'string' || !cwd` is `Invalid repository path`.
+    pub async fn tasks_key_for_request(&self, cwd: &Loose<String>) -> Result<String> {
+        match cwd.known() {
+            Some(cwd) => self.tasks_key_for(cwd).await,
+            None => Err(DhError::msg("Invalid repository path")),
+        }
     }
 
     /// TS: InkDaemon.tasksKeyFor (`Invalid repository path`): the task list key of the repository `cwd` is in.
@@ -669,13 +693,20 @@ impl Daemon {
     /// TS: InkDaemon.sendNoteItems (`A` in the Notes view; `This session now shares another note; nothing was sent`).
     pub async fn send_note_items(&self, message: &SendOpenItems) -> Result<SendOpenItemsResult> {
         let session = self.require_session(&message.session_id)?;
-        let note = self.note_of(&session, message.section)?;
-        if message.section == NoteSection::Shared {
-            self.check_shared_note(&session, &note, message.note_id.as_deref(), "sent")?;
+        let note = self.note_of(&session, note_section(&message.section))?;
+        if is_shared_section(&message.section) {
+            self.check_shared_note(&session, &note, &message.note_id, "sent")?;
         }
         let key = self.tasks_key_for(&session.repo_root).await?;
+        // `revision !== undefined && stored.revision !== revision`: a revision of another type never matches (a NUL
+        // never appears in a revision).
+        let revision = match &message.revision {
+            Loose::Absent => None,
+            Loose::Known(revision) => Some(revision.clone()),
+            Loose::Other(other) => Some(format!("\0{other}")),
+        };
         let options = SendItemsOptions {
-            revision: Some(message.revision.clone()),
+            revision,
             ..SendItemsOptions::default()
         };
         let sent = self.send_open_note_items(&note, &key, options).await?;
@@ -690,18 +721,24 @@ impl Daemon {
     /// Tasks`, `That item is already ticked; only open items go to Tasks`): one open item to the backlog.
     pub async fn promote_note_item(&self, message: &PromoteNoteItem) -> Result<PromoteNoteItemResult> {
         let session = self.require_session(&message.session_id)?;
-        let note = self.note_of(&session, message.section)?;
-        if message.section == NoteSection::Shared {
-            self.check_shared_note(&session, &note, message.note_id.as_deref(), "sent")?;
+        let note = self.note_of(&session, note_section(&message.section))?;
+        if is_shared_section(&message.section) {
+            self.check_shared_note(&session, &note, &message.note_id, "sent")?;
         }
-        let Ok(line) = usize::try_from(message.line) else {
+        // `!Number.isInteger(line) || line < 0` (a fraction is refused, not floored).
+        let Some(line) = message.line.and_then(|line| usize::try_from(line).ok()) else {
             return Err(DhError::msg("Invalid line"));
         };
         let notes = self.notes();
         let stored = notes.get(&note);
-        if stored.revision != message.revision {
+        // `stored.revision !== message.revision`: a revision of another type never matches.
+        let Some(revision) = message
+            .revision
+            .as_deref()
+            .filter(|revision| *revision == stored.revision)
+        else {
             return Err(DhError::msg("These notes changed meanwhile; try again"));
-        }
+        };
         let id = new_task_id();
         let promoted = promote_note_line(&stored.text, line, &id)
             .ok_or_else(|| DhError::msg("Put the cursor on a checklist item (- [ ] …) to send it to Tasks"))?;
@@ -712,7 +749,7 @@ impl Daemon {
         // An item sent from a note is work of its own: the backlog (the note's own work's to-dos are its steps).
         self.change_tasks(&key, add_op(&promoted.title, Some(&id), None, None))
             .await?;
-        let saved = notes.save(&note, &promoted.text, &message.revision).await?;
+        let saved = notes.save(&note, &promoted.text, revision).await?;
         if !saved.saved {
             let _ = self.change_tasks(&key, TaskOp::Remove { id }).await;
             return Err(DhError::msg("These notes changed meanwhile; try again"));
@@ -1001,33 +1038,34 @@ impl Daemon {
     /// TS: handleRequest `open-note`: the note's file (created when missing), for an editor.
     pub async fn handle_open_note(&self, request: &OpenNote) -> Result<String> {
         let session = self.require_session(&request.session_id)?;
-        let note = self.note_of(&session, request.section)?;
+        let note = self.note_of(&session, note_section(&request.section))?;
         Ok(path_text(&self.notes().ensure_file(&note).await?))
     }
 
     /// TS: handleRequest `watch-tasks`: the client now shows that repository's list.
     pub async fn handle_watch_tasks(&self, conn: &Connection, request: &CwdRequest) -> Result<TasksDoc> {
-        let key = self.tasks_key_for(&request.cwd).await?;
+        let key = self.tasks_key_for_request(&request.cwd).await?;
         self.get_client(&conn.client, |client| client.tasks_key = Some(key.clone()));
         Ok(self.tasks_doc(&key))
     }
 
-    /// TS: handleRequest `task-op` (validated by tasks.ts clientTaskOp; a link is checked first).
-    ///
-    /// NOTE: `TaskOpRequest.op` is a typed `TaskOp` in the protocol crate, so by the time it gets here serde has
-    /// already rejected some ops TS accepts (a non-string `body`, a non-boolean `after`) and normalised away some TS
-    /// refuses (`link: null` reads as no link, an extra `wt`/`s` key on a link is dropped). Re-serialising cannot
-    /// recover those: parity needs the op kept raw (`serde_json::Value`) on the wire type, after which this
-    /// `to_value` is the identity and [`Daemon::handle_client_task_op`] sees exactly what the client sent.
+    /// TS: handleRequest `task-op`: the repository's list first, then tasks.ts clientTaskOp on the op exactly as the
+    /// client sent it (its texts and order: `Invalid repository path` before `Unknown task change`).
     pub async fn handle_task_op(&self, request: &TaskOpRequest) -> Result<TasksDoc> {
-        let raw = serde_json::to_value(&request.op).map_err(|error| DhError::msg(error.to_string()))?;
-        self.handle_client_task_op(&request.cwd, &raw).await
+        let key = self.tasks_key_for_request(&request.cwd).await?;
+        self.apply_client_task_op(&key, &request.op).await
     }
 
     /// TS: handleRequest `task-op` body: the list for `cwd`, then clientTaskOp on the op exactly as the client sent
     /// it (`raw`), the link check, and the change.
     pub async fn handle_client_task_op(&self, cwd: &str, raw: &serde_json::Value) -> Result<TasksDoc> {
         let key = self.tasks_key_for(cwd).await?;
+        self.apply_client_task_op(&key, raw).await
+    }
+
+    /// clientTaskOp, the link check and the change, on list `key`.
+    async fn apply_client_task_op(&self, key: &str, raw: &serde_json::Value) -> Result<TasksDoc> {
+        let key = key.to_owned();
         let op = client_task_op(raw)?;
         if let TaskOp::Add { link: Some(link), .. } | TaskOp::Assign { link: Some(link), .. } = &op {
             self.check_task_link(&key, link).await?;
@@ -1038,7 +1076,7 @@ impl Daemon {
 
     /// TS: handleRequest `open-tasks`: the list's file (created when missing).
     pub async fn handle_open_tasks(&self, request: &CwdRequest) -> Result<String> {
-        let key = self.tasks_key_for(&request.cwd).await?;
+        let key = self.tasks_key_for_request(&request.cwd).await?;
         Ok(path_text(&self.notes().ensure_file(&tasks_note(&key)).await?))
     }
 }
@@ -1156,8 +1194,8 @@ mod tests {
     fn task_op(cwd: &str, op: TaskOp) -> TaskOpRequest {
         TaskOpRequest {
             request_id: "r".to_owned(),
-            cwd: cwd.to_owned(),
-            op,
+            cwd: cwd.into(),
+            op: serde_json::to_value(&op).unwrap(),
         }
     }
 
@@ -1169,10 +1207,10 @@ mod tests {
         SaveNote {
             request_id: "r".to_owned(),
             session_id: session.to_owned(),
-            section,
-            note_id: note_id.map(str::to_owned),
-            text: text.to_owned(),
-            revision: revision.to_owned(),
+            section: section.into(),
+            note_id: note_id.map_or(Loose::Absent, Loose::from),
+            text: Some(text.to_owned()),
+            revision: Some(revision.to_owned()),
         }
     }
 
@@ -1375,7 +1413,7 @@ mod tests {
             let conn = Connection::new(client);
             let request = CwdRequest {
                 request_id: "r".to_owned(),
-                cwd: root.clone(),
+                cwd: root.clone().into(),
             };
             let watched = daemon.handle_watch_tasks(&conn, &request).await.unwrap();
             assert_eq!(watched.key, repo_note_id(&root));
@@ -1546,10 +1584,10 @@ mod tests {
             let promote = |line: i64, revision: &str| PromoteNoteItem {
                 request_id: "r".to_owned(),
                 session_id: "s".to_owned(),
-                section: NoteSection::Session,
-                line,
-                revision: revision.to_owned(),
-                note_id: None,
+                section: NoteSection::Session.into(),
+                line: Some(line),
+                revision: Some(revision.to_owned()),
+                note_id: Loose::Absent,
             };
             let error = daemon.promote_note_item(&promote(0, &revision)).await.unwrap_err();
             assert_eq!(
@@ -1652,9 +1690,9 @@ mod tests {
             let send = |revision: &str, note_id: Option<&str>| SendOpenItems {
                 request_id: "r".to_owned(),
                 session_id: "s".to_owned(),
-                section: NoteSection::Shared,
-                revision: revision.to_owned(),
-                note_id: note_id.map(str::to_owned),
+                section: NoteSection::Shared.into(),
+                revision: revision.into(),
+                note_id: note_id.map_or(Loose::Absent, Loose::from),
             };
             let error = daemon.send_note_items(&send("stale", None)).await.unwrap_err();
             assert_eq!(error.to_string(), "These notes changed meanwhile; try again");

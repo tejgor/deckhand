@@ -233,7 +233,11 @@ impl Daemon {
         else {
             return;
         };
-        let _ = file.write_all(line.as_bytes()).await;
+        // A tokio file hands writes to a blocking thread: flushing waits for the line to be written, as appendFile's
+        // promise does (callers rely on the line being there once this returns).
+        if file.write_all(line.as_bytes()).await.is_ok() {
+            let _ = file.flush().await;
+        }
     }
 
     /// TS: InkDaemon.assertNoLiveDaemonFromPidFile: `daemon already appears to be running as pid <pid>` when the pid
@@ -675,6 +679,37 @@ mod tests {
         // An unwritable log is ignored.
         let missing = test_daemon(&dir.path().join("missing/dir"));
         local(missing.log("lost"));
+    }
+
+    #[test]
+    fn a_logged_line_is_in_the_file_when_log_returns() {
+        // As `await fs.appendFile(...)`: callers (and tests reading the log) rely on the line being written. A FIFO
+        // as the log makes the write wait for its reader, so returning early would show.
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = test_daemon(dir.path());
+        nix::unistd::mkfifo(&daemon.paths.log_file, nix::sys::stat::Mode::from_bits_truncate(0o600)).unwrap();
+        let fifo = daemon.paths.log_file.clone();
+        let reader = std::thread::spawn(move || {
+            use std::io::Read;
+            let mut file = std::fs::File::open(fifo).unwrap();
+            // Nothing is drained for a while: a write larger than the pipe's buffer cannot finish before.
+            std::thread::sleep(Duration::from_millis(300));
+            let mut text = String::new();
+            file.read_to_string(&mut text).unwrap();
+            text.len()
+        });
+        let long = "x".repeat(256 * 1024);
+        // Timed inside the runtime: dropping it waits for its blocking pool, which would hide an early return.
+        let elapsed = local(async {
+            let started = std::time::Instant::now();
+            daemon.log(&long).await;
+            started.elapsed()
+        });
+        assert!(
+            elapsed >= Duration::from_millis(250),
+            "log returned before its line was written"
+        );
+        assert!(reader.join().unwrap() > long.len());
     }
 
     #[test]

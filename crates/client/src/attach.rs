@@ -1165,7 +1165,7 @@ impl<C: Console> Proxy<'_, C> {
             self.target,
             Input {
                 session_id: self.session_id.to_owned(),
-                data: normalized,
+                data: normalized.into(),
             },
         );
         self.outgoing.push(&message).err().map(Err)
@@ -1177,8 +1177,8 @@ impl<C: Console> Proxy<'_, C> {
             self.target,
             Resize {
                 session_id: self.session_id.to_owned(),
-                cols: attach_cols_on(self.console),
-                rows: attach_rows_on(self.console),
+                cols: Some(attach_cols_on(self.console)),
+                rows: Some(attach_rows_on(self.console)),
             },
         );
         self.outgoing.push(&message)
@@ -1275,8 +1275,8 @@ mod tests {
                 target,
                 Resize {
                     session_id: "s".into(),
-                    cols: 1,
-                    rows: 2,
+                    cols: Some(1),
+                    rows: Some(2),
                 },
             );
             assert_eq!(serde_json::to_value(&resize).unwrap()["type"], names.resize);

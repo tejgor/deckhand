@@ -22,7 +22,7 @@ use deckhand_protocol::data::{
     SessionStatus, SetupState,
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage, SessionOutput, SessionRef};
-use deckhand_protocol::wire::{Attach, Detach, Input, Resize, WatchPreview};
+use deckhand_protocol::wire::{Attach, Detach, Input, Loose, Resize, WatchPreview};
 use deckhand_protocol::worker_ipc::WorkerMessage;
 use deckhand_sys::async_util::{Timer, spawn};
 use deckhand_sys::claude_transcripts::{LatestConversationOptions, latest_claude_conversation};
@@ -917,7 +917,7 @@ impl Daemon {
             client.watched_preview_session_id = request.session_id.clone();
             client.preview_cols = clamp_size(request.cols, client.preview_cols);
             client.preview_rows = clamp_size(request.rows, client.preview_rows);
-            client.preview_scroll_offset = clamp_non_negative(request.scroll_offset.unwrap_or(0));
+            client.preview_scroll_offset = clamp_non_negative(request.scroll_offset);
             (client.preview_cols, client.preview_rows, client.preview_scroll_offset)
         });
         self.get_preview_record(request.session_id.as_deref(), cols, rows, scroll_offset)
@@ -944,8 +944,9 @@ impl Daemon {
         if elsewhere {
             return Err(DhError::msg("session is already attached elsewhere"));
         }
-        let cols = clamp_size(request.cols.unwrap_or(DEFAULT_PREVIEW_COLS), DEFAULT_PREVIEW_COLS);
-        let rows = clamp_size(request.rows.unwrap_or(DEFAULT_PREVIEW_ROWS), DEFAULT_PREVIEW_ROWS);
+        // `clampSize(cols ?? DEFAULT, DEFAULT)`: absent and not a number alike are the default.
+        let cols = clamp_size(request.cols, DEFAULT_PREVIEW_COLS);
+        let rows = clamp_size(request.rows, DEFAULT_PREVIEW_ROWS);
         let payload = object(json!({"type": "attach", "target": "agent", "cols": cols, "rows": rows}));
         let attach_data: Value = self.send_worker_request(&request.session_id, payload).await?;
         let attach_data = object(attach_data);
@@ -985,18 +986,34 @@ impl Daemon {
         let has_draft = self
             .worker_of(&request.session_id)
             .is_some_and(|worker| worker.draft.borrow().is_some());
-        if has_draft && types_letters(&request.data) {
-            self.drop_draft(&request.session_id, Some("you typed first"), true);
+        // TS reads `message.data` as text here and in answersPrompt: anything else is a TypeError there (reported
+        // only to a client that sent a requestId), after the keys went to the agent as sent.
+        if has_draft {
+            let data = request
+                .data
+                .known()
+                .ok_or_else(|| replace_type_error(&request.data, "message.data"))?;
+            if types_letters(data) {
+                self.drop_draft(&request.session_id, Some("you typed first"), true);
+            }
         }
-        self.send_worker_event(
-            &request.session_id,
-            object(json!({"type": "input", "target": "agent", "data": request.data})),
-        );
-        if answers_prompt(&request.data) {
+        let mut event = object(json!({"type": "input", "target": "agent"}));
+        if let Some(data) = request.data.to_value() {
+            event.insert("data".to_owned(), data);
+        }
+        self.send_worker_event(&request.session_id, event);
+        let data = request
+            .data
+            .known()
+            .ok_or_else(|| replace_type_error(&request.data, "data"))?;
+        if answers_prompt(data) {
+            // markAnswered's synchronous part runs now, as TS calls it here: a hook queued behind this input finds
+            // the answer's time already recorded. Only the save goes on in the background.
+            let answered = self.mark_answered(&request.session_id);
             let daemon = self.clone();
             let session_id = request.session_id.clone();
             drop(spawn(async move {
-                if let Err(error) = daemon.mark_answered(&session_id).await {
+                if let Err(error) = answered.await {
                     daemon.log_soon(format!("marking {session_id} answered failed: {error}"));
                 }
             }));
@@ -1006,10 +1023,7 @@ impl Daemon {
 
     /// TS: handleRequest `resize`.
     pub fn handle_resize(&self, request: &Resize) -> Result<()> {
-        self.send_worker_event(
-            &request.session_id,
-            object(json!({"type": "resize", "target": "agent", "cols": request.cols, "rows": request.rows})),
-        );
+        self.send_worker_event(&request.session_id, resize_event("agent", request));
         Ok(())
     }
 
@@ -1038,6 +1052,26 @@ impl Daemon {
         );
         Ok(())
     }
+}
+
+/// V8's TypeError for `<expression>.replace(...)` on a value that is not text.
+fn replace_type_error(value: &Loose<String>, expression: &str) -> DhError {
+    DhError::msg(match value.to_value() {
+        None => "Cannot read properties of undefined (reading 'replace')".to_owned(),
+        Some(Value::Null) => "Cannot read properties of null (reading 'replace')".to_owned(),
+        Some(_) => format!("{expression}.replace is not a function"),
+    })
+}
+
+/// TS: `{type: 'resize', target, cols: message.cols, rows: message.rows}`, the sizes as sent (absent: no key).
+pub(crate) fn resize_event(target: &str, request: &Resize) -> Map<String, Value> {
+    let mut event = object(json!({"type": "resize", "target": target}));
+    for (key, size) in [("cols", request.cols), ("rows", request.rows)] {
+        if let Some(size) = size {
+            event.insert(key.to_owned(), Value::from(size));
+        }
+    }
+    event
 }
 
 /// TS `this.setupProcesses.get(sessionId) === child`.
@@ -1405,8 +1439,8 @@ mod tests {
             let request = WatchPreview {
                 request_id: "r".into(),
                 session_id: Some("x".into()),
-                cols: 0,
-                rows: 50,
+                cols: Some(0),
+                rows: Some(50),
                 scroll_offset: Some(-4),
             };
             let preview = daemon.handle_watch_preview(&conn, &request).await.unwrap();
@@ -1439,8 +1473,8 @@ mod tests {
             daemon
                 .handle_resize(&Resize {
                     session_id: "nope".into(),
-                    cols: 1,
-                    rows: 1,
+                    cols: Some(1),
+                    rows: Some(1),
                 })
                 .unwrap();
         });
@@ -1535,8 +1569,8 @@ mod tests {
             daemon
                 .handle_resize(&Resize {
                     session_id: "s".into(),
-                    cols: 90,
-                    rows: 20,
+                    cols: Some(90),
+                    rows: Some(20),
                 })
                 .unwrap();
             assert_eq!(

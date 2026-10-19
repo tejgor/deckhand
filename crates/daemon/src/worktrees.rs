@@ -29,6 +29,7 @@ use deckhand_sys::workspace_git::{CleanupOptions, WorktreeActivity, inspect_work
 use indexmap::IndexMap;
 
 use crate::daemon::Daemon;
+use crate::dispatch::{as_given, repo_root_cwd};
 use crate::merge::default_branch_refs;
 use crate::server::ClientHandle;
 use crate::sessions::KillOptions;
@@ -524,8 +525,9 @@ impl Daemon {
 
     /// TS: InkDaemon.worktreeOverview: every worktree of the repository with its sessions, markers and (bounded)
     /// what deleting it would lose.
-    pub async fn worktree_overview(&self, cwd: &str, client: &ClientHandle) -> Result<WorktreeOverview> {
-        let root = find_repo_root(Some(cwd)).await?;
+    pub async fn worktree_overview(&self, cwd: Option<&str>, client: &ClientHandle) -> Result<WorktreeOverview> {
+        // findRepoRoot(cwd = process.cwd()): no cwd is the daemon's working directory.
+        let root = find_repo_root(cwd).await?;
         let sessions = self.repository_sessions(&root).await;
         // Merges done elsewhere first, so the list says what is merged now (bounded, like the periodic run).
         let ids: HashSet<String> = sessions
@@ -724,11 +726,11 @@ impl Daemon {
     /// (R)`).
     ///
     /// One worktree of the repository `cwd` belongs to, as `inspectWorktree`/`deleteWorktree` act on it.
-    pub async fn worktree_target(&self, cwd: &str, worktree_path: &str) -> Result<WorktreeTarget> {
+    pub async fn worktree_target(&self, cwd: Option<&str>, worktree_path: &str) -> Result<WorktreeTarget> {
         if !path::is_absolute(worktree_path) {
             return Err(DhError::msg("Invalid worktree path"));
         }
-        let root = find_repo_root(Some(cwd)).await?;
+        let root = find_repo_root(cwd).await?;
         let key = path::resolve(worktree_path);
         let item = list_worktrees(&root)
             .await?
@@ -827,7 +829,7 @@ impl Daemon {
     /// TS: InkDaemon.inspectWorktree.
     pub async fn inspect_worktree(
         &self,
-        cwd: &str,
+        cwd: Option<&str>,
         worktree_path: &str,
         delete_branch: bool,
         client: &ClientHandle,
@@ -894,7 +896,7 @@ impl Daemon {
     ) -> Result<InspectedWorktree> {
         let result = self
             .inspect_worktree(
-                &message.cwd,
+                repo_root_cwd(&message.cwd).as_deref(),
                 &message.path,
                 delete_branch,
                 client,
@@ -1088,7 +1090,7 @@ impl Daemon {
 
     /// TS: handleRequest `list-worktrees` (git.ts listWorktrees).
     pub async fn handle_list_worktrees(&self, request: &CwdRequest) -> Result<Vec<WorktreeInfo>> {
-        list_worktrees(&request.cwd).await
+        list_worktrees(&as_given(&request.cwd)).await
     }
 }
 
@@ -1304,7 +1306,7 @@ mod tests {
         local(async {
             let request = CwdRequest {
                 request_id: "r".to_owned(),
-                cwd: fixture.repo.clone(),
+                cwd: fixture.repo.clone().into(),
             };
             let listed = daemon.handle_list_worktrees(&request).await.unwrap();
             assert_eq!(listed.len(), 2);
@@ -1327,7 +1329,7 @@ mod tests {
             assert_eq!(listed[1].locked, None);
             let missing = CwdRequest {
                 request_id: "r".to_owned(),
-                cwd: fixture.root.to_string_lossy().into_owned(),
+                cwd: fixture.root.to_string_lossy().into_owned().into(),
             };
             assert!(daemon.handle_list_worktrees(&missing).await.is_err());
         });
@@ -1773,12 +1775,16 @@ mod tests {
         let (client, _rx) = test_client(1);
         local(async {
             assert_eq!(
-                daemon.worktree_target("/repo", "wt").await.unwrap_err().to_string(),
+                daemon
+                    .worktree_target(Some("/repo"), "wt")
+                    .await
+                    .unwrap_err()
+                    .to_string(),
                 "Invalid worktree path"
             );
             assert_eq!(
                 daemon
-                    .inspect_worktree("/repo", "", false, &client, None, false)
+                    .inspect_worktree(Some("/repo"), "", false, &client, None, false)
                     .await
                     .unwrap_err()
                     .to_string(),
@@ -1786,7 +1792,7 @@ mod tests {
             );
             let message = DeleteWorktree {
                 request_id: "r".to_owned(),
-                cwd: "/repo".to_owned(),
+                cwd: "/repo".into(),
                 path: "relative".to_owned(),
                 branch: None,
                 delete_branch: Some(true),

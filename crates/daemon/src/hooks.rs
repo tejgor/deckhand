@@ -874,6 +874,32 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn an_answer_typed_as_input_is_recorded_before_the_input_handler_returns() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, worker, _fake) = setup(dir.path()).await;
+            seed(&daemon, AttentionState::NeedsInput, Some("Allow Bash?"), None);
+            let before = date::now_ms();
+            // TS `input` calls markAnswered (unawaited) right there: an agent-hook request handled next, before any
+            // background task runs, must already see the answer.
+            daemon
+                .handle_input(&deckhand_protocol::wire::Input {
+                    session_id: "s".into(),
+                    data: "\r".into(),
+                })
+                .unwrap();
+            assert!(worker.last_hook_at.get().is_some_and(|last| last >= before));
+            assert_eq!(attention(&daemon).unwrap().event, "Answered");
+            daemon
+                .handle_agent_hook(&hook(json!({"hook_event_name": "Stop"}), Some(before - 1000)))
+                .await
+                .unwrap();
+            assert_eq!(attention(&daemon).unwrap().event, "Answered");
+        });
+    }
+
+    #[test]
     fn activity_of_exited_sessions_and_unchanged_activity_are_ignored() {
         let dir = tempfile::tempdir().unwrap();
         let _home = Home::set(dir.path());

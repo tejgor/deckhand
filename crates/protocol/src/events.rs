@@ -29,6 +29,8 @@ pub(crate) fn present_value<'de, D: Deserializer<'de>>(deserializer: D) -> Resul
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerResponse {
+    /// Empty when the request had none (TS `response(undefined, data)` writes no key).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub request_id: String,
     pub ok: bool,
     #[serde(default, deserialize_with = "present_value")]
@@ -63,6 +65,8 @@ impl ServerResponse {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionRef {
+    /// Empty when the request named none (TS echoes `undefined`, which writes no key).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub session_id: String,
 }
 

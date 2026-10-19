@@ -38,7 +38,7 @@ use deckhand_term::preview::{ScrollInfo, TerminalPreview};
 use deckhand_term::pty::{Pty, PtyExit, PtyOptions};
 use deckhand_term::utf8::Utf8Decoder;
 
-use crate::channel::{ChannelReader, WireRole, WorkerChannel};
+use crate::channel::{ChannelReader, SessionIncoming, WireRole, WorkerChannel, decode_session_command};
 
 /// TS: sessionWorker.ts DEFAULT_COLS
 pub const DEFAULT_COLS: u16 = 80;
@@ -357,9 +357,20 @@ impl SessionWorker {
         let mut exit = self.inner.exit.subscribe();
         let mut reader = reader;
         let serve = async {
-            while let Some(command) = reader.next::<WorkerCommand>().await {
-                let worker = self.clone();
-                drop(spawn(async move { worker.handle(command).await }));
+            while let Some(message) = reader.next_value().await {
+                match decode_session_command(message) {
+                    SessionIncoming::Command(command) => {
+                        let worker = self.clone();
+                        drop(spawn(async move { worker.handle(command).await }));
+                    }
+                    // TS's catch: a command it cannot run is answered, never dropped (in turn with the commands
+                    // before it, which run as tasks).
+                    SessionIncoming::Failure { request_id, error } => {
+                        let channel = self.inner.channel.clone();
+                        drop(spawn(async move { channel.fail(&request_id, &DhError::msg(error)) }));
+                    }
+                    SessionIncoming::Ignored => {}
+                }
             }
             self.on_disconnect().await;
         };
@@ -1185,6 +1196,11 @@ mod tests {
             assert_eq!(
                 daemon.next_text().await,
                 r#"{"type":"response","requestId":"a","ok":false,"error":"terminal pane is hosted by the workspace worker"}"#
+            );
+            // An unknown command fails TS's target check (it has no target), in turn.
+            assert_eq!(
+                daemon.next_text().await,
+                r#"{"type":"response","requestId":"n","ok":false,"error":"undefined pane is hosted by the workspace worker"}"#
             );
             assert_eq!(
                 daemon.next_text().await,
