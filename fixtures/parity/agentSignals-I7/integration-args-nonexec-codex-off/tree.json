@@ -1,0 +1,16 @@
+{
+  "before": [
+    {
+      "path": "agent",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "agent",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

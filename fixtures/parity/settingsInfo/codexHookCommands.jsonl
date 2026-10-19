@@ -1,0 +1,240 @@
+{"args":[" {\"command\": \"ws\"} ",""],"ret":["ws"]}
+{"args":[" {\"command\": \"ws\"} ","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["ws","deckhand hook"]}
+{"args":[" {\"command\": \"ws\"} ","command = 'node /x/cli.js hook'\n"],"ret":["ws","node /x/cli.js hook"]}
+{"args":[" {\"command\": \"ws\"} ",{"$u":1}],"ret":["ws"]}
+{"args":["",""],"ret":[]}
+{"args":["","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":["","command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":["",{"$u":1}],"ret":[]}
+{"args":["[]",""],"ret":[]}
+{"args":["[]","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":["[]","command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":["[]",{"$u":1}],"ret":[]}
+{"args":["[{\"command\":\"in array\"},[{\"command\":\"nested\"}]]",""],"ret":["in array","nested"]}
+{"args":["[{\"command\":\"in array\"},[{\"command\":\"nested\"}]]","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["in array","nested","deckhand hook"]}
+{"args":["[{\"command\":\"in array\"},[{\"command\":\"nested\"}]]","command = 'node /x/cli.js hook'\n"],"ret":["in array","nested","node /x/cli.js hook"]}
+{"args":["[{\"command\":\"in array\"},[{\"command\":\"nested\"}]]",{"$u":1}],"ret":["in array","nested"]}
+{"args":["\"str\"",""],"ret":[]}
+{"args":["\"str\"","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":["\"str\"","command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":["\"str\"",{"$u":1}],"ret":[]}
+{"args":["not json",""],"ret":[]}
+{"args":["not json","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":["not json","command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":["not json",{"$u":1}],"ret":[]}
+{"args":["null",""],"ret":[]}
+{"args":["null","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":["null","command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":["null",{"$u":1}],"ret":[]}
+{"args":["{\"a\":{\"command\":\"x\",\"b\":{\"command\":\"y\",\"command2\":\"z\"}},\"command\":\"w\"}",""],"ret":["x","y","w"]}
+{"args":["{\"a\":{\"command\":\"x\",\"b\":{\"command\":\"y\",\"command2\":\"z\"}},\"command\":\"w\"}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["x","y","w","deckhand hook"]}
+{"args":["{\"a\":{\"command\":\"x\",\"b\":{\"command\":\"y\",\"command2\":\"z\"}},\"command\":\"w\"}","command = 'node /x/cli.js hook'\n"],"ret":["x","y","w","node /x/cli.js hook"]}
+{"args":["{\"a\":{\"command\":\"x\",\"b\":{\"command\":\"y\",\"command2\":\"z\"}},\"command\":\"w\"}",{"$u":1}],"ret":["x","y","w"]}
+{"args":["{\"command\":5}",""],"ret":[]}
+{"args":["{\"command\":5}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":["{\"command\":5}","command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":["{\"command\":5}",{"$u":1}],"ret":[]}
+{"args":["{\"command\":\" -.éa‍ \"}",{"$u":1}],"ret":[" -.éa‍ "]}
+{"args":["{\"command\":\" \\t‍é_é.a\"}",{"$u":1}],"ret":[" \t‍é_é.a"]}
+{"args":["{\"command\":\" ééb\"}",{"$u":1}],"ret":[" ééb"]}
+{"args":["{\"command\":\".b .😀\"}",{"$u":1}],"ret":[".b .😀"]}
+{"args":["{\"command\":\"///\\t\\n中é.\"}",{"$u":1}],"ret":["///\t\n中é."]}
+{"args":["{\"command\":\"0\\té中é\\n\"}",{"$u":1}],"ret":["0\té中é\n"]}
+{"args":["{\"command\":\"0a😀‍é-\\n _b\"}",{"$u":1}],"ret":["0a😀‍é-\n _b"]}
+{"args":["{\"command\":\"0‍\\n\\tZ\\n ß_\"}",{"$u":1}],"ret":["0‍\n\tZ\n ß_"]}
+{"args":["{\"command\":\"Z😀-é‍中é\"}",{"$u":1}],"ret":["Z😀-é‍中é"]}
+{"args":["{\"command\":\"\"}",{"$u":1}],"ret":[""]}
+{"args":["{\"command\":\"\\n.\"}",{"$u":1}],"ret":["\n."]}
+{"args":["{\"command\":\"\\nZ中\"}",{"$u":1}],"ret":["\nZ中"]}
+{"args":["{\"command\":\"\\n\"}",{"$u":1}],"ret":["\n"]}
+{"args":["{\"command\":\"\\t😀-\\t_\"}",{"$u":1}],"ret":["\t😀-\t_"]}
+{"args":["{\"command\":\"_\"}",{"$u":1}],"ret":["_"]}
+{"args":["{\"command\":\"_bbéé0.\"}",{"$u":1}],"ret":["_bbéé0."]}
+{"args":["{\"command\":\"a\\t- \\t😀0é\"}",{"$u":1}],"ret":["a\t- \t😀0é"]}
+{"args":["{\"command\":\"a😀é0‍.é-b\"}",{"$u":1}],"ret":["a😀é0‍.é-b"]}
+{"args":["{\"command\":\"b0ß_00b0é\"}",{"$u":1}],"ret":["b0ß_00b0é"]}
+{"args":["{\"command\":\"b\"}",{"$u":1}],"ret":["b"]}
+{"args":["{\"command\":\"b\\nß中éé\"}",{"$u":1}],"ret":["b\nß中éé"]}
+{"args":["{\"command\":\"bad",""],"ret":[]}
+{"args":["{\"command\":\"bad","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":["{\"command\":\"bad","command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":["{\"command\":\"bad",{"$u":1}],"ret":[]}
+{"args":["{\"command\":\"éé\"}",{"$u":1}],"ret":["éé"]}
+{"args":["{\"command\":\"é‍-\"}",{"$u":1}],"ret":["é‍-"]}
+{"args":["{\"command\":\"é中😀b0._\"}",{"$u":1}],"ret":["é中😀b0._"]}
+{"args":["{\"command\":\"top\"}",""],"ret":["top"]}
+{"args":["{\"command\":\"top\"}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["top","deckhand hook"]}
+{"args":["{\"command\":\"top\"}","command = 'node /x/cli.js hook'\n"],"ret":["top","node /x/cli.js hook"]}
+{"args":["{\"command\":\"top\"}",{"$u":1}],"ret":["top"]}
+{"args":["{\"command\":\"ß 中\\t‍\\tß\"}",{"$u":1}],"ret":["ß 中\t‍\tß"]}
+{"args":["{\"command\":\"ß\"}",{"$u":1}],"ret":["ß"]}
+{"args":["{\"command\":\"ß\\t\\tZ\"}",{"$u":1}],"ret":["ß\t\tZ"]}
+{"args":["{\"command\":\"ß\\t中 ‍/\"}",{"$u":1}],"ret":["ß\t中 ‍/"]}
+{"args":["{\"command\":\"ßa\"}",{"$u":1}],"ret":["ßa"]}
+{"args":["{\"command\":\"ßé\"}",{"$u":1}],"ret":["ßé"]}
+{"args":["{\"command\":\"ßßéZ\\né‍/\"}",{"$u":1}],"ret":["ßßéZ\né‍/"]}
+{"args":["{\"command\":\"ß‍-\\té😀😀\"}",{"$u":1}],"ret":["ß‍-\té😀😀"]}
+{"args":["{\"command\":\"‍-中Z😀-\\n.\\nb\"}",{"$u":1}],"ret":["‍-中Z😀-\n.\nb"]}
+{"args":["{\"command\":\"中 😀 \\ud83d\"}",""],"ret":[{"$utf16":[20013,32,55357,56832,32,55357]}]}
+{"args":["{\"command\":\"中 😀 \\ud83d\"}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":[{"$utf16":[20013,32,55357,56832,32,55357]},"deckhand hook"]}
+{"args":["{\"command\":\"中 😀 \\ud83d\"}","command = 'node /x/cli.js hook'\n"],"ret":[{"$utf16":[20013,32,55357,56832,32,55357]},"node /x/cli.js hook"]}
+{"args":["{\"command\":\"中 😀 \\ud83d\"}",{"$u":1}],"ret":[{"$utf16":[20013,32,55357,56832,32,55357]}]}
+{"args":["{\"command\":\"中‍ß\"}",{"$u":1}],"ret":["中‍ß"]}
+{"args":["{\"command\":\"😀/\\t😀Z\\té\\n😀\\t\"}",{"$u":1}],"ret":["😀/\t😀Z\té\n😀\t"]}
+{"args":["{\"command\":\"😀a0b_\"}",{"$u":1}],"ret":["😀a0b_"]}
+{"args":["{\"command\":\"😀ß \"}",{"$u":1}],"ret":["😀ß "]}
+{"args":["{\"command\":null}",""],"ret":[]}
+{"args":["{\"command\":null}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":["{\"command\":null}","command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":["{\"command\":null}",{"$u":1}],"ret":[]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/usr/bin/node /x/dist/cli.js hook\"}]}]}}",""],"ret":["/usr/bin/node /x/dist/cli.js hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/usr/bin/node /x/dist/cli.js hook\"}]}]}}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["/usr/bin/node /x/dist/cli.js hook","deckhand hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/usr/bin/node /x/dist/cli.js hook\"}]}]}}","command = 'node /x/cli.js hook'\n"],"ret":["/usr/bin/node /x/dist/cli.js hook","node /x/cli.js hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/usr/bin/node /x/dist/cli.js hook\"}]}]}}",{"$u":1}],"ret":["/usr/bin/node /x/dist/cli.js hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"a\"},{\"type\":\"command\",\"command\":\"b\"}]}]}}",""],"ret":["a","b"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"a\"},{\"type\":\"command\",\"command\":\"b\"}]}]}}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["a","b","deckhand hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"a\"},{\"type\":\"command\",\"command\":\"b\"}]}]}}","command = 'node /x/cli.js hook'\n"],"ret":["a","b","node /x/cli.js hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"a\"},{\"type\":\"command\",\"command\":\"b\"}]}]}}",{"$u":1}],"ret":["a","b"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"deckhand hook\"}]}]}}",""],"ret":["deckhand hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"deckhand hook\"}]}]}}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook","deckhand hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"deckhand hook\"}]}]}}","command = 'node /x/cli.js hook'\n"],"ret":["deckhand hook","node /x/cli.js hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"deckhand hook\"}]}]}}",{"$u":1}],"ret":["deckhand hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","  command   =   \"indent hook\"\n"],"ret":["from json","indent hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}",""],"ret":["from json"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["from json","deckhand hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","command = 'node /x/cli.js hook'\n"],"ret":["from json","node /x/cli.js hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","command = \"\"\n"],"ret":["from json",""]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","command = \"a \\\"quoted\\\" \\u00e9 \\\\ b\"\n"],"ret":["from json","a \"quoted\" é \\ b"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","command = \"bad \\q escape\"\n"],"ret":["from json"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","command = \"one\"\ncommand = 'two'\n# command = \"comment\"\ncommand = \"three\"\n"],"ret":["from json","one","two","three"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","command = \"open\n"],"ret":["from json"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","command = \"x\" # trailing comment\n"],"ret":["from json","x"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","command = \"中文 😀 hook\"\n"],"ret":["from json","中文 😀 hook"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}","xcommand = \"no\"\nmycommand = \"no\"\n"],"ret":["from json"]}
+{"args":["{\"hooks\":{\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"from json\"}]}]}}",{"$u":1}],"ret":["from json"]}
+{"args":["{}",""],"ret":[]}
+{"args":["{}","[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":["{}","command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":["{}",{"$u":1}],"ret":[]}
+{"args":[{"$u":1},"  command   =   \"indent hook\"\n"],"ret":["indent hook"]}
+{"args":[{"$u":1}," -.éa‍ "],"ret":[]}
+{"args":[{"$u":1}," \t‍é_é.a"],"ret":[]}
+{"args":[{"$u":1}," ééb"],"ret":[]}
+{"args":[{"$u":1},""],"ret":[]}
+{"args":[{"$u":1},".b .😀"],"ret":[]}
+{"args":[{"$u":1},"///\t\n中é."],"ret":[]}
+{"args":[{"$u":1},"0\té中é\n"],"ret":[]}
+{"args":[{"$u":1},"0a😀‍é-\n _b"],"ret":[]}
+{"args":[{"$u":1},"0‍\n\tZ\n ß_"],"ret":[]}
+{"args":[{"$u":1},"Z😀-é‍中é"],"ret":[]}
+{"args":[{"$u":1},"[[hooks.Stop]]\ncommand = \"deckhand hook\"\n"],"ret":["deckhand hook"]}
+{"args":[{"$u":1},"\n"],"ret":[]}
+{"args":[{"$u":1},"\n."],"ret":[]}
+{"args":[{"$u":1},"\nZ中"],"ret":[]}
+{"args":[{"$u":1},"\t😀-\t_"],"ret":[]}
+{"args":[{"$u":1},"_"],"ret":[]}
+{"args":[{"$u":1},"_bbéé0."],"ret":[]}
+{"args":[{"$u":1},"a\t- \t😀0é"],"ret":[]}
+{"args":[{"$u":1},"a😀é0‍.é-b"],"ret":[]}
+{"args":[{"$u":1},"b"],"ret":[]}
+{"args":[{"$u":1},"b0ß_00b0é"],"ret":[]}
+{"args":[{"$u":1},"b\nß中éé"],"ret":[]}
+{"args":[{"$u":1},"command = ' -.éa‍ '\n"],"ret":[" -.éa‍ "]}
+{"args":[{"$u":1},"command = ' \t‍é_é.a'\n"],"ret":[" \t‍é_é.a"]}
+{"args":[{"$u":1},"command = ' ééb'\n"],"ret":[" ééb"]}
+{"args":[{"$u":1},"command = ''\n"],"ret":[""]}
+{"args":[{"$u":1},"command = '.b .😀'\n"],"ret":[".b .😀"]}
+{"args":[{"$u":1},"command = '///\t\n中é.'\n"],"ret":["///\t\n中é."]}
+{"args":[{"$u":1},"command = '0\té中é\n'\n"],"ret":["0\té中é\n"]}
+{"args":[{"$u":1},"command = '0a😀‍é-\n _b'\n"],"ret":["0a😀‍é-\n _b"]}
+{"args":[{"$u":1},"command = '0‍\n\tZ\n ß_'\n"],"ret":["0‍\n\tZ\n ß_"]}
+{"args":[{"$u":1},"command = 'Z😀-é‍中é'\n"],"ret":["Z😀-é‍中é"]}
+{"args":[{"$u":1},"command = '\n'\n"],"ret":["\n"]}
+{"args":[{"$u":1},"command = '\n.'\n"],"ret":["\n."]}
+{"args":[{"$u":1},"command = '\nZ中'\n"],"ret":["\nZ中"]}
+{"args":[{"$u":1},"command = '\t😀-\t_'\n"],"ret":["\t😀-\t_"]}
+{"args":[{"$u":1},"command = '_'\n"],"ret":["_"]}
+{"args":[{"$u":1},"command = '_bbéé0.'\n"],"ret":["_bbéé0."]}
+{"args":[{"$u":1},"command = 'a\t- \t😀0é'\n"],"ret":["a\t- \t😀0é"]}
+{"args":[{"$u":1},"command = 'a😀é0‍.é-b'\n"],"ret":["a😀é0‍.é-b"]}
+{"args":[{"$u":1},"command = 'b'\n"],"ret":["b"]}
+{"args":[{"$u":1},"command = 'b0ß_00b0é'\n"],"ret":["b0ß_00b0é"]}
+{"args":[{"$u":1},"command = 'b\nß中éé'\n"],"ret":["b\nß中éé"]}
+{"args":[{"$u":1},"command = 'éé'\n"],"ret":["éé"]}
+{"args":[{"$u":1},"command = 'é‍-'\n"],"ret":["é‍-"]}
+{"args":[{"$u":1},"command = 'é中😀b0._'\n"],"ret":["é中😀b0._"]}
+{"args":[{"$u":1},"command = 'node /x/cli.js hook'\n"],"ret":["node /x/cli.js hook"]}
+{"args":[{"$u":1},"command = 'ß 中\t‍\tß'\n"],"ret":["ß 中\t‍\tß"]}
+{"args":[{"$u":1},"command = 'ß'\n"],"ret":["ß"]}
+{"args":[{"$u":1},"command = 'ß\t\tZ'\n"],"ret":["ß\t\tZ"]}
+{"args":[{"$u":1},"command = 'ß\t中 ‍/'\n"],"ret":["ß\t中 ‍/"]}
+{"args":[{"$u":1},"command = 'ßa'\n"],"ret":["ßa"]}
+{"args":[{"$u":1},"command = 'ßé'\n"],"ret":["ßé"]}
+{"args":[{"$u":1},"command = 'ßßéZ\né‍/'\n"],"ret":["ßßéZ\né‍/"]}
+{"args":[{"$u":1},"command = 'ß‍-\té😀😀'\n"],"ret":["ß‍-\té😀😀"]}
+{"args":[{"$u":1},"command = '‍-中Z😀-\n.\nb'\n"],"ret":["‍-中Z😀-\n.\nb"]}
+{"args":[{"$u":1},"command = '中‍ß'\n"],"ret":["中‍ß"]}
+{"args":[{"$u":1},"command = '😀/\t😀Z\té\n😀\t'\n"],"ret":["😀/\t😀Z\té\n😀\t"]}
+{"args":[{"$u":1},"command = '😀a0b_'\n"],"ret":["😀a0b_"]}
+{"args":[{"$u":1},"command = '😀ß '\n"],"ret":["😀ß "]}
+{"args":[{"$u":1},"command = \" -.éa‍ \"\n"],"ret":[" -.éa‍ "]}
+{"args":[{"$u":1},"command = \" .\"\n"],"ret":[" ."]}
+{"args":[{"$u":1},"command = \" Z中\"\n"],"ret":[" Z中"]}
+{"args":[{"$u":1},"command = \" \"\n"],"ret":[" "]}
+{"args":[{"$u":1},"command = \" \t‍é_é.a\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \" ééb\"\n"],"ret":[" ééb"]}
+{"args":[{"$u":1},"command = \".b .😀\"\n"],"ret":[".b .😀"]}
+{"args":[{"$u":1},"command = \"///\t 中é.\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"0\té中é \"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"0a😀‍é-  _b\"\n"],"ret":["0a😀‍é-  _b"]}
+{"args":[{"$u":1},"command = \"0‍ \tZ  ß_\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"Z😀-é‍中é\"\n"],"ret":["Z😀-é‍中é"]}
+{"args":[{"$u":1},"command = \"\"\n"],"ret":[""]}
+{"args":[{"$u":1},"command = \"\t😀-\t_\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"_\"\n"],"ret":["_"]}
+{"args":[{"$u":1},"command = \"_bbéé0.\"\n"],"ret":["_bbéé0."]}
+{"args":[{"$u":1},"command = \"a \\\"quoted\\\" \\u00e9 \\\\ b\"\n"],"ret":["a \"quoted\" é \\ b"]}
+{"args":[{"$u":1},"command = \"a\t- \t😀0é\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"a😀é0‍.é-b\"\n"],"ret":["a😀é0‍.é-b"]}
+{"args":[{"$u":1},"command = \"b ß中éé\"\n"],"ret":["b ß中éé"]}
+{"args":[{"$u":1},"command = \"b0ß_00b0é\"\n"],"ret":["b0ß_00b0é"]}
+{"args":[{"$u":1},"command = \"b\"\n"],"ret":["b"]}
+{"args":[{"$u":1},"command = \"bad \\q escape\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"éé\"\n"],"ret":["éé"]}
+{"args":[{"$u":1},"command = \"é‍-\"\n"],"ret":["é‍-"]}
+{"args":[{"$u":1},"command = \"é中😀b0._\"\n"],"ret":["é中😀b0._"]}
+{"args":[{"$u":1},"command = \"one\"\ncommand = 'two'\n# command = \"comment\"\ncommand = \"three\"\n"],"ret":["one","two","three"]}
+{"args":[{"$u":1},"command = \"open\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"x\" # trailing comment\n"],"ret":["x"]}
+{"args":[{"$u":1},"command = \"ß 中\t‍\tß\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"ß\"\n"],"ret":["ß"]}
+{"args":[{"$u":1},"command = \"ß\t\tZ\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"ß\t中 ‍/\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"ßa\"\n"],"ret":["ßa"]}
+{"args":[{"$u":1},"command = \"ßé\"\n"],"ret":["ßé"]}
+{"args":[{"$u":1},"command = \"ßßéZ é‍/\"\n"],"ret":["ßßéZ é‍/"]}
+{"args":[{"$u":1},"command = \"ß‍-\té😀😀\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"‍-中Z😀- . b\"\n"],"ret":["‍-中Z😀- . b"]}
+{"args":[{"$u":1},"command = \"中‍ß\"\n"],"ret":["中‍ß"]}
+{"args":[{"$u":1},"command = \"中文 😀 hook\"\n"],"ret":["中文 😀 hook"]}
+{"args":[{"$u":1},"command = \"😀/\t😀Z\té 😀\t\"\n"],"ret":[]}
+{"args":[{"$u":1},"command = \"😀a0b_\"\n"],"ret":["😀a0b_"]}
+{"args":[{"$u":1},"command = \"😀ß \"\n"],"ret":["😀ß "]}
+{"args":[{"$u":1},"éé"],"ret":[]}
+{"args":[{"$u":1},"é‍-"],"ret":[]}
+{"args":[{"$u":1},"é中😀b0._"],"ret":[]}
+{"args":[{"$u":1},"xcommand = \"no\"\nmycommand = \"no\"\n"],"ret":[]}
+{"args":[{"$u":1},"ß 中\t‍\tß"],"ret":[]}
+{"args":[{"$u":1},"ß"],"ret":[]}
+{"args":[{"$u":1},"ß\t\tZ"],"ret":[]}
+{"args":[{"$u":1},"ß\t中 ‍/"],"ret":[]}
+{"args":[{"$u":1},"ßa"],"ret":[]}
+{"args":[{"$u":1},"ßé"],"ret":[]}
+{"args":[{"$u":1},"ßßéZ\né‍/"],"ret":[]}
+{"args":[{"$u":1},"ß‍-\té😀😀"],"ret":[]}
+{"args":[{"$u":1},"‍-中Z😀-\n.\nb"],"ret":[]}
+{"args":[{"$u":1},"中‍ß"],"ret":[]}
+{"args":[{"$u":1},"😀/\t😀Z\té\n😀\t"],"ret":[]}
+{"args":[{"$u":1},"😀a0b_"],"ret":[]}
+{"args":[{"$u":1},"😀ß "],"ret":[]}
+{"args":[{"$u":1},{"$u":1}],"ret":[]}

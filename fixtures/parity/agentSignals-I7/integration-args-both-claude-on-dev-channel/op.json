@@ -1,0 +1,13 @@
+{
+  "fn": "integrationArgsDevChannel",
+  "args": [
+    "claude",
+    "$ROOT/agent",
+    true
+  ],
+  "async": true,
+  "ret": [
+    "--settings",
+    "{\"hooks\":{\"SessionStart\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'$EXEC' '$CLI' 'hook'\",\"timeout\":2,\"async\":true}]}],\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'$EXEC' '$CLI' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PreToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'$EXEC' '$CLI' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PostToolUse\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'$EXEC' '$CLI' 'hook'\",\"timeout\":2,\"async\":true}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'$EXEC' '$CLI' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'$EXEC' '$CLI' 'hook'\",\"timeout\":2,\"async\":true}]}],\"Notification\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"'$EXEC' '$CLI' 'hook'\",\"timeout\":2,\"async\":true}]}]}}"
+  ]
+}

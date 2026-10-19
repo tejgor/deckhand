@@ -1,0 +1,2 @@
+#!/bin/sh
+echo "--settings --no-daemon"; exit 1
