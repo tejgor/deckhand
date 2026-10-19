@@ -5,17 +5,49 @@
  * with a plain code-point comparison (ICU orders `_`, uppercase and non-ASCII differently; not recorded). Sets
  * (hidden/collapsed ids) are recorded as `$set`; results that return the input array are plain arrays.
  */
-import {Recorder, fc, installDeterminism, mutate, sample} from '../lib.ts';
+import {Recorder, caseLine, fc, installDeterminism, mutate, sample, type RecordedCase} from '../lib.ts';
 import {compareSessionOrder, countHiddenSessionDescendants, countSessionDescendants, filterCollapsedSessions, sessionDepth, sessionDescendants, sessionHasChildren, sortSessionsForSidebar} from '../../src/sessionOrder.ts';
 
 const MODULE = 'sessionOrder';
+
+// The Rust port takes typed records (deckhand_protocol SessionRecord, SessionWorktreeRecord, WorktreeRecord): values
+// outside the TS types (unknown enum strings, null for optional fields, a non-integer or non-number sidebarOrder) are
+// rejected when state.json / the wire is decoded, before these functions run, so such calls are not recorded. Paths
+// are absolute (or empty), and a call whose line mentions the process cwd (path.resolve of a relative path) is dropped:
+// its result depends on where the generator runs.
+const ENUMS: Record<string, readonly string[]> = {
+	program: ['claude', 'pi', 'codex'], status: ['starting', 'running', 'exited'], requestedWorktreeMode: ['none', 'new', 'existing'],
+	mode: ['none', 'managed', 'attached'], mergeMode: ['merge', 'squash'], mergeDetected: ['ancestor', 'pr'],
+};
+const PATH_KEYS = new Set(['path', 'cwd', 'launchWorktreeRoot', 'repoRoot', 'launchCwd']);
+const rustTyped = (value: unknown): boolean => {
+	if (value === null) return false;
+	if (Array.isArray(value)) return value.every(rustTyped);
+	if (typeof value === 'number') return Number.isSafeInteger(value);
+	if (!value || typeof value !== 'object') return true;
+	return Object.entries(value).every(([key, entry]) => key !== '$num'
+		&& (!Object.hasOwn(ENUMS, key) || ENUMS[key]!.includes(entry as string))
+		&& (!PATH_KEYS.has(key) || (typeof entry === 'string' && (entry === '' || entry.startsWith('/'))))
+		&& (key !== 'sidebarOrder' || typeof entry === 'number')
+		&& rustTyped(entry));
+};
+class TypedRecorder extends Recorder {
+	constructor(module: string, private readonly accept: (fn: string, args: unknown[]) => boolean = () => true) { super(module); }
+	override add(fn: string, entry: RecordedCase | string): void {
+		const line = typeof entry === 'string' ? entry : caseLine(entry);
+		const args = (JSON.parse(line) as {args: unknown[]}).args;
+		if (line.includes(process.cwd()) || !rustTyped(args) || !this.accept(fn, args)) return;
+		super.add(fn, line);
+	}
+}
 installDeterminism();
-const recorder = new Recorder(MODULE);
+const recorder = new TypedRecorder(MODULE);
 
 const ID_POOL = ['a', 'b', 'c', 'd', 'e', 'f', 'a1', 'a2', 'a10', 'b-1', 'b-2', '0', '9'];
 const ID = fc.constantFrom(...ID_POOL);
 const CREATED = ['2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.001Z', '2026-01-02T00:00:00.000Z', '2026-02-01T00:00:00.000Z', '2025-12-31T23:59:59.999Z'];
-const ORDER = fc.constantFrom(undefined, 0, 1, 2, -1, 1.5, 1e9, Number.NaN, Infinity, -Infinity, '3' as unknown as number, null as unknown as number);
+// SessionRecord.sidebarOrder is an integer in Rust (the daemon only writes sibling indices).
+const ORDER = fc.constantFrom(undefined, 0, 1, 2, -1, 3, 1e9, -1e9);
 const opt = <T>(arbitrary: fc.Arbitrary<T>) => fc.option(arbitrary, {nil: undefined, freq: 2});
 const make = (id: string, extra: Record<string, unknown> = {}) => ({id, title: id, program: 'claude', command: 'claude', cwd: '/r', repoRoot: '/r', status: 'running', createdAt: CREATED[0], updatedAt: CREATED[0], ...extra});
 const session = fc.record({id: ID, createdAt: fc.constantFrom(...CREATED), sidebarOrder: ORDER, parentSessionId: opt(fc.oneof(ID, fc.constant('missing'), fc.constant('')))}, {requiredKeys: ['id', 'createdAt']})
@@ -37,9 +69,9 @@ const localeSafe = (value: unknown): boolean => {
 // compareSessionOrder
 for (const [a, b] of sample(fc.tuple(session, session), 300, 41)) recorder.call('compareSessionOrder', compareSessionOrder, [a, b]);
 for (const [a, b] of [
-	[make('a'), make('a')], [make('a'), make('b')], [make('b'), make('a')], [make('a', {sidebarOrder: 1}), make('b')], [make('a', {sidebarOrder: Number.NaN}), make('b', {sidebarOrder: 0})], [make('a', {sidebarOrder: Infinity}), make('b', {sidebarOrder: 5})],
-	[make('a', {createdAt: CREATED[2]}), make('b', {createdAt: CREATED[0]})], [make('a1'), make('a10')], [make('a2'), make('a10')], [make('b-1'), make('b')], [make('0'), make('a')], [make('a', {sidebarOrder: '2'}), make('b', {sidebarOrder: 1})],
-	[make('a', {sidebarOrder: 0.1}), make('b', {sidebarOrder: 0.3})], [make('a', {sidebarOrder: 1e300}), make('b', {sidebarOrder: -1e300})],
+	[make('a'), make('a')], [make('a'), make('b')], [make('b'), make('a')], [make('a', {sidebarOrder: 1}), make('b')], [make('a', {sidebarOrder: 0}), make('b', {sidebarOrder: 0})], [make('a', {sidebarOrder: 2 ** 53 - 1}), make('b', {sidebarOrder: 5})],
+	[make('a', {createdAt: CREATED[2]}), make('b', {createdAt: CREATED[0]})], [make('a1'), make('a10')], [make('a2'), make('a10')], [make('b-1'), make('b')], [make('0'), make('a')], [make('a', {sidebarOrder: 2}), make('b', {sidebarOrder: 1})],
+	[make('a', {sidebarOrder: -3}), make('b', {sidebarOrder: -1})], [make('a', {sidebarOrder: 1e15}), make('b', {sidebarOrder: -1e15})],
 ]) recorder.call('compareSessionOrder', compareSessionOrder, [a, b]);
 
 // Hand-built trees and corner cases for the tree functions.

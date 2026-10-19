@@ -1,24 +1,20 @@
 {"args":[{"$u":1}],"ret":{"$u":1}}
-{"args":[{"mode":"","path":""}],"ret":{"$u":1}}
-{"args":[{"mode":""}],"ret":{"$u":1}}
-{"args":[{"mode":"anaged","path":"/r//x/./y"}],"ret":"/r/x/y"}
-{"args":[{"mode":"attaced","path":"/work/中文/😀"}],"ret":"/work/中文/😀"}
-{"args":[{"mode":"attached","branch":"feat/a","mergeMode":"pr","mergeTargetBranch":"develop","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc","mergeMarkedManually":true,"mergeDetected":"pr","deletedAt":"not a date"}],"ret":{"$u":1}}
-{"args":[{"mode":"attached","id":"s1","path":"//r//wt-a","isMain":false,"mergeMode":"rebase","mergeTargetBranch":"develop","mergeSourceRef":"refs/heads/b","mergeSourceSha":"deadbeef","mergeMarkedManually":false,"mergeDetected":"pr"}],"ret":"/r/wt-a"}
+{"args":[{"mode":"attached","branch":"feat/a","mergeMode":"squash","mergeTargetBranch":"develop","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc","mergeMarkedManually":true,"mergeDetected":"pr","deletedAt":"not a date"}],"ret":{"$u":1}}
+{"args":[{"mode":"attached","id":"s1","path":"//r//wt-a","isMain":false,"mergeMode":"merge","mergeTargetBranch":"develop","mergeSourceRef":"refs/heads/b","mergeSourceSha":"deadbeef","mergeMarkedManually":false,"mergeDetected":"pr"}],"ret":"/r/wt-a"}
 {"args":[{"mode":"attached","id":"s1","path":"/r/./wt-a","isMain":true,"branch":"feat/a","mergeMode":"merge","mergeTargetBranch":"release/1.0","mergeSourceRef":"feature/a","mergeMarkedManually":false,"mergeDetected":"ancestor"}],"ret":{"$u":1}}
 {"args":[{"mode":"attached","id":"s1","path":"/r/wt-a","isMain":false,"branch":"main","mergeTargetBranch":"main","mergeSourceRef":"feature/a","mergeMarkedManually":false,"deletedAt":"2026-01-02T00:00:00.000Z"}],"ret":"/r/wt-a"}
 {"args":[{"mode":"attached","id":"s2","path":"/r/./wt-a","mergeTargetBranch":"fé","mergeSourceSha":"0123abc","mergeMarkedManually":true}],"ret":"/r/wt-a"}
 {"args":[{"mode":"attached","id":"s3","path":"//r//wt-a","isMain":false,"branch":"main","mergedAt":"","mergeTargetBranch":"fé","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc","mergeMarkedManually":false,"mergeDetected":"pr","deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":"/r/wt-a"}
 {"args":[{"mode":"attached","id":"s3","path":"/r/wt-a/","isMain":false,"branch":"feat/a","mergedAt":"2026-01-06T00:00:00.000Z","mergeMode":"squash","mergeSourceRef":"feature/a","mergeSourceSha":"deadbeef","mergeMarkedManually":false,"mergeDetected":"pr","deletedAt":"not a date"}],"ret":"/r/wt-a"}
 {"args":[{"mode":"attached","id":"s4","path":"/r/wt-a","isMain":true,"mergedAt":"2026-01-05T00:00:00.000Z","mergeTargetBranch":"release/1.0","mergeSourceRef":"refs/heads/b","mergeDetected":"ancestor"}],"ret":{"$u":1}}
-{"args":[{"mode":"attached","id":"s5","isMain":false,"branch":"main","mergedAt":"2026-01-02T00:00:00.000Z","mergeMode":"rebase","mergeSourceRef":"feature/a","mergeSourceSha":"deadbeef","mergeDetected":"pr","deletedAt":"2026-01-01T00:00:00.000Z"}],"ret":{"$u":1}}
+{"args":[{"mode":"attached","id":"s5","isMain":false,"branch":"main","mergedAt":"2026-01-02T00:00:00.000Z","mergeMode":"merge","mergeSourceRef":"feature/a","mergeSourceSha":"deadbeef","mergeDetected":"pr","deletedAt":"2026-01-01T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"attached","id":"s5","isMain":true,"mergedAt":"2026-01-02T00:00:00.000Z","mergeMode":"squash","mergeSourceSha":"deadbeef","deletedAt":"2026-01-02T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"attached","id":"s5","path":"/r/wt-a/../wt-b","isMain":false,"branch":"feat/a","mergeMode":"merge","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc","mergeDetected":"pr","deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":"/r/wt-b"}
 {"args":[{"mode":"attached","id":"w2","path":"/","branch":"main","mergedAt":"2026-01-06T00:00:00.000Z","mergeTargetBranch":"fé","mergeSourceRef":"refs/heads/b","mergeSourceSha":"deadbeef","mergeMarkedManually":false}],"ret":"/"}
 {"args":[{"mode":"attached","id":"wt-é","path":"/r/wt-a/../wt-b","isMain":true,"mergedAt":"2026-01-06T00:00:00.000Z","mergeTargetBranch":"main","mergeSourceSha":"deadbeef","deletedAt":"2026-01-05T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"attached","id":"wt-é","path":"/r/wt-a/sub","isMain":true,"branch":"main","mergeMode":"squash","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc","mergeMarkedManually":false,"mergeDetected":"ancestor","deletedAt":"2026-01-03T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"attached","id":"wt-中","path":"/r/wt-a","isMain":false,"branch":"feat/a","mergedAt":"2026-01-06T00:00:00.000Z","mergeMode":"squash","mergeSourceSha":"deadbeef","mergeMarkedManually":true,"mergeDetected":"pr"}],"ret":"/r/wt-a"}
-{"args":[{"mode":"attached","id":"wt-中","path":"/r/wt-a/","isMain":true,"mergedAt":"2026-01-01T00:00:00.000Z","mergeMode":"rebase","mergeTargetBranch":"develop","mergeSourceSha":"0123abc","mergeDetected":"ancestor"}],"ret":{"$u":1}}
+{"args":[{"mode":"attached","id":"wt-中","path":"/r/wt-a/","isMain":true,"mergedAt":"2026-01-01T00:00:00.000Z","mergeMode":"merge","mergeTargetBranch":"develop","mergeSourceSha":"0123abc","mergeDetected":"ancestor"}],"ret":{"$u":1}}
 {"args":[{"mode":"attached","id":"wt-中","path":"/work/😀 emoji","branch":"feat/a","mergedAt":"2026-01-02T00:00:00.000Z","mergeTargetBranch":"develop","mergeSourceSha":"deadbeef","mergeMarkedManually":true}],"ret":"/work/😀 emoji"}
 {"args":[{"mode":"attached","isMain":true,"branch":"feat/a","mergeSourceSha":"deadbeef","mergeMarkedManually":true,"mergeDetected":"ancestor","deletedAt":""}],"ret":{"$u":1}}
 {"args":[{"mode":"attached","path":"/r","isMain":true}],"ret":{"$u":1}}
@@ -29,19 +25,19 @@
 {"args":[{"mode":"attached","path":"/work/中文/😀"}],"ret":"/work/中文/😀"}
 {"args":[{"mode":"managed","id":"s1","branch":"feat/a","mergedAt":"2026-01-01T00:00:00.000Z","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeMarkedManually":false,"deletedAt":"2026-01-01T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","id":"s1","isMain":true,"mergedAt":"not a date","mergeTargetBranch":"release/1.0","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc","mergeMarkedManually":false,"mergeDetected":"ancestor","deletedAt":"not a date"}],"ret":{"$u":1}}
-{"args":[{"mode":"managed","id":"s1","mergeMode":"pr","mergeTargetBranch":"main","mergeSourceRef":"feature/a","mergeSourceSha":"deadbeef","mergeMarkedManually":false,"mergeDetected":"ancestor","deletedAt":"2026-01-02T00:00:00.000Z"}],"ret":{"$u":1}}
+{"args":[{"mode":"managed","id":"s1","mergeMode":"squash","mergeTargetBranch":"main","mergeSourceRef":"feature/a","mergeSourceSha":"deadbeef","mergeMarkedManually":false,"mergeDetected":"ancestor","deletedAt":"2026-01-02T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","id":"s1","path":"/r","isMain":true,"branch":"feat/a","mergedAt":"2026-01-01T00:00:00.000Z","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeMarkedManually":false,"deletedAt":"2026-01-01T00:00:00.000Z"}],"ret":{"$u":1}}
-{"args":[{"mode":"managed","id":"s1","path":"/work/😀 emoji","branch":"main","mergedAt":"2026-01-04T00:00:00.000Z","mergeMode":"pr","mergeTargetBranch":"fé","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc"}],"ret":"/work/😀 emoji"}
-{"args":[{"mode":"managed","id":"s3","path":"/r/wt-a/","isMain":true,"mergedAt":"","mergeMode":"pr","mergeSourceRef":"feature/a","mergeMarkedManually":false,"deletedAt":""}],"ret":{"$u":1}}
+{"args":[{"mode":"managed","id":"s1","path":"/work/😀 emoji","branch":"main","mergedAt":"2026-01-04T00:00:00.000Z","mergeMode":"squash","mergeTargetBranch":"fé","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc"}],"ret":"/work/😀 emoji"}
+{"args":[{"mode":"managed","id":"s3","path":"/r/wt-a/","isMain":true,"mergedAt":"","mergeMode":"squash","mergeSourceRef":"feature/a","mergeMarkedManually":false,"deletedAt":""}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","id":"s5","isMain":false,"mergeTargetBranch":"release/1.0","mergeSourceRef":"feature/a","mergeSourceSha":"deadbeef","mergeDetected":"pr"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","id":"s5","path":"//r//wt-a","isMain":false,"branch":"main","mergedAt":"2026-01-04T00:00:00.000Z","mergeTargetBranch":"develop","mergeSourceSha":"deadbeef","mergeMarkedManually":false,"mergeDetected":"pr"}],"ret":"/r/wt-a"}
-{"args":[{"mode":"managed","id":"s5","path":"/r/wt-a/sub","branch":"feat/a","mergeMode":"rebase","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeMarkedManually":true,"deletedAt":""}],"ret":"/r/wt-a/sub"}
+{"args":[{"mode":"managed","id":"s5","path":"/r/wt-a/sub","branch":"feat/a","mergeMode":"merge","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeMarkedManually":true,"deletedAt":""}],"ret":"/r/wt-a/sub"}
 {"args":[{"mode":"managed","id":"s5","path":"/r/wt-b","mergedAt":"2026-01-01T00:00:00.000Z","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeDetected":"pr","deletedAt":"2026-01-01T00:00:00.000Z"}],"ret":"/r/wt-b"}
-{"args":[{"mode":"managed","id":"w1","isMain":true,"branch":"main","mergedAt":"2026-01-01T00:00:00.000Z","mergeMode":"pr","mergeSourceRef":"refs/heads/b","mergeMarkedManually":true,"mergeDetected":"ancestor"}],"ret":{"$u":1}}
+{"args":[{"mode":"managed","id":"w1","isMain":true,"branch":"main","mergedAt":"2026-01-01T00:00:00.000Z","mergeMode":"squash","mergeSourceRef":"refs/heads/b","mergeMarkedManually":true,"mergeDetected":"ancestor"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","id":"w1","path":"/r/wt-a/sub","isMain":true,"branch":"feat/a","mergeMode":"merge","mergeTargetBranch":"release/1.0","mergeMarkedManually":true,"mergeDetected":"pr","deletedAt":""}],"ret":{"$u":1}}
-{"args":[{"mode":"managed","id":"w2","branch":"feat/a","mergeMode":"rebase","mergeTargetBranch":"main","mergeSourceRef":"feature/a","mergeDetected":"ancestor"}],"ret":{"$u":1}}
+{"args":[{"mode":"managed","id":"w2","branch":"feat/a","mergeMode":"merge","mergeTargetBranch":"main","mergeSourceRef":"feature/a","mergeDetected":"ancestor"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","id":"w2","branch":"feat/a","mergedAt":"2026-01-05T00:00:00.000Z","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeDetected":"pr","deletedAt":"2026-01-06T00:00:00.000Z"}],"ret":{"$u":1}}
-{"args":[{"mode":"managed","id":"w2","isMain":false,"mergedAt":"2026-01-04T00:00:00.000Z","mergeMode":"pr","mergeTargetBranch":"main","mergeSourceSha":"0123abc","mergeDetected":"ancestor"}],"ret":{"$u":1}}
+{"args":[{"mode":"managed","id":"w2","isMain":false,"mergedAt":"2026-01-04T00:00:00.000Z","mergeMode":"squash","mergeTargetBranch":"main","mergeSourceSha":"0123abc","mergeDetected":"ancestor"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","id":"w2","mergedAt":"2026-01-02T00:00:00.000Z","mergeTargetBranch":"develop","mergeSourceRef":"feature/a","mergeMarkedManually":false,"deletedAt":"2026-01-01T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","id":"w2","path":"/r/wt-a/sub","isMain":true,"branch":"main","mergedAt":"2026-01-06T00:00:00.000Z","mergeTargetBranch":"main","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc","mergeMarkedManually":true,"mergeDetected":"ancestor","deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","id":"wt-é","path":"/work/😀 emoji","branch":"main","mergeMode":"squash","mergeSourceRef":"feature/a","mergeSourceSha":"deadbeef","deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":"/work/😀 emoji"}
@@ -50,45 +46,40 @@
 {"args":[{"mode":"managed","isMain":true,"mergedAt":"2026-01-03T00:00:00.000Z","mergeMode":"merge","mergeSourceRef":"refs/heads/b","mergeDetected":"pr"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","path":""}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","path":"/ r//x/./y"}],"ret":"/ r/x/y"}
-{"args":[{"mode":"managed","path":"/r","isMain":true,"branch":"feat/a","mergedAt":"","mergeMode":"rebase","mergeSourceSha":"0123abc","mergeMarkedManually":false,"deletedAt":"2026-01-06T00:00:00.000Z"}],"ret":{"$u":1}}
+{"args":[{"mode":"managed","path":"/r","isMain":true,"branch":"feat/a","mergedAt":"","mergeMode":"merge","mergeSourceSha":"0123abc","mergeMarkedManually":false,"deletedAt":"2026-01-06T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"managed","path":"/r/","mergeTargetBranch":"main","mergeSourceSha":"deadbeef","deletedAt":""}],"ret":"/r"}
 {"args":[{"mode":"managed","path":"/r//x/./y"}],"ret":"/r/x/y"}
 {"args":[{"mode":"managed","path":"/r/wt-a/","isMain":false,"mergedAt":"2026-01-03T00:00:00.000Z","mergeMode":"squash","mergeTargetBranch":"main","mergeMarkedManually":true,"deletedAt":""}],"ret":"/r/wt-a"}
 {"args":[{"mode":"managed","path":"/r/wt/../wt-b/","isMain":false}],"ret":"/r/wt-b"}
-{"args":[{"mode":"managed","path":"/work/é","branch":"main","mergeMode":"pr","mergeSourceRef":"refs/heads/b","mergeSourceSha":"deadbeef","mergeMarkedManually":true,"deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":"/work/é"}
-{"args":[{"mode":"managed","path":"/work/中文","branch":"main","mergeMode":"rebase","mergeTargetBranch":"fé","mergeSourceSha":"0123abc","mergeMarkedManually":false,"deletedAt":"2026-01-06T00:00:00.000Z"}],"ret":"/work/中文"}
+{"args":[{"mode":"managed","path":"/work/é","branch":"main","mergeMode":"squash","mergeSourceRef":"refs/heads/b","mergeSourceSha":"deadbeef","mergeMarkedManually":true,"deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":"/work/é"}
+{"args":[{"mode":"managed","path":"/work/中文","branch":"main","mergeMode":"merge","mergeTargetBranch":"fé","mergeSourceSha":"0123abc","mergeMarkedManually":false,"deletedAt":"2026-01-06T00:00:00.000Z"}],"ret":"/work/中文"}
 {"args":[{"mode":"managed","path":"/work/😀 emoji","branch":"main","mergeSourceRef":"refs/heads/b","mergeSourceSha":"deadbeef","mergeDetected":"pr","deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":"/work/😀 emoji"}
-{"args":[{"mode":"managed","path":"\t"}],"ret":"/Users/user/Developer/Tools/deckhand/.claude/worktrees/wf_abb987f2-90f-1/\t"}
 {"args":[{"mode":"managed"}],"ret":{"$u":1}}
-{"args":[{"mode":"managedé","path":"/r/wt/../wt-b/","isMain":false}],"ret":"/r/wt-b"}
-{"args":[{"mode":"managedmanaged","path":"/r/wt/../wt-b/","isMain":false}],"ret":"/r/wt-b"}
-{"args":[{"mode":"mana中ged"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"s2","branch":"feat/a","mergeTargetBranch":"fé","mergeSourceRef":"refs/heads/b","mergeSourceSha":"deadbeef"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"s2","isMain":true,"branch":"feat/a","mergeMode":"squash","mergeTargetBranch":"develop","mergeSourceRef":"feature/a","mergeSourceSha":"deadbeef","mergeMarkedManually":false}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"s3","isMain":false,"mergedAt":"2026-01-02T00:00:00.000Z","mergeMode":"merge","mergeTargetBranch":"develop","mergeSourceRef":"refs/heads/b","mergeSourceSha":"deadbeef","mergeMarkedManually":false,"mergeDetected":"pr","deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"s3","path":"/r/wt-a","mergeMode":"merge","mergeSourceRef":"feature/a","deletedAt":"2026-01-06T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"s3","path":"/work/😀 emoji","isMain":false,"branch":"main","mergeSourceRef":"refs/heads/b","mergeSourceSha":"deadbeef","mergeDetected":"ancestor","deletedAt":""}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"s4","isMain":false,"branch":"feat/a","mergedAt":"2026-01-02T00:00:00.000Z","mergeSourceSha":"0123abc","mergeMarkedManually":true,"mergeDetected":"pr","deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":{"$u":1}}
-{"args":[{"mode":"none","id":"s4","path":"/work/é","branch":"main","mergedAt":"2026-01-06T00:00:00.000Z","mergeMode":"rebase","mergeSourceRef":"refs/heads/b","mergeMarkedManually":true,"mergeDetected":"pr","deletedAt":"2026-01-05T00:00:00.000Z"}],"ret":{"$u":1}}
+{"args":[{"mode":"none","id":"s4","path":"/work/é","branch":"main","mergedAt":"2026-01-06T00:00:00.000Z","mergeMode":"merge","mergeSourceRef":"refs/heads/b","mergeMarkedManually":true,"mergeDetected":"pr","deletedAt":"2026-01-05T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"s4","path":"/work/😀 emoji","isMain":true,"branch":"main","mergedAt":"2026-01-03T00:00:00.000Z","mergeTargetBranch":"main","deletedAt":"2026-01-01T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"s5","isMain":false,"mergeTargetBranch":"fé","deletedAt":"2026-01-04T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"w1","isMain":true,"branch":"feat/a","mergedAt":"2026-01-03T00:00:00.000Z","mergeTargetBranch":"develop","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeMarkedManually":false}],"ret":{"$u":1}}
-{"args":[{"mode":"none","id":"w2","path":"/r/wt-a","isMain":true,"branch":"feat/a","mergeMode":"rebase","mergeSourceSha":"deadbeef","mergeMarkedManually":true,"mergeDetected":"pr"}],"ret":{"$u":1}}
+{"args":[{"mode":"none","id":"w2","path":"/r/wt-a","isMain":true,"branch":"feat/a","mergeMode":"merge","mergeSourceSha":"deadbeef","mergeMarkedManually":true,"mergeDetected":"pr"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"w2","path":"/r/wt-a/","branch":"main","mergeMode":"merge","mergeTargetBranch":"release/1.0","mergeSourceRef":"feature/a","mergeSourceSha":"deadbeef","deletedAt":"2026-01-01T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"w2","path":"/r/wt-a/../wt-b","branch":"main","mergeMode":"squash","mergeTargetBranch":"develop","mergeSourceRef":"refs/heads/b","mergeMarkedManually":false,"mergeDetected":"ancestor","deletedAt":"2026-01-06T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"w3","mergeMode":"merge","mergeTargetBranch":"main","mergeDetected":"ancestor"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"wt-é","path":"/r","isMain":false,"branch":"main","mergedAt":"2026-01-05T00:00:00.000Z","mergeTargetBranch":"release/1.0","mergeSourceRef":"refs/heads/b","mergeDetected":"pr"}],"ret":{"$u":1}}
-{"args":[{"mode":"none","id":"wt-é","path":"/work/😀 emoji","mergedAt":"2026-01-05T00:00:00.000Z","mergeMode":"pr","mergeTargetBranch":"fé","mergeSourceRef":"feature/a","mergeMarkedManually":true,"mergeDetected":"pr"}],"ret":{"$u":1}}
+{"args":[{"mode":"none","id":"wt-é","path":"/work/😀 emoji","mergedAt":"2026-01-05T00:00:00.000Z","mergeMode":"squash","mergeTargetBranch":"fé","mergeSourceRef":"feature/a","mergeMarkedManually":true,"mergeDetected":"pr"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","id":"wt-中","path":"/r/wt-a/","branch":"main","mergeTargetBranch":"develop","mergeMarkedManually":false}],"ret":{"$u":1}}
-{"args":[{"mode":"none","isMain":true,"mergedAt":"2026-01-06T00:00:00.000Z","mergeMode":"pr","mergeTargetBranch":"main","mergeSourceSha":"0123abc","mergeMarkedManually":true}],"ret":{"$u":1}}
+{"args":[{"mode":"none","isMain":true,"mergedAt":"2026-01-06T00:00:00.000Z","mergeMode":"squash","mergeTargetBranch":"main","mergeSourceSha":"0123abc","mergeMarkedManually":true}],"ret":{"$u":1}}
 {"args":[{"mode":"none","path":"//r//wt-a","branch":"feat/a","mergedAt":"2026-01-02T00:00:00.000Z","mergeMode":"merge","mergeSourceSha":"0123abc","deletedAt":"2026-01-01T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","path":"/r","isMain":false,"branch":"main","mergedAt":"2026-01-01T00:00:00.000Z","mergeTargetBranch":"main","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeDetected":"ancestor","deletedAt":"2026-01-03T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","path":"/r/./wt-a","isMain":false,"branch":"feat/a","mergeSourceRef":"feature/a","deletedAt":"2026-01-02T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","path":"/r/wt"}],"ret":{"$u":1}}
-{"args":[{"mode":"none","path":"/r/wt-a/sub","isMain":false,"mergedAt":"2026-01-06T00:00:00.000Z","mergeMode":"pr","mergeTargetBranch":"develop","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc","mergeDetected":"ancestor","deletedAt":"2026-01-05T00:00:00.000Z"}],"ret":{"$u":1}}
+{"args":[{"mode":"none","path":"/r/wt-a/sub","isMain":false,"mergedAt":"2026-01-06T00:00:00.000Z","mergeMode":"squash","mergeTargetBranch":"develop","mergeSourceRef":"refs/heads/b","mergeSourceSha":"0123abc","mergeDetected":"ancestor","deletedAt":"2026-01-05T00:00:00.000Z"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","path":"/r/wt/r/wt"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","path":"/work/é","isMain":false,"branch":"main","mergedAt":"not a date","mergeSourceSha":"0123abc"}],"ret":{"$u":1}}
 {"args":[{"mode":"none","path":"/work/é","isMain":true,"branch":"main","mergedAt":"2026-01-04T00:00:00.000Z","mergeTargetBranch":"release/1.0","mergeSourceSha":"deadbeef","mergeMarkedManually":true}],"ret":{"$u":1}}
 {"args":[{"mode":"none","path":"/work/中文","isMain":true,"branch":"main","mergedAt":"not a date","mergeSourceRef":"refs/heads/b","mergeMarkedManually":true}],"ret":{"$u":1}}
-{"args":[{"mode":"none","path":"/work/😀 emoji","isMain":false,"branch":"feat/a","mergeMode":"rebase","mergeTargetBranch":"release/1.0","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeMarkedManually":true,"mergeDetected":"ancestor","deletedAt":"2026-01-03T00:00:00.000Z"}],"ret":{"$u":1}}
-{"args":[{"mode":"none","path":"0/r/wt"}],"ret":{"$u":1}}
+{"args":[{"mode":"none","path":"/work/😀 emoji","isMain":false,"branch":"feat/a","mergeMode":"merge","mergeTargetBranch":"release/1.0","mergeSourceRef":"feature/a","mergeSourceSha":"0123abc","mergeMarkedManually":true,"mergeDetected":"ancestor","deletedAt":"2026-01-03T00:00:00.000Z"}],"ret":{"$u":1}}

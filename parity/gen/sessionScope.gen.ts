@@ -3,12 +3,43 @@
  *   node --import tsx parity/gen/sessionScope.gen.ts
  * All paths are absolute (a relative path resolves against the process cwd, which is not recorded). Separator is POSIX.
  */
-import {Recorder, fc, installDeterminism, mutate, runTap, sample} from '../lib.ts';
+import {Recorder, caseLine, fc, installDeterminism, mutate, runTap, sample, type RecordedCase} from '../lib.ts';
 import {isPathInside, sessionMatchesScope} from '../../src/sessionScope.ts';
 
 const MODULE = 'sessionScope';
+
+// The Rust port takes typed records (deckhand_protocol SessionRecord, SessionWorktreeRecord, WorktreeRecord): values
+// outside the TS types (unknown enum strings, null for optional fields, a non-integer or non-number sidebarOrder) are
+// rejected when state.json / the wire is decoded, before these functions run, so such calls are not recorded. Paths
+// are absolute (or empty), and a call whose line mentions the process cwd (path.resolve of a relative path) is dropped:
+// its result depends on where the generator runs.
+const ENUMS: Record<string, readonly string[]> = {
+	program: ['claude', 'pi', 'codex'], status: ['starting', 'running', 'exited'], requestedWorktreeMode: ['none', 'new', 'existing'],
+	mode: ['none', 'managed', 'attached'], mergeMode: ['merge', 'squash'], mergeDetected: ['ancestor', 'pr'],
+};
+const PATH_KEYS = new Set(['path', 'cwd', 'launchWorktreeRoot', 'repoRoot', 'launchCwd']);
+const rustTyped = (value: unknown): boolean => {
+	if (value === null) return false;
+	if (Array.isArray(value)) return value.every(rustTyped);
+	if (typeof value === 'number') return Number.isSafeInteger(value);
+	if (!value || typeof value !== 'object') return true;
+	return Object.entries(value).every(([key, entry]) => key !== '$num'
+		&& (!Object.hasOwn(ENUMS, key) || ENUMS[key]!.includes(entry as string))
+		&& (!PATH_KEYS.has(key) || (typeof entry === 'string' && (entry === '' || entry.startsWith('/'))))
+		&& (key !== 'sidebarOrder' || typeof entry === 'number')
+		&& rustTyped(entry));
+};
+class TypedRecorder extends Recorder {
+	constructor(module: string, private readonly accept: (fn: string, args: unknown[]) => boolean = () => true) { super(module); }
+	override add(fn: string, entry: RecordedCase | string): void {
+		const line = typeof entry === 'string' ? entry : caseLine(entry);
+		const args = (JSON.parse(line) as {args: unknown[]}).args;
+		if (line.includes(process.cwd()) || !rustTyped(args) || !this.accept(fn, args)) return;
+		super.add(fn, line);
+	}
+}
 installDeterminism();
-const recorder = new Recorder(MODULE);
+const recorder = new TypedRecorder(MODULE);
 
 const tapped = await runTap({tests: ['tests/sessionScope.test.ts'], tap: ['sessionScope:*']});
 recorder.addTap(tapped, {module: 'sessionScope'});

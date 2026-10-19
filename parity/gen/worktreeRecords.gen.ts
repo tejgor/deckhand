@@ -5,12 +5,45 @@
  * every call: `w1`, `w2`, ...); the default random id source is never recorded. WORKTREE_MARKERS / MERGE_MARKERS are
  * constants exercised through the functions that use them.
  */
-import {Recorder, decode, fc, installDeterminism, mutate, registerFn, runTap, sample} from '../lib.ts';
+import {Recorder, caseLine, decode, fc, installDeterminism, mutate, registerFn, runTap, sample, type RecordedCase} from '../lib.ts';
 import {liveWorktreeRecord, migrateDoneMarkers, migrateWorktreeRecords, ownWorktreePath, projectWorktree, storedSession, withoutMarkers, worktreeMarkers} from '../../src/worktreeRecords.ts';
 
 const MODULE = 'worktreeRecords';
+
+// The Rust port takes typed records (deckhand_protocol SessionRecord, SessionWorktreeRecord, WorktreeRecord): values
+// outside the TS types (unknown enum strings, null for optional fields, a non-integer or non-number sidebarOrder) are
+// rejected when state.json / the wire is decoded, before these functions run, so such calls are not recorded. Paths
+// are absolute (or empty), and a call whose line mentions the process cwd (path.resolve of a relative path) is dropped:
+// its result depends on where the generator runs.
+const ENUMS: Record<string, readonly string[]> = {
+	program: ['claude', 'pi', 'codex'], status: ['starting', 'running', 'exited'], requestedWorktreeMode: ['none', 'new', 'existing'],
+	mode: ['none', 'managed', 'attached'], mergeMode: ['merge', 'squash'], mergeDetected: ['ancestor', 'pr'],
+};
+const PATH_KEYS = new Set(['path', 'cwd', 'launchWorktreeRoot', 'repoRoot', 'launchCwd']);
+const rustTyped = (value: unknown): boolean => {
+	if (value === null) return false;
+	if (Array.isArray(value)) return value.every(rustTyped);
+	if (typeof value === 'number') return Number.isSafeInteger(value);
+	if (!value || typeof value !== 'object') return true;
+	return Object.entries(value).every(([key, entry]) => key !== '$num'
+		&& (!Object.hasOwn(ENUMS, key) || ENUMS[key]!.includes(entry as string))
+		&& (!PATH_KEYS.has(key) || (typeof entry === 'string' && (entry === '' || entry.startsWith('/'))))
+		&& (key !== 'sidebarOrder' || typeof entry === 'number')
+		&& rustTyped(entry));
+};
+class TypedRecorder extends Recorder {
+	constructor(module: string, private readonly accept: (fn: string, args: unknown[]) => boolean = () => true) { super(module); }
+	override add(fn: string, entry: RecordedCase | string): void {
+		const line = typeof entry === 'string' ? entry : caseLine(entry);
+		const args = (JSON.parse(line) as {args: unknown[]}).args;
+		if (line.includes(process.cwd()) || !rustTyped(args) || !this.accept(fn, args)) return;
+		super.add(fn, line);
+	}
+}
 installDeterminism();
-const recorder = new Recorder(MODULE);
+// withoutMarkers' keys are markers in Rust (WorktreeMarker); removing other keys has no Rust form.
+const MARKER_KEYS = ['mergedAt', 'mergeMode', 'mergeTargetBranch', 'mergeSourceRef', 'mergeSourceSha', 'mergeMarkedManually', 'mergeDetected', 'deletedAt'];
+const recorder = new TypedRecorder(MODULE, (fn, args) => fn !== 'withoutMarkers' || args[1] === undefined || (Array.isArray(args[1]) && args[1].every(key => MARKER_KEYS.includes(key as string))));
 const tapOnly = new Recorder('worktreeRecords-tap');
 
 let counter = 0;
@@ -28,23 +61,32 @@ const PATHS = ['/r', '/r/', '/r/wt-a', '/r/wt-a/', '/r/wt-b', '/r/wt-a/../wt-b',
 const PATH = fc.constantFrom(...PATHS);
 const AT = fc.constantFrom('2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z', '2026-01-03T00:00:00.000Z', '2026-01-04T00:00:00.000Z', '2026-01-05T00:00:00.000Z', '2026-01-06T00:00:00.000Z', 'not a date', '');
 const opt = <T>(arbitrary: fc.Arbitrary<T>) => fc.option(arbitrary, {nil: undefined, freq: 3});
+// fc.record keeps an optional key whose value is undefined. JSON (and so the fixture) drops it, but the key keeps its
+// place in the object, which decides where a later assignment (`next.doneAt = ...`) lands; generated values carry no
+// such keys, so the recorded input is the whole input.
+const pruned = <T>(value: T): T => {
+	if (Array.isArray(value)) return value.map(pruned) as T;
+	// fc.record builds null-prototype objects.
+	if (!value || typeof value !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return value;
+	return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined).map(([key, entry]) => [key, pruned(entry)])) as T;
+};
 const MODES = fc.constantFrom('managed', 'attached', 'none');
-const MERGE_MODES = fc.constantFrom('merge', 'squash', 'rebase', 'pr');
+const MERGE_MODES = fc.constantFrom('merge', 'squash');
 const markers = fc.record({
 	mergedAt: opt(AT), mergeMode: opt(MERGE_MODES), mergeTargetBranch: opt(fc.constantFrom('main', 'develop', 'release/1.0', 'fé')), mergeSourceRef: opt(fc.constantFrom('feature/a', 'refs/heads/b')),
 	mergeSourceSha: opt(fc.constantFrom('0123abc', 'deadbeef')), mergeMarkedManually: opt(fc.boolean()), mergeDetected: opt(fc.constantFrom('ancestor', 'pr')), deletedAt: opt(AT),
-}, {requiredKeys: []});
+}, {requiredKeys: []}).map(pruned);
 const worktreeRecord = fc.tuple(ID, PATH, AT, markers).map(([id, path, createdAt, marks]) => ({id, path, createdAt, ...marks}));
-const sessionWorktree = fc.tuple(MODES, opt(ID), opt(PATH), opt(fc.boolean()), markers, opt(fc.constantFrom('feat/a', 'main'))).map(([mode, id, path, isMain, marks, branch]) => ({mode, ...(id !== undefined ? {id} : {}), ...(path !== undefined ? {path} : {}), ...(isMain !== undefined ? {isMain} : {}), ...(branch !== undefined ? {branch} : {}), ...marks}));
+const sessionWorktree = fc.tuple(MODES, opt(ID), opt(PATH), opt(fc.boolean()), markers, opt(fc.constantFrom('feat/a', 'main'))).map(([mode, id, path, isMain, marks, branch]) => ({mode, ...(id !== undefined ? {id} : {}), ...(path !== undefined ? {path} : {}), ...(isMain !== undefined ? {isMain} : {}), ...(branch !== undefined ? {branch} : {}), ...marks})).map(pruned);
 const session = fc.record({
 	id: ID, title: fc.constantFrom('t', '日本語', '😀'), program: fc.constant('claude'), command: fc.constant('claude'), cwd: PATH, repoRoot: fc.constant('/r'), status: fc.constant('running'),
-	createdAt: AT, updatedAt: AT, launchWorktreeRoot: opt(PATH), worktree: opt(sessionWorktree), requestedWorktreeMode: opt(MODES), agentStartedAt: opt(AT), doneAt: opt(AT),
+	createdAt: AT, updatedAt: AT, launchWorktreeRoot: opt(PATH), worktree: opt(sessionWorktree), requestedWorktreeMode: opt(fc.constantFrom('none', 'new', 'existing')), agentStartedAt: opt(AT), doneAt: opt(AT),
 	mergedAt: opt(AT), mergeTargetBranch: opt(fc.constantFrom('main', 'dev')), mergeSourceRef: opt(fc.constant('feature/a')), mergeMarkedManually: opt(fc.boolean()), parentSessionId: opt(ID),
-}, {requiredKeys: ['id', 'title', 'program', 'command', 'cwd', 'repoRoot', 'status', 'createdAt', 'updatedAt']});
+}, {requiredKeys: ['id', 'title', 'program', 'command', 'cwd', 'repoRoot', 'status', 'createdAt', 'updatedAt']}).map(pruned);
 const uniqueBy = <T extends {id: string}>(items: T[]) => [...new Map(items.map(item => [item.id, item])).values()];
 const sessions = fc.array(session, {maxLength: 6}).map(uniqueBy);
 const records = fc.array(worktreeRecord, {maxLength: 4}).map(uniqueBy);
-const linkedSession = fc.tuple(session, PATH, fc.boolean()).map(([base, root, nested]) => ({...base, worktree: {mode: nested ? 'attached' : 'managed', path: root, ...(base.worktree && base.worktree.mode !== 'none' ? {deletedAt: base.worktree.deletedAt, mergedAt: base.worktree.mergedAt, mergeMode: base.worktree.mergeMode} : {})}}));
+const linkedSession = fc.tuple(session, PATH, fc.boolean()).map(([base, root, nested]) => ({...base, worktree: {mode: nested ? 'attached' : 'managed', path: root, ...(base.worktree && base.worktree.mode !== 'none' ? {deletedAt: base.worktree.deletedAt, mergedAt: base.worktree.mergedAt, mergeMode: base.worktree.mergeMode} : {})}})).map(pruned);
 // Legacy states: linked sessions plus sub-sessions launched inside the same worktrees.
 const legacyState = fc.array(fc.oneof(linkedSession, session), {minLength: 1, maxLength: 6}).map(uniqueBy);
 
@@ -77,14 +119,13 @@ const scenarios: unknown[][] = [
 	[[linked('a', 1, {}, {deletedAt: at(3)}), linked('b', 2, {}, {deletedAt: at(6)}), s('c', {createdAt: at(4), cwd: '/r/wt', worktree: {mode: 'none'}})], []],
 	[[linked('a', 1), s('sub', {createdAt: at(2), cwd: '/r/wt', worktree: {mode: 'none'}, mergedAt: at(7), mergeTargetBranch: 'main', parentSessionId: 'a'})], []],
 	[[linked('a', 1), s('sub', {createdAt: at(2), cwd: '/r/other', launchWorktreeRoot: '/r/wt/'})], []],
-	[[linked('a', 1), s('pending', {createdAt: at(2), cwd: '/r/wt', requestedWorktreeMode: 'managed'})], []],
+	[[linked('a', 1), s('pending', {createdAt: at(2), cwd: '/r/wt', requestedWorktreeMode: 'new'})], []],
 	[[s('main', {mergedAt: at(4), mergeTargetBranch: 'main'})], []],
 	[[linked('a', 1, {}, {id: 'w9', mergedAt: at(2)})], []],
 	[[linked('a', 1, {}, {id: 'w9'})], [{id: 'w9', path: '/r/wt', createdAt: at(1), mergedAt: at(3)}]],
 	[[s('a')], [{id: 'unused', path: '/r/wt', createdAt: at(1)}]],
 	[[linked('a', 1)], [{id: 'old', path: '/r/wt', createdAt: at(1)}]],
-	[[linked('a', 1)], [{id: 5, path: '/r/wt'}, {id: 'x'}, null]],
-	[[linked('a', 1, {}, {mergedAt: 'garbage', deletedAt: 'garbage'}), linked('b', 2, {}, {deletedAt: at(3)})], []],
+		[[linked('a', 1, {}, {mergedAt: 'garbage', deletedAt: 'garbage'}), linked('b', 2, {}, {deletedAt: at(3)})], []],
 	[[linked('a', 1, {}, {path: '/work/中文/😀'}), linked('b', 2, {}, {path: '/work/中文/😀/'}), linked('c', 2, {}, {path: '/work/é'})], []],
 	[[{...linked('a', 1), worktree: {mode: 'attached', path: '/r', isMain: true}}], []],
 	[[{...linked('a', 1), worktree: {mode: 'attached', path: '/r/wt', isMain: true}}], []],

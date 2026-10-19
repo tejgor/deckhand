@@ -45,9 +45,13 @@ fixtures = [
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "a legacy state.json is migrated on daemon start and written back with records only", to = "I1", reason = "exercises storage.ts loadState / markAllNonExitedSessionsExited (deckhand_sys::storage); the migration itself is covered by B-P2-03 and the migrateWorktreeRecords fixtures" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
-allowlist = []
+allowlist = [
+  { fixture = "worktreeLinks-P2/validateWorktreeSettings", case = 89, reason = "recording artifact: the TS input {files: JSON.parse('{\"__proto__\": \"a\"}')} has an own __proto__ key the fixture encoder writes as {files: {}}; the Rust rejection of that key is checked by worktree_links::tests::files_destination_proto_is_rejected" },
+]
 # Wave 0 hand-off notes for this unit.
 notes = [
   "fixtures/state/home-v45 contains legacy worktree records (see fixtures/state/MIGRATIONS.md); worktree_records must read them.",
