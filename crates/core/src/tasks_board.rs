@@ -2313,4 +2313,274 @@ mod tests {
             },
         );
     }
+
+    // covers: B-P6-10 a work's steps: its note's checklist (open and ticked, not ↗ links or empty items), under the task it was started for
+    #[test]
+    fn work_steps_from_note() {
+        let note = "# Plan\n- [x] Read the spec\n- [ ] Write the parser\n  - [ ] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose";
+        let step = |line: usize, text: &str, done: bool| WorkStep {
+            line,
+            text: text.to_owned(),
+            done,
+        };
+        assert_eq!(
+            note_steps(Some(note)),
+            [
+                step(1, "Read the spec", true),
+                step(2, "Write the parser", false),
+                step(3, "Handle tabs", false)
+            ]
+        );
+        let sessions = vec![
+            session_with(
+                "main",
+                json!({"notes": "- [ ] Ask about rate limits", "notesFile": {"path": "/n/main.md", "revision": "rm"}}),
+            ),
+            in_worktree(
+                "auth",
+                "w1",
+                "feat/auth",
+                json!({"sharedNotes": {"kind": "worktree", "id": "w1", "path": "/n/w1.md", "text": note, "revision": "r1"}}),
+            ),
+            in_worktree(
+                "gone",
+                "w9",
+                "gone",
+                json!({"sharedNotes": {"kind": "worktree", "id": "w9", "path": "/n/w9.md", "text": "- [ ] Left behind",
+                    "revision": "r9", "readOnly": true}}),
+            ),
+        ];
+        let shared = work_note("wt:w1", &sessions);
+        let shared = shared.as_ref();
+        assert_eq!(shared.map(|n| n.session_id.as_str()), Some("auth"));
+        assert_eq!(shared.map(|n| n.section), Some(NoteSection::Shared));
+        assert_eq!(shared.and_then(|n| n.note_id.as_deref()), Some("worktree:w1"));
+        assert_eq!(shared.map(|n| n.text.as_str()), Some(note));
+        assert_eq!(shared.map(|n| n.revision.as_str()), Some("r1"));
+        assert_eq!(shared.and_then(|n| n.read_only), None);
+        let own = work_note("s:main", &sessions);
+        let own = own.as_ref();
+        assert_eq!(own.map(|n| n.session_id.as_str()), Some("main"));
+        assert_eq!(own.map(|n| n.section), Some(NoteSection::Session));
+        assert_eq!(own.and_then(|n| n.note_id.as_deref()), None);
+        assert_eq!(own.map(|n| n.text.as_str()), Some("- [ ] Ask about rate limits"));
+        assert_eq!(own.map(|n| n.revision.as_str()), Some("rm"));
+        assert_eq!(own.and_then(|n| n.read_only), None);
+        assert_eq!(work_note("wt:w9", &sessions).and_then(|n| n.read_only), Some(true));
+
+        let tasks = parse_tasks(
+            &[
+                "- [ ] Add OAuth <!-- dh:t=a wt=w1 -->",
+                "- [ ] Elsewhere <!-- dh:t=e -->",
+            ]
+            .join("\n"),
+        );
+        let steps_of = |section: &str| note_steps(work_note(section, &sessions).as_ref().map(|n| n.text.as_str()));
+        let rows = board_rows(&tasks, false, now(), None, Some(&steps_of));
+        let describe = |row: &BoardRow| match row {
+            BoardRow::Task { task, steps, .. } => format!(
+                "{}{}",
+                task.title,
+                steps
+                    .as_ref()
+                    .map_or(String::new(), |s| format!(" {}/{}", s.done, s.total))
+            ),
+            BoardRow::Step { step, .. } => format!("  {} {}", if step.done { '☑' } else { '☐' }, step.text),
+            BoardRow::Heading { .. } => "heading".to_owned(),
+            _ => "other".to_owned(),
+        };
+        // Under the work's task (◆, its only one, so no heading row), which counts them.
+        assert_eq!(
+            rows.iter().take(5).map(describe).collect::<Vec<_>>(),
+            [
+                "Add OAuth 1/3",
+                "  ☑ Read the spec",
+                "  ☐ Write the parser",
+                "  ☐ Handle tabs",
+                "heading"
+            ]
+        );
+        // No task on the work: no group, so no steps on the board (the Notes view still lists them).
+        let only = parse_tasks("- [ ] Elsewhere <!-- dh:t=e -->");
+        let all_steps = |_: &str| note_steps(Some(note));
+        assert!(
+            !board_rows(&only, false, now(), None, Some(&all_steps))
+                .iter()
+                .any(|row| matches!(row, BoardRow::Step { .. }))
+        );
+        // Space on a step ticks the note's line (and back).
+        let line = |text: Option<String>, at: usize| text.and_then(|t| t.split('\n').nth(at).map(str::to_owned));
+        assert_eq!(
+            line(crate::notes::toggle_checklist_line(note, 2), 2).as_deref(),
+            Some("- [x] Write the parser")
+        );
+        assert_eq!(
+            line(crate::notes::toggle_checklist_line(note, 1), 1).as_deref(),
+            Some("- [ ] Read the spec")
+        );
+        assert_eq!(
+            line(crate::notes::toggle_checklist_line(note, 3), 3).as_deref(),
+            Some("  - [x] Handle tabs")
+        );
+        assert_eq!(crate::notes::toggle_checklist_line(note, 0), None);
+    }
+
+    // covers: B-P6-11 sending a note's open items at once: each becomes its ↗ link; the backlog remembers the branch they were left in
+    #[test]
+    fn sending_open_items() -> Result<(), Box<dyn std::error::Error>> {
+        use crate::tasks::{PromotedItem, apply_task_op, promote_open_note_lines};
+        use deckhand_protocol::data::{TaskLink, TaskOp};
+        let note = "# Plan\n- [x] Read the spec\n- [ ] Write the parser\n  - [ ] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose";
+        let mut next = 0;
+        let mut new_id = || {
+            next += 1;
+            format!("id{}", next - 1)
+        };
+        let sent = promote_open_note_lines(note, &mut new_id);
+        let item = |id: &str, title: &str| PromotedItem {
+            id: id.to_owned(),
+            title: title.to_owned(),
+        };
+        assert_eq!(
+            sent.items,
+            [item("id0", "Write the parser"), item("id1", "Handle tabs")]
+        );
+        assert_eq!(
+            sent.text.split('\n').collect::<Vec<_>>(),
+            [
+                "# Plan",
+                "- [x] Read the spec",
+                "- ↗ Write the parser <!-- dh:t=id0 -->",
+                "  - ↗ Handle tabs <!-- dh:t=id1 -->",
+                "- ↗ Docs <!-- dh:t=d0c5 -->",
+                "- [ ] ",
+                "prose"
+            ]
+        );
+        let plain = promote_open_note_lines("just text", &mut || "x".to_owned());
+        assert_eq!((plain.text.as_str(), plain.items.len()), ("just text", 0));
+        let added = apply_task_op(
+            "",
+            &TaskOp::Add {
+                title: "Write the parser".to_owned(),
+                body: None,
+                link: None,
+                id: Some("id0".to_owned()),
+                from: Some("feat/auth".to_owned()),
+            },
+            now(),
+        )?;
+        assert!(
+            added
+                .text
+                .starts_with("- [ ] Write the parser <!-- dh:t=id0 from=feat/auth added=2026-10-09 -->"),
+            "{}",
+            added.text
+        );
+        // Assigned to a work, `from` does not apply.
+        let linked = apply_task_op(
+            "",
+            &TaskOp::Add {
+                title: "x".to_owned(),
+                body: None,
+                link: Some(TaskLink::Worktree { wt: "w1".to_owned() }),
+                id: None,
+                from: Some("feat/auth".to_owned()),
+            },
+            now(),
+        )?;
+        assert!(!linked.text.contains("from="), "{}", linked.text);
+        // What merging or deleting the worktree offers to send: its note's open items (not a deleted worktree's read-only note).
+        let sessions = vec![
+            in_worktree(
+                "auth",
+                "w1",
+                "feat/auth",
+                json!({"sharedNotes": {"kind": "worktree", "id": "w1", "path": "/n/w1.md", "text": note, "revision": "r1"}}),
+            ),
+            in_worktree(
+                "gone",
+                "w9",
+                "gone",
+                json!({"sharedNotes": {"kind": "worktree", "id": "w9", "path": "/n/w9.md", "text": "- [ ] Left behind",
+                    "revision": "r9", "readOnly": true}}),
+            ),
+        ];
+        assert_eq!(
+            worktree_open_items(Some("w1"), &sessions),
+            ["Write the parser", "Handle tabs"]
+        );
+        assert!(worktree_open_items(Some("w9"), &sessions).is_empty());
+        assert!(worktree_open_items(None, &sessions).is_empty());
+        Ok(())
+    }
+
+    // covers: B-P6-12 ↗ lines say where their task is: in Tasks, done, or no longer in the list
+    #[test]
+    fn link_lines_say_where_their_task_is() {
+        use crate::notes::{NoteRow, NoteRowKind, note_read_rows};
+        let tasks = parse_tasks("- [ ] Open <!-- dh:t=aaaa -->\n- [x] Done <!-- dh:t=bbbb -->");
+        let links = task_link_lookup(Some(&tasks));
+        let text = |line: &str, links: Option<TaskLinkLookup<'_>>| note_line(line, links).map(|view| view.text);
+        assert_eq!(
+            text("- ↗ Open <!-- dh:t=aaaa -->", links.as_deref()).as_deref(),
+            Some("↗ Open · in Tasks")
+        );
+        assert_eq!(
+            text("- ↗ Done <!-- dh:t=bbbb -->", links.as_deref()).as_deref(),
+            Some("↗ Done · done")
+        );
+        assert_eq!(
+            text("- ↗ Gone <!-- dh:t=cccc -->", links.as_deref()).as_deref(),
+            Some("↗ Gone · not in Tasks")
+        );
+        // Before the list is loaded nothing is claimed.
+        assert!(task_link_lookup(None).is_none());
+        assert_eq!(
+            text("- ↗ Gone <!-- dh:t=cccc -->", None).as_deref(),
+            Some("↗ Gone · in Tasks")
+        );
+        assert_eq!(
+            note_read_rows("- ↗ Done <!-- dh:t=bbbb -->", 40, links.as_deref()),
+            [NoteRow {
+                text: "↗ Done · done".to_owned(),
+                kind: Some(NoteRowKind::Link)
+            }]
+        );
+    }
+
+    // covers: B-P6-13 w onto work without a task makes the task that work's (◆); onto work with one, the daemon puts it into its note as a step
+    #[test]
+    fn assign_onto_work_with_or_without_task() -> Result<(), Box<dyn std::error::Error>> {
+        use crate::tasks::{apply_task_op, client_task_op};
+        use deckhand_protocol::data::{TaskLink, TaskOp};
+        let text = "- [ ] Fix flaky test <!-- dh:t=f1 -->\n- [ ] Write docs <!-- dh:t=d1 -->";
+        let main = apply_task_op(
+            text,
+            &TaskOp::Assign {
+                id: "f1".to_owned(),
+                link: Some(TaskLink::Session { s: "flaky".to_owned() }),
+            },
+            now(),
+        )?;
+        assert!(
+            main.text.starts_with("- [ ] Fix flaky test <!-- dh:t=f1 s=flaky -->"),
+            "{}",
+            main.text
+        );
+        // The menu asks: does that work have an open task other than the one moving? Then it becomes a step instead.
+        let parsed = parse_tasks(&main.text);
+        assert!(has_main_task("s:flaky", &parsed, None));
+        assert!(!has_main_task("s:flaky", &parsed, Some("f1")));
+        assert!(!has_main_task("s:other", &parsed, None));
+        // From a client, assign carries only a link (no roles any more).
+        assert_eq!(
+            client_task_op(&json!({"type": "assign", "id": "x", "link": {"wt": "w1"}, "main": true}))?,
+            TaskOp::Assign {
+                id: "x".to_owned(),
+                link: Some(TaskLink::Worktree { wt: "w1".to_owned() })
+            }
+        );
+        Ok(())
+    }
 }
