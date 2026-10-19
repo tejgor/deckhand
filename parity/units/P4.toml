@@ -15,7 +15,9 @@ fixtures = ["mergeModel/conflictView", "mergeModel/mergeConfirmLayout", "mergeMo
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "rendered: the confirmation fills exactly its pane (warn target, toggle, notes) and the conflict view shows only the choices", to = "A4", reason = "renders app.tsx MergeConfirmPane / MergeConflictPane (crates/ui/src/app/modes/confirm.rs); the layout data it draws is covered by B-P4-01..05" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 
