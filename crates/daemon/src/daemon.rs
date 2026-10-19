@@ -260,6 +260,9 @@ use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 
 use deckhand_core::error::Result;
+use deckhand_sys::agent_version_check::AgentVersionChecker;
+use deckhand_sys::notes_store::NotesStore;
+use deckhand_sys::paths;
 
 use crate::agents::AgentsState;
 use crate::changes::ChangesState;
@@ -300,7 +303,13 @@ pub struct DaemonPaths {
 impl DaemonPaths {
     /// The paths for the current DECKHAND_HOME (deckhand_sys::paths).
     pub fn current() -> Self {
-        todo!("D1")
+        DaemonPaths {
+            config_dir: paths::config_dir(),
+            socket: paths::socket_path(),
+            pid_file: paths::daemon_pid_path(),
+            log_file: paths::daemon_log_path(),
+            worker_dir: paths::worker_dir(),
+        }
     }
 }
 
@@ -346,8 +355,42 @@ impl Daemon {
     /// TS: `new InkDaemon()`: the empty state (the notes store wired to notesChanged, the agent version checker),
     /// nothing read or started yet.
     pub fn new(options: DaemonOptions) -> Self {
-        let _ = options;
-        todo!("D1")
+        Daemon::with_paths(options, DaemonPaths::current())
+    }
+
+    /// [`Daemon::new`] with its files somewhere else (tests).
+    pub(crate) fn with_paths(options: DaemonOptions, paths: DaemonPaths) -> Self {
+        Daemon(Rc::new_cyclic(|weak: &Weak<Inner>| {
+            let daemon = WeakDaemon(weak.clone());
+            // Edits made outside Deckhand are re-read by the store and broadcast by notesChanged.
+            let notes = NotesStore::new(move |kind, stem| {
+                if let Some(daemon) = daemon.upgrade() {
+                    daemon.notes_changed(kind, stem);
+                }
+            });
+            Inner {
+                options,
+                paths,
+                server: RefCell::new(ServerState::default()),
+                lifecycle: RefCell::new(LifecycleState::default()),
+                sessions: RefCell::new(SessionsState::default()),
+                launch: RefCell::new(LaunchState::default()),
+                agents: RefCell::new(AgentsState {
+                    checker: Some(AgentVersionChecker::new(None)),
+                    ..AgentsState::default()
+                }),
+                hooks: RefCell::new(HooksState::default()),
+                workspaces: RefCell::new(WorkspacesState::default()),
+                changes: RefCell::new(ChangesState::default()),
+                notes_tasks: RefCell::new(NotesTasksState {
+                    notes: Some(notes),
+                    ..NotesTasksState::default()
+                }),
+                merge: RefCell::new(MergeState::default()),
+                worktrees: RefCell::new(WorktreesState::default()),
+                config: RefCell::new(ConfigState::default()),
+            }
+        }))
     }
 
     /// A weak reference to this daemon.
@@ -374,6 +417,51 @@ impl Deref for Daemon {
 /// TS: cli.ts `--daemon` running `new InkDaemon().start()` and staying alive: builds the daemon, starts it and runs
 /// until it shuts down (signals, `shutdown`, or a fatal error; see lifecycle.rs).
 pub async fn run_daemon(options: DaemonOptions) -> Result<()> {
-    let _ = options;
-    todo!("D1")
+    let daemon = Daemon::new(options);
+    daemon.start().await?;
+    // The daemon's tasks run on the LocalSet; the process ends by exiting from a shutdown path (lifecycle.rs), as the
+    // TS process.exit does.
+    std::future::pending::<()>().await;
+    drop(daemon);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn paths_follow_paths_rs() {
+        let current = DaemonPaths::current();
+        assert_eq!(current.config_dir, paths::config_dir());
+        assert_eq!(current.socket, paths::socket_path());
+        assert_eq!(current.pid_file, paths::daemon_pid_path());
+        assert_eq!(current.log_file, paths::daemon_log_path());
+        assert_eq!(current.worker_dir, paths::worker_dir());
+    }
+
+    #[test]
+    fn a_new_daemon_is_empty_and_weak_references_do_not_keep_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = DaemonPaths {
+            config_dir: dir.path().to_path_buf(),
+            socket: dir.path().join("daemon.sock"),
+            pid_file: dir.path().join("daemon.pid"),
+            log_file: dir.path().join("daemon.log"),
+            worker_dir: dir.path().join("workers"),
+        };
+        let daemon = Daemon::with_paths(DaemonOptions::default(), paths.clone());
+        assert_eq!(daemon.paths, paths);
+        assert!(daemon.options.worker_exe.is_none());
+        assert!(daemon.server.borrow().clients.is_empty());
+        assert!(daemon.sessions.borrow().sessions.is_empty());
+        assert!(daemon.launch.borrow().workers.is_empty());
+        assert!(daemon.notes_tasks.borrow().notes.is_some());
+        assert!(daemon.agents.borrow().checker.is_some());
+        assert!(!daemon.lifecycle.borrow().shutting_down);
+        let weak = daemon.downgrade();
+        assert!(weak.upgrade().is_some());
+        drop(daemon);
+        assert!(weak.upgrade().is_none());
+    }
 }

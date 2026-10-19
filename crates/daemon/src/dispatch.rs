@@ -275,6 +275,29 @@ mod tests {
     }
 
     #[test]
+    fn requests_are_answered_on_their_connection() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = crate::server::tests::test_daemon(dir.path());
+        let (client, mut rx) = crate::server::tests::test_client(1);
+        let conn = Connection::new(client);
+        crate::server::tests::local(async {
+            let ping = Request::Ping(deckhand_protocol::wire::RequestOnly {
+                request_id: "p1".into(),
+            });
+            daemon.handle_request(&conn, ping).await;
+        });
+        let line = rx.try_recv().unwrap();
+        let expected = format!(
+            "{{\"type\":\"response\",\"requestId\":\"p1\",\"ok\":true,\"data\":{{\"ok\":true,\"version\":{},\"home\":{},\"channel\":{}}}}}\n",
+            deckhand_protocol::PROTOCOL_VERSION,
+            serde_json::to_string(dir.path().to_str().unwrap()).unwrap(),
+            serde_json::to_string(&std::env::var("DECKHAND_CHANNEL").unwrap_or_else(|_| "stable".into())).unwrap(),
+        );
+        assert_eq!(line, expected);
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
     fn a_path_answer_is_a_json_string() {
         let message = response("r", &"/tmp/x.md".to_owned()).unwrap();
         assert_eq!(
