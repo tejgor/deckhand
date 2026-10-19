@@ -22,3 +22,5 @@ allowlist = []
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
 
+"attach.ts:attachSession" = "deckhand_client::attach::attach_session"
+"terminalState.ts:resetTerminalState" = "deckhand_client::term_state::reset_terminal_state"
