@@ -21,4 +21,18 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+# menu.tsx: the pure helpers and types are mapped in P12 (deckhand_core::display); the components here.
+"menu.tsx:SelectableRow" = "deckhand_ui::panes::menu::selectable_row"
+"menu.tsx:SelectableCell" = "deckhand_ui::panes::menu::selectable_cell"
+"menu.tsx:MenuList" = "deckhand_ui::panes::menu::menu_list"
+"menu.tsx:DetailText" = "deckhand_ui::panes::menu::detail_text"
+"menu.tsx:MenuDetails" = "deckhand_ui::panes::menu::render_menu_details"
+"menu.tsx:MenuPane" = "deckhand_ui::panes::menu::render_menu_pane"
+"tabs.tsx:TabBar" = "deckhand_ui::panes::tabs::render_tab_bar"
+"preview.tsx:PreviewPane" = "deckhand_ui::panes::preview::render_preview_pane"
+"terminalPane.tsx:TerminalView" = "deckhand_ui::panes::terminal::TerminalView"
+"terminalPane.tsx:hasAction" = "deckhand_ui::panes::terminal::has_action"
+"terminalPane.tsx:actionStatus" = "deckhand_ui::panes::terminal::action_status"
+"terminalPane.tsx:TerminalPane" = "deckhand_ui::panes::terminal::render_terminal_pane"
+"devPane.tsx:DevPane" = "deckhand_ui::panes::dev::render_dev_pane"
+"useTerminalInput.ts:useTerminalInput" = "deckhand_ui::input::terminal_input"

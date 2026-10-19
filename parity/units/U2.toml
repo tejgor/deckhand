@@ -21,4 +21,11 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"sidebar.tsx:partStyle" = "deckhand_ui::panes::sidebar::part_style"
+"sidebar.tsx:moreText" = "deckhand_ui::panes::sidebar::more_text"
+"sidebar.tsx:Sidebar" = "deckhand_ui::panes::sidebar::render_sidebar"
+"helpPane.tsx:searchHelp" = "deckhand_ui::panes::help::search_help"
+"helpPane.tsx:helpRows" = "deckhand_ui::panes::help::help_rows"
+"helpPane.tsx:HelpView" = "deckhand_ui::panes::help::HelpView"
+"helpPane.tsx:useHelp" = "deckhand_ui::panes::help::HelpView"
+"helpPane.tsx:HelpPane" = "deckhand_ui::panes::help::render_help_pane"

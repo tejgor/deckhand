@@ -21,4 +21,18 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"detailsPane.tsx:visibleDetailText" = "deckhand_ui::panes::details::visible_detail_text"
+"detailsPane.tsx:detailLines" = "deckhand_ui::panes::details::detail_lines"
+"detailsPane.tsx:DetailsViewport" = "deckhand_ui::panes::details::DetailsViewport"
+"detailsPane.tsx:detailsViewport" = "deckhand_ui::panes::details::details_viewport"
+"detailsPane.tsx:clampScroll" = "deckhand_ui::panes::details::clamp_scroll"
+"detailsPane.tsx:scrollDetails" = "deckhand_ui::panes::details::scroll_details"
+"detailsPane.tsx:DetailsPane" = "deckhand_ui::panes::details::render_details_pane"
+# The file marks, legend and count are used by detailTexts.ts, so they live in deckhand-core (P12 implements them).
+"cleanupView.tsx:CLEANUP_FILE_MARKS" = "deckhand_core::detail_texts::CLEANUP_FILE_MARKS"
+"cleanupView.tsx:CLEANUP_FILE_LEGEND" = "deckhand_core::detail_texts::CLEANUP_FILE_LEGEND"
+"cleanupView.tsx:lostFileCount" = "deckhand_core::detail_texts::lost_file_count"
+"cleanupView.tsx:fitPath" = "deckhand_ui::panes::cleanup::fit_path"
+"cleanupView.tsx:lostFileRows" = "deckhand_ui::panes::cleanup::lost_file_rows"
+"cleanupView.tsx:cleanupLossLines" = "deckhand_ui::panes::cleanup::cleanup_loss_lines"
+"cleanupView.tsx:fileRowsLeft" = "deckhand_ui::panes::cleanup::file_rows_left"

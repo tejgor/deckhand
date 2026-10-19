@@ -21,4 +21,5 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+"app.tsx:MergeConfirmPane" = "deckhand_ui::app::modes::confirm::render_merge_confirm_pane"
+"app.tsx:MergeConflictPane" = "deckhand_ui::app::modes::confirm::render_merge_conflict_pane"

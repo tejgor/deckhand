@@ -21,4 +21,5 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+# app.tsx exports are mapped in A1 and A4; A5 ports the review, search, filter, workspace-info and run-list
+# modes (deckhand_ui::app::modes::{review, search, filter, workspace_info, action_picker}).

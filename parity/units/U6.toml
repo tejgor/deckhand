@@ -21,4 +21,6 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-
+# help.ts exports are mapped in P12 (deckhand_core::help), app.tsx exports in A1 and A4. U6 owns the keymap
+# data (deckhand_ui::keymap::Binding, KEYMAP statics per mode/flow) and the coverage test replacing
+# tests/keysDocumented.test.ts (deckhand_ui::keymap::undocumented_in_guide / undocumented_in_topic).
