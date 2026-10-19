@@ -2007,4 +2007,34 @@ mod tests {
             ))
         });
     }
+
+    // covers: B-P8-14 sidebar details: ☐ open items of the session and its worktree, shortened to fit, the first line to go
+    #[test]
+    fn details_show_open_checklist_items() {
+        let with_notes = partial_session(&serde_json::json!({
+            "id": "s", "title": "task", "program": "claude", "command": "claude", "cwd": "/repo", "repoRoot": "/repo",
+            "status": "running", "agentStatus": "idle",
+            "createdAt": "1970-01-01T00:00:00.000Z", "updatedAt": "1970-01-01T00:00:00.000Z",
+            "notes": "- [ ] a",
+            "sharedNotes": {"kind": "worktree", "id": "w", "path": "/n/w.md", "revision": "r",
+                "text": "- [ ] b\n- [ ] c\n- [x] d"},
+        }))
+        .expect("a session literal");
+        let details = |free: usize| -> Vec<String> {
+            session_details(Some(&with_notes), &[&with_notes], 30, free, 0, None, None)
+                .iter()
+                .map(|line| line.iter().map(|part| part.text.as_str()).collect())
+                .collect()
+        };
+        let rule = "─".repeat(30);
+        let full: Vec<String> = vec![
+            rule.clone(),
+            "task".into(),
+            "✶ claude · idle · now".into(),
+            "main checkout".into(),
+            "☐ 3 open (2 worktree)".into(),
+        ];
+        assert_eq!(details(5), full);
+        assert_eq!(details(4), full[..4].to_vec());
+    }
 }
