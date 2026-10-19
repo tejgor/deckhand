@@ -1053,6 +1053,7 @@ mod tests {
         .await;
     }
 
+    use crate::storage::tests::{Home, block_on};
     use crate::workspace_git::test_repo::{repo, temp, tgit, write};
 
     #[test]
@@ -1072,137 +1073,152 @@ mod tests {
         assert_eq!(codex_hook_state(&[], "x"), Some(CodexHookState::Missing));
     }
 
-    #[tokio::test(flavor = "current_thread")]
-    async fn worktree_candidates_list_configured_entries_first() {
-        let (_dir, root) = repo();
-        write(&root, ".gitignore", "node_modules\ndist\n.env\n");
-        tgit(&root, &["add", ".gitignore"]);
-        tgit(&root, &["commit", "-m", "ignore"]);
-        std::fs::create_dir_all(Path::new(&root).join("node_modules/x")).unwrap();
-        std::fs::create_dir_all(Path::new(&root).join("dist")).unwrap();
-        write(&root, "dist/a.js", "a");
-        write(&root, ".env", "A=1\n");
-        write(&root, "notes.txt", "n");
-        std::os::unix::fs::symlink(Path::new(&root).join("file.txt"), Path::new(&root).join("link")).unwrap();
-        write(
-            &root,
-            "deckhand.json",
-            r#"{"worktree":{"symlink":["node_modules","missing-dir"],"files":{".env.local":".env"}}}"#,
-        );
-        let read = read_worktree_candidates(&root).await.unwrap();
-        let value = serde_json::to_value(&read).unwrap();
-        let expected = json!({
-            "checkout": root,
-            "candidates": [
-                {"path": "node_modules", "kind": "dir", "ignored": true, "suggestion": "link", "reason": "dependencies", "configured": "symlink", "layers": ["repository"]},
-                {"path": "missing-dir", "kind": "file", "ignored": false, "suggestion": "skip", "reason": "", "configured": "symlink", "layers": ["repository"], "missing": true},
-                {"path": ".env.local", "kind": "file", "ignored": false, "suggestion": "link", "reason": "env file", "configured": "files", "source": ".env", "layers": ["repository"], "missing": true},
-                {"path": ".env", "kind": "file", "ignored": true, "suggestion": "link", "reason": "env file"},
-                {"path": "dist", "kind": "dir", "ignored": true, "suggestion": "skip", "reason": "build output"},
-                {"path": "link", "kind": "symlink", "target": format!("{root}/file.txt"), "ignored": false, "suggestion": "skip", "reason": ""},
-                {"path": "notes.txt", "kind": "file", "ignored": false, "suggestion": "skip", "reason": ""},
-            ],
-            "moreCandidates": 0,
-        });
-        assert_eq!(
-            serde_json::to_string(&value).unwrap(),
-            serde_json::to_string(&expected).unwrap()
-        );
+    #[test]
+    fn worktree_candidates_list_configured_entries_first() {
+        // The user config and state directory come from DECKHAND_HOME: hold the env lock on a temporary home.
+        let home = tempfile::Builder::new().prefix("deckhand-settings-").tempdir().unwrap();
+        let _home = Home::set(home.path());
+        block_on(async {
+            let (_dir, root) = repo();
+            write(&root, ".gitignore", "node_modules\ndist\n.env\n");
+            tgit(&root, &["add", ".gitignore"]);
+            tgit(&root, &["commit", "-m", "ignore"]);
+            std::fs::create_dir_all(Path::new(&root).join("node_modules/x")).unwrap();
+            std::fs::create_dir_all(Path::new(&root).join("dist")).unwrap();
+            write(&root, "dist/a.js", "a");
+            write(&root, ".env", "A=1\n");
+            write(&root, "notes.txt", "n");
+            std::os::unix::fs::symlink(Path::new(&root).join("file.txt"), Path::new(&root).join("link")).unwrap();
+            write(
+                &root,
+                "deckhand.json",
+                r#"{"worktree":{"symlink":["node_modules","missing-dir"],"files":{".env.local":".env"}}}"#,
+            );
+            let read = read_worktree_candidates(&root).await.unwrap();
+            let value = serde_json::to_value(&read).unwrap();
+            let expected = json!({
+                "checkout": root,
+                "candidates": [
+                    {"path": "node_modules", "kind": "dir", "ignored": true, "suggestion": "link", "reason": "dependencies", "configured": "symlink", "layers": ["repository"]},
+                    {"path": "missing-dir", "kind": "file", "ignored": false, "suggestion": "skip", "reason": "", "configured": "symlink", "layers": ["repository"], "missing": true},
+                    {"path": ".env.local", "kind": "file", "ignored": false, "suggestion": "link", "reason": "env file", "configured": "files", "source": ".env", "layers": ["repository"], "missing": true},
+                    {"path": ".env", "kind": "file", "ignored": true, "suggestion": "link", "reason": "env file"},
+                    {"path": "dist", "kind": "dir", "ignored": true, "suggestion": "skip", "reason": "build output"},
+                    {"path": "link", "kind": "symlink", "target": format!("{root}/file.txt"), "ignored": false, "suggestion": "skip", "reason": ""},
+                    {"path": "notes.txt", "kind": "file", "ignored": false, "suggestion": "skip", "reason": ""},
+                ],
+                "moreCandidates": 0,
+            });
+            assert_eq!(
+                serde_json::to_string(&value).unwrap(),
+                serde_json::to_string(&expected).unwrap()
+            );
 
-        let sizes = read_candidate_sizes(
-            &root,
-            &[
-                "notes.txt".to_owned(),
-                "link".to_owned(),
-                "gone".to_owned(),
-                "dist".to_owned(),
-            ],
-        )
-        .await
-        .unwrap();
-        assert_eq!(sizes.keys().collect::<Vec<_>>(), ["notes.txt", "link", "gone", "dist"]);
-        assert_eq!(
-            (sizes["notes.txt"], sizes["link"], sizes["gone"]),
-            (Some(1), Some(0), None)
-        );
-        assert!(sizes["dist"].is_some_and(|kib| kib >= 0));
+            let sizes = read_candidate_sizes(
+                &root,
+                &[
+                    "notes.txt".to_owned(),
+                    "link".to_owned(),
+                    "gone".to_owned(),
+                    "dist".to_owned(),
+                ],
+            )
+            .await
+            .unwrap();
+            assert_eq!(sizes.keys().collect::<Vec<_>>(), ["notes.txt", "link", "gone", "dist"]);
+            assert_eq!(
+                (sizes["notes.txt"], sizes["link"], sizes["gone"]),
+                (Some(1), Some(0), None)
+            );
+            assert!(sizes["dist"].is_some_and(|kib| kib >= 0));
+        });
     }
 
-    #[tokio::test(flavor = "current_thread")]
-    async fn global_link_candidates_suggest_entries_shared_by_two_repositories() {
-        let (_one, first) = repo();
-        let (_two, second) = repo();
-        let (_none, outside) = temp("deckhand-outside-");
-        for root in [&first, &second] {
-            write(root, ".gitignore", "node_modules\ndist\n.env\n");
-            tgit(root, &["add", ".gitignore"]);
-            tgit(root, &["commit", "-m", "ignore"]);
-            std::fs::create_dir_all(Path::new(root).join("node_modules")).unwrap();
-            std::fs::create_dir_all(Path::new(root).join("dist")).unwrap();
-            write(root, "dist/a", "a");
-            write(root, ".env", "A=1\n");
-            write(root, "notes.txt", "n");
-        }
-        write(&first, "only-here.txt", "x");
-        let known = vec![second.clone(), first.clone(), outside.clone()];
-        let read = read_global_link_candidates(&first, &known).await.unwrap();
-        let name = |root: &str| path::basename(root);
-        let both = json!([name(&first), name(&second)]);
-        let expected = json!({
-            "checkout": first,
-            "candidates": [
-                {"path": ".env", "kind": "file", "ignored": true, "suggestion": "link", "reason": "env file", "repos": both},
-                {"path": "node_modules", "kind": "dir", "ignored": true, "suggestion": "link", "reason": "dependencies", "repos": both},
-                {"path": "notes.txt", "kind": "file", "ignored": false, "suggestion": "skip", "reason": "", "repos": both},
-            ],
-            "moreCandidates": 0,
-            "repos": both,
-        });
-        assert_eq!(serde_json::to_value(&read).unwrap(), expected);
+    #[test]
+    fn global_link_candidates_suggest_entries_shared_by_two_repositories() {
+        // The user config and state directory come from DECKHAND_HOME: hold the env lock on a temporary home.
+        let home = tempfile::Builder::new().prefix("deckhand-settings-").tempdir().unwrap();
+        let _home = Home::set(home.path());
+        block_on(async {
+            let (_one, first) = repo();
+            let (_two, second) = repo();
+            let (_none, outside) = temp("deckhand-outside-");
+            for root in [&first, &second] {
+                write(root, ".gitignore", "node_modules\ndist\n.env\n");
+                tgit(root, &["add", ".gitignore"]);
+                tgit(root, &["commit", "-m", "ignore"]);
+                std::fs::create_dir_all(Path::new(root).join("node_modules")).unwrap();
+                std::fs::create_dir_all(Path::new(root).join("dist")).unwrap();
+                write(root, "dist/a", "a");
+                write(root, ".env", "A=1\n");
+                write(root, "notes.txt", "n");
+            }
+            write(&first, "only-here.txt", "x");
+            let known = vec![second.clone(), first.clone(), outside.clone()];
+            let read = read_global_link_candidates(&first, &known).await.unwrap();
+            let name = |root: &str| path::basename(root);
+            let both = json!([name(&first), name(&second)]);
+            let expected = json!({
+                "checkout": first,
+                "candidates": [
+                    {"path": ".env", "kind": "file", "ignored": true, "suggestion": "link", "reason": "env file", "repos": both},
+                    {"path": "node_modules", "kind": "dir", "ignored": true, "suggestion": "link", "reason": "dependencies", "repos": both},
+                    {"path": "notes.txt", "kind": "file", "ignored": false, "suggestion": "skip", "reason": "", "repos": both},
+                ],
+                "moreCandidates": 0,
+                "repos": both,
+            });
+            assert_eq!(serde_json::to_value(&read).unwrap(), expected);
 
-        let none = read_global_link_candidates(&outside, &[]).await.unwrap();
-        assert_eq!(
-            serde_json::to_value(&none).unwrap(),
-            json!({"checkout": outside, "candidates": [], "moreCandidates": 0, "repos": [], "candidatesError": "no repository could be read"})
-        );
+            let none = read_global_link_candidates(&outside, &[]).await.unwrap();
+            assert_eq!(
+                serde_json::to_value(&none).unwrap(),
+                json!({"checkout": outside, "candidates": [], "moreCandidates": 0, "repos": [], "candidatesError": "no repository could be read"})
+            );
+        });
     }
 
-    #[tokio::test(flavor = "current_thread")]
-    async fn settings_info_outside_and_inside_a_repository() {
-        let (_none, outside) = temp("deckhand-outside-");
-        let info = read_settings_info(&outside).await.unwrap();
-        assert_eq!(info.repository.state, RepositoryState::None);
-        assert_eq!(
-            (info.repository.path.as_deref(), info.repo.clone()),
-            (None, path::basename(&outside))
-        );
-        assert!(
-            info.repository
-                .error
-                .is_some_and(|error| error.starts_with("Not a Git repository: "))
-        );
-        assert!(!info.needs_review && !info.inside_ignored && info.vars.is_none());
+    #[test]
+    fn settings_info_outside_and_inside_a_repository() {
+        // The user config and state directory come from DECKHAND_HOME: hold the env lock on a temporary home.
+        let home = tempfile::Builder::new().prefix("deckhand-settings-").tempdir().unwrap();
+        let _home = Home::set(home.path());
+        block_on(async {
+            let (_none, outside) = temp("deckhand-outside-");
+            let info = read_settings_info(&outside).await.unwrap();
+            assert_eq!(info.repository.state, RepositoryState::None);
+            assert_eq!(
+                (info.repository.path.as_deref(), info.repo.clone()),
+                (None, path::basename(&outside))
+            );
+            assert!(
+                info.repository
+                    .error
+                    .is_some_and(|error| error.starts_with("Not a Git repository: "))
+            );
+            assert!(!info.needs_review && !info.inside_ignored && info.vars.is_none());
 
-        let (_dir, root) = repo();
-        let info = read_settings_info(&root).await.unwrap();
-        assert_eq!(info.repository.state, RepositoryState::Absent);
-        assert_eq!(info.repository.path, Some(format!("{root}/deckhand.json")));
-        assert_eq!(info.default_branch.as_deref(), Some("main"));
-        assert_eq!(info.origin_branch, None);
-        assert_eq!(info.repo, path::basename(&root));
-        assert!(info.vars.is_some() && !info.inside_ignored && !info.rows.is_empty());
-        assert_eq!(
-            info.default_location,
-            path::join(&[&paths::config_dir().to_string_lossy(), "worktrees", "<name>"])
-        );
+            let (_dir, root) = repo();
+            let info = read_settings_info(&root).await.unwrap();
+            assert_eq!(info.repository.state, RepositoryState::Absent);
+            assert_eq!(info.repository.path, Some(format!("{root}/deckhand.json")));
+            assert_eq!(info.default_branch.as_deref(), Some("main"));
+            assert_eq!(info.origin_branch, None);
+            assert_eq!(info.repo, path::basename(&root));
+            assert!(info.vars.is_some() && !info.inside_ignored && !info.rows.is_empty());
+            assert_eq!(
+                info.default_location,
+                path::join(&[&home.path().to_string_lossy(), "worktrees", "<name>"])
+            );
 
-        write(&root, ".gitignore", ".worktrees/\n");
-        write(&root, "deckhand.json", r#"{"defaultAgent":"pi"}"#);
-        let info = read_settings_info(&root).await.unwrap();
-        assert_eq!(info.repository.state, RepositoryState::Untrusted);
-        assert!(info.needs_review && info.inside_ignored);
-        write(&root, "deckhand.json", "{");
-        let info = read_settings_info(&root).await.unwrap();
-        assert_eq!(info.repository.state, RepositoryState::Invalid);
+            write(&root, ".gitignore", ".worktrees/\n");
+            write(&root, "deckhand.json", r#"{"defaultAgent":"pi"}"#);
+            let info = read_settings_info(&root).await.unwrap();
+            assert_eq!(info.repository.state, RepositoryState::Untrusted);
+            assert!(info.needs_review && info.inside_ignored);
+            write(&root, "deckhand.json", "{");
+            let info = read_settings_info(&root).await.unwrap();
+            assert_eq!(info.repository.state, RepositoryState::Invalid);
+        });
     }
 }

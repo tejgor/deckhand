@@ -53,20 +53,41 @@ pub async fn export_handoff(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage::tests::{Home, block_on};
     use std::os::unix::fs::PermissionsExt;
 
-    #[tokio::test(flavor = "current_thread")]
-    async fn export_handoff_writes_a_private_file_per_export() {
-        let session: SessionRecord = serde_json::from_value(serde_json::json!({
+    fn session() -> SessionRecord {
+        serde_json::from_value(serde_json::json!({
             "id": "s-1", "title": "Fix it", "program": "claude", "command": "claude", "cwd": "/w", "repoRoot": "/w",
             "status": "running", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z",
         }))
-        .unwrap();
-        let first = export_handoff(&session, false, None, None).await.unwrap();
-        let second = export_handoff(&session, false, None, None).await.unwrap();
+        .unwrap()
+    }
+
+    #[test]
+    fn export_handoff_writes_a_private_file_per_export() {
+        // DECKHAND_HOME is process-wide: hold the env lock so no other test moves it mid-export.
+        let home = tempfile::Builder::new().prefix("deckhand-handoff-").tempdir().unwrap();
+        let _home = Home::set(home.path());
+        let session = session();
+        let (first, second) = block_on(async {
+            let first = export_handoff(&session, false, None, None).await.unwrap();
+            let second = export_handoff(&session, false, None, None).await.unwrap();
+            (first, second)
+        });
         assert_ne!(first, second);
-        let directory = paths::config_dir().join("handoffs");
+        let directory = home.path().join("handoffs");
+        assert_eq!(paths::config_dir().join("handoffs"), directory);
         assert_eq!(first.parent(), Some(directory.as_path()));
+        assert_eq!(second.parent(), Some(directory.as_path()));
+        let mut written: Vec<_> = std::fs::read_dir(&directory)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        written.sort();
+        let mut expected = vec![first.clone(), second.clone()];
+        expected.sort();
+        assert_eq!(written, expected);
         let name = first.file_name().unwrap().to_string_lossy().into_owned();
         let suffix = name
             .strip_prefix("s-1-")
@@ -78,5 +99,9 @@ mod tests {
             handoff_markdown(&session, false, None, None)
         );
         assert_eq!(std::fs::metadata(&first).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            std::fs::metadata(&directory).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
     }
 }
