@@ -277,6 +277,42 @@ mod tests {
         assert_eq!(hook_command_from(&["it's"]), r"'it'\''s' 'hook'");
     }
 
+    // covers: B-I7-02 dev Codex requires native-daemon isolation even when lifecycle hooks are off
+    #[test]
+    fn dev_codex_requires_native_daemon_isolation_even_when_hooks_are_off() {
+        let directory = tempfile::tempdir().unwrap();
+        let supported = directory.path().join("supported");
+        let unsupported = directory.path().join("unsupported");
+        for (file, body) in [(&supported, "resume --no-daemon"), (&unsupported, "resume")] {
+            std::fs::write(file, format!("#!/bin/sh\nprintf \"{body}\\n\"\n")).unwrap();
+            std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let home = tempfile::tempdir().unwrap();
+        let _env = crate::storage::tests::Home::set(home.path());
+        let previous = std::env::var_os(paths::CHANNEL_ENV);
+        // SAFETY: the Home guard holds the test environment lock.
+        unsafe { std::env::set_var(paths::CHANNEL_ENV, "dev") };
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (ok, err) = runtime.block_on(async {
+            (
+                integration_args(ProgramKey::Codex, &supported.to_string_lossy(), false).await,
+                integration_args(ProgramKey::Codex, &unsupported.to_string_lossy(), false).await,
+            )
+        });
+        // SAFETY: as above.
+        unsafe {
+            match previous {
+                Some(value) => std::env::set_var(paths::CHANNEL_ENV, value),
+                None => std::env::remove_var(paths::CHANNEL_ENV),
+            }
+        }
+        assert_eq!(ok.unwrap(), vec!["--no-daemon".to_owned()]);
+        assert!(err.unwrap_err().to_string().contains("--no-daemon missing"));
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn program_help_caches_only_successes() {
         let temp = tempfile::tempdir().unwrap();
