@@ -844,26 +844,40 @@ fn percent_decode(input: &str) -> Vec<u8> {
     out
 }
 
-/// UTS #46 ToASCII, simplified: the IDNA full stops, lowercase, and punycode for non-ASCII labels.
+/// UTS #46 ToASCII as WHATWG URL parsing runs it (non-transitional, STD3 rules and hyphen checks off): map each
+/// code point, compose (NFC), then per label validate `xn--` labels by decoding them, check the joiner and
+/// leading-mark rules, and punycode the non-ASCII labels. `None` where the TS URL constructor throws.
+///
+/// Without a Unicode data dependency this carries only part of the tables (see [`IDNA_ASCII`]): every mapping whose
+/// result is ASCII, the ignored and disallowed code points of assigned characters, and Latin/Greek/Cyrillic
+/// composition. Other characters fall back to their lowercase form.
 fn domain_to_ascii(domain: &str) -> Option<String> {
-    let mapped: String = domain
-        .chars()
-        .map(|ch| {
-            if matches!(ch, '\u{3002}' | '\u{FF0E}' | '\u{FF61}') {
-                '.'
-            } else {
-                ch
-            }
-        })
-        .collect::<String>()
-        .to_lowercase();
-    let labels: Option<Vec<String>> = mapped
+    let mut mapped = String::with_capacity(domain.len());
+    for ch in domain.chars() {
+        match idna_map(ch) {
+            IdnaMapping::Valid => mapped.push(ch),
+            IdnaMapping::Ignored => {}
+            IdnaMapping::Disallowed => return None,
+            IdnaMapping::Mapped(text) => mapped.push_str(&text),
+        }
+    }
+    let normalized = compose(&mapped);
+    let labels: Option<Vec<String>> = normalized
         .split('.')
         .map(|label| {
-            if label.is_ascii() {
+            if let Some(encoded) = label.strip_prefix("xn--") {
+                let decoded = punycode_decode(encoded)?;
+                let valid = !decoded.is_ascii()
+                    && compose(&decoded) == decoded
+                    && decoded.chars().all(|ch| matches!(idna_map(ch), IdnaMapping::Valid))
+                    && label_rules_hold(&decoded);
+                valid.then(|| label.to_owned())
+            } else if label.is_ascii() {
                 Some(label.to_owned())
-            } else {
+            } else if label_rules_hold(label) {
                 punycode(label).map(|encoded| format!("xn--{encoded}"))
+            } else {
+                None
             }
         })
         .collect();
@@ -871,13 +885,130 @@ fn domain_to_ascii(domain: &str) -> Option<String> {
     (!ascii.is_empty()).then_some(ascii)
 }
 
+/// One code point's UTS #46 status, as far as [`idna_map`] knows it.
+enum IdnaMapping {
+    Valid,
+    Ignored,
+    Disallowed,
+    Mapped(String),
+}
+
+fn in_ranges(ranges: &[(u32, u32)], point: u32) -> bool {
+    ranges
+        .binary_search_by(|&(start, end)| {
+            if end < point {
+                std::cmp::Ordering::Less
+            } else if start > point {
+                std::cmp::Ordering::Greater
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        })
+        .is_ok()
+}
+
+fn idna_map(ch: char) -> IdnaMapping {
+    let point = u32::from(ch);
+    if ch.is_ascii() {
+        return if ch.is_ascii_uppercase() {
+            IdnaMapping::Mapped(ch.to_ascii_lowercase().to_string())
+        } else {
+            IdnaMapping::Valid
+        };
+    }
+    if matches!(ch, '\u{3002}' | '\u{FF0E}' | '\u{FF61}') {
+        return IdnaMapping::Mapped(".".to_owned());
+    }
+    if matches!(ch, '\u{200C}' | '\u{200D}') {
+        // Deviation characters: kept (non-transitional), then held to the joiner rule in `label_rules_hold`.
+        return IdnaMapping::Valid;
+    }
+    if in_ranges(IDNA_IGNORED, point) {
+        return IdnaMapping::Ignored;
+    }
+    let private_use = matches!(point, 0xE000..=0xF8FF | 0xF0000..=0xFFFFD | 0x10_0000..=0x10_FFFD);
+    let noncharacter = matches!(point, 0xFDD0..=0xFDEF) || point & 0xFFFE == 0xFFFE;
+    if private_use || noncharacter || in_ranges(IDNA_DISALLOWED, point) {
+        return IdnaMapping::Disallowed;
+    }
+    let run = IDNA_ASCII.binary_search_by(|&(start, end, _, _)| {
+        if end < point {
+            std::cmp::Ordering::Less
+        } else if start > point {
+            std::cmp::Ordering::Greater
+        } else {
+            std::cmp::Ordering::Equal
+        }
+    });
+    if let Ok(index) = run {
+        let (start, _, step, target) = IDNA_ASCII[index];
+        if step == 0 {
+            return IdnaMapping::Mapped(target.to_owned());
+        }
+        let first = target.bytes().next().map_or(0, u32::from);
+        let shifted = char::from_u32(first + (point - start)).unwrap_or(ch);
+        return IdnaMapping::Mapped(shifted.to_string());
+    }
+    let mut lower = ch.to_lowercase();
+    if lower.len() == 1 && lower.next() == Some(ch) {
+        IdnaMapping::Valid
+    } else {
+        IdnaMapping::Mapped(ch.to_lowercase().collect())
+    }
+}
+
+/// Canonical composition (the C of NFC) for the pairs in [`COMPOSITIONS`], each mark composing with the character
+/// right before it. Input is expected in canonical order, as typed text is.
+fn compose(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        let composed = out.chars().next_back().and_then(|base| {
+            let (_, bases, composites) = COMPOSITIONS.iter().find(|(mark, _, _)| *mark == ch)?;
+            let index = bases.chars().position(|candidate| candidate == base)?;
+            composites.chars().nth(index)
+        });
+        match composed {
+            Some(composite) => {
+                out.pop();
+                out.push(composite);
+            }
+            None => out.push(ch),
+        }
+    }
+    out
+}
+
+/// A combining mark that may not start a label (the common combining blocks, the marks [`COMPOSITIONS`] knows and
+/// the viramas).
+fn is_combining_mark(ch: char) -> bool {
+    matches!(
+        u32::from(ch),
+        0x300..=0x36F | 0x483..=0x489 | 0x591..=0x5BD | 0x1AB0..=0x1AFF | 0x1DC0..=0x1DFF | 0x20D0..=0x20FF | 0xFE20..=0xFE2F
+    ) || COMPOSITIONS.iter().any(|(mark, _, _)| *mark == ch)
+        || VIRAMAS.contains(&u32::from(ch))
+        || ch == '\u{903}'
+}
+
+/// The UTS #46 label checks beyond the mapping: no leading combining mark, and ZERO WIDTH (NON-)JOINER only right
+/// after a virama (the joining-type context for ZWNJ is not modelled).
+fn label_rules_hold(label: &str) -> bool {
+    if label.chars().next().is_some_and(is_combining_mark) {
+        return false;
+    }
+    let mut previous = None;
+    for ch in label.chars() {
+        if matches!(ch, '\u{200C}' | '\u{200D}')
+            && !previous.is_some_and(|before: char| VIRAMAS.contains(&u32::from(before)))
+        {
+            return false;
+        }
+        previous = Some(ch);
+    }
+    true
+}
+
 /// RFC 3492 punycode encoding of one label.
 fn punycode(label: &str) -> Option<String> {
-    const BASE: u32 = 36;
-    const T_MIN: u32 = 1;
-    const T_MAX: u32 = 26;
-    const SKEW: u32 = 38;
-    const DAMP: u32 = 700;
     let digit = |value: u32| -> char {
         let byte = if value < 26 {
             b'a' + value as u8
@@ -885,16 +1016,6 @@ fn punycode(label: &str) -> Option<String> {
             b'0' + (value - 26) as u8
         };
         byte as char
-    };
-    let adapt = |mut delta: u32, points: u32, first: bool| -> u32 {
-        delta /= if first { DAMP } else { 2 };
-        delta += delta / points;
-        let mut k = 0;
-        while delta > ((BASE - T_MIN) * T_MAX) / 2 {
-            delta /= BASE - T_MIN;
-            k += BASE;
-        }
-        k + (BASE - T_MIN + 1) * delta / (delta + SKEW)
     };
     let points: Vec<u32> = label.chars().map(u32::from).collect();
     let mut output: String = label.chars().filter(char::is_ascii).collect();
@@ -914,24 +1035,18 @@ fn punycode(label: &str) -> Option<String> {
             }
             if point == n {
                 let mut q = delta;
-                let mut k = BASE;
+                let mut k = PUNY_BASE;
                 loop {
-                    let t = if k <= bias {
-                        T_MIN
-                    } else if k >= bias + T_MAX {
-                        T_MAX
-                    } else {
-                        k - bias
-                    };
+                    let t = punycode_threshold(k, bias);
                     if q < t {
                         break;
                     }
-                    output.push(digit(t + (q - t) % (BASE - t)));
-                    q = (q - t) / (BASE - t);
-                    k += BASE;
+                    output.push(digit(t + (q - t) % (PUNY_BASE - t)));
+                    q = (q - t) / (PUNY_BASE - t);
+                    k += PUNY_BASE;
                 }
                 output.push(digit(q));
-                bias = adapt(delta, handled + 1, handled == basic);
+                bias = punycode_adapt(delta, handled + 1, handled == basic);
                 delta = 0;
                 handled += 1;
             }
@@ -941,6 +1056,267 @@ fn punycode(label: &str) -> Option<String> {
     }
     Some(output)
 }
+
+const PUNY_BASE: u32 = 36;
+const PUNY_T_MIN: u32 = 1;
+const PUNY_T_MAX: u32 = 26;
+
+fn punycode_threshold(k: u32, bias: u32) -> u32 {
+    if k <= bias {
+        PUNY_T_MIN
+    } else if k >= bias + PUNY_T_MAX {
+        PUNY_T_MAX
+    } else {
+        k - bias
+    }
+}
+
+fn punycode_adapt(mut delta: u32, points: u32, first: bool) -> u32 {
+    const SKEW: u32 = 38;
+    const DAMP: u32 = 700;
+    delta /= if first { DAMP } else { 2 };
+    delta += delta / points;
+    let mut k = 0;
+    while delta > ((PUNY_BASE - PUNY_T_MIN) * PUNY_T_MAX) / 2 {
+        delta /= PUNY_BASE - PUNY_T_MIN;
+        k += PUNY_BASE;
+    }
+    k + (PUNY_BASE - PUNY_T_MIN + 1) * delta / (delta + SKEW)
+}
+
+/// RFC 3492 punycode decoding of one label (without its `xn--`), `None` when it is not valid punycode.
+fn punycode_decode(input: &str) -> Option<String> {
+    if !input.is_ascii() {
+        return None;
+    }
+    let (basic, digits) = match input.rfind('-') {
+        Some(index) => (&input[..index], &input[index + 1..]),
+        None => ("", input),
+    };
+    let mut output: Vec<char> = basic.chars().collect();
+    let (mut n, mut i, mut bias) = (128u32, 0u32, 72u32);
+    let mut digits = digits.bytes().peekable();
+    while digits.peek().is_some() {
+        let old_i = i;
+        let mut weight = 1u32;
+        let mut k = PUNY_BASE;
+        loop {
+            let digit = match digits.next()? {
+                byte @ b'a'..=b'z' => u32::from(byte - b'a'),
+                byte @ b'A'..=b'Z' => u32::from(byte - b'A'),
+                byte @ b'0'..=b'9' => u32::from(byte - b'0') + 26,
+                _ => return None,
+            };
+            i = i.checked_add(digit.checked_mul(weight)?)?;
+            let t = punycode_threshold(k, bias);
+            if digit < t {
+                break;
+            }
+            weight = weight.checked_mul(PUNY_BASE - t)?;
+            k += PUNY_BASE;
+        }
+        let length = output.len() as u32 + 1;
+        bias = punycode_adapt(i - old_i, length, old_i == 0);
+        n = n.checked_add(i / length)?;
+        i %= length;
+        output.insert(i as usize, char::from_u32(n)?);
+        i += 1;
+    }
+    Some(output.into_iter().collect())
+}
+
+// UTS #46 data, generated by probing Node 24's `new URL("http://a" + ch + "b.com/").host` for every code point (the
+// TS oracle's WHATWG parser). `IDNA_ASCII` holds every mapping whose result is ASCII as `(first, last, step, target)`:
+// step 0 maps the whole run to `target`, step 1 maps `first + i` to the character `target + i`.
+#[rustfmt::skip]
+const IDNA_ASCII: &[(u32, u32, u8, &str)] = &[
+    (0xAA, 0xAA, 0, "a"), (0xB2, 0xB3, 1, "2"), (0xB9, 0xB9, 0, "1"), (0xBA, 0xBA, 0, "o"),
+    (0x132, 0x133, 0, "ij"), (0x17F, 0x17F, 0, "s"), (0x1C7, 0x1C9, 0, "lj"), (0x1CA, 0x1CC, 0, "nj"),
+    (0x1F1, 0x1F3, 0, "dz"), (0x2B0, 0x2B0, 0, "h"), (0x2B2, 0x2B2, 0, "j"), (0x2B3, 0x2B3, 0, "r"),
+    (0x2B7, 0x2B7, 0, "w"), (0x2B8, 0x2B8, 0, "y"), (0x2E1, 0x2E1, 0, "l"), (0x2E2, 0x2E2, 0, "s"),
+    (0x2E3, 0x2E3, 0, "x"), (0x37E, 0x37E, 0, ";"), (0x1D2C, 0x1D2C, 0, "a"), (0x1D2E, 0x1D2E, 0, "b"),
+    (0x1D30, 0x1D31, 1, "d"), (0x1D33, 0x1D3A, 1, "g"), (0x1D3C, 0x1D3C, 0, "o"), (0x1D3E, 0x1D3E, 0, "p"),
+    (0x1D3F, 0x1D3F, 0, "r"), (0x1D40, 0x1D41, 1, "t"), (0x1D42, 0x1D42, 0, "w"), (0x1D43, 0x1D43, 0, "a"),
+    (0x1D47, 0x1D47, 0, "b"), (0x1D48, 0x1D49, 1, "d"), (0x1D4D, 0x1D4D, 0, "g"), (0x1D4F, 0x1D4F, 0, "k"),
+    (0x1D50, 0x1D50, 0, "m"), (0x1D52, 0x1D52, 0, "o"), (0x1D56, 0x1D56, 0, "p"), (0x1D57, 0x1D58, 1, "t"),
+    (0x1D5B, 0x1D5B, 0, "v"), (0x1D62, 0x1D62, 0, "i"), (0x1D63, 0x1D63, 0, "r"), (0x1D64, 0x1D65, 1, "u"),
+    (0x1D9C, 0x1D9C, 0, "c"), (0x1DA0, 0x1DA0, 0, "f"), (0x1DBB, 0x1DBB, 0, "z"), (0x1FEF, 0x1FEF, 0, "`"),
+    (0x203C, 0x203C, 0, "!!"), (0x2070, 0x2070, 0, "0"), (0x2071, 0x2071, 0, "i"), (0x2074, 0x2079, 1, "4"),
+    (0x207A, 0x207A, 0, "+"), (0x207C, 0x207C, 0, "="), (0x207D, 0x207E, 1, "("), (0x207F, 0x207F, 0, "n"),
+    (0x2080, 0x2089, 1, "0"), (0x208A, 0x208A, 0, "+"), (0x208C, 0x208C, 0, "="), (0x208D, 0x208E, 1, "("),
+    (0x2090, 0x2090, 0, "a"), (0x2091, 0x2091, 0, "e"), (0x2092, 0x2092, 0, "o"), (0x2093, 0x2093, 0, "x"),
+    (0x2095, 0x2095, 0, "h"), (0x2096, 0x2099, 1, "k"), (0x209A, 0x209A, 0, "p"), (0x209B, 0x209C, 1, "s"),
+    (0x20A8, 0x20A8, 0, "rs"), (0x2102, 0x2102, 0, "c"), (0x210A, 0x210B, 1, "g"), (0x210C, 0x210E, 0, "h"),
+    (0x2110, 0x2111, 0, "i"), (0x2112, 0x2113, 0, "l"), (0x2115, 0x2115, 0, "n"), (0x2116, 0x2116, 0, "no"),
+    (0x2119, 0x211B, 1, "p"), (0x211C, 0x211D, 0, "r"), (0x2120, 0x2120, 0, "sm"), (0x2121, 0x2121, 0, "tel"),
+    (0x2122, 0x2122, 0, "tm"), (0x2124, 0x2124, 0, "z"), (0x2128, 0x2128, 0, "z"), (0x212C, 0x212D, 1, "b"),
+    (0x212F, 0x2130, 0, "e"), (0x2131, 0x2131, 0, "f"), (0x2133, 0x2133, 0, "m"), (0x2134, 0x2134, 0, "o"),
+    (0x2139, 0x2139, 0, "i"), (0x213B, 0x213B, 0, "fax"), (0x2145, 0x2146, 0, "d"), (0x2147, 0x2147, 0, "e"),
+    (0x2148, 0x2149, 1, "i"), (0x2160, 0x2160, 0, "i"), (0x2161, 0x2161, 0, "ii"), (0x2162, 0x2162, 0, "iii"),
+    (0x2163, 0x2163, 0, "iv"), (0x2164, 0x2164, 0, "v"), (0x2165, 0x2165, 0, "vi"), (0x2166, 0x2166, 0, "vii"),
+    (0x2167, 0x2167, 0, "viii"), (0x2168, 0x2168, 0, "ix"), (0x2169, 0x2169, 0, "x"), (0x216A, 0x216A, 0, "xi"),
+    (0x216B, 0x216B, 0, "xii"), (0x216C, 0x216C, 0, "l"), (0x216D, 0x216E, 1, "c"), (0x216F, 0x216F, 0, "m"),
+    (0x2170, 0x2170, 0, "i"), (0x2171, 0x2171, 0, "ii"), (0x2172, 0x2172, 0, "iii"), (0x2173, 0x2173, 0, "iv"),
+    (0x2174, 0x2174, 0, "v"), (0x2175, 0x2175, 0, "vi"), (0x2176, 0x2176, 0, "vii"), (0x2177, 0x2177, 0, "viii"),
+    (0x2178, 0x2178, 0, "ix"), (0x2179, 0x2179, 0, "x"), (0x217A, 0x217A, 0, "xi"), (0x217B, 0x217B, 0, "xii"),
+    (0x217C, 0x217C, 0, "l"), (0x217D, 0x217E, 1, "c"), (0x217F, 0x217F, 0, "m"), (0x2460, 0x2468, 1, "1"),
+    (0x2469, 0x2469, 0, "10"), (0x246A, 0x246A, 0, "11"), (0x246B, 0x246B, 0, "12"), (0x246C, 0x246C, 0, "13"),
+    (0x246D, 0x246D, 0, "14"), (0x246E, 0x246E, 0, "15"), (0x246F, 0x246F, 0, "16"), (0x2470, 0x2470, 0, "17"),
+    (0x2471, 0x2471, 0, "18"), (0x2472, 0x2472, 0, "19"), (0x2473, 0x2473, 0, "20"), (0x2474, 0x2474, 0, "(1)"),
+    (0x2475, 0x2475, 0, "(2)"), (0x2476, 0x2476, 0, "(3)"), (0x2477, 0x2477, 0, "(4)"), (0x2478, 0x2478, 0, "(5)"),
+    (0x2479, 0x2479, 0, "(6)"), (0x247A, 0x247A, 0, "(7)"), (0x247B, 0x247B, 0, "(8)"), (0x247C, 0x247C, 0, "(9)"),
+    (0x247D, 0x247D, 0, "(10)"), (0x247E, 0x247E, 0, "(11)"), (0x247F, 0x247F, 0, "(12)"),
+    (0x2480, 0x2480, 0, "(13)"), (0x2481, 0x2481, 0, "(14)"), (0x2482, 0x2482, 0, "(15)"),
+    (0x2483, 0x2483, 0, "(16)"), (0x2484, 0x2484, 0, "(17)"), (0x2485, 0x2485, 0, "(18)"),
+    (0x2486, 0x2486, 0, "(19)"), (0x2487, 0x2487, 0, "(20)"), (0x249C, 0x249C, 0, "(a)"),
+    (0x249D, 0x249D, 0, "(b)"), (0x249E, 0x249E, 0, "(c)"), (0x249F, 0x249F, 0, "(d)"), (0x24A0, 0x24A0, 0, "(e)"),
+    (0x24A1, 0x24A1, 0, "(f)"), (0x24A2, 0x24A2, 0, "(g)"), (0x24A3, 0x24A3, 0, "(h)"), (0x24A4, 0x24A4, 0, "(i)"),
+    (0x24A5, 0x24A5, 0, "(j)"), (0x24A6, 0x24A6, 0, "(k)"), (0x24A7, 0x24A7, 0, "(l)"), (0x24A8, 0x24A8, 0, "(m)"),
+    (0x24A9, 0x24A9, 0, "(n)"), (0x24AA, 0x24AA, 0, "(o)"), (0x24AB, 0x24AB, 0, "(p)"), (0x24AC, 0x24AC, 0, "(q)"),
+    (0x24AD, 0x24AD, 0, "(r)"), (0x24AE, 0x24AE, 0, "(s)"), (0x24AF, 0x24AF, 0, "(t)"), (0x24B0, 0x24B0, 0, "(u)"),
+    (0x24B1, 0x24B1, 0, "(v)"), (0x24B2, 0x24B2, 0, "(w)"), (0x24B3, 0x24B3, 0, "(x)"), (0x24B4, 0x24B4, 0, "(y)"),
+    (0x24B5, 0x24B5, 0, "(z)"), (0x24B6, 0x24CF, 1, "a"), (0x24D0, 0x24E9, 1, "a"), (0x24EA, 0x24EA, 0, "0"),
+    (0x2A75, 0x2A75, 0, "=="), (0x2A76, 0x2A76, 0, "==="), (0x2C7C, 0x2C7C, 0, "j"), (0x2C7D, 0x2C7D, 0, "v"),
+    (0x3002, 0x3002, 0, "."), (0x3250, 0x3250, 0, "pte"), (0x3251, 0x3251, 0, "21"), (0x3252, 0x3252, 0, "22"),
+    (0x3253, 0x3253, 0, "23"), (0x3254, 0x3254, 0, "24"), (0x3255, 0x3255, 0, "25"), (0x3256, 0x3256, 0, "26"),
+    (0x3257, 0x3257, 0, "27"), (0x3258, 0x3258, 0, "28"), (0x3259, 0x3259, 0, "29"), (0x325A, 0x325A, 0, "30"),
+    (0x325B, 0x325B, 0, "31"), (0x325C, 0x325C, 0, "32"), (0x325D, 0x325D, 0, "33"), (0x325E, 0x325E, 0, "34"),
+    (0x325F, 0x325F, 0, "35"), (0x32B1, 0x32B1, 0, "36"), (0x32B2, 0x32B2, 0, "37"), (0x32B3, 0x32B3, 0, "38"),
+    (0x32B4, 0x32B4, 0, "39"), (0x32B5, 0x32B5, 0, "40"), (0x32B6, 0x32B6, 0, "41"), (0x32B7, 0x32B7, 0, "42"),
+    (0x32B8, 0x32B8, 0, "43"), (0x32B9, 0x32B9, 0, "44"), (0x32BA, 0x32BA, 0, "45"), (0x32BB, 0x32BB, 0, "46"),
+    (0x32BC, 0x32BC, 0, "47"), (0x32BD, 0x32BD, 0, "48"), (0x32BE, 0x32BE, 0, "49"), (0x32BF, 0x32BF, 0, "50"),
+    (0x32CC, 0x32CC, 0, "hg"), (0x32CD, 0x32CD, 0, "erg"), (0x32CE, 0x32CE, 0, "ev"), (0x32CF, 0x32CF, 0, "ltd"),
+    (0x3371, 0x3371, 0, "hpa"), (0x3372, 0x3372, 0, "da"), (0x3373, 0x3373, 0, "au"), (0x3374, 0x3374, 0, "bar"),
+    (0x3375, 0x3375, 0, "ov"), (0x3376, 0x3376, 0, "pc"), (0x3377, 0x3377, 0, "dm"), (0x3378, 0x3378, 0, "dm2"),
+    (0x3379, 0x3379, 0, "dm3"), (0x337A, 0x337A, 0, "iu"), (0x3380, 0x3380, 0, "pa"), (0x3381, 0x3381, 0, "na"),
+    (0x3383, 0x3383, 0, "ma"), (0x3384, 0x3384, 0, "ka"), (0x3385, 0x3385, 0, "kb"), (0x3386, 0x3386, 0, "mb"),
+    (0x3387, 0x3387, 0, "gb"), (0x3388, 0x3388, 0, "cal"), (0x3389, 0x3389, 0, "kcal"), (0x338A, 0x338A, 0, "pf"),
+    (0x338B, 0x338B, 0, "nf"), (0x338E, 0x338E, 0, "mg"), (0x338F, 0x338F, 0, "kg"), (0x3390, 0x3390, 0, "hz"),
+    (0x3391, 0x3391, 0, "khz"), (0x3392, 0x3392, 0, "mhz"), (0x3393, 0x3393, 0, "ghz"), (0x3394, 0x3394, 0, "thz"),
+    (0x3396, 0x3396, 0, "ml"), (0x3397, 0x3397, 0, "dl"), (0x3398, 0x3398, 0, "kl"), (0x3399, 0x3399, 0, "fm"),
+    (0x339A, 0x339A, 0, "nm"), (0x339C, 0x339C, 0, "mm"), (0x339D, 0x339D, 0, "cm"), (0x339E, 0x339E, 0, "km"),
+    (0x339F, 0x339F, 0, "mm2"), (0x33A0, 0x33A0, 0, "cm2"), (0x33A1, 0x33A1, 0, "m2"), (0x33A2, 0x33A2, 0, "km2"),
+    (0x33A3, 0x33A3, 0, "mm3"), (0x33A4, 0x33A4, 0, "cm3"), (0x33A5, 0x33A5, 0, "m3"), (0x33A6, 0x33A6, 0, "km3"),
+    (0x33A9, 0x33A9, 0, "pa"), (0x33AA, 0x33AA, 0, "kpa"), (0x33AB, 0x33AB, 0, "mpa"), (0x33AC, 0x33AC, 0, "gpa"),
+    (0x33AD, 0x33AD, 0, "rad"), (0x33B0, 0x33B0, 0, "ps"), (0x33B1, 0x33B1, 0, "ns"), (0x33B3, 0x33B3, 0, "ms"),
+    (0x33B4, 0x33B4, 0, "pv"), (0x33B5, 0x33B5, 0, "nv"), (0x33B7, 0x33B7, 0, "mv"), (0x33B8, 0x33B8, 0, "kv"),
+    (0x33B9, 0x33B9, 0, "mv"), (0x33BA, 0x33BA, 0, "pw"), (0x33BB, 0x33BB, 0, "nw"), (0x33BD, 0x33BD, 0, "mw"),
+    (0x33BE, 0x33BE, 0, "kw"), (0x33BF, 0x33BF, 0, "mw"), (0x33C3, 0x33C3, 0, "bq"), (0x33C4, 0x33C4, 0, "cc"),
+    (0x33C5, 0x33C5, 0, "cd"), (0x33C8, 0x33C8, 0, "db"), (0x33C9, 0x33C9, 0, "gy"), (0x33CA, 0x33CA, 0, "ha"),
+    (0x33CB, 0x33CB, 0, "hp"), (0x33CC, 0x33CC, 0, "in"), (0x33CD, 0x33CD, 0, "kk"), (0x33CE, 0x33CE, 0, "km"),
+    (0x33CF, 0x33CF, 0, "kt"), (0x33D0, 0x33D0, 0, "lm"), (0x33D1, 0x33D1, 0, "ln"), (0x33D2, 0x33D2, 0, "log"),
+    (0x33D3, 0x33D3, 0, "lx"), (0x33D4, 0x33D4, 0, "mb"), (0x33D5, 0x33D5, 0, "mil"), (0x33D6, 0x33D6, 0, "mol"),
+    (0x33D7, 0x33D7, 0, "ph"), (0x33D9, 0x33D9, 0, "ppm"), (0x33DA, 0x33DA, 0, "pr"), (0x33DB, 0x33DB, 0, "sr"),
+    (0x33DC, 0x33DC, 0, "sv"), (0x33DD, 0x33DD, 0, "wb"), (0x33FF, 0x33FF, 0, "gal"), (0xA7F1, 0xA7F1, 0, "s"),
+    (0xA7F2, 0xA7F2, 0, "c"), (0xA7F3, 0xA7F3, 0, "f"), (0xA7F4, 0xA7F4, 0, "q"), (0xFB00, 0xFB00, 0, "ff"),
+    (0xFB01, 0xFB01, 0, "fi"), (0xFB02, 0xFB02, 0, "fl"), (0xFB03, 0xFB03, 0, "ffi"), (0xFB04, 0xFB04, 0, "ffl"),
+    (0xFB05, 0xFB06, 0, "st"), (0xFB29, 0xFB29, 0, "+"), (0xFE10, 0xFE10, 0, ","), (0xFE14, 0xFE14, 0, ";"),
+    (0xFE15, 0xFE15, 0, "!"), (0xFE33, 0xFE34, 0, "_"), (0xFE35, 0xFE36, 1, "("), (0xFE37, 0xFE37, 0, "{"),
+    (0xFE38, 0xFE38, 0, "}"), (0xFE4D, 0xFE4F, 0, "_"), (0xFE50, 0xFE50, 0, ","), (0xFE54, 0xFE54, 0, ";"),
+    (0xFE57, 0xFE57, 0, "!"), (0xFE59, 0xFE5A, 1, "("), (0xFE5B, 0xFE5B, 0, "{"), (0xFE5C, 0xFE5C, 0, "}"),
+    (0xFE60, 0xFE60, 0, "&"), (0xFE61, 0xFE62, 1, "*"), (0xFE63, 0xFE63, 0, "-"), (0xFE66, 0xFE66, 0, "="),
+    (0xFE69, 0xFE69, 0, "$"), (0xFF01, 0xFF02, 1, "!"), (0xFF04, 0xFF04, 0, "$"), (0xFF06, 0xFF0E, 1, "&"),
+    (0xFF10, 0xFF19, 1, "0"), (0xFF1B, 0xFF1B, 0, ";"), (0xFF1D, 0xFF1D, 0, "="), (0xFF21, 0xFF3A, 1, "a"),
+    (0xFF3F, 0xFF5B, 1, "_"), (0xFF5D, 0xFF5E, 1, "}"), (0xFF61, 0xFF61, 0, "."), (0x107A5, 0x107A5, 0, "q"),
+    (0x1CCD6, 0x1CCEF, 1, "a"), (0x1CCF0, 0x1CCF9, 1, "0"), (0x1D400, 0x1D419, 1, "a"), (0x1D41A, 0x1D433, 1, "a"),
+    (0x1D434, 0x1D44D, 1, "a"), (0x1D44E, 0x1D454, 1, "a"), (0x1D456, 0x1D467, 1, "i"), (0x1D468, 0x1D481, 1, "a"),
+    (0x1D482, 0x1D49B, 1, "a"), (0x1D49C, 0x1D49C, 0, "a"), (0x1D49E, 0x1D49F, 1, "c"), (0x1D4A2, 0x1D4A2, 0, "g"),
+    (0x1D4A5, 0x1D4A6, 1, "j"), (0x1D4A9, 0x1D4AC, 1, "n"), (0x1D4AE, 0x1D4B5, 1, "s"), (0x1D4B6, 0x1D4B9, 1, "a"),
+    (0x1D4BB, 0x1D4BB, 0, "f"), (0x1D4BD, 0x1D4C3, 1, "h"), (0x1D4C5, 0x1D4CF, 1, "p"), (0x1D4D0, 0x1D4E9, 1, "a"),
+    (0x1D4EA, 0x1D503, 1, "a"), (0x1D504, 0x1D505, 1, "a"), (0x1D507, 0x1D50A, 1, "d"), (0x1D50D, 0x1D514, 1, "j"),
+    (0x1D516, 0x1D51C, 1, "s"), (0x1D51E, 0x1D537, 1, "a"), (0x1D538, 0x1D539, 1, "a"), (0x1D53B, 0x1D53E, 1, "d"),
+    (0x1D540, 0x1D544, 1, "i"), (0x1D546, 0x1D546, 0, "o"), (0x1D54A, 0x1D550, 1, "s"), (0x1D552, 0x1D56B, 1, "a"),
+    (0x1D56C, 0x1D585, 1, "a"), (0x1D586, 0x1D59F, 1, "a"), (0x1D5A0, 0x1D5B9, 1, "a"), (0x1D5BA, 0x1D5D3, 1, "a"),
+    (0x1D5D4, 0x1D5ED, 1, "a"), (0x1D5EE, 0x1D607, 1, "a"), (0x1D608, 0x1D621, 1, "a"), (0x1D622, 0x1D63B, 1, "a"),
+    (0x1D63C, 0x1D655, 1, "a"), (0x1D656, 0x1D66F, 1, "a"), (0x1D670, 0x1D689, 1, "a"), (0x1D68A, 0x1D6A3, 1, "a"),
+    (0x1D7CE, 0x1D7D7, 1, "0"), (0x1D7D8, 0x1D7E1, 1, "0"), (0x1D7E2, 0x1D7EB, 1, "0"), (0x1D7EC, 0x1D7F5, 1, "0"),
+    (0x1D7F6, 0x1D7FF, 1, "0"), (0x1F101, 0x1F101, 0, "0,"), (0x1F102, 0x1F102, 0, "1,"),
+    (0x1F103, 0x1F103, 0, "2,"), (0x1F104, 0x1F104, 0, "3,"), (0x1F105, 0x1F105, 0, "4,"),
+    (0x1F106, 0x1F106, 0, "5,"), (0x1F107, 0x1F107, 0, "6,"), (0x1F108, 0x1F108, 0, "7,"),
+    (0x1F109, 0x1F109, 0, "8,"), (0x1F10A, 0x1F10A, 0, "9,"), (0x1F110, 0x1F110, 0, "(a)"),
+    (0x1F111, 0x1F111, 0, "(b)"), (0x1F112, 0x1F112, 0, "(c)"), (0x1F113, 0x1F113, 0, "(d)"),
+    (0x1F114, 0x1F114, 0, "(e)"), (0x1F115, 0x1F115, 0, "(f)"), (0x1F116, 0x1F116, 0, "(g)"),
+    (0x1F117, 0x1F117, 0, "(h)"), (0x1F118, 0x1F118, 0, "(i)"), (0x1F119, 0x1F119, 0, "(j)"),
+    (0x1F11A, 0x1F11A, 0, "(k)"), (0x1F11B, 0x1F11B, 0, "(l)"), (0x1F11C, 0x1F11C, 0, "(m)"),
+    (0x1F11D, 0x1F11D, 0, "(n)"), (0x1F11E, 0x1F11E, 0, "(o)"), (0x1F11F, 0x1F11F, 0, "(p)"),
+    (0x1F120, 0x1F120, 0, "(q)"), (0x1F121, 0x1F121, 0, "(r)"), (0x1F122, 0x1F122, 0, "(s)"),
+    (0x1F123, 0x1F123, 0, "(t)"), (0x1F124, 0x1F124, 0, "(u)"), (0x1F125, 0x1F125, 0, "(v)"),
+    (0x1F126, 0x1F126, 0, "(w)"), (0x1F127, 0x1F127, 0, "(x)"), (0x1F128, 0x1F128, 0, "(y)"),
+    (0x1F129, 0x1F129, 0, "(z)"), (0x1F12B, 0x1F12B, 0, "c"), (0x1F12C, 0x1F12C, 0, "r"),
+    (0x1F12D, 0x1F12D, 0, "cd"), (0x1F12E, 0x1F12E, 0, "wz"), (0x1F130, 0x1F149, 1, "a"),
+    (0x1F14A, 0x1F14A, 0, "hv"), (0x1F14B, 0x1F14B, 0, "mv"), (0x1F14C, 0x1F14C, 0, "sd"),
+    (0x1F14D, 0x1F14D, 0, "ss"), (0x1F14E, 0x1F14E, 0, "ppv"), (0x1F14F, 0x1F14F, 0, "wc"),
+    (0x1F16A, 0x1F16A, 0, "mc"), (0x1F16B, 0x1F16B, 0, "md"), (0x1F16C, 0x1F16C, 0, "mr"),
+    (0x1F190, 0x1F190, 0, "dj"), (0x1FBF0, 0x1FBF9, 1, "0"),
+];
+// Code points UTS #46 drops.
+#[rustfmt::skip]
+const IDNA_IGNORED: &[(u32, u32)] = &[
+    (0xAD, 0xAD), (0x34F, 0x34F), (0x115F, 0x1160), (0x17B4, 0x17B5), (0x180B, 0x180F), (0x200B, 0x200B),
+    (0x2060, 0x2064), (0x206A, 0x206F), (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0),
+    (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0xE0100, 0xE01EF),
+];
+// Assigned code points that fail in every context (disallowed, or mapped to a forbidden host code point).
+#[rustfmt::skip]
+const IDNA_DISALLOWED: &[(u32, u32)] = &[
+    (0x80, 0xA0), (0xA8, 0xA8), (0xAF, 0xAF), (0xB4, 0xB4), (0xB8, 0xB8), (0x2D8, 0x2DD), (0x37A, 0x37A),
+    (0x384, 0x385), (0x600, 0x605), (0x61C, 0x61C), (0x6DD, 0x6DD), (0x70F, 0x70F), (0x890, 0x891), (0x8E2, 0x8E2),
+    (0x1680, 0x1680), (0x1FBD, 0x1FBD), (0x1FBF, 0x1FC1), (0x1FCD, 0x1FCF), (0x1FDD, 0x1FDF), (0x1FED, 0x1FEE),
+    (0x1FFD, 0x1FFE), (0x2000, 0x200A), (0x200C, 0x200F), (0x2017, 0x2017), (0x2024, 0x2026), (0x2028, 0x202F),
+    (0x203E, 0x203E), (0x2047, 0x2049), (0x205F, 0x205F), (0x2066, 0x2069), (0x2100, 0x2101), (0x2105, 0x2106),
+    (0x2488, 0x249B), (0x2A74, 0x2A74), (0x2FF0, 0x3000), (0x309B, 0x309C), (0x31EF, 0x31EF), (0x33C2, 0x33C2),
+    (0x33C7, 0x33C7), (0x33D8, 0x33D8), (0xFC5E, 0xFC63), (0xFDFA, 0xFDFB), (0xFE12, 0xFE13), (0xFE16, 0xFE16),
+    (0xFE19, 0xFE19), (0xFE30, 0xFE30), (0xFE47, 0xFE4C), (0xFE52, 0xFE52), (0xFE55, 0xFE56), (0xFE5F, 0xFE5F),
+    (0xFE64, 0xFE65), (0xFE68, 0xFE68), (0xFE6A, 0xFE6B), (0xFE70, 0xFE70), (0xFE72, 0xFE72), (0xFE74, 0xFE74),
+    (0xFE76, 0xFE76), (0xFE78, 0xFE78), (0xFE7A, 0xFE7A), (0xFE7C, 0xFE7C), (0xFE7E, 0xFE7E), (0xFF03, 0xFF03),
+    (0xFF05, 0xFF05), (0xFF0F, 0xFF0F), (0xFF1A, 0xFF1A), (0xFF1C, 0xFF1C), (0xFF1E, 0xFF20), (0xFF3B, 0xFF3E),
+    (0xFF5C, 0xFF5C), (0xFFE3, 0xFFE3), (0xFFF9, 0xFFFD), (0x110BD, 0x110BD), (0x110CD, 0x110CD),
+    (0x13430, 0x1343F), (0x1F100, 0x1F100), (0xE0001, 0xE0001), (0xE0020, 0xE007F),
+];
+// Code points after which ZERO WIDTH (NON-)JOINER is allowed (canonical combining class Virama).
+#[rustfmt::skip]
+const VIRAMAS: &[u32] = &[
+    0x94D, 0x9CD, 0xA4D, 0xACD, 0xB4D, 0xBCD, 0xC4D, 0xCCD, 0xD3B, 0xD3C, 0xD4D, 0xDCA, 0xE3A, 0xEBA, 0xF84,
+    0x1039, 0x103A, 0x1714, 0x1734, 0x17D2, 0x1A60, 0x1B44, 0x1BAA, 0x1BAB, 0x1BF2, 0x1BF3, 0x2D7F, 0xA806, 0xA82C,
+    0xA8C4, 0xA953, 0xA9C0, 0xAAF6, 0xABED, 0x10A3F, 0x11046, 0x1107F, 0x110B9, 0x11133, 0x11134, 0x111C0, 0x11235,
+    0x112EA, 0x1134D, 0x11442, 0x114C2, 0x115BF, 0x1163F, 0x116B6, 0x1172B, 0x11839, 0x1193D, 0x1193E, 0x119E0,
+    0x11A34, 0x11A47, 0x11A99, 0x11C3F, 0x11D44, 0x11D45, 0x11D97,
+];
+
+// Canonical compositions `(mark, bases, composites)`: the n-th base followed by the mark composes to the n-th
+// composite. Generated with `String.prototype.normalize` over U+00C0..U+052F and U+1E00..U+1FFF.
+#[rustfmt::skip]
+const COMPOSITIONS: &[(char, &str, &str)] = &[
+    ('\u{300}', "AEIOUaeiouÜüNnЕИеиĒēŌōWwÂâĂăÊêÔôƠơƯưYyἀἁἈἉἐἑἘἙἠἡἨἩἰἱἸἹὀὁὈὉὐὑὙὠὡὨὩαεηιουωΑΕΗ᾿ϊΙ῾ϋΥ¨ΟΩ", "ÀÈÌÒÙàèìòùǛǜǸǹЀЍѐѝḔḕṐṑẀẁẦầẰằỀềỒồỜờỪừỲỳἂἃἊἋἒἓἚἛἢἣἪἫἲἳἺἻὂὃὊὋὒὓὛὢὣὪὫὰὲὴὶὸὺὼᾺῈῊ῍ῒῚ῝ῢῪ῭ῸῺ"),
+    ('\u{301}', "AEIOUYaeiouyCcLlNnRrSsZzÜüGgÅåÆæØø¨ΑΕΗΙΟΥΩϊαεηιϋουωϒГКгкÇçĒēÏïKkMmÕõŌōPpŨũWwÂâĂăÊêÔôƠơƯưἀἁἈἉἐἑἘἙἠἡἨἩἰἱἸἹὀὁὈὉὐὑὙὠὡὨὩ᾿῾", "ÁÉÍÓÚÝáéíóúýĆćĹĺŃńŔŕŚśŹźǗǘǴǵǺǻǼǽǾǿ΅ΆΈΉΊΌΎΏΐάέήίΰόύώϓЃЌѓќḈḉḖḗḮḯḰḱḾḿṌṍṒṓṔṕṸṹẂẃẤấẮắẾếỐốỚớỨứἄἅἌἍἔἕἜἝἤἥἬἭἴἵἼἽὄὅὌὍὔὕὝὤὥὬὭ῎῞"),
+    ('\u{302}', "AEIOUaeiouCcGgHhJjSsWwYyZzẠạẸẹỌọ", "ÂÊÎÔÛâêîôûĈĉĜĝĤĥĴĵŜŝŴŵŶŷẐẑẬậỆệỘộ"),
+    ('\u{303}', "ANOanoIiUuVvÂâĂăEeÊêÔôƠơƯưYy", "ÃÑÕãñõĨĩŨũṼṽẪẫẴẵẼẽỄễỖỗỠỡỮữỸỹ"),
+    ('\u{304}', "AaEeIiOoUuÜüÄäȦȧÆæǪǫÖöÕõȮȯYyИиУуGgḶḷṚṛαΑιΙυΥ", "ĀāĒēĪīŌōŪūǕǖǞǟǠǡǢǣǬǭȪȫȬȭȰȱȲȳӢӣӮӯḠḡḸḹṜṝᾱᾹῑῙῡῩ"),
+    ('\u{306}', "AaEeGgIiOoUuУИиуЖжАаЕеȨȩẠạαΑιΙυΥ", "ĂăĔĕĞğĬĭŎŏŬŭЎЙйўӁӂӐӑӖӗḜḝẶặᾰᾸῐῘῠῨ"),
+    ('\u{307}', "CcEeGgIZzAaOoBbDdFfHhMmNnPpRrSsŚśŠšṢṣTtWwXxYyſ", "ĊċĖėĠġİŻżȦȧȮȯḂḃḊḋḞḟḢḣṀṁṄṅṖṗṘṙṠṡṤṥṦṧṨṩṪṫẆẇẊẋẎẏẛ"),
+    ('\u{308}', "AEIOUaeiouyYΙΥιυϒЕІеіАаӘәЖжЗзИиОоӨөЭэУуЧчЫыHhÕõŪūWwXxt", "ÄËÏÖÜäëïöüÿŸΪΫϊϋϔЁЇёїӒӓӚӛӜӝӞӟӤӥӦӧӪӫӬӭӰӱӴӵӸӹḦḧṎṏṺṻẄẅẌẍẗ"),
+    ('\u{309}', "AaÂâĂăEeÊêIiOoÔôƠơUuƯưYy", "ẢảẨẩẲẳẺẻỂểỈỉỎỏỔổỞởỦủỬửỶỷ"),
+    ('\u{30A}', "AaUuwy", "ÅåŮůẘẙ"),
+    ('\u{30B}', "OoUuУу", "ŐőŰűӲӳ"),
+    ('\u{30C}', "CcDdEeLlNnRrSsTtZzAaIiOoUuÜüGgKkƷʒjHh", "ČčĎďĚěĽľŇňŘřŠšŤťŽžǍǎǏǐǑǒǓǔǙǚǦǧǨǩǮǯǰȞȟ"),
+    ('\u{30F}', "AaEeIiOoRrUuѴѵ", "ȀȁȄȅȈȉȌȍȐȑȔȕѶѷ"),
+    ('\u{311}', "AaEeIiOoRrUu", "ȂȃȆȇȊȋȎȏȒȓȖȗ"),
+    ('\u{313}', "αΑεΕηΗιΙοΟυωΩρ", "ἀἈἐἘἠἨἰἸὀὈὐὠὨῤ"),
+    ('\u{314}', "αΑεΕηΗιΙοΟυΥωΩρΡ", "ἁἉἑἙἡἩἱἹὁὉὑὙὡὩῥῬ"),
+    ('\u{31B}', "OoUu", "ƠơƯư"),
+    ('\u{323}', "BbDdHhKkLlMmNnRrSsTtVvWwZzAaEeIiOoƠơUuƯưYy", "ḄḅḌḍḤḥḲḳḶḷṂṃṆṇṚṛṢṣṬṭṾṿẈẉẒẓẠạẸẹỊịỌọỢợỤụỰựỴỵ"),
+    ('\u{324}', "Uu", "Ṳṳ"),
+    ('\u{325}', "Aa", "Ḁḁ"),
+    ('\u{326}', "SsTt", "ȘșȚț"),
+    ('\u{327}', "CcGgKkLlNnRrSsTtEeDdHh", "ÇçĢģĶķĻļŅņŖŗŞşŢţȨȩḐḑḨḩ"),
+    ('\u{328}', "AaEeIiUuOo", "ĄąĘęĮįŲųǪǫ"),
+    ('\u{32D}', "DdEeLlNnTtUu", "ḒḓḘḙḼḽṊṋṰṱṶṷ"),
+    ('\u{32E}', "Hh", "Ḫḫ"),
+    ('\u{330}', "EeIiUu", "ḚḛḬḭṴṵ"),
+    ('\u{331}', "BbDdKkLlNnRrTtZzh", "ḆḇḎḏḴḵḺḻṈṉṞṟṮṯẔẕẖ"),
+    ('\u{342}', "ἀἁἈἉἠἡἨἩἰἱἸἹὐὑὙὠὡὨὩα¨η᾿ιϊ῾υϋω", "ἆἇἎἏἦἧἮἯἶἷἾἿὖὗὟὦὧὮὯᾶ῁ῆ῏ῖῗ῟ῦῧῶ"),
+    ('\u{345}', "ἀἁἂἃἄἅἆἇἈἉἊἋἌἍἎἏἠἡἢἣἤἥἦἧἨἩἪἫἬἭἮἯὠὡὢὣὤὥὦὧὨὩὪὫὬὭὮὯὰαάᾶΑὴηήῆΗὼωώῶΩ", "ᾀᾁᾂᾃᾄᾅᾆᾇᾈᾉᾊᾋᾌᾍᾎᾏᾐᾑᾒᾓᾔᾕᾖᾗᾘᾙᾚᾛᾜᾝᾞᾟᾠᾡᾢᾣᾤᾥᾦᾧᾨᾩᾪᾫᾬᾭᾮᾯᾲᾳᾴᾷᾼῂῃῄῇῌῲῳῴῷῼ"),
+];
 
 fn ipv4_number(part: &str) -> Option<u64> {
     if part.is_empty() {
@@ -1097,6 +1473,115 @@ mod tests {
         for (input, host) in cases {
             assert_eq!(url_host(input).as_deref(), host, "{input}");
         }
+    }
+
+    /// UTS #46 mapping and validation, each expectation taken from Node 24's `new URL(input).host`.
+    #[test]
+    fn url_hosts_apply_idna_mapping() {
+        let cases = [
+            // Compatibility forms of ASCII map to ASCII.
+            ("https://ｅｘａｍｐｌｅ.com/x", Some("example.com")),
+            ("http://ｆｏｏ．ｃｏｍ/", Some("foo.com")),
+            ("https://１２７.０.０.１/", Some("127.0.0.1")),
+            ("https://ⓐ.com/", Some("a.com")),
+            ("https://ⓐbc.com/", Some("abc.com")),
+            ("http://Ⓩ.com/", Some("z.com")),
+            ("https://%E2%93%90.com/", Some("a.com")),
+            ("https://Ⅳ.com/", Some("iv.com")),
+            ("http://ⅻ.com/", Some("xii.com")),
+            ("http://①.com/", Some("1.com")),
+            ("http://⑴.com/", Some("(1).com")),
+            ("http://ﬁ.com/", Some("fi.com")),
+            ("http://㎏.com/", Some("kg.com")),
+            ("http://™.com/", Some("tm.com")),
+            ("http://𝐞𝐱𝐚𝐦𝐩𝐥𝐞.com/", Some("example.com")),
+            // Ignored code points vanish.
+            ("https://a\u{AD}b.com/", Some("ab.com")),
+            ("http://ab\u{FE00}c.com/", Some("abc.com")),
+            ("http://a\u{200B}b.com/", Some("ab.com")),
+            ("http://a\u{2060}b.com/", Some("ab.com")),
+            ("http://a\u{FEFF}b.com/", Some("ab.com")),
+            // NFC.
+            ("https://cafe\u{301}.com/", Some("xn--caf-dma.com")),
+            ("https://café.com/", Some("xn--caf-dma.com")),
+            ("https://é.com/", Some("xn--9ca.com")),
+            ("http://Ｅ\u{301}.com/", Some("xn--9ca.com")),
+            ("http://o\u{302}\u{301}.com/", Some("xn--0lg.com")),
+            ("http://a\u{323}\u{302}.com/", Some("xn--zkg.com")),
+            ("http://ä\u{308}.com/", Some("xn--4ca01i.com")),
+            // Lowercasing is per code point (no final sigma), and keeps deviation characters.
+            ("http://ΑΣ.com/", Some("xn--mxa0b.com")),
+            ("http://ß.com/", Some("xn--zca.com")),
+            ("http://ς.com/", Some("xn--3xa.com")),
+            ("http://İ.com/", Some("xn--i-9bb.com")),
+            ("http://ↄ.com/", Some("xn--r5g.com")),
+            ("http://Ↄ.com/", Some("xn--r5g.com")),
+            ("http://💩.la/", Some("xn--ls8h.la")),
+            ("http://aא.com/", Some("xn--a-0hc.com")),
+            // Joiners only after a virama.
+            ("http://\u{915}\u{94D}\u{200D}\u{937}.com/", Some("xn--11b2ezcw70k.com")),
+            ("http://\u{915}\u{94D}\u{200C}\u{937}.com/", Some("xn--11b2ezcs70k.com")),
+            ("http://a\u{200D}b.com/", None),
+            ("http://a\u{200C}b.com/", None),
+            // Disallowed code points and leading combining marks fail.
+            ("https://\u{FFFF}.com/", None),
+            ("http://a\u{FFFD}.com/", None),
+            ("http://a\u{E000}.com/", None),
+            ("http://a\u{85}b.com/", None),
+            ("http://a\u{FDD0}.com/", None),
+            ("http://\u{301}b.com/", None),
+            // `xn--` labels must decode to valid, normalized, non-ASCII labels.
+            ("http://xn--9ca.com/", Some("xn--9ca.com")),
+            ("http://XN--9CA.com/", Some("xn--9ca.com")),
+            ("http://xn--zca.com/", Some("xn--zca.com")),
+            ("http://xn--ls8h.la/", Some("xn--ls8h.la")),
+            ("http://xn--fiq228c.com/", Some("xn--fiq228c.com")),
+            ("http://xn--a-1ga.com/", Some("xn--a-1ga.com")),
+            ("https://xn--a.com/", None),
+            ("http://xn--.com/", None),
+            ("http://xn---.com/", None),
+            ("http://xn--abc.com/", None),
+            ("http://xn--abc-.com/", None),
+            ("http://xn--abc-ll.com/", None),
+            ("http://xn--ab-m1t.com/", None),
+            ("http://xn--e-xbb.com/", None),
+            ("http://xn--a-ecp.ru/", None),
+            ("http://xn--1ug.com/", None),
+            // Plain ASCII is untouched beyond lowercasing.
+            ("http://-a.com/", Some("-a.com")),
+            ("http://ab--c.com/", Some("ab--c.com")),
+            ("http://a..b/", Some("a..b")),
+        ];
+        let failures: Vec<String> = cases
+            .iter()
+            .filter(|(input, host)| url_host(input).as_deref() != *host)
+            .map(|(input, host)| format!("{input:?}: got {:?}, want {host:?}", url_host(input)))
+            .collect();
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    #[test]
+    fn permission_reason_names_the_mapped_host() {
+        let reason = |url: &str| {
+            let raw =
+                json!({"hook_event_name": "PermissionRequest", "tool_name": "WebFetch", "tool_input": {"url": url}});
+            normalize_hook(ProgramKey::Claude, &raw)
+                .expect("normalizes")
+                .and_then(|signal| signal.reason)
+                .map(|reason| reason.text)
+        };
+        assert_eq!(
+            reason("https://ｅｘａｍｐｌｅ.com/x").as_deref(),
+            Some("wants to fetch: example.com")
+        );
+        assert_eq!(
+            reason("http://xn--a.com/").as_deref(),
+            Some("wants to fetch: http://xn--a.com/")
+        );
+        assert_eq!(
+            reason("http://a\u{200D}b.com/").as_deref(),
+            Some("wants to fetch: http://a\u{200D}b.com/")
+        );
     }
 
     #[test]
