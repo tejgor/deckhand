@@ -10,7 +10,7 @@ ts_tests = ["tests/cleanupView.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["detailsPane/clampScroll", "detailsPane/detailLines", "detailsPane/detailsViewport", "detailsPane/scrollDetails", "detailsPane/visibleDetailText", "cleanupView/cleanupLossLines", "cleanupView/fileRowsLeft", "cleanupView/fitPath", "cleanupView/lostFileCount", "cleanupView/lostFileRows"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
