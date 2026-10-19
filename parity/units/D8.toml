@@ -4,7 +4,7 @@ title = "daemon notes + tasks"
 crate = "daemon"
 ts_sources = ["src/daemon.ts"]
 rust_paths = ["crates/daemon/src/notes_tasks.rs"]
-deps = ["D1"]
+deps = ["D1", "D3"]
 ts_tests = []
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
 ts_suites = ["tests/notesDaemon.test.ts", "tests/noteItemsDaemon.test.ts", "tests/tasksDaemon.test.ts"]
