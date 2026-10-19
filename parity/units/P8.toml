@@ -10,7 +10,28 @@ ts_tests = ["tests/sidebarModel.test.ts", "tests/sessionFeatures.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = [
+	"sidebarModel/attentionReasonLines",
+	"sidebarModel/filterMenuLines",
+	"sidebarModel/formatAge",
+	"sidebarModel/locationText",
+	"sidebarModel/msUntilAgeChanges",
+	"sidebarModel/rowDimmed",
+	"sidebarModel/sessionDetails",
+	"sidebarModel/sidebarHeader",
+	"sidebarModel/sidebarRows",
+	"sidebarModel/statusSince",
+	"sidebarModel/statusWords",
+	"sessionFeatures-P8/filterForKey",
+	"sessionFeatures-P8/filterSessionList",
+	"sessionFeatures-P8/handoffGitLines",
+	"sessionFeatures-P8/handoffMarkdown",
+	"sessionFeatures-P8/sessionBlocked",
+	"sessionFeatures-P8/sessionFilterCounts",
+	"sessionFeatures-P8/sessionHasUnreadReply",
+	"sessionFeatures-P8/sessionNeedsAttention",
+	"sessionFeatures-P8/withReplyRead",
+]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
