@@ -1330,7 +1330,7 @@ mod tests {
                     .as_ref()
                     .is_some_and(|timer| timer.is_pending())
             );
-            // The same message again keeps its timer; none clears it.
+            // No message, no timer; a timer only hides the message it was set for.
             app.set_status(None);
             run_effects(&mut app);
             assert!(app.messages.status_timer.is_none());

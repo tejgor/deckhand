@@ -1059,9 +1059,9 @@ mod tests {
         assert_eq!(crate::primitives::string_width(&row_text(&squeezed)), 12);
     }
 
-    /// The golden of the empty dashboard (fixtures/ui/01-empty-dashboard.txt), rows trimmed, `<TMP>/demo` the repo.
-    #[test]
-    fn renders_the_empty_dashboard_like_the_golden() {
+    /// Renders `app` (connected over a socket pair, sessions loaded, `<TMP>/demo` the repo) after `setup` and compares
+    /// the screen with the golden `fixtures/ui/<name>.txt` (rows right-trimmed).
+    fn assert_golden(name: &str, setup: impl FnOnce(&mut App)) {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -1076,7 +1076,10 @@ mod tests {
                 socket,
                 deckhand_client::live::LiveClientHandlers::default(),
             )));
-            let mut terminal = Terminal::new(TestBackend::new(130, 36)).unwrap_or_else(|error| panic!("{error}"));
+            setup(&mut app);
+            let size = app.browse.terminal_size;
+            let mut terminal =
+                Terminal::new(TestBackend::new(size.cols, size.rows)).unwrap_or_else(|error| panic!("{error}"));
             terminal
                 .draw(|frame| render_app(&mut app, frame))
                 .unwrap_or_else(|error| panic!("{error}"));
@@ -1093,13 +1096,42 @@ mod tests {
                     line.trim_end().to_owned()
                 })
                 .collect();
-            let golden_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/ui/01-empty-dashboard.txt");
-            let golden = std::fs::read_to_string(golden_path).unwrap_or_else(|error| panic!("{error}"));
+            let path = format!("{}/../../fixtures/ui/{name}.txt", env!("CARGO_MANIFEST_DIR"));
+            let golden = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{path}: {error}"));
             let expected: Vec<&str> = golden.lines().collect();
-            assert_eq!(rows.len(), expected.len());
+            assert_eq!(rows.len(), expected.len(), "{name}");
             for (index, (got, want)) in rows.iter().zip(&expected).enumerate() {
-                assert_eq!(got, want, "row {index}");
+                assert_eq!(got, want, "{name} row {index}");
             }
+        });
+    }
+
+    #[test]
+    fn renders_the_empty_dashboard_like_the_golden() {
+        assert_golden("01-empty-dashboard", |_| {});
+    }
+
+    #[test]
+    fn renders_the_help_guide_full_width_like_the_goldens() {
+        assert_golden("02-help", |app| {
+            app.flows.help.open(None);
+            app.set_mode(Mode::Help);
+        });
+        assert_golden("03-help-topic", |app| {
+            app.flows.help.open(None);
+            app.flows.help.pick(1);
+            app.set_mode(Mode::Help);
+        });
+    }
+
+    #[test]
+    fn renders_search_and_the_filter_menu_like_the_goldens() {
+        assert_golden("05-search", |app| {
+            app.set_mode(Mode::Search);
+            app.browse.session_query = "zz".to_owned();
+        });
+        assert_golden("06-filter-menu", |app| {
+            app.set_mode(Mode::PickFilter);
         });
     }
 }
