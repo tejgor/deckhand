@@ -4,7 +4,7 @@ title = "agents flow"
 crate = "ui"
 ts_sources = ["src/agentsFlow.tsx"]
 rust_paths = ["crates/ui/src/flows/agents.rs"]
-deps = []
+deps = ["A1"]
 ts_tests = []
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
 ts_suites = ["tests/agentVersions.test.ts"]
