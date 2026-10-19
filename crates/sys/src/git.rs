@@ -1536,10 +1536,30 @@ mod tests {
         commit(&wt, "file.txt", "first\nchanged\n", "change file");
         write(&wt, "other.txt", "other edited\n");
         write(&wt, "new.txt", "untracked\n");
-        // The git.ts parts of the preview (the rest is workspaceGit's).
+        // The git.ts inputs of the preview. getMergePreview itself (workspaceGit.ts, I4) and this test's assertions
+        // on it (commits, diff stat, overlap, sourceSha, the whole preview object) are handed off to I4: see the
+        // notes in parity/units/I3.toml.
         assert_eq!(uncommitted_files(&wt).await.unwrap(), 2);
         assert_eq!(count_commits_to_merge(root, "feat").await.unwrap(), 2);
         assert_eq!(current_branch(root).await.unwrap(), "main");
+        assert_eq!(
+            resolve_default_branch(root, None, BranchWhere::Local).await.as_deref(),
+            Some("main")
+        );
+        assert_eq!(head_sha(&wt).await.unwrap(), tgit(&wt, &["rev-parse", "HEAD"]));
+        // targetIsMain: the main checkout is its own main root; another linked worktree is not.
+        let context = resolve_repo_context(root).await.unwrap();
+        assert_eq!(
+            (context.root.as_str(), context.main_root.as_deref()),
+            (root, Some(root))
+        );
+        let other = fx.worktree("other-target");
+        let context = resolve_repo_context(&other).await.unwrap();
+        assert_eq!(context.root, other);
+        assert_eq!(context.main_root.as_deref(), Some(root));
+        assert_ne!(context.main_root.as_deref(), Some(other.as_str()));
+        // Into itself: the source and target resolve to the same checkout.
+        assert_eq!(find_repo_root(Some(&wt)).await.unwrap(), wt);
         let error = merge_worktree_into_current(&wt, &wt, WorktreeMergeMode::Merge, &MergeOptions::default())
             .await
             .unwrap_err();
@@ -1639,6 +1659,8 @@ mod tests {
         let wt = fx.worktree("feat");
         commit(&wt, "a.txt", "a\n", "add a");
         commit(&wt, "file.txt", "feature\n", "change file");
+        // The preview's overlap lists (getMergePreview, workspaceGit.ts) are handed off to I4: see the notes in
+        // parity/units/I3.toml. Its git.ts input: no operation in progress, so the preview has no inProgress.
         assert_eq!(operation_in_progress(root).await.unwrap(), None);
 
         // A merge in progress (a conflicted one, started outside Deckhand).
@@ -1646,6 +1668,7 @@ mod tests {
         commit(&other, "file.txt", "other side\n", "other change");
         commit(root, "file.txt", "main side\n", "main change");
         assert!(run_git(root, &["merge", "other"]).is_err());
+        // The preview's inProgress ('merge') is operation_in_progress of the target.
         assert_eq!(operation_in_progress(root).await.unwrap(), Some(TargetOperation::Merge));
         let error = merge_worktree_into_current(&wt, root, WorktreeMergeMode::Merge, &MergeOptions::default())
             .await

@@ -25,6 +25,7 @@ allowlist = []
 # Wave 0 hand-off notes for this unit.
 notes = [
   "git.ts operationProblem is implemented in deckhand_core::merge_model::operation_problem (core needs it); re-export or call it.",
+  "Hand-off to I4 (getMergePreview lives in workspaceGit.ts, a todo!(\"I4\") stub here): tests/merge.test.ts is only in I3's ts_tests, so I4 must port these assertions itself. B-I3-01/02/03 cover merge.test.ts's git.ts parts (commit-first, target checks, operation_in_progress, resolve_repo_context mainRoot, resolve_default_branch, into-itself) but NOT its getMergePreview assertions: (a) merge.test.ts:34-41 the whole preview {sourceRef 'feat', targetRoot, targetBranch 'main', targetIsMain true, defaultBranch 'main', commitCount 2, commits ['change file','add a'], diff {files 2, insertions 4, deletions 0}, uncommitted 2, overlap {committed [], uncommitted []}}, sourceSha = rev-parse HEAD, targetIsMain false for another linked worktree, getMergePreview(wt, wt) rejects /into itself/; (b) merge.test.ts:49 [commitCount, uncommitted] = [0, 2]; (c) merge.test.ts:59-60 overlap {committed ['file.txt'], uncommitted ['notes.md']} and inProgress undefined; (d) merge.test.ts:71 inProgress 'merge' during a conflicted merge. The three deferred_tests above (to I4) are likewise not in I4's ts_tests: I4 should add tests/merge.test.ts to its ts_tests (deferring the four git.ts titles to I3) or otherwise port (a)-(d) and those three tests in workspace_git.rs.",
 ]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
