@@ -19,7 +19,10 @@ fixtures = [
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "sidebar: ↑ before the agent glyph on outdated running sessions, dropped first; the details name both versions", to = "U2", reason = "asserts sidebarRows/sessionDetails (P8) and the rendered Sidebar pane (U2)" },
+  { title = "Agents screen: one row per agent with versions and status, details of the selected one, confirmation, results", to = "F1", reason = "renders the AgentsPane (agentsFlow)" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 

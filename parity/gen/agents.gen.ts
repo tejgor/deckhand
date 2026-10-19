@@ -63,7 +63,12 @@ for (const [program, ref, parent, name] of sample(fc.tuple(fc.constantFrom(...PR
 	recorder.call('launchArgs', launchArgs, [program, {kind: 'fork', parent, ref, name}]);
 	recorder.call('launchArgs', launchArgs, [program, {kind: 'resume', ref: parent}]);
 }
-for (const args of mutate(recorder.argsOf('launchArgs').slice(0, 60), {variants: 2}).filter(a => PROGRAMS.includes(a[0] as ProgramKey))) recorder.call('launchArgs', launchArgs, args);
+// Mutations that break the LaunchPlan type (an unknown kind, provider or ref kind) are not recorded: the Rust port
+// takes a typed plan (the daemon builds every plan itself), so such input cannot reach it.
+const isRef = (ref: any) => Boolean(ref && PROGRAMS.includes(ref.provider) && ['id', 'name', 'path'].includes(ref.kind) && typeof ref.value === 'string');
+const isPlan = (plan: any) => Boolean(plan && (plan.kind === 'resume' ? isRef(plan.ref)
+	: (plan.kind === 'new' || (plan.kind === 'fork' && isRef(plan.parent))) && typeof plan.name === 'string' && (plan.ref === undefined || isRef(plan.ref))));
+for (const args of mutate(recorder.argsOf('launchArgs').slice(0, 60), {variants: 2}).filter(a => PROGRAMS.includes(a[0] as ProgramKey) && isPlan(a[1]))) recorder.call('launchArgs', launchArgs, args);
 
 // sameAgentSessionRef
 const maybe = [undefined, ...allRefs.slice(0, 7), {provider: 'claude', kind: 'id', value: U1}, {provider: 'codex', kind: 'id', value: U1}, {provider: 'claude', kind: 'name', value: U1}];
