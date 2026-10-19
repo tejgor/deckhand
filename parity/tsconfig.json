@@ -1,0 +1,17 @@
+{
+  "//": "Type-checks the parity tooling and gen scripts: npx tsc -p parity",
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "allowJs": false,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": ["lib.ts", "tap.ts", "gen/**/*.ts"]
+}
