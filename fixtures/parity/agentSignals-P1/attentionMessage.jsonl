@@ -1,0 +1,31 @@
+{"args":["failed",{"$u":1}],"ret":"failed"}
+{"args":["failed",{"kind":"message","text":"😀 中"}],"ret":"😀 中"}
+{"args":["failed",{"kind":"notice","text":"hi"}],"ret":"hi"}
+{"args":["failed",{"kind":"question","text":"","options":["a"]}],"ret":""}
+{"args":["failed"],"ret":"failed"}
+{"args":["limited",{"$u":1}],"ret":"rate limited"}
+{"args":["limited",{"kind":"message","text":"😀 中"}],"ret":"😀 中"}
+{"args":["limited",{"kind":"notice","text":"hi"}],"ret":"hi"}
+{"args":["limited",{"kind":"question","text":"","options":["a"]}],"ret":""}
+{"args":["limited"],"ret":"rate limited"}
+{"args":["needs-input",{"$u":1}],"ret":"needs input"}
+{"args":["needs-input",{"kind":"message","text":"😀 中"}],"ret":"😀 中"}
+{"args":["needs-input",{"kind":"notice","text":"hi"}],"ret":"hi"}
+{"args":["needs-input",{"kind":"question","text":"","options":["a"]}],"ret":""}
+{"args":["needs-input"],"ret":"needs input"}
+{"args":["response-ended",{"$u":1}],"ret":"response ended"}
+{"args":["response-ended",{"kind":"message","text":"said: ok"}],"ret":"said: ok"}
+{"args":["response-ended",{"kind":"message","text":"😀 中"}],"ret":"😀 中"}
+{"args":["response-ended",{"kind":"notice","text":"hi"}],"ret":"hi"}
+{"args":["response-ended",{"kind":"question","text":"","options":["a"]}],"ret":""}
+{"args":["response-ended"],"ret":"response ended"}
+{"args":["unknown",{"$u":1}],"ret":"unknown"}
+{"args":["unknown",{"kind":"message","text":"😀 中"}],"ret":"😀 中"}
+{"args":["unknown",{"kind":"notice","text":"hi"}],"ret":"hi"}
+{"args":["unknown",{"kind":"question","text":"","options":["a"]}],"ret":""}
+{"args":["unknown"],"ret":"unknown"}
+{"args":["working",{"$u":1}],"ret":"working"}
+{"args":["working",{"kind":"message","text":"😀 中"}],"ret":"😀 中"}
+{"args":["working",{"kind":"notice","text":"hi"}],"ret":"hi"}
+{"args":["working",{"kind":"question","text":"","options":["a"]}],"ret":""}
+{"args":["working"],"ret":"working"}
