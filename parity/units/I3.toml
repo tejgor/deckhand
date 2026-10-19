@@ -10,12 +10,16 @@ ts_tests = ["tests/merge.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["git/sanitizeWorktreeName", "git/operationProblem", "git/resolve-script-in-current", "git/resolve-script-in-main-only", "git/resolve-script-is-directory", "git/resolve-script-missing-roots", "git/resolve-script-no-main", "git/resolve-script-none", "git/resolve-script-prefers-current", "git/resolve-script-same-root", "git/resolve-script-symlink", "git/resolve-script-unicode-missing-current", "git/resolve-script-special-dir"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "squash merge: cleanup counts commits up to the merged one as integrated, later commits still need DELETE", to = "I4", reason = "asserts workspaceGit inspectWorkspaceCleanup (integrated SHA handling); git.ts's squash merge is covered by B-I3-01/B-I3-04" },
+  { title = "merge detection: a branch whose commits are in the default branch counts; a fresh or merely fast-forwarded branch never does", to = "I4", reason = "asserts workspaceGit mergedIntoDefault; git.ts branchCreationCommit/branchHasOwnCommits are tested in git.rs (branch_creation_commit_and_own_commits)" },
+  { title = "the PR lookup is injectable: a MERGED PR reaches the summary (with its head and base), a failing lookup becomes prError", to = "I4", reason = "asserts workspaceGit getWorkspaceSummary only" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 # Wave 0 hand-off notes for this unit.

@@ -1,0 +1,3 @@
+{"args":[],"ret":{"loaded":false,"entries":[],"counts":{"conflicts":0,"staged":0,"unstaged":0,"untracked":0},"omitted":{"conflicts":0,"staged":0,"unstaged":0,"untracked":0}}}
+{"args":[{"loaded":true,"branch":"main","error":"boom","workspace":"/w"}],"ret":{"loaded":true,"entries":[],"counts":{"conflicts":0,"staged":0,"unstaged":0,"untracked":0},"omitted":{"conflicts":0,"staged":0,"unstaged":0,"untracked":0},"branch":"main","error":"boom","workspace":"/w"}}
+{"args":[{}],"ret":{"loaded":false,"entries":[],"counts":{"conflicts":0,"staged":0,"unstaged":0,"untracked":0},"omitted":{"conflicts":0,"staged":0,"unstaged":0,"untracked":0}}}
