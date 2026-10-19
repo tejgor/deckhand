@@ -577,16 +577,24 @@ impl Daemon {
         Ok(started)
     }
 
-    /// TS: child.on('message') / child.on('exit') of a session worker: handles its events in order until it exits
-    /// (a failure handling one is logged, never fatal).
+    /// TS: child.on('message') / child.on('exit') of a session worker: starts a handler per event in order until it
+    /// exits (a failure handling one is logged, never fatal). As TS's `void this.handleWorkerMessage(...)`, each
+    /// handler runs inline up to its first await and then goes on beside the pump: a handler waiting on a request to
+    /// this worker (a scrolled watcher's snapshot) holds up neither later events nor the exit that fails the request.
     pub async fn pump_worker_events(&self, session_id: String, worker: Rc<WorkerRuntime>, mut events: ChannelEvents) {
         while let Some(event) = events.recv().await {
             match event {
                 ChannelEvent::Message(message) => {
-                    // A failure handling one event is logged: it must never stop the daemon and every agent with it.
-                    if let Err(error) = self.handle_worker_message(&session_id, *message, &worker).await {
-                        self.log_soon(format!("handling a worker event of {session_id} failed: {error}"));
-                    }
+                    let daemon = self.clone();
+                    let session_id = session_id.clone();
+                    let worker = Rc::clone(&worker);
+                    start_detached(async move {
+                        // A failure handling one event is logged: it must never stop the daemon and every agent with it.
+                        if let Err(error) = daemon.handle_worker_message(&session_id, *message, &worker).await {
+                            daemon.log_soon(format!("handling a worker event of {session_id} failed: {error}"));
+                        }
+                    })
+                    .await;
                 }
                 ChannelEvent::Exit(_) => {
                     if self.is_current_worker(&session_id, &worker) {
@@ -1033,6 +1041,16 @@ impl Daemon {
 }
 
 /// TS `this.setupProcesses.get(sessionId) === child`.
+/// A JS `void promise()` call: polls `future` once right here (its synchronous part runs in call order) and, if it
+/// is still waiting, lets it finish as its own task. Never waits on it.
+async fn start_detached(future: impl Future<Output = ()> + 'static) {
+    let mut future = Box::pin(future);
+    let pending = std::future::poll_fn(|cx| std::task::Poll::Ready(future.as_mut().poll(cx).is_pending())).await;
+    if pending {
+        drop(spawn(future));
+    }
+}
+
 fn spawned_matches(processes: &HashMap<String, SetupProcess>, session_id: &str, process: SetupProcess) -> bool {
     process.pid.is_some() && processes.get(session_id) == Some(&process)
 }
@@ -1622,6 +1640,61 @@ mod tests {
             assert!(worker.channel.is_exited());
             assert!(daemon.launch.borrow().workers.is_empty());
             assert!(!pid_file.exists());
+        });
+    }
+
+    #[test]
+    fn a_handler_waiting_on_its_worker_blocks_neither_output_nor_the_exit() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = test_daemon(dir.path());
+            let mut exited = session("s", "/repo", "/repo");
+            exited.status = SessionStatus::Exited;
+            put(&daemon, exited);
+            std::fs::create_dir_all(&daemon.paths.worker_dir).unwrap();
+            let pid_file = daemon.paths.worker_dir.join("s.pid");
+            std::fs::write(&pid_file, "1").unwrap();
+            let (worker, events, mut fake) = fake_worker(&daemon, "s").await;
+            let (attached, mut attached_rx) = test_client(1);
+            *worker.attached_agent.borrow_mut() = Some(attached);
+            let (watcher, mut watcher_rx) = test_client(2);
+            daemon.get_client(&watcher, |client| {
+                client.watched_preview_session_id = Some("s".into());
+                client.preview_scroll_offset = 5;
+            });
+            let pump = spawn({
+                let daemon = daemon.clone();
+                let worker = Rc::clone(&worker);
+                async move { daemon.pump_worker_events("s".into(), worker, events).await }
+            });
+            // The scrolled watcher's snapshot request stays unanswered while the agent's output follows it.
+            let preview = json!({"sessionId": "s", "content": "screen", "live": true});
+            let sent = format!(
+                "{}\n{}\n",
+                json!({"type": "preview-updated", "preview": preview}),
+                json!({"type": "output", "target": "agent", "data": "hi"})
+            );
+            fake.theirs.get_mut().write_all(sent.as_bytes()).await.unwrap();
+            let snapshot = fake.next().await;
+            assert_eq!(snapshot["type"], "snapshot");
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+            let output = loop {
+                let output = lines(&mut attached_rx);
+                if !output.is_empty() || tokio::time::Instant::now() > deadline {
+                    break output;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            };
+            assert_eq!(output, vec![json!({"type": "output", "sessionId": "s", "data": "hi"})]);
+            // The worker's exit fails the outstanding snapshot at once and retires it.
+            fake.exit();
+            tokio::time::timeout(Duration::from_secs(2), pump)
+                .await
+                .expect("the exit is handled behind no handler");
+            assert!(worker.channel.is_exited());
+            assert!(daemon.launch.borrow().workers.is_empty());
+            assert!(!pid_file.exists());
+            assert!(lines(&mut watcher_rx).is_empty());
         });
     }
 
