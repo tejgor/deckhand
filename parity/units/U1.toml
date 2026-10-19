@@ -10,7 +10,7 @@ ts_tests = ["tests/menu.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["terminalPane/hasAction", "terminalPane/actionStatus"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
