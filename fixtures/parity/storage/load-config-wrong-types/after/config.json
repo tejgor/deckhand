@@ -1,0 +1,8 @@
+{
+  "dev_command": 5,
+  "attach_scroll_sensitivity": "2",
+  "trustedProjects": [],
+  "agent_hooks": "yes",
+  "notifications": "true",
+  "defaults": null
+}

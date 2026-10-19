@@ -1,0 +1,17 @@
+{
+  "fn": "saveUiState",
+  "args": [
+    "$ROOT",
+    "$ROOT/repo",
+    {
+      "sessionTabs": {},
+      "collapsedSessionIds": [],
+      "hiddenExitedSessionIds": [],
+      "readReplies": {}
+    }
+  ],
+  "async": true,
+  "ret": {
+    "$u": 1
+  }
+}

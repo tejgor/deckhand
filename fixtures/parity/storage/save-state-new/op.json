@@ -1,0 +1,14 @@
+{
+  "fn": "saveState",
+  "args": [
+    "$ROOT",
+    {
+      "sessions": [],
+      "worktrees": []
+    }
+  ],
+  "async": true,
+  "ret": {
+    "$u": 1
+  }
+}

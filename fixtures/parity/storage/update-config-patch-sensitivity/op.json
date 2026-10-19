@@ -1,0 +1,15 @@
+{
+  "fn": "updateAppConfig",
+  "args": [
+    "$ROOT",
+    {
+      "attach_scroll_sensitivity": 3.25
+    }
+  ],
+  "async": true,
+  "ret": {
+    "attach_scroll_sensitivity": 3.25,
+    "trustedProjects": {},
+    "notifications": false
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "fn": "loadState",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "ret": {
+    "sessions": [
+      {
+        "id": "a",
+        "title": "Session a",
+        "program": "claude",
+        "command": "claude",
+        "cwd": "/w",
+        "repoRoot": "/r",
+        "worktree": {
+          "mode": "managed",
+          "path": "/w",
+          "id": "wt-1"
+        },
+        "status": "running",
+        "createdAt": "2026-09-10T09:00:00.000Z",
+        "updatedAt": "2026-09-10T09:00:00.000Z"
+      },
+      {
+        "id": "b",
+        "title": "Session b",
+        "program": "claude",
+        "command": "claude",
+        "cwd": "/w",
+        "repoRoot": "/r",
+        "worktree": {
+          "mode": "managed",
+          "path": "/w",
+          "id": "wt-1"
+        },
+        "status": "running",
+        "createdAt": "2026-09-10T09:00:00.000Z",
+        "updatedAt": "2026-09-10T09:00:00.000Z"
+      }
+    ],
+    "worktrees": [
+      {
+        "id": "wt-1",
+        "path": "/w",
+        "createdAt": "2026-09-10T09:00:00.000Z",
+        "mergedAt": "2026-09-11T00:00:00.000Z"
+      }
+    ]
+  }
+}

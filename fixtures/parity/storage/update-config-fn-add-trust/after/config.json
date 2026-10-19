@@ -1,0 +1,11 @@
+{
+  "trustedProjects": {
+    "/old": [
+      "legacy"
+    ],
+    "/new": [
+      "hash"
+    ]
+  },
+  "keep": 1
+}

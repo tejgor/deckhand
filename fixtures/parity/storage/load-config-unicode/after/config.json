@@ -1,0 +1,10 @@
+{
+  "dev_command": "😀 中文 é",
+  "defaults": [
+    1,
+    "two",
+    {
+      "three": null
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "fn": "markAllNonExitedSessionsExited",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "ret": {
+    "sessions": [
+      {
+        "id": "a",
+        "title": "Session a",
+        "program": "claude",
+        "command": "claude",
+        "cwd": "/r",
+        "repoRoot": "/r",
+        "worktree": {
+          "mode": "none"
+        },
+        "status": "exited",
+        "createdAt": "2026-09-10T09:00:00.000Z",
+        "updatedAt": "2026-09-10T09:00:00.000Z",
+        "devRunning": false
+      }
+    ],
+    "worktrees": []
+  }
+}

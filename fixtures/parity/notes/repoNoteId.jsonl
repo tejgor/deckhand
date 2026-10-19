@@ -1,0 +1,34 @@
+{"args":["/ "],"ret":"5da345a47290ee22"}
+{"args":["/ ba "],"ret":"8eda6fb72d423ab2"}
+{"args":["/"],"ret":"8a5edab282632443"}
+{"args":["/."],"ret":"8a5edab282632443"}
+{"args":["/Users/me/proj 中文"],"ret":"1cca0277e2475ea0"}
+{"args":["/a "],"ret":"ccd59e996ee8cc42"}
+{"args":["/a"],"ret":"6a50dc8584134c7d"}
+{"args":["/a中a "],"ret":"6c1771e72e9eff2f"}
+{"args":["/b"],"ret":"9812b0b9d61e09b9"}
+{"args":["/baa"],"ret":"6400d761be36da54"}
+{"args":["/bb.éab"],"ret":"76e10a195ab75f17"}
+{"args":["/béé😀aa"],"ret":"847ed10afc8f1777"}
+{"args":["/bé😀"],"ret":"0e89f173ebe6c88b"}
+{"args":["/b中a"],"ret":"c8b0a7cf3cb93e55"}
+{"args":["/b😀"],"ret":"af04329d84624b30"}
+{"args":["/repo"],"ret":"816fc349d3faebf8"}
+{"args":["/tmp//repo"],"ret":"b6fe87a9b936bea6"}
+{"args":["/tmp/a/../repo"],"ret":"b6fe87a9b936bea6"}
+{"args":["/tmp/repo"],"ret":"b6fe87a9b936bea6"}
+{"args":["/tmp/repo/"],"ret":"b6fe87a9b936bea6"}
+{"args":["/tmp/repo/."],"ret":"b6fe87a9b936bea6"}
+{"args":["/tmp/😀"],"ret":"f7bd60f669a72585"}
+{"args":["/é.a.é"],"ret":"de6ac879ae0e94da"}
+{"args":["/中 b😀é"],"ret":"6d5a567c9fddf084"}
+{"args":["/中 😀"],"ret":"734ea205a25a2eeb"}
+{"args":["/中"],"ret":"c695feeb5a990a58"}
+{"args":["/中.b😀a"],"ret":"2465e5529d703d51"}
+{"args":["/中b"],"ret":"2010e863b5214610"}
+{"args":["/中é😀  "],"ret":"310bc9a8d5915b4a"}
+{"args":["/😀 "],"ret":"956261cd5a891c3b"}
+{"args":["/😀"],"ret":"ec596ca1927a8312"}
+{"args":["/😀.b 😀"],"ret":"68d0aaa178997ef7"}
+{"args":["/😀.中"],"ret":"9c67947aeb0fa22a"}
+{"args":["/😀b..中"],"ret":"4b0cb2561a08372f"}

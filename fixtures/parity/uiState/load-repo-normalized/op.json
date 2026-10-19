@@ -1,0 +1,20 @@
+{
+  "fn": "loadUiState",
+  "args": [
+    "$ROOT",
+    "$ROOT/repo"
+  ],
+  "async": true,
+  "ret": {
+    "sessionFilter": "active",
+    "sessionQuery": "",
+    "sessionTabs": {
+      "a": "git"
+    },
+    "collapsedSessionIds": [
+      "a"
+    ],
+    "hiddenExitedSessionIds": [],
+    "readReplies": {}
+  }
+}

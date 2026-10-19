@@ -10,14 +10,30 @@ ts_tests = ["tests/projectConfig.test.ts", "tests/projectConfigDocument.test.ts"
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["projectConfig-P10/explainSettings", "projectConfig-P10/globalDefaults", "projectConfig-P10/isProjectTrusted", "projectConfig-P10/parseProjectConfig", "projectConfig-P10/projectFingerprint", "projectConfig-P10/projectNeedsReview", "projectConfig-P10/resolveDevCommand", "projectConfig-P10/resolveSettings", "projectConfig-P10/resolveSetupCommand", "projectConfig-P10/sha256", "projectConfig-P10/trustProjectConfig", "projectConfig-P10/untrustedLayer", "projectConfig-P10/validateProjectConfig"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "the repository override is the main checkout's live deckhand.json; worktree copies are ignored", to = "I6", reason = "needs loadProjectConfig on real repositories and linked worktrees (file and VCS I/O), ported by I6 in deckhand_sys::config" },
+  { title = "trust keeps several fingerprints per repository, newest first and capped", to = "I6", reason = "fingerprints come from loadProjectConfig on a real repository (I6); the pure trust capping is also unit-tested in project_config.rs" },
+  { title = "trust roots are unique for submodules and bare repositories; bare repositories have no repository override", to = "I6", reason = "needs loadProjectConfig/readProjectConfigDocument on submodules and bare repositories (I6)" },
+  { title = "malformed, oversized and symlinked config errors are not hidden", to = "I6", reason = "exercises readBoundedUtf8/loadProjectConfig file reads (I6)" },
+  { title = "opening a missing config is side-effect free; explicit save creates a valid starter", to = "I6", reason = "readProjectConfigDocument/saveProjectConfigDocument file I/O (I6, deckhand_sys::config_document)" },
+  { title = "malformed JSON can be opened/repaired; invalid drafts never overwrite it", to = "I6", reason = "readProjectConfigDocument/saveProjectConfigDocument file I/O (I6, deckhand_sys::config_document)" },
+  { title = "saving keeps the file permissions", to = "I6", reason = "saveProjectConfigDocument file I/O (I6, deckhand_sys::config_document)" },
+  { title = "a stale draft cannot replace an externally changed, created or removed file", to = "I6", reason = "saveProjectConfigDocument file I/O (I6, deckhand_sys::config_document)" },
+  { title = "simultaneous saves with one revision have exactly one winner", to = "I6", reason = "saveProjectConfigDocument serialized writes (I6, deckhand_sys::config_document)" },
+  { title = "from a linked worktree, the editor opens and saves the main checkout's file", to = "I6", reason = "readProjectConfigDocument/saveProjectConfigDocument on a linked worktree (I6)" },
+  { title = "symlinked and oversized configs are rejected without modifying their targets", to = "I6", reason = "readProjectConfigDocument/saveProjectConfigDocument file I/O (I6)" },
+  { title = "saves through Deckhand keep a trusted (or new) deckhand.json trusted; unreviewed bytes, outside edits and creation hooks still need review", to = "I6", reason = "savedProjectTrust and saveProjectConfigDocument with app config updates (I6)" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
-allowlist = []
+allowlist = [
+  { fixture = "projectConfig-P10/parseProjectConfig", case = 36, reason = "a lone surrogate escape (\\ud83d) cannot live in a Rust String; it becomes U+FFFD, what Node writes for it as UTF-8" },
+  { fixture = "projectConfig-P10/parseProjectConfig", case = 37, reason = "a lone surrogate escape (\\ud83d) cannot live in a Rust String; it becomes U+FFFD, what Node writes for it as UTF-8" },
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
@@ -33,7 +49,7 @@ projectConfig.projectFingerprint = "crates/core/src/project_config.rs::project_f
 projectConfig.SaveTrust = "crates/protocol/src/data.rs::SaveTrust"
 projectConfig.isProjectTrusted = "crates/core/src/project_config.rs::is_project_trusted"
 projectConfig.projectNeedsReview = "crates/core/src/project_config.rs::project_needs_review"
-projectConfig.trustProjectConfig = "crates/core/src/project_config.rs::trust_project_config"
+projectConfig.trustProjectConfig = ["crates/core/src/project_config.rs::trust_project_config", "crates/core/src/project_config.rs::trust_project_config_value"]
 projectConfig.globalDefaults = "crates/core/src/project_config.rs::global_defaults"
 projectConfig.SUGGESTION_KEYS = "crates/core/src/project_config.rs::SUGGESTION_KEYS"
 projectConfig.untrustedLayer = "crates/core/src/project_config.rs::untrusted_layer"
