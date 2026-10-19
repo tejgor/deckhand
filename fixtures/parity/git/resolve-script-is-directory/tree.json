@@ -1,0 +1,86 @@
+{
+  "before": [
+    {
+      "path": "cur",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude/scripts",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude/scripts/create-worktree.sh",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main/.claude",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main/.claude/scripts",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main/.claude/scripts/create-worktree.sh",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "cur",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude/scripts",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude/scripts/create-worktree.sh",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main/.claude",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main/.claude/scripts",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main/.claude/scripts/create-worktree.sh",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

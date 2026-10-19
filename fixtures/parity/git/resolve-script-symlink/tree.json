@@ -1,0 +1,58 @@
+{
+  "before": [
+    {
+      "path": "cur",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude/scripts",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude/scripts/create-worktree.sh",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/real.sh"
+    },
+    {
+      "path": "real.sh",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "cur",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude/scripts",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "cur/.claude/scripts/create-worktree.sh",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/real.sh"
+    },
+    {
+      "path": "real.sh",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

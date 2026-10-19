@@ -1,0 +1,5 @@
+{"args":["cherry-pick"],"ret":"A cherry-pick is in progress in the target: finish or abort it first"}
+{"args":["conflicts"],"ret":"The target has unresolved conflicts: resolve and commit them first"}
+{"args":["merge"],"ret":"A merge is in progress in the target: finish or abort it first"}
+{"args":["rebase"],"ret":"A rebase is in progress in the target: finish or abort it first"}
+{"args":["revert"],"ret":"A revert is in progress in the target: finish or abort it first"}
