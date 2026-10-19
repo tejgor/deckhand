@@ -132,9 +132,16 @@ fixtures = [
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "restart finds an agent that moved, refuses one that is gone, and an agent that exits silently says it failed to start", to = "D3", reason = "daemon integration test: restartSession re-resolving the agent on PATH, the not-installed refusal and the worker's failed-to-start message; nothing in I7's files is exercised" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
-allowlist = []
+allowlist = [
+  { fixture = "settingsInfo/codexHookCommands", case = 77, reason = "JSON escape \\ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD)" },
+  { fixture = "settingsInfo/codexHookCommands", case = 78, reason = "JSON escape \\ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD)" },
+  { fixture = "settingsInfo/codexHookCommands", case = 79, reason = "JSON escape \\ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD)" },
+  { fixture = "settingsInfo/codexHookCommands", case = 80, reason = "JSON escape \\ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD)" },
+]
 # Wave 0 hand-off notes for this unit.
 notes = [
   "agent_path::hook_command must resolve the executable like deckhand::hooks: the `deckhand` on $PATH when it is the same inode as current_exe, else current_exe — Settings' expected Codex hook command, Claude --settings, and `deckhand hooks` must agree.",
