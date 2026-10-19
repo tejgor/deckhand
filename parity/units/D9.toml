@@ -21,17 +21,20 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"daemon.ts:MERGE_DETECT_MS" = "deckhand_daemon::merge::MERGE_DETECT_INTERVAL"
-"daemon.ts:MERGE_DETECT_MAX" = "deckhand_daemon::merge::MERGE_DETECT_MAX"
-"daemon.ts:PendingMerge" = "deckhand_daemon::merge::PendingMerge"
-"daemon.ts:defaultBranchRefs" = "deckhand_daemon::merge::default_branch_refs"
-"daemon.ts:mergeSource" = "deckhand_daemon::daemon::Daemon::merge_source"
-"daemon.ts:mergePreview" = "deckhand_daemon::daemon::Daemon::merge_preview"
-"daemon.ts:mergeSessionWorktree" = "deckhand_daemon::daemon::Daemon::merge_session_worktree"
-"daemon.ts:resolveMerge" = "deckhand_daemon::daemon::Daemon::resolve_merge"
-"daemon.ts:saveMergeMarkers" = "deckhand_daemon::daemon::Daemon::save_merge_markers"
-"daemon.ts:markSessionMerged" = "deckhand_daemon::daemon::Daemon::mark_session_merged"
-"daemon.ts:detectMerges" = "deckhand_daemon::daemon::Daemon::detect_merges"
-"daemon.ts:runMergeDetection" = "deckhand_daemon::daemon::Daemon::run_merge_detection"
-"daemon.ts:detectMergeFromSummary" = "deckhand_daemon::daemon::Daemon::detect_merge_from_summary"
-"daemon.ts:markDetectedMerge" = "deckhand_daemon::daemon::Daemon::mark_detected_merge"
+
+# Non-exported TS internals mapped for traceability (not checked by verify-unit).
+[internals]
+"daemon.MERGE_DETECT_MS" = "crates/daemon/src/merge.rs::MERGE_DETECT_INTERVAL"
+"daemon.MERGE_DETECT_MAX" = "crates/daemon/src/merge.rs::MERGE_DETECT_MAX"
+"daemon.PendingMerge" = "crates/daemon/src/merge.rs::PendingMerge"
+"daemon.defaultBranchRefs" = "crates/daemon/src/merge.rs::default_branch_refs"
+"daemon.mergeSource" = "crates/daemon/src/daemon.rs::Daemon::merge_source"
+"daemon.mergePreview" = "crates/daemon/src/daemon.rs::Daemon::merge_preview"
+"daemon.mergeSessionWorktree" = "crates/daemon/src/daemon.rs::Daemon::merge_session_worktree"
+"daemon.resolveMerge" = "crates/daemon/src/daemon.rs::Daemon::resolve_merge"
+"daemon.saveMergeMarkers" = "crates/daemon/src/daemon.rs::Daemon::save_merge_markers"
+"daemon.markSessionMerged" = "crates/daemon/src/daemon.rs::Daemon::mark_session_merged"
+"daemon.detectMerges" = "crates/daemon/src/daemon.rs::Daemon::detect_merges"
+"daemon.runMergeDetection" = "crates/daemon/src/daemon.rs::Daemon::run_merge_detection"
+"daemon.detectMergeFromSummary" = "crates/daemon/src/daemon.rs::Daemon::detect_merge_from_summary"
+"daemon.markDetectedMerge" = "crates/daemon/src/daemon.rs::Daemon::mark_detected_merge"

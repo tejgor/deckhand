@@ -21,5 +21,5 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"changesFlow.tsx:ChangesFlow" = "deckhand_ui::flows::changes::ChangesFlow"
-"changesFlow.tsx:useChangesFlow" = "deckhand_ui::flows::changes::ChangesFlow"
+changesFlow.ChangesFlow = "crates/ui/src/flows/changes.rs::ChangesFlow"
+changesFlow.useChangesFlow = "crates/ui/src/flows/changes.rs::ChangesFlow"

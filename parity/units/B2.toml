@@ -22,4 +22,4 @@ allowlist = []
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
 
-"setup.ts:runSetup" = "deckhand::setup::run_setup"
+setup.runSetup = "crates/deckhand/src/setup.rs::run_setup"

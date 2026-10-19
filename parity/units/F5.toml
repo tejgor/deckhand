@@ -21,6 +21,6 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"tasksFlow.tsx:TasksFlow" = "deckhand_ui::flows::tasks::TasksFlow"
-"tasksFlow.tsx:useTasksFlow" = "deckhand_ui::flows::tasks::TasksFlow"
-"tasksFlow.tsx:TaskBanner" = "deckhand_ui::flows::tasks::render_task_banner"
+tasksFlow.TasksFlow = "crates/ui/src/flows/tasks.rs::TasksFlow"
+tasksFlow.useTasksFlow = "crates/ui/src/flows/tasks.rs::TasksFlow"
+tasksFlow.TaskBanner = "crates/ui/src/flows/tasks.rs::render_task_banner"

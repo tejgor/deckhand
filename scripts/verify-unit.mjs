@@ -324,7 +324,8 @@ async function checkTests(ctx) {
 
 function symbolDefined(source, symbol, first) {
 	const name = escapeRegExp(symbol);
-	const definition = new RegExp(`\\b(?:fn|struct|enum|trait|type|const|static|mod|union)\\s+${name}\\b|macro_rules!\\s*${name}\\b`);
+	// Also items declared through a local item macro, e.g. `string_union!(/// doc\n Name { .. })` in deckhand-protocol.
+	const definition = new RegExp(`\\b(?:fn|struct|enum|trait|type|const|static|mod|union)\\s+${name}\\b|macro_rules!\\s*${name}\\b|\\b[a-z_]+!\\s*[({]\\s*(?:(?:///[^\\n]*|#\\[[^\\]]*\\])\\s*)*${name}\\s*\\{`);
 	return definition.test(source) || (!first && new RegExp(`\\b${name}\\b`).test(source));
 }
 function validateTarget(value) {

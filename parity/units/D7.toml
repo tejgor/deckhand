@@ -21,19 +21,22 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"daemon.ts:SUMMARY_TTL_MS" = "deckhand_daemon::changes::SUMMARY_TTL"
-"daemon.ts:CHANGES_POLL_MS" = "deckhand_daemon::changes::CHANGES_POLL"
-"daemon.ts:CHANGES_FRESH_MS" = "deckhand_daemon::changes::CHANGES_FRESH"
-"daemon.ts:ChangesWatch" = "deckhand_daemon::changes::ChangesWatch"
-"daemon.ts:changesWatch" = "deckhand_daemon::daemon::Daemon::changes_watch"
-"daemon.ts:changesExclusive" = "deckhand_daemon::daemon::Daemon::changes_exclusive"
-"daemon.ts:refreshChanges" = "deckhand_daemon::daemon::Daemon::refresh_changes"
-"daemon.ts:publishChanges" = "deckhand_daemon::daemon::Daemon::publish_changes"
-"daemon.ts:watchChanges" = "deckhand_daemon::daemon::Daemon::watch_changes"
-"daemon.ts:syncChangeWatches" = "deckhand_daemon::daemon::Daemon::sync_change_watches"
-"daemon.ts:stopChangesWatch" = "deckhand_daemon::daemon::Daemon::stop_changes_watch"
-"daemon.ts:handleRequest.watch-changes" = "deckhand_daemon::daemon::Daemon::handle_watch_changes"
-"daemon.ts:handleRequest.changes-diff" = "deckhand_daemon::daemon::Daemon::handle_changes_diff"
-"daemon.ts:handleRequest.change-stage" = "deckhand_daemon::daemon::Daemon::handle_change_stage"
-"daemon.ts:handleRequest.workspace-summary" = "deckhand_daemon::daemon::Daemon::handle_workspace_summary"
-"daemon.ts:handleRequest.create-pr" = "deckhand_daemon::daemon::Daemon::handle_create_pr"
+
+# Non-exported TS internals mapped for traceability (not checked by verify-unit).
+[internals]
+"daemon.SUMMARY_TTL_MS" = "crates/daemon/src/changes.rs::SUMMARY_TTL"
+"daemon.CHANGES_POLL_MS" = "crates/daemon/src/changes.rs::CHANGES_POLL"
+"daemon.CHANGES_FRESH_MS" = "crates/daemon/src/changes.rs::CHANGES_FRESH"
+"daemon.ChangesWatch" = "crates/daemon/src/changes.rs::ChangesWatch"
+"daemon.changesWatch" = "crates/daemon/src/daemon.rs::Daemon::changes_watch"
+"daemon.changesExclusive" = "crates/daemon/src/daemon.rs::Daemon::changes_exclusive"
+"daemon.refreshChanges" = "crates/daemon/src/daemon.rs::Daemon::refresh_changes"
+"daemon.publishChanges" = "crates/daemon/src/daemon.rs::Daemon::publish_changes"
+"daemon.watchChanges" = "crates/daemon/src/daemon.rs::Daemon::watch_changes"
+"daemon.syncChangeWatches" = "crates/daemon/src/daemon.rs::Daemon::sync_change_watches"
+"daemon.stopChangesWatch" = "crates/daemon/src/daemon.rs::Daemon::stop_changes_watch"
+"daemon.handleRequest.watch-changes" = "crates/daemon/src/daemon.rs::Daemon::handle_watch_changes"
+"daemon.handleRequest.changes-diff" = "crates/daemon/src/daemon.rs::Daemon::handle_changes_diff"
+"daemon.handleRequest.change-stage" = "crates/daemon/src/daemon.rs::Daemon::handle_change_stage"
+"daemon.handleRequest.workspace-summary" = "crates/daemon/src/daemon.rs::Daemon::handle_workspace_summary"
+"daemon.handleRequest.create-pr" = "crates/daemon/src/daemon.rs::Daemon::handle_create_pr"

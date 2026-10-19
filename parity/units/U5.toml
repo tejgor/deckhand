@@ -21,9 +21,9 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"settingsPane.tsx:SettingsView" = "deckhand_ui::panes::settings::SettingsView"
-"settingsPane.tsx:SettingsEdit" = "deckhand_ui::panes::settings::SettingsEdit"
-"settingsPane.tsx:LinksState" = "deckhand_ui::panes::settings::LinksState"
-"settingsPane.tsx:Notice" = "deckhand_ui::panes::settings::Notice"
-"settingsPane.tsx:SettingsPane" = "deckhand_ui::panes::settings::render_settings_pane"
-"configEditorPane.tsx:ConfigEditorPane" = "deckhand_ui::panes::config_editor::render_config_editor_pane"
+settingsPane.SettingsView = "crates/ui/src/panes/settings.rs::SettingsView"
+settingsPane.SettingsEdit = "crates/ui/src/panes/settings.rs::SettingsEdit"
+settingsPane.LinksState = "crates/ui/src/panes/settings.rs::LinksState"
+settingsPane.Notice = "crates/ui/src/panes/settings.rs::Notice"
+settingsPane.SettingsPane = "crates/ui/src/panes/settings.rs::render_settings_pane"
+configEditorPane.ConfigEditorPane = "crates/ui/src/panes/config_editor.rs::render_config_editor_pane"

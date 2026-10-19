@@ -21,11 +21,11 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"processTree.ts:ProcessSnapshot" = "deckhand_sys::process_tree::ProcessSnapshot"
-"processTree.ts:snapshotDescendants" = "deckhand_sys::process_tree::snapshot_descendants"
-"processTree.ts:survivors" = "deckhand_sys::process_tree::survivors"
-"processTree.ts:killSurvivors" = "deckhand_sys::process_tree::kill_survivors"
-"claudeTranscripts.ts:claudeProjectsDir" = "deckhand_sys::claude_transcripts::claude_projects_dir"
-"claudeTranscripts.ts:claudeProjectKey" = "deckhand_sys::claude_transcripts::claude_project_key"
-"claudeTranscripts.ts:LatestConversationOptions" = "deckhand_sys::claude_transcripts::LatestConversationOptions"
-"claudeTranscripts.ts:latestClaudeConversation" = "deckhand_sys::claude_transcripts::latest_claude_conversation"
+processTree.ProcessSnapshot = "crates/sys/src/process_tree.rs::ProcessSnapshot"
+processTree.snapshotDescendants = "crates/sys/src/process_tree.rs::snapshot_descendants"
+processTree.survivors = "crates/sys/src/process_tree.rs::survivors"
+processTree.killSurvivors = "crates/sys/src/process_tree.rs::kill_survivors"
+claudeTranscripts.claudeProjectsDir = "crates/sys/src/claude_transcripts.rs::claude_projects_dir"
+claudeTranscripts.claudeProjectKey = "crates/sys/src/claude_transcripts.rs::claude_project_key"
+claudeTranscripts.LatestConversationOptions = "crates/sys/src/claude_transcripts.rs::LatestConversationOptions"
+claudeTranscripts.latestClaudeConversation = "crates/sys/src/claude_transcripts.rs::latest_claude_conversation"

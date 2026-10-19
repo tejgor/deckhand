@@ -21,11 +21,11 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"sidebar.tsx:partStyle" = "deckhand_ui::panes::sidebar::part_style"
-"sidebar.tsx:moreText" = "deckhand_ui::panes::sidebar::more_text"
-"sidebar.tsx:Sidebar" = "deckhand_ui::panes::sidebar::render_sidebar"
-"helpPane.tsx:searchHelp" = "deckhand_ui::panes::help::search_help"
-"helpPane.tsx:helpRows" = "deckhand_ui::panes::help::help_rows"
-"helpPane.tsx:HelpView" = "deckhand_ui::panes::help::HelpView"
-"helpPane.tsx:useHelp" = "deckhand_ui::panes::help::HelpView"
-"helpPane.tsx:HelpPane" = "deckhand_ui::panes::help::render_help_pane"
+sidebar.partStyle = "crates/ui/src/panes/sidebar.rs::part_style"
+sidebar.moreText = "crates/ui/src/panes/sidebar.rs::more_text"
+sidebar.Sidebar = "crates/ui/src/panes/sidebar.rs::render_sidebar"
+helpPane.searchHelp = "crates/ui/src/panes/help.rs::search_help"
+helpPane.helpRows = "crates/ui/src/panes/help.rs::help_rows"
+helpPane.HelpView = "crates/ui/src/panes/help.rs::HelpView"
+helpPane.useHelp = "crates/ui/src/panes/help.rs::HelpView"
+helpPane.HelpPane = "crates/ui/src/panes/help.rs::render_help_pane"

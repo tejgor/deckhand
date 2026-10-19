@@ -21,6 +21,6 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"terminalPreview.ts:TerminalPreview" = "deckhand_term::preview::TerminalPreview"
-"nodePty.ts:signIfNeeded" = "drop: signs node-pty's prebuilt spawn-helper/pty.node; deckhand_term::pty spawns natively, nothing to sign"
-"nodePty.ts:ensureNodePtyReady" = "drop: readies node-pty's macOS prebuilds (chmod, quarantine, codesign); replaced by deckhand_term::pty::Pty::spawn, which needs no setup"
+terminalPreview.TerminalPreview = "crates/term/src/preview.rs::TerminalPreview"
+nodePty.signIfNeeded = "drop: signs node-pty's prebuilt spawn-helper/pty.node; deckhand_term::pty spawns natively, nothing to sign"
+nodePty.ensureNodePtyReady = "drop: readies node-pty's macOS prebuilds (chmod, quarantine, codesign); replaced by deckhand_term::pty::Pty::spawn, which needs no setup"

@@ -22,4 +22,4 @@ allowlist = []
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
 
-"sessionWorker.ts:runSessionWorker" = "deckhand_worker::session::run_session_worker"
+sessionWorker.runSessionWorker = "crates/worker/src/session.rs::run_session_worker"

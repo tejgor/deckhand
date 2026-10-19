@@ -21,5 +21,5 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"notesFlow.tsx:NotesFlow" = "deckhand_ui::flows::notes::NotesFlow"
-"notesFlow.tsx:useNotesFlow" = "deckhand_ui::flows::notes::NotesFlow"
+notesFlow.NotesFlow = "crates/ui/src/flows/notes.rs::NotesFlow"
+notesFlow.useNotesFlow = "crates/ui/src/flows/notes.rs::NotesFlow"

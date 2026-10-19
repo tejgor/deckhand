@@ -21,7 +21,7 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"settingsFlow.tsx:SettingsFlowMode" = "deckhand_ui::flows::settings::SettingsFlowMode"
-"settingsFlow.tsx:isSettingsFlowMode" = "deckhand_ui::flows::settings::is_settings_flow_mode"
-"settingsFlow.tsx:SettingsFlow" = "deckhand_ui::flows::settings::SettingsFlow"
-"settingsFlow.tsx:useSettingsFlow" = "deckhand_ui::flows::settings::SettingsFlow"
+settingsFlow.SettingsFlowMode = "crates/ui/src/flows/settings.rs::SettingsFlowMode"
+settingsFlow.isSettingsFlowMode = "crates/ui/src/flows/settings.rs::is_settings_flow_mode"
+settingsFlow.SettingsFlow = "crates/ui/src/flows/settings.rs::SettingsFlow"
+settingsFlow.useSettingsFlow = "crates/ui/src/flows/settings.rs::SettingsFlow"

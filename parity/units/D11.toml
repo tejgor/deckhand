@@ -21,12 +21,15 @@ allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
-"daemon.ts:projectInfo" = "deckhand_daemon::config::project_info"
-"daemon.ts:listBranches" = "deckhand_daemon::daemon::Daemon::list_branches"
-"daemon.ts:handleRequest.save-config" = "deckhand_daemon::daemon::Daemon::handle_save_config"
-"daemon.ts:handleRequest.settings-info" = "deckhand_daemon::daemon::Daemon::handle_settings_info"
-"daemon.ts:handleRequest.worktree-candidates" = "deckhand_daemon::daemon::Daemon::handle_worktree_candidates"
-"daemon.ts:handleRequest.global-link-candidates" = "deckhand_daemon::daemon::Daemon::handle_global_link_candidates"
-"daemon.ts:handleRequest.worktree-candidate-sizes" = "deckhand_daemon::daemon::Daemon::handle_worktree_candidate_sizes"
-"daemon.ts:handleRequest.project-info" = "deckhand_daemon::daemon::Daemon::handle_project_info"
-"daemon.ts:handleRequest.trust-project" = "deckhand_daemon::daemon::Daemon::handle_trust_project"
+
+# Non-exported TS internals mapped for traceability (not checked by verify-unit).
+[internals]
+"daemon.projectInfo" = "crates/daemon/src/config.rs::project_info"
+"daemon.listBranches" = "crates/daemon/src/daemon.rs::Daemon::list_branches"
+"daemon.handleRequest.save-config" = "crates/daemon/src/daemon.rs::Daemon::handle_save_config"
+"daemon.handleRequest.settings-info" = "crates/daemon/src/daemon.rs::Daemon::handle_settings_info"
+"daemon.handleRequest.worktree-candidates" = "crates/daemon/src/daemon.rs::Daemon::handle_worktree_candidates"
+"daemon.handleRequest.global-link-candidates" = "crates/daemon/src/daemon.rs::Daemon::handle_global_link_candidates"
+"daemon.handleRequest.worktree-candidate-sizes" = "crates/daemon/src/daemon.rs::Daemon::handle_worktree_candidate_sizes"
+"daemon.handleRequest.project-info" = "crates/daemon/src/daemon.rs::Daemon::handle_project_info"
+"daemon.handleRequest.trust-project" = "crates/daemon/src/daemon.rs::Daemon::handle_trust_project"

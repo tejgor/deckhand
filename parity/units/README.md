@@ -30,6 +30,10 @@ textEditor.editText = "crates/core/src/text_editor.rs::edit_text"
 textEditor.EditorState = "crates/core/src/text_editor.rs::EditorState"
 textEditor.EditOptions = "crates/core/src/text_editor.rs::EditOptions"
 textEditor.lineStart = "drop: private helper in Rust, behaviour covered through edit_text fixtures"
+
+[internals]
+# Optional, not checked: non-exported TS functions/consts mapped for traceability, same value format.
+"daemon.handleRequest.ping" = "crates/daemon/src/daemon.rs::Daemon::handle_ping"
 ```
 
 Rules verify-unit enforces:
