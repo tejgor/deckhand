@@ -221,6 +221,14 @@ fn js_keys(object: &Map<String, Value>) -> Vec<&String> {
     keys
 }
 
+/// Reorders a map into JS own-key order (array indices ascending, then the rest in insertion order), the order a
+/// parsed TS object, or an object spread, enumerates its keys in.
+fn into_js_order<V>(mut map: IndexMap<String, V>) -> IndexMap<String, V> {
+    let rank = |key: &str| array_index(key).map_or((1, 0), |index| (0, index));
+    map.sort_by(|left, _, right, _| rank(left).cmp(&rank(right)));
+    map
+}
+
 const SETTING_KEYS: [&str; 6] = ["location", "symlink", "files", "branchFrom", "branchName", "hook"];
 
 /// TS: worktreeLinks.ts validateWorktreeSettings (the `worktree` value of a deckhand.json-shaped object).
@@ -317,7 +325,10 @@ pub fn validate_worktree_settings(value: &Value) -> Result<WorktreeSettings> {
             template_string(source, &format!("worktree.files source for {destination}"))?;
         }
     }
-    serde_json::from_value(value.clone()).map_err(|error| DhError::msg(error.to_string()))
+    let mut settings: WorktreeSettings =
+        serde_json::from_value(value.clone()).map_err(|error| DhError::msg(error.to_string()))?;
+    settings.files = settings.files.map(into_js_order);
+    Ok(settings)
 }
 
 /// TS: worktreeLinks.ts mergeWorktreeSettings (repository scalars win; symlinks are a deduplicated union, global
@@ -367,7 +378,7 @@ pub fn merge_worktree_settings(
         for (destination, source) in global_files.into_iter().chain(repository_files).flatten() {
             files.insert(destination.clone(), source.clone());
         }
-        merged.files = Some(files);
+        merged.files = Some(into_js_order(files));
     }
     Some(merged)
 }
@@ -493,6 +504,34 @@ mod tests {
                 format!("Invalid worktree.files destination: \"{key}\"")
             );
         }
+    }
+
+    fn file_keys(settings: &WorktreeSettings) -> Vec<&str> {
+        settings.files.as_ref().unwrap().keys().map(String::as_str).collect()
+    }
+
+    /// TS returns the parsed object itself, whose own keys list array indices first (ascending).
+    #[test]
+    fn validated_files_follow_js_key_order() {
+        let value: Value = serde_json::from_str(r#"{"files":{"b":"/x","1":"/y"}}"#).unwrap();
+        let settings = validate_worktree_settings(&value).unwrap();
+        assert_eq!(file_keys(&settings), ["1", "b"]);
+        assert_eq!(
+            serde_json::to_string(&settings).unwrap(),
+            r#"{"files":{"1":"/y","b":"/x"}}"#
+        );
+    }
+
+    /// `{...global.files, ...repository.files}`: indices ascending, then strings in first-insertion order.
+    #[test]
+    fn merged_files_follow_js_spread_order() {
+        let global: WorktreeSettings = serde_json::from_str(r#"{"files":{"b":"/x","10":"/a"}}"#).unwrap();
+        let repository: WorktreeSettings = serde_json::from_str(r#"{"files":{"2":"/y","c":"/z","b":"/w"}}"#).unwrap();
+        let merged = merge_worktree_settings(Some(&global), Some(&repository)).unwrap();
+        assert_eq!(
+            serde_json::to_string(&merged).unwrap(),
+            r#"{"files":{"2":"/y","10":"/a","b":"/w","c":"/z"}}"#
+        );
     }
 
     #[test]
