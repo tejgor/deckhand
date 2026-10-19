@@ -1,0 +1,10 @@
+{
+  "fn": "integrationArgs",
+  "args": [
+    "claude",
+    "$ROOT/nope",
+    true
+  ],
+  "async": true,
+  "ret": []
+}

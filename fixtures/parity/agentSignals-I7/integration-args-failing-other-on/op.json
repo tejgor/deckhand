@@ -1,0 +1,10 @@
+{
+  "fn": "integrationArgs",
+  "args": [
+    "other",
+    "$ROOT/agent",
+    true
+  ],
+  "async": true,
+  "ret": []
+}

@@ -1,0 +1,10 @@
+{
+  "fn": "integrationArgsDevChannel",
+  "args": [
+    "codex",
+    "$ROOT/agent",
+    false
+  ],
+  "async": true,
+  "throws": "This Codex version cannot verify isolated native-daemon operation (--no-daemon missing). Upgrade Codex or test with Claude/Pi."
+}
