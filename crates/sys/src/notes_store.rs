@@ -996,8 +996,8 @@ pub(crate) mod tests {
         }
     }
 
-    // TS: tests/notes.test.ts "a removed note goes to the trash under a name that says when and what it belonged
-    // to" (deferred to I2 by P3).
+    // Deferred to I2 by P3 (tests/notes.test.ts).
+    // covers: B-I2-05 a removed note goes to the trash under a name that says when and what it belonged to
     #[test]
     fn a_removed_note_goes_to_the_trash_under_a_name_that_says_when_and_what_it_belonged_to() {
         let at = |iso| parse_iso(iso).expect("date");
