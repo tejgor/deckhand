@@ -45,6 +45,8 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
+    "fast-check": "^4.10.2",
+    "smol-toml": "^1.9.1",
     "tsx": "^4.19.2",
     "typescript": "^5.8.3"
   },

@@ -1,0 +1,21 @@
+# Manifest for the _example fixtures (parity/gen/_example.gen.ts), used only by example_replay.rs. Real units live in
+# parity/units/<unit>.toml and are loaded by name with deckhand_parity::replay("<unit>", ...).
+id = "_example"
+crate = "parity"
+fixtures = [
+	"_example/wordLeft",
+	"_example/wordRight",
+	"_example/scrollTopFor",
+	"_example/checkedWidth",
+	"_example/pushUnique",
+	"_example/summarize",
+	"_example/applyTwice",
+	"_example/write-settings",
+	"_example/write-settings-invalid",
+]
+allowlist = []
+
+# wordLeft(text, cursor) -> cursor: both offsets index args.0 (UTF-16 in TS, bytes in Rust).
+[utf16_fields]
+"_example/wordLeft" = { "args.1" = "args.0", "ret" = "args.0" }
+"_example/wordRight" = { "args.1" = "args.0", "ret" = "args.0" }

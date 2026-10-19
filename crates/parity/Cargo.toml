@@ -13,3 +13,6 @@ workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 indexmap = { workspace = true }
+toml = { version = "1", default-features = false, features = ["parse", "serde", "preserve_order"] }
+tempfile = { workspace = true }
+libc = { workspace = true }

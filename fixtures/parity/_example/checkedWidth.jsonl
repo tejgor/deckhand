@@ -1,0 +1,6 @@
+{"args":[-1],"throws":"width must be positive: -1"}
+{"args":[0],"throws":"width must be positive: 0"}
+{"args":[2.5],"ret":2}
+{"args":[80],"ret":80}
+{"args":[{"$num":"Infinity"}],"ret":{"$num":"Infinity"}}
+{"args":[{"$num":"NaN"}],"throws":"width must be positive: NaN"}

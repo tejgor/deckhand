@@ -1,0 +1,12 @@
+{
+  "fn": "writeSettings",
+  "args": [
+    "$ROOT",
+    {
+      "name": "demo",
+      "theme": "dark"
+    }
+  ],
+  "async": true,
+  "ret": "$ROOT/config/settings.json"
+}
