@@ -1,0 +1,24 @@
+id = "B1"
+wave = 1
+title = "binary: argv dispatch, hook, hooks, debug prod-home guard"
+crate = "deckhand"
+ts_sources = ["src/cli.ts"]
+rust_paths = ["crates/deckhand/src/main.rs", "crates/deckhand/src/cli.rs", "crates/deckhand/src/hook.rs", "crates/deckhand/src/hooks.rs", "crates/deckhand/src/guard.rs"]
+deps = ["K1"]
+ts_tests = ["tests/hookBridge.test.ts"]
+# TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
+ts_suites = []
+
+# Filled by the fixtures stage (parity/gen/<module>.gen.ts).
+fixtures = []
+# UTF-16 offset fields per fixture, converted on the Rust side.
+utf16_fields = {}
+
+# TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
+deferred_tests = []
+# Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
+allowlist = []
+
+# Every TS export: mapped to a Rust path, or dropped with a reason.
+[exports]
+

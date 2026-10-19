@@ -1,0 +1,24 @@
+id = "I5"
+wave = 1
+title = "process tree, claude transcripts"
+crate = "sys"
+ts_sources = ["src/processTree.ts", "src/claudeTranscripts.ts"]
+rust_paths = ["crates/sys/src/process_tree.rs", "crates/sys/src/claude_transcripts.rs"]
+deps = []
+ts_tests = ["tests/processTree.test.ts", "tests/claudeTranscripts.test.ts"]
+# TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
+ts_suites = []
+
+# Filled by the fixtures stage (parity/gen/<module>.gen.ts).
+fixtures = []
+# UTF-16 offset fields per fixture, converted on the Rust side.
+utf16_fields = {}
+
+# TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
+deferred_tests = []
+# Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
+allowlist = []
+
+# Every TS export: mapped to a Rust path, or dropped with a reason.
+[exports]
+

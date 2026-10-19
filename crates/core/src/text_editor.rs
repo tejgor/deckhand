@@ -1,0 +1,1 @@
+//! Port of textEditor.ts.

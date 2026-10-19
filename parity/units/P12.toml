@@ -1,0 +1,24 @@
+id = "P12"
+wave = 1
+title = "display helpers (ui.ts, menu.tsx pure helpers), help, detail texts"
+crate = "core"
+ts_sources = ["src/ui.ts", "src/help.ts", "src/detailTexts.ts", "src/menu.tsx"]
+rust_paths = ["crates/core/src/display.rs", "crates/core/src/help.rs", "crates/core/src/detail_texts.rs"]
+deps = []
+ts_tests = ["tests/help.test.ts"]
+# TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
+ts_suites = []
+
+# Filled by the fixtures stage (parity/gen/<module>.gen.ts).
+fixtures = []
+# UTF-16 offset fields per fixture, converted on the Rust side.
+utf16_fields = {}
+
+# TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
+deferred_tests = []
+# Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
+allowlist = []
+
+# Every TS export: mapped to a Rust path, or dropped with a reason.
+[exports]
+

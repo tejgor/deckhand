@@ -1,0 +1,24 @@
+id = "P2"
+wave = 1
+title = "worktree records, workspace, session scope/order, worktree links (pure)"
+crate = "core"
+ts_sources = ["src/worktreeRecords.ts", "src/workspace.ts", "src/sessionScope.ts", "src/sessionOrder.ts", "src/worktreeLinks.ts"]
+rust_paths = ["crates/core/src/worktree_records.rs", "crates/core/src/workspace.rs", "crates/core/src/session_scope.rs", "crates/core/src/session_order.rs", "crates/core/src/worktree_links.rs"]
+deps = []
+ts_tests = ["tests/worktreeRecords.test.ts", "tests/workspace.test.ts", "tests/sessionScope.test.ts"]
+# TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
+ts_suites = []
+
+# Filled by the fixtures stage (parity/gen/<module>.gen.ts).
+fixtures = []
+# UTF-16 offset fields per fixture, converted on the Rust side.
+utf16_fields = {}
+
+# TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
+deferred_tests = []
+# Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
+allowlist = []
+
+# Every TS export: mapped to a Rust path, or dropped with a reason.
+[exports]
+

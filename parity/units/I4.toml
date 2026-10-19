@@ -1,0 +1,24 @@
+id = "I4"
+wave = 1
+title = "workspace git, changes git"
+crate = "sys"
+ts_sources = ["src/workspaceGit.ts", "src/changesGit.ts"]
+rust_paths = ["crates/sys/src/workspace_git.rs", "crates/sys/src/changes_git.rs"]
+deps = ["I3", "P7"]
+ts_tests = ["tests/workspaceGit.test.ts", "tests/changesGit.test.ts"]
+# TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
+ts_suites = []
+
+# Filled by the fixtures stage (parity/gen/<module>.gen.ts).
+fixtures = []
+# UTF-16 offset fields per fixture, converted on the Rust side.
+utf16_fields = {}
+
+# TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
+deferred_tests = []
+# Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
+allowlist = []
+
+# Every TS export: mapped to a Rust path, or dropped with a reason.
+[exports]
+

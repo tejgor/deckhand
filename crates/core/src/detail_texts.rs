@@ -1,0 +1,1 @@
+//! Port of detailTexts.ts.

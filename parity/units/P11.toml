@@ -1,0 +1,24 @@
+id = "P11"
+wave = 1
+title = "text editor, terminal keys, config draft"
+crate = "core"
+ts_sources = ["src/textEditor.ts", "src/terminalKeys.ts", "src/configDraft.ts"]
+rust_paths = ["crates/core/src/text_editor.rs", "crates/core/src/terminal_keys.rs", "crates/core/src/config_draft.rs"]
+deps = []
+ts_tests = ["tests/textEditor.test.ts", "tests/terminalKeys.test.ts"]
+# TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
+ts_suites = []
+
+# Filled by the fixtures stage (parity/gen/<module>.gen.ts).
+fixtures = []
+# UTF-16 offset fields per fixture, converted on the Rust side.
+utf16_fields = {}
+
+# TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
+deferred_tests = []
+# Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
+allowlist = []
+
+# Every TS export: mapped to a Rust path, or dropped with a reason.
+[exports]
+

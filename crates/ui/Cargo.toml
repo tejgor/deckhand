@@ -1,0 +1,28 @@
+[package]
+name = "deckhand-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+deckhand-protocol = { workspace = true }
+deckhand-core = { workspace = true }
+deckhand-sys = { workspace = true }
+deckhand-client = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+unicode-width = { workspace = true }
+unicode-segmentation = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

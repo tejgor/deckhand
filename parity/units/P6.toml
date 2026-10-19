@@ -1,0 +1,24 @@
+id = "P6"
+wave = 1
+title = "tasks board"
+crate = "core"
+ts_sources = ["src/tasksBoard.ts"]
+rust_paths = ["crates/core/src/tasks_board.rs"]
+deps = ["P2", "P3", "P5", "P8", "P12"]
+ts_tests = ["tests/tasksBoard.test.ts"]
+# TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
+ts_suites = []
+
+# Filled by the fixtures stage (parity/gen/<module>.gen.ts).
+fixtures = []
+# UTF-16 offset fields per fixture, converted on the Rust side.
+utf16_fields = {}
+
+# TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
+deferred_tests = []
+# Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
+allowlist = []
+
+# Every TS export: mapped to a Rust path, or dropped with a reason.
+[exports]
+

@@ -1,0 +1,24 @@
+id = "U3"
+wave = 2
+title = "panes: details, cleanup"
+crate = "ui"
+ts_sources = ["src/detailsPane.tsx", "src/cleanupView.tsx"]
+rust_paths = ["crates/ui/src/panes/details.rs", "crates/ui/src/panes/cleanup.rs"]
+deps = ["U1"]
+ts_tests = ["tests/cleanupView.test.ts"]
+# TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
+ts_suites = []
+
+# Filled by the fixtures stage (parity/gen/<module>.gen.ts).
+fixtures = []
+# UTF-16 offset fields per fixture, converted on the Rust side.
+utf16_fields = {}
+
+# TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
+deferred_tests = []
+# Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
+allowlist = []
+
+# Every TS export: mapped to a Rust path, or dropped with a reason.
+[exports]
+

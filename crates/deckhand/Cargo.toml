@@ -1,0 +1,35 @@
+[package]
+name = "deckhand"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = true
+
+[[bin]]
+name = "deckhand"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+deckhand-protocol = { workspace = true }
+deckhand-core = { workspace = true }
+deckhand-sys = { workspace = true }
+deckhand-term = { workspace = true }
+deckhand-worker = { workspace = true }
+deckhand-daemon = { workspace = true }
+deckhand-client = { workspace = true }
+deckhand-ui = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+nix = { workspace = true }
+libc = { workspace = true }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

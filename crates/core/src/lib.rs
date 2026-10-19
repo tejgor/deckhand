@@ -1,0 +1,30 @@
+//! deckhand-core.
+
+pub mod agent_signals;
+pub mod agent_versions;
+pub mod agents;
+pub mod changes_model;
+pub mod config_draft;
+pub mod detail_texts;
+pub mod display;
+pub mod error;
+pub mod help;
+pub mod jsstr;
+pub mod key;
+pub mod merge_model;
+pub mod notes;
+pub mod project_config;
+pub mod project_config_document;
+pub mod session_features;
+pub mod session_order;
+pub mod session_scope;
+pub mod settings_model;
+pub mod sidebar_model;
+pub mod tasks;
+pub mod tasks_board;
+pub mod terminal_keys;
+pub mod text_editor;
+pub mod workspace;
+pub mod worktree_links;
+pub mod worktree_records;
+pub mod worktrees_model;

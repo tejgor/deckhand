@@ -1,0 +1,23 @@
+[package]
+name = "deckhand-term"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+deckhand-protocol = { workspace = true }
+deckhand-core = { workspace = true }
+tokio = { workspace = true }
+nix = { workspace = true }
+libc = { workspace = true }
+alacritty_terminal = { workspace = true }
+unicode-width = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
