@@ -275,14 +275,32 @@ pub fn production_home_refusal(home: &Path) -> String {
 }
 
 /// The debug-build guard (crates/deckhand/src/guard.rs): in a debug build, an error when the resolved state directory
-/// is the production home (see [`is_production_home`]) and `DECKHAND_ALLOW_PROD_HOME` is not `1`. Release builds
-/// always pass.
+/// is the account's production home (see [`guard_reference_home`]) and `DECKHAND_ALLOW_PROD_HOME` is not `1`.
+/// Release builds always pass.
 pub fn guard_debug_home() -> Result<()> {
     if cfg!(debug_assertions) {
         let allow = std::env::var_os(ALLOW_PROD_HOME_ENV).as_deref() == Some(OsStr::new("1"));
-        return guard_home(&config_dir(), &home_dir(), allow);
+        return guard_home(&config_dir(), &guard_reference_home(), allow);
     }
     Ok(())
+}
+
+/// The home directory whose `.deckhand` the debug guard protects: the account's home from the user database, not
+/// `$HOME`. The state worth protecting is the real user's; a test that points `HOME` at a temp dir
+/// (devLauncher.test.ts runs a "production" daemon under a throwaway HOME) gets a throwaway `~/.deckhand`, while
+/// `DECKHAND_HOME` or `HOME` aimed back at the real home is still refused. Falls back to [`home_dir`] when the user
+/// database has no entry.
+pub fn guard_reference_home() -> PathBuf {
+    account_home().unwrap_or_else(home_dir)
+}
+
+/// The current user's home directory from the user database (`getpwuid`), ignoring `$HOME`.
+fn account_home() -> Option<PathBuf> {
+    nix::unistd::User::from_uid(nix::unistd::getuid())
+        .ok()
+        .flatten()
+        .map(|user| user.dir)
+        .filter(|dir| !dir.as_os_str().is_empty())
 }
 
 /// The pure half of [`guard_debug_home`] (applies regardless of the build profile).
@@ -446,6 +464,19 @@ mod tests {
         assert!(error.message().contains("DECKHAND_ALLOW_PROD_HOME=1"));
         assert!(guard_home(&prod, &home, true).is_ok());
         assert!(guard_home(&home.join("scratch"), &home, false).is_ok());
+    }
+
+    // Regression: devLauncher.test.ts runs a stable daemon with HOME=<temp> and no DECKHAND_HOME; the debug guard
+    // must protect the account's real ~/.deckhand, not refuse the throwaway <temp>/.deckhand.
+    #[test]
+    fn guard_protects_the_account_home_not_env_home() {
+        let account = account_home().unwrap();
+        assert_eq!(guard_reference_home(), account);
+        let root = temp();
+        let throwaway = std::fs::canonicalize(root.path()).unwrap();
+        assert!(guard_home(&throwaway.join(PRODUCTION_DIR), &account, false).is_ok());
+        assert!(guard_home(&account.join(PRODUCTION_DIR), &account, false).is_err());
+        assert!(guard_home(&account.join(PRODUCTION_DIR).join("dev"), &account, false).is_err());
     }
 
     #[test]
