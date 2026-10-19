@@ -10,12 +10,43 @@ ts_tests = ["tests/help.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = [
+	"detailTexts/cleanupOverrideText",
+	"detailTexts/createPrConfirmText",
+	"detailTexts/projectActions",
+	"detailTexts/trustReviewText",
+	"detailTexts/workspaceSummaryText",
+	"help/HELP_TOPICS",
+	"menu/SELECTION_MARKER",
+	"menu/fitHint",
+	"menu/fitParts",
+	"menu/menuDetailsRows",
+	"menu/menuWindowStart",
+	"menu/scrolledListTop",
+	"menu/wrapWords",
+	"ui/DISPLAY_CONTROL_PATTERN",
+	"ui/THEME",
+	"ui/compactPath",
+	"ui/compactPathHome",
+	"ui/displaySessionTitle",
+	"ui/errorMessage",
+	"ui/fitLines",
+	"ui/plainTerminalText",
+	"ui/programGlyph",
+	"ui/statusColor",
+	"ui/statusGlyph",
+	"ui/statusLabel",
+	"ui/stripTerminalControls",
+	"ui/truncate",
+]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+	{ title = "help topics: keys in one aligned column, descriptions wrap under themselves, a long key gets its own row", to = "U2", reason = "exercises helpPane.tsx helpRows (owned by U2); HELP_TOPICS itself is covered by the help/HELP_TOPICS fixture" },
+	{ title = "help search matches keys, descriptions and notes across topics; the pane shows a topic list when wide and ◂ topic ▸ when narrow", to = "U2", reason = "exercises helpPane.tsx searchHelp and the HelpPane renderer (owned by U2)" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 

@@ -1,0 +1,400 @@
+{"args":["  "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["  ?.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["  b.lok{.locké"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" *~["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" - -"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" -@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" -\u0000../.."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" .lo.ck😀^a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" /"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" //..😀😀中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" //é@: "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" /\u0000b^^"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" @{\u001f"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" \u001f中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" ab"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" @😀/-.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[" 中{ 中{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["*"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["*..é*.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["*:/*\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["*:\n//*\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["*\u0000*\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["*a{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["*a😀{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["*😀..lock 中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["-.lock//.-@{-.lock//.-@{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["-//"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["-/中:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-?😀..//.b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-@{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["-\u0000{_\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-^."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-^..中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-a."],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["-b@{:/\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-{//😀 -@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-中\\-中\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-😀*:..a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["-😀/{\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[". /"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".. \u0000é/-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".."],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["..[.."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["..\\[....\\[.."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["..{~/@{ @{\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["..{~@{ @{\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["..~@{ @{\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["..é"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["..中..中"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["..中b.lock中..中b.lock中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["..中😀..中😀"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["./"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":[".///bbé\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".//bé\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".:a[中\u0000a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".? é中a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".?b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".\u0000b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".^//:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["._a"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":[".a\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".aé\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".lck{~@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".lock a[-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".lock a[--.lock a[--"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".lock.lock.lock.lock"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":[".lock/.."],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":[".lock//..b"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":[".lock?[[中^"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".lock\u0000.lock:{^"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".locka@{@{["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".lock{~@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".lock~\t@{{^//"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".ock{~@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".{b[@~"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".é.中"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":[".é\u001f@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[".😀..😀."],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["/ -\\@{[//?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["/**."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["/-\\@{[/?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["/..://"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["/.lock//@\u0000b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//*?\u0000[0\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//-[^"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//..😀😀中"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["//.lock^中?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["///.**.."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["////@{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["//://"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//:////://"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//@\\..lock\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//@{ééb//"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["//[**.."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//[@{..a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//[😀.lock//[😀.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//[😀éaa@{?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//\\@{*"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//b ["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//ba.lock{.lock"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["//é"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["//中//@{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["/@{中b"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["/B"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["/\n/ba.lock{.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["/^"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["/^..[中b/^..[中b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["/^\u0000*/"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["/a"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["/中:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["/😀/😀"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["/😀中/\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["0?😀\u0000a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["0~["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[": {.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":/:/"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":/@{//"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":a[中\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":a[中\u0000a:a[中\u0000a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":~b?::~b?:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":中-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?*-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?-/~?-/~"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?..é?..é"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?.ock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?/[*😀?/[*😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?:^aa{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["??..\n"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["??.a."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?\u0000//\\{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?\u0000中b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?a?a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?{^@{/."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?{^@{/.~?{^@{/.~"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?~é"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?éa中\u0000b\u001f"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?é中\u0000b\u001f"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["@/"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["@?/...^@{@?/...^@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@@.lock\u0000a@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@@{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["@\n{\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@^?\u0000@^?\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@a//@{*~"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{.lock"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["@{//{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["@{:?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{@@{-"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["@{@a.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{@é@{-"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["@{\\中.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{b-?b😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{b-中?b😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{~@.@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{~@{b.@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{é-@é\u0000@@{é-@é\u0000@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{中a{b*中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{中é\u001f@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@{😀\\."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@~@{.@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@é//\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@é//_\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@😀"],"ret":{"$u":1}}
+{"args":["@😀@\u001fb.@{@😀@\u001fb.@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@😀[?@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["@😀[?\t@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["A/"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["[ -"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[-[-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[.{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[?:[?:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[\u001f\\[*.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[\u001f\\[*lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[b😀:中/😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[~😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["[中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\\./"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\\.é/"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\\@.\\//b."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\\\u001f@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\\\u001f@{?\\\u001f@{?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\\^\u001f_"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\\a\\a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\\😀@.\\//b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\na b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\t*["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\t:@b~."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000.["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000.\u001f-.."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000.~\u001f-.ß."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000/ * "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000//😀-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000//😀-é\u0000//😀-é"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000/@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000@//{@.0"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000@//{😀@."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000[\u0000["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000\u001f"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000^é//@{/\n"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u0000_?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f ~"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f ~😀😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f.-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f.-a\u001f.-a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f..😀.\u001f..😀."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f.@{b//中~"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f.a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f.a_"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f:^中é\u001f:^中é"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001fb\u001f. .-b["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001fb//"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f中0😀é"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\u001f😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["^-//"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["^../"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["^// "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["^/😀/ "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["^?."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["^@{:中.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["^\\//ß"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["^b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["_@{中é\u001f@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a*b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a-"],"ret":{"$u":1}}
+{"args":["a-{b"],"ret":{"$u":1}}
+{"args":["a.."],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["a...lock@\u0000a...lock@\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a..Z.lock@\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a..😀"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["a.a."],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["a.lock/b"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["a.lockx "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a.lock中😀/"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["a.ock"],"ret":{"$u":1}}
+{"args":["a.‍"],"ret":{"$u":1}}
+{"args":["a.中-?.lockéa"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a/-"],"ret":{"$u":1}}
+{"args":["a/.a/."],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["a/.ba/.b"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["a//"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["a//.b"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["a//a//"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["a//ba//b"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["a/b.locka/b.lock"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["a/b/c/d/ea/b/c/d/e"],"ret":{"$u":1}}
+{"args":["a/é/"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["a:b0"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a?b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a@b"],"ret":{"$u":1}}
+{"args":["a@{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["a@{bé"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["a[b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a[~@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a[中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a\\b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a\nb"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a\t.lockx"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a\tb_"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a\u0000ba\u0000b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a\u001f."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a]b"],"ret":{"$u":1}}
+{"args":["a_b"],"ret":{"$u":1}}
+{"args":["aa/b.lock"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":"empty or too long"}
+{"args":["ab*ab*"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["ab.lock*{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["ab.lock{"],"ret":{"$u":1}}
+{"args":["ablocka\\中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a{ba{b"],"ret":{"$u":1}}
+{"args":["a~b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a"],"ret":{"$u":1}}
+{"args":["abab"],"ret":{"$u":1}}
+{"args":["aß^b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["a b"],"ret":{"$u":1}}
+{"args":["b"],"ret":{"$u":1}}
+{"args":["b-"],"ret":{"$u":1}}
+{"args":["b..@a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["b.lok/..a"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["b? .._"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["b?\\\u0000^*:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["b@"],"ret":{"$u":1}}
+{"args":["b@é"],"ret":{"$u":1}}
+{"args":["b@é😀"],"ret":{"$u":1}}
+{"args":["b\u001f-:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["b\u001f:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["ba@ba@"],"ret":{"$u":1}}
+{"args":["b{^ b{^ "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["b~-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["bé-"],"ret":{"$u":1}}
+{"args":["b中^"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["eat/a-b_c.d"],"ret":{"$u":1}}
+{"args":["é.lock"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["feat/a-b_c.dfeat/a-b_c.d"],"ret":{"$u":1}}
+{"args":["feature/x"],"ret":{"$u":1}}
+{"args":["lock"],"ret":{"$u":1}}
+{"args":["lock\u0000.lock:{^"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["main"],"ret":{"$u":1}}
+{"args":["{"],"ret":{"$u":1}}
+{"args":["{-:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{.lock. \u001faa "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{//{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["{:"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{?{?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{@*"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{@*?{@*?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{[?{[?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{\u0000..\u0000^中*"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{\u0000😀["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{b~// \u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{{b//"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["{中../.é"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["{😀-\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["{😀[-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~*😀//~*😀//"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~-\u001f{/a~-\u001f{/a"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~.lock@.lock"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~/"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~//b^@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~\\\n\u001f:/"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~\u001f:/"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~~@"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~/"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["~中-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[""],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["..--////"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["//"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":[":.é😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?@😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?\u0000中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?\u001f "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["?^ "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["\\?{中^"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["^?\\/b中@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["😀@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["ß..."],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["é  \\- é  \\- "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["é-.lock//.-@{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["é..~/*@{é..~/*@{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["é:@{*"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["é?é?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["é\\?bb.."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["é^\\?bb..é^\\?bb.."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["éa*\u001f\u001f😀"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["é{*.-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["é{\\\\^😀.é{\\\\^😀."],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["é😀["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["éé\\\\["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["é😀["],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["‍..aé*"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["‍\u001fb//"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中*"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中-//@\n{😀b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中-//@{😀b中-//@{😀b"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["中../."],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["中?é"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中@[.loc"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中@{//{"],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["中@{@*@😀{"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中\\?@{é- "],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中a*b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中~/"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中~^-..ß?"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中.lock:\u001f.\\"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中@‍"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["中é/"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["功能功能"],"ret":{"$u":1}}
+{"args":["用户/功能-😀用户/功能-😀"],"ret":{"$u":1}}
+{"args":["😀--é"],"ret":{"$u":1}}
+{"args":["😀.lock{-"],"ret":{"$u":1}}
+{"args":["😀/{\u0000😀/{\u0000"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["😀@.loc"],"ret":{"$u":1}}
+{"args":["😀@.lock😀@.lock"],"ret":"starts with -, / or ., ends with / or ., or has a component starting with . or ending in .lock"}
+{"args":["😀\n?*-"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["😀\u0000 b😀\u0000 b"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["😀a.."],"ret":"contains \"..\", \"@{\" or \"//\""}
+{"args":["😀b"],"ret":{"$u":1}}
+{"args":["😀{:.locké中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["😀{:é.locké中"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}
+{"args":["😀~~😀~~"],"ret":"contains spaces, control characters or one of ~ ^ : ? * [ \\"}

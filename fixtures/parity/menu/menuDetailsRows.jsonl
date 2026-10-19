@@ -1,0 +1,297 @@
+{"args":[[],-1],"ret":3}
+{"args":[[],0],"ret":3}
+{"args":[[],10],"ret":3}
+{"args":[[],14],"ret":3}
+{"args":[[],20],"ret":3}
+{"args":[[],3],"ret":3}
+{"args":[[],4],"ret":3}
+{"args":[[],5],"ret":3}
+{"args":[[],6],"ret":3}
+{"args":[[],80],"ret":3}
+{"args":[[],8],"ret":3}
+{"args":[[{"text":"   😀Zz- 中 éword"},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true}],0],"ret":18}
+{"args":[[{"text":"   😀Zz- 中 éword"},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true}],4],"ret":18}
+{"args":[[{"text":"  ","nowrap":false,"parts":[{"text":"  ","color":"red"},{"text":""}]},{"text":"\n\tword\n","nowrap":false},{"text":"short","nowrap":false},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],18],"ret":7}
+{"args":[[{"text":"  ","nowrap":false,"parts":[{"text":"  ","color":"red"},{"text":""}]},{"text":"\n\tword\n","nowrap":false},{"text":"short","nowrap":false},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],37],"ret":7}
+{"args":[[{"text":"  b   / ","nowrap":true}],3],"ret":4}
+{"args":[[{"text":"  b   / ","nowrap":true}],40],"ret":4}
+{"args":[[{"text":" "},{"text":"/longerworda/ ","nowrap":false},{"text":"aélongerword  \n","nowrap":true}],25],"ret":6}
+{"args":[[{"text":" "},{"text":"/longerworda/ ","nowrap":false},{"text":"aélongerword  \n","nowrap":true}],29],"ret":6}
+{"args":[[{"text":" -  ","nowrap":true,"parts":[{"text":" - ","color":"red"},{"text":" "}]},{"text":" Zz word Zz\n   ","nowrap":true,"parts":[{"text":" Zz","color":"red"},{"text":" word Zz\n   "}]},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":""}],18],"ret":7}
+{"args":[[{"text":" -  ","nowrap":true,"parts":[{"text":" - ","color":"red"},{"text":" "}]},{"text":" Zz word Zz\n   ","nowrap":true,"parts":[{"text":" Zz","color":"red"},{"text":" word Zz\n   "}]},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":""}],37],"ret":7}
+{"args":[[{"text":" \n-","parts":[{"text":" \n-","color":"red"},{"text":""}]},{"text":"short","nowrap":false}],16],"ret":5}
+{"args":[[{"text":" \n-","parts":[{"text":" \n-","color":"red"},{"text":""}]},{"text":"short","nowrap":false}],7],"ret":6}
+{"args":[[{"text":" a  中a","nowrap":true},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"","parts":[{"text":"","color":"red"},{"text":""}]}],18],"ret":7}
+{"args":[[{"text":" a  中a","nowrap":true},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"","parts":[{"text":"","color":"red"},{"text":""}]}],37],"ret":7}
+{"args":[[{"text":" longerword ","nowrap":false}],3],"ret":13}
+{"args":[[{"text":" longerword ","nowrap":false}],40],"ret":4}
+{"args":[[{"text":" longerword 中 -Zz\t","nowrap":true,"parts":[{"text":" lo","color":"red"},{"text":"ngerword 中 -Zz\t"}]},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]}],16],"ret":5}
+{"args":[[{"text":" longerword 中 -Zz\t","nowrap":true,"parts":[{"text":" lo","color":"red"},{"text":"ngerword 中 -Zz\t"}]},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]}],7],"ret":5}
+{"args":[[{"text":" word😀 -   ","nowrap":false,"parts":[{"text":" wo","color":"red"},{"text":"rd😀 -   "}]},{"text":"short","nowrap":true}],16],"ret":5}
+{"args":[[{"text":" word😀 -   ","nowrap":false,"parts":[{"text":" wo","color":"red"},{"text":"rd😀 -   "}]},{"text":"short","nowrap":true}],7],"ret":5}
+{"args":[[{"text":"  Zz/ \né \t","nowrap":true},{"text":"word      \na","nowrap":true}],16],"ret":5}
+{"args":[[{"text":"  Zz/ \né \t","nowrap":true},{"text":"word      \na","nowrap":true}],7],"ret":5}
+{"args":[[{"text":" 中 ","nowrap":true},{"text":"longerword     -   blongerword","nowrap":true,"parts":[{"text":"lon","color":"red"},{"text":"gerword     -   blongerword"}]},{"text":"b","nowrap":true,"parts":[{"text":"b","color":"red"},{"text":""}]}],25],"ret":6}
+{"args":[[{"text":" 中 ","nowrap":true},{"text":"longerword     -   blongerword","nowrap":true,"parts":[{"text":"lon","color":"red"},{"text":"gerword     -   blongerword"}]},{"text":"b","nowrap":true,"parts":[{"text":"b","color":"red"},{"text":""}]}],29],"ret":6}
+{"args":[[{"text":" 中 ","nowrap":false},{"text":"中Zz\ta中  中/","nowrap":false,"parts":[{"text":"中Zz","color":"red"},{"text":"\ta中  中/"}]},{"text":"éb b","nowrap":false,"parts":[{"text":"éb ","color":"red"},{"text":"b"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"short","nowrap":true}],0],"ret":8}
+{"args":[[{"text":" 中 ","nowrap":false},{"text":"中Zz\ta中  中/","nowrap":false,"parts":[{"text":"中Zz","color":"red"},{"text":"\ta中  中/"}]},{"text":"éb b","nowrap":false,"parts":[{"text":"éb ","color":"red"},{"text":"b"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"short","nowrap":true}],4],"ret":8}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"   éé \nlongerworda","nowrap":true,"parts":[{"text":"   ","color":"red"},{"text":"éé \nlongerworda"}]},{"text":"","nowrap":true},{"text":" ","nowrap":true,"parts":[{"text":" ","color":"red"},{"text":""}]},{"text":"short","nowrap":false}],0],"ret":12}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"   éé \nlongerworda","nowrap":true,"parts":[{"text":"   ","color":"red"},{"text":"éé \nlongerworda"}]},{"text":"","nowrap":true},{"text":" ","nowrap":true,"parts":[{"text":" ","color":"red"},{"text":""}]},{"text":"short","nowrap":false}],4],"ret":12}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":" longerwordZz- ","nowrap":true},{"text":" \t- ","nowrap":true,"parts":[{"text":" \t-","color":"red"},{"text":" "}]},{"text":"A longer sentence that needs wrapping across lines"}],18],"ret":10}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":" longerwordZz- ","nowrap":true},{"text":" \t- ","nowrap":true,"parts":[{"text":" \t-","color":"red"},{"text":" "}]},{"text":"A longer sentence that needs wrapping across lines"}],37],"ret":8}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"/  ","nowrap":false,"parts":[{"text":"/  ","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","nowrap":true}],25],"ret":6}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"/  ","nowrap":false,"parts":[{"text":"/  ","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","nowrap":true}],29],"ret":6}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"Zz  -","nowrap":false},{"text":" aalongerwordwordé","nowrap":false},{"text":"-  Zz ","nowrap":false},{"text":" \n ","nowrap":false}],0],"ret":28}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"Zz  -","nowrap":false},{"text":" aalongerwordwordé","nowrap":false},{"text":"-  Zz ","nowrap":false},{"text":" \n ","nowrap":false}],4],"ret":28}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]}],3],"ret":4}
+{"args":[[{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]}],40],"ret":4}
+{"args":[[{"text":"","nowrap":false},{"text":"short","nowrap":true},{"text":"   longerword中","parts":[{"text":"   ","color":"red"},{"text":"longerword中"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],18],"ret":7}
+{"args":[[{"text":"","nowrap":false},{"text":"short","nowrap":true},{"text":"   longerword中","parts":[{"text":"   ","color":"red"},{"text":"longerword中"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],37],"ret":7}
+{"args":[[{"text":"","nowrap":false},{"text":" é\n ","nowrap":false,"parts":[{"text":" é\n","color":"red"},{"text":" "}]}],16],"ret":5}
+{"args":[[{"text":"","nowrap":false},{"text":" é\n ","nowrap":false,"parts":[{"text":" é\n","color":"red"},{"text":" "}]}],7],"ret":5}
+{"args":[[{"text":"","nowrap":false},{"text":"é-/ word","nowrap":false,"parts":[{"text":"é-/","color":"red"},{"text":" word"}]},{"text":" a/-😀","nowrap":true,"parts":[{"text":" a/","color":"red"},{"text":"-😀"}]}],25],"ret":6}
+{"args":[[{"text":"","nowrap":false},{"text":"é-/ word","nowrap":false,"parts":[{"text":"é-/","color":"red"},{"text":" word"}]},{"text":" a/-😀","nowrap":true,"parts":[{"text":" a/","color":"red"},{"text":"-😀"}]}],29],"ret":6}
+{"args":[[{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":" 😀b中\nbZz","nowrap":false},{"text":"\n/😀","nowrap":false,"parts":[{"text":{"$utf16":[10,47,55357]},"color":"red"},{"text":{"$utf16":[56832]}}]}],25],"ret":6}
+{"args":[[{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":" 😀b中\nbZz","nowrap":false},{"text":"\n/😀","nowrap":false,"parts":[{"text":{"$utf16":[10,47,55357]},"color":"red"},{"text":{"$utf16":[56832]}}]}],29],"ret":6}
+{"args":[[{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"éa- bword","nowrap":true,"parts":[{"text":"éa-","color":"red"},{"text":" bword"}]}],16],"ret":5}
+{"args":[[{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"éa- bword","nowrap":true,"parts":[{"text":"éa-","color":"red"},{"text":" bword"}]}],7],"ret":5}
+{"args":[[{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":" 中 Zza中\n-  ","nowrap":false,"parts":[{"text":" 中 ","color":"red"},{"text":"Zza中\n-  "}]}],25],"ret":6}
+{"args":[[{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":" 中 Zza中\n-  ","nowrap":false,"parts":[{"text":" 中 ","color":"red"},{"text":"Zza中\n-  "}]}],29],"ret":6}
+{"args":[[{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],3],"ret":4}
+{"args":[[{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],40],"ret":4}
+{"args":[[{"text":"","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":false}],16],"ret":9}
+{"args":[[{"text":"","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":false}],7],"ret":21}
+{"args":[[{"text":"","nowrap":true},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],16],"ret":5}
+{"args":[[{"text":"","nowrap":true},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],7],"ret":5}
+{"args":[[{"text":"","nowrap":true}],3],"ret":4}
+{"args":[[{"text":"","nowrap":true}],40],"ret":4}
+{"args":[[{"text":""},{"text":" longerword    a  😀","parts":[{"text":" lo","color":"red"},{"text":"ngerword    a  😀"}]}],16],"ret":5}
+{"args":[[{"text":""},{"text":" longerword    a  😀","parts":[{"text":" lo","color":"red"},{"text":"ngerword    a  😀"}]}],7],"ret":5}
+{"args":[[{"text":""},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],25],"ret":6}
+{"args":[[{"text":""},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],29],"ret":6}
+{"args":[[{"text":""},{"text":"bb ","nowrap":false},{"text":"é","nowrap":true,"parts":[{"text":"é","color":"red"},{"text":""}]}],25],"ret":6}
+{"args":[[{"text":""},{"text":"bb ","nowrap":false},{"text":"é","nowrap":true,"parts":[{"text":"é","color":"red"},{"text":""}]}],29],"ret":6}
+{"args":[[{"text":""}],-1],"ret":4}
+{"args":[[{"text":""}],0],"ret":4}
+{"args":[[{"text":""}],10],"ret":4}
+{"args":[[{"text":""}],14],"ret":4}
+{"args":[[{"text":""}],20],"ret":4}
+{"args":[[{"text":""}],4],"ret":4}
+{"args":[[{"text":""}],5],"ret":4}
+{"args":[[{"text":""}],6],"ret":4}
+{"args":[[{"text":""}],80],"ret":4}
+{"args":[[{"text":""}],8],"ret":4}
+{"args":[[{"text":"-","nowrap":false,"parts":[{"text":"-","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],16],"ret":5}
+{"args":[[{"text":"-","nowrap":false,"parts":[{"text":"-","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],7],"ret":5}
+{"args":[[{"text":"-/","nowrap":false,"parts":[{"text":"-/","color":"red"},{"text":""}]},{"text":"short","nowrap":true}],16],"ret":5}
+{"args":[[{"text":"-/","nowrap":false,"parts":[{"text":"-/","color":"red"},{"text":""}]},{"text":"short","nowrap":true}],7],"ret":5}
+{"args":[[{"text":"-longerword😀\n- ","parts":[{"text":"-lo","color":"red"},{"text":"ngerword😀\n- "}]},{"text":"  longerwordword","nowrap":false},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":" ","nowrap":false}],18],"ret":7}
+{"args":[[{"text":"-longerword😀\n- ","parts":[{"text":"-lo","color":"red"},{"text":"ngerword😀\n- "}]},{"text":"  longerwordword","nowrap":false},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":" ","nowrap":false}],37],"ret":7}
+{"args":[[{"text":"-wordaword\ta/Zz/","nowrap":true,"parts":[{"text":"-wo","color":"red"},{"text":"rdaword\ta/Zz/"}]},{"text":"longerword😀word Zz","nowrap":true},{"text":"😀中b😀 longerword","nowrap":true},{"text":"/","nowrap":true,"parts":[{"text":"/","color":"red"},{"text":""}]}],18],"ret":7}
+{"args":[[{"text":"-wordaword\ta/Zz/","nowrap":true,"parts":[{"text":"-wo","color":"red"},{"text":"rdaword\ta/Zz/"}]},{"text":"longerword😀word Zz","nowrap":true},{"text":"😀中b😀 longerword","nowrap":true},{"text":"/","nowrap":true,"parts":[{"text":"/","color":"red"},{"text":""}]}],37],"ret":7}
+{"args":[[{"text":"-é \t b- \n😀","nowrap":false,"parts":[{"text":"-é ","color":"red"},{"text":"\t b- \n😀"}]},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"","parts":[{"text":"","color":"red"},{"text":""}]}],25],"ret":6}
+{"args":[[{"text":"-é \t b- \n😀","nowrap":false,"parts":[{"text":"-é ","color":"red"},{"text":"\t b- \n😀"}]},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"","parts":[{"text":"","color":"red"},{"text":""}]}],29],"ret":6}
+{"args":[[{"text":"-é😀é   ","nowrap":false},{"text":"","parts":[{"text":"","color":"red"},{"text":""}]}],16],"ret":5}
+{"args":[[{"text":"-é😀é   ","nowrap":false},{"text":"","parts":[{"text":"","color":"red"},{"text":""}]}],7],"ret":6}
+{"args":[[{"text":"-😀 中\t\n","nowrap":false},{"text":"😀😀\n- Zz中é ","nowrap":false,"parts":[{"text":{"$utf16":[55357,56832,55357]},"color":"red"},{"text":{"$utf16":[56832,10,45,8195,90,122,20013,233,32]}}]},{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],0],"ret":11}
+{"args":[[{"text":"-😀 中\t\n","nowrap":false},{"text":"😀😀\n- Zz中é ","nowrap":false,"parts":[{"text":{"$utf16":[55357,56832,55357]},"color":"red"},{"text":{"$utf16":[56832,10,45,8195,90,122,20013,233,32]}}]},{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],4],"ret":11}
+{"args":[[{"text":"/   ","nowrap":false,"parts":[{"text":"/  ","color":"red"},{"text":" "}]}],3],"ret":4}
+{"args":[[{"text":"/   ","nowrap":false,"parts":[{"text":"/  ","color":"red"},{"text":" "}]}],40],"ret":4}
+{"args":[[{"text":"/--\t","nowrap":true,"parts":[{"text":"/--","color":"red"},{"text":"\t"}]}],3],"ret":4}
+{"args":[[{"text":"/--\t","nowrap":true,"parts":[{"text":"/--","color":"red"},{"text":"\t"}]}],40],"ret":4}
+{"args":[[{"text":"/ é b word","nowrap":true,"parts":[{"text":"/ é","color":"red"},{"text":" b word"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],25],"ret":6}
+{"args":[[{"text":"/ é b word","nowrap":true,"parts":[{"text":"/ é","color":"red"},{"text":" b word"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],29],"ret":6}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],16],"ret":5}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],7],"ret":5}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],3],"ret":4}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],40],"ret":4}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":" \n\t","nowrap":true}],16],"ret":9}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":" \n\t","nowrap":true}],7],"ret":21}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"-word😀b\n😀longerwordb ","nowrap":false,"parts":[{"text":"-wo","color":"red"},{"text":"rd😀b\n😀longerwordb "}]}],16],"ret":9}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"-word😀b\n😀longerwordb ","nowrap":false,"parts":[{"text":"-wo","color":"red"},{"text":"rd😀b\n😀longerwordb "}]}],7],"ret":21}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"short","nowrap":true}],16],"ret":9}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"short","nowrap":true}],7],"ret":21}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":" /😀中 a","nowrap":false},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"","nowrap":false}],18],"ret":7}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":" /😀中 a","nowrap":false},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"","nowrap":false}],37],"ret":7}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"word/  ","nowrap":true,"parts":[{"text":"wor","color":"red"},{"text":"d/  "}]},{"text":"a","nowrap":false,"parts":[{"text":"a","color":"red"},{"text":""}]},{"text":"a   /中  ","nowrap":false,"parts":[{"text":"a  ","color":"red"},{"text":" /中  "}]},{"text":"      \n /","nowrap":true,"parts":[{"text":"   ","color":"red"},{"text":"   \n /"}]}],0],"ret":8}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"word/  ","nowrap":true,"parts":[{"text":"wor","color":"red"},{"text":"d/  "}]},{"text":"a","nowrap":false,"parts":[{"text":"a","color":"red"},{"text":""}]},{"text":"a   /中  ","nowrap":false,"parts":[{"text":"a  ","color":"red"},{"text":" /中  "}]},{"text":"      \n /","nowrap":true,"parts":[{"text":"   ","color":"red"},{"text":"   \n /"}]}],4],"ret":8}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":" \nZzwordZzword/aZzé","nowrap":false},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],25],"ret":6}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":" \nZzwordZzword/aZzé","nowrap":false},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],29],"ret":6}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"--Zzwordword"},{"text":""},{"text":"-é- /  word  ","nowrap":true}],18],"ret":7}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"--Zzwordword"},{"text":""},{"text":"-é- /  word  ","nowrap":true}],37],"ret":7}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"\taZza\n\t","nowrap":true}],16],"ret":5}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"\taZza\n\t","nowrap":true}],7],"ret":5}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"😀a","nowrap":false,"parts":[{"text":"😀a","color":"red"},{"text":""}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"/\n blongerword b","nowrap":false}],0],"ret":62}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"😀a","nowrap":false,"parts":[{"text":"😀a","color":"red"},{"text":""}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"/\n blongerword b","nowrap":false}],4],"ret":62}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true}],3],"ret":4}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines","nowrap":true}],40],"ret":4}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines"},{"text":"\n word\t/  \t","nowrap":false,"parts":[{"text":"\n w","color":"red"},{"text":"ord\t/  \t"}]},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],25],"ret":8}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines"},{"text":"\n word\t/  \t","nowrap":false,"parts":[{"text":"\n w","color":"red"},{"text":"ord\t/  \t"}]},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],29],"ret":8}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines"}],3],"ret":46}
+{"args":[[{"text":"A longer sentence that needs wrapping across lines"}],40],"ret":5}
+{"args":[[{"text":"Zz 😀word","nowrap":false,"parts":[{"text":"Zz ","color":"red"},{"text":"😀word"}]},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],16],"ret":5}
+{"args":[[{"text":"Zz 😀word","nowrap":false,"parts":[{"text":"Zz ","color":"red"},{"text":"😀word"}]},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],7],"ret":5}
+{"args":[[{"text":"Zz \nlongerword-- - \n","nowrap":false,"parts":[{"text":"Zz ","color":"red"},{"text":"\nlongerword-- - \n"}]}],3],"ret":4}
+{"args":[[{"text":"Zz \nlongerword-- - \n","nowrap":false,"parts":[{"text":"Zz ","color":"red"},{"text":"\nlongerword-- - \n"}]}],40],"ret":4}
+{"args":[[{"text":"\n 中","nowrap":true},{"text":" 中\nword Zz","nowrap":false}],16],"ret":5}
+{"args":[[{"text":"\n 中","nowrap":true},{"text":" 中\nword Zz","nowrap":false}],7],"ret":8}
+{"args":[[{"text":"\nalongerword a","nowrap":false}],3],"ret":15}
+{"args":[[{"text":"\nalongerword a","nowrap":false}],40],"ret":4}
+{"args":[[{"text":"\ta-  \n\tblongerword😀","nowrap":false},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":" longerword 😀/ - a中","nowrap":false,"parts":[{"text":" lo","color":"red"},{"text":"ngerword 😀/ - a中"}]},{"text":"Zz \t","nowrap":true,"parts":[{"text":"Zz ","color":"red"},{"text":"\t"}]}],18],"ret":8}
+{"args":[[{"text":"\ta-  \n\tblongerword😀","nowrap":false},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":" longerword 😀/ - a中","nowrap":false,"parts":[{"text":" lo","color":"red"},{"text":"ngerword 😀/ - a中"}]},{"text":"Zz \t","nowrap":true,"parts":[{"text":"Zz ","color":"red"},{"text":"\t"}]}],37],"ret":7}
+{"args":[[{"text":"\t😀","nowrap":true},{"text":" Zz\t wordZz\né","nowrap":true}],16],"ret":5}
+{"args":[[{"text":"\t😀","nowrap":true},{"text":" Zz\t wordZz\né","nowrap":true}],7],"ret":5}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],-1],"ret":19}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],0],"ret":19}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],10],"ret":9}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],14],"ret":7}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],20],"ret":6}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],4],"ret":19}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],5],"ret":19}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],6],"ret":14}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],80],"ret":6}
+{"args":[[{"text":"aaa bbb ccc"},{"text":"ddd eee","nowrap":false},{"text":"path/to/file","nowrap":true}],8],"ret":9}
+{"args":[[{"text":"ab  ","nowrap":true},{"text":""},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"\t-Zz😀a\t","parts":[{"text":"\t-Z","color":"red"},{"text":"z😀a\t"}]}],18],"ret":7}
+{"args":[[{"text":"ab  ","nowrap":true},{"text":""},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"\t-Zz😀a\t","parts":[{"text":"\t-Z","color":"red"},{"text":"z😀a\t"}]}],37],"ret":7}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],-1],"ret":4}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],0],"ret":4}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],10],"ret":4}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],14],"ret":4}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],20],"ret":4}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],4],"ret":4}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],5],"ret":4}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],6],"ret":4}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],80],"ret":4}
+{"args":[[{"text":"ab","parts":[{"text":"a"},{"text":"b"}]}],8],"ret":4}
+{"args":[[{"text":"b  ","nowrap":true,"parts":[{"text":"b  ","color":"red"},{"text":""}]}],3],"ret":4}
+{"args":[[{"text":"b  ","nowrap":true,"parts":[{"text":"b  ","color":"red"},{"text":""}]}],40],"ret":4}
+{"args":[[{"text":"b-  😀 longerword\n 中","nowrap":true,"parts":[{"text":"b- ","color":"red"},{"text":" 😀 longerword\n 中"}]}],3],"ret":4}
+{"args":[[{"text":"b-  😀 longerword\n 中","nowrap":true,"parts":[{"text":"b- ","color":"red"},{"text":" 😀 longerword\n 中"}]}],40],"ret":4}
+{"args":[[{"text":"longerword é中😀","nowrap":true},{"text":"  ","nowrap":false},{"text":" 😀word     😀","nowrap":true,"parts":[{"text":" 😀","color":"red"},{"text":"word     😀"}]},{"text":"  /","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],0],"ret":8}
+{"args":[[{"text":"longerword é中😀","nowrap":true},{"text":"  ","nowrap":false},{"text":" 😀word     😀","nowrap":true,"parts":[{"text":" 😀","color":"red"},{"text":"word     😀"}]},{"text":"  /","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],4],"ret":8}
+{"args":[[{"text":"longerwordword é/longerword-  é ","nowrap":false,"parts":[{"text":"lon","color":"red"},{"text":"gerwordword é/longerword-  é "}]},{"text":"longerword a  /b中","nowrap":true,"parts":[{"text":"lon","color":"red"},{"text":"gerword a  /b中"}]},{"text":" Zz\t-   ","nowrap":false},{"text":"a \n中é-é","nowrap":true,"parts":[{"text":"a \n","color":"red"},{"text":"中é-é"}]}],18],"ret":7}
+{"args":[[{"text":"longerwordword é/longerword-  é ","nowrap":false,"parts":[{"text":"lon","color":"red"},{"text":"gerwordword é/longerword-  é "}]},{"text":"longerword a  /b中","nowrap":true,"parts":[{"text":"lon","color":"red"},{"text":"gerword a  /b中"}]},{"text":" Zz\t-   ","nowrap":false},{"text":"a \n中é-é","nowrap":true,"parts":[{"text":"a \n","color":"red"},{"text":"中é-é"}]}],37],"ret":7}
+{"args":[[{"text":"longerword 中/ /","nowrap":true,"parts":[{"text":"lon","color":"red"},{"text":"gerword 中/ /"}]}],3],"ret":4}
+{"args":[[{"text":"longerword 中/ /","nowrap":true,"parts":[{"text":"lon","color":"red"},{"text":"gerword 中/ /"}]}],40],"ret":4}
+{"args":[[{"text":"longerword中word\t  ","nowrap":false},{"text":" 中a/😀b","nowrap":true,"parts":[{"text":" 中a","color":"red"},{"text":"/😀b"}]},{"text":"中文字符 and 😀","nowrap":true},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],18],"ret":8}
+{"args":[[{"text":"longerword中word\t  ","nowrap":false},{"text":" 中a/😀b","nowrap":true,"parts":[{"text":" 中a","color":"red"},{"text":"/😀b"}]},{"text":"中文字符 and 😀","nowrap":true},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],37],"ret":7}
+{"args":[[{"text":"longerword中中 -word","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":" é/","nowrap":false}],25],"ret":6}
+{"args":[[{"text":"longerword中中 -word","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":" é/","nowrap":false}],29],"ret":6}
+{"args":[[{"text":"one two three four five six"}],-1],"ret":25}
+{"args":[[{"text":"one two three four five six"}],0],"ret":25}
+{"args":[[{"text":"one two three four five six"}],10],"ret":9}
+{"args":[[{"text":"one two three four five six"}],14],"ret":6}
+{"args":[[{"text":"one two three four five six"}],20],"ret":5}
+{"args":[[{"text":"one two three four five six"}],4],"ret":25}
+{"args":[[{"text":"one two three four five six"}],5],"ret":25}
+{"args":[[{"text":"one two three four five six"}],6],"ret":16}
+{"args":[[{"text":"one two three four five six"}],80],"ret":4}
+{"args":[[{"text":"one two three four five six"}],8],"ret":10}
+{"args":[[{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true}],16],"ret":5}
+{"args":[[{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true}],7],"ret":5}
+{"args":[[{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"a中","parts":[{"text":"a中","color":"red"},{"text":""}]}],16],"ret":5}
+{"args":[[{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"a中","parts":[{"text":"a中","color":"red"},{"text":""}]}],7],"ret":5}
+{"args":[[{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"short"},{"text":"A longer sentence that needs wrapping across lines","nowrap":true}],25],"ret":6}
+{"args":[[{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"short"},{"text":"A longer sentence that needs wrapping across lines","nowrap":true}],29],"ret":6}
+{"args":[[{"text":"short","nowrap":false},{"text":"中","nowrap":false,"parts":[{"text":"中","color":"red"},{"text":""}]},{"text":" é😀a中/ ","nowrap":true,"parts":[{"text":{"$utf16":[32,233,55357]},"color":"red"},{"text":{"$utf16":[56832,97,20013,47,32]}}]},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false}],0],"ret":54}
+{"args":[[{"text":"short","nowrap":false},{"text":"中","nowrap":false,"parts":[{"text":"中","color":"red"},{"text":""}]},{"text":" é😀a中/ ","nowrap":true,"parts":[{"text":{"$utf16":[32,233,55357]},"color":"red"},{"text":{"$utf16":[56832,97,20013,47,32]}}]},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":false}],4],"ret":54}
+{"args":[[{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"  ba- 中😀","nowrap":true},{"text":"/\t   élongerword   ","nowrap":false},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],0],"ret":19}
+{"args":[[{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"  ba- 中😀","nowrap":true},{"text":"/\t   élongerword   ","nowrap":false},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],4],"ret":19}
+{"args":[[{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"é ","nowrap":false},{"text":"é  \t ","nowrap":false,"parts":[{"text":"é  ","color":"red"},{"text":"\t "}]},{"text":"longerwordalongerworda😀wordlongerword  "},{"text":"  😀-longerword\n éb","nowrap":false,"parts":[{"text":{"$utf16":[32,32,55357]},"color":"red"},{"text":{"$utf16":[56832,45,108,111,110,103,101,114,119,111,114,100,10,32,233,98]}}]}],0],"ret":45}
+{"args":[[{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"é ","nowrap":false},{"text":"é  \t ","nowrap":false,"parts":[{"text":"é  ","color":"red"},{"text":"\t "}]},{"text":"longerwordalongerworda😀wordlongerword  "},{"text":"  😀-longerword\n éb","nowrap":false,"parts":[{"text":{"$utf16":[32,32,55357]},"color":"red"},{"text":{"$utf16":[56832,45,108,111,110,103,101,114,119,111,114,100,10,32,233,98]}}]}],4],"ret":45}
+{"args":[[{"text":"short","nowrap":true},{"text":"","nowrap":true}],16],"ret":5}
+{"args":[[{"text":"short","nowrap":true},{"text":"","nowrap":true}],7],"ret":5}
+{"args":[[{"text":"short","nowrap":true},{"text":"","parts":[{"text":"","color":"red"},{"text":""}]}],16],"ret":5}
+{"args":[[{"text":"short","nowrap":true},{"text":"","parts":[{"text":"","color":"red"},{"text":""}]}],7],"ret":5}
+{"args":[[{"text":"short","nowrap":true},{"text":""},{"text":"","nowrap":false},{"text":"short","nowrap":true}],18],"ret":7}
+{"args":[[{"text":"short","nowrap":true},{"text":""},{"text":"","nowrap":false},{"text":"short","nowrap":true}],37],"ret":7}
+{"args":[[{"text":"short","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],16],"ret":5}
+{"args":[[{"text":"short","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],7],"ret":5}
+{"args":[[{"text":"short","nowrap":true},{"text":"a a\n","nowrap":false}],16],"ret":5}
+{"args":[[{"text":"short","nowrap":true},{"text":"a a\n","nowrap":false}],7],"ret":5}
+{"args":[[{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"-Zzword  ","parts":[{"text":"-Zz","color":"red"},{"text":"word  "}]}],18],"ret":7}
+{"args":[[{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"-Zzword  ","parts":[{"text":"-Zz","color":"red"},{"text":"word  "}]}],37],"ret":7}
+{"args":[[{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],16],"ret":5}
+{"args":[[{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],7],"ret":5}
+{"args":[[{"text":"short"},{"text":"","nowrap":false},{"text":"-é\n\t  ","nowrap":false,"parts":[{"text":"-é\n","color":"red"},{"text":"\t  "}]},{"text":"中/wordZz😀Zz /","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],0],"ret":12}
+{"args":[[{"text":"short"},{"text":"","nowrap":false},{"text":"-é\n\t  ","nowrap":false,"parts":[{"text":"-é\n","color":"red"},{"text":"\t  "}]},{"text":"中/wordZz😀Zz /","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],4],"ret":12}
+{"args":[[{"text":"short"},{"text":"😀中\t\t\n\t  ","nowrap":false,"parts":[{"text":"😀中","color":"red"},{"text":"\t\t\n\t  "}]},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"A longer sentence that needs wrapping across lines","parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"中文字符 and 😀"}],0],"ret":20}
+{"args":[[{"text":"short"},{"text":"😀中\t\t\n\t  ","nowrap":false,"parts":[{"text":"😀中","color":"red"},{"text":"\t\t\n\t  "}]},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"A longer sentence that needs wrapping across lines","parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"中文字符 and 😀"}],4],"ret":20}
+{"args":[[{"text":"word😀 \nZz","nowrap":false,"parts":[{"text":"wor","color":"red"},{"text":"d😀 \nZz"}]},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"中文字符 and 😀","nowrap":false},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],0],"ret":16}
+{"args":[[{"text":"word😀 \nZz","nowrap":false,"parts":[{"text":"wor","color":"red"},{"text":"d😀 \nZz"}]},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"中文字符 and 😀","nowrap":false},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],4],"ret":16}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],-1],"ret":4}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],0],"ret":4}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],10],"ret":4}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],14],"ret":4}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],20],"ret":4}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],4],"ret":4}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],5],"ret":4}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],6],"ret":4}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],80],"ret":4}
+{"args":[[{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nowrap":true}],8],"ret":4}
+{"args":[[{"text":"   -\t"}],3],"ret":4}
+{"args":[[{"text":"   -\t"}],40],"ret":4}
+{"args":[[{"text":" word Zz  éword\tZz","nowrap":true,"parts":[{"text":" wo","color":"red"},{"text":"rd Zz  éword\tZz"}]},{"text":"   \n","parts":[{"text":"   ","color":"red"},{"text":"\n"}]},{"text":"b\n","nowrap":true,"parts":[{"text":"b\n","color":"red"},{"text":""}]},{"text":"\n\t\n ","nowrap":true},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],0],"ret":8}
+{"args":[[{"text":" word Zz  éword\tZz","nowrap":true,"parts":[{"text":" wo","color":"red"},{"text":"rd Zz  éword\tZz"}]},{"text":"   \n","parts":[{"text":"   ","color":"red"},{"text":"\n"}]},{"text":"b\n","nowrap":true,"parts":[{"text":"b\n","color":"red"},{"text":""}]},{"text":"\n\t\n ","nowrap":true},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],4],"ret":8}
+{"args":[[{"text":"é     😀  \t-","nowrap":false},{"text":"- \t","nowrap":true,"parts":[{"text":"- \t","color":"red"},{"text":""}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"中Zz","nowrap":false}],18],"ret":7}
+{"args":[[{"text":"é     😀  \t-","nowrap":false},{"text":"- \t","nowrap":true,"parts":[{"text":"- \t","color":"red"},{"text":""}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"中Zz","nowrap":false}],37],"ret":7}
+{"args":[[{"text":"é ","parts":[{"text":"é ","color":"red"},{"text":""}]},{"text":"   ","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"short","nowrap":true}],18],"ret":7}
+{"args":[[{"text":"é ","parts":[{"text":"é ","color":"red"},{"text":""}]},{"text":"   ","nowrap":true},{"text":"A longer sentence that needs wrapping across lines","nowrap":true},{"text":"short","nowrap":true}],37],"ret":7}
+{"args":[[{"text":"é \talongerword ","nowrap":false,"parts":[{"text":"é \t","color":"red"},{"text":"alongerword "}]},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],16],"ret":5}
+{"args":[[{"text":"é \talongerword ","nowrap":false,"parts":[{"text":"é \t","color":"red"},{"text":"alongerword "}]},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],7],"ret":5}
+{"args":[[{"text":"é","nowrap":false},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"","nowrap":true},{"text":"","nowrap":true}],18],"ret":7}
+{"args":[[{"text":"é","nowrap":false},{"text":"short","nowrap":true,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]},{"text":"","nowrap":true},{"text":"","nowrap":true}],37],"ret":7}
+{"args":[[{"text":"é-中","nowrap":true}],3],"ret":4}
+{"args":[[{"text":"é-中","nowrap":true}],40],"ret":4}
+{"args":[[{"text":"éZz  longerwordé ","nowrap":true,"parts":[{"text":"éZz","color":"red"},{"text":"  longerwordé "}]},{"text":"","nowrap":true},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],18],"ret":7}
+{"args":[[{"text":"éZz  longerwordé ","nowrap":true,"parts":[{"text":"éZz","color":"red"},{"text":"  longerwordé "}]},{"text":"","nowrap":true},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],37],"ret":7}
+{"args":[[{"text":"éZzZzwordblongerword"},{"text":"","nowrap":true},{"text":"/","nowrap":true,"parts":[{"text":"/","color":"red"},{"text":""}]},{"text":"中      longerword\t","nowrap":false},{"text":"Zz😀Zzwordé","nowrap":false}],0],"ret":47}
+{"args":[[{"text":"éZzZzwordblongerword"},{"text":"","nowrap":true},{"text":"/","nowrap":true,"parts":[{"text":"/","color":"red"},{"text":""}]},{"text":"中      longerword\t","nowrap":false},{"text":"Zz😀Zzwordé","nowrap":false}],4],"ret":47}
+{"args":[[{"text":"é   é  \té","nowrap":true}],3],"ret":4}
+{"args":[[{"text":"é   é  \té","nowrap":true}],40],"ret":4}
+{"args":[[{"text":"é中  😀Zzé/","nowrap":false},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"longerword  a- /  ","parts":[{"text":"lon","color":"red"},{"text":"gerword  a- /  "}]}],25],"ret":6}
+{"args":[[{"text":"é中  😀Zzé/","nowrap":false},{"text":"A longer sentence that needs wrapping across lines","nowrap":false,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":"longerword  a- /  ","parts":[{"text":"lon","color":"red"},{"text":"gerword  a- /  "}]}],29],"ret":6}
+{"args":[[{"text":"  ","nowrap":false,"parts":[{"text":"  ","color":"red"},{"text":""}]},{"text":"-é -- ","nowrap":false},{"text":"b中word","nowrap":false},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],0],"ret":16}
+{"args":[[{"text":"  ","nowrap":false,"parts":[{"text":"  ","color":"red"},{"text":""}]},{"text":"-é -- ","nowrap":false},{"text":"b中word","nowrap":false},{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],4],"ret":16}
+{"args":[[{"text":" ","parts":[{"text":" ","color":"red"},{"text":""}]}],3],"ret":4}
+{"args":[[{"text":" ","parts":[{"text":" ","color":"red"},{"text":""}]}],40],"ret":4}
+{"args":[[{"text":" /\n  longerword😀\n","nowrap":false},{"text":"😀 \t\n-    ","nowrap":true,"parts":[{"text":"😀 ","color":"red"},{"text":"\t\n-    "}]}],16],"ret":6}
+{"args":[[{"text":" /\n  longerword😀\n","nowrap":false},{"text":"😀 \t\n-    ","nowrap":true,"parts":[{"text":"😀 ","color":"red"},{"text":"\t\n-    "}]}],7],"ret":9}
+{"args":[[{"text":"中  \t\t\n😀longerword","nowrap":false},{"text":"\t\t\ta","nowrap":true,"parts":[{"text":"\t\t\t","color":"red"},{"text":"a"}]},{"text":"short","nowrap":false}],25],"ret":6}
+{"args":[[{"text":"中  \t\t\n😀longerword","nowrap":false},{"text":"\t\t\ta","nowrap":true,"parts":[{"text":"\t\t\t","color":"red"},{"text":"a"}]},{"text":"short","nowrap":false}],29],"ret":6}
+{"args":[[{"text":"中 longerword","nowrap":true,"parts":[{"text":"中 l","color":"red"},{"text":"ongerword"}]},{"text":"Zza ","nowrap":false,"parts":[{"text":"Zza","color":"red"},{"text":" "}]}],16],"ret":5}
+{"args":[[{"text":"中 longerword","nowrap":true,"parts":[{"text":"中 l","color":"red"},{"text":"ongerword"}]},{"text":"Zza ","nowrap":false,"parts":[{"text":"Zza","color":"red"},{"text":" "}]}],7],"ret":5}
+{"args":[[{"text":"中 longerword-","nowrap":true},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":""},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],18],"ret":7}
+{"args":[[{"text":"中 longerword-","nowrap":true},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":""},{"text":"","nowrap":true,"parts":[{"text":"","color":"red"},{"text":""}]}],37],"ret":7}
+{"args":[[{"text":"中\n/\n-/ba\n","nowrap":true,"parts":[{"text":"中\n/","color":"red"},{"text":"\n-/ba\n"}]},{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],16],"ret":5}
+{"args":[[{"text":"中\n/\n-/ba\n","nowrap":true,"parts":[{"text":"中\n/","color":"red"},{"text":"\n-/ba\n"}]},{"text":"short","parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],7],"ret":5}
+{"args":[[{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":" a","nowrap":true},{"text":" 中 中😀-中","nowrap":true}],18],"ret":7}
+{"args":[[{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]},{"text":" a","nowrap":true},{"text":" 中 中😀-中","nowrap":true}],37],"ret":7}
+{"args":[[{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":" longerword","nowrap":false},{"text":"😀","nowrap":true}],25],"ret":6}
+{"args":[[{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":" longerword","nowrap":false},{"text":"😀","nowrap":true}],29],"ret":6}
+{"args":[[{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],3],"ret":4}
+{"args":[[{"text":"中文字符 and 😀","nowrap":false,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]}],40],"ret":4}
+{"args":[[{"text":"中文字符 and 😀","nowrap":false},{"text":"Zza\n","nowrap":false}],16],"ret":5}
+{"args":[[{"text":"中文字符 and 😀","nowrap":false},{"text":"Zza\n","nowrap":false}],7],"ret":8}
+{"args":[[{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],16],"ret":5}
+{"args":[[{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"A longer sentence that needs wrapping across lines","nowrap":true,"parts":[{"text":"A l","color":"red"},{"text":"onger sentence that needs wrapping across lines"}]}],7],"ret":5}
+{"args":[[{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"b  -\n  alongerword","nowrap":false},{"text":"中- ","nowrap":true,"parts":[{"text":"中- ","color":"red"},{"text":""}]},{"text":"short","nowrap":true}],18],"ret":8}
+{"args":[[{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"b  -\n  alongerword","nowrap":false},{"text":"中- ","nowrap":true,"parts":[{"text":"中- ","color":"red"},{"text":""}]},{"text":"short","nowrap":true}],37],"ret":7}
+{"args":[[{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":" word  longerword ","nowrap":false,"parts":[{"text":" wo","color":"red"},{"text":"rd  longerword "}]},{"text":""},{"text":"longerword\t \n  Zzblongerword-","nowrap":true,"parts":[{"text":"lon","color":"red"},{"text":"gerword\t \n  Zzblongerword-"}]}],18],"ret":7}
+{"args":[[{"text":"中文字符 and 😀","nowrap":true,"parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":" word  longerword ","nowrap":false,"parts":[{"text":" wo","color":"red"},{"text":"rd  longerword "}]},{"text":""},{"text":"longerword\t \n  Zzblongerword-","nowrap":true,"parts":[{"text":"lon","color":"red"},{"text":"gerword\t \n  Zzblongerword-"}]}],37],"ret":7}
+{"args":[[{"text":"中文字符 and 😀","nowrap":true},{"text":"","nowrap":false}],16],"ret":5}
+{"args":[[{"text":"中文字符 and 😀","nowrap":true},{"text":"","nowrap":false}],7],"ret":5}
+{"args":[[{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"short","nowrap":true},{"text":" b ","nowrap":false,"parts":[{"text":" b ","color":"red"},{"text":""}]},{"text":"😀"},{"text":"/\t /","nowrap":true,"parts":[{"text":"/\t ","color":"red"},{"text":"/"}]}],0],"ret":9}
+{"args":[[{"text":"中文字符 and 😀","parts":[{"text":"中文字","color":"red"},{"text":"符 and 😀"}]},{"text":"short","nowrap":true},{"text":" b ","nowrap":false,"parts":[{"text":" b ","color":"red"},{"text":""}]},{"text":"😀"},{"text":"/\t /","nowrap":true,"parts":[{"text":"/\t ","color":"red"},{"text":"/"}]}],4],"ret":9}
+{"args":[[{"text":"中文字符 and 😀"},{"text":" word😀é","nowrap":true}],16],"ret":5}
+{"args":[[{"text":"中文字符 and 😀"},{"text":" word😀é","nowrap":true}],7],"ret":8}
+{"args":[[{"text":"😀  ","nowrap":false},{"text":"/\n   é","nowrap":false,"parts":[{"text":"/\n ","color":"red"},{"text":"  é"}]},{"text":"é 中 - \n    ","parts":[{"text":"é 中","color":"red"},{"text":" - \n    "}]},{"text":"longerword é","nowrap":false,"parts":[{"text":"lon","color":"red"},{"text":"gerword é"}]}],18],"ret":7}
+{"args":[[{"text":"😀  ","nowrap":false},{"text":"/\n   é","nowrap":false,"parts":[{"text":"/\n ","color":"red"},{"text":"  é"}]},{"text":"é 中 - \n    ","parts":[{"text":"é 中","color":"red"},{"text":" - \n    "}]},{"text":"longerword é","nowrap":false,"parts":[{"text":"lon","color":"red"},{"text":"gerword é"}]}],37],"ret":7}
+{"args":[[{"text":"😀- /wordba  Zz","nowrap":false},{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"short","nowrap":false},{"text":"bZzZz  ","nowrap":false}],0],"ret":111}
+{"args":[[{"text":"😀- /wordba  Zz","nowrap":false},{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"A longer sentence that needs wrapping across lines","nowrap":false},{"text":"short","nowrap":false},{"text":"bZzZz  ","nowrap":false}],4],"ret":111}
+{"args":[[{"text":"😀\t","parts":[{"text":"😀\t","color":"red"},{"text":""}]},{"text":"  /😀 a\n\n/\t","parts":[{"text":"  /","color":"red"},{"text":"😀 a\n\n/\t"}]},{"text":"short","nowrap":false}],25],"ret":6}
+{"args":[[{"text":"😀\t","parts":[{"text":"😀\t","color":"red"},{"text":""}]},{"text":"  /😀 a\n\n/\t","parts":[{"text":"  /","color":"red"},{"text":"😀 a\n\n/\t"}]},{"text":"short","nowrap":false}],29],"ret":6}
+{"args":[[{"text":"😀a","nowrap":false,"parts":[{"text":"😀a","color":"red"},{"text":""}]},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],25],"ret":6}
+{"args":[[{"text":"😀a","nowrap":false,"parts":[{"text":"😀a","color":"red"},{"text":""}]},{"text":"","nowrap":false,"parts":[{"text":"","color":"red"},{"text":""}]},{"text":"short","nowrap":false,"parts":[{"text":"sho","color":"red"},{"text":"rt"}]}],29],"ret":6}
+{"args":[[{"text":"😀éZz word   ","nowrap":true}],3],"ret":4}
+{"args":[[{"text":"😀éZz word   ","nowrap":true}],40],"ret":4}
