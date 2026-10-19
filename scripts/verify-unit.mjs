@@ -144,7 +144,8 @@ async function checkScope(ctx) {
 	if (!(await git('rev-parse', '--verify', '--quiet', `${base}^{commit}`)).ok) return {ok: false, details: {error: `base ${base} does not exist (pass --base <branch>)`}};
 	const deps = [];
 	for (const dep of manifest.deps) if ((await git('rev-parse', '--verify', '--quiet', `refs/heads/port/${dep}`)).ok) deps.push(`port/${dep}`);
-	const committed = (await git('log', '--no-merges', '--name-only', '--format=', 'HEAD', '--not', base, ...deps)).out.split('\n').filter(Boolean);
+	// -z: non-ASCII paths would otherwise come back C-quoted and never match the owned globs.
+	const committed = (await git('-c', 'core.quotePath=false', 'log', '-z', '--no-merges', '--name-only', '--format=', 'HEAD', '--not', base, ...deps)).out.split(/[\0\n]/).filter(Boolean);
 	const status = (await git('status', '--porcelain=v1', '-z', '--untracked-files=all')).out.split('\0');
 	const uncommitted = [];
 	for (let index = 0; index < status.length; index++) {
