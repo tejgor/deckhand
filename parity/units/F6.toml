@@ -4,7 +4,7 @@ title = "worktrees flow"
 crate = "ui"
 ts_sources = ["src/worktreesFlow.tsx"]
 rust_paths = ["crates/ui/src/flows/worktrees.rs"]
-deps = []
+deps = ["A1"]
 ts_tests = []
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
 ts_suites = ["tests/worktreesUi.test.ts"]
