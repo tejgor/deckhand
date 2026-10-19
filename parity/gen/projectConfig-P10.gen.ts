@@ -19,8 +19,10 @@ const rc = (fn: string, impl: Function, args: unknown[]) => { try { recorder.cal
 const FNS: Record<string, Function> = {sha256, validateProjectConfig, parseProjectConfig, projectFingerprint, isProjectTrusted, projectNeedsReview, trustProjectConfig, globalDefaults, untrustedLayer, resolveSettings, resolveDevCommand, resolveSetupCommand, explainSettings};
 
 // 1. Tap the existing tests, keeping only calls whose arguments carry no temp paths (those vary per run).
+// sha256 is not tapped: the concurrent-save test hashes whichever draft wins the race, so its calls vary per run
+// (sha256 is covered by the direct calls below).
 const tmp = [os.tmpdir(), '/private/tmp', '/var/folders', '/tmp/'];
-const tapped = (await runTap({tests: ['tests/projectConfig.test.ts', 'tests/projectConfigDocument.test.ts'], tap: Object.keys(FNS).map(fn => `projectConfig:${fn}`)}))
+const tapped = (await runTap({tests: ['tests/projectConfig.test.ts', 'tests/projectConfigDocument.test.ts'], tap: Object.keys(FNS).filter(fn => fn !== 'sha256').map(fn => `projectConfig:${fn}`)}))
 	.filter(record => !tmp.some(prefix => record.line.includes(prefix)) && record.fn in FNS);
 recorder.addTap(tapped, {module: 'projectConfig'});
 for (const fn of ['validateProjectConfig', 'parseProjectConfig', 'resolveSettings', 'resolveDevCommand', 'resolveSetupCommand', 'explainSettings', 'trustProjectConfig', 'isProjectTrusted']) {
