@@ -221,6 +221,274 @@ pub async fn write_message<W: AsyncWrite + Unpin>(writer: &mut W, message: &Requ
         .map_err(|error| socket_error(&error, "write"))
 }
 
+/// How deep [`json_parse`] nests arrays and objects (serde_json stops at 128). V8 has no such limit, but a `Value` is
+/// dropped, cloned, serialized and converted to a [`ServerMessage`] recursively, so a much deeper one could overflow
+/// the stack (an abort, where TS keeps going); at this depth all of that fits a 2 MiB thread stack in a debug build.
+/// Deeper lines fail with V8's stack-overflow message instead; the daemon never sends anything close.
+const MAX_JSON_DEPTH: usize = 512;
+
+/// `JSON.parse(line)` as a `Value`. serde_json takes the common case; a line it rejects that V8 accepts (a lone
+/// surrogate escape, a number beyond f64 such as `1e400`, nesting deeper than 128) goes through
+/// [`parse_js_json_value`]; a line V8 rejects fails with V8's message ([`DhError::json_parse`]).
+pub(crate) fn json_parse(line: &str) -> Result<Value, DhError> {
+    if let Ok(value) = serde_json::from_str::<Value>(line) {
+        return Ok(value);
+    }
+    // The iterative parser runs before the message scanner, which recurses: a line it rejects as invalid failed
+    // within MAX_JSON_DEPTH levels, so the scanner never nests deeper than that either.
+    match parse_js_json_value(line) {
+        Ok(value) => Ok(value),
+        Err(JsJsonError::TooDeep) => Err(DhError::msg("Maximum call stack size exceeded")),
+        Err(JsJsonError::Invalid) => Err(DhError::json_parse(line)),
+    }
+}
+
+/// Why [`parse_js_json_value`] gave up.
+#[derive(Debug, PartialEq, Eq)]
+enum JsJsonError {
+    /// Nested deeper than [`MAX_JSON_DEPTH`].
+    TooDeep,
+    /// Not JSON (never for text V8 accepted).
+    Invalid,
+}
+
+/// An array or object [`parse_js_json_value`] is inside of: its members so far (an object's with the key whose value
+/// is being parsed).
+enum JsJsonFrame {
+    Array(Vec<Value>),
+    Object(serde_json::Map<String, Value>, String),
+}
+
+/// `JSON.parse` for text serde_json rejects, iteratively (no recursion limit but [`MAX_JSON_DEPTH`]). Where a JS
+/// value has no `Value` form it takes the one Node gives it on the way out: a lone surrogate becomes U+FFFD (as Node
+/// encodes it to UTF-8; one UTF-16 unit either way), ±Infinity becomes `null` (as JSON.stringify writes it). A
+/// repeated key keeps its first position and takes the last value, as a JS object assignment does.
+fn parse_js_json_value(text: &str) -> Result<Value, JsJsonError> {
+    let mut scanner = JsJsonScanner {
+        bytes: text.as_bytes(),
+        pos: 0,
+    };
+    let mut stack: Vec<JsJsonFrame> = Vec::new();
+    loop {
+        scanner.skip_whitespace();
+        let mut value = match scanner.peek() {
+            Some(b'[') => {
+                scanner.pos += 1;
+                scanner.skip_whitespace();
+                if scanner.eat(b']') {
+                    Value::Array(Vec::new())
+                } else {
+                    push_frame(&mut stack, JsJsonFrame::Array(Vec::new()))?;
+                    continue;
+                }
+            }
+            Some(b'{') => {
+                scanner.pos += 1;
+                scanner.skip_whitespace();
+                if scanner.eat(b'}') {
+                    Value::Object(serde_json::Map::new())
+                } else {
+                    let key = scanner.member_key()?;
+                    push_frame(&mut stack, JsJsonFrame::Object(serde_json::Map::new(), key))?;
+                    continue;
+                }
+            }
+            Some(b'"') => Value::String(scanner.string()?),
+            Some(b't') => scanner.literal("true", Value::Bool(true))?,
+            Some(b'f') => scanner.literal("false", Value::Bool(false))?,
+            Some(b'n') => scanner.literal("null", Value::Null)?,
+            _ => scanner.number()?,
+        };
+        // Hand the finished value to its container, closing every container it finishes in turn.
+        loop {
+            scanner.skip_whitespace();
+            match stack.last_mut() {
+                None => {
+                    return if scanner.pos == scanner.bytes.len() {
+                        Ok(value)
+                    } else {
+                        Err(JsJsonError::Invalid)
+                    };
+                }
+                Some(JsJsonFrame::Array(items)) => {
+                    items.push(value);
+                    if scanner.eat(b',') {
+                        break;
+                    }
+                    if !scanner.eat(b']') {
+                        return Err(JsJsonError::Invalid);
+                    }
+                    let Some(JsJsonFrame::Array(items)) = stack.pop() else {
+                        return Err(JsJsonError::Invalid);
+                    };
+                    value = Value::Array(items);
+                }
+                Some(JsJsonFrame::Object(members, key)) => {
+                    members.insert(std::mem::take(key), value);
+                    if scanner.eat(b',') {
+                        scanner.skip_whitespace();
+                        *key = scanner.member_key()?;
+                        break;
+                    }
+                    if !scanner.eat(b'}') {
+                        return Err(JsJsonError::Invalid);
+                    }
+                    let Some(JsJsonFrame::Object(members, _)) = stack.pop() else {
+                        return Err(JsJsonError::Invalid);
+                    };
+                    value = Value::Object(members);
+                }
+            }
+        }
+    }
+}
+
+fn push_frame(stack: &mut Vec<JsJsonFrame>, frame: JsJsonFrame) -> Result<(), JsJsonError> {
+    if stack.len() >= MAX_JSON_DEPTH {
+        return Err(JsJsonError::TooDeep);
+    }
+    stack.push(frame);
+    Ok(())
+}
+
+/// The cursor of [`parse_js_json_value`] (a byte index into valid UTF-8; JSON's syntax is all ASCII).
+struct JsJsonScanner<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl JsJsonScanner<'_> {
+    fn peek(&self) -> Option<u8> {
+        self.bytes.get(self.pos).copied()
+    }
+
+    fn eat(&mut self, byte: u8) -> bool {
+        let matched = self.peek() == Some(byte);
+        if matched {
+            self.pos += 1;
+        }
+        matched
+    }
+
+    /// JSON whitespace (V8 skips exactly these four).
+    fn skip_whitespace(&mut self) {
+        while matches!(self.peek(), Some(b' ' | b'\t' | b'\n' | b'\r')) {
+            self.pos += 1;
+        }
+    }
+
+    fn literal(&mut self, word: &str, value: Value) -> Result<Value, JsJsonError> {
+        let end = self.pos + word.len();
+        if self.bytes.get(self.pos..end) != Some(word.as_bytes()) {
+            return Err(JsJsonError::Invalid);
+        }
+        self.pos = end;
+        Ok(value)
+    }
+
+    /// `"key"` then `:`, leaving the cursor at the member's value.
+    fn member_key(&mut self) -> Result<String, JsJsonError> {
+        if self.peek() != Some(b'"') {
+            return Err(JsJsonError::Invalid);
+        }
+        let key = self.string()?;
+        self.skip_whitespace();
+        if !self.eat(b':') {
+            return Err(JsJsonError::Invalid);
+        }
+        Ok(key)
+    }
+
+    fn hex4(&mut self) -> Result<u16, JsJsonError> {
+        let digits = self.bytes.get(self.pos..self.pos + 4).ok_or(JsJsonError::Invalid)?;
+        let digits = std::str::from_utf8(digits).map_err(|_| JsJsonError::Invalid)?;
+        if !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(JsJsonError::Invalid);
+        }
+        let unit = u16::from_str_radix(digits, 16).map_err(|_| JsJsonError::Invalid)?;
+        self.pos += 4;
+        Ok(unit)
+    }
+
+    /// A string literal at the cursor (on its opening quote), as UTF-16 decoded lossily: a surrogate escape that is
+    /// not half of a pair becomes U+FFFD.
+    fn string(&mut self) -> Result<String, JsJsonError> {
+        self.pos += 1;
+        let mut units: Vec<u16> = Vec::new();
+        loop {
+            let start = self.pos;
+            while matches!(self.peek(), Some(byte) if byte != b'"' && byte != b'\\' && byte >= 0x20) {
+                self.pos += 1;
+            }
+            let run = self.bytes.get(start..self.pos).ok_or(JsJsonError::Invalid)?;
+            let run = std::str::from_utf8(run).map_err(|_| JsJsonError::Invalid)?;
+            units.extend(run.encode_utf16());
+            match self.peek() {
+                Some(b'"') => {
+                    self.pos += 1;
+                    return Ok(String::from_utf16_lossy(&units));
+                }
+                Some(b'\\') => {
+                    self.pos += 1;
+                    let escape = self.peek().ok_or(JsJsonError::Invalid)?;
+                    self.pos += 1;
+                    let unit = match escape {
+                        b'"' => 0x22,
+                        b'\\' => 0x5c,
+                        b'/' => 0x2f,
+                        b'b' => 0x08,
+                        b'f' => 0x0c,
+                        b'n' => 0x0a,
+                        b'r' => 0x0d,
+                        b't' => 0x09,
+                        b'u' => self.hex4()?,
+                        _ => return Err(JsJsonError::Invalid),
+                    };
+                    units.push(unit);
+                }
+                _ => return Err(JsJsonError::Invalid),
+            }
+        }
+    }
+
+    /// `-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?`: serde_json's number where it has one (exact integers), else
+    /// the double JS reads, ±Infinity as `null`.
+    fn number(&mut self) -> Result<Value, JsJsonError> {
+        let start = self.pos;
+        self.eat(b'-');
+        let digits = |scanner: &mut Self| {
+            let from = scanner.pos;
+            while matches!(scanner.peek(), Some(b'0'..=b'9')) {
+                scanner.pos += 1;
+            }
+            scanner.pos > from
+        };
+        // No leading zeros: a `0` ends the integer part (what follows it is then out of place).
+        if !self.eat(b'0') && !digits(self) {
+            return Err(JsJsonError::Invalid);
+        }
+        if self.eat(b'.') && !digits(self) {
+            return Err(JsJsonError::Invalid);
+        }
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            self.pos += 1;
+            if matches!(self.peek(), Some(b'+' | b'-')) {
+                self.pos += 1;
+            }
+            if !digits(self) {
+                return Err(JsJsonError::Invalid);
+            }
+        }
+        let lexeme = self.bytes.get(start..self.pos).ok_or(JsJsonError::Invalid)?;
+        let lexeme = std::str::from_utf8(lexeme).map_err(|_| JsJsonError::Invalid)?;
+        if let Ok(number) = serde_json::from_str::<serde_json::Number>(lexeme) {
+            return Ok(Value::Number(number));
+        }
+        let double: f64 = lexeme.parse().map_err(|_| JsJsonError::Invalid)?;
+        Ok(serde_json::Number::from_f64(double).map_or(Value::Null, Value::Number))
+    }
+}
+
 /// What one chunk fed to a [`JsonParser`] produced.
 #[derive(Debug, Default)]
 pub struct Parsed {
@@ -259,13 +527,13 @@ impl JsonParser {
         }
         let mut parsed = Parsed::default();
         while let Some(line) = self.lines.pop_front() {
-            match serde_json::from_str::<Value>(&line) {
+            match json_parse(&line) {
                 Ok(message) => {
                     wire_log(WireDir::D2c, &message);
                     parsed.messages.push(message);
                 }
-                Err(_) => {
-                    parsed.error = Some(DhError::json_parse(&line));
+                Err(error) => {
+                    parsed.error = Some(error);
                     break;
                 }
             }
@@ -928,6 +1196,143 @@ mod tests {
         let parsed = parser.push_values(b"{\"c\":3}\n");
         assert_eq!(parsed.messages, vec![json!({"b": 2}), json!({"c": 3})]);
         assert!(parsed.error.is_none());
+    }
+
+    #[test]
+    fn parser_accepts_lone_surrogate_escapes_as_json_parse_does() {
+        // JSON.stringify of a string cut through an emoji by UTF-16 index escapes the half; JSON.parse takes it back.
+        let mut parser = JsonParser::new();
+        let parsed = parser.push_values(
+            b"{\"type\":\"session-removed\",\"sessionId\":\"ab\\ud83d\"}\n[\"\\udc00\\ud83d\\ude00\",\"\\ud83dx\\\\ud83d\"]\n",
+        );
+        assert!(parsed.error.is_none(), "{:?}", parsed.error);
+        // The half is U+FFFD, as Node writes it (one UTF-16 unit either way).
+        assert_eq!(
+            parsed.messages,
+            vec![
+                json!({"type": "session-removed", "sessionId": "ab\u{fffd}"}),
+                json!(["\u{fffd}\u{1f600}", "\u{fffd}x\\ud83d"]),
+            ]
+        );
+        let messages = JsonParser::new()
+            .push(b"{\"type\":\"session-removed\",\"sessionId\":\"ab\\ud83d\"}\n")
+            .unwrap();
+        assert_eq!(messages.len(), 1);
+    }
+
+    #[test]
+    fn parser_accepts_numbers_beyond_f64_as_json_parse_does() {
+        let mut parser = JsonParser::new();
+        let parsed =
+            parser.push_values(b"{\"type\":\"x\",\"n\":1e400,\"m\":[-1e400,1e-400,12345678901234567890123,7]}\n");
+        assert!(parsed.error.is_none(), "{:?}", parsed.error);
+        // ±Infinity has no JSON value: it is held as null, which is also what JSON.stringify (the wire log) writes.
+        assert_eq!(
+            parsed.messages,
+            vec![json!({"type": "x", "n": null, "m": [null, 0.0, 1.2345678901234568e22, 7]})]
+        );
+    }
+
+    #[test]
+    fn parser_accepts_nesting_deeper_than_serde_json_does() {
+        let depth = 500;
+        let mut line = format!("{{\"type\":\"x\",\"deep\":{}{}}}", "[".repeat(depth), "]".repeat(depth));
+        line.push_str("\n{\"a\":{\"b\":[1,{\"c\":[]},{}],\"a\":2},\"a\":3}\n");
+        let mut parser = JsonParser::new();
+        let parsed = parser.push_values(line.as_bytes());
+        assert!(parsed.error.is_none(), "{:?}", parsed.error);
+        assert_eq!(parsed.messages.len(), 2);
+        let mut level = &parsed.messages[0]["deep"];
+        let mut levels = 0;
+        while let Some(items) = level.as_array() {
+            levels += 1;
+            match items.first() {
+                Some(next) => level = next,
+                None => break,
+            }
+        }
+        assert_eq!(levels, depth);
+        // A repeated key keeps its first position and takes the last value, as JSON.parse does.
+        assert_eq!(parsed.messages[1], json!({"a": 3}));
+        assert_eq!(serde_json::to_string(&parsed.messages[1]).unwrap(), "{\"a\":3}");
+    }
+
+    #[test]
+    fn parser_depth_cap_keeps_values_safe_on_a_small_stack() {
+        // At the cap a value still drops, clones, serializes (the wire log) and converts (the typed parser) on a
+        // 2 MiB stack (a spawned thread's default) in a debug build; one level more fails with V8's stack-overflow
+        // message, as does a deeper line that is not JSON at all (the recursive message scanner never sees it).
+        std::thread::Builder::new()
+            .stack_size(2 * 1024 * 1024)
+            .spawn(|| {
+                for line in [
+                    format!(
+                        "{{\"type\":\"git-updated\",\"git\":{}{}}}",
+                        "[".repeat(MAX_JSON_DEPTH - 1),
+                        "]".repeat(MAX_JSON_DEPTH - 1)
+                    ),
+                    format!(
+                        "{{\"type\":\"session-updated\",\"session\":{{\"id\":\"s\",\"x\":{}{}}}}}",
+                        "[".repeat(MAX_JSON_DEPTH - 2),
+                        "]".repeat(MAX_JSON_DEPTH - 2)
+                    ),
+                ] {
+                    let value = json_parse(&line).unwrap();
+                    let copy = value.clone();
+                    assert_eq!(json_stringify(&copy).unwrap(), line.into_bytes());
+                    drop(copy);
+                    let _ = to_server_message(value);
+                }
+                let over = format!("{}0{}", "[".repeat(MAX_JSON_DEPTH + 1), "]".repeat(MAX_JSON_DEPTH + 1));
+                assert_eq!(
+                    json_parse(&over).unwrap_err().to_string(),
+                    "Maximum call stack size exceeded"
+                );
+                let invalid = format!("{}x", "[".repeat(1_000_000));
+                assert_eq!(
+                    json_parse(&invalid).unwrap_err().to_string(),
+                    "Maximum call stack size exceeded"
+                );
+                // Within the cap, an invalid line still gets JSON.parse's message.
+                assert_eq!(
+                    json_parse("[[1,]]").unwrap_err().to_string(),
+                    "Unexpected token ']', \"[[1,]]\" is not valid JSON"
+                );
+                assert_eq!(
+                    json_parse("[01]").unwrap_err().to_string(),
+                    "Unexpected number in JSON at position 2 (line 1 column 3)"
+                );
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    #[test]
+    fn parser_fallback_keeps_object_key_order_and_rejects_what_v8_rejects() {
+        let mut parser = JsonParser::new();
+        let parsed =
+            parser.push_values(b" {\"z\":\"\\ud800\",\"a\":[true,false,null,-0.5e1,\"\\n\\u00e9\\\"\"]} \n[1e400,\n");
+        assert_eq!(
+            serde_json::to_string(&parsed.messages).unwrap(),
+            "[{\"z\":\"\u{fffd}\",\"a\":[true,false,null,-5.0,\"\\n\u{e9}\\\"\"]}]"
+        );
+        assert_eq!(parsed.error.unwrap().to_string(), "Unexpected end of JSON input");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn request_resolves_through_lines_serde_json_rejects() {
+        let dir = tempfile::tempdir().unwrap();
+        let socket = dir.path().join("daemon.sock");
+        serve(&socket, |request| {
+            Some(format!(
+                "{{\"type\":\"session-removed\",\"sessionId\":\"ab\\ud83d\",\"n\":1e400}}\n{}",
+                response(&request, json!({"ok": true, "data": {"x": 1}}))
+                    .replace("\"x\":1", "\"x\":1,\"t\":\"\\ud83d\"")
+            ))
+        });
+        let data: Value = request_at(&socket, &ping_request(), None).await.unwrap();
+        assert_eq!(data, json!({"x": 1, "t": "\u{fffd}"}));
     }
 
     #[test]

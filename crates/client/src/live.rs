@@ -1106,6 +1106,29 @@ mod tests {
     }
 
     #[test]
+    fn lines_serde_json_rejects_but_json_parse_accepts_keep_the_connection() {
+        run(async {
+            let log = Log::default();
+            let (client, mut daemon) = connect(recording(&log));
+            let reply = client.open_tasks("/repo");
+            let request = daemon.next().await.unwrap();
+            // A title cut through an emoji by UTF-16 index, a number beyond f64, nesting deeper than 128.
+            daemon
+                .send(&format!(
+                    "{{\"type\":\"session-removed\",\"sessionId\":\"ab\\ud83d\"}}\n{{\"type\":\"git-updated\",\"n\":1e400,\"git\":{}{}}}\n",
+                    "[".repeat(200),
+                    "]".repeat(200)
+                ))
+                .await;
+            daemon
+                .respond(&request, json!({"ok": true, "data": "/repo/tasks.md"}))
+                .await;
+            assert_eq!(reply.await.unwrap(), "/repo/tasks.md");
+            assert_eq!(*log.borrow(), vec!["removed ab\u{fffd}"]);
+        });
+    }
+
+    #[test]
     fn failed_responses_reject_with_their_error() {
         run(async {
             let (client, mut daemon) = connect(LiveClientHandlers::default());
