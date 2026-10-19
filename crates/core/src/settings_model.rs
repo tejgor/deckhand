@@ -234,9 +234,14 @@ pub type Layer = Map<String, Value>;
 /// TS: settingsModel.ts documentLayer. Errors: `<layer> not valid JSON; press E to repair it first`, `<layer> not a
 /// JSON object; ...`.
 pub fn document_layer(document: &ProjectConfigDocument) -> Result<Layer> {
+    parsed_layer(document, Surrogates::Replace)
+}
+
+/// `document_layer`, with lone surrogates either replaced by U+FFFD (display) or carried as marks (editing).
+fn parsed_layer(document: &ProjectConfigDocument, surrogates: Surrogates) -> Result<Layer> {
     let label = layer_label(document.kind);
     let value = if document.exists {
-        js_json_parse(&document.raw)
+        js_json_parse(&document.raw, surrogates)
             .ok_or_else(|| DhError::msg(format!("{label} not valid JSON; press E to repair it first")))?
     } else {
         Value::Object(Map::new())
@@ -288,9 +293,13 @@ pub struct SettingChange {
 }
 
 /// TS: settingsModel.ts applyChange (the document's JSON with one key set or removed; validated like a save).
+///
+/// A Rust string cannot hold the lone surrogates JSON.parse keeps (and JSON.stringify writes back as `\udxxx`), so the
+/// layer is edited with them carried as marks (`Surrogates::Mark`) that become escapes again in the output.
 pub fn apply_change(document: &ProjectConfigDocument, change: &SettingChange) -> Result<String> {
-    let mut next = document_layer(document)?;
-    let path = &change.path;
+    let mut next = parsed_layer(document, Surrogates::Mark)?;
+    let path: Vec<String> = change.path.iter().map(|key| escape_mark(key)).collect();
+    let value = change.value.as_ref().map(|value| map_strings(value, &escape_mark));
     if let Some((last, parents_path)) = path.split_last() {
         // `parents.length` in TS: how many objects along the path exist (or were created); the root is the first.
         let mut parents = 1;
@@ -300,29 +309,29 @@ pub fn apply_change(document: &ProjectConfigDocument, change: &SettingChange) ->
             };
             match parent.get(key) {
                 // `parent[key]` finds Object.prototype's methods: not an object.
-                None if inherited_function(key) => return Err(not_an_object(path, parents)),
+                None if inherited_function(key) => return Err(not_an_object(&change.path, parents)),
                 None => {
-                    if change.value.is_none() {
+                    if value.is_none() {
                         break;
                     }
                     parent.insert(key.clone(), Value::Object(Map::new()));
                 }
                 Some(Value::Object(_)) => {}
-                Some(_) => return Err(not_an_object(path, parents)),
+                Some(_) => return Err(not_an_object(&change.path, parents)),
             }
             parents += 1;
         }
         if parents == path.len()
             && let Some(parent) = object_at_mut(&mut next, parents_path)
         {
-            match &change.value {
+            match value {
                 None => {
                     parent.shift_remove(last);
                 }
                 // Assigning `__proto__` sets the prototype instead of an own property: nothing is written.
                 Some(_) if last == "__proto__" && !parent.contains_key(last) => {}
                 Some(value) => {
-                    parent.insert(last.clone(), value.clone());
+                    parent.insert(last.clone(), value);
                 }
             }
         }
@@ -335,8 +344,13 @@ pub fn apply_change(document: &ProjectConfigDocument, change: &SettingChange) ->
     }
     let next = Value::Object(next);
     let label = (document.kind == ConfigTargetKind::Global).then_some("defaults");
-    validate_project_config(&next, label)?;
-    format_config_json(&serde_json::to_string(&next)?)
+    // Validated as before, with each lone surrogate read as U+FFFD (one UTF-16 unit, like the surrogate itself).
+    validate_project_config(
+        &map_strings(&next, &|text| unmark(text, |_| String::from("\u{FFFD}"))),
+        label,
+    )?;
+    let text = format_config_json(&serde_json::to_string(&next)?)?;
+    Ok(unmark(&text, |digits| format!("\\u{digits}")))
 }
 
 /// TS: settingsModel.ts ownValue.
@@ -1449,19 +1463,31 @@ fn target_document(targets: &ConfigTargets, kind: ConfigTargetKind) -> Option<&P
 
 /// `JSON.parse(raw.replace(/^﻿/, ''))` with JS object semantics (key order, duplicate keys, number
 /// normalisation); `None` when JSON.parse throws.
-fn js_json_parse(raw: &str) -> Option<Value> {
+fn js_json_parse(raw: &str, surrogates: Surrogates) -> Option<Value> {
     let text = raw.strip_prefix('\u{FEFF}').unwrap_or(raw);
     if json_parse_message(text).is_some() {
         return None;
     }
+    // The normalised text writes each lone surrogate as a `\udxxx` escape and every other non-control character raw.
     let normalized = format_config_json(text).ok()?;
-    serde_json::from_str(&normalized)
-        .ok()
-        .or_else(|| serde_json::from_str(&replace_lone_surrogates(&normalized)).ok())
+    serde_json::from_str(&rewrite_lone_surrogates(&normalized, surrogates)).ok()
 }
 
-/// `\uD800`-`\uDFFF` escapes that do not form a pair become U+FFFD (a Rust string cannot hold a lone surrogate).
-fn replace_lone_surrogates(text: &str) -> String {
+/// What `js_json_parse` does with the lone surrogates JSON.parse keeps but a Rust string cannot hold.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Surrogates {
+    /// Each becomes U+FFFD (lossy: for reading the layer).
+    Replace,
+    /// Each becomes `MARK` + its 4 lowercase hex digits, and a raw `MARK` becomes `MARK` + `fdd0`: reversible by
+    /// `unmark`, and keys that differ only in their lone surrogates stay distinct.
+    Mark,
+}
+
+/// A noncharacter that introduces a carried lone surrogate (or, followed by `fdd0`, stands for itself).
+const MARK: char = '\u{FDD0}';
+
+/// JSON `text` with the `\uD800`-`\uDFFF` escapes that do not form a pair rewritten per `surrogates`.
+fn rewrite_lone_surrogates(text: &str, surrogates: Surrogates) -> String {
     let chars: Vec<char> = text.chars().collect();
     let unit_at = |at: usize| -> Option<u32> {
         if chars.get(at) != Some(&'\\') || chars.get(at + 1) != Some(&'u') {
@@ -1476,25 +1502,68 @@ fn replace_lone_surrogates(text: &str) -> String {
     let mut i = 0;
     while let Some(&ch) = chars.get(i) {
         if ch != '\\' {
-            out.push(ch);
+            if ch == MARK && surrogates == Surrogates::Mark {
+                out.push_str(&format!("{MARK}fdd0"));
+            } else {
+                out.push(ch);
+            }
             i += 1;
             continue;
         }
         let pair = matches!(unit_at(i), Some(0xD800..=0xDBFF)) && matches!(unit_at(i + 6), Some(0xDC00..=0xDFFF));
-        let (take, replace) = match unit_at(i) {
-            _ if pair => (12, false),
-            Some(0xD800..=0xDFFF) => (6, true),
-            Some(_) => (6, false),
-            None => (2, false),
+        let (take, lone) = match unit_at(i) {
+            _ if pair => (12, None),
+            Some(unit @ 0xD800..=0xDFFF) => (6, Some(unit)),
+            Some(_) => (6, None),
+            None => (2, None),
         };
-        if replace {
-            out.push_str("\\ufffd");
-        } else {
-            out.extend(chars.iter().skip(i).take(take));
+        match (lone, surrogates) {
+            (Some(_), Surrogates::Replace) => out.push_str("\\ufffd"),
+            (Some(unit), Surrogates::Mark) => out.push_str(&format!("{MARK}{unit:04x}")),
+            (None, _) => out.extend(chars.iter().skip(i).take(take)),
         }
         i += take;
     }
     out
+}
+
+/// `text` with each raw `MARK` written as `MARK` + `fdd0` (for strings that join a marked layer from outside).
+fn escape_mark(text: &str) -> String {
+    text.replace(MARK, &format!("{MARK}fdd0"))
+}
+
+/// `text` with marks undone: `MARK` + `fdd0` is `MARK` again; `MARK` + a surrogate's digits becomes `lone(digits)`.
+fn unmark(text: &str, lone: impl Fn(&str) -> String) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(MARK) {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + MARK.len_utf8()..];
+        // Marks are only ever followed by 4 ASCII hex digits.
+        let digits = after.get(..4).unwrap_or(after);
+        if digits == "fdd0" {
+            out.push(MARK);
+        } else {
+            out.push_str(&lone(digits));
+        }
+        rest = &after[digits.len()..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// `value` with `rewrite` applied to every string and object key (key order kept).
+fn map_strings(value: &Value, rewrite: &impl Fn(&str) -> String) -> Value {
+    match value {
+        Value::String(text) => Value::String(rewrite(text)),
+        Value::Array(items) => Value::Array(items.iter().map(|item| map_strings(item, rewrite)).collect()),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(key, item)| (rewrite(key), map_strings(item, rewrite)))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
 }
 
 /// TS valueAt: the value at `keys` through own properties of plain objects only.
@@ -2868,6 +2937,46 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("not an object")
+        );
+    }
+
+    // Review R #1: JSON.parse keeps lone surrogates and JSON.stringify writes them back as `\udxxx`, so saving one
+    // setting leaves every other key's lone-surrogate escapes (in values and keys) byte-for-byte as they were.
+    #[test]
+    fn apply_change_keeps_lone_surrogate_escapes() {
+        let document = |raw: &str| ProjectConfigDocument {
+            kind: ConfigTargetKind::Repository,
+            root: String::from("/repo"),
+            path: String::from("/repo/deckhand.json"),
+            raw: raw.to_owned(),
+            revision: None,
+            exists: true,
+        };
+        let agent = SettingChange {
+            path: vec![String::from("defaultAgent")],
+            value: Some(json!("pi")),
+        };
+        assert_eq!(
+            apply_change(&document(r#"{"devCommand":"a\ud800b"}"#), &agent).unwrap(),
+            "{\n  \"devCommand\": \"a\\ud800b\",\n  \"defaultAgent\": \"pi\"\n}\n"
+        );
+        // Replayed from TS: an escaped backslash, a lone low surrogate, U+FDD0 kept raw (in the document and the new
+        // value), and a lone surrogate in a key.
+        let raw =
+            "{\"devCommand\":\"a\\ud800b\\\\ud800\\udfff\u{FDD0}x\",\"worktree\":{\"files\":{\"x\\udc00\":\"y\"}}}";
+        let action = SettingChange {
+            path: vec![String::from("actions"), String::from("n")],
+            value: Some(json!("go\u{FDD0}")),
+        };
+        assert_eq!(
+            apply_change(&document(raw), &action).unwrap(),
+            "{\n  \"devCommand\": \"a\\ud800b\\\\ud800\\udfff\u{FDD0}x\",\n  \"worktree\": {\n    \"files\": {\n      \"x\\udc00\": \"y\"\n    }\n  },\n  \"actions\": {\n    \"n\": \"go\u{FDD0}\"\n  }\n}\n"
+        );
+        // Two keys that differ only in their lone surrogate stay two keys.
+        let raw = r#"{"worktree":{"files":{"a\ud800":"x","a\ud801":"y"}}}"#;
+        assert_eq!(
+            apply_change(&document(raw), &agent).unwrap(),
+            "{\n  \"worktree\": {\n    \"files\": {\n      \"a\\ud800\": \"x\",\n      \"a\\ud801\": \"y\"\n    }\n  },\n  \"defaultAgent\": \"pi\"\n}\n"
         );
     }
 
