@@ -1,5 +1,7 @@
 import pty, {type IPty} from 'node-pty';
 import {execFile} from 'node:child_process';
+import {appendFileSync} from 'node:fs';
+import path from 'node:path';
 import {promisify} from 'node:util';
 import {ensureNodePtyReady} from './nodePty.js';
 import {killSurvivors, snapshotDescendants, survivors} from './processTree.js';
@@ -93,8 +95,18 @@ async function waitForQuietOutput(runtime: AgentRuntime): Promise<void> {
 	while (Date.now() < deadline && Date.now() - (runtime.lastDataAt ?? 0) < EXIT_OUTPUT_QUIET_MS) await new Promise(resolve => setTimeout(resolve, 20));
 }
 
+// DECKHAND_WIRE_LOG=<dir> (test/porting aid, off by default): IPC messages are appended to
+// <dir>/<worker|workspace-worker>-<pid>.jsonl as {dir, msg}; the role is set when a worker kind starts.
+let wireRole: 'worker' | 'workspace-worker' = 'worker';
+function wireLog(dir: 'd2w' | 'w2d', msg: unknown): void {
+	const logDir = process.env.DECKHAND_WIRE_LOG;
+	if (!logDir) return;
+	try { appendFileSync(path.join(logDir, `${wireRole}-${process.pid}.jsonl`), `${JSON.stringify({dir, msg})}\n`); } catch {}
+}
+
 function post(message: WorkerMessage): void {
 	if (!process.connected || !process.send) return;
+	wireLog('w2d', message);
 	try { process.send(message); } catch { /* The daemon disconnected; the disconnect handler shuts down. */ }
 }
 
@@ -377,6 +389,7 @@ class SessionWorker {
 
 	async start(): Promise<void> {
 		await ensureNodePtyReady();
+		process.on('message', message => wireLog('d2w', message));
 		process.on('message', message => void this.handle(message as WorkerCommand));
 		process.on('disconnect', () => {
 			if (this.agent) signalPtyProcess(this.agent.term, 'SIGTERM');
@@ -543,6 +556,8 @@ class WorkspaceWorker {
 
 	async start(): Promise<void> {
 		await ensureNodePtyReady();
+		wireRole = 'workspace-worker';
+		process.on('message', message => wireLog('d2w', message));
 		process.on('message', message => void this.handle(message as WorkspaceWorkerCommand));
 		process.on('disconnect', () => void this.panes.stopAll().finally(() => process.exit(0)));
 	}

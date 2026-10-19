@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
-import {closeSync, openSync} from 'node:fs';
+import {appendFileSync, closeSync, openSync} from 'node:fs';
+import path from 'node:path';
 import net from 'node:net';
 import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
@@ -28,7 +29,16 @@ function createConnection(): Promise<net.Socket> {
 	});
 }
 
+// DECKHAND_WIRE_LOG=<dir> (test/porting aid, off by default): every message sent or received is appended to
+// <dir>/client-<pid>.jsonl as {dir, msg}.
+function wireLog(dir: 'c2d' | 'd2c', msg: unknown): void {
+	const logDir = process.env.DECKHAND_WIRE_LOG;
+	if (!logDir) return;
+	try { appendFileSync(path.join(logDir, `client-${process.pid}.jsonl`), `${JSON.stringify({dir, msg})}\n`); } catch {}
+}
+
 function writeMessage(socket: net.Socket, message: ClientRequest): void {
+	wireLog('c2d', message);
 	socket.write(`${JSON.stringify(message)}\n`);
 }
 
@@ -47,7 +57,9 @@ function attachJsonParser(socket: net.Socket, onMessage: (message: ServerMessage
 			if (!line) {
 				continue;
 			}
-			onMessage(JSON.parse(line) as ServerMessage);
+			const message = JSON.parse(line) as ServerMessage;
+			wireLog('d2c', message);
+			onMessage(message);
 		}
 	};
 	socket.on('data', handleData);
