@@ -22,3 +22,10 @@ allowlist = []
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
 
+"client.ts:request" = "deckhand_client::client::request"
+"client.ts:ensureDaemonRunning" = "deckhand_client::client::ensure_daemon_running"
+"client.ts:openPersistentConnection" = "deckhand_client::client::open_persistent_connection"
+"client.ts:LiveClient" = "deckhand_client::live::LiveClient"
+"client.ts:createLiveClient" = "deckhand_client::live::create_live_client"
+"client.ts:attachJsonParser" = "deckhand_client::client::JsonParser"
+"client.ts:writeMessage" = "deckhand_client::client::write_message"
