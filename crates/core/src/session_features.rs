@@ -867,4 +867,26 @@ pub(crate) mod tests {
             Ok::<_, String>(handoff_markdown(&session, include_output, git.as_ref(), task.as_ref()))
         });
     }
+
+    // covers: B-P8-15 search matches worktree notes too; handoffs have a Worktree notes section
+    #[test]
+    fn search_and_handoffs_include_worktree_notes() {
+        let shared = json!({"kind": "worktree", "id": "w", "path": "/n/w.md", "revision": "r",
+            "text": "Rollout checklist\n- [ ] flip the flag"});
+        let sessions = vec![
+            session(json!({"id": "a", "title": "one", "sharedNotes": shared})),
+            session(json!({"id": "b", "title": "two", "notes": "flag elsewhere"})),
+            session(json!({"id": "c", "title": "three"})),
+        ];
+        assert_eq!(listed_ids(&sessions, SessionFilter::Active, "rollout"), ["a"]);
+        assert_eq!(listed_ids(&sessions, SessionFilter::Active, "flag"), ["a", "b"]);
+        let markdown = handoff_markdown(&sessions[0], false, None, None);
+        assert!(markdown.contains(
+            "## Notes\n\n(No notes recorded.)\n\n## Worktree notes\n\nRollout checklist\n- [ ] flip the flag"
+        ));
+        assert!(
+            handoff_markdown(&sessions[2], false, None, None)
+                .contains("## Worktree notes\n\n(No worktree notes recorded.)")
+        );
+    }
 }
