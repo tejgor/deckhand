@@ -1,0 +1,21 @@
+{
+  "fn": "updateAppConfig",
+  "args": [
+    "$ROOT",
+    {
+      "$fn": "addTrust"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "trustedProjects": {
+      "/old": [
+        "legacy"
+      ],
+      "/new": [
+        "hash"
+      ]
+    },
+    "notifications": false
+  }
+}

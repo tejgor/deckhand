@@ -1,0 +1,19 @@
+{
+  "fn": "loadAppConfig",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "ret": {
+    "dev_command": "😀 中文 é",
+    "trustedProjects": {},
+    "notifications": false,
+    "defaults": [
+      1,
+      "two",
+      {
+        "three": null
+      }
+    ]
+  }
+}

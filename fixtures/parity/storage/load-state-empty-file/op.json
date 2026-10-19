@@ -1,0 +1,11 @@
+{
+  "fn": "loadState",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "ret": {
+    "sessions": [],
+    "worktrees": []
+  }
+}

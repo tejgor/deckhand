@@ -1,0 +1,10 @@
+{
+  "$ROOT/repo": {
+    "sessionFilter": "active",
+    "sessionQuery": "",
+    "sessionTabs": {},
+    "collapsedSessionIds": [],
+    "hiddenExitedSessionIds": [],
+    "readReplies": {}
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "before": [],
+  "after": [
+    {
+      "path": "config.json",
+      "type": "file",
+      "mode": "0600"
+    }
+  ]
+}

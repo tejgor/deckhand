@@ -1,0 +1,32 @@
+{
+  "fn": "saveUiState",
+  "args": [
+    "$ROOT",
+    "$ROOT/😀 中文/repo",
+    {
+      "selectedId": "😀",
+      "activeTab": "git",
+      "sidebarWidth": 31.5,
+      "sessionFilter": "attention",
+      "sessionQuery": "中文 é",
+      "sessionTabs": {
+        "a": "notes",
+        "b": "dev"
+      },
+      "collapsedSessionIds": [
+        "😀",
+        "中"
+      ],
+      "hiddenExitedSessionIds": [
+        "z"
+      ],
+      "readReplies": {
+        "😀": "中"
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "$u": 1
+  }
+}
