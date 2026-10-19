@@ -1,0 +1,9 @@
+{"args":[false,"claude"],"ret":false}
+{"args":[false,"codex"],"ret":false}
+{"args":[false,"pi"],"ret":false}
+{"args":[true,"claude"],"ret":true}
+{"args":[true,"codex"],"ret":true}
+{"args":[true,"pi"],"ret":true}
+{"args":[{"$u":1},"claude"],"ret":true}
+{"args":[{"$u":1},"codex"],"ret":false}
+{"args":[{"$u":1},"pi"],"ret":false}

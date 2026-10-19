@@ -10,7 +10,7 @@ ts_tests = ["tests/tasksBoard.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["tasksBoard/blockItems", "tasksBoard/boardRows", "tasksBoard/hasMainTask", "tasksBoard/leadSession", "tasksBoard/linkedTask", "tasksBoard/linkedTasks", "tasksBoard/noteBlocks", "tasksBoard/noteGroupLabel", "tasksBoard/noteItems", "tasksBoard/noteLine", "tasksBoard/noteSteps", "tasksBoard/notesViewRows", "tasksBoard/openItemsRemovedWith", "tasksBoard/otherOpenTasks", "tasksBoard/pickerCounts", "tasksBoard/pickerRows", "tasksBoard/pickerViewOf", "tasksBoard/rowKey", "tasksBoard/selectableRow", "tasksBoard/stepCount", "tasksBoard/taskCountLabel", "tasksBoard/taskLinkLookup", "tasksBoard/taskOrigin", "tasksBoard/taskSessions", "tasksBoard/taskState", "tasksBoard/workKeyOf", "tasksBoard/workLabel", "tasksBoard/workNote", "tasksBoard/workOptions", "tasksBoard/workSessions", "tasksBoard/workState", "tasksBoard/worktreeOpenItems"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 

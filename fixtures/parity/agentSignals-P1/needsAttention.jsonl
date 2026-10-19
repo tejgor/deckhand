@@ -1,0 +1,7 @@
+{"args":["failed"],"ret":true}
+{"args":["limited"],"ret":true}
+{"args":["needs-input"],"ret":true}
+{"args":["response-ended"],"ret":true}
+{"args":["unknown"],"ret":false}
+{"args":["working"],"ret":false}
+{"args":[{"$u":1}],"ret":false}

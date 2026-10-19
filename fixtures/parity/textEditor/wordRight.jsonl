@@ -1,0 +1,152 @@
+{"args":[" -.éa‍ ",8],"ret":8}
+{"args":[" \t‍é_é.a",0],"ret":6}
+{"args":[" _",2],"ret":2}
+{"args":[" é",3],"ret":3}
+{"args":[" ééb",5],"ret":5}
+{"args":[" ß\tZaé-b\n.",10],"ret":10}
+{"args":[" 😀Zßaéß.",10],"ret":10}
+{"args":["",0],"ret":0}
+{"args":["",18],"ret":18}
+{"args":["-",0],"ret":1}
+{"args":[".-é-0",2],"ret":3}
+{"args":[".\n",2],"ret":2}
+{"args":["._‍.Z.😀é",8],"ret":9}
+{"args":[".b .😀",0],"ret":2}
+{"args":[".ß--b",5],"ret":5}
+{"args":[".éé😀",1],"ret":3}
+{"args":[".中",2],"ret":2}
+{"args":[".中ßZ Z\t0..",5],"ret":6}
+{"args":[".😀‍\tß",4],"ret":6}
+{"args":["///\t\n中é.",4],"ret":7}
+{"args":["/a",1],"ret":2}
+{"args":["/é",0],"ret":2}
+{"args":["/ßéé-‍a\t\n\n",7],"ret":8}
+{"args":["0",0],"ret":1}
+{"args":["0Z.bb\n-a😀",2],"ret":5}
+{"args":["0\nébab‍_",1],"ret":6}
+{"args":["0\té中é\n",5],"ret":6}
+{"args":["0a😀‍é-\n _b",8],"ret":11}
+{"args":["0ééß中_/😀",6],"ret":7}
+{"args":["0‍\n\tZ\n ß_",3],"ret":5}
+{"args":["Z",0],"ret":1}
+{"args":["Z/‍\t‍0",2],"ret":6}
+{"args":["Zé‍",3],"ret":4}
+{"args":["Z‍/ ",2],"ret":4}
+{"args":["Z😀-é‍中é",5],"ret":9}
+{"args":["\n",0],"ret":1}
+{"args":["\n. ",3],"ret":3}
+{"args":["\n.",0],"ret":2}
+{"args":["\n00-\n",3],"ret":5}
+{"args":["\nZ中",2],"ret":3}
+{"args":["\n\n",0],"ret":2}
+{"args":["\nb- ééé",2],"ret":7}
+{"args":["\nbé_/中\n_",1],"ret":4}
+{"args":["\né-0_/😀-/",0],"ret":2}
+{"args":["\n‍",2],"ret":2}
+{"args":["\n😀é00.中/",1],"ret":4}
+{"args":["\t ",2],"ret":2}
+{"args":["\t \tbß",1],"ret":5}
+{"args":["\t",0],"ret":1}
+{"args":["\t. ",3],"ret":3}
+{"args":["\t0\t\t😀‍",7],"ret":7}
+{"args":["\tZa_a-",4],"ret":5}
+{"args":["\t_😀é中 \t‍",4],"ret":5}
+{"args":["\tb 中_ZZ\t00",0],"ret":2}
+{"args":["\té0é-Z中",1],"ret":4}
+{"args":["\t‍",2],"ret":2}
+{"args":["\t‍\n\t\tßa.-b",6],"ret":7}
+{"args":["\t😀-\t_",5],"ret":6}
+{"args":["_",0],"ret":1}
+{"args":["_0",1],"ret":2}
+{"args":["_bbéé0.",1],"ret":5}
+{"args":["_é",1],"ret":2}
+{"args":["_ßé-_éß ß0",3],"ret":6}
+{"args":["_中/\tb",4],"ret":5}
+{"args":["_😀",3],"ret":3}
+{"args":["a",0],"ret":1}
+{"args":["a0--_b",5],"ret":6}
+{"args":["a0😀/\tZ",2],"ret":7}
+{"args":["a\t- \t😀0é",2],"ret":9}
+{"args":["a\t_0/éß\n 中",10],"ret":10}
+{"args":["a_ß\t\n0ß/",5],"ret":7}
+{"args":["aa‍",3],"ret":3}
+{"args":["aß",1],"ret":2}
+{"args":["aéa",2],"ret":3}
+{"args":["a‍_-é中 \t_",3],"ret":5}
+{"args":["a中‍",2],"ret":3}
+{"args":["a😀é0‍.é-b",1],"ret":5}
+{"args":["b",0],"ret":1}
+{"args":["b0ß_00b0é",3],"ret":9}
+{"args":["b\nß中éé",0],"ret":1}
+{"args":["b__Z中\t",1],"ret":5}
+{"args":["bbébb\t_/😀.",6],"ret":7}
+{"args":["bé_/_中Z\n‍é",3],"ret":4}
+{"args":["bß\n‍中.ß-\t",5],"ret":7}
+{"args":["é",0],"ret":1}
+{"args":["é",2],"ret":2}
+{"args":["é-0ß\t😀_0/😀",8],"ret":10}
+{"args":["é-中",0],"ret":1}
+{"args":["éé",0],"ret":1}
+{"args":["éé‍aa-éé\n\t",12],"ret":12}
+{"args":["é‍-",1],"ret":4}
+{"args":["é中😀b0._",9],"ret":9}
+{"args":["fix th\ne  login-bug\nnext",3],"ret":6}
+{"args":["fix the  logi-bug\nnext",0],"ret":3}
+{"args":["fix the  login-bug\nnext",-1],"ret":3}
+{"args":["fix the  login-bug\nnext",0],"ret":3}
+{"args":["fix the  login-bug\nnext",17],"ret":18}
+{"args":["fix the  login-bug\nnext",18],"ret":23}
+{"args":["fix the  login-bug\nnext",19],"ret":23}
+{"args":["fix the  login-bug\nnext",1],"ret":3}
+{"args":["fix the  login-bug\nnext",2],"ret":3}
+{"args":["fix the  login-bug\nnext",3],"ret":7}
+{"args":["fix the  login-bug\nnext",4],"ret":7}
+{"args":["fix the  login-ug\nnext",0],"ret":3}
+{"args":["fix the login-bug\nnext",3],"ret":7}
+{"args":["ß 中\t‍\tß",7],"ret":7}
+{"args":["ß",1],"ret":1}
+{"args":["ß-ß",3],"ret":3}
+{"args":["ß-‍ß中.\n.",1],"ret":5}
+{"args":["ßZ",1],"ret":2}
+{"args":["ß\t\tZ",3],"ret":4}
+{"args":["ß\t中 ‍/",4],"ret":6}
+{"args":["ßa",1],"ret":2}
+{"args":["ßbb0_ bZbß",6],"ret":10}
+{"args":["ßé",1],"ret":2}
+{"args":["ßßéZ\né‍/",5],"ret":7}
+{"args":["ß‍-\té😀😀",2],"ret":5}
+{"args":["é-中",2],"ret":3}
+{"args":["é0a",3],"ret":3}
+{"args":["é0b‍ß\t",6],"ret":6}
+{"args":["éé.b_\t0.b",6],"ret":8}
+{"args":["éß_ß0/‍",0],"ret":5}
+{"args":["éé\n.\t‍b",4],"ret":7}
+{"args":["é‍ -é\tß‍",3],"ret":5}
+{"args":["é‍",1],"ret":2}
+{"args":["é中/\n😀/",0],"ret":2}
+{"args":["‍ _é_",4],"ret":5}
+{"args":["‍",0],"ret":1}
+{"args":["‍-中Z😀-\n.\nb",3],"ret":4}
+{"args":["‍\nbéZ😀",5],"ret":6}
+{"args":["‍é\n/ Z/",0],"ret":2}
+{"args":["‍é‍0Z\t.é 0",8],"ret":10}
+{"args":["‍‍-éßZ😀0a ",9],"ret":10}
+{"args":["‍😀-\t😀é_",9],"ret":10}
+{"args":["中/\n‍中Z‍Z0a",10],"ret":10}
+{"args":["中0\t_😀中éa_",10],"ret":10}
+{"args":["中Z0__‍éß/é",2],"ret":5}
+{"args":["中\ta‍.  ",0],"ret":1}
+{"args":["中ßé00\n  ",5],"ret":8}
+{"args":["中‍ß",1],"ret":3}
+{"args":["中‍😀éb",1],"ret":6}
+{"args":["中中éßZ中-é0",6],"ret":7}
+{"args":["😀 ",3],"ret":3}
+{"args":["😀 é中éb",3],"ret":4}
+{"args":["😀",0],"ret":2}
+{"args":["😀",2],"ret":2}
+{"args":["😀/\t😀Z\té\n😀\t",6],"ret":7}
+{"args":["😀\t‍éé-Z‍_b",12],"ret":12}
+{"args":["😀a0b_",5],"ret":6}
+{"args":["😀ß ",4],"ret":4}
+{"args":["😀ß\né",3],"ret":5}
+{"args":["😀‍./",4],"ret":5}

@@ -1,0 +1,12 @@
+{"args":[""],"ret":{"$u":1}}
+{"args":["S:a"],"ret":{"$u":1}}
+{"args":["s"],"ret":{"$u":1}}
+{"args":["s:"],"ret":{"$u":1}}
+{"args":["s:s1"],"ret":{"s":"s1"}}
+{"args":["wt"],"ret":{"$u":1}}
+{"args":["wt:"],"ret":{"$u":1}}
+{"args":["wt:w1"],"ret":{"wt":"w1"}}
+{"args":["wt:wt:"],"ret":{"wt":"wt:"}}
+{"args":["wt:😀"],"ret":{"wt":"😀"}}
+{"args":["x:y"],"ret":{"$u":1}}
+{"args":["中"],"ret":{"$u":1}}

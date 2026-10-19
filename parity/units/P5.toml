@@ -10,14 +10,22 @@ ts_tests = ["tests/tasks.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["tasks/appendNoteItem", "tasks/applyTaskOp", "tasks/cleanTaskTitle", "tasks/clientTaskOp", "tasks/findNoteTaskLink", "tasks/groupTasks", "tasks/isLinked", "tasks/keyOfLink", "tasks/linkKey", "tasks/linkMatches", "tasks/linkOfKey", "tasks/migrateFollowUps", "tasks/noteTaskLinkLine", "tasks/openNoteItems", "tasks/openTaskCount", "tasks/parseNoteTaskLink", "tasks/parseTasks", "tasks/promoteNoteLine", "tasks/promoteOpenNoteLines", "tasks/returnTaskToNote", "tasks/taskPrompt", "tasks/withoutTaskMeta"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
-allowlist = []
+allowlist = [
+  { fixture = "tasks/applyTaskOp", case = 152, reason = "op type outside the TaskOp union (fixture mutation): the typed Rust TaskOp cannot represent it; TS falls through the switch as a no-op" },
+  { fixture = "tasks/applyTaskOp", case = 154, reason = "auto value outside the 'merge' | 'done' union (fixture mutation): the typed Rust TaskAuto cannot represent it" },
+  { fixture = "tasks/applyTaskOp", case = 210, reason = "op type outside the TaskOp union (fixture mutation): the typed Rust TaskOp cannot represent it; TS falls through the switch as a no-op" },
+  { fixture = "tasks/applyTaskOp", case = 252, reason = "op type outside the TaskOp union (fixture mutation): the typed Rust TaskOp cannot represent it; TS falls through the switch as a no-op" },
+  { fixture = "tasks/applyTaskOp", case = 277, reason = "op type outside the TaskOp union (fixture mutation): the typed Rust TaskOp cannot represent it; TS falls through the switch as a no-op" },
+  { fixture = "tasks/cleanTaskTitle", case = 258, reason = "slice(0, 300) cuts a surrogate pair: TS returns a lone surrogate, which a Rust String cannot hold (it becomes U+FFFD, as Node writes it to disk)" },
+  { fixture = "tasks/cleanTaskTitle", case = 259, reason = "slice(0, 300) cuts a surrogate pair: TS returns a lone surrogate, which a Rust String cannot hold (it becomes U+FFFD, as Node writes it to disk)" },
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

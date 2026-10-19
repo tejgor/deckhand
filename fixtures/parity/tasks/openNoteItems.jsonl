@@ -1,0 +1,63 @@
+{"args":["  - [ ] indented checklist"],"ret":["indented checklist"]}
+{"args":["  - [ ] indented checklist\n- plain bullet\n* [x] é <!-- dh:t=iiii9999 done=2026-10-08 -->\n  detail"],"ret":["indented checklist"]}
+{"args":[""],"ret":[]}
+{"args":["# Note\n\n- [ ] one <!-- dh:t=x1 -->\n- [ ]\n- [ ] \n- [ ]  two  \n"],"ret":["one dh:t=x1","two"]}
+{"args":["# Tasks\r\n* [ ] 😀 emoji <!-- dh:t=dddd4444 auto=bogus wt= unknown=1 =x s -->\r\n  - [ ] sub\r\n  - [ ] sub\r\n# Tasks\r\n* [x] é <!-- dh:t=eeee5555 assigned=w1 -->\r\n- [X] caps\r\n"],"ret":["😀 emoji dh:t=dddd4444 auto=bogus wt= unknown=1 =x s","sub","sub"]}
+{"args":["* [ ] T <!-- dh:t=dddd4444 auto=bogus wt= unknown=1 =x s -->\n    deeper\n+ [x] T <!-- other -->\n  \n    deeper\n  detail\n  - [ ] indented checklist\n* [x] 😀 emoji <!-- dh:t=aaaa1111 wt=w1 added=2026-10-01 -->\n \n* [ ] x<!--y-->z <!-- dh:t=dddd4444 auto=bogus wt= unknown=1 =x s -->\n    deeper\n  - [ ] sub\n# Tasks\n# Tasks"],"ret":["T dh:t=dddd4444 auto=bogus wt= unknown=1 =x s","indented checklist","xyz dh:t=dddd4444 auto=bogus wt= unknown=1 =x s","sub"]}
+{"args":["* [ ] star\n+ [X] plus done\n\t- [ ] tabbed"],"ret":["star","tabbed"]}
+{"args":["* [ ] tab\there<!--dh:t=gggg7777-->\n  中文😀\n    deeper\n\n+ [ ] a  b <!-- dh:t=iiii9999 done=2026-10-08 -->\n  中文😀\n\tTab\n\tTab\n- [X] caps"],"ret":["tab heredh:t=gggg7777","a b dh:t=iiii9999 done=2026-10-08"]}
+{"args":["* [ ] 😀 emoji <!-- dh:t=aaaa1111 -->\n  中文😀\n+ [x] Fix stuck footer <!-- dh:t=dddd4444 auto=bogus wt= unknown=1 =x s -->\n* [x] Fix stuck footer <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\n    deeper\n  中文😀\n# Tasks\n"],"ret":["😀 emoji dh:t=aaaa1111"]}
+{"args":["* [x] a  b <!-- other -->\n\tTab\n\tTab\n+ [ ] a\u0000b<!--dh:t=gggg7777-->\n  detail\n  detail"],"ret":["a bdh:t=gggg7777"]}
+{"args":["* [x] a\u0000b <!-- dh:t=aaaa1111 wt=w1 added=2026-10-01 -->\n+ [ ] T <!-- other -->\n    deeper\n  中文😀\n+ [x]  sep  <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\n- [ ]\n- [ ]\n- [ ]\n"],"ret":["T other"]}
+{"args":["* [x] a\u0000b <!-- dh:t=ffff6666 was=main wt=w2 -->\n"],"ret":[]}
+{"args":["* [x] é <!-- dh:t=dddd4444 auto=bogus wt= unknown=1 =x s -->\n    deeper\n \n  - [ ] indented checklist"],"ret":["indented checklist"]}
+{"args":["* [x] é <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\r\n  detail\r\n  detail\r\n1. [ ] numbered\r\n* [ ] 😀 emoji <!-- dh:t=eeee5555 assigned=w1 -->\r\n+ [x] x<!--y-->z <!-- dh:t=aaaa1111 wt=w1 added=2026-10-01 -->\r\n  - [ ] sub\r\n    deeper\r\n1. [ ] numbered\r\n"],"ret":["😀 emoji dh:t=eeee5555 assigned=w1","sub"]}
+{"args":["* [x] x<!--y-->z <!-- dh:t=ffff6666 was=main wt=w2 -->\r\n- [x] 中文 <!-- dh:t=jjjj0000 -->\r\n"],"ret":[]}
+{"args":["* [x]  sep  <!-- dh:t=iiii9999 done=2026-10-08 -->\n \n\tTab\n+ [x] a\u0000b <!-- dh:t=aaaa1111 -->\n  - [ ] sub\n    deeper\n"],"ret":["sub"]}
+{"args":["* [x] 中文 title <!-- dh:t=eeee5555 assigned=w1 -->\n1. [ ] numbered\n* [x] a  b <!-- other -->\n \n\tTab\n\tTab\nSome prose.\n* [x] x<!--y-->z <!-- other -->\n* [x] 中文 title <!-- dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main -->\n"],"ret":[]}
+{"args":["* [x] 😀 emoji<!--dh:t=gggg7777-->\n \n    deeper\n* [ ] a\u0000b <!-- dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main -->\n \n+ [ ] 😀 emoji <!-- dh:t=iiii9999 done=2026-10-08 -->\n- [ ]\n- plain bullet\n- plain bullet\n"],"ret":["a b dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main","😀 emoji dh:t=iiii9999 done=2026-10-08"]}
+{"args":["+ [ ] T <!-- dh:t=bbbb2222 s=sess1 done=2026-10-05 auto=merge -->\n\tTab\n+ [ ] 中文 title <!-- dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main -->\n    deeper\n    deeper\n\tTab\n- [ ]  sep \n  \n* [x] 😀 emoji\n  - [ ] sub\n \n  - [ ] sub\n# Tasks\n+ [x] tab\there <!-- dh:t=aaaa1111 -->\n    deeper"],"ret":["T dh:t=bbbb2222 s=sess1 done=2026-10-05 auto=merge","中文 title dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main","sep","sub","sub"]}
+{"args":["+ [ ] a\u0000b <!-- dh:t=iiii9999 done=2026-10-08 -->\n  中文😀\n  - [ ] sub\n* [x]  sep  <!-- dh:t=bbbb2222 s=sess1 done=2026-10-05 auto=merge -->\n  - [ ] sub\n  - [ ] sub\n- [ ] é <!-- dh:t=eeee5555 assigned=w1 -->\n\tTab\n    deeper\n \nTrailing prose\n"],"ret":["a b dh:t=iiii9999 done=2026-10-08","sub","sub","sub","é dh:t=eeee5555 assigned=w1"]}
+{"args":["+ [x] Fix stuck footer <!-- dh:t=aaaa1111 -->\r\n# Tasks\r\n- [X] caps\r\n+ [x] Fix stuck footer <!-- dh:t=aaaa1111 -->\r\n  中文😀\r\n- [ ] tab\there <!-- other -->\r\n  中文😀\r\n+ [x] Fix stuck footer <!-- dh:t=iiii9999 done=2026-10-08 -->\r\n\tTab\r\nSome prose.\r\n"],"ret":["tab here other"]}
+{"args":["+ [x] a  b <!-- other -->\r\n  中文😀\r\n  detail\r\n  \r\n- [x] tab\there <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\r\n- [x] T <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\r\n  中文😀\r\n \r\n  中文😀\r\n+ [ ] 😀 emoji <!-- dh:t=dddd4444 auto=bogus wt= unknown=1 =x s -->\r\n- [X] caps\r\n- [x] 中文 <!-- dh:t=jjjj0000 -->\r\n"],"ret":["😀 emoji dh:t=dddd4444 auto=bogus wt= unknown=1 =x s"]}
+{"args":["+ [x] x<!--y-->z <!-- dh:t=eeee5555 assigned=w1 -->\r\n\tTab\r\n \r\n- [x] a\u0000b <!-- dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main -->\r\n  - [ ] sub\r\n  中文😀\r\n  \r\n* [ ] Fix stuck footer <!-- dh:t=iiii9999 done=2026-10-08 -->\r\n  - [ ] sub\r\n    deeper\r\n- [x]  sep  <!-- dh:t=iiii9999 done=2026-10-08 -->\r\n  \r\n\tTab\r\n- [ ] é <!-- dh:t=iiii9999 done=2026-10-08 -->\r\n  - [ ] sub\r\n  detail\r\n \r\n- [ ]\r\n"],"ret":["sub","Fix stuck footer dh:t=iiii9999 done=2026-10-08","sub","é dh:t=iiii9999 done=2026-10-08","sub"]}
+{"args":["+ [x]  sep  <!-- other -->\n  detail\n+ [x] 😀 emoji <!-- dh:t=bbbb2222 s=sess1 done=2026-10-05 auto=merge -->\n  detail\n  中文😀"],"ret":[]}
+{"args":["- [ ] Fix stuck footer\n  \n\tTab\n \n"],"ret":["Fix stuck footer"]}
+{"args":["- [ ] T <!-- dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main -->\r\n  中文😀\r\n    deeper\r\n1. [ ] numbered\r\n# Tasks\r\n"],"ret":["T dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main"]}
+{"args":["- [ ] a  b <!-- other -->\n  - [ ] sub\n  中文😀\n  - [ ] sub\n- [x] 中文 <!-- dh:t=jjjj0000 -->\n* [ ]  sep  <!-- dh:t=dddd4444 auto=bogus wt= unknown=1 =x s -->\n  中文😀\n    deeper\n- plain bullet\n- [ ] T\n    deeper\n  detail\n* [ ] T <!-- other -->\n  detail\n  - [ ] sub\n- [x] a  b <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\n  \n"],"ret":["a b other","sub","sub","sep dh:t=dddd4444 auto=bogus wt= unknown=1 =x s","T","T other","sub"]}
+{"args":["- [ ] a\n- [x] b\n  * [ ] c\n- ↗ d <!-- dh:t=1 -->"],"ret":["a","c"]}
+{"args":["- [ ] a\n- [x] b\n  - [ ] nested\n- c\n"],"ret":["a","nested"]}
+{"args":["- [ ] a\u0000b <!-- dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main -->\n  中文😀\n \n+ [x]  sep  <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\n- [X] caps\n"],"ret":["a b dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main"]}
+{"args":["- [ ] tab\there <!-- other -->\r\n  detail\r\n  \r\n \r\n# Tasks\r\n- plain bullet\r\n- [ ] a\u0000b <!-- dh:t=iiii9999 done=2026-10-08 -->\r\n- [x] 中文 <!-- dh:t=jjjj0000 -->\r\n* [x] 中文 title <!-- dh:t=ffff6666 was=main wt=w2 -->\r\n\tTab\r\n\tTab\r\n\tTab\r\n"],"ret":["tab here other","a b dh:t=iiii9999 done=2026-10-08"]}
+{"args":["- [ ] x<!--y-->z\n- [ ] llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"],"ret":["xyz","llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"]}
+{"args":["- [ ] 中文 title\r\n    deeper\r\n    deeper\r\n  \r\n"],"ret":["中文 title"]}
+{"args":["- [ ] 中😀 title\r\n- [ ] crlf"],"ret":["中😀 title","crlf"]}
+{"args":["- [ ]\n- [ ] 😀 emoji <!-- dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main -->\n  detail\n  - [ ] sub\n- plain bullet\n* [ ] a\u0000b <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\n  中文😀\nSome prose.\n"],"ret":["😀 emoji dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main","sub","a b dh:t=hhhh8888 wt=w1 s=s1"]}
+{"args":["- [X] caps\n1. [ ] numbered\n* [x] tab\there <!-- dh:t=iiii9999 done=2026-10-08 -->\n  \n- [ ] Fix stuck footer\n  detail\n- [x] 中文 <!-- dh:t=jjjj0000 -->\n"],"ret":["Fix stuck footer"]}
+{"args":["- [X] caps\nSome prose."],"ret":[]}
+{"args":["- [X] caps\nSome prose.\n+ [ ] é <!-- dh:t=ffff6666 was=main wt=w2 -->\nTrailing prose\n"],"ret":["é dh:t=ffff6666 was=main wt=w2"]}
+{"args":["- [X] caps\r\n- [ ] a  b <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\r\n  \r\n  detail\r\n- [ ]\r\n"],"ret":["a b dh:t=hhhh8888 wt=w1 s=s1"]}
+{"args":["- [x] é<!--dh:t=gggg7777-->\n\tTab\n\tTab\n  - [ ] sub\n"],"ret":["sub"]}
+{"args":["- [x] tab\there\r\n* [x] tab\there<!--dh:t=gggg7777-->\r\n+ [x] a  b <!-- dh:t=bbbb2222 s=sess1 done=2026-10-05 auto=merge -->\r\n    deeper\r\n  - [ ] sub\r\n"],"ret":["sub"]}
+{"args":["- [x] x<!--y-->z <!-- dh:t=iiii9999 done=2026-10-08 -->\n  detail\n  - [ ] sub\n  中文😀\n- [x] a  b<!--dh:t=gggg7777-->\n \n    deeper"],"ret":["sub"]}
+{"args":["- [x]  sep  <!-- other -->\n\tTab\n \nSome prose.\nSome prose.\n* [x] é <!-- dh:t=iiii9999 done=2026-10-08 -->\n \n\tTab\n* [ ] é <!-- other -->\n    deeper\n  中文😀\n  \n  - [ ] indented checklist"],"ret":["é other","indented checklist"]}
+{"args":["- [x] 中文 <!-- dh:t=jjjj0000 -->"],"ret":[]}
+{"args":["- [x] 中文 <!-- dh:t=jjjj0000 -->\n- [x] 中文 <!-- dh:t=jjjj0000 -->\n"],"ret":[]}
+{"args":["- [x] 中文 <!-- dh:t=jjjj0000 -->\r\n+ [x] é <!-- dh:t=eeee5555 assigned=w1 -->\r\n  中文😀\r\n    deeper\r\n  - [ ] indented checklist\r\n- [x] a\u0000b\r\n \r\n \r\n"],"ret":["indented checklist"]}
+{"args":["- [x] 中文 title\n  \n  detail\n\tTab\n# Tasks"],"ret":[]}
+{"args":["- [x] 😀 emoji <!-- dh:t=aaaa1111 -->\r\n  中文😀\r\n  detail\r\n- plain bullet\r\n- [ ] 中文 title <!-- dh:t=aaaa1111 -->\r\n"],"ret":["中文 title dh:t=aaaa1111"]}
+{"args":["- plain bullet\n+ [x] 中文 title <!-- dh:t=aaaa1111 wt=w1 added=2026-10-01 -->\n  detail\n \n  - [ ] sub\n"],"ret":["sub"]}
+{"args":["- plain bullet\nTrailing prose\n"],"ret":[]}
+{"args":["- ↗ linked <!-- dh:t=abc -->\n- [ ] open\n- ↗ other <!-- dh:t=def -->"],"ret":["open"]}
+{"args":["1. [ ] numbered\n* [x] é <!-- dh:t=ffff6666 was=main wt=w2 -->\n  detail\n  - [ ] sub\n- [x] 中文 title <!-- dh:t=cccc3333 done=2026-09-01 auto=done tried=feat/x from=main -->\n  detail"],"ret":["sub"]}
+{"args":["1. [ ] numbered\n+ [x] tab\there <!-- other -->\n    deeper\n  - [ ] sub\n\tTab\n* [ ] a  b <!-- dh:t=aaaa1111 -->\nTrailing prose\n- [x] tab\there <!-- dh:t=dddd4444 auto=bogus wt= unknown=1 =x s -->"],"ret":["sub","a b dh:t=aaaa1111"]}
+{"args":["1. [ ] numbered\r\n"],"ret":[]}
+{"args":["1. [ ] numbered\r\n1. [ ] numbered\r\n"],"ret":[]}
+{"args":["Trailing prose\n- [x] a\u0000b <!-- dh:t=aaaa1111 wt=w1 added=2026-10-01 -->\n \n- [ ] tab\there <!-- other -->\n    deeper\n  中文😀\n\tTab\n+ [x] 😀 emoji <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\n  中文😀\n  \n  "],"ret":["tab here other"]}
+{"args":["Trailing prose\n- [x] 中文 title<!--dh:t=gggg7777-->\n\tTab\nTrailing prose\n* [ ] 中文 title <!-- dh:t=eeee5555 assigned=w1 -->\n\nSome prose.\n* [ ] 😀 emoji <!-- dh:t=bbbb2222 s=sess1 done=2026-10-05 auto=merge -->\n"],"ret":["中文 title dh:t=eeee5555 assigned=w1","😀 emoji dh:t=bbbb2222 s=sess1 done=2026-10-05 auto=merge"]}
+{"args":["Trailing prose\r\n* [x] é\r\n+ [x] 中文 title <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->\r\n    deeper\r\n  - [ ] sub\r\n  中文😀\r\n  - [ ] indented checklist\r\n- [ ]\r\n  - [ ] indented checklist\r\n* [ ] a  b <!-- dh:t=aaaa1111 -->\r\n    deeper\r\n  detail\r\n    deeper\r\n"],"ret":["sub","indented checklist","indented checklist","a b dh:t=aaaa1111"]}
+{"args":["\n  - [ ] indented checklist\n* [ ] tab\there <!-- dh:t=hhhh8888 wt=w1\ts=s1 -->"],"ret":["indented checklist","tab here dh:t=hhhh8888 wt=w1 s=s1"]}
+{"args":["\n"],"ret":[]}
+{"args":["\n- [ ] a  b <!-- dh:t=eeee5555 assigned=w1 -->\n  中文😀\n    deeper\n  - [ ] sub\n* [ ]  sep  <!-- other -->\n    deeper\n"],"ret":["a b dh:t=eeee5555 assigned=w1","sub","sep other"]}
+{"args":["\nTrailing prose\n- [ ] T <!-- dh:t=bbbb2222 s=sess1 done=2026-10-05 auto=merge -->\n  \n\tTab\n"],"ret":["T dh:t=bbbb2222 s=sess1 done=2026-10-05 auto=merge"]}
+{"args":[{"$u":1}],"ret":[]}

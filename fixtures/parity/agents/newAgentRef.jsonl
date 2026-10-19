@@ -1,0 +1,3 @@
+{"args":["claude"],"ret":{"provider":"claude","kind":"id","value":"<new-uuid>"}}
+{"args":["codex"],"ret":{"$u":1}}
+{"args":["pi"],"ret":{"provider":"pi","kind":"id","value":"<new-uuid>"}}
