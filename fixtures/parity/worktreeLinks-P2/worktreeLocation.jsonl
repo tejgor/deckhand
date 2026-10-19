@@ -1,0 +1,400 @@
+{"args":["  ",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path:   "}
+{"args":[" ",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path:  "}
+{"args":[" . 😀..{x}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {x} in \" . 😀..{x}\""}
+{"args":[" {home}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path:  /home/me"}
+{"args":[" {home}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path:  /home/me"}
+{"args":[" {repoParent}中~/{repoParent}~",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path:  /work/中文中~//work/中文~"}
+{"args":[" {repoRoot}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path:  /work/repo"}
+{"args":[" {x}{x}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {x} in \" {x}{x}\""}
+{"args":[" 😀-~{home}{home}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path:  😀-~/home/me//home/me/"}
+{"args":["",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["- ",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: - "}
+{"args":["-",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: -"}
+{"args":["-{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: -"}
+{"args":["-{repoParent}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: -/work/"}
+{"args":["-{repoRoot} ",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: -/work/repo "}
+{"args":["-{repoRoot}{name}~/",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: -/work/中文/répo功能😀~/"}
+{"args":["-{repo}{repoRoot}{x}{x}{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {x} in \"-{repo}{repoRoot}{x}{x}{name}\""}
+{"args":["-{{repo}中中{repo}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"-{{repo}中中{repo}\""}
+{"args":["-é{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: -éfeat"}
+{"args":[".",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ."}
+{"args":[".",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ."}
+{"args":[".",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: ."}
+{"args":["../}{user}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"../}{user}\""}
+{"args":["..{repoParent}../a",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ../work../a"}
+{"args":["..{repoRoot}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: ../work/repo"}
+{"args":["..~{repo}~",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ..~repo~"}
+{"args":["..中{name}{x}.",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {x} in \"..中{name}{x}.\""}
+{"args":["./a",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ./a"}
+{"args":["./a- {repoRoot}{user}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder {user} in \"./a- {repoRoot}{user}\""}
+{"args":["./{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ./../escape"}
+{"args":["./{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: ./feat"}
+{"args":["./{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ./feat"}
+{"args":["./{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: ./n"}
+{"args":[".{user}/",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {user} in \".{user}/\""}
+{"args":[".~{repoRoot}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: .~/work/repo"}
+{"args":[".é{name}中~/ ",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: .én中~/ "}
+{"args":["/",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["/",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["/",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["/",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["/",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/"}
+{"args":["/..",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["/..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/"}
+{"args":["/..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["/..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["/..",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/"}
+{"args":["//",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["//",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/"}
+{"args":["//",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["//",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/"}
+{"args":["//",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/"}
+{"args":["/a b/{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/a b"}
+{"args":["/a b/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/a b/feat"}
+{"args":["/a b/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/a b/feat"}
+{"args":["/a b/{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/a b/n"}
+{"args":["/a b/{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/a b/功能😀"}
+{"args":["/a/a 😀",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/a/a 😀"}
+{"args":["/a/a",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/a/a"}
+{"args":["/a/{name}/../../..",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["/a/{name}/../../..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/"}
+{"args":["/a/{name}/../../..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["/a/{name}/../../..",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/"}
+{"args":["/a/{name}/../../..",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/"}
+{"args":["/a\nb/{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/escape"}
+{"args":["/a\nb/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/a\nb/feat"}
+{"args":["/a\nb/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/a\nb/feat"}
+{"args":["/a\nb/{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/a\nb/n"}
+{"args":["/a\nb/{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/a\nb/功能😀"}
+{"args":["/abs//{name}/./x",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/escape/x"}
+{"args":["/abs//{name}/./x",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/abs/feat/x"}
+{"args":["/abs//{name}/./x",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/abs/feat/x"}
+{"args":["/abs//{name}/./x",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/abs/n/x"}
+{"args":["/abs/{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/abs"}
+{"args":["/abs/{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/escape"}
+{"args":["/abs/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/abs/feat"}
+{"args":["/abs/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/abs/feat"}
+{"args":["/abs/{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/abs/n"}
+{"args":["/abs/{name}/",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/abs"}
+{"args":["/abs/{name}/",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/escape"}
+{"args":["/abs/{name}/",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/abs/feat"}
+{"args":["/abs/{name}/",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/abs/feat"}
+{"args":["/abs/{name}/",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/abs/n"}
+{"args":["/a{repoParent}é~/ ",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/a/worké~/ "}
+{"args":["/a{repo}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/arepo"}
+{"args":["/a{user}./{x}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {user} in \"/a{user}./{x}\""}
+{"args":["/a~/",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/a~"}
+{"args":["/aé",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/aé"}
+{"args":["/tmp/{name}-{repoParent}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/tmp/-/work"}
+{"args":["/tmp/{name}-{repoParent}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/tmp/feat-/work"}
+{"args":["/tmp/{name}-{repoParent}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/tmp/feat-/work"}
+{"args":["/tmp/{name}-{repoParent}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/tmp/feat-/work"}
+{"args":["/tmp/{name}-{repoParent}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/tmp/功能😀-/work/中文"}
+{"args":["/w/{__proto__}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {__proto__} in \"/w/{__proto__}\""}
+{"args":["/w/{__proto__}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {__proto__} in \"/w/{__proto__}\""}
+{"args":["/w/{__proto__}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {__proto__} in \"/w/{__proto__}\""}
+{"args":["/w/{__proto__}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder {__proto__} in \"/w/{__proto__}\""}
+{"args":["/w/{__proto__}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {__proto__} in \"/w/{__proto__}\""}
+{"args":["/w/{constructor}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {constructor} in \"/w/{constructor}\""}
+{"args":["/w/{constructor}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {constructor} in \"/w/{constructor}\""}
+{"args":["/w/{constructor}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {constructor} in \"/w/{constructor}\""}
+{"args":["/w/{constructor}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder {constructor} in \"/w/{constructor}\""}
+{"args":["/w/{constructor}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {constructor} in \"/w/{constructor}\""}
+{"args":["/w/{toString}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {toString} in \"/w/{toString}\""}
+{"args":["/w/{toString}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {toString} in \"/w/{toString}\""}
+{"args":["/w/{toString}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {toString} in \"/w/{toString}\""}
+{"args":["/w/{toString}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder {toString} in \"/w/{toString}\""}
+{"args":["/w/{toString}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {toString} in \"/w/{toString}\""}
+{"args":["/{name}/..",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["/{name}/..",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["/{name}/..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["/{name}/..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/"}
+{"args":["/{name}/..",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/"}
+{"args":["/{repoRoot}é",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/work/中文/répoé"}
+{"args":["/}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"/}\""}
+{"args":["/日本/{name}/😀",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/日本/😀"}
+{"args":["/日本/{name}/😀",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/escape/😀"}
+{"args":["/日本/{name}/😀",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/日本/feat/😀"}
+{"args":["/日本/{name}/😀",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/日本/feat/😀"}
+{"args":["/日本/{name}/😀",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/日本/功能😀/😀"}
+{"args":["a{name}b{repo}c",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: abrepoc"}
+{"args":["a{name}b{repo}c",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: a../escapebrepoc"}
+{"args":["a{name}b{repo}c",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: afeatbrepoc"}
+{"args":["a{name}b{repo}c",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: afeatbrepoc"}
+{"args":["a{name}b{repo}c",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: a功能😀brépoc"}
+{"args":["name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"name}\""}
+{"args":["name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"name}\""}
+{"args":["name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"name}\""}
+{"args":["name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"name}\""}
+{"args":["name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"name}\""}
+{"args":["relative/{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: relative/"}
+{"args":["relative/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: relative/feat"}
+{"args":["relative/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: relative/feat"}
+{"args":["relative/{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: relative/n"}
+{"args":["relative/{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: relative/功能😀"}
+{"args":["{ name }",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder { name } in \"{ name }\""}
+{"args":["{ name }",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder { name } in \"{ name }\""}
+{"args":["{ name }",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder { name } in \"{ name }\""}
+{"args":["{ name }",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder { name } in \"{ name }\""}
+{"args":["{ name }",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder { name } in \"{ name }\""}
+{"args":["{",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"{\""}
+{"args":["{/a{{home}{repoRoot}~/",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{/a{{home}{repoRoot}~/\""}
+{"args":["{Name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {Name} in \"{Name}\""}
+{"args":["{Name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {Name} in \"{Name}\""}
+{"args":["{Name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {Name} in \"{Name}\""}
+{"args":["{Name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder {Name} in \"{Name}\""}
+{"args":["{Name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {Name} in \"{Name}\""}
+{"args":["{home}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me"}
+{"args":["{home}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["{home}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["{home}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/home/me"}
+{"args":["{home}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home/émile"}
+{"args":["{home}-~-",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/-~-"}
+{"args":["{home}.",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: ."}
+{"args":["{home}.é~/~/{x}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {x} in \"{home}.é~/~/{x}\""}
+{"args":["{home}/wt/{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/wt"}
+{"args":["{home}/wt/{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/escape"}
+{"args":["{home}/wt/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/wt/feat"}
+{"args":["{home}/wt/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/wt/feat"}
+{"args":["{home}/wt/{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home/émile/wt/功能😀"}
+{"args":["{home}{/{x}{x}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{home}{/{x}{x}\""}
+{"args":["{home}{home}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/home/me"}
+{"args":["{home}{home}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["{home}{home}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["{home}{home}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/home/me/home/me"}
+{"args":["{home}{home}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home/émile/home/émile"}
+{"args":["{home}{user}{repo}/~/-",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {user} in \"{home}{user}{repo}/~/-\""}
+{"args":["{home}{x}}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{home}{x}}\""}
+{"args":["{name",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unbalanced braces in \"{name\""}
+{"args":["{name} é{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path:  é"}
+{"args":["{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: feat"}
+{"args":["{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: feat"}
+{"args":["{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: n"}
+{"args":["{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: 功能😀"}
+{"args":["{name}{",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{name}{\""}
+{"args":["{name}{",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"{name}{\""}
+{"args":["{name}{",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"{name}{\""}
+{"args":["{name}{",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unbalanced braces in \"{name}{\""}
+{"args":["{name}{",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"{name}{\""}
+{"args":["{name}{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["{name}{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ../escape../escape"}
+{"args":["{name}{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: featfeat"}
+{"args":["{name}{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: featfeat"}
+{"args":["{name}{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: nn"}
+{"args":["{name}{repoParent}....",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ../escape/work...."}
+{"args":["{name}{repoRoot}{user}{home}~",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {user} in \"{name}{repoRoot}{user}{home}~\""}
+{"args":["{name}}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{name}}\""}
+{"args":["{name}}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{name}}\""}
+{"args":["{name}}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"{name}}\""}
+{"args":["{name}}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{name}}\""}
+{"args":["{name}}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unbalanced braces in \"{name}}\""}
+{"args":["{name}~",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ../escape~"}
+{"args":["{name}~/{repo}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ../escape~/repo"}
+{"args":["{repoParent}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/work"}
+{"args":["{repoParent}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/work"}
+{"args":["{repoParent}/{repo}-{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo-"}
+{"args":["{repoParent}/{repo}-{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo-../escape"}
+{"args":["{repoParent}/{repo}-{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"ret":"/work/repo-feat"}
+{"args":["{repoParent}/{repo}-{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo-feat"}
+{"args":["{repoParent}/{repo}-{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/work/r-n"}
+{"args":["{repoParent}{repo}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/workrepo"}
+{"args":["{repoParent}{repo}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/work/r"}
+{"args":["{repoParent}}{repo}~/ ",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{repoParent}}{repo}~/ \""}
+{"args":["{repoParent}~/中}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{repoParent}~/中}\""}
+{"args":["{repoParent}~😀",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/work/中文~😀"}
+{"args":["{repoParent}中{x}~~😀",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {x} in \"{repoParent}中{x}~~😀\""}
+{"args":["{repoParent}😀/a",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work😀/a"}
+{"args":["{repoRoot}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo"}
+{"args":["{repoRoot}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo"}
+{"args":["{repoRoot}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/work/repo"}
+{"args":["{repoRoot}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo"}
+{"args":["{repoRoot}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/work/中文/répo"}
+{"args":["{repoRoot}-}/a😀-",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"{repoRoot}-}/a😀-\""}
+{"args":["{repoRoot}.{repoRoot}{.",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"{repoRoot}.{repoRoot}{.\""}
+{"args":["{repoRoot}/../{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work"}
+{"args":["{repoRoot}/../{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/escape"}
+{"args":["{repoRoot}/../{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/work/feat"}
+{"args":["{repoRoot}/../{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/feat"}
+{"args":["{repoRoot}/../{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/work/中文/功能😀"}
+{"args":["{repoRoot}/.worktrees/{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo/.worktrees"}
+{"args":["{repoRoot}/.worktrees/{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo/escape"}
+{"args":["{repoRoot}/.worktrees/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/work/repo/.worktrees/feat"}
+{"args":["{repoRoot}/.worktrees/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo/.worktrees/feat"}
+{"args":["{repoRoot}/.worktrees/{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/work/中文/répo/.worktrees/功能😀"}
+{"args":["{repoRoot}/a{user}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {user} in \"{repoRoot}/a{user}\""}
+{"args":["{repoRoot}{home} .",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/work/repo/home/me ."}
+{"args":["{repoRoot}{home}{",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{repoRoot}{home}{\""}
+{"args":["{repoRoot}{home}}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"{repoRoot}{home}}\""}
+{"args":["{repoRoot}{repoRoot}~/{repoRoot}{-",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"{repoRoot}{repoRoot}~/{repoRoot}{-\""}
+{"args":["{repoRoot}}{name}{x}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"{repoRoot}}{name}{x}\""}
+{"args":["{repoRoot}~{repo}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/work/中文/répo~répo"}
+{"args":["{repo} {repo} 😀",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: répo répo 😀"}
+{"args":["{repo}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: repo"}
+{"args":["{repo}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: repo"}
+{"args":["{repo}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: répo"}
+{"args":["{repo}...",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: repo..."}
+{"args":["{repo}./{user}{x}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {user} in \"{repo}./{user}{x}\""}
+{"args":["{repo}{home}}-",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{repo}{home}}-\""}
+{"args":["{repo}{repoParent}😀",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: repo/work😀"}
+{"args":["{repo}{user}{x}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder {user} in \"{repo}{user}{x}\""}
+{"args":["{repo}{x}{name} ~.",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {x} in \"{repo}{x}{name} ~.\""}
+{"args":["{repo}~..é",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: repo~..é"}
+{"args":["{repo}~/}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unbalanced braces in \"{repo}~/}\""}
+{"args":["{unknown}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {unknown} in \"{unknown}\""}
+{"args":["{unknown}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {unknown} in \"{unknown}\""}
+{"args":["{unknown}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {unknown} in \"{unknown}\""}
+{"args":["{unknown}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder {unknown} in \"{unknown}\""}
+{"args":["{unknown}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {unknown} in \"{unknown}\""}
+{"args":["{user}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {user} in \"{user}\""}
+{"args":["{user}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {user} in \"{user}\""}
+{"args":["{user}..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {user} in \"{user}..\""}
+{"args":["{user}/a{name}/~",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {user} in \"{user}/a{name}/~\""}
+{"args":["{user}{name}{name}é~/",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {user} in \"{user}{name}{name}é~/\""}
+{"args":["{user}{repoParent}{repoParent}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {user} in \"{user}{repoParent}{repoParent}\""}
+{"args":["{user}{repoParent}{repoRoot}/{",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"{user}{repoParent}{repoRoot}/{\""}
+{"args":["{user}{user} ",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {user} in \"{user}{user} \""}
+{"args":["{user}{x}{repoRoot}é-",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {user} in \"{user}{x}{repoRoot}é-\""}
+{"args":["{user}~/{repoParent}/a{repo}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {user} in \"{user}~/{repoParent}/a{repo}\""}
+{"args":["{user}~{user}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {user} in \"{user}~{user}\""}
+{"args":["{user}😀{name}{home}.}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"{user}😀{name}{home}.}\""}
+{"args":["{x}..",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {x} in \"{x}..\""}
+{"args":["{x}{name}{x}.é.",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {x} in \"{x}{name}{x}.é.\""}
+{"args":["{x}~~/{user}~/",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder {x} in \"{x}~~/{user}~/\""}
+{"args":["{{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{{name}\""}
+{"args":["{{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"{{name}\""}
+{"args":["{{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"{{name}\""}
+{"args":["{{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{{name}\""}
+{"args":["{{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"{{name}\""}
+{"args":["{{name}}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{name}}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{name}}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{name}}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{name}}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"{{name}}\""}
+{"args":["{{user}中",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{{user}中\""}
+{"args":["{}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {} in \"{}\""}
+{"args":["{}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {} in \"{}\""}
+{"args":["{}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {} in \"{}\""}
+{"args":["{}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unknown placeholder {} in \"{}\""}
+{"args":["{}{x}😀",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {} in \"{}{x}😀\""}
+{"args":["{~/",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"{~/\""}
+{"args":["}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"Unbalanced braces in \"}\""}
+{"args":["}..{x}~😀",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"}..{x}~😀\""}
+{"args":["}.{name}{name}é{repoRoot}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"}.{name}{name}é{repoRoot}\""}
+{"args":["}{repoParent}~/ ",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"}{repoParent}~/ \""}
+{"args":["}{repo}..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"}{repo}..\""}
+{"args":["}{user}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unbalanced braces in \"}{user}\""}
+{"args":["}{{{home}{home}.",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"}{{{home}{home}.\""}
+{"args":["}}{home}../a",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"}}{home}../a\""}
+{"args":["}}😀{x} {repoRoot}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"}}😀{x} {repoRoot}\""}
+{"args":["}中{x} 中{user}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"}中{x} 中{user}\""}
+{"args":["~",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me"}
+{"args":["~",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: "}
+{"args":["~",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["~",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/home/me"}
+{"args":["~",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home/émile"}
+{"args":["~..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: ~.."}
+{"args":["~.{user}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {user} in \"~.{user}\""}
+{"args":["~/",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me"}
+{"args":["~/",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me"}
+{"args":["~/",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["~/",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me"}
+{"args":["~/",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/home/me"}
+{"args":["~/..",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home"}
+{"args":["~/..",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home"}
+{"args":["~/..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/"}
+{"args":["~/..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home"}
+{"args":["~/..",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home"}
+{"args":["~/../x",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/x"}
+{"args":["~/../x",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/x"}
+{"args":["~/../x",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/x"}
+{"args":["~/../x",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/x"}
+{"args":["~/../x",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home/x"}
+{"args":["~/..{x}{name}{x}{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {x} in \"~/..{x}{name}{x}{name}\""}
+{"args":["~//a/a{中 ",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"~//a/a{中 \""}
+{"args":["~//{x}/{home}é",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {x} in \"~//{x}/{home}é\""}
+{"args":["~/é/{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/é"}
+{"args":["~/é/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: é/feat"}
+{"args":["~/é/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/é/feat"}
+{"args":["~/é/{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/home/me/é/n"}
+{"args":["~/é/{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home/émile/é/功能😀"}
+{"args":["~/wt/{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/escape"}
+{"args":["~/wt/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: wt/feat"}
+{"args":["~/wt/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/wt/feat"}
+{"args":["~/wt/{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/home/me/wt/n"}
+{"args":["~/wt/{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home/émile/wt/功能😀"}
+{"args":["~/{home}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/home/me"}
+{"args":["~/{home}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: ."}
+{"args":["~/{home}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/home/me"}
+{"args":["~/{home}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/home/me/home/me"}
+{"args":["~/{home}{/",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"~/{home}{/\""}
+{"args":["~/{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me"}
+{"args":["~/{name}",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/escape"}
+{"args":["~/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/feat"}
+{"args":["~/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/feat"}
+{"args":["~/{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home/émile/功能😀"}
+{"args":["~/{repoRoot}/~/{x}{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {x} in \"~/{repoRoot}/~/{x}{name}\""}
+{"args":["~/{user}中~{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {user} in \"~/{user}中~{name}\""}
+{"args":["~/{user}😀",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unknown placeholder {user} in \"~/{user}😀\""}
+{"args":["~/{x}{repoParent}é😀",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unknown placeholder {x} in \"~/{x}{repoParent}é😀\""}
+{"args":["~/~/~/",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/~/~"}
+{"args":["~/é/{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"ret":"/home/me/é"}
+{"args":["~/é/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: é/feat"}
+{"args":["~/é/{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"ret":"/é/feat"}
+{"args":["~/é/{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"ret":"/home/me/é/n"}
+{"args":["~/é/{name}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"ret":"/home/émile/é/功能😀"}
+{"args":["~user/x",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ~user/x"}
+{"args":["~user/x",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: ~user/x"}
+{"args":["~user/x",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: ~user/x"}
+{"args":["~user/x",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: ~user/x"}
+{"args":["~user/x",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: ~user/x"}
+{"args":["~x",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ~x"}
+{"args":["~x",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: ~x"}
+{"args":["~x",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: ~x"}
+{"args":["~x",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: ~x"}
+{"args":["~x",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: ~x"}
+{"args":["~{home}é{repo}}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"~{home}é{repo}}\""}
+{"args":["~{home}é{{repoRoot}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"~{home}é{{repoRoot}\""}
+{"args":["~}- ",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"~}- \""}
+{"args":["é",{"name":"../escape","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: é"}
+{"args":["é",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: é"}
+{"args":["é",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: é"}
+{"args":["é..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: é.."}
+{"args":["é.{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: é.feat"}
+{"args":["é{home}{name}",{"name":"n","repo":"r","repoParent":"/work/","repoRoot":"/work/r/","home":"/home/me/"}],"throws":"worktree.location must expand to an absolute path: é/home/me/n"}
+{"args":["é{user}{repo}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {user} in \"é{user}{repo}\""}
+{"args":["é{{user}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"é{{user}\""}
+{"args":["é~/😀~",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: é~/😀~"}
+{"args":["é中~",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: é中~"}
+{"args":["中",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: 中"}
+{"args":["中",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"worktree.location must expand to an absolute path: 中"}
+{"args":["中..{repo}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: 中..repo"}
+{"args":["中{",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"中{\""}
+{"args":["中{name}{user}-..中",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {user} in \"中{name}{user}-..中\""}
+{"args":["中{user}~/{home}..",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"Unknown placeholder {user} in \"中{user}~/{home}..\""}
+{"args":["中é--",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: 中é--"}
+{"args":["😀 {repoParent}{repo}{repoRoot}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: 😀 /workrepo/work/repo"}
+{"args":["😀-}/~..",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"😀-}/~..\""}
+{"args":["😀..{/",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"Unbalanced braces in \"😀..{/\""}
+{"args":["😀{home}{..{name}",{"name":"","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"Unbalanced braces in \"😀{home}{..{name}\""}
+{"args":["😀{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/"}],"throws":"worktree.location must expand to an absolute path: 😀feat"}
+{"args":["😀{repoRoot}{name}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":"/home/me"}],"throws":"worktree.location must expand to an absolute path: 😀/work/repofeat"}
+{"args":["😀{user}{repoParent}.中",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unknown placeholder {user} in \"😀{user}{repoParent}.中\""}
+{"args":["😀}",{"name":"功能😀","repo":"répo","repoParent":"/work/中文","repoRoot":"/work/中文/répo","home":"/home/émile"}],"throws":"Unbalanced braces in \"😀}\""}
+{"args":["😀~/{repoRoot}",{"name":"feat","repo":"repo","repoParent":"/work","repoRoot":"/work/repo","home":""}],"throws":"worktree.location must expand to an absolute path: 😀~//work/repo"}

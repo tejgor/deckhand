@@ -10,14 +10,27 @@ ts_tests = ["tests/notes.test.ts", "tests/noteSteps.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["notes/budgetSections", "notes/checklistCounts", "notes/checklistLabel", "notes/continueChecklist", "notes/fitFirst", "notes/fitReadRows", "notes/insertChecklistItem", "notes/linkedTaskId", "notes/mergeIntoWorktreeNote", "notes/noteKey", "notes/noteReadRows", "notes/noteRevision", "notes/openChecklistText", "notes/parseChecklistLine", "notes/repoNoteId", "notes/sharedNoteIdentity", "notes/showsOwnNote", "notes/taskLinkSuffix", "notes/toggleChecklist", "notes/toggleChecklistLine", "notes/visibleText"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
-utf16_fields = {}
+utf16_fields = { "notes/toggleChecklist" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" }, "notes/insertChecklistItem" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" }, "notes/continueChecklist" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" } }
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "Notes tab layout: worktree section, a rule, the session section; empty sections collapse; long ones end in +N more lines", to = "U4", reason = "notesLayout/NotesRows (notesPane) rendering" },
+  { title = "Notes tab layout while editing: the focused section shows the raw text with the cursor and scrolls to keep it visible", to = "U4", reason = "notesLayout (notesPane) editing layout" },
+  { title = "sidebar details: ☐ open items of the session and its worktree, shortened to fit, the first line to go", to = "P8", reason = "sessionDetails (sidebarModel); the openChecklistText assertions are replayed in notes.rs open_checklist_text_shortened_to_fit" },
+  { title = "search matches worktree notes too; handoffs have a Worktree notes section", to = "P8", reason = "filterSessionList/handoffMarkdown (sessionFeatures)" },
+  { title = "a removed note goes to the trash under a name that says when and what it belonged to", to = "I2", reason = "trashFileName (notesStore)" },
+  { title = "a work's steps: its note's checklist (open and ticked, not ↗ links or empty items), under the task it was started for", to = "P6", reason = "noteSteps/workNote/boardRows (tasksBoard); the toggleChecklistLine assertions are in notes.rs note_steps_toggle_and_link_rows" },
+  { title = "sending a note's open items at once: each becomes its ↗ link; the backlog remembers the branch they were left in", to = "P6", reason = "promoteOpenNoteLines/applyTaskOp (tasks, P5) and worktreeOpenItems (tasksBoard)" },
+  { title = "↗ lines say where their task is: in Tasks, done, or no longer in the list", to = "P6", reason = "taskLinkLookup/noteLine (tasksBoard); the noteReadRows assertion is in notes.rs note_steps_toggle_and_link_rows" },
+  { title = "the merge confirmation offers to send the worktree note's open items to the backlog: one row space switches", to = "P4", reason = "mergeConfirmLayout (mergeModel)" },
+  { title = "w onto work without a task makes the task that work's (◆); onto work with one, the daemon puts it into its note as a step", to = "P6", reason = "hasMainTask (tasksBoard) with applyTaskOp/clientTaskOp (tasks, P5)" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
-allowlist = []
+allowlist = [
+  { fixture = "notes/toggleChecklist", case = 351, reason = "cursor -1 is not a byte offset: EditorState.cursor is usize, so the replay passes 0 and the cursor moves past the inserted marker (6) instead of staying -1" },
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

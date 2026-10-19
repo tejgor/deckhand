@@ -1,0 +1,400 @@
+{"args":[{"text":" .","cursor":2,"selectAll":true,"message":"m"},0,2,"a///bZ😀_a",{"maxChars":5}],"ret":{"text":" .","cursor":2,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":" .","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":" .","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":" .","cursor":2,"message":"cap"}}
+{"args":[{"text":" /b./中‍","cursor":0,"selectAll":true,"message":"m"},0,7,"b0b\t",{"maxChars":5}],"ret":{"text":"b0b\t","cursor":4}}
+{"args":[{"text":" /b./中‍","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":" /b./中‍","cursor":0}}
+{"args":[{"text":" /b./中‍","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":" /b./中‍","cursor":0,"message":"cap"}}
+{"args":[{"text":" b Zé/","cursor":0,"selectAll":true,"message":"m"},0,7,"😀",{"maxChars":5}],"ret":{"text":"😀","cursor":2}}
+{"args":[{"text":" b Zé/","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":" b Zé/","cursor":0}}
+{"args":[{"text":" b Zé/","cursor":0},0,7,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":" ß\n0-","cursor":4,"selectAll":true,"message":"m"},0,5,"éßé.a\t",{"maxChars":5}],"ret":{"text":" ß\n0-","cursor":4,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":" ß\n0-","cursor":4},0,4,"",{"maxChars":3}],"ret":{"text":"-","cursor":0}}
+{"args":[{"text":" ß\n0-","cursor":4},4,5,"é😀",{}],"ret":{"text":" ß\n0é😀","cursor":7}}
+{"args":[{"text":" ß\n中é0","cursor":6,"selectAll":true,"message":"m"},0,7,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":" ß\n中é0","cursor":6},0,6,"",{"maxChars":3}],"ret":{"text":"0","cursor":0}}
+{"args":[{"text":" ß\n中é0","cursor":6},6,7,"é😀",{}],"ret":{"text":" ß\n中éé😀","cursor":9}}
+{"args":[{"text":" 中\nb-","cursor":0,"selectAll":true,"message":"m"},0,5,"\té.-/中😀 ",{"maxChars":5}],"ret":{"text":" 中\nb-","cursor":0,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":" 中\nb-","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":" 中\nb-","cursor":0,"message":"cap"}}
+{"args":[{"text":" 中\nb-","cursor":0},0,5,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":" 中‍aé/ßa","cursor":7,"selectAll":true,"message":"m"},0,9,"ß",{"maxChars":5}],"ret":{"text":"ß","cursor":1}}
+{"args":[{"text":" 中‍aé/ßa","cursor":7},7,7,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":" 中‍aé/ßa","cursor":7,"message":"cap"}}
+{"args":[{"text":" 中‍aé/ßa","cursor":7},7,9,"é😀",{}],"ret":{"text":" 中‍aé/é😀","cursor":10}}
+{"args":[{"text":"","cursor":0,"selectAll":true,"message":"m"},0,0,"- ZZ‍b00",{"maxChars":5}],"ret":{"text":"","cursor":0,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"","cursor":0,"selectAll":true,"message":"m"},0,0,"-‍‍",{"maxChars":5}],"ret":{"text":"-‍‍","cursor":3}}
+{"args":[{"text":"","cursor":0,"selectAll":true,"message":"m"},0,0,"/",{"maxChars":5}],"ret":{"text":"/","cursor":1}}
+{"args":[{"text":"","cursor":0,"selectAll":true,"message":"m"},0,0,"\naéß/",{"maxChars":5}],"ret":{"text":"","cursor":0,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"","cursor":0,"selectAll":true,"message":"m"},0,0,"_é",{"maxChars":5}],"ret":{"text":"_é","cursor":2}}
+{"args":[{"text":"","cursor":0,"selectAll":true,"message":"m"},0,0,"aé中中",{"maxChars":5}],"ret":{"text":"aé中中","cursor":4}}
+{"args":[{"text":"","cursor":0,"selectAll":true,"message":"m"},0,0,"‍\n",{"maxChars":5}],"ret":{"text":"‍\n","cursor":2}}
+{"args":[{"text":"","cursor":0,"selectAll":true,"message":"m"},0,0,"中",{"maxChars":5}],"ret":{"text":"中","cursor":1}}
+{"args":[{"text":"","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"","cursor":0,"message":"cap"}}
+{"args":[{"text":"","cursor":0},0,0,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"-","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"-","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"-","cursor":1,"message":"cap"}}
+{"args":[{"text":"--Z.é-ßa","cursor":7,"selectAll":true,"message":"m"},0,9,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"--Z.é-ßa","cursor":7},0,7,"",{"maxChars":3}],"ret":{"text":"ßa","cursor":0}}
+{"args":[{"text":"--Z.é-ßa","cursor":7},7,7,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"--Z.é-ßa","cursor":7,"message":"cap"}}
+{"args":[{"text":"-.","cursor":0,"selectAll":true,"message":"m"},0,2,"😀",{"maxChars":5}],"ret":{"text":"😀","cursor":2}}
+{"args":[{"text":"-.","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"-.","cursor":0}}
+{"args":[{"text":"-.","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"-.","cursor":0,"message":"cap"}}
+{"args":[{"text":"-.éab00é","cursor":9,"selectAll":true,"message":"m"},0,10,"éß",{"maxChars":5}],"ret":{"text":"éß","cursor":2}}
+{"args":[{"text":"-.éab00é","cursor":9},0,9,"",{"maxChars":3}],"ret":{"text":"́","cursor":0}}
+{"args":[{"text":"-.éab00é","cursor":9},9,9,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"-.éab00é","cursor":9,"message":"cap"}}
+{"args":[{"text":"-/é-0\t\t0","cursor":3,"selectAll":true,"message":"m"},0,8,"e",{"maxChars":5}],"ret":{"text":"e","cursor":1}}
+{"args":[{"text":"-/é-0\t\t0","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"-0\t\t0","cursor":0}}
+{"args":[{"text":"-/é-0\t\t0","cursor":3},3,8,"é😀",{}],"ret":{"text":"-/éé😀","cursor":6}}
+{"args":[{"text":"-Z😀_","cursor":5,"selectAll":true,"message":"m"},0,5,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"-Z😀_","cursor":5},0,5,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"-Z😀_","cursor":5},5,5,"é😀",{}],"ret":{"text":"-Z😀_é😀","cursor":8}}
+{"args":[{"text":"-_.a.\nß","cursor":4,"selectAll":true,"message":"m"},0,7,"_",{"maxChars":5}],"ret":{"text":"_","cursor":1}}
+{"args":[{"text":"-_.a.\nß","cursor":4},4,4,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"-_.a.\nß","cursor":4,"message":"cap"}}
+{"args":[{"text":"-_.a.\nß","cursor":4},4,7,"é😀",{}],"ret":{"text":"-_.aé😀","cursor":7}}
+{"args":[{"text":"-ßZbaßa_","cursor":5,"selectAll":true,"message":"m"},0,8,"éZé😀aé ‍",{"maxChars":5}],"ret":{"text":"-ßZbaßa_","cursor":5,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"-ßZbaßa_","cursor":5},5,5,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"-ßZbaßa_","cursor":5,"message":"cap"}}
+{"args":[{"text":"-ßZbaßa_","cursor":5},5,8,"é😀",{}],"ret":{"text":"-ßZbaé😀","cursor":8}}
+{"args":[{"text":". ","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":" ","cursor":0}}
+{"args":[{"text":". ","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":". ","cursor":1,"message":"cap"}}
+{"args":[{"text":". ","cursor":1},1,2,"é😀",{}],"ret":{"text":".é😀","cursor":4}}
+{"args":[{"text":"..__éßßé0 ","cursor":11},0,11,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"..__éßßé0 ","cursor":11},11,11,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"..__éßßé0 ","cursor":11,"message":"cap"}}
+{"args":[{"text":"..__éßßé0 ","cursor":11},11,11,"é😀",{}],"ret":{"text":"..__éßßé0 é😀","cursor":14}}
+{"args":[{"text":".0_é😀_Zé","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"0_é😀_Zé","cursor":0}}
+{"args":[{"text":".0_é😀_Zé","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":".0_é😀_Zé","cursor":1,"message":"cap"}}
+{"args":[{"text":".Z","cursor":0,"selectAll":true,"message":"m"},0,2,"😀é",{"maxChars":5}],"ret":{"text":"😀é","cursor":4}}
+{"args":[{"text":".Z","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":".Z","cursor":0}}
+{"args":[{"text":".Z","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":".Z","cursor":0,"message":"cap"}}
+{"args":[{"text":".\nß","cursor":2,"selectAll":true,"message":"m"},0,3,"/_\t‍中",{"maxChars":5}],"ret":{"text":"/_\t‍中","cursor":5}}
+{"args":[{"text":".\nß","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"ß","cursor":0}}
+{"args":[{"text":".\nß","cursor":2},2,3,"é😀",{}],"ret":{"text":".\né😀","cursor":5}}
+{"args":[{"text":".\t","cursor":1,"selectAll":true,"message":"m"},0,2,"..‍\n‍",{"maxChars":5}],"ret":{"text":"..‍\n‍","cursor":5}}
+{"args":[{"text":".\t","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"\t","cursor":0}}
+{"args":[{"text":".\t","cursor":1},1,2,"é😀",{}],"ret":{"text":".é😀","cursor":4}}
+{"args":[{"text":".éß","cursor":2,"selectAll":true,"message":"m"},0,4,"\n",{"maxChars":5}],"ret":{"text":"\n","cursor":1}}
+{"args":[{"text":".éß","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"́ß","cursor":0}}
+{"args":[{"text":".éß","cursor":2},2,4,"é😀",{}],"ret":{"text":".eé😀","cursor":5}}
+{"args":[{"text":".ß😀/\t\nZ","cursor":8,"selectAll":true,"message":"m"},0,8,".中ée",{"maxChars":5}],"ret":{"text":".中ée","cursor":5}}
+{"args":[{"text":".ß😀/\t\nZ","cursor":8},8,8,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":".ß😀/\t\nZ","cursor":8,"message":"cap"}}
+{"args":[{"text":".ß😀/\t\nZ","cursor":8},8,8,"é😀",{}],"ret":{"text":".ß😀/\t\nZé😀","cursor":11}}
+{"args":[{"text":".中\t.ß中/","cursor":7,"selectAll":true,"message":"m"},0,7,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":".中\t.ß中/","cursor":7},7,7,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":".中\t.ß中/","cursor":7,"message":"cap"}}
+{"args":[{"text":".中\t.ß中/","cursor":7},7,7,"é😀",{}],"ret":{"text":".中\t.ß中/é😀","cursor":10}}
+{"args":[{"text":".😀\n","cursor":0,"selectAll":true,"message":"m"},0,4,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":".😀\n","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":".😀\n","cursor":0,"message":"cap"}}
+{"args":[{"text":".😀\n","cursor":0},0,4,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":".😀\tZ -‍ ","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":".😀\tZ -‍ ","cursor":0}}
+{"args":[{"text":".😀\tZ -‍ ","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":".😀\tZ -‍ ","cursor":0,"message":"cap"}}
+{"args":[{"text":".😀\tZ -‍ ","cursor":0},0,9,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":".😀ß_‍b\t -","cursor":9},0,9,"",{"maxChars":3}],"ret":{"text":"-","cursor":0}}
+{"args":[{"text":".😀ß_‍b\t -","cursor":9},9,10,"é😀",{}],"ret":{"text":".😀ß_‍b\t é😀","cursor":12}}
+{"args":[{"text":"/","cursor":1,"selectAll":true,"message":"m"},0,1,"Z",{"maxChars":5}],"ret":{"text":"Z","cursor":1}}
+{"args":[{"text":"/","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"/","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"/","cursor":1,"message":"cap"}}
+{"args":[{"text":"/._","cursor":2,"selectAll":true,"message":"m"},0,3,"é",{"maxChars":5}],"ret":{"text":"é","cursor":1}}
+{"args":[{"text":"/._","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"_","cursor":0}}
+{"args":[{"text":"/._","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"/._","cursor":2,"message":"cap"}}
+{"args":[{"text":"/.éß _/😀0","cursor":0,"selectAll":true,"message":"m"},0,11,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"/.éß _/😀0","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"/.éß _/😀0","cursor":0}}
+{"args":[{"text":"/.éß _/😀0","cursor":0},0,11,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"//b.中中b😀","cursor":5,"selectAll":true,"message":"m"},0,9,"ab中‍Z",{"maxChars":5}],"ret":{"text":"ab中‍Z","cursor":5}}
+{"args":[{"text":"//b.中中b😀","cursor":5},0,5,"",{"maxChars":3}],"ret":{"text":"中b😀","cursor":0}}
+{"args":[{"text":"//b.中中b😀","cursor":5},5,9,"é😀",{}],"ret":{"text":"//b.中é😀","cursor":8}}
+{"args":[{"text":"/\n0é ß‍中中","cursor":10,"selectAll":true,"message":"m"},0,10,"\n/ß",{"maxChars":5}],"ret":{"text":"\n/ß","cursor":3}}
+{"args":[{"text":"/\n0é ß‍中中","cursor":10},10,10,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"/\n0é ß‍中中","cursor":10,"message":"cap"}}
+{"args":[{"text":"/\n0é ß‍中中","cursor":10},10,10,"é😀",{}],"ret":{"text":"/\n0é ß‍中中é😀","cursor":13}}
+{"args":[{"text":"/bZ \n 0","cursor":6,"selectAll":true,"message":"m"},0,7,".Zß",{"maxChars":5}],"ret":{"text":".Zß","cursor":3}}
+{"args":[{"text":"/bZ \n 0","cursor":6},6,6,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"/bZ \n 0","cursor":6,"message":"cap"}}
+{"args":[{"text":"/bZ \n 0","cursor":6},6,7,"é😀",{}],"ret":{"text":"/bZ \n é😀","cursor":9}}
+{"args":[{"text":"/b\n‍\n ","cursor":6,"selectAll":true,"message":"m"},0,6,"😀.a",{"maxChars":5}],"ret":{"text":"😀.a","cursor":4}}
+{"args":[{"text":"/b\n‍\n ","cursor":6},6,6,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"/b\n‍\n ","cursor":6,"message":"cap"}}
+{"args":[{"text":"/b\n‍\n ","cursor":6},6,6,"é😀",{}],"ret":{"text":"/b\n‍\n é😀","cursor":9}}
+{"args":[{"text":"/éZ","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"éZ","cursor":0}}
+{"args":[{"text":"/éZ","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"/éZ","cursor":1,"message":"cap"}}
+{"args":[{"text":"/éZ","cursor":1},1,3,"é😀",{}],"ret":{"text":"/é😀","cursor":4}}
+{"args":[{"text":"0 Zßb中\n","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":" Zßb中\n","cursor":0}}
+{"args":[{"text":"0 Zßb中\n","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"0 Zßb中\n","cursor":1,"message":"cap"}}
+{"args":[{"text":"0 Zßb中\n","cursor":1},1,7,"é😀",{}],"ret":{"text":"0é😀","cursor":4}}
+{"args":[{"text":"0 ß‍","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"‍","cursor":0}}
+{"args":[{"text":"0 ß‍","cursor":3},3,3,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"0 ß‍","cursor":3,"message":"cap"}}
+{"args":[{"text":"0","cursor":0,"selectAll":true,"message":"m"},0,1,"Z-aé中",{"maxChars":5}],"ret":{"text":"Z-aé中","cursor":5}}
+{"args":[{"text":"0","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"0","cursor":0}}
+{"args":[{"text":"0","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"0","cursor":0,"message":"cap"}}
+{"args":[{"text":"0_","cursor":1,"selectAll":true,"message":"m"},0,2,".aZ",{"maxChars":5}],"ret":{"text":".aZ","cursor":3}}
+{"args":[{"text":"0_","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"_","cursor":0}}
+{"args":[{"text":"0_","cursor":1},1,2,"é😀",{}],"ret":{"text":"0é😀","cursor":4}}
+{"args":[{"text":"0b_ \t\n_a","cursor":7,"selectAll":true,"message":"m"},0,8,"a0-\t中",{"maxChars":5}],"ret":{"text":"a0-\t中","cursor":5}}
+{"args":[{"text":"0b_ \t\n_a","cursor":7},0,7,"",{"maxChars":3}],"ret":{"text":"a","cursor":0}}
+{"args":[{"text":"0b_ \t\n_a","cursor":7},7,8,"é😀",{}],"ret":{"text":"0b_ \t\n_é😀","cursor":10}}
+{"args":[{"text":"Z","cursor":1,"selectAll":true,"message":"m"},0,1,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"Z","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"Z","cursor":1},1,1,"é😀",{}],"ret":{"text":"Zé😀","cursor":4}}
+{"args":[{"text":"Z/é","cursor":0,"selectAll":true,"message":"m"},0,3,"Z__",{"maxChars":5}],"ret":{"text":"Z__","cursor":3}}
+{"args":[{"text":"Z/é","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"Z/é","cursor":0,"message":"cap"}}
+{"args":[{"text":"Z/é","cursor":0},0,3,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"Zß.é","cursor":2,"selectAll":true,"message":"m"},0,4,"‍\tZ😀_",{"maxChars":5}],"ret":{"text":"Zß.é","cursor":2,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"Zß.é","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"Zß.é","cursor":2,"message":"cap"}}
+{"args":[{"text":"Zß.é","cursor":2},2,4,"é😀",{}],"ret":{"text":"Zßé😀","cursor":5}}
+{"args":[{"text":"Zéa_.中-\téß","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"_.中-\téß","cursor":0}}
+{"args":[{"text":"Zéa_.中-\téß","cursor":3},3,10,"é😀",{}],"ret":{"text":"Zéaé😀","cursor":6}}
+{"args":[{"text":"Zéa_.中-\téß","cursor":3},3,3,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"Zéa_.中-\téß","cursor":3,"message":"cap"}}
+{"args":[{"text":"Z‍","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"Z‍","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"Z‍","cursor":2,"message":"cap"}}
+{"args":[{"text":"Z‍","cursor":2},2,2,"é😀",{}],"ret":{"text":"Z‍é😀","cursor":5}}
+{"args":[{"text":"Z‍-_/中/中a\n","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"‍-_/中/中a\n","cursor":0}}
+{"args":[{"text":"Z‍-_/中/中a\n","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"Z‍-_/中/中a\n","cursor":1,"message":"cap"}}
+{"args":[{"text":"Z中0-‍\né","cursor":4,"selectAll":true,"message":"m"},0,8,"\t",{"maxChars":5}],"ret":{"text":"\t","cursor":1}}
+{"args":[{"text":"Z中0-‍\né","cursor":4},0,4,"",{"maxChars":3}],"ret":{"text":"‍\né","cursor":0}}
+{"args":[{"text":"Z中0-‍\né","cursor":4},4,4,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"Z中0-‍\né","cursor":4,"message":"cap"}}
+{"args":[{"text":"Z😀-","cursor":3,"selectAll":true,"message":"m"},0,4,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"Z😀-","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"-","cursor":0}}
+{"args":[{"text":"Z😀-","cursor":3},3,3,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"Z😀-","cursor":3,"message":"cap"}}
+{"args":[{"text":"\n 中.é中é\t","cursor":3,"selectAll":true,"message":"m"},0,8,"\n😀",{"maxChars":5}],"ret":{"text":"\n😀","cursor":3}}
+{"args":[{"text":"\n 中.é中é\t","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":".é中é\t","cursor":0}}
+{"args":[{"text":"\n 中.é中é\t","cursor":3},3,8,"é😀",{}],"ret":{"text":"\n 中é😀","cursor":6}}
+{"args":[{"text":"\n","cursor":1,"selectAll":true,"message":"m"},0,1,"0\n",{"maxChars":5}],"ret":{"text":"0\n","cursor":2}}
+{"args":[{"text":"\n","cursor":1,"selectAll":true,"message":"m"},0,1,"Z0\nbé-",{"maxChars":5}],"ret":{"text":"\n","cursor":1,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"\n","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\n","cursor":1,"message":"cap"}}
+{"args":[{"text":"\n","cursor":1},1,1,"é😀",{}],"ret":{"text":"\né😀","cursor":4}}
+{"args":[{"text":"\nZ/Z ","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"/Z ","cursor":0}}
+{"args":[{"text":"\nZ/Z ","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\nZ/Z ","cursor":2,"message":"cap"}}
+{"args":[{"text":"\nZ/Z ","cursor":2},2,5,"é😀",{}],"ret":{"text":"\nZé😀","cursor":5}}
+{"args":[{"text":"\nZZ-","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"ZZ-","cursor":0}}
+{"args":[{"text":"\nZZ-","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\nZZ-","cursor":1,"message":"cap"}}
+{"args":[{"text":"\nZZ-","cursor":1},1,4,"é😀",{}],"ret":{"text":"\né😀","cursor":4}}
+{"args":[{"text":"\nZ_中aZ","cursor":4},0,4,"",{"maxChars":3}],"ret":{"text":"aZ","cursor":0}}
+{"args":[{"text":"\nZ_中aZ","cursor":4},4,4,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\nZ_中aZ","cursor":4,"message":"cap"}}
+{"args":[{"text":"\n_- \t","cursor":2,"selectAll":true,"message":"m"},0,5,"‍b",{"maxChars":5}],"ret":{"text":"‍b","cursor":2}}
+{"args":[{"text":"\n_- \t","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"- \t","cursor":0}}
+{"args":[{"text":"\n_- \t","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\n_- \t","cursor":2,"message":"cap"}}
+{"args":[{"text":"\n_.0é","cursor":4,"selectAll":true,"message":"m"},0,6,"a",{"maxChars":5}],"ret":{"text":"a","cursor":1}}
+{"args":[{"text":"\n_.0é","cursor":4},0,4,"",{"maxChars":3}],"ret":{"text":"é","cursor":0}}
+{"args":[{"text":"\n_.0é","cursor":4},4,6,"é😀",{}],"ret":{"text":"\n_.0é😀","cursor":7}}
+{"args":[{"text":"\n‍中_é","cursor":2,"selectAll":true,"message":"m"},0,6,"/",{"maxChars":5}],"ret":{"text":"/","cursor":1}}
+{"args":[{"text":"\n‍中_é","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"中_é","cursor":0}}
+{"args":[{"text":"\n‍中_é","cursor":2},2,6,"é😀",{}],"ret":{"text":"\n‍é😀","cursor":5}}
+{"args":[{"text":"\n😀😀/b b‍Z/","cursor":10,"selectAll":true,"message":"m"},0,12,"é",{"maxChars":5}],"ret":{"text":"é","cursor":1}}
+{"args":[{"text":"\n😀😀/b b‍Z/","cursor":10},0,10,"",{"maxChars":3}],"ret":{"text":"Z/","cursor":0}}
+{"args":[{"text":"\n😀😀/b b‍Z/","cursor":10},10,12,"é😀",{}],"ret":{"text":"\n😀😀/b b‍é😀","cursor":13}}
+{"args":[{"text":"\t-中é0","cursor":2,"selectAll":true,"message":"m"},0,5,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"\t-中é0","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\t-中é0","cursor":2,"message":"cap"}}
+{"args":[{"text":"\t-中é0","cursor":2},2,5,"é😀",{}],"ret":{"text":"\t-é😀","cursor":5}}
+{"args":[{"text":"\t\t","cursor":1,"selectAll":true,"message":"m"},0,2,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"\t\t","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\t\t","cursor":1,"message":"cap"}}
+{"args":[{"text":"\t\t","cursor":1},1,2,"é😀",{}],"ret":{"text":"\té😀","cursor":4}}
+{"args":[{"text":"\ta\téaß\t","cursor":0,"selectAll":true,"message":"m"},0,7,"ééé中/\nZ",{"maxChars":5}],"ret":{"text":"\ta\téaß\t","cursor":0,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"\ta\téaß\t","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\ta\téaß\t","cursor":0,"message":"cap"}}
+{"args":[{"text":"\ta\téaß\t","cursor":0},0,7,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"\té😀ZZ/é.é\n","cursor":6},0,6,"",{"maxChars":3}],"ret":{"text":"Z/é.é\n","cursor":0}}
+{"args":[{"text":"\té😀ZZ/é.é\n","cursor":6},6,13,"é😀",{}],"ret":{"text":"\té😀Zé😀","cursor":9}}
+{"args":[{"text":"\té😀ZZ/é.é\n","cursor":6},6,6,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\té😀ZZ/é.é\n","cursor":6,"message":"cap"}}
+{"args":[{"text":"\té😀😀","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"́😀😀","cursor":0}}
+{"args":[{"text":"\té😀😀","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\té😀😀","cursor":2,"message":"cap"}}
+{"args":[{"text":"\tß","cursor":1,"selectAll":true,"message":"m"},0,2,"ß",{"maxChars":5}],"ret":{"text":"ß","cursor":1}}
+{"args":[{"text":"\tß","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"ß","cursor":0}}
+{"args":[{"text":"\tß","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\tß","cursor":1,"message":"cap"}}
+{"args":[{"text":"\t‍","cursor":2,"selectAll":true,"message":"m"},0,2,"é_/e",{"maxChars":5}],"ret":{"text":"é_/e","cursor":5}}
+{"args":[{"text":"\t‍","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"\t‍","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"\t‍","cursor":2,"message":"cap"}}
+{"args":[{"text":"_","cursor":0,"selectAll":true,"message":"m"},0,1,"-éb",{"maxChars":5}],"ret":{"text":"-éb","cursor":3}}
+{"args":[{"text":"_","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"_","cursor":0}}
+{"args":[{"text":"_","cursor":0},0,1,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"_\n a","cursor":1,"selectAll":true,"message":"m"},0,4,"ßaé \n中a",{"maxChars":5}],"ret":{"text":"_\n a","cursor":1,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"_\n a","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"\n a","cursor":0}}
+{"args":[{"text":"_\n a","cursor":1},1,4,"é😀",{}],"ret":{"text":"_é😀","cursor":4}}
+{"args":[{"text":"_\tb‍-é.b","cursor":2,"selectAll":true,"message":"m"},0,9,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"_\tb‍-é.b","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"_\tb‍-é.b","cursor":2,"message":"cap"}}
+{"args":[{"text":"_\tb‍-é.b","cursor":2},2,9,"é😀",{}],"ret":{"text":"_\té😀","cursor":5}}
+{"args":[{"text":"__‍中","cursor":1,"selectAll":true,"message":"m"},0,4,"\n",{"maxChars":5}],"ret":{"text":"\n","cursor":1}}
+{"args":[{"text":"__‍中","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"__‍中","cursor":1,"message":"cap"}}
+{"args":[{"text":"__‍中","cursor":1},1,4,"é😀",{}],"ret":{"text":"_é😀","cursor":4}}
+{"args":[{"text":"_aßé /_ß","cursor":8,"selectAll":true,"message":"m"},0,9,"-",{"maxChars":5}],"ret":{"text":"-","cursor":1}}
+{"args":[{"text":"_aßé /_ß","cursor":8},8,8,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"_aßé /_ß","cursor":8,"message":"cap"}}
+{"args":[{"text":"_aßé /_ß","cursor":8},8,9,"é😀",{}],"ret":{"text":"_aßé /_é😀","cursor":11}}
+{"args":[{"text":"_b😀","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"_b😀","cursor":0}}
+{"args":[{"text":"_b😀","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"_b😀","cursor":0,"message":"cap"}}
+{"args":[{"text":"_b😀","cursor":0},0,4,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"_éZ/","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"Z/","cursor":0}}
+{"args":[{"text":"_éZ/","cursor":3},3,3,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"_éZ/","cursor":3,"message":"cap"}}
+{"args":[{"text":"_é‍Z","cursor":1,"selectAll":true,"message":"m"},0,5,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"_é‍Z","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"é‍Z","cursor":0}}
+{"args":[{"text":"_é‍Z","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"_é‍Z","cursor":1,"message":"cap"}}
+{"args":[{"text":"_é","cursor":0,"selectAll":true,"message":"m"},0,2,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"_é","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"_é","cursor":0}}
+{"args":[{"text":"_é","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"_é","cursor":0,"message":"cap"}}
+{"args":[{"text":"_‍0😀aßb","cursor":3,"selectAll":true,"message":"m"},0,8,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"_‍0😀aßb","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"😀aßb","cursor":0}}
+{"args":[{"text":"_‍0😀aßb","cursor":3},3,8,"é😀",{}],"ret":{"text":"_‍0é😀","cursor":6}}
+{"args":[{"text":"_中/ß-中","cursor":3,"selectAll":true,"message":"m"},0,6,"éb😀Za",{"maxChars":5}],"ret":{"text":"_中/ß-中","cursor":3,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"_中/ß-中","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"ß-中","cursor":0}}
+{"args":[{"text":"_中/ß-中","cursor":3},3,6,"é😀",{}],"ret":{"text":"_中/é😀","cursor":6}}
+{"args":[{"text":"a","cursor":0,"selectAll":true,"message":"m"},0,1,"\t",{"maxChars":5}],"ret":{"text":"\t","cursor":1}}
+{"args":[{"text":"a","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"a","cursor":0}}
+{"args":[{"text":"a","cursor":0},0,1,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"a","cursor":1,"selectAll":true,"message":"m"},0,1,"Z0",{"maxChars":5}],"ret":{"text":"Z0","cursor":2}}
+{"args":[{"text":"a","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"a","cursor":1,"message":"cap"}}
+{"args":[{"text":"a","cursor":1},1,1,"é😀",{}],"ret":{"text":"aé😀","cursor":4}}
+{"args":[{"text":"aaZ","cursor":2,"selectAll":true,"message":"m"},0,3,".",{"maxChars":5}],"ret":{"text":".","cursor":1}}
+{"args":[{"text":"aaZ","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"aaZ","cursor":2,"message":"cap"}}
+{"args":[{"text":"aaZ","cursor":2},2,3,"é😀",{}],"ret":{"text":"aaé😀","cursor":5}}
+{"args":[{"text":"b","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"b","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"b","cursor":1,"message":"cap"}}
+{"args":[{"text":"b","cursor":1},1,1,"é😀",{}],"ret":{"text":"bé😀","cursor":4}}
+{"args":[{"text":"b- .ß-0Z_","cursor":7},0,7,"",{"maxChars":3}],"ret":{"text":"Z_","cursor":0}}
+{"args":[{"text":"b- .ß-0Z_","cursor":7},7,7,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"b- .ß-0Z_","cursor":7,"message":"cap"}}
+{"args":[{"text":"b- .ß-0Z_","cursor":7},7,9,"é😀",{}],"ret":{"text":"b- .ß-0é😀","cursor":10}}
+{"args":[{"text":"b.中‍b\tZ中","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"中‍b\tZ中","cursor":0}}
+{"args":[{"text":"b.中‍b\tZ中","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"b.中‍b\tZ中","cursor":2,"message":"cap"}}
+{"args":[{"text":"b/éé-éé","cursor":6,"selectAll":true,"message":"m"},0,7,"é0😀éé -",{"maxChars":5}],"ret":{"text":"b/éé-éé","cursor":6,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"b/éé-éé","cursor":6},0,6,"",{"maxChars":3}],"ret":{"text":"é","cursor":0}}
+{"args":[{"text":"b/éé-éé","cursor":6},6,6,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"b/éé-éé","cursor":6,"message":"cap"}}
+{"args":[{"text":"bZé ß😀😀é\n","cursor":12,"selectAll":true,"message":"m"},0,12,"é😀",{"maxChars":5}],"ret":{"text":"é😀","cursor":4}}
+{"args":[{"text":"bZé ß😀😀é\n","cursor":12},0,12,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"bZé ß😀😀é\n","cursor":12},12,12,"é😀",{}],"ret":{"text":"bZé ß😀😀é\né😀","cursor":15}}
+{"args":[{"text":"b\na","cursor":0,"selectAll":true,"message":"m"},0,3,"😀Zé‍😀0‍",{"maxChars":5}],"ret":{"text":"b\na","cursor":0,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"b\na","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"b\na","cursor":0}}
+{"args":[{"text":"b\na","cursor":0},0,3,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"baé","cursor":2,"selectAll":true,"message":"m"},0,3,"😀",{"maxChars":5}],"ret":{"text":"😀","cursor":2}}
+{"args":[{"text":"baé","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"é","cursor":0}}
+{"args":[{"text":"baé","cursor":2},2,3,"é😀",{}],"ret":{"text":"baé😀","cursor":5}}
+{"args":[{"text":"bb","cursor":1,"selectAll":true,"message":"m"},0,2,"‍é",{"maxChars":5}],"ret":{"text":"‍é","cursor":3}}
+{"args":[{"text":"bb","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"bb","cursor":1,"message":"cap"}}
+{"args":[{"text":"bb","cursor":1},1,2,"é😀",{}],"ret":{"text":"bé😀","cursor":4}}
+{"args":[{"text":"bé","cursor":0,"selectAll":true,"message":"m"},0,2,"ß_",{"maxChars":5}],"ret":{"text":"ß_","cursor":2}}
+{"args":[{"text":"bé","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"bé","cursor":0,"message":"cap"}}
+{"args":[{"text":"bé","cursor":0},0,2,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"b😀 ‍a/é_é","cursor":9,"selectAll":true,"message":"m"},0,11,"\n",{"maxChars":5}],"ret":{"text":"\n","cursor":1}}
+{"args":[{"text":"b😀 ‍a/é_é","cursor":9},9,11,"é😀",{}],"ret":{"text":"b😀 ‍a/é_é😀","cursor":12}}
+{"args":[{"text":"b😀 ‍a/é_é","cursor":9},9,9,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"b😀 ‍a/é_é","cursor":9,"message":"cap"}}
+{"args":[{"text":"é","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"́","cursor":0}}
+{"args":[{"text":"é","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"é","cursor":1,"message":"cap"}}
+{"args":[{"text":"é","cursor":1},1,2,"é😀",{}],"ret":{"text":"eé😀","cursor":4}}
+{"args":[{"text":"é0/0","cursor":4},0,4,"",{"maxChars":3}],"ret":{"text":"0","cursor":0}}
+{"args":[{"text":"é0/0","cursor":4},4,4,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"é0/0","cursor":4,"message":"cap"}}
+{"args":[{"text":"é0Z\n中\tbZ","cursor":6,"selectAll":true,"message":"m"},0,9," 0é",{"maxChars":5}],"ret":{"text":" 0é","cursor":4}}
+{"args":[{"text":"é0Z\n中\tbZ","cursor":6},0,6,"",{"maxChars":3}],"ret":{"text":"\tbZ","cursor":0}}
+{"args":[{"text":"é0Z\n中\tbZ","cursor":6},6,6,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"é0Z\n中\tbZ","cursor":6,"message":"cap"}}
+{"args":[{"text":"éZ _Z","cursor":3,"selectAll":true,"message":"m"},0,6,"/😀\n ‍0e",{"maxChars":5}],"ret":{"text":"éZ _Z","cursor":3,"selectAll":true,"message":"Draft exceeds 64 KiB; paste/edit was not applied."}}
+{"args":[{"text":"éZ _Z","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":" _Z","cursor":0}}
+{"args":[{"text":"éZ _Z","cursor":3},3,3,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"éZ _Z","cursor":3,"message":"cap"}}
+{"args":[{"text":"éZ","cursor":2,"selectAll":true,"message":"m"},0,3,"0ae",{"maxChars":5}],"ret":{"text":"0ae","cursor":3}}
+{"args":[{"text":"éZ","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"Z","cursor":0}}
+{"args":[{"text":"éZ","cursor":2},2,3,"é😀",{}],"ret":{"text":"éé😀","cursor":5}}
+{"args":[{"text":"éZ0 é","cursor":3,"selectAll":true,"message":"m"},0,7,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"éZ0 é","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"0 é","cursor":0}}
+{"args":[{"text":"éZ0 é","cursor":3},3,7,"é😀",{}],"ret":{"text":"éZé😀","cursor":6}}
+{"args":[{"text":"éZ_‍.中Z","cursor":6,"selectAll":true,"message":"m"},0,8,"-中/é",{"maxChars":5}],"ret":{"text":"-中/é","cursor":4}}
+{"args":[{"text":"éZ_‍.中Z","cursor":6},6,6,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"éZ_‍.中Z","cursor":6,"message":"cap"}}
+{"args":[{"text":"éZ_‍.中Z","cursor":6},6,8,"é😀",{}],"ret":{"text":"éZ_‍.é😀","cursor":9}}
+{"args":[{"text":"é\n/\tbéZZ","cursor":0,"selectAll":true,"message":"m"},0,10,"ß",{"maxChars":5}],"ret":{"text":"ß","cursor":1}}
+{"args":[{"text":"é\n/\tbéZZ","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"é\n/\tbéZZ","cursor":0,"message":"cap"}}
+{"args":[{"text":"é\n/\tbéZZ","cursor":0},0,10,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"é\t‍ßé","cursor":5,"selectAll":true,"message":"m"},0,6,"a",{"maxChars":5}],"ret":{"text":"a","cursor":1}}
+{"args":[{"text":"é\t‍ßé","cursor":5},5,5,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"é\t‍ßé","cursor":5,"message":"cap"}}
+{"args":[{"text":"é\t‍ßé","cursor":5},5,6,"é😀",{}],"ret":{"text":"é\t‍ßé😀","cursor":8}}
+{"args":[{"text":"éa😀éb_a","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"a😀éb_a","cursor":0}}
+{"args":[{"text":"éa😀éb_a","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"éa😀éb_a","cursor":2,"message":"cap"}}
+{"args":[{"text":"éa😀éb_a","cursor":2},2,9,"é😀",{}],"ret":{"text":"éé😀","cursor":5}}
+{"args":[{"text":"éß😀\n😀","cursor":6},0,6,"",{"maxChars":3}],"ret":{"text":"😀","cursor":0}}
+{"args":[{"text":"éß😀\n😀","cursor":6},6,6,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"éß😀\n😀","cursor":6,"message":"cap"}}
+{"args":[{"text":"éß😀\n😀","cursor":6},6,8,"é😀",{}],"ret":{"text":"éß😀\né😀","cursor":9}}
+{"args":[{"text":"é中a","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"é中a","cursor":0}}
+{"args":[{"text":"é中a","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"é中a","cursor":0,"message":"cap"}}
+{"args":[{"text":"ß 中中aa 中\t","cursor":9,"selectAll":true,"message":"m"},0,9,"Z",{"maxChars":5}],"ret":{"text":"Z","cursor":1}}
+{"args":[{"text":"ß 中中aa 中\t","cursor":9},0,9,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"ß 中中aa 中\t","cursor":9},9,9,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"ß 中中aa 中\t","cursor":9,"message":"cap"}}
+{"args":[{"text":"ß_éé😀é","cursor":3,"selectAll":true,"message":"m"},0,8,"😀/\t中\n中",{"maxChars":5}],"ret":{"text":"😀/\t中\n中","cursor":7}}
+{"args":[{"text":"ß_éé😀é","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"́é😀é","cursor":0}}
+{"args":[{"text":"ß_éé😀é","cursor":3},3,8,"é😀",{}],"ret":{"text":"ß_eé😀","cursor":6}}
+{"args":[{"text":"ßaZé0","cursor":1,"selectAll":true,"message":"m"},0,5,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"ßaZé0","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"aZé0","cursor":0}}
+{"args":[{"text":"ßaZé0","cursor":1},1,5,"é😀",{}],"ret":{"text":"ßé😀","cursor":4}}
+{"args":[{"text":"ßabéé_\ta中","cursor":4,"selectAll":true,"message":"m"},0,9,"‍‍-Zßß ",{"maxChars":5}],"ret":{"text":"‍‍-Zßß ","cursor":7}}
+{"args":[{"text":"ßabéé_\ta中","cursor":4},0,4,"",{"maxChars":3}],"ret":{"text":"é_\ta中","cursor":0}}
+{"args":[{"text":"ßabéé_\ta中","cursor":4},4,9,"é😀",{}],"ret":{"text":"ßabéé😀","cursor":7}}
+{"args":[{"text":"ß‍\t‍.‍0aZ\t","cursor":5,"selectAll":true,"message":"m"},0,10,"é",{"maxChars":5}],"ret":{"text":"é","cursor":2}}
+{"args":[{"text":"ß‍\t‍.‍0aZ\t","cursor":5},5,10,"é😀",{}],"ret":{"text":"ß‍\t‍.é😀","cursor":8}}
+{"args":[{"text":"ß‍\t‍.‍0aZ\t","cursor":5},5,5,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"ß‍\t‍.‍0aZ\t","cursor":5,"message":"cap"}}
+{"args":[{"text":"ß😀","cursor":3,"selectAll":true,"message":"m"},0,3,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"ß😀","cursor":3},3,3,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"ß😀","cursor":3,"message":"cap"}}
+{"args":[{"text":"ß😀","cursor":3},3,3,"é😀",{}],"ret":{"text":"ß😀é😀","cursor":6}}
+{"args":[{"text":"ß😀0","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"0","cursor":0}}
+{"args":[{"text":"ß😀0","cursor":3},3,3,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"ß😀0","cursor":3,"message":"cap"}}
+{"args":[{"text":"ß😀0","cursor":3},3,4,"é😀",{}],"ret":{"text":"ß😀é😀","cursor":6}}
+{"args":[{"text":"éZ_ba0ß中","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"_ba0ß中","cursor":0}}
+{"args":[{"text":"éZ_ba0ß中","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"éZ_ba0ß中","cursor":2,"message":"cap"}}
+{"args":[{"text":"éZ_ba0ß中","cursor":2},2,8,"é😀",{}],"ret":{"text":"éZé😀","cursor":5}}
+{"args":[{"text":"éb‍","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"‍","cursor":0}}
+{"args":[{"text":"éb‍","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"éb‍","cursor":2,"message":"cap"}}
+{"args":[{"text":"é‍ \t ","cursor":0,"selectAll":true,"message":"m"},0,5,"_😀",{"maxChars":5}],"ret":{"text":"_😀","cursor":3}}
+{"args":[{"text":"é‍ \t ","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"é‍ \t ","cursor":0}}
+{"args":[{"text":"é‍ \t ","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"é‍ \t ","cursor":0,"message":"cap"}}
+{"args":[{"text":"é😀  é 😀","cursor":3,"selectAll":true,"message":"m"},0,10,"é é_",{"maxChars":5}],"ret":{"text":"é é_","cursor":4}}
+{"args":[{"text":"é😀  é 😀","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"  é 😀","cursor":0}}
+{"args":[{"text":"é😀  é 😀","cursor":3},3,10,"é😀",{}],"ret":{"text":"é😀é😀","cursor":6}}
+{"args":[{"text":"‍ -ß0","cursor":2,"selectAll":true,"message":"m"},0,5,"中",{"maxChars":5}],"ret":{"text":"中","cursor":1}}
+{"args":[{"text":"‍ -ß0","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"-ß0","cursor":0}}
+{"args":[{"text":"‍ -ß0","cursor":2},2,5,"é😀",{}],"ret":{"text":"‍ é😀","cursor":5}}
+{"args":[{"text":"‍.0a_","cursor":3,"selectAll":true,"message":"m"},0,5,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"‍.0a_","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":"a_","cursor":0}}
+{"args":[{"text":"‍.0a_","cursor":3},3,5,"é😀",{}],"ret":{"text":"‍.0é😀","cursor":6}}
+{"args":[{"text":"‍\t中ß0","cursor":1,"selectAll":true,"message":"m"},0,5,"_",{"maxChars":5}],"ret":{"text":"_","cursor":1}}
+{"args":[{"text":"‍\t中ß0","cursor":1},1,1,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"‍\t中ß0","cursor":1,"message":"cap"}}
+{"args":[{"text":"‍\t中ß0","cursor":1},1,5,"é😀",{}],"ret":{"text":"‍é😀","cursor":4}}
+{"args":[{"text":"‍ß/‍a\t‍😀","cursor":6,"selectAll":true,"message":"m"},0,9,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"‍ß/‍a\t‍😀","cursor":6},6,6,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"‍ß/‍a\t‍😀","cursor":6,"message":"cap"}}
+{"args":[{"text":"‍ß/‍a\t‍😀","cursor":6},6,9,"é😀",{}],"ret":{"text":"‍ß/‍a\té😀","cursor":9}}
+{"args":[{"text":"‍é\né/é b","cursor":5,"selectAll":true,"message":"m"},0,8,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"‍é\né/é b","cursor":5},5,5,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"‍é\né/é b","cursor":5,"message":"cap"}}
+{"args":[{"text":"‍é\né/é b","cursor":5},5,8,"é😀",{}],"ret":{"text":"‍é\né/é😀","cursor":8}}
+{"args":[{"text":"‍éß0\n中\n ","cursor":5},0,5,"",{"maxChars":3}],"ret":{"text":"中\n ","cursor":0}}
+{"args":[{"text":"‍éß0\n中\n ","cursor":5},5,5,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"‍éß0\n中\n ","cursor":5,"message":"cap"}}
+{"args":[{"text":"‍éß0\n中\n ","cursor":5},5,8,"é😀",{}],"ret":{"text":"‍éß0\né😀","cursor":8}}
+{"args":[{"text":"中 . Z","cursor":3},0,3,"",{"maxChars":3}],"ret":{"text":" Z","cursor":0}}
+{"args":[{"text":"中 . Z","cursor":3},3,3,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"中 . Z","cursor":3,"message":"cap"}}
+{"args":[{"text":"中","cursor":1,"selectAll":true,"message":"m"},0,1,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"中","cursor":1,"selectAll":true,"message":"m"},0,1,"é",{"maxChars":5}],"ret":{"text":"é","cursor":1}}
+{"args":[{"text":"中","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"中","cursor":1},1,1,"é😀",{}],"ret":{"text":"中é😀","cursor":4}}
+{"args":[{"text":"中-b/a\t_/","cursor":6,"selectAll":true,"message":"m"},0,8,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"中-b/a\t_/","cursor":6},0,6,"",{"maxChars":3}],"ret":{"text":"_/","cursor":0}}
+{"args":[{"text":"中-b/a\t_/","cursor":6},6,8,"é😀",{}],"ret":{"text":"中-b/a\té😀","cursor":9}}
+{"args":[{"text":"中-‍ 😀/\t😀","cursor":7,"selectAll":true,"message":"m"},0,10,"\t0é",{"maxChars":5}],"ret":{"text":"\t0é","cursor":4}}
+{"args":[{"text":"中-‍ 😀/\t😀","cursor":7},7,10,"é😀",{}],"ret":{"text":"中-‍ 😀/é😀","cursor":10}}
+{"args":[{"text":"中-‍ 😀/\t😀","cursor":7},7,7,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"中-‍ 😀/\t😀","cursor":7,"message":"cap"}}
+{"args":[{"text":"中/0😀/0é😀ß中","cursor":13,"selectAll":true,"message":"m"},0,13,"ß",{"maxChars":5}],"ret":{"text":"ß","cursor":1}}
+{"args":[{"text":"中/0😀/0é😀ß中","cursor":13},13,13,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"中/0😀/0é😀ß中","cursor":13,"message":"cap"}}
+{"args":[{"text":"中/0😀/0é😀ß中","cursor":13},13,13,"é😀",{}],"ret":{"text":"中/0😀/0é😀ß中é😀","cursor":16}}
+{"args":[{"text":"中/é","cursor":0,"selectAll":true,"message":"m"},0,3,"😀ß",{"maxChars":5}],"ret":{"text":"😀ß","cursor":3}}
+{"args":[{"text":"中/é","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"中/é","cursor":0,"message":"cap"}}
+{"args":[{"text":"中/é","cursor":0},0,3,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"中\t0é","cursor":5},0,5,"",{"maxChars":3}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"中\t0é","cursor":5},5,5,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"中\t0é","cursor":5,"message":"cap"}}
+{"args":[{"text":"中\t0é","cursor":5},5,5,"é😀",{}],"ret":{"text":"中\t0éé😀","cursor":8}}
+{"args":[{"text":"中中-","cursor":0},0,0,"",{"maxChars":3}],"ret":{"text":"中中-","cursor":0}}
+{"args":[{"text":"中中-","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"中中-","cursor":0,"message":"cap"}}
+{"args":[{"text":"中中ééZ中b\ta ","cursor":8,"selectAll":true,"message":"m"},0,11,".Z.._‍0",{"maxChars":5}],"ret":{"text":".Z.._‍0","cursor":7}}
+{"args":[{"text":"中中ééZ中b\ta ","cursor":8},0,8,"",{"maxChars":3}],"ret":{"text":"\ta ","cursor":0}}
+{"args":[{"text":"中中ééZ中b\ta ","cursor":8},8,11,"é😀",{}],"ret":{"text":"中中ééZ中bé😀","cursor":11}}
+{"args":[{"text":"中中‍","cursor":2,"selectAll":true,"message":"m"},0,3,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"中中‍","cursor":2},0,2,"",{"maxChars":3}],"ret":{"text":"‍","cursor":0}}
+{"args":[{"text":"中中‍","cursor":2},2,2,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"中中‍","cursor":2,"message":"cap"}}
+{"args":[{"text":"中😀é","cursor":1,"selectAll":true,"message":"m"},0,4,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"中😀é","cursor":1},0,1,"",{"maxChars":3}],"ret":{"text":"😀é","cursor":0}}
+{"args":[{"text":"中😀é","cursor":1},1,4,"é😀",{}],"ret":{"text":"中é😀","cursor":4}}
+{"args":[{"text":"😀-\tß.aé😀 ","cursor":10,"selectAll":true,"message":"m"},0,11,"‍\t ",{"maxChars":5}],"ret":{"text":"‍\t ","cursor":3}}
+{"args":[{"text":"😀-\tß.aé😀 ","cursor":10},0,10,"",{"maxChars":3}],"ret":{"text":" ","cursor":0}}
+{"args":[{"text":"😀-\tß.aé😀 ","cursor":10},10,11,"é😀",{}],"ret":{"text":"😀-\tß.aé😀é😀","cursor":13}}
+{"args":[{"text":"😀/Z","cursor":0,"selectAll":true,"message":"m"},0,4,"",{"maxChars":5}],"ret":{"text":"","cursor":0}}
+{"args":[{"text":"😀/Z","cursor":0},0,0,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"😀/Z","cursor":0,"message":"cap"}}
+{"args":[{"text":"😀/Z","cursor":0},0,4,"é😀",{}],"ret":{"text":"é😀","cursor":3}}
+{"args":[{"text":"😀\t0.é0.é.","cursor":5,"selectAll":true,"message":"m"},0,10,"_‍0",{"maxChars":5}],"ret":{"text":"_‍0","cursor":3}}
+{"args":[{"text":"😀\t0.é0.é.","cursor":5},5,10,"é😀",{}],"ret":{"text":"😀\t0.é😀","cursor":8}}
+{"args":[{"text":"😀\t0.é0.é.","cursor":5},5,5,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"😀\t0.é0.é.","cursor":5,"message":"cap"}}
+{"args":[{"text":"😀aéb‍中‍/","cursor":9,"selectAll":true,"message":"m"},0,10,"Za中",{"maxChars":5}],"ret":{"text":"Za中","cursor":3}}
+{"args":[{"text":"😀aéb‍中‍/","cursor":9},9,10,"é😀",{}],"ret":{"text":"😀aéb‍中‍é😀","cursor":12}}
+{"args":[{"text":"😀aéb‍中‍/","cursor":9},9,9,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"😀aéb‍中‍/","cursor":9,"message":"cap"}}
+{"args":[{"text":"😀bZ中\t _‍","cursor":6},0,6,"",{"maxChars":3}],"ret":{"text":" _‍","cursor":0}}
+{"args":[{"text":"😀bZ中\t _‍","cursor":6},6,6,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"😀bZ中\t _‍","cursor":6,"message":"cap"}}
+{"args":[{"text":"😀bZ中\t _‍","cursor":6},6,9,"é😀",{}],"ret":{"text":"😀bZ中\té😀","cursor":9}}
+{"args":[{"text":"😀é😀ééZ0-é","cursor":10},0,10,"",{"maxChars":3}],"ret":{"text":"-é","cursor":0}}
+{"args":[{"text":"😀é😀ééZ0-é","cursor":10},10,10,"abcd",{"maxChars":3,"limitMessage":"cap"}],"ret":{"text":"😀é😀ééZ0-é","cursor":10,"message":"cap"}}

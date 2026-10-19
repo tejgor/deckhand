@@ -1,0 +1,7 @@
+{"args":["- ↗ linked <!-- dh:t=abc -->\n- [ ] open\n- ↗ other <!-- dh:t=def -->",""],"ret":-1}
+{"args":["- ↗ linked <!-- dh:t=abc -->\n- [ ] open\n- ↗ other <!-- dh:t=def -->","a1"],"ret":-1}
+{"args":["- ↗ linked <!-- dh:t=abc -->\n- [ ] open\n- ↗ other <!-- dh:t=def -->","abc"],"ret":0}
+{"args":["- ↗ linked <!-- dh:t=abc -->\n- [ ] open\n- ↗ other <!-- dh:t=def -->","def"],"ret":2}
+{"args":["- ↗ linked <!-- dh:t=abc -->\n- [ ] open\n- ↗ other <!-- dh:t=def -->","x"],"ret":-1}
+{"args":["scratch\n  - ↗ Retry setup <!-- dh:t=abcd1234 -->\nmore","abcd1234"],"ret":1}
+{"args":["scratch\n  - ↗ Retry setup <!-- dh:t=abcd1234 -->\nmore","other"],"ret":-1}
