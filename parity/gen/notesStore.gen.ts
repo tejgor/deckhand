@@ -64,19 +64,23 @@ const withHome = async <T>(root: string, run: () => Promise<T>): Promise<T> => {
 const bigText = 'abcdefghij'.repeat(5001); // 50 010 characters
 const noop = () => {};
 
+// A save cut inside a surrogate pair caches a lone surrogate, which a Rust string cannot hold (it keeps U+FFFD, the
+// character the file and the revision hash get in both): the cached text is recorded well-formed. Identity for every
+// other case.
+const wellFormed = (note: ReturnType<NotesStore['get']>) => ({...note, text: note.text.toWellFormed()});
 async function save(root: string, id: NoteId, text: string, revision: string) {
 	return withHome(root, async () => {
 		const store = new NotesStore(noop);
 		await store.load();
 		const result = await store.save(id, text, revision);
-		return {...result, after: store.get(id)};
+		return {...result, after: wellFormed(store.get(id))};
 	});
 }
 async function saveCold(root: string, id: NoteId, text: string, revision: string) {
 	return withHome(root, async () => {
 		const store = new NotesStore(noop);
 		const result = await store.save(id, text, revision);
-		return {...result, after: store.get(id)};
+		return {...result, after: wellFormed(store.get(id))};
 	});
 }
 const append = registerFn('append-line', (text: string) => ({text: text + 'more\n', result: text.length}));
