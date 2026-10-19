@@ -97,11 +97,262 @@ pub async fn read_range(file: &Path, start: u64, length: usize) -> Result<String
 pub fn records(text: &str) -> Vec<Map<String, Value>> {
     // TS also keeps arrays (typeof 'object'), but no array has the fields read here.
     text.split('\n')
-        .filter_map(|line| match serde_json::from_str::<Value>(line) {
-            Ok(Value::Object(record)) => Some(record),
+        .filter_map(|line| match js_json_parse(line) {
+            Some(Value::Object(record)) => Some(record),
             _ => None,
         })
         .collect()
+}
+
+/// A container `js_json_parse` is filling: an array, or an object and the key of the value being parsed.
+enum Open {
+    Array(Vec<Value>),
+    Object(Map<String, Value>, String),
+}
+
+/// Containers nested deeper than this are kept as `null` by `js_json_parse`: only top-level fields are read, and a
+/// `Value` that deep would overflow the stack when dropped (its `Drop` recurses).
+const KEPT_DEPTH: usize = 128;
+
+/// `JSON.parse(text)` as V8 accepts it, where serde_json would refuse: nesting of any depth (parsed without
+/// recursion; below [`KEPT_DEPTH`] kept as `null`), numbers out of f64 range (±Infinity in JS; `null` here, as no
+/// field read is a number) and lone surrogate escapes (U+FFFD, the jsstr rule). A duplicate key keeps its first
+/// position and its last value. `None` where JSON.parse throws.
+fn js_json_parse(text: &str) -> Option<Value> {
+    let mut scan = JsonScan { text, pos: 0 };
+    let mut open: Vec<Open> = Vec::new();
+    loop {
+        scan.skip_ws();
+        let mut value = match scan.peek()? {
+            b'{' => {
+                scan.pos += 1;
+                scan.skip_ws();
+                if scan.eat(b'}') {
+                    Value::Object(Map::new())
+                } else {
+                    open.push(Open::Object(Map::new(), scan.key()?));
+                    continue;
+                }
+            }
+            b'[' => {
+                scan.pos += 1;
+                scan.skip_ws();
+                if scan.eat(b']') {
+                    Value::Array(Vec::new())
+                } else {
+                    open.push(Open::Array(Vec::new()));
+                    continue;
+                }
+            }
+            b'"' => Value::String(scan.string()?),
+            b't' => scan.literal("true", Value::Bool(true))?,
+            b'f' => scan.literal("false", Value::Bool(false))?,
+            b'n' => scan.literal("null", Value::Null)?,
+            b'-' | b'0'..=b'9' => scan.number()?,
+            _ => return None,
+        };
+        // Close every container `value` completes; stop at a `,` (the next value follows).
+        loop {
+            match open.last_mut() {
+                None => {
+                    scan.skip_ws();
+                    return (scan.pos == text.len()).then_some(value);
+                }
+                Some(Open::Array(items)) => {
+                    items.push(value);
+                    scan.skip_ws();
+                    if scan.eat(b',') {
+                        break;
+                    }
+                    if !scan.eat(b']') {
+                        return None;
+                    }
+                    let Some(Open::Array(items)) = open.pop() else {
+                        return None;
+                    };
+                    value = if open.len() < KEPT_DEPTH {
+                        Value::Array(items)
+                    } else {
+                        Value::Null
+                    };
+                }
+                Some(Open::Object(map, key)) => {
+                    map.insert(std::mem::take(key), value);
+                    scan.skip_ws();
+                    if scan.eat(b',') {
+                        scan.skip_ws();
+                        *key = scan.key()?;
+                        break;
+                    }
+                    if !scan.eat(b'}') {
+                        return None;
+                    }
+                    let Some(Open::Object(map, _)) = open.pop() else {
+                        return None;
+                    };
+                    value = if open.len() < KEPT_DEPTH {
+                        Value::Object(map)
+                    } else {
+                        Value::Null
+                    };
+                }
+            }
+        }
+    }
+}
+
+struct JsonScan<'a> {
+    text: &'a str,
+    pos: usize,
+}
+
+impl JsonScan<'_> {
+    fn peek(&self) -> Option<u8> {
+        self.text.as_bytes().get(self.pos).copied()
+    }
+
+    fn eat(&mut self, byte: u8) -> bool {
+        let found = self.peek() == Some(byte);
+        if found {
+            self.pos += 1;
+        }
+        found
+    }
+
+    /// JSON whitespace: space, tab, LF, CR (not the wider JS set).
+    fn skip_ws(&mut self) {
+        while matches!(self.peek(), Some(b' ' | b'\t' | b'\n' | b'\r')) {
+            self.pos += 1;
+        }
+    }
+
+    fn literal(&mut self, word: &str, value: Value) -> Option<Value> {
+        let found = self.text.get(self.pos..)?.starts_with(word);
+        self.pos += word.len();
+        found.then_some(value)
+    }
+
+    /// A property name and its `:`.
+    fn key(&mut self) -> Option<String> {
+        if self.peek() != Some(b'"') {
+            return None;
+        }
+        let key = self.string()?;
+        self.skip_ws();
+        self.eat(b':').then_some(key)
+    }
+
+    fn digits(&mut self) -> usize {
+        let start = self.pos;
+        while matches!(self.peek(), Some(b'0'..=b'9')) {
+            self.pos += 1;
+        }
+        self.pos - start
+    }
+
+    /// `-? (0 | [1-9][0-9]*) (. [0-9]+)? ([eE] [+-]? [0-9]+)?`
+    fn number(&mut self) -> Option<Value> {
+        let start = self.pos;
+        self.eat(b'-');
+        if self.eat(b'0') {
+            if matches!(self.peek(), Some(b'0'..=b'9')) {
+                return None;
+            }
+        } else if self.digits() == 0 {
+            return None;
+        }
+        let mut integer = true;
+        if self.eat(b'.') {
+            integer = false;
+            if self.digits() == 0 {
+                return None;
+            }
+        }
+        if matches!(self.peek(), Some(b'e' | b'E')) {
+            integer = false;
+            self.pos += 1;
+            if !self.eat(b'+') {
+                self.eat(b'-');
+            }
+            if self.digits() == 0 {
+                return None;
+            }
+        }
+        let literal = self.text.get(start..self.pos)?;
+        if integer
+            && literal != "-0"
+            && let Ok(whole) = literal.parse::<i64>()
+        {
+            return Some(Value::from(whole));
+        }
+        let float = literal.parse::<f64>().ok()?;
+        Some(serde_json::Number::from_f64(float).map_or(Value::Null, Value::Number))
+    }
+
+    /// Four hex digits of a `\u` escape.
+    fn hex4(&mut self) -> Option<u16> {
+        let digits = self.text.get(self.pos..self.pos + 4)?;
+        if !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return None;
+        }
+        self.pos += 4;
+        u16::from_str_radix(digits, 16).ok()
+    }
+
+    /// A string literal (at its opening quote).
+    fn string(&mut self) -> Option<String> {
+        self.pos += 1;
+        let mut out = String::new();
+        let mut run = self.pos;
+        loop {
+            match self.peek()? {
+                b'"' => {
+                    out.push_str(self.text.get(run..self.pos)?);
+                    self.pos += 1;
+                    return Some(out);
+                }
+                b'\\' => {
+                    out.push_str(self.text.get(run..self.pos)?);
+                    self.pos += 1;
+                    let escape = self.peek()?;
+                    self.pos += 1;
+                    match escape {
+                        b'"' => out.push('"'),
+                        b'\\' => out.push('\\'),
+                        b'/' => out.push('/'),
+                        b'b' => out.push('\u{8}'),
+                        b'f' => out.push('\u{c}'),
+                        b'n' => out.push('\n'),
+                        b'r' => out.push('\r'),
+                        b't' => out.push('\t'),
+                        b'u' => {
+                            let unit = self.hex4()?;
+                            out.push(self.unit_char(unit));
+                        }
+                        _ => return None,
+                    }
+                    run = self.pos;
+                }
+                0..=0x1f => return None,
+                _ => self.pos += 1,
+            }
+        }
+    }
+
+    /// The character of a `\u` escape: a high surrogate pairs with an immediately following low surrogate escape;
+    /// a surrogate left alone is U+FFFD.
+    fn unit_char(&mut self, unit: u16) -> char {
+        if (0xD800..0xDC00).contains(&unit) && self.text.get(self.pos..self.pos + 2) == Some("\\u") {
+            let back = self.pos;
+            self.pos += 2;
+            if let Some(low) = self.hex4().filter(|low| (0xDC00..0xE000).contains(low)) {
+                let code = 0x10000 + ((u32::from(unit) - 0xD800) << 10) + (u32::from(low) - 0xDC00);
+                return char::from_u32(code).unwrap_or('\u{FFFD}');
+            }
+            self.pos = back;
+        }
+        char::from_u32(u32::from(unit)).unwrap_or('\u{FFFD}')
+    }
 }
 
 /// TS: claudeTranscripts.ts timeOf (`Date.parse(record.timestamp)` when finite).
@@ -438,6 +689,111 @@ mod tests {
         let found = records("not json\n42\nnull\n[1]\n{\"a\":1}\n{\"b\":\n {\"c\":2} \r");
         assert_eq!(found.len(), 2);
         assert_eq!(found[1].get("c"), Some(&Value::from(2)));
+    }
+
+    #[test]
+    fn records_keep_lines_json_parse_accepts() {
+        // JSON.parse keeps a lone surrogate (here U+FFFD), any nesting depth and out-of-range numbers.
+        let lone = records(r#"{"type":"user","message":"cut \ud83d","low":"\ude00x","pair":"😀"}"#);
+        assert_eq!(lone.len(), 1, "lone surrogate line dropped");
+        assert_eq!(lone[0].get("message"), Some(&Value::from("cut \u{FFFD}")));
+        assert_eq!(lone[0].get("low"), Some(&Value::from("\u{FFFD}x")));
+        assert_eq!(lone[0].get("pair"), Some(&Value::from("\u{1F600}")));
+        let deep = format!(r#"{{"type":"user","m":{}1{}}}"#, "[".repeat(20_000), "]".repeat(20_000));
+        assert_eq!(records(&deep).len(), 1, "deep line dropped");
+        assert_eq!(
+            records(&deep[..deep.len() - 1]).len(),
+            0,
+            "a deep line cut by the byte range"
+        );
+        assert_eq!(
+            records(r#"{"type":"user","n":1e400,"m":-1e400}"#).len(),
+            1,
+            "out-of-range number dropped"
+        );
+        // Duplicate keys: the last value, at the first key's position.
+        let dup = records(r#"{"a":1,"b":2,"a":3}"#);
+        assert_eq!(dup[0].keys().collect::<Vec<_>>(), ["a", "b"]);
+        assert_eq!(dup[0].get("a"), Some(&Value::from(3)));
+    }
+
+    #[test]
+    fn json_parse_accepts_what_v8_accepts() {
+        let cases: Vec<(String, Option<String>)> =
+            serde_json::from_str(include_str!("../../core/tests/data/json_parse_errors.json")).expect("fixture");
+        let mut wrong = Vec::new();
+        for (text, message) in &cases {
+            let parsed = js_json_parse(text);
+            if parsed.is_some() != message.is_none() {
+                wrong.push(format!("{text:?}: parsed {parsed:?}, V8 {message:?}"));
+            }
+            // Where serde_json also accepts, both agree on the value.
+            if let (Some(parsed), Ok(serde)) = (&parsed, serde_json::from_str::<Value>(text)) {
+                assert_eq!(parsed, &serde, "{text:?}");
+            }
+        }
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    }
+
+    /// Review findings 1 and 2: a message line holding a lone surrogate escape (an emoji cut in half) still counts
+    /// for the head and the last activity.
+    #[tokio::test(flavor = "current_thread")]
+    async fn lone_surrogate_message_lines_still_count() {
+        let temp = tempfile::Builder::new()
+            .prefix("claude-projects-")
+            .tempdir()
+            .expect("tempdir");
+        let projects = temp.path().to_path_buf();
+        let cwd = "/work/repo";
+        let dir = projects.join(claude_project_key(cwd));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let write = |id: &str, text: &str| std::fs::write(dir.join(format!("{id}.jsonl")), text).expect("write");
+        let latest = |id: &str| {
+            let options = LatestConversationOptions {
+                projects_dir: Some(projects.clone()),
+                cwd_hints: vec![cwd.to_string()],
+                exclude: HashSet::new(),
+            };
+            let id = id.to_string();
+            async move { latest_claude_conversation(&id, &options).await.expect("latest") }
+        };
+        let title = r#"{"type":"custom-title","customTitle":"T"}"#;
+        // Finding 1: the last message (the one that makes impl the latest) holds a cut emoji.
+        write(
+            "plan",
+            &format!(
+                "{title}\n{}\n{}\n",
+                r#"{"type":"user","uuid":"plan-1","timestamp":"2026-01-01T12:00:00.000Z"}"#,
+                r#"{"type":"assistant","uuid":"plan-2","parentUuid":"plan-1","timestamp":"2026-01-01T12:20:00.000Z"}"#
+            ),
+        );
+        write(
+            "impl",
+            &format!(
+                "{title}\n{}\n{}\n",
+                r#"{"type":"user","uuid":"impl-1","parentUuid":"plan-2","timestamp":"2026-01-01T12:11:00.000Z"}"#,
+                r#"{"type":"assistant","uuid":"impl-2","parentUuid":"impl-1","x":"cut \ud83d","timestamp":"2026-01-01T12:30:00.000Z"}"#
+            ),
+        );
+        assert_eq!(latest("plan").await, Some("impl".to_string()));
+        // Finding 2: no shared title; the first message (whose parentUuid links to plan) holds a cut emoji.
+        write(
+            "plan",
+            &format!(
+                "{}\n{}\n",
+                r#"{"type":"user","uuid":"plan-1","timestamp":"2026-01-01T12:00:00.000Z"}"#,
+                r#"{"type":"assistant","uuid":"plan-2","parentUuid":"plan-1","timestamp":"2026-01-01T12:10:00.000Z"}"#
+            ),
+        );
+        write(
+            "impl",
+            &format!(
+                "{}\n{}\n",
+                r#"{"type":"user","uuid":"impl-1","parentUuid":"plan-2","message":{"content":"cut emoji \ud83d"},"timestamp":"2026-01-01T12:11:00.000Z"}"#,
+                r#"{"type":"assistant","uuid":"impl-2","parentUuid":"impl-1","timestamp":"2026-01-01T12:30:00.000Z"}"#
+            ),
+        );
+        assert_eq!(latest("plan").await, Some("impl".to_string()));
     }
 
     // covers: B-I5-03 restart follows the conversation a Claude session continued in, from its transcripts
