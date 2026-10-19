@@ -243,6 +243,11 @@ pub fn kill_running_groups() {
         Ok(groups) => groups.iter().flatten().copied().collect(),
         Err(_) => return,
     };
+    kill_groups(pids);
+}
+
+/// SIGKILLs each process group, ignoring ones already gone (TS `try { process.kill(-pid, 'SIGKILL'); } catch {}`).
+fn kill_groups(pids: impl IntoIterator<Item = u32>) {
     for pid in pids {
         let _ = proc::kill_group(pid, Signal::SIGKILL);
     }
@@ -1005,6 +1010,22 @@ mod tests {
             latest_from_override("{\"pi\":\"v1.2.3\"}", ProgramKey::Pi).ok(),
             Some(Some("1.2.3".to_owned()))
         );
-        kill_running_groups();
+    }
+
+    /// The exit handler's kill, on a group this test owns: `kill_running_groups` itself SIGKILLs every run in the
+    /// process-wide set, which would kill the `run_bounded` children of tests running alongside this one.
+    #[test]
+    fn kill_groups_sigkills_each_group() {
+        use std::os::unix::process::{CommandExt, ExitStatusExt};
+        let mut child = std::process::Command::new("/bin/sh")
+            .args(["-c", "sleep 30 & wait"])
+            .process_group(0)
+            .spawn()
+            .expect("spawn /bin/sh");
+        let started = std::time::Instant::now();
+        kill_groups([child.id()]);
+        let status = child.wait().expect("wait");
+        assert_eq!(status.signal(), Some(9), "{status:?}");
+        assert!(started.elapsed() < Duration::from_secs(10));
     }
 }
