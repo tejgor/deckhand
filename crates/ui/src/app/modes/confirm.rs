@@ -2789,7 +2789,7 @@ mod tests {
             let inner: Vec<String> = conflict[1..conflict.len() - 1]
                 .iter()
                 .map(|line| line.chars().skip(2).collect::<String>())
-                .map(|line| line.trim_end_matches(|c: char| c == '│' || c == ' ').to_owned())
+                .map(|line| line.trim_end_matches(['│', ' ']).to_owned())
                 .collect();
             assert_eq!(
                 inner,
