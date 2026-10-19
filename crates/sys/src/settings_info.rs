@@ -1178,6 +1178,89 @@ mod tests {
         });
     }
 
+    // covers: B-I7-01 global link candidates: global entries with the repos that have them, then paths two or more repos share (no build output); worktrees count as their repo
+    #[test]
+    fn global_link_candidates_global_entries_then_shared_paths_worktrees_count_as_their_repo() {
+        let home = tempfile::Builder::new()
+            .prefix("deckhand-global-links-")
+            .tempdir()
+            .unwrap();
+        let _home = Home::set(home.path());
+        block_on(async {
+            let (_a, a) = repo();
+            let (_b, b) = repo();
+            let (_c, c) = repo();
+            for root in [&a, &b, &c] {
+                write(root, ".gitignore", "node_modules\ndist\nlocal.cfg\nsecrets.json\n");
+                tgit(root, &["add", ".gitignore"]);
+                tgit(root, &["commit", "-m", "ignore"]);
+            }
+            for root in [&a, &b] {
+                std::fs::create_dir(Path::new(root).join("node_modules")).unwrap();
+                write(root, "node_modules/x", "");
+                std::fs::create_dir(Path::new(root).join("dist")).unwrap();
+                write(root, "dist/y", "");
+                write(root, "local.cfg", "");
+            }
+            write(&a, "only-a.txt", "");
+            write(&c, "secrets.json", "");
+            let b_worktree = format!("{b}-wt");
+            tgit(&b, &["worktree", "add", "-b", "side", &b_worktree]);
+            crate::storage::update_app_config(|mut current| {
+                current.defaults = Some(json!({"worktree": {"symlink": ["secrets.json"]}}));
+                Ok(current)
+            })
+            .await
+            .unwrap();
+
+            let gone = home.path().join("gone").to_string_lossy().into_owned();
+            let known = vec![b_worktree.clone(), c.clone(), b.clone(), gone];
+            let result = read_global_link_candidates(&a, &known).await.unwrap();
+            let name = |root: &str| path::basename(root);
+            assert_eq!(result.repos, Some(vec![name(&a), name(&b), name(&c)]));
+            assert_eq!(result.checkout, std::fs::canonicalize(&a).unwrap().to_string_lossy());
+            let rows: Vec<Value> = result
+                .candidates
+                .iter()
+                .map(|candidate| {
+                    let value = serde_json::to_value(candidate).unwrap();
+                    json!([
+                        value["path"],
+                        value.get("configured").cloned().unwrap_or(json!("-")),
+                        value["kind"],
+                        value["repos"]
+                    ])
+                })
+                .collect();
+            // Two repos each, the suggested link first; dist (build output) and only-a.txt (one repo) are left out.
+            assert_eq!(
+                rows,
+                vec![
+                    json!(["secrets.json", "symlink", "file", [name(&c)]]),
+                    json!(["node_modules", "-", "dir", [name(&a), name(&b)]]),
+                    json!(["local.cfg", "-", "file", [name(&a), name(&b)]]),
+                ]
+            );
+            // Only this repository known: nothing is shared, and nothing fails.
+            let alone = read_global_link_candidates(&a, &[]).await.unwrap();
+            let paths: Vec<String> = alone
+                .candidates
+                .iter()
+                .map(|candidate| {
+                    serde_json::to_value(candidate).unwrap()["path"]
+                        .as_str()
+                        .unwrap()
+                        .to_owned()
+                })
+                .collect();
+            assert_eq!(
+                (alone.repos, paths),
+                (Some(vec![name(&a)]), vec!["secrets.json".to_owned()])
+            );
+            let _ = std::fs::remove_dir_all(&b_worktree);
+        });
+    }
+
     #[test]
     fn settings_info_outside_and_inside_a_repository() {
         // The user config and state directory come from DECKHAND_HOME: hold the env lock on a temporary home.
