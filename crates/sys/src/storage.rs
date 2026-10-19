@@ -104,9 +104,67 @@ pub(crate) fn js_numbers(value: &mut Value) {
     }
 }
 
-/// `JSON.parse(text)` (with JS numbers), or `None` where it throws a SyntaxError.
+/// The four hex digits of a `\uXXXX` escape whose `u` is at `at`, as a UTF-16 code unit.
+fn escape_unit(bytes: &[u8], at: usize) -> Option<u16> {
+    let hex = bytes.get(at + 1..at + 5)?;
+    if bytes.get(at) != Some(&b'u') || !hex.iter().all(u8::is_ascii_hexdigit) {
+        return None;
+    }
+    u16::from_str_radix(std::str::from_utf8(hex).ok()?, 16).ok()
+}
+
+/// `text` with every `\uXXXX` escape of a lone UTF-16 surrogate (inside a JSON string) replaced by `�`.
+/// JSON.parse accepts those (JSON.stringify writes one for a string a slice cut inside a surrogate pair) and keeps the
+/// half; serde_json rejects them, and a Rust string cannot hold the half, so it becomes U+FFFD (one UTF-16 unit, like
+/// the half: deckhand_core::jsstr's rule). Anything malformed is left for serde_json to reject.
+fn replace_lone_surrogate_escapes(text: &str) -> std::borrow::Cow<'_, str> {
+    let bytes = text.as_bytes();
+    let mut out: Option<String> = None;
+    let mut copied = 0;
+    let mut in_string = false;
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'"' => in_string = !in_string,
+            b'\\' if in_string => {
+                let Some(unit) = escape_unit(bytes, index + 1) else {
+                    // Any other escape (`\\` and `\"` included) is two bytes.
+                    index += 2;
+                    continue;
+                };
+                let paired = (0xD800..=0xDBFF).contains(&unit)
+                    && bytes.get(index + 6) == Some(&b'\\')
+                    && escape_unit(bytes, index + 7).is_some_and(|low| (0xDC00..=0xDFFF).contains(&low));
+                if paired {
+                    index += 12;
+                    continue;
+                }
+                if (0xD800..=0xDFFF).contains(&unit) {
+                    let out = out.get_or_insert_with(|| String::with_capacity(text.len()));
+                    out.push_str(&text[copied..index]);
+                    out.push_str("\\ufffd");
+                    copied = index + 6;
+                }
+                index += 6;
+                continue;
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    match out {
+        Some(mut out) => {
+            out.push_str(&text[copied..]);
+            std::borrow::Cow::Owned(out)
+        }
+        None => std::borrow::Cow::Borrowed(text),
+    }
+}
+
+/// `JSON.parse(text)` (with JS numbers), or `None` where it throws a SyntaxError. A lone surrogate escape reads as
+/// U+FFFD (see [`replace_lone_surrogate_escapes`]).
 pub(crate) fn parse_json(text: &str) -> Option<Value> {
-    let mut value: Value = serde_json::from_str(text).ok()?;
+    let mut value: Value = serde_json::from_str(&replace_lone_surrogate_escapes(text)).ok()?;
     js_numbers(&mut value);
     Some(value)
 }
@@ -1545,6 +1603,85 @@ pub(crate) mod tests {
         let mut value: Value = serde_json::from_str(r#"{"a":1.0,"b":[1e2,-0.0,2.5],"c":1e300}"#).unwrap();
         js_numbers(&mut value);
         assert_eq!(value.to_string(), r#"{"a":1,"b":[100,0,2.5],"c":1e+300}"#);
+    }
+
+    // JSON.parse accepts a lone UTF-16 surrogate escape (JSON.stringify writes one for a string a slice cut inside a
+    // surrogate pair); a Rust string cannot hold the half, so it reads as U+FFFD (one unit, like the half).
+    #[test]
+    fn parse_json_reads_lone_surrogate_escapes_as_replacement_characters() {
+        let parse = |text: &str| parse_json(text).map(|value| value.to_string());
+        let fffd = |text: &str| Some(text.replace('!', "\u{FFFD}"));
+        // A lone low half, a lone high half, both at the end, in a key, uppercase hex.
+        assert_eq!(parse(r#"{"o":"\ude00x"}"#), fffd(r#"{"o":"!x"}"#));
+        assert_eq!(parse(r#"["a\ud83d"]"#), fffd(r#"["a!"]"#));
+        assert_eq!(parse(r#"{"\uD83D":1}"#), fffd(r#"{"!":1}"#));
+        // A high half followed by something other than a low half: only the high half is replaced.
+        assert_eq!(parse(r#"["\ud83dA\ud83d😀"]"#), fffd(r#"["!A!😀"]"#));
+        assert_eq!(parse(r#"["\ud83dx\ude00"]"#), fffd(r#"["!x!"]"#));
+        // A pair stays one character; an escaped backslash before `u` is not an escape.
+        assert_eq!(parse(r#"["😀"]"#), Some(r#"["😀"]"#.to_owned()));
+        assert_eq!(parse(r#"["\\ud83d"]"#), Some(r#"["\\ud83d"]"#.to_owned()));
+        assert_eq!(parse(r#"["\\\ud83d"]"#), fffd(r#"["\\!"]"#));
+        // Outside a string, or malformed, it still throws.
+        assert_eq!(parse(r"\ud83d"), None);
+        assert_eq!(parse(r#"["\ud83"]"#), None);
+        assert_eq!(parse(r#"["\ud83d"#), None);
+    }
+
+    /// A state.json TS wrote for a setup whose stored output (`output.slice(-4096)`) starts inside a surrogate pair.
+    fn state_with_lone_surrogate(status: &str) -> String {
+        format!(
+            r#"{{"sessions":[{{"id":"id","title":"t","program":"claude","command":"claude","cwd":"/r","repoRoot":"/r","status":"{status}","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","setup":{{"command":"yarn","state":"failed","output":"\udd0d Resolving packages"}}}}],"worktrees":[]}}"#
+        )
+    }
+
+    #[test]
+    fn load_state_keeps_sessions_holding_lone_surrogates() {
+        let home = temp_home();
+        let _home = Home::set(home.path());
+        std::fs::write(home.path().join("state.json"), state_with_lone_surrogate("exited")).unwrap();
+        let state = block_on(load_state()).expect("loaded");
+        assert_eq!(state.sessions.len(), 1);
+        assert_eq!(
+            state.sessions[0].setup.as_ref().map(|setup| setup.output.as_str()),
+            Some("\u{FFFD} Resolving packages")
+        );
+        let mut files: Vec<String> = std::fs::read_dir(home.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        files.sort();
+        assert_eq!(files, ["state.json"]);
+    }
+
+    #[test]
+    fn crash_recovery_keeps_sessions_holding_lone_surrogates() {
+        let home = temp_home();
+        let _home = Home::set(home.path());
+        std::fs::write(home.path().join("state.json"), state_with_lone_surrogate("running")).unwrap();
+        let state = block_on(mark_all_non_exited_sessions_exited()).expect("recovered");
+        assert_eq!(state.sessions.len(), 1);
+        assert_eq!(state.sessions[0].exit_reason, Some(ExitReason::Interrupted));
+        assert!(
+            !std::fs::read_dir(home.path())
+                .unwrap()
+                .any(|entry| { entry.unwrap().file_name().to_string_lossy().contains("corrupt") })
+        );
+    }
+
+    #[test]
+    fn config_with_lone_surrogates_loads() {
+        let home = temp_home();
+        let _home = Home::set(home.path());
+        std::fs::write(
+            home.path().join("config.json"),
+            r#"{"dev_command":"npm run dev \ud83d","trustedProjects":{"/r":["fp"]}}"#,
+        )
+        .unwrap();
+        let config = block_on(load_app_config()).expect("loaded");
+        assert_eq!(config.dev_command.as_deref(), Some("npm run dev \u{FFFD}"));
+        let updated = block_on(async { update_app_config(Ok).await }).expect("updated");
+        assert_eq!(updated, config);
     }
 
     fn temp_home() -> tempfile::TempDir {

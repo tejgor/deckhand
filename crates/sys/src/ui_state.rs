@@ -157,4 +157,29 @@ mod tests {
         assert_eq!(one.session_query, "search");
         assert_eq!(two.active_tab, Some(RightPaneTab::Git));
     }
+
+    // TS caps sessionQuery with `slice(0, 4096)`, which can end on a high surrogate that JSON.stringify writes as a
+    // lone escape; TS reads that file back, so it must not count as unparseable (which would drop every repository).
+    #[test]
+    fn ui_state_with_lone_surrogates_keeps_every_repository() {
+        let home = tempfile::Builder::new()
+            .prefix("deckhand-storage-")
+            .tempdir()
+            .expect("temp home");
+        let _home = Home::set(home.path());
+        std::fs::write(
+            home.path().join("ui-state.json"),
+            r#"{"/other":{"selectedId":"keep"},"/r":{"selectedId":"x","sessionQuery":"a\ud83d"}}"#,
+        )
+        .unwrap();
+        let (other, r) = block_on(async { (load_ui_state("/other").await, load_ui_state("/r").await) });
+        assert_eq!(other.selected_id.as_deref(), Some("keep"));
+        assert_eq!(r.session_query, "a\u{FFFD}");
+        block_on(async { save_ui_state("/new", &UiState::normalize(&json!({"selectedId": "n"}))).await }).unwrap();
+        let written: Value =
+            serde_json::from_str(&std::fs::read_to_string(home.path().join("ui-state.json")).unwrap()).unwrap();
+        let keys: Vec<&String> = written.as_object().unwrap().keys().collect();
+        assert_eq!(keys, ["/other", "/r", "/new"]);
+        assert_eq!(written["/r"]["sessionQuery"], "a\u{FFFD}");
+    }
 }
