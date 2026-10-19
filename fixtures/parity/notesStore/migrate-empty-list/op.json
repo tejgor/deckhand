@@ -1,0 +1,9 @@
+{
+  "fn": "NotesStore.migrate",
+  "args": [
+    "$ROOT",
+    []
+  ],
+  "async": true,
+  "ret": false
+}

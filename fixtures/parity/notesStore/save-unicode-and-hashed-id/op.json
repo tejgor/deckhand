@@ -1,0 +1,21 @@
+{
+  "fn": "NotesStore.save",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "session",
+      "id": "séance 日本語/😀"
+    },
+    "こんにちは 😀\r\nline2\n",
+    "e3b0c44298fc1c14"
+  ],
+  "async": true,
+  "ret": {
+    "saved": true,
+    "changed": true,
+    "after": {
+      "text": "こんにちは 😀\r\nline2\n",
+      "revision": "7be80ca31fb0731f"
+    }
+  }
+}

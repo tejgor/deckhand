@@ -1,0 +1,14 @@
+{
+  "fn": "NotesStore.save",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "session",
+      "id": "11111111-2222-4333-8444-555555555555"
+    },
+    "x",
+    "any"
+  ],
+  "async": true,
+  "throws": "This note is longer than 50 000 characters; edit it in your editor (E)"
+}

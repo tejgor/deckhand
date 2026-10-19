@@ -1,0 +1,15 @@
+{
+  "fn": "NotesStore.modify",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "tasks",
+      "id": "repo1"
+    },
+    {
+      "$fn": "make-huge"
+    }
+  ],
+  "async": true,
+  "throws": "That would make the file longer than 50 000 characters"
+}

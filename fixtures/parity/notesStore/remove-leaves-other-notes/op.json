@@ -1,0 +1,27 @@
+{
+  "fn": "NotesStore.remove",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "session",
+      "id": "s1"
+    },
+    "same"
+  ],
+  "async": true,
+  "ret": {
+    "get": {
+      "text": "",
+      "revision": "e3b0c44298fc1c14"
+    },
+    "entries": [
+      [
+        "s2",
+        {
+          "text": "two",
+          "revision": "3fc4ccfe745870e2"
+        }
+      ]
+    ]
+  }
+}

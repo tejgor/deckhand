@@ -1,0 +1,26 @@
+{
+  "fn": "NotesStore.modify",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "tasks",
+      "id": "repo1"
+    },
+    {
+      "$fn": "append-line"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "result": 8,
+    "note": {
+      "text": "- [ ] a\nmore\n",
+      "revision": "8dfb8f39f58d81ca"
+    },
+    "changed": true,
+    "get": {
+      "text": "- [ ] a\nmore\n",
+      "revision": "8dfb8f39f58d81ca"
+    }
+  }
+}

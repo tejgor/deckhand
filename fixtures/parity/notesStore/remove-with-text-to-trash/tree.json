@@ -1,0 +1,56 @@
+{
+  "before": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions/11111111-2222-4333-8444-555555555555.md",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/repos",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/tasks",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/trash",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/trash/2026-01-01T00-00-00_session_school-doc-upload-prompt-audit_11111111-2222-4333-8444-555555555555.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/worktrees",
+      "type": "dir",
+      "mode": "0700"
+    }
+  ]
+}
