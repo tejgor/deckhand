@@ -15,7 +15,10 @@ fixtures = ["settingsModel/actionCount", "settingsModel/actionNameCheck", "setti
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "Settings pane: two value columns from 64 columns (one, with ◂ ▸, below); an option's warning is on its own line under its full path; edits are titled \"<Setting> · <Layer>\"", to = "U5", reason = "renders SettingsPane (settingsPane.tsx); the settingsModel inputs it uses are covered by B-P9-01/04" },
+  { title = "Settings pane, Linked items · Global: the global entries and what your repos share, counted per repo; nothing suggested is preselected", to = "U5", reason = "renders SettingsPane's Linked items view (settingsPane.tsx); initialLinks(…, false) is replayed in settingsModel/initialLinks" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 
