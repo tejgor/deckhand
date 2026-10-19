@@ -56,14 +56,16 @@ fn is_executable_file(path: &Path) -> bool {
         && nix::unistd::access(path, nix::unistd::AccessFlags::X_OK).is_ok()
 }
 
-/// `command -v deckhand` without a shell: the first `$PATH` entry (`path_env`, colon-separated; empty entries
-/// skipped) holding an executable regular file named `name` (symlinks followed).
+/// `command -v deckhand` without a shell: the first `$PATH` entry (`path_env`, colon-separated) holding an
+/// executable regular file named `name` (symlinks followed). Empty and relative entries are skipped: the found path
+/// is printed into hook settings that run from any directory.
 pub fn find_on_path(name: &str, path_env: Option<&OsStr>) -> Option<PathBuf> {
     path_env?
         .as_bytes()
         .split(|byte| *byte == b':')
-        .filter(|entry| !entry.is_empty())
-        .map(|entry| Path::new(OsStr::from_bytes(entry)).join(name))
+        .map(|entry| Path::new(OsStr::from_bytes(entry)))
+        .filter(|entry| entry.is_absolute())
+        .map(|entry| entry.join(name))
         .find(|candidate| is_executable_file(candidate))
 }
 
@@ -76,11 +78,11 @@ pub fn same_file(a: &Path, b: &Path) -> bool {
 }
 
 /// The pure half of [`hooks_executable`]: the `deckhand` on `path_env` when it is `current_exe`'s file, else
-/// `current_exe`.
+/// `current_exe` made absolute against the current directory (TS prints the always-absolute `process.execPath`).
 pub fn hooks_executable_from(current_exe: &Path, path_env: Option<&OsStr>) -> PathBuf {
     match find_on_path(EXECUTABLE_NAME, path_env) {
         Some(on_path) if same_file(&on_path, current_exe) => on_path,
-        _ => current_exe.to_path_buf(),
+        _ => std::path::absolute(current_exe).unwrap_or_else(|_| current_exe.to_path_buf()),
     }
 }
 
@@ -196,5 +198,42 @@ mod tests {
         let elsewhere = format!("{}:{}", other.display(), bin.display());
         assert_eq!(hooks_executable_from(&exe, Some(OsStr::new(&elsewhere))), exe);
         assert_eq!(hooks_executable_from(&exe, None), exe);
+    }
+
+    // The printed command runs from whatever directory the agent is in, so it is always absolute (TS prints
+    // `process.execPath`): a relative `$PATH` entry is never what gets printed.
+    #[test]
+    fn hooks_executable_is_absolute_even_with_relative_path_entries() {
+        let root = temp_root();
+        let exe = root.path().join("deckhand");
+        write_file(&exe, 0o755);
+        let bin = root.path().join("bin");
+        assert!(std::fs::create_dir(&bin).is_ok());
+        assert!(symlink(&exe, bin.join("deckhand")).is_ok());
+        // Nextest runs each test in its own process: changing the directory affects no other test.
+        assert!(std::env::set_current_dir(root.path()).is_ok());
+
+        let picked = hooks_executable_from(&exe, Some(OsStr::new(".")));
+        assert!(
+            picked.is_absolute(),
+            "printed hook executable is relative: {}",
+            picked.display()
+        );
+        assert!(same_file(&picked, &exe));
+        // A relative entry is skipped; a later absolute entry naming this file still wins.
+        let path = format!(".:bin:{}", bin.display());
+        assert_eq!(
+            hooks_executable_from(&exe, Some(OsStr::new(&path))),
+            bin.join("deckhand")
+        );
+        assert_eq!(find_on_path("deckhand", Some(OsStr::new(".:bin"))), None);
+        // A relative running executable is made absolute against the current directory.
+        let picked = hooks_executable_from(Path::new("deckhand"), None);
+        assert!(
+            picked.is_absolute(),
+            "printed hook executable is relative: {}",
+            picked.display()
+        );
+        assert!(same_file(&picked, &exe));
     }
 }

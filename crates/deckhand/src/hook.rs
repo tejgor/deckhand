@@ -90,11 +90,74 @@ pub async fn read_hook_input<R: AsyncRead + Unpin>(
         .unwrap_or_else(|_| Err(DhError::msg("Hook input timed out")))
 }
 
+/// TS: cli.ts `JSON.parse(raw)` of the hook input (V8's message, on the original text, on failure). V8 accepts a
+/// lone UTF-16 surrogate escape (`"\ud83d"`, which Node's JSON.stringify writes for a string cut inside a surrogate
+/// pair) and serde_json does not: when the text fails to parse, such escapes become `�` (the U+FFFD a Rust
+/// string holds for a lone surrogate, see `deckhand_core::jsstr`) and it is parsed again.
+pub fn hook_input(raw: &str) -> Result<Value, DhError> {
+    serde_json::from_str(raw)
+        .or_else(|_| serde_json::from_str(&replace_lone_surrogate_escapes(raw)))
+        .map_err(|_| DhError::json_parse(raw))
+}
+
+/// The UTF-16 code unit of the four hex digits at `at`, if they are four hex digits.
+fn hex_unit(bytes: &[u8], at: usize) -> Option<u16> {
+    let digits = bytes.get(at..at.checked_add(4)?)?;
+    if !digits.iter().all(u8::is_ascii_hexdigit) {
+        return None;
+    }
+    u16::from_str_radix(std::str::from_utf8(digits).ok()?, 16).ok()
+}
+
+/// `text` with every `\uXXXX` escape of a lone surrogate (a high half not followed by a low-half escape, or a low
+/// half not preceded by a high one) replaced by `�`. Escaped backslashes are skipped, so `\\ud83d` is untouched.
+fn replace_lone_surrogate_escapes(text: &str) -> String {
+    const HIGH: std::ops::Range<u16> = 0xD800..0xDC00;
+    const LOW: std::ops::Range<u16> = 0xDC00..0xE000;
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut copied = 0;
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes.get(at) != Some(&b'\\') {
+            at += 1;
+            continue;
+        }
+        let unit = if bytes.get(at + 1) == Some(&b'u') {
+            hex_unit(bytes, at + 2)
+        } else {
+            None
+        };
+        let Some(unit) = unit else {
+            // Any other escape (or a malformed one): skip the backslash and the character it escapes.
+            at += 2;
+            continue;
+        };
+        let paired = HIGH.contains(&unit)
+            && bytes.get(at + 6) == Some(&b'\\')
+            && bytes.get(at + 7) == Some(&b'u')
+            && hex_unit(bytes, at + 8).is_some_and(|next| LOW.contains(&next));
+        if paired {
+            at += 12;
+            continue;
+        }
+        if HIGH.contains(&unit) || LOW.contains(&unit) {
+            // Escapes are ASCII, so `at` and `at + 6` are char boundaries.
+            out.push_str(text.get(copied..at).unwrap_or_default());
+            out.push_str("\\ufffd");
+            copied = at + 6;
+        }
+        at += 6;
+    }
+    out.push_str(text.get(copied..).unwrap_or_default());
+    out
+}
+
 /// TS: cli.ts the `agent-hook` request: `JSON.parse(raw)` (V8's message on failure), reduced with
 /// `hook_payload_fields`, with the launch identity, `request_id` and `sent_at` (ms since the epoch, taken before
 /// reading stdin).
 pub fn hook_request(env: &HookEnv, raw: &str, request_id: String, sent_at: i64) -> Result<Request, DhError> {
-    let input: Value = serde_json::from_str(raw).map_err(|_| DhError::json_parse(raw))?;
+    let input = hook_input(raw)?;
     let payload = hook_payload_fields(&input)?;
     Ok(Request::AgentHook(AgentHook {
         request_id,
@@ -303,6 +366,36 @@ mod tests {
             }
         }
         assert_eq!(collected, b"hello world");
+    }
+
+    // JSON.parse accepts lone UTF-16 surrogate escapes (Node's JSON.stringify writes them for a string cut inside a
+    // surrogate pair), so the signal is still built and sent (hook_request's first step is hook_input).
+    #[test]
+    fn hook_input_accepts_lone_surrogate_escapes_as_json_parse_does() {
+        let raw = r#"{"hook_event_name":"PostToolUse","tool_response":"abc\ud83d"}"#;
+        assert!(
+            serde_json::from_str::<Value>(raw).is_err(),
+            "serde_json rejects the lone half itself"
+        );
+        assert_eq!(
+            hook_input(raw).map_err(|error| error.to_string()),
+            Ok(serde_json::json!({"hook_event_name": "PostToolUse", "tool_response": "abc\u{fffd}"}))
+        );
+
+        // Pairs stay pairs; lone high or low halves (either hex case) become U+FFFD; `\\` is not an escape start.
+        let raw = r#"{"x":"😀|\uDE00|\ud83d😀|\\ud83d|é|\ud83d"}"#;
+        assert_eq!(
+            hook_input(raw).map_err(|error| error.to_string()),
+            Ok(serde_json::json!({"x": "\u{1f600}|\u{fffd}|\u{fffd}\u{1f600}|\\ud83d|\u{e9}|\u{fffd}"}))
+        );
+        // Text that is invalid for another reason stays invalid, reported on the original text.
+        for raw in [r#"{"a":"\ud83d"#, r#"{"a":"\ud83d"} \ud83d"#, r#"{"a":"\u12"}"#] {
+            assert_eq!(
+                hook_input(raw).map_err(|error| error.to_string()),
+                Err(DhError::json_parse(raw).to_string()),
+                "{raw}"
+            );
+        }
     }
 
     #[test]
