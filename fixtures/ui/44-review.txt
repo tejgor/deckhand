@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭─────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions            5 · ! 2 │ │ Review repository configuration                                                                │
+│  1 ? alpha                ✶ │ │ About to run the repository action test: echo tests-ok                                         │
+│› 2 ▾ ● beta               ✶ │ │                                                                                                │
+│╎ 3   ↳ ◆ gamma            ✶ │ │ Not trusted: until you trust it, its commands, creation hook and worktree settings do not appl │
+│╎ 4   ⑂ ● delta            ✶ │ │ y (your global defaults do; its agent/workspace suggestions only preselect the new-session pic │
+│  5 ● eps                  ✶ │ │ ker).                                                                                          │
+│                             │ │                                                                                                │
+│                             │ │ Trusting lets this repository's commands (setup, Dev, actions, creation hook) execute as you.  │
+│                             │ │ Changed bytes need another review, except edits you save in Deckhand while it is trusted.      │
+│                             │ │                                                                                                │
+│                             │ │ <TMP>/demo/deckhand.json                                                                       │
+│                             │ │                                                                                                │
+│                             │ │ {                                                                                              │
+│                             │ │   "devCommand": "echo dev-ready",                                                              │
+│                             │ │   "actions": {                                                                                 │
+│                             │ │     "test": "echo tests-ok"                                                                    │
+│                             │ │   }                                                                                            │
+│                             │ │ }                                                                                              │
+│                             │ │                                                                                                │
+│                             │ │ No custom creation hook. Git fallback will be used.                                            │
+│                             │ │                                                                                                │
+│                             │ │ Trust covers these bytes, not everything commands may execute.                                 │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│ ─────────────────────────── │ │                                                                                                │
+│ beta                        │ │                                                                                                │
+│ ✶ claude · idle · now       │ │                                                                                                │
+│ ⎇ beta ╎2                   │ │ enter trust & run • s cancel this run • esc back                                               │
+╰─────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

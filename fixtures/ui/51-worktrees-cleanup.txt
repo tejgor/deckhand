@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭─────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions            5 · ! 2 │ │ Delete eps?                                                                                    │
+│  1 ? alpha                ✶ │ │ <TMP>/home/worktrees/eps                                                                       │
+│  2 ▾ ● beta               ✶ │ │ Deleting it would lose (typing DELETE overrides):                                              │
+│  3   ↳ ◆ gamma            ✶ │ │ · 1 untracked file(s)                                                                          │
+│  4   ⑂ ● delta            ✶ │ │   Files (M changed · ? untracked · ! ignored):                                                 │
+│› 5 ● eps                  ✶ │ │     ? draft.txt                                                                                │
+│                             │ │ Stops the session running there first: eps                                                     │
+│                             │ │ Its sessions cannot be resumed afterwards; they are archived (notes kept, f A shows them).     │
+│                             │ │                                                                                                │
+│                             │ │ ❯ Stop 1 session, delete the worktree, keep its branch                                         │
+│                             │ │   Stop 1 session, delete the worktree and branch eps                                           │
+│                             │ │   Cancel                                                                                       │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│ ─────────────────────────── │ │                                                                                                │
+│ eps                         │ │                                                                                                │
+│ ✶ claude · idle · now       │ │                                                                                                │
+│ ⎇ eps                       │ │                                                                                                │
+╰─────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+enter choose • esc cancel
+
+

@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭─────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions            5 · ! 2 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                         │
+│  1 ? alpha                ✶ │ │                                                                                                │
+│› 2 ▾ ● beta               ✶ │ │ …/worktrees/beta · beta                                                1 changed · 1 untracked │
+│╎ 3   ↳ ◆ gamma            ✶ │ │ Changes 1                                                                                      │
+│╎ 4   ⑂ ● delta            ✶ │ │   M README.md                                                                            +1 −1 │
+│  5 ● eps                  ✶ │ │ Untracked 1                                                                                    │
+│                             │ │   ? notes.md                                                                             +1 −0 │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│ ─────────────────────────── │ │                                                                                                │
+│ beta                        │ │                                                                                                │
+│ ✶ claude · idle · now       │ │                                                                                                │
+│ ⎇ beta ╎2                   │ │                                                                                                │
+╰─────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+→ changes • enter lazygit • x stop • E open in editor • ? help • n new • W worktrees • C settings • r run • / search • q quit
+
+

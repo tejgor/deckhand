@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Global defaults · config.json "defaults" · new                                                                                 │
+│ <TMP>/home/config.json                                                                                                         │
+│ {                                                                                                                              │
+│   "defaultAgent": "claude",                                                                                                    │
+│   "defaultWorkspace": "new",                                                                                                   │
+│   "actions": {}                                                                                                                │
+│ }                                                                                                                              │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+│ Line 1 · Save validates JSON/schema; it never runs commands.                                                                   │
+│ Ctrl+S save • Ctrl+F format • Ctrl+A select all • arrows/home/end edit • enter newline • esc cancel                            │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

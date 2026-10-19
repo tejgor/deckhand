@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭─────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions            5 · ! 2 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                         │
+│  1 ? alpha                ✶ │ │                                                                                                │
+│› 2 ▾ ● beta               ✶ │ │ Worktree · beta (shared by 3 sessions)                                                         │
+│╎ 3   ↳ ◆ gamma            ✶ │ │ No worktree notes · enter to add                                                               │
+│╎ 4   ⑂ ● delta            ✶ │ │                                                                                                │
+│  5 ● eps                  ✶ │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│ ─────────────────────────── │ │                                                                                                │
+│ beta                        │ │                                                                                                │
+│ ✶ claude · idle · now       │ │                                                                                                │
+│ ⎇ beta ╎2                   │ │                                                                                                │
+╰─────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+enter edit notes • o vim • E open in editor • x stop • ? help • n new • W worktrees • C settings • r run • / search • q quit
+
+

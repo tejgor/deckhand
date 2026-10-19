@@ -1,0 +1,36 @@
+deckhand                                                                                                    ☐ 1 task · b   ● ready
+<TMP>/demo
+╭─────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions                  0 │ │ ☐ Tasks · demo                                                          1 open · 0 in progress │
+│                             │ │                                                                                                │
+│ No sessions yet.            │ │ IN PROGRESS                                                                                    │
+│ Press n to create.          │ │   n on a backlog task starts a session for it · w gives it to a worktree                       │
+│                             │ │ BACKLOG · 1                                                                                    │
+│                             │ │ › ○ Write the docs                                                            added <DATE>     │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │ ────────────────────────────────────────────────────────────────────────────────────────────── │
+│                             │ │ Write the docs                                                                                 │
+│                             │ │ added <DATE>     · n starts a session for it                                                   │
+│                             │ │   why: people ask                                                                              │
+╰─────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+a add • n start • w move • enter edit • space ✓ • o session • x delete • tab notes • E editor • esc back
+Added to the backlog
+

@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭─────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions                  0 │ │ ☐ Tasks · demo                                                          0 open · 0 in progress │
+│                             │ │                                                                                                │
+│ No sessions yet.            │ │ IN PROGRESS                                                                                    │
+│ Press n to create.          │ │   n on a backlog task starts a session for it · w gives it to a worktree                       │
+│                             │ │ BACKLOG                                                                                        │
+│                             │ │   No tasks yet · a adds one                                                                    │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │ ────────────────────────────────────────────────────────────────────────────────────────────── │
+│                             │ │ New task · backlog                                                                             │
+│                             │ │ Title  Write the docs                                                                          │
+│                             │ │ Details                                                                                        │
+│                             │ │   why: people ask                                                                              │
+╰─────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+enter new line • ctrl+s save • tab title • esc cancel
+
+

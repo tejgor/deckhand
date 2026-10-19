@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭─────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions            5 · ! 2 │ │ Workspace overview                                                                             │
+│  1 ? alpha                ✶ │ │ Workspace: <TMP>/home/worktree                                                                 │
+│› 2 ▾ ● beta               ✶ │ │ s/beta                                                                                         │
+│╎ 3   ↳ ◆ gamma            ✶ │ │ Branch: beta                                                                                   │
+│╎ 4   ⑂ ● delta            ✶ │ │ HEAD: <SHA>                                                                                    │
+│  5 ● eps                  ✶ │ │ Base: main                                                                                     │
+│                             │ │                                                                                                │
+│                             │ │ Uncommitted: 1 files, +1 -1                                                                    │
+│                             │ │ Untracked: 1 files                                                                             │
+│                             │ │ Committed changes beyond base: 0                                                               │
+│                             │ │ Locally cached upstream: ahead ?, behind ?                                                     │
+│                             │ │                                                                                                │
+│                             │ │ PR lookup is opt-in: press P                                                                   │
+│                             │ │                                                                                                │
+│                             │ │ Changes belong to this workspace, not necessarily this agent. No automatic fetch; c pushes onl │
+│                             │ │ y after confirmation.                                                                          │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│ ─────────────────────────── │ │                                                                                                │
+│ beta                        │ │                                                                                                │
+│ ✶ claude · idle · now       │ │                                                                                                │
+│ ⎇ beta ╎2                   │ │ P fetch PR status • b open PR • c create PR • g git tab • esc close                            │
+╰─────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭─────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions                  1 │ │ Merge "feat"?                                                                                  │
+│› 1 ● feat                 ✶ │ │ Into main · <TMP>/demo                                                                         │
+│                             │ │ 1 commit · 1 file +1 −1                                                                        │
+│                             │ │   feat change                                                                                  │
+│                             │ │                                                                                                │
+│                             │ │ ❯ Merge into main without committing                                                           │
+│                             │ │   Squash merge into main without committing                                                    │
+│                             │ │   Cancel                                                                                       │
+│                             │ │                                                                                                │
+│                             │ │ enter choose • esc cancel                                                                      │
+│                             │ │                                                                                                │
+│                             │ │ Notes                                                                                          │
+│                             │ │ No notes for this worktree, this session or its sub-sessions.                                  │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│                             │ │                                                                                                │
+│ ─────────────────────────── │ │                                                                                                │
+│ feat                        │ │                                                                                                │
+│ ✶ claude · idle · now       │ │                                                                                                │
+│ ⎇ feat                      │ │                                                                                                │
+╰─────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
