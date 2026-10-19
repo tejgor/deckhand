@@ -14,6 +14,7 @@ deckhand-protocol = { workspace = true }
 deckhand-core = { workspace = true }
 deckhand-sys = { workspace = true }
 deckhand-client = { workspace = true }
+deckhand-term = { workspace = true }
 tokio = { workspace = true }
 futures = { workspace = true }
 ratatui = { workspace = true }
@@ -23,6 +24,10 @@ unicode-segmentation = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+regex = { workspace = true }
+nix = { workspace = true }
+libc = { workspace = true }
+indexmap = { workspace = true }
 
 [dev-dependencies]
 deckhand-parity = { workspace = true }
