@@ -4,10 +4,10 @@ title = "daemon sessions"
 crate = "daemon"
 ts_sources = ["src/daemon.ts"]
 rust_paths = ["crates/daemon/src/sessions.rs"]
-deps = ["D1"]
+deps = ["D1", "D2", "D4"]
 ts_tests = []
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
-ts_suites = ["tests/daemonFeatures.test.ts", "tests/forks.test.ts"]
+ts_suites = ["tests/daemonFeatures.test.ts", "tests/forks.test.ts", "tests/agentPath.test.ts"]
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
 fixtures = []
@@ -15,7 +15,9 @@ fixtures = []
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "restart finds an agent that moved, refuses one that is gone, and an agent that exits silently says it failed to start", to = "drop", reason = "end-to-end daemon test (a real daemon, session worker and fake agents on PATH), inherited from I7; it needs D5-D8 and the session worker, so it runs as a D3 ts_suite (tests/agentPath.test.ts) against target/debug/deckhand. D3's parts are unit-tested in sessions.rs: restarting_refuses_what_it_cannot_relaunch (the not-installed refusal) and silent_exit_notes_say_how_the_agent_ended" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 
