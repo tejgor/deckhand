@@ -1812,4 +1812,239 @@ mod tests {
         };
         assert!(!merged_into_default(&fresh).await);
     }
+
+    struct MergeFixture {
+        _root_dir: tempfile::TempDir,
+        parent: tempfile::TempDir,
+        root: String,
+    }
+
+    impl MergeFixture {
+        fn new() -> Self {
+            let (root_dir, root) = repo();
+            let (parent, _) = temp("deckhand-merge-wt-");
+            write(&root, "other.txt", "other\n");
+            tgit(&root, &["add", "."]);
+            tgit(&root, &["commit", "-m", "other"]);
+            MergeFixture {
+                _root_dir: root_dir,
+                parent,
+                root,
+            }
+        }
+
+        fn worktree(&self, name: &str) -> String {
+            let dir = self.parent.path().join(name);
+            tgit(&self.root, &["worktree", "add", "-b", name, &dir.to_string_lossy()]);
+            super::test_repo::real(&dir)
+        }
+    }
+
+    fn commit_file(dir: &str, file: &str, text: &str, message: &str) {
+        write(dir, file, text);
+        tgit(dir, &["add", "-A"]);
+        tgit(dir, &["commit", "-m", message]);
+    }
+
+    // covers: B-I4-08 squash merge: cleanup counts commits up to the merged one as integrated, later commits still need DELETE
+    #[tokio::test(flavor = "current_thread")]
+    async fn squash_merge_cleanup_counts_integrated_commits() {
+        use crate::git::{MergeOptions, merge_worktree_into_current};
+        use deckhand_protocol::data::WorktreeMergeMode;
+        let fx = MergeFixture::new();
+        let wt = fx.worktree("squashed");
+        commit_file(&wt, "a.txt", "a\n", "one");
+        commit_file(&wt, "b.txt", "b\n", "two");
+        let result = merge_worktree_into_current(&wt, &fx.root, WorktreeMergeMode::Squash, &MergeOptions::default())
+            .await
+            .unwrap();
+        tgit(&fx.root, &["commit", "-m", "squashed"]);
+        let source_sha = result.result.source_sha.clone();
+        let inspect = |integrated: Option<String>| {
+            let wt = wt.clone();
+            async move {
+                let options = CleanupOptions {
+                    delete_branch: true,
+                    integrated,
+                };
+                inspect_workspace_cleanup(&wt, Some("main"), &options).await.unwrap()
+            }
+        };
+        // Git does not consider the branch merged: without the recorded commit, deleting the branch would "lose" both.
+        let plain = inspect(None).await;
+        assert!(
+            plain
+                .reasons
+                .join(",")
+                .contains("2 commit(s) exist only on branch squashed")
+        );
+        let integrated = inspect(source_sha.clone()).await;
+        assert!(integrated.safe, "{}", integrated.reasons.join(","));
+        commit_file(&wt, "c.txt", "c\n", "after the merge");
+        let later = inspect(source_sha).await;
+        assert!(
+            later
+                .reasons
+                .join(",")
+                .contains("1 commit(s) exist only on branch squashed")
+        );
+        // A recorded commit that no longer exists (or is not a SHA) is ignored, never trusted.
+        for bogus in ["f".repeat(40), "--all".to_owned()] {
+            let ignored = inspect(Some(bogus)).await;
+            assert!(
+                ignored.reasons.join(",").contains("3 commit(s)"),
+                "{:?}",
+                ignored.reasons
+            );
+        }
+    }
+
+    // covers: B-I4-09 merge detection: a branch whose commits are in the default branch counts; a fresh or merely fast-forwarded branch never does
+    #[tokio::test(flavor = "current_thread")]
+    async fn merge_detection_counts_only_own_merged_commits() {
+        use crate::git::branch_creation_commit;
+        let fx = MergeFixture::new();
+        let root = fx.root.as_str();
+        let defaults = vec!["refs/heads/main".to_owned()];
+        let check = |wt: &str, branch: &str, start: &str, refs: &[String]| {
+            let check = AncestryCheck {
+                cwd: wt.to_owned(),
+                tip: tgit(wt, &["rev-parse", "HEAD"]),
+                branch: branch.to_owned(),
+                start: start.to_owned(),
+                defaults: refs.to_vec(),
+            };
+            async move { merged_into_default(&check).await }
+        };
+        // Fresh: no commits beyond its start (trivially an ancestor of main).
+        let fresh = fx.worktree("fresh");
+        let fresh_start = branch_creation_commit(&fresh, "fresh").await.unwrap();
+        assert_eq!(fresh_start, tgit(&fresh, &["rev-parse", "HEAD"]));
+        assert!(!check(&fresh, "fresh", &fresh_start, &defaults).await);
+        // Fresh, then brought up to date with a newer main (fast-forward): still nothing of its own.
+        commit_file(root, "main.txt", "m\n", "main moves on");
+        tgit(&fresh, &["merge", "--ff-only", "main"]);
+        assert!(!check(&fresh, "fresh", &fresh_start, &defaults).await);
+
+        // A branch with a commit: not merged, then merged into main (here with a merge commit).
+        let feat = fx.worktree("feat");
+        let start = branch_creation_commit(&feat, "feat").await.unwrap();
+        commit_file(&feat, "f.txt", "f\n", "feature");
+        assert!(!check(&feat, "feat", &start, &defaults).await);
+        tgit(root, &["merge", "--no-ff", "-m", "merge feat", "feat"]);
+        assert!(check(&feat, "feat", &start, &defaults).await);
+        // Commits after that merge are not merged.
+        commit_file(&feat, "g.txt", "g\n", "more");
+        assert!(!check(&feat, "feat", &start, &defaults).await);
+
+        // Merged only on the remote (origin/main, never fetched by Deckhand): counts when that ref is given.
+        let remote = fx.worktree("remote");
+        let remote_start = branch_creation_commit(&remote, "remote").await.unwrap();
+        commit_file(&remote, "r.txt", "r\n", "remote work");
+        let remote_tip = tgit(&remote, &["rev-parse", "HEAD"]);
+        tgit(root, &["update-ref", "refs/remotes/origin/main", &remote_tip]);
+        let with_remote = vec!["refs/heads/main".to_owned(), "refs/remotes/origin/main".to_owned()];
+        assert!(!check(&remote, "remote", &remote_start, &defaults).await);
+        assert!(check(&remote, "remote", &remote_start, &with_remote).await);
+        // No starting point or no default refs: never.
+        assert!(!check(&remote, "remote", "not-a-sha", &with_remote).await);
+        assert!(!check(&remote, "remote", &remote_start, &[]).await);
+        // A branch reset behind where it started is not "beyond" it.
+        let reset = fx.worktree("reset");
+        let reset_start = branch_creation_commit(&reset, "reset").await.unwrap();
+        tgit(&reset, &["reset", "--hard", "HEAD~1"]);
+        assert!(!check(&reset, "reset", &reset_start, &defaults).await);
+    }
+
+    // covers: B-I4-10 the PR lookup is injectable: a MERGED PR reaches the summary (with its head and base), a failing lookup becomes prError
+    #[tokio::test(flavor = "current_thread")]
+    async fn pr_lookup_is_injectable() {
+        use std::cell::RefCell;
+        let fx = MergeFixture::new();
+        let wt = fx.worktree("pr-branch");
+        commit_file(&wt, "p.txt", "p\n", "pr work");
+        let head_sha = tgit(&wt, &["rev-parse", "HEAD"]);
+        let asked = Rc::new(RefCell::new(String::new()));
+        let expected = PullRequestInfo {
+            number: 7,
+            url: "https://github.com/acme/app/pull/7".to_owned(),
+            state: "MERGED".to_owned(),
+            checks: PrChecks::Passing,
+            head_sha: Some(head_sha),
+            base_branch: Some("main".to_owned()),
+        };
+        let lookup: PullRequestLookup = {
+            let asked = asked.clone();
+            let expected = expected.clone();
+            Rc::new(move |cwd| {
+                *asked.borrow_mut() = cwd;
+                let expected = expected.clone();
+                Box::pin(async move { Ok(expected) })
+            })
+        };
+        let summary = get_workspace_summary(&wt, Some("main"), true, Some(lookup))
+            .await
+            .unwrap();
+        assert_eq!(*asked.borrow(), wt);
+        assert_eq!(summary.pr, Some(expected));
+        let enoent: PullRequestLookup =
+            Rc::new(|_| Box::pin(async { Err(DhError::with_code("ENOENT", "spawn gh ENOENT")) }));
+        let missing = get_workspace_summary(&wt, Some("main"), true, Some(enoent))
+            .await
+            .unwrap();
+        assert_eq!(missing.pr, None);
+        assert_eq!(missing.pr_error.as_deref(), Some("Install gh for PR status"));
+        // Without includePr the lookup never runs.
+        let never: PullRequestLookup = Rc::new(|_| Box::pin(async { panic!("must not run") }));
+        get_workspace_summary(&wt, Some("main"), false, Some(never))
+            .await
+            .unwrap();
+    }
+
+    // covers: B-I4-11 handoffs list commit subjects and changed file names, never diff content
+    #[tokio::test(flavor = "current_thread")]
+    async fn handoffs_list_subjects_and_names_never_diff_content() {
+        use deckhand_core::session_features::handoff_markdown;
+        use deckhand_protocol::data::SessionRecord;
+        let (_dir, cwd) = repo();
+        tgit(&cwd, &["checkout", "-b", "feature"]);
+        write(&cwd, "file.txt", "COMMITTED_DIFF_LINE\n");
+        tgit(&cwd, &["commit", "-am", "Add the feature"]);
+        write(&cwd, "notes.md", "UNCOMMITTED_CONTENT\n");
+        let session = |program: &str, notes: Option<&str>, title: &str| -> SessionRecord {
+            let mut value = serde_json::json!({
+                "id": "s", "title": title, "program": program, "command": "", "cwd": cwd, "repoRoot": "",
+                "status": "running", "createdAt": "", "updatedAt": "",
+            });
+            if let Some(notes) = notes {
+                value["notes"] = serde_json::json!(notes);
+            }
+            serde_json::from_value(value).unwrap()
+        };
+        let context = get_handoff_git_context(&cwd, Some("main")).await;
+        let markdown = handoff_markdown(&session("claude", Some("n"), "Task"), false, context.as_ref(), None);
+        assert!(markdown.contains("## Workspace changes"), "{markdown}");
+        assert!(markdown.contains("Base: main"));
+        let commit_line = |line: &&str| {
+            line.strip_prefix("- ")
+                .and_then(|rest| rest.split_once(' '))
+                .is_some_and(|(sha, subject)| {
+                    !sha.is_empty() && sha.chars().all(|c| c.is_ascii_hexdigit()) && subject == "Add the feature"
+                })
+        };
+        assert!(markdown.lines().any(|line| commit_line(&line)), "{markdown}");
+        assert!(markdown.contains("- ?? notes.md"));
+        assert!(markdown.contains("1 file(s) changed, 1 insertion(s), 1 deletion(s)"));
+        assert!(markdown.contains("- file.txt +1 -1"));
+        assert!(!markdown.contains("COMMITTED_DIFF_LINE") && !markdown.contains("UNCOMMITTED_CONTENT"));
+        // Outside a repository: omitted.
+        let outside = Path::new(&cwd).parent().unwrap().to_string_lossy().into_owned();
+        assert_eq!(get_handoff_git_context(&outside, None).await, None);
+        let invalid = get_handoff_git_context(&cwd, Some("--all")).await;
+        let unavailable = handoff_markdown(&session("pi", None, "T"), false, invalid.as_ref(), None);
+        assert!(
+            unavailable.contains("Git information unavailable: Invalid Git"),
+            "{unavailable}"
+        );
+    }
 }
