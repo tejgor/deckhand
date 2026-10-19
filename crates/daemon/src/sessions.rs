@@ -147,13 +147,52 @@ fn assign(session: &mut Ordered<SessionRecord>, key: &str) {
     session.set_key_order(order);
 }
 
-/// `{...base, ...over}`: base's keys in their order with over's values, then over's other keys.
-fn spread(base: &Ordered<SessionRecord>, over: &Ordered<SessionRecord>) -> Result<Ordered<SessionRecord>> {
-    let mut merged = object(base.to_value()?);
-    for (key, value) in object(over.to_value()?) {
-        merged.insert(key, value);
+/// A record's own keys in JS order with the values they hold: its recorded keys (also those holding `undefined`,
+/// which serialisation drops), then any present keys it has no record of.
+fn own_keys(record: &Ordered<SessionRecord>) -> Result<(Map<String, Value>, Vec<String>)> {
+    let values = object(record.to_value()?);
+    let mut keys: Vec<String> = match record.key_order() {
+        KeyOrder::Object(recorded) => recorded.iter().map(|(key, _)| key.clone()).collect(),
+        _ => Vec::new(),
+    };
+    for key in values.keys() {
+        if !keys.contains(key) {
+            keys.push(key.clone());
+        }
     }
-    Ok(serde_json::from_value(Value::Object(merged))?)
+    Ok((values, keys))
+}
+
+/// `{...base, ...over}`: base's keys in their order with over's values, then over's other keys. A key over holds as
+/// `undefined` (recorded in its key order, absent from its value) overrides base's value, as an own key does in JS.
+fn spread(base: &Ordered<SessionRecord>, over: &Ordered<SessionRecord>) -> Result<Ordered<SessionRecord>> {
+    let (mut merged, mut keys) = own_keys(base)?;
+    let (mut over_values, over_keys) = own_keys(over)?;
+    for key in over_keys {
+        match over_values.remove(&key) {
+            Some(value) => {
+                merged.insert(key.clone(), value);
+            }
+            None => {
+                merged.remove(&key);
+            }
+        }
+        if !keys.contains(&key) {
+            keys.push(key);
+        }
+    }
+    let order = KeyOrder::Object(
+        keys.into_iter()
+            .map(|key| {
+                let child = merged.get(&key).map_or(KeyOrder::Unrecorded, KeyOrder::of);
+                (key, child)
+            })
+            .collect(),
+    );
+    Ok(Ordered::with_order(
+        serde_json::from_value(Value::Object(merged))?,
+        order,
+    ))
 }
 
 /// A launch plan's `ref`.
@@ -2433,5 +2472,55 @@ mod tests {
         assert_eq!(merged.agent_version.as_deref(), Some("1.0"));
         assert_eq!(merged.launch_id.as_deref(), Some("l"));
         assert_eq!(merged.status, SessionStatus::Starting);
+    }
+
+    /// `{...runningSession, ...current}` where the daemon cleared a key (`{...session, doneAt: undefined}`) while the
+    /// worker started the agent: the own key holding `undefined` wins, so the worker's stale value does not come back.
+    #[test]
+    fn spread_lets_keys_cleared_to_undefined_override_the_base() {
+        let running = record(json!({
+            "id": "x",
+            "status": "running",
+            "pid": 4,
+            "doneAt": "2026-01-02T00:00:00.000Z",
+            "archivedAt": "2026-01-03T00:00:00.000Z",
+        }));
+        let mut held = record(json!({
+            "id": "x",
+            "status": "starting",
+            "doneAt": "2026-01-02T00:00:00.000Z",
+            "archivedAt": "2026-01-03T00:00:00.000Z",
+        }));
+        assign(&mut held, "doneAt");
+        held.done_at = None;
+        assign(&mut held, "archivedAt");
+        held.archived_at = None;
+        let mut merged = spread(&running, &held).unwrap();
+        assert_eq!(merged.done_at, None, "doneAt resurrected");
+        assert_eq!(merged.archived_at, None, "archivedAt resurrected");
+        assert_eq!(merged.pid, Some(4));
+        assert_eq!(merged.status, SessionStatus::Starting);
+
+        // The cleared keys stay own keys in base's places: setting one later keeps that position, as in JS.
+        merged.done_at = Some("later".into());
+        let text = serde_json::to_string(&merged).unwrap();
+        let done = text.find(r#""doneAt""#).unwrap();
+        let pid = text.find(r#""pid""#).unwrap();
+        assert!(done > pid, "{text}");
+        assert!(!text.contains("archivedAt"), "{text}");
+
+        // A key only over holds as undefined overrides too, and base's other keys keep their values.
+        let based = record(json!({"id": "x", "startPrompt": "go", "agentVersion": "1.0"}));
+        let mut cleared = record(json!({"id": "x"}));
+        assign(&mut cleared, "startPrompt");
+        cleared.start_prompt = None;
+        let merged = spread(&based, &cleared).unwrap();
+        assert_eq!(merged.start_prompt, None);
+        assert_eq!(merged.agent_version.as_deref(), Some("1.0"));
+
+        // An over with no recorded order (built on the Rust side) overrides only with the keys it holds.
+        let plain = Ordered::new(record(json!({"id": "x", "status": "starting"})).into_inner());
+        let merged = spread(&based, &plain).unwrap();
+        assert_eq!(merged.start_prompt.as_deref(), Some("go"));
     }
 }
