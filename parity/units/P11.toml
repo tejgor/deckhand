@@ -10,9 +10,20 @@ ts_tests = ["tests/textEditor.test.ts", "tests/terminalKeys.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["textEditor/cleanInsertedText", "textEditor/cursorRowIndex", "textEditor/editText", "textEditor/editorLines", "textEditor/lineEnd", "textEditor/lineStart", "textEditor/moveVisual", "textEditor/replaceRange", "textEditor/scrollTopFor", "textEditor/wordLeft", "textEditor/wordRight", "textEditor/wrapRows", "textEditor/wrappedEditorLines", "terminalKeys/normalizeTerminalKey", "configDraft/formatConfigJson"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
-utf16_fields = {}
+utf16_fields = {
+  "textEditor/lineStart" = { "args.1" = "args.0", "ret" = "args.0" },
+  "textEditor/lineEnd" = { "args.1" = "args.0", "ret" = "args.0" },
+  "textEditor/wordLeft" = { "args.1" = "args.0", "ret" = "args.0" },
+  "textEditor/wordRight" = { "args.1" = "args.0", "ret" = "args.0" },
+  "textEditor/moveVisual" = { "args.1" = "args.0", "ret" = "args.0" },
+  "textEditor/editText" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" },
+  "textEditor/replaceRange" = { "args.0.cursor" = "args.0.text", "args.1" = "args.0.text", "args.2" = "args.0.text", "ret.cursor" = "ret.text" },
+  "textEditor/editorLines" = { "args.0.cursor" = "args.0.text" },
+  "textEditor/wrappedEditorLines" = { "args.0.cursor" = "args.0.text" },
+  "textEditor/wrapRows" = { "ret.*.start" = "args.0", "ret.*.end" = "args.0" }
+}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
 deferred_tests = []
