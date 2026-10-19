@@ -331,3 +331,108 @@ fn launcher_refuses_global_setup_and_missing_binaries_and_prints_help() {
     assert!(help.status.success());
     assert!(text(&help.stdout).starts_with("Usage: scripts/deckhand-dev.sh"));
 }
+
+/// Asserts a `create_sandbox` call failed outright: non-zero status, nothing on stdout, no temporary left behind.
+fn assert_sandbox_failed(output: &Output, state: &Path) {
+    assert!(
+        !output.status.success(),
+        "create_sandbox must fail; stdout: {:?} stderr: {}",
+        text(&output.stdout),
+        text(&output.stderr)
+    );
+    assert_eq!(text(&output.stdout), "", "a failed sandbox prints no workspace");
+    assert!(
+        !text(&output.stderr).trim().is_empty(),
+        "the failure is reported on stderr"
+    );
+    let leftovers: Vec<_> = fs::read_dir(state)
+        .expect("read state")
+        .filter_map(Result::ok)
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with("sandbox.tmp-"))
+        .collect();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+}
+
+// Regression: a failed sandbox build is an error (the TS createSandbox rethrows), never an empty success.
+#[test]
+fn dev_sandbox_build_failures_are_reported_not_swallowed() {
+    use std::os::unix::fs::PermissionsExt;
+    let temp = tempfile::tempdir().expect("temp dir");
+    let home = temp.path().join("home");
+    fs::create_dir(&home).expect("home");
+
+    // A dangling `sandbox` symlink: the TS rename onto it fails (ENOTDIR) and createSandbox rethrows.
+    let dangling = temp.path().join("dangling");
+    fs::create_dir(&dangling).expect("dangling state");
+    symlink(temp.path().join("nowhere"), dangling.join("sandbox")).expect("symlink");
+    let output = call("create_sandbox", &dangling, &home, &[]);
+    assert_sandbox_failed(&output, &dangling);
+    assert!(
+        text(&output.stderr).starts_with("ENOTDIR: not a directory, rename "),
+        "stderr: {}",
+        text(&output.stderr)
+    );
+    assert!(
+        fs::symlink_metadata(dangling.join("sandbox"))
+            .expect("link kept")
+            .file_type()
+            .is_symlink(),
+        "the existing link is left alone"
+    );
+
+    // Git failing inside the sandbox (an unparsable global config) fails the whole build.
+    let broken_git = temp.path().join("broken-git");
+    fs::create_dir(&broken_git).expect("broken-git state");
+    let bad_config = temp.path().join("bad.gitconfig");
+    fs::write(&bad_config, "[bad\n").expect("bad config");
+    let output = call(
+        "create_sandbox",
+        &broken_git,
+        &home,
+        &[("GIT_CONFIG_GLOBAL", &bad_config.to_string_lossy())],
+    );
+    assert_sandbox_failed(&output, &broken_git);
+    assert!(
+        text(&output.stderr).starts_with("Command failed: git -C "),
+        "stderr: {}",
+        text(&output.stderr)
+    );
+    assert!(!broken_git.join("sandbox").exists());
+
+    // A state directory the sandbox cannot be created in (skipped as root, which ignores modes).
+    let read_only = temp.path().join("read-only");
+    fs::create_dir(&read_only).expect("read-only state");
+    fs::set_permissions(&read_only, fs::Permissions::from_mode(0o555)).expect("chmod");
+    let writable = fs::write(read_only.join("probe"), "").is_ok();
+    let output = (!writable).then(|| call("create_sandbox", &read_only, &home, &[]));
+    fs::set_permissions(&read_only, fs::Permissions::from_mode(0o755)).expect("chmod back");
+    if let Some(output) = output {
+        assert_sandbox_failed(&output, &read_only);
+    }
+}
+
+// Regression: main stops (exit 1) instead of running the CLI in the caller's directory.
+#[test]
+fn launcher_exits_without_running_the_cli_when_the_sandbox_cannot_be_built() {
+    use std::os::unix::fs::PermissionsExt;
+    let temp = tempfile::tempdir().expect("temp dir");
+    let home = temp.path().join("home");
+    fs::create_dir(&home).expect("home");
+    let work = temp.path().join("work");
+    fs::create_dir(&work).expect("work");
+    let dev_home = temp.path().join("dev");
+    fs::create_dir(&dev_home).expect("dev home");
+    symlink(temp.path().join("nowhere"), dev_home.join("sandbox")).expect("symlink");
+    let marker = temp.path().join("cli-ran");
+    let fake = temp.path().join("fake-deckhand");
+    fs::write(&fake, format!("#!/bin/sh\npwd > '{}'\n", marker.display())).expect("fake cli");
+    fs::set_permissions(&fake, fs::Permissions::from_mode(0o755)).expect("chmod fake");
+    let env: Vec<(&str, &Path)> = vec![("DECKHAND_DEV_HOME", &dev_home), ("DECKHAND_TEST_BIN", &fake)];
+    let output = launcher_run(&["--sandbox", "status"], &work, &home, &env);
+    assert!(!output.status.success(), "stderr: {}", text(&output.stderr));
+    assert!(!marker.exists(), "the CLI must not run in the caller's directory");
+    let stderr = text(&output.stderr);
+    assert!(!stderr.contains("Workspace:"), "stderr: {stderr}");
+    assert!(stderr.contains("ENOTDIR"), "stderr: {stderr}");
+}

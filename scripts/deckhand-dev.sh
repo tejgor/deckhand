@@ -174,14 +174,27 @@ create_sandbox() {
 	fi
 	# Build aside and rename into place so an interrupted first run never leaves a half-made sandbox behind.
 	_temporary=$_home/sandbox.tmp-$(new_uuid)
-	if populate_sandbox "$_temporary" "$_sandbox" && ! [ -e "$_sandbox" ] && ! [ -L "$_sandbox" ] && mv -- "$_temporary" "$_sandbox"; then
-		printf '%s' "$_sandbox"
-		return 0
-	fi
+	# Capture the list's own status: an `if` without a taken branch would exit 0 and hide the failure.
+	populate_sandbox "$_temporary" "$_sandbox" && rename_sandbox "$_temporary" "$_sandbox"
 	_status=$?
+	if [ "$_status" -eq 0 ]; then printf '%s' "$_sandbox"; return 0; fi
 	rm -rf -- "$_temporary"
 	if [ -e "$_sandbox/.git" ]; then printf '%s' "$_sandbox"; return 0; fi # A concurrent launch won the race.
 	return "$_status"
+}
+
+# fs.rename of the finished sandbox directory. `mv` would move it *into* an existing directory, or replace a symlink,
+# so anything already at the destination fails the way rename(2) does (ENOTEMPTY / ENOTDIR), with node's message.
+rename_sandbox() {
+	if [ -L "$2" ] || { [ -e "$2" ] && ! [ -d "$2" ]; }; then
+		printf "ENOTDIR: not a directory, rename '%s' -> '%s'\n" "$1" "$2" >&2
+		return 1
+	fi
+	if [ -e "$2" ]; then
+		printf "ENOTEMPTY: directory not empty, rename '%s' -> '%s'\n" "$1" "$2" >&2
+		return 1
+	fi
+	mv -- "$1" "$2"
 }
 
 usage() {
