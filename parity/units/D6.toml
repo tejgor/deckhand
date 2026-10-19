@@ -4,7 +4,7 @@ title = "daemon workspaces (panes, actions)"
 crate = "daemon"
 ts_sources = ["src/daemon.ts"]
 rust_paths = ["crates/daemon/src/workspaces.rs"]
-deps = ["D1", "W2"]
+deps = ["D1", "D2", "D3", "D4", "W2"]
 ts_tests = []
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
 ts_suites = ["tests/daemonFeatures.test.ts"]
