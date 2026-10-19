@@ -1,0 +1,72 @@
+{"args":[" -"],"ret":false}
+{"args":[" 0é‍0"],"ret":false}
+{"args":[" settings"],"ret":false}
+{"args":[""],"ret":false}
+{"args":["-\t😀-"],"ret":false}
+{"args":["-_aß"],"ret":false}
+{"args":[".ß"],"ret":false}
+{"args":["/.é/_"],"ret":false}
+{"args":["/0b0‍"],"ret":false}
+{"args":["/\n"],"ret":false}
+{"args":["/a0b😀-bZ"],"ret":false}
+{"args":["0"],"ret":false}
+{"args":["00中Z‍ß "],"ret":false}
+{"args":["0aa"],"ret":false}
+{"args":["0b\n\t"],"ret":false}
+{"args":["0é -é/"],"ret":false}
+{"args":["0é-"],"ret":false}
+{"args":["SETTINGS"],"ret":false}
+{"args":["Settings"],"ret":false}
+{"args":["Z"],"ret":false}
+{"args":["Z--é😀a0😀"],"ret":false}
+{"args":["Z\na"],"ret":false}
+{"args":["Zaa./"],"ret":false}
+{"args":["Zéa"],"ret":false}
+{"args":["Z‍"],"ret":false}
+{"args":["Z‍-\tb"],"ret":false}
+{"args":["\naZ/éß"],"ret":false}
+{"args":["\n😀é-/‍0/"],"ret":false}
+{"args":["\n😀😀 "],"ret":false}
+{"args":["\t.ßa\n\tb _0"],"ret":false}
+{"args":["\t_ ébé中/\t"],"ret":false}
+{"args":["\ta./中\t00‍中"],"ret":false}
+{"args":["_"],"ret":false}
+{"args":["_/"],"ret":false}
+{"args":["_\t😀../\t\t"],"ret":false}
+{"args":["_😀00a-/"],"ret":false}
+{"args":["a-/‍Z_\t"],"ret":false}
+{"args":["a-Z‍é--‍"],"ret":false}
+{"args":["a/\t‍é.‍b-ß"],"ret":false}
+{"args":["aZ\t"],"ret":false}
+{"args":["b"],"ret":false}
+{"args":["b.//"],"ret":false}
+{"args":["b0-b.\n"],"ret":false}
+{"args":["browse"],"ret":false}
+{"args":["discard"],"ret":false}
+{"args":["discard-project"],"ret":true}
+{"args":["discard-project\n"],"ret":false}
+{"args":["edit-project"],"ret":true}
+{"args":["edit-project\u0000"],"ret":false}
+{"args":["edit-projectx"],"ret":false}
+{"args":["edit_project"],"ret":false}
+{"args":["settings "],"ret":false}
+{"args":["settings"],"ret":true}
+{"args":["settings​"],"ret":false}
+{"args":["ß ß _/\n .Z"],"ret":false}
+{"args":["ß😀b"],"ret":false}
+{"args":["é é"],"ret":false}
+{"args":["é/é0-"],"ret":false}
+{"args":["é\t_"],"ret":false}
+{"args":["é\té‍é"],"ret":false}
+{"args":["éé-"],"ret":false}
+{"args":["‍"],"ret":false}
+{"args":["‍_0b.\t"],"ret":false}
+{"args":["‍é-b"],"ret":false}
+{"args":["‍é/"],"ret":false}
+{"args":["‍éZ/"],"ret":false}
+{"args":["‍‍é"],"ret":false}
+{"args":["中 \n0- 😀ßb中"],"ret":false}
+{"args":["設定"],"ret":false}
+{"args":["😀"],"ret":false}
+{"args":["😀.\n \ta😀😀"],"ret":false}
+{"args":[{"$utf16":[55296]}],"ret":false}
