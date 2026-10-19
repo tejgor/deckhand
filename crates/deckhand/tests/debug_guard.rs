@@ -19,7 +19,10 @@ fn debug_guard_allows_a_throwaway_home_dot_deckhand() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success(), "stderr: {stderr}");
-    assert!(!stderr.contains("Refusing to use the production Deckhand home"), "{stderr}");
+    assert!(
+        !stderr.contains("Refusing to use the production Deckhand home"),
+        "{stderr}"
+    );
     assert!(stdout.starts_with("No isolated dev daemon running ("), "{stdout}");
     assert!(stdout.contains(".deckhand"), "{stdout}");
 }
@@ -39,12 +42,12 @@ fn debug_guard_still_refuses_the_account_home() {
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(!output.status.success());
-    assert!(stderr.contains("Refusing to use the production Deckhand home"), "{stderr}");
+    assert!(
+        stderr.contains("Refusing to use the production Deckhand home"),
+        "{stderr}"
+    );
 }
 
 fn nix_home() -> std::path::PathBuf {
-    nix::unistd::User::from_uid(nix::unistd::getuid())
-        .unwrap()
-        .unwrap()
-        .dir
+    nix::unistd::User::from_uid(nix::unistd::getuid()).unwrap().unwrap().dir
 }
