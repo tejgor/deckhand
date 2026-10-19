@@ -1,0 +1,45 @@
+{"args":["    ",[{"title":"T","text":"note \n\n"}]],"ret":"note"}
+{"args":["  ",[{"title":"T","text":""}]],"ret":"  "}
+{"args":["  ",[{"title":"T","text":"note \n\n"}]],"ret":"note"}
+{"args":[" ",[{"title":"A","text":"  lead"}]],"ret":"  lead"}
+{"args":["",[]],"ret":""}
+{"args":["",[{"title":"","text":"x"},{"title":"two","text":"y"}]],"ret":"## \nx\n\n## two\ny"}
+{"args":["",[{"title":"A","text":"  "},{"title":"B","text":"b\n"}]],"ret":"b"}
+{"args":["",[{"title":"A","text":"  lead"}]],"ret":"  lead"}
+{"args":["",[{"title":"A","text":""},{"title":"B","text":"b"}]],"ret":"b"}
+{"args":["",[{"title":"A","text":"a"},{"title":"B","text":"b"}]],"ret":"## A\na\n\n## B\nb"}
+{"args":["",[{"title":"A","text":"a"}]],"ret":"a"}
+{"args":["",[{"title":"T","text":"note"}]],"ret":"note"}
+{"args":["",[{"title":"T","text":"notenote"}]],"ret":"notenote"}
+{"args":["",[{"title":"one","text":"x"},{"title":"two","text":"y"}]],"ret":"## one\nx\n\n## two\ny"}
+{"args":["",[{"title":"only","text":"- [ ] a\n"}]],"ret":"- [ ] a"}
+{"args":["",[{"title":"only","text":"- [ ] a\nZ"}]],"ret":"- [ ] a\nZ"}
+{"args":["",[{"title":"onlyonly","text":"- [ ] a\n"}]],"ret":"- [ ] a"}
+{"args":["",[{"title":"中","text":"😀\t "}]],"ret":"😀"}
+{"args":["",[{"title":"中中","text":"😀\t "}]],"ret":"😀"}
+{"args":[".",[{"title":"one","text":"x"},{"title":"two","text":"y"}]],"ret":".\n\n## one\nx\n\n## two\ny"}
+{"args":["\n",[]],"ret":"\n"}
+{"args":["\n",[{"title":"","text":"a"}]],"ret":"a"}
+{"args":["\n",[{"title":"A","text":"a"},{"title":"B","text":"b"}]],"ret":"## A\na\n\n## B\nb"}
+{"args":["\n",[{"title":"A","text":"a"}]],"ret":"a"}
+{"args":["\t",[]],"ret":"\t"}
+{"args":["b",[{"title":"中","text":"😀\t "}]],"ret":"b\n\n## 中\n😀"}
+{"args":["bas",[]],"ret":"bas"}
+{"args":["base",[]],"ret":"base"}
+{"args":["base\n\n",[{"title":"T","text":"note"}]],"ret":"base\n\n## T\nnote"}
+{"args":["base\n\n",[{"title":"T","text":"notenote"}]],"ret":"base\n\n## T\nnotenote"}
+{"args":["base\n\n",[{"title":"T","text":"nte"}]],"ret":"base\n\n## T\nnte"}
+{"args":["basebase",[]],"ret":"basebase"}
+{"args":["é",[{"title":"T","text":"note"}]],"ret":"é\n\n## T\nnote"}
+{"args":["ke/pt",[]],"ret":"ke/pt"}
+{"args":["kep",[]],"ret":"kep"}
+{"args":["kept",[]],"ret":"kept"}
+{"args":["plan\n",[{"title":"","text":"x"},{"title":"two","text":"  "},{"title":"three","text":"y\n"}]],"ret":"plan\n\n## \nx\n\n## three\ny"}
+{"args":["plan\n",[{"title":"one","text":"x"},{"title":"two","text":"  "},{"title":"three","text":"y\n"}]],"ret":"plan\n\n## one\nx\n\n## three\ny"}
+{"args":["plan\n",[{"title":"one","text":"x"},{"title":"two","text":" "},{"title":"three","text":"y\n"}]],"ret":"plan\n\n## one\nx\n\n## three\ny"}
+{"args":["w",[{"title":"","text":"  "},{"title":"B","text":"b\n"}]],"ret":"w\n\n## B\nb"}
+{"args":["w",[{"title":"A","text":"  "},{"title":"B","text":"b\n"}]],"ret":"w\n\n## B\nb"}
+{"args":["x",[{"title":"A","text":""}]],"ret":"x"}
+{"args":["x",[{"title":"A","text":"0"}]],"ret":"x\n\n## A\n0"}
+{"args":["x",[{"title":"AA","text":""}]],"ret":"x"}
+{"args":["😀",[{"title":"A","text":"  lead"}]],"ret":"😀\n\n## A\n  lead"}

@@ -10,12 +10,44 @@ ts_tests = ["tests/sidebarModel.test.ts", "tests/sessionFeatures.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = [
+	"sidebarModel/attentionReasonLines",
+	"sidebarModel/filterMenuLines",
+	"sidebarModel/formatAge",
+	"sidebarModel/locationText",
+	"sidebarModel/msUntilAgeChanges",
+	"sidebarModel/rowDimmed",
+	"sidebarModel/sessionDetails",
+	"sidebarModel/sidebarHeader",
+	"sidebarModel/sidebarRows",
+	"sidebarModel/statusSince",
+	"sidebarModel/statusWords",
+	"sessionFeatures-P8/filterForKey",
+	"sessionFeatures-P8/filterSessionList",
+	"sessionFeatures-P8/handoffGitLines",
+	"sessionFeatures-P8/handoffMarkdown",
+	"sessionFeatures-P8/sessionBlocked",
+	"sessionFeatures-P8/sessionFilterCounts",
+	"sessionFeatures-P8/sessionHasUnreadReply",
+	"sessionFeatures-P8/sessionNeedsAttention",
+	"sessionFeatures-P8/withReplyRead",
+]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+	{ title = "Sidebar renders the cursor in the padding column and pins the details to the bottom", to = "U2", reason = "renders the Sidebar pane (sidebar.tsx)" },
+	{ title = "Sidebar with more sessions than fit keeps rows for the details and scrolls the list around the selection", to = "U2", reason = "renders the Sidebar pane (sidebar.tsx) and its moreText" },
+	{ title = "a scrolling list keeps the same rows whichever session is selected: the details get the largest block any listed session needs", to = "U2", reason = "renders the Sidebar pane (sidebar.tsx)" },
+	{ title = "Sidebar with the filter menu open lists every filter with its key and count above the sessions", to = "U2", reason = "renders the Sidebar pane's filter menu (sidebar.tsx); filterMenuLines itself is replayed from fixtures here" },
+	{ title = "lifecycle evidence is advisory, version tolerant, and excludes native subagents", to = "P1", reason = "agentSignals normalizeHook/needsAttention" },
+	{ title = "signals say why a session waits: the question and its options, the plan, the permission asked for, the last line of a reply, a failure", to = "P1", reason = "agentSignals normalizeHook/answersPrompt/attentionMessage" },
+	{ title = "the hook bridge forwards only what a reason is made from, bounded", to = "P1", reason = "agentSignals hookPayloadFields" },
+	{ title = "agent signals default on for Claude only, as async hooks; Codex's hooks.json entries stay plain", to = "P1", reason = "agentSignals hooksEnabled/hookSettings" },
+	{ title = "dev Codex requires native-daemon isolation even when lifecycle hooks are off", to = "I7", reason = "agentSignals integrationArgs (runs a binary)" },
+	{ title = "Codex exit hints preserve exact identities without last-session guesses", to = "P1", reason = "agentSignals codexResumeFromOutput" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 

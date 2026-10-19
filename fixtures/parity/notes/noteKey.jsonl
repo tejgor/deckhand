@@ -1,0 +1,5 @@
+{"args":[{"id":"s1","sharedNotes":{"kind":"repo","id":"abc","text":""}},"shared"],"ret":"repo:abc"}
+{"args":[{"id":"s1","sharedNotes":{"kind":"worktree","id":"w"}},"shared"],"ret":"worktree:w"}
+{"args":[{"id":"s1"},"session"],"ret":"session:s1"}
+{"args":[{"id":"s1"},"shared"],"ret":{"$u":1}}
+{"args":[{"id":"😀","sharedNotes":{"kind":"repo","id":"q"}},"session"],"ret":"session:😀"}

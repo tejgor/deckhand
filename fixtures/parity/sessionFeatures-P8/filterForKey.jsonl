@@ -1,0 +1,18 @@
+{"args":[" "],"ret":{"$u":1}}
+{"args":["!!"],"ret":{"$u":1}}
+{"args":["!"],"ret":"attention"}
+{"args":[""],"ret":{"$u":1}}
+{"args":["*"],"ret":"all"}
+{"args":["1"],"ret":{"$u":1}}
+{"args":["A"],"ret":"archived"}
+{"args":["E"],"ret":{"$u":1}}
+{"args":["R"],"ret":{"$u":1}}
+{"args":["a"],"ret":"active"}
+{"args":["active"],"ret":{"$u":1}}
+{"args":["all"],"ret":{"$u":1}}
+{"args":["e"],"ret":"exited"}
+{"args":["f"],"ret":{"$u":1}}
+{"args":["r"],"ret":"running"}
+{"args":["x"],"ret":{"$u":1}}
+{"args":["中"],"ret":{"$u":1}}
+{"args":["😀"],"ret":{"$u":1}}
