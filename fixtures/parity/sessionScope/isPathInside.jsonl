@@ -1,0 +1,400 @@
+{"args":["/ //","/ab"],"ret":false}
+{"args":["/","/-/é/中文/"],"ret":true}
+{"args":["/","/.../sp ace/é/x.."],"ret":true}
+{"args":["/","/../repo/"],"ret":true}
+{"args":["/","/..x中/é/"],"ret":true}
+{"args":["/","//"],"ret":true}
+{"args":["/","//éa"],"ret":true}
+{"args":["/","/a./b.."],"ret":true}
+{"args":["/","/a//b"],"ret":true}
+{"args":["/","/a/b/"],"ret":true}
+{"args":["/","/a/b/../c"],"ret":true}
+{"args":["/","/a/😀/../sp ace"],"ret":true}
+{"args":["/","/é/"],"ret":true}
+{"args":["/","/sp ace/repo/😀//"],"ret":true}
+{"args":["/","/é/"],"ret":true}
+{"args":["/","/😀/./.../é/"],"ret":true}
+{"args":["/","/😀/😀/b/-/"],"ret":true}
+{"args":["/-","/😀/"],"ret":false}
+{"args":["/-/-/./repo/...//-/-/./repo/.../","/sp ace/"],"ret":false}
+{"args":["/-/..//x../","/-"],"ret":false}
+{"args":["/-/\trepo/-/😀/","/"],"ret":false}
+{"args":["/-/repo/b/x../é/","/sp ace/../../-/é"],"ret":false}
+{"args":["/-/x../","/😀/./"],"ret":false}
+{"args":["/-/中文/-_","/a/./sp ace/a/."],"ret":false}
+{"args":["/.","/"],"ret":true}
+{"args":["/.","////"],"ret":true}
+{"args":["/..","/../a"],"ret":true}
+{"args":["/..","//a"],"ret":true}
+{"args":["/..","/a/"],"ret":true}
+{"args":["/..","/a/./b/a/./b"],"ret":true}
+{"args":["/..","/a/b/"],"ret":true}
+{"args":["/..","/a/b/../../../a/b/../../.."],"ret":true}
+{"args":["/..","/ab"],"ret":true}
+{"args":["/..","/x../b/..."],"ret":true}
+{"args":["/...","/-/repo/"],"ret":false}
+{"args":["/.../","/-/b/-/b"],"ret":false}
+{"args":["/.../-/.../x../x..","/x.././"],"ret":false}
+{"args":["/.../.../-/repo/","/-/repo/é"],"ret":false}
+{"args":["/.../.../repo","//"],"ret":false}
+{"args":["/..././.","/é/é/é/é"],"ret":false}
+{"args":["/.../a//","/é/repo/a/"],"ret":false}
+{"args":["/.../sp ace/.../é/😀","/..x/..x/.../..x/é/"],"ret":false}
+{"args":["/.../中文/é/é","/😀/./sp ace/.."],"ret":false}
+{"args":["/...中","/-/repo/"],"ret":false}
+{"args":["/../..","/a/b.."],"ret":true}
+{"args":["/../../..x/.../","//"],"ret":false}
+{"args":["/..//./sp ace/..x","/"],"ret":false}
+{"args":["/../a","/.."],"ret":false}
+{"args":["/../a","//a"],"ret":true}
+{"args":["/../a","/a/.."],"ret":false}
+{"args":["/../a","/a//./b"],"ret":true}
+{"args":["/../a","/a/b.."],"ret":true}
+{"args":["/../a","/a/b/../c"],"ret":true}
+{"args":["/../a","/a/b😀/.."],"ret":true}
+{"args":["/../a","/é"],"ret":false}
+{"args":["/../a/../a","/a/b/c/d"],"ret":true}
+{"args":["/../a/repo/","/"],"ret":false}
+{"args":["/../b/é/x../😀","//中文/"],"ret":false}
+{"args":["/../é//../é/","/...//"],"ret":false}
+{"args":["/../é/","/a/😀/"],"ret":false}
+{"args":["/../中文/","/x../.../.../é/"],"ret":false}
+{"args":["/../中文/repo/..././","/"],"ret":false}
+{"args":["/..x/","/-/"],"ret":false}
+{"args":["/..x/..//é/.../","/sp ace/a/b/sp ace/a/b"],"ret":false}
+{"args":["/..x/_a/.../","/b/repo/"],"ret":false}
+{"args":["/..x/b/./","/./中文/"],"ret":false}
+{"args":["/..x/x../","/"],"ret":false}
+{"args":["/..x/é/.../..x","/😀/x../b/-"],"ret":false}
+{"args":["/./","/.../"],"ret":true}
+{"args":["/./...//./.../","/sp ace/.../x../é/sp ace"],"ret":false}
+{"args":["/./..x/b","/é/😀"],"ret":false}
+{"args":["/./a","/中文/😀"],"ret":false}
+{"args":["/./é/","/b/"],"ret":false}
+{"args":["/./sp ace/中文/-/./","/repo/repo"],"ret":false}
+{"args":["/./x../中文/é","/./../中文/../"],"ret":false}
+{"args":["/./中文/","/\tb/"],"ret":false}
+{"args":["/.\t./b/x..","/é/é/"],"ret":false}
+{"args":["//","/ repo/-/"],"ret":true}
+{"args":["//","/-/b//-"],"ret":true}
+{"args":["//","/../.../"],"ret":true}
+{"args":["//","/./-"],"ret":true}
+{"args":["//","/./sp ace//./sp ace/"],"ret":true}
+{"args":["//","////"],"ret":true}
+{"args":["//","/a/b/../.."],"ret":true}
+{"args":["//","/é/./"],"ret":true}
+{"args":["//","/sp ace/"],"ret":true}
+{"args":["//","/x../"],"ret":true}
+{"args":["//","/é/.../a/b/.../"],"ret":true}
+{"args":["//-/..x/./repo","/"],"ret":false}
+{"args":["//.../b/.","/b//中文/é/é/"],"ret":false}
+{"args":["//../b","/a/b/"],"ret":false}
+{"args":["//./b","/é"],"ret":false}
+{"args":["///","///"],"ret":true}
+{"args":["///","/a/"],"ret":true}
+{"args":["///","/a/./b"],"ret":true}
+{"args":["///","/a/b"],"ret":true}
+{"args":["///","/a/b/../.."],"ret":true}
+{"args":["///","/a/b/c/d"],"ret":true}
+{"args":["///","/b/repo/./b/"],"ret":true}
+{"args":["///","/中文/😀"],"ret":true}
+{"args":["//////","/a b"],"ret":true}
+{"args":["//0","/😀/..x/é/.../x.."],"ret":false}
+{"args":["//a","/.."],"ret":false}
+{"args":["//a","///"],"ret":false}
+{"args":["//a","/a b"],"ret":false}
+{"args":["//a","/a/../b"],"ret":false}
+{"args":["//a","/a//b"],"ret":true}
+{"args":["//a","/a/b/"],"ret":true}
+{"args":["//a","/a/b/../c"],"ret":true}
+{"args":["//a","/e"],"ret":false}
+{"args":["//a","/中文/😀"],"ret":false}
+{"args":["//a//a","/é"],"ret":false}
+{"args":["//b/c/d","/中文"],"ret":false}
+{"args":["//é/..x/😀/","/x../..././repo/"],"ret":false}
+{"args":["//sp ace/é/x../..x","/./b"],"ret":false}
+{"args":["//sp ace/文","/..x/./"],"ret":false}
+{"args":["//é/","/sp ace/..x"],"ret":false}
+{"args":["//😀/..x","/😀/b/..x/"],"ret":false}
+{"args":["/\ta//b","/a/b.."],"ret":false}
+{"args":["/a b","/"],"ret":false}
+{"args":["/a b","//////"],"ret":false}
+{"args":["/a b","/a b"],"ret":true}
+{"args":["/a b","/a/..b"],"ret":false}
+{"args":["/a b","/a/b"],"ret":false}
+{"args":["/a b","/a/b/.."],"ret":false}
+{"args":["/a b","/a/b/c/d"],"ret":false}
+{"args":["/a b","/aé//b"],"ret":false}
+{"args":["/a b","/中文/😀"],"ret":false}
+{"args":["/a b/a b","/a/b/c/d"],"ret":false}
+{"args":["/a","/../a"],"ret":true}
+{"args":["/a","//a"],"ret":true}
+{"args":["/a","/a/"],"ret":true}
+{"args":["/a","/a/./b"],"ret":true}
+{"args":["/a","/a/b."],"ret":true}
+{"args":["/a","/a/b/../.."],"ret":false}
+{"args":["/a","/a/b//a/b/"],"ret":true}
+{"args":["/a","/é"],"ret":false}
+{"args":["/a../b","///"],"ret":false}
+{"args":["/a/","/.."],"ret":false}
+{"args":["/a/","///"],"ret":false}
+{"args":["/a/","/a"],"ret":true}
+{"args":["/a/","/a/./b"],"ret":true}
+{"args":["/a/","/a/b.."],"ret":true}
+{"args":["/a/","/a/b/../.."],"ret":false}
+{"args":["/a/","/a/bc"],"ret":true}
+{"args":["/a/","/b/x../x../"],"ret":false}
+{"args":["/a/","/x.."],"ret":false}
+{"args":["/a/-..b","/a b"],"ret":false}
+{"args":["/a/.","/.../x../x.."],"ret":false}
+{"args":["/a/..","/a/b/"],"ret":true}
+{"args":["/a/.../","/-//😀/-/"],"ret":false}
+{"args":["/a/../b","/../a"],"ret":false}
+{"args":["/a/../b","/a b"],"ret":false}
+{"args":["/a/../b","/a/..b"],"ret":false}
+{"args":["/a/../b","/a/b"],"ret":false}
+{"args":["/a/../b","/a/b/../.."],"ret":false}
+{"args":["/a/../b","/a/b/c/d/a/b/c/d"],"ret":false}
+{"args":["/a/../b","/é/é"],"ret":false}
+{"args":["/a/..b","/"],"ret":false}
+{"args":["/a/..b","///"],"ret":false}
+{"args":["/a/..b","/a b"],"ret":false}
+{"args":["/a/..b","/a/..b"],"ret":true}
+{"args":["/a/..b","/a/b.."],"ret":false}
+{"args":["/a/..b","/a/b/../.."],"ret":false}
+{"args":["/a/..b","/a/b/c/d"],"ret":false}
+{"args":["/a/..b","/é"],"ret":false}
+{"args":["/a/..b/a/..b","/é"],"ret":false}
+{"args":["/a/..x/../.../","//"],"ret":false}
+{"args":["/a/..x/a/repo/","/sp ace/😀/é/é"],"ret":false}
+{"args":["/a/./b","///"],"ret":false}
+{"args":["/a/./b","/a/"],"ret":false}
+{"args":["/a/./b","/a/._.b"],"ret":false}
+{"args":["/a/./b","/a/b"],"ret":true}
+{"args":["/a/./b","/a/b/../../.."],"ret":false}
+{"args":["/a/./b","/a/b\tc"],"ret":false}
+{"args":["/a/./b","/ab.."],"ret":false}
+{"args":["/a/./b","/中文/😀"],"ret":false}
+{"args":["/a/.b","/a/b/../c"],"ret":false}
+{"args":["/a//..","/a/b"],"ret":true}
+{"args":["/a//..x/-/sp ace","/é/./..//é/./../"],"ret":false}
+{"args":["/a//a/","/a//b"],"ret":false}
+{"args":["/a//b","/../a"],"ret":false}
+{"args":["/a//b","//a"],"ret":false}
+{"args":["/a//b","/a/../b"],"ret":false}
+{"args":["/a//b","/a/b"],"ret":true}
+{"args":["/a//b","/a/b/.../c"],"ret":true}
+{"args":["/a//b","/a/b/../c"],"ret":false}
+{"args":["/a//b","/é"],"ret":false}
+{"args":["/a//b/a//b","/a/b/c/d"],"ret":false}
+{"args":["/a//c/d","/a b"],"ret":false}
+{"args":["/a/a","/.."],"ret":false}
+{"args":["/a/a","/é"],"ret":false}
+{"args":["/a/b /..","/a/./b"],"ret":true}
+{"args":["/a/b","///"],"ret":false}
+{"args":["/a/b","/a"],"ret":false}
+{"args":["/a/b","/a/./b/a/./b"],"ret":true}
+{"args":["/a/b","/a/b"],"ret":true}
+{"args":["/a/b","/a/b/../.."],"ret":false}
+{"args":["/a/b","/a/b/../c/a/b/../c"],"ret":false}
+{"args":["/a/b","/a/bc"],"ret":false}
+{"args":["/a/b","/éß"],"ret":false}
+{"args":["/a/b","/中文/😀"],"ret":false}
+{"args":["/a/b..","/.."],"ret":false}
+{"args":["/a/b..","//0a"],"ret":false}
+{"args":["/a/b..","/a/"],"ret":false}
+{"args":["/a/b..","/a/._./b"],"ret":false}
+{"args":["/a/b..","/a/b../a/b.."],"ret":true}
+{"args":["/a/b..","/a/b/../../.."],"ret":false}
+{"args":["/a/b..","/a/b/c/d"],"ret":false}
+{"args":["/a/b..","/ab"],"ret":false}
+{"args":["/a/b...","/é"],"ret":false}
+{"args":["/a/b../a/b..","/a b"],"ret":false}
+{"args":["/a/b/","/.."],"ret":false}
+{"args":["/a/b/","/a "],"ret":false}
+{"args":["/a/b/","/a/../"],"ret":false}
+{"args":["/a/b/","/a//b"],"ret":true}
+{"args":["/a/b/","/a/b/"],"ret":true}
+{"args":["/a/b/","/a/b/../c"],"ret":false}
+{"args":["/a/b/","/ab"],"ret":false}
+{"args":["/a/b/","/中文"],"ret":false}
+{"args":["/a/b/","/😀/sp ace/sp ace/😀/sp ace/sp ace"],"ret":false}
+{"args":["/a/b/..","/../a_"],"ret":false}
+{"args":["/a/b/..","/a b"],"ret":false}
+{"args":["/a/b/..","/a/../b/a/../b"],"ret":false}
+{"args":["/a/b/..","/a/b"],"ret":true}
+{"args":["/a/b/..","/a/b/../.."],"ret":false}
+{"args":["/a/b/..","/a/b/c/d"],"ret":true}
+{"args":["/a/b/..","/é"],"ret":false}
+{"args":["/a/b/..../..","/a/b/../../.."],"ret":false}
+{"args":["/a/b/../..","/.."],"ret":true}
+{"args":["/a/b/../..","//a"],"ret":true}
+{"args":["/a/b/../..","/a"],"ret":true}
+{"args":["/a/b/../..","/a//b"],"ret":true}
+{"args":["/a/b/../..","/a/b/.."],"ret":true}
+{"args":["/a/b/../..","/a/b/../c"],"ret":true}
+{"args":["/a/b/../..","/a/bc"],"ret":true}
+{"args":["/a/b/../..","/中文"],"ret":true}
+{"args":["/a/b/../../.","/a b"],"ret":true}
+{"args":["/a/b/../../..","/../a"],"ret":true}
+{"args":["/a/b/../../..","//a//a"],"ret":true}
+{"args":["/a/b/../../..","/a/"],"ret":true}
+{"args":["/a/b/../../..","/a//b"],"ret":true}
+{"args":["/a/b/../../..","/a/b/.."],"ret":true}
+{"args":["/a/b/../../..","/a/bc"],"ret":true}
+{"args":["/a/b/../../..","/中文"],"ret":true}
+{"args":["/a/b/../../../a/b/../../..","/a//b"],"ret":true}
+{"args":["/a/b/../../a/b/../..","/"],"ret":true}
+{"args":["/a/b/../../a/b/../..","/中文/😀"],"ret":true}
+{"args":["/a/b/../Zc","/a/b/c/d"],"ret":false}
+{"args":["/a/b/../c","/"],"ret":false}
+{"args":["/a/b/../c","//b/.."],"ret":false}
+{"args":["/a/b/../c","/a/../b"],"ret":false}
+{"args":["/a/b/../c","/a//b/a//b"],"ret":false}
+{"args":["/a/b/../c","/a/b/"],"ret":false}
+{"args":["/a/b/../c","/a/b/../.é./.."],"ret":false}
+{"args":["/a/b/../c","/ab"],"ret":false}
+{"args":["/a/b/../c","/中文/😀"],"ret":false}
+{"args":["/a/b/../c/a/b/../c","/a/bc"],"ret":false}
+{"args":["/a/b/.😀./..","/.."],"ret":false}
+{"args":["/a/b//a/b/","/é/../sp ace/x../"],"ret":false}
+{"args":["/a/b/a/b","/a/..b"],"ret":false}
+{"args":["/a/b/c/d","//"],"ret":false}
+{"args":["/a/b/c/d","//a//a"],"ret":false}
+{"args":["/a/b/c/d","/a/../b"],"ret":false}
+{"args":["/a/b/c/d","/a/./bZ"],"ret":false}
+{"args":["/a/b/c/d","/a/b.0."],"ret":false}
+{"args":["/a/b/c/d","/a/b/../../.."],"ret":false}
+{"args":["/a/b/c/d","/a/b/c/d"],"ret":true}
+{"args":["/a/b/c/d","/éé"],"ret":false}
+{"args":["/a/b/c/d/a/b/c/d","/../a"],"ret":false}
+{"args":["/a/b/c/éd","/a/b/.."],"ret":false}
+{"args":["/a/b0/..","/a/b/.."],"ret":true}
+{"args":["/a/bc","/-é"],"ret":false}
+{"args":["/a/bc","///"],"ret":false}
+{"args":["/a/bc","/a b/a b"],"ret":false}
+{"args":["/a/bc","/a/..b"],"ret":false}
+{"args":["/a/bc","/a/b"],"ret":false}
+{"args":["/a/bc","/a/b/../.."],"ret":false}
+{"args":["/a/bc","/a/bb/../c"],"ret":false}
+{"args":["/a/bc","/中文"],"ret":false}
+{"args":["/a/bc/a/bc","/a/./b"],"ret":false}
+{"args":["/a/é/","/..."],"ret":false}
+{"args":["/a/😀/b","//a"],"ret":false}
+{"args":["/aa/..b","/é"],"ret":false}
+{"args":["/ab","///"],"ret":false}
+{"args":["/ab","/a /"],"ret":false}
+{"args":["/ab","/a/"],"ret":false}
+{"args":["/ab","/a//b"],"ret":false}
+{"args":["/ab","/a/b/.."],"ret":false}
+{"args":["/ab","/a/b/../c"],"ret":false}
+{"args":["/ab","/é"],"ret":false}
+{"args":["/ab","/中文"],"ret":false}
+{"args":["/ab/ab","//a"],"ret":false}
+{"args":["/ab/ab","/a/bc"],"ret":false}
+{"args":["/a‍/b/","/"],"ret":false}
+{"args":["/b","/a//b"],"ret":false}
+{"args":["/b/","/中文/a/sp ace/b/./"],"ret":false}
+{"args":["/b/.../...","/.../"],"ret":false}
+{"args":["/b/./../sp ace/../","////"],"ret":true}
+{"args":["/b/b/-/sp ace/","/a//😀//..."],"ret":false}
+{"args":["/b/sp ace","/"],"ret":false}
+{"args":["/b/é/-/","/a/a/a/😀/a/a/a/😀"],"ret":false}
+{"args":["/e","/a//b"],"ret":false}
+{"args":["/é","/../a"],"ret":false}
+{"args":["/é","///"],"ret":false}
+{"args":["/é","/a"],"ret":false}
+{"args":["/é","/a/./b"],"ret":false}
+{"args":["/é","/a/b"],"ret":false}
+{"args":["/é","/a/b/../.."],"ret":false}
+{"args":["/é","/a/b/c/d"],"ret":false}
+{"args":["/é","/é"],"ret":false}
+{"args":["/é-","/a b"],"ret":false}
+{"args":["/é/.../.","/é/-/..x/..x"],"ret":false}
+{"args":["/é/..x","/b/b/.../.."],"ret":false}
+{"args":["/é/./","//"],"ret":false}
+{"args":["/é/a/-","/../..x/.../x../-/"],"ret":false}
+{"args":["/é/é","/a/b/c/d"],"ret":false}
+{"args":["/é/x../repo/..x/","/..x/-/é/é/..x/"],"ret":false}
+{"args":["/é/😀/","/../repo/sp ace/.."],"ret":false}
+{"args":["/p ace/b","/sp ace/./.../é/a"],"ret":false}
+{"args":["/repo-","/a/../-/"],"ret":false}
+{"args":["/repo/-/b/","//中文/repo/é/"],"ret":false}
+{"args":["/repo/../a/sp ace/b/","/中中文/repo/"],"ret":false}
+{"args":["/repo//sp ace/","/é/../sp ace//"],"ret":false}
+{"args":["/repo/sp ace/","/é/../sp ace//"],"ret":false}
+{"args":["/repo/x../","/repo/"],"ret":false}
+{"args":["/repo/é/-/中文/","/é/😀/..x/é//é/😀/..x/é/"],"ret":false}
+{"args":["/sp \nace/中文/é","/中文"],"ret":false}
+{"args":["/sp ace/","//"],"ret":false}
+{"args":["/sp ace/-/../-/","//a/"],"ret":false}
+{"args":["/sp ace/..x/sp ace/é","/-/b"],"ret":false}
+{"args":["/sp ace/a/./../","/-/../é/b"],"ret":false}
+{"args":["/sp ace/b/","/sp ac"],"ret":false}
+{"args":["/sp ace/é/-/中文/","/x../repo/é/-/-"],"ret":false}
+{"args":["/sp ace/sp ace/x../","/é/x../"],"ret":false}
+{"args":["/sp ace/中文/é","/中文"],"ret":false}
+{"args":["/sp ace/😀/./x../","/😀/a/é/é/"],"ret":false}
+{"args":["/sp ace/😀/é","/"],"ret":false}
+{"args":["/sp ace0//😀/repo/","/-/中文/sp ace/."],"ret":false}
+{"args":["/x../","/sp ace/..x/"],"ret":false}
+{"args":["/x../../é","/repo/é/中文"],"ret":false}
+{"args":["/x..///x..//","/é/..x/./repo/.../"],"ret":false}
+{"args":["/x../é/😀/.../x../","/repo/b//é/"],"ret":false}
+{"args":["/x../repo","/é/..x/é/..x"],"ret":false}
+{"args":["/x../中文","//"],"ret":false}
+{"args":["/x../😀/../../..","/repo/"],"ret":true}
+{"args":["/é","/.../é"],"ret":false}
+{"args":["/é","/a //b"],"ret":false}
+{"args":["/é","/a/../b"],"ret":false}
+{"args":["/é","/a//b"],"ret":false}
+{"args":["/é","/a/b/"],"ret":false}
+{"args":["/é","/a/b/../c"],"ret":false}
+{"args":["/é","/ab"],"ret":false}
+{"args":["/é","/中文/😀"],"ret":false}
+{"args":["/é/","//"],"ret":false}
+{"args":["/é/..","/😀/😀/b/../"],"ret":true}
+{"args":["/é/a/é/é/","/repo/é/é/中文/😀/"],"ret":false}
+{"args":["/é/é/..x/../-/","/é/-/é/"],"ret":false}
+{"args":["/é/repo/中文/a/中文/","/repo/é/😀/-/-/"],"ret":false}
+{"args":["/é/sp ace/中文/x../repo/","/..x"],"ret":false}
+{"args":["/é/é","/a/bc"],"ret":false}
+{"args":["/é/é/","/sp ace/"],"ret":false}
+{"args":["/‍a/b/..","/a/b.."],"ret":false}
+{"args":["/中文","/"],"ret":false}
+{"args":["/中文","//////"],"ret":false}
+{"args":["/中文","/a b"],"ret":false}
+{"args":["/中文","/a/-/x../../repo/a/-/x../../repo"],"ret":false}
+{"args":["/中文","/a/b"],"ret":false}
+{"args":["/中文","/a/b/../.."],"ret":false}
+{"args":["/中文","/a/b/c/d"],"ret":false}
+{"args":["/中文","/ab"],"ret":false}
+{"args":["/中文","/é"],"ret":false}
+{"args":["/中文","/文/😀"],"ret":false}
+{"args":["/中文/","/é/a/../中文/-/"],"ret":false}
+{"args":["/中文/.../é//repo/","/aa/b/"],"ret":false}
+{"args":["/中文/a","/."],"ret":false}
+{"args":["/中文/repo","/a/../😀/.../..x/"],"ret":false}
+{"args":["/中文/sp ace/..x/.../","/a/x.././"],"ret":false}
+{"args":["/中文/中文","/.../b/"],"ret":false}
+{"args":["/中文/中文","/é"],"ret":false}
+{"args":["/中文/中文//é/","/😀"],"ret":false}
+{"args":["/中文/😀","/../"],"ret":false}
+{"args":["/中文/😀","//a"],"ret":false}
+{"args":["/中文/😀","/a/../b"],"ret":false}
+{"args":["/中文/😀","/a//b"],"ret":false}
+{"args":["/中文/😀","/a/b/.."],"ret":false}
+{"args":["/中文/😀","/a/b/..‍/c"],"ret":false}
+{"args":["/中文/😀","/a/é..b"],"ret":false}
+{"args":["/中文/😀","/é"],"ret":false}
+{"args":["/中文/😀//中文/😀/","/sp ace"],"ret":false}
+{"args":["/中文/😀/中文/😀","/a/b.."],"ret":false}
+{"args":["/文","/a/b/../../.."],"ret":false}
+{"args":["/😀/","/..x/"],"ret":false}
+{"args":["/😀/","/é/a"],"ret":false}
+{"args":["/😀/../中文/中文/.../","//"],"ret":false}
+{"args":["/😀//😀/","/"],"ret":false}
+{"args":["/😀/é/./","//"],"ret":false}
+{"args":["/😀/repo/-/repo/..//😀/repo/-/repo/../","/repo/😀"],"ret":false}
+{"args":["/😀/é//","/./a/sp ace//"],"ret":false}
+{"args":["/😀/中文/😀/中文","/"],"ret":false}
