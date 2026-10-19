@@ -10,7 +10,7 @@ ts_tests = []
 ts_suites = ["tests/settingsUi.test.ts", "tests/configUi.test.ts"]
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["settingsFlow/isSettingsFlowMode"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
