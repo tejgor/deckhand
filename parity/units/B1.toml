@@ -22,3 +22,6 @@ allowlist = []
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]
 
+# cli.ts has no exports (it is the entry script). Its main dispatch maps to deckhand::cli::{parse_args, run}, the hook
+# branch to deckhand::hook::run_hook, the hooks branch to deckhand::hooks::run_hooks; runUi and the attach/editor loop
+# are unit A1 (deckhand::ui_loop).
