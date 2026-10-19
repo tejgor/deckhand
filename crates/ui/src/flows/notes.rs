@@ -27,6 +27,7 @@ use deckhand_protocol::data::{NoteSaveResult, NoteSection, PromoteNoteItemResult
 use deckhand_sys::async_util::Timer;
 use deckhand_sys::desktop::open_in_editor;
 
+use crate::app::event_loop::Dispatch;
 use crate::app::state::App;
 use crate::flow::{Flow, FlowCx, FlowEffect, FlowHost, FlowThen};
 use crate::keymap::Keymap;
@@ -126,11 +127,14 @@ pub struct NotesFlow {
     pub pasting: bool,
     /// Focus at the last call (TS: the `[focused]` effect saves everything when focus ends).
     pub was_focused: bool,
-    /// An error found while rendering (a reload discarded an unsaved edit), reported at the next call (TS
-    /// `queueMicrotask(() => setError(...))`).
+    /// An error a call found (a reload discarded an unsaved edit), reported when the call ends (TS
+    /// `queueMicrotask(() => setError(...))`); a render with no dispatcher yet keeps it for the next call.
     pub deferred_error: Option<String>,
     /// The client as of the last call (TS `latest.current.client`), for work that outlives it.
     latest_client: Option<Rc<LiveClient>>,
+    /// The host's dispatcher as of the last call (TS `latest.current.setError`): a render has no cx, so the error it
+    /// finds is sent through it, to show right after the frame whatever the mode (TS `queueMicrotask`).
+    latest_dispatch: Option<Dispatch<App>>,
     /// What waits for each draft's save in flight (TS: the `pending` promise's `.then`s).
     waiters: HashMap<String, Vec<FlowThen<App, NotesFlow>>>,
 }
@@ -162,6 +166,7 @@ impl Default for NotesFlow {
             was_focused: false,
             deferred_error: None,
             latest_client: None,
+            latest_dispatch: None,
             waiters: HashMap::new(),
         }
     }
@@ -230,6 +235,7 @@ impl NotesFlow {
     /// TS: the `[focused]` effect: leaving notes focus saves every draft at once.
     pub fn sync(&mut self, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
         self.latest_client = props.client.cloned();
+        self.remember(cx);
         let changed = self.was_focused != props.focused;
         self.was_focused = props.focused;
         if changed && !props.focused {
@@ -242,7 +248,12 @@ impl NotesFlow {
         self.report_deferred(cx);
     }
 
-    /// Reports the error a render found (TS: the microtask `queueMicrotask` queued).
+    /// Keeps the host's dispatcher for a later render (TS `latest.current = {client, setError}`).
+    fn remember(&mut self, cx: &FlowCx<App, Self>) {
+        self.latest_dispatch = Some(cx.dispatch().clone());
+    }
+
+    /// Reports the error a call found (TS: the microtask `queueMicrotask` queued).
     fn report_deferred(&mut self, cx: &mut FlowCx<App, Self>) {
         if let Some(message) = self.deferred_error.take() {
             cx.set_error(message);
@@ -319,6 +330,7 @@ impl NotesFlow {
         then: Option<FlowThen<App, NotesFlow>>,
     ) {
         self.latest_client = client.cloned();
+        self.remember(cx);
         self.timers.remove(key);
         let run_now = |flow: &mut Self, cx: &mut FlowCx<App, Self>, then: Option<FlowThen<App, NotesFlow>>| {
             if let Some(then) = then {
@@ -463,6 +475,7 @@ impl NotesFlow {
     /// TS: NotesFlow.openActiveInEditor (E / Ctrl+O): the active section's file in Cursor / VS Code.
     pub fn open_active_in_editor(&mut self, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
         self.latest_client = props.client.cloned();
+        self.remember(cx);
         let which = self.active_section(props);
         self.open_section(props, which, cx);
     }
@@ -470,6 +483,7 @@ impl NotesFlow {
     /// TS: NotesFlow.activeFile (o): saves the active section, then `then` gets its file (none if unavailable).
     pub fn active_file(&mut self, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>, then: FileThen) {
         self.latest_client = props.client.cloned();
+        self.remember(cx);
         let active = self.active_section(props);
         // A deleted worktree's note is read-only: edit the session's instead.
         let which = if active == NoteSection::Shared && !shared_editable(props.session) && own_note(props.session) {
@@ -756,6 +770,7 @@ impl Flow<App> for NotesFlow {
 
     fn handle_input(&mut self, props: &NotesFlowProps<'_>, input: &Input, cx: &mut FlowCx<App, Self>) {
         self.latest_client = props.client.cloned();
+        self.remember(cx);
         self.handle_key(props, input, cx);
         self.report_deferred(cx);
     }
@@ -771,10 +786,17 @@ impl Flow<App> for NotesFlow {
         let own_note = own_note(Some(session));
         let has_shared = session.shared_notes.is_some();
         let editing_section = focused.then_some(active);
+        // Reconciling may happen while rendering: report it after (TS `queueMicrotask`), as an update the loop runs
+        // right after this frame in any mode (then draws again).
         let reload = |flow: &mut Self, which| {
             let (key, discarded) = flow.draft_core(session, which)?;
             if discarded {
-                flow.deferred_error = Some(RELOADED_MESSAGE.to_owned());
+                match &flow.latest_dispatch {
+                    Some(dispatch) => dispatch.update(|app: &mut App| {
+                        app.apply_flow_effects(vec![FlowEffect::SetError(Some(RELOADED_MESSAGE.to_owned()))]);
+                    }),
+                    None => flow.deferred_error = Some(RELOADED_MESSAGE.to_owned()),
+                }
             }
             Some(key)
         };
@@ -1629,13 +1651,38 @@ mod tests {
             h.render(40, 5);
             assert_eq!(h.draft(KEY).text, "new from the editor");
             assert_eq!(h.error(), None);
-            // An unsaved edit is dropped with a message, reported at the next call.
+            // An unsaved edit is dropped with a message, reported right after the render (TS queueMicrotask), with no
+            // further key.
             h.type_text("!");
             h.replace_session(noted("s1", "again", "r3"));
             h.render(40, 5);
             assert_eq!(h.draft(KEY).text, "again");
-            assert_eq!(h.error(), None);
-            h.type_text("?");
+            h.pump().await;
+            assert_eq!(h.error(), Some(RELOADED_MESSAGE));
+            assert_eq!(h.flow().deferred_error, None);
+        });
+    }
+
+    #[test]
+    fn a_reload_in_browse_mode_that_drops_a_save_in_flight_is_reported() {
+        run(async {
+            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
+            h.render(40, 5);
+            h.app.notes_flow_call(|flow, props, cx| flow.sync(props, cx));
+            h.type_text("x");
+            // Esc: leaving notes focus starts the save at once; the daemon has not answered it.
+            h.app.mode = Mode::Browse;
+            h.app.notes_flow_call(|flow, props, cx| flow.sync(props, cx));
+            let request = h.request().await;
+            assert_eq!(request["text"], "x");
+            assert_eq!(h.draft(KEY).in_flight.as_deref(), Some("x"));
+            // The file changed elsewhere meanwhile: the browse-mode render reloads it.
+            h.replace_session(noted("s1", "theirs", "r2"));
+            h.render(40, 5);
+            crate::app::effects::run_effects(&mut h.app);
+            h.pump().await;
+            crate::app::effects::run_effects(&mut h.app);
+            assert_eq!(h.draft(KEY).text, "theirs");
             assert_eq!(h.error(), Some(RELOADED_MESSAGE));
         });
     }
