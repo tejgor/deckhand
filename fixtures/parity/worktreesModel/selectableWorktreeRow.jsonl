@@ -1,0 +1,6 @@
+{"args":[{"kind":"empty","text":"No other worktrees"}],"ret":false}
+{"args":[{"kind":"heading","group":"idle","count":1}],"ret":false}
+{"args":[{"kind":"heading","group":"main","count":1}],"ret":false}
+{"args":[{"kind":"heading","group":"ready","count":2}],"ret":true}
+{"args":[{"kind":"worktree","group":"main","entry":{"path":"/r/中文","branch":"x","head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","isMain":false,"sessionIds":[],"runningIds":[],"lastCommitAt":"2026-10-08T12:00:00.000Z","inspection":{"safe":true,"reasons":[],"dirtyFiles":0,"untrackedFiles":0,"ignoredFiles":0},"aheadOfDefault":2}}],"ret":true}
+{"args":[{"kind":"worktree","group":"ready","entry":{"path":"/w/x","branch":"x","head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","isMain":false,"sessionIds":[],"runningIds":[],"lastCommitAt":"2026-10-08T12:00:00.000Z","inspection":{"safe":true,"reasons":[],"dirtyFiles":0,"untrackedFiles":0,"ignoredFiles":0},"aheadOfDefault":2}}],"ret":true}
