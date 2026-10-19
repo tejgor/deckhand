@@ -10,7 +10,11 @@ ts_tests = ["tests/agents.test.ts", "tests/agentVersions.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = [
+  "agents/agentSpec", "agents/newAgentRef", "agents/launchArgs", "agents/sameAgentSessionRef", "agents/forksParentAgain", "agents/relaunchPlan", "agents/exitRef", "agents/missingConversation", "agents/forkFailed",
+  "agentVersions/parseVersion", "agentVersions/compareVersions", "agentVersions/agentUpdateStatus", "agentVersions/sessionOutdated", "agentVersions/installedVersions", "agentVersions/updateHint",
+  "agentSignals-P1/normalizeHook", "agentSignals-P1/answersPrompt", "agentSignals-P1/hookPayloadFields", "agentSignals-P1/hooksEnabled", "agentSignals-P1/attentionMessage", "agentSignals-P1/shellQuote", "agentSignals-P1/codexResumeFromOutput", "agentSignals-P1/needsAttention",
+]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
