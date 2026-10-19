@@ -5,7 +5,7 @@ use deckhand_term::utf8::Utf8Decoder;
 use serde_json::Value;
 
 fn unhex(text: &str) -> Vec<u8> {
-    assert!(text.len() % 2 == 0, "odd hex length: {text}");
+    assert!(text.len().is_multiple_of(2), "odd hex length: {text}");
     (0..text.len())
         .step_by(2)
         .map(|index| u8::from_str_radix(&text[index..index + 2], 16).expect("hex byte"))
@@ -21,18 +21,34 @@ fn matches_node_string_decoder_vectors() {
     let mut failures = Vec::new();
     for case in cases {
         let name = case["name"].as_str().expect("name");
-        let chunks: Vec<Vec<u8>> =
-            case["chunks"].as_array().expect("chunks").iter().map(|chunk| unhex(chunk.as_str().expect("hex"))).collect();
-        let expected: Vec<&str> = case["writes"].as_array().expect("writes").iter().map(|w| w.as_str().expect("str")).collect();
+        let chunks: Vec<Vec<u8>> = case["chunks"]
+            .as_array()
+            .expect("chunks")
+            .iter()
+            .map(|chunk| unhex(chunk.as_str().expect("hex")))
+            .collect();
+        let expected: Vec<&str> = case["writes"]
+            .as_array()
+            .expect("writes")
+            .iter()
+            .map(|w| w.as_str().expect("str"))
+            .collect();
         let expected_end = case["end"].as_str().expect("end");
         let mut decoder = Utf8Decoder::new();
         let writes: Vec<String> = chunks.iter().map(|chunk| decoder.write(chunk)).collect();
         let end = decoder.end();
         if writes != expected || end != expected_end {
-            failures.push(format!("{name}: got {writes:?} end {end:?}, want {expected:?} end {expected_end:?}"));
+            failures.push(format!(
+                "{name}: got {writes:?} end {end:?}, want {expected:?} end {expected_end:?}"
+            ));
         }
     }
-    assert!(failures.is_empty(), "{} mismatches:\n{}", failures.len(), failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "{} mismatches:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
 }
 
 #[test]

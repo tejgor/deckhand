@@ -66,7 +66,11 @@ impl Utf8Decoder {
 
     /// TS: StringDecoder.end() — flushes a held incomplete sequence (as U+FFFD) and resets the decoder.
     pub fn end(&mut self) -> String {
-        let text = if self.buffered == 0 { String::new() } else { decode(&self.buffer[..self.buffered]) };
+        let text = if self.buffered == 0 {
+            String::new()
+        } else {
+            decode(&self.buffer[..self.buffered])
+        };
         self.buffered = 0;
         self.missing = 0;
         text
