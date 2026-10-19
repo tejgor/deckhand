@@ -1,0 +1,108 @@
+{"args":[{"state":"missing","file":"/home/me","fileExists":false,"command":""},"/home/me"],"ret":"Codex hooks not set up:  > ~, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":false,"command":""},"/x"],"ret":"Codex hooks not set up:  > /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":false,"command":""}],"ret":"Codex hooks not set up:  > /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":false,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks not set up: deckhand hooks codex > ~, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":false,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks not set up: deckhand hooks codex > /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":false,"command":"deckhand hooks codex"}],"ret":"Codex hooks not set up: deckhand hooks codex > /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":false,"command":"日本語"},"/home/me"],"ret":"Codex hooks not set up: 日本語 > ~, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":false,"command":"日本語"},"/x"],"ret":"Codex hooks not set up: 日本語 > /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":false,"command":"日本語"}],"ret":"Codex hooks not set up: 日本語 > /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":true,"command":""},"/home/me"],"ret":"Codex hooks not set up:  → merge into ~, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":true,"command":""},"/x"],"ret":"Codex hooks not set up:  → merge into /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":true,"command":""}],"ret":"Codex hooks not set up:  → merge into /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":true,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks not set up: deckhand hooks codex → merge into ~, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":true,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks not set up: deckhand hooks codex → merge into /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":true,"command":"deckhand hooks codex"}],"ret":"Codex hooks not set up: deckhand hooks codex → merge into /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":true,"command":"日本語"},"/home/me"],"ret":"Codex hooks not set up: 日本語 → merge into ~, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":true,"command":"日本語"},"/x"],"ret":"Codex hooks not set up: 日本語 → merge into /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me","fileExists":true,"command":"日本語"}],"ret":"Codex hooks not set up: 日本語 → merge into /home/me, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":false,"command":""},"/home/me"],"ret":"Codex hooks not set up:  > ~/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":false,"command":""},"/x"],"ret":"Codex hooks not set up:  > /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":false,"command":""}],"ret":"Codex hooks not set up:  > /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks not set up: deckhand hooks codex > ~/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks not set up: deckhand hooks codex > /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"deckhand hooks codex"}],"ret":"Codex hooks not set up: deckhand hooks codex > /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"日本語"},"/home/me"],"ret":"Codex hooks not set up: 日本語 > ~/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"日本語"},"/x"],"ret":"Codex hooks not set up: 日本語 > /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"日本語"}],"ret":"Codex hooks not set up: 日本語 > /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":true,"command":""},"/home/me"],"ret":"Codex hooks not set up:  → merge into ~/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":true,"command":""},"/x"],"ret":"Codex hooks not set up:  → merge into /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":true,"command":""}],"ret":"Codex hooks not set up:  → merge into /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks not set up: deckhand hooks codex → merge into ~/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks not set up: deckhand hooks codex → merge into /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"deckhand hooks codex"}],"ret":"Codex hooks not set up: deckhand hooks codex → merge into /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"日本語"},"/home/me"],"ret":"Codex hooks not set up: 日本語 → merge into ~/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"日本語"},"/x"],"ret":"Codex hooks not set up: 日本語 → merge into /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"日本語"}],"ret":"Codex hooks not set up: 日本語 → merge into /home/me/.codex/hooks.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":false,"command":""},"/home/me"],"ret":"Codex hooks not set up:  > /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":false,"command":""},"/x"],"ret":"Codex hooks not set up:  > /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":false,"command":""}],"ret":"Codex hooks not set up:  > /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":false,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks not set up: deckhand hooks codex > /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":false,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks not set up: deckhand hooks codex > /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":false,"command":"deckhand hooks codex"}],"ret":"Codex hooks not set up: deckhand hooks codex > /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":false,"command":"日本語"},"/home/me"],"ret":"Codex hooks not set up: 日本語 > /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":false,"command":"日本語"},"/x"],"ret":"Codex hooks not set up: 日本語 > /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":false,"command":"日本語"}],"ret":"Codex hooks not set up: 日本語 > /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":true,"command":""},"/home/me"],"ret":"Codex hooks not set up:  → merge into /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":true,"command":""},"/x"],"ret":"Codex hooks not set up:  → merge into /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":true,"command":""}],"ret":"Codex hooks not set up:  → merge into /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":true,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks not set up: deckhand hooks codex → merge into /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":true,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks not set up: deckhand hooks codex → merge into /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":true,"command":"deckhand hooks codex"}],"ret":"Codex hooks not set up: deckhand hooks codex → merge into /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":true,"command":"日本語"},"/home/me"],"ret":"Codex hooks not set up: 日本語 → merge into /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":true,"command":"日本語"},"/x"],"ret":"Codex hooks not set up: 日本語 → merge into /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"missing","file":"/other/h.json","fileExists":true,"command":"日本語"}],"ret":"Codex hooks not set up: 日本語 → merge into /other/h.json, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":false,"command":""},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":false,"command":""},"/x"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":false,"command":""}],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":false,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":false,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":false,"command":"deckhand hooks codex"}],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":false,"command":"日本語"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":false,"command":"日本語"},"/x"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":false,"command":"日本語"}],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":true,"command":""},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":true,"command":""},"/x"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":true,"command":""}],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":true,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":true,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":true,"command":"deckhand hooks codex"}],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":true,"command":"日本語"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":true,"command":"日本語"},"/x"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me","fileExists":true,"command":"日本語"}],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":false,"command":""},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":false,"command":""},"/x"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":false,"command":""}],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"deckhand hooks codex"}],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"日本語"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"日本語"},"/x"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":false,"command":"日本語"}],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":true,"command":""},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":true,"command":""},"/x"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":true,"command":""}],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"deckhand hooks codex"}],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"日本語"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"日本語"},"/x"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/home/me/.codex/hooks.json","fileExists":true,"command":"日本語"}],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":false,"command":""},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":false,"command":""},"/x"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":false,"command":""}],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":false,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":false,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":false,"command":"deckhand hooks codex"}],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":false,"command":"日本語"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":false,"command":"日本語"},"/x"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":false,"command":"日本語"}],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":true,"command":""},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":true,"command":""},"/x"],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":true,"command":""}],"ret":"Codex hooks call another Deckhand install: redo , then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":true,"command":"deckhand hooks codex"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":true,"command":"deckhand hooks codex"},"/x"],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":true,"command":"deckhand hooks codex"}],"ret":"Codex hooks call another Deckhand install: redo deckhand hooks codex, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":true,"command":"日本語"},"/home/me"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":true,"command":"日本語"},"/x"],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}
+{"args":[{"state":"other","file":"/other/h.json","fileExists":true,"command":"日本語"}],"ret":"Codex hooks call another Deckhand install: redo 日本語, then /hooks in Codex"}

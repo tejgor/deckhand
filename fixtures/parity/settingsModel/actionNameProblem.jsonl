@@ -1,0 +1,256 @@
+{"args":["  "],"ret":"can't start with a space"}
+{"args":[" "],"ret":"can't start with a space"}
+{"args":[" -b\t1_. 😀"],"ret":"can't start with a space"}
+{"args":[" -😀"],"ret":"can't start with a space"}
+{"args":[" . .a😀b"],"ret":"can't start with a space"}
+{"args":[" .a-\t"],"ret":"can't start with a space"}
+{"args":[" \t😀\t_1b😀"],"ret":"can't start with a space"}
+{"args":[" _"],"ret":"can't start with a space"}
+{"args":[" _‍"],"ret":"can't start with a space"}
+{"args":[" a-b"],"ret":"can't start with a space"}
+{"args":[" a\t\n"],"ret":"can't start with a space"}
+{"args":[" b-"],"ret":"can't start with a space"}
+{"args":[" é\t‍‍‍é"],"ret":"can't start with a space"}
+{"args":[" lint"],"ret":"can't start with a space"}
+{"args":[" x"],"ret":"can't start with a space"}
+{"args":[" 中1_ a aa"],"ret":"can't start with a space"}
+{"args":[" 😀-1"],"ret":"can't start with a space"}
+{"args":[" 😀\t"],"ret":"can't start with a space"}
+{"args":[" 😀a a-- .-"],"ret":"can't start with a space"}
+{"args":[""],"ret":"type a name first"}
+{"args":["- -_中b._"],"ret":"must start with a letter or number"}
+{"args":["-"],"ret":"must start with a letter or number"}
+{"args":["--_1ab1"],"ret":"must start with a letter or number"}
+{"args":["--‍"],"ret":"must start with a letter or number"}
+{"args":["-.-a\n\t/‍\n"],"ret":"must start with a letter or number"}
+{"args":["-/Z😀😀\n0_"],"ret":"must start with a letter or number"}
+{"args":["-\t/_"],"ret":"must start with a letter or number"}
+{"args":["-\t中b_\t\t"],"ret":"must start with a letter or number"}
+{"args":["-_1"],"ret":"must start with a letter or number"}
+{"args":["-b_"],"ret":"must start with a letter or number"}
+{"args":["-é Zß\n‍"],"ret":"must start with a letter or number"}
+{"args":["-é"],"ret":"must start with a letter or number"}
+{"args":["-lint"],"ret":"must start with a letter or number"}
+{"args":["-x"],"ret":"must start with a letter or number"}
+{"args":["-é"],"ret":"must start with a letter or number"}
+{"args":["-‍ééééb_"],"ret":"must start with a letter or number"}
+{"args":["-中\t"],"ret":"must start with a letter or number"}
+{"args":["-😀..b\t😀中"],"ret":"must start with a letter or number"}
+{"args":[".-"],"ret":"must start with a letter or number"}
+{"args":["./"],"ret":"must start with a letter or number"}
+{"args":["./é_é😀 /"],"ret":"must start with a letter or number"}
+{"args":[".\t\nabb-中-0"],"ret":"must start with a letter or number"}
+{"args":[".\t_-0中b"],"ret":"must start with a letter or number"}
+{"args":[".\té\nZ"],"ret":"must start with a letter or number"}
+{"args":[".\t中1\t中1_."],"ret":"must start with a letter or number"}
+{"args":["._b😀"],"ret":"must start with a letter or number"}
+{"args":[".b中\t中"],"ret":"must start with a letter or number"}
+{"args":[".b😀b"],"ret":"must start with a letter or number"}
+{"args":[".x"],"ret":"must start with a letter or number"}
+{"args":[".中ßba_"],"ret":"must start with a letter or number"}
+{"args":[".😀_1a"],"ret":"must start with a letter or number"}
+{"args":[".😀😀1\t_"],"ret":"must start with a letter or number"}
+{"args":["/-é😀\nß-"],"ret":"must start with a letter or number"}
+{"args":["/\n"],"ret":"must start with a letter or number"}
+{"args":["/\t0"],"ret":"must start with a letter or number"}
+{"args":["/b"],"ret":"must start with a letter or number"}
+{"args":["/é-\t"],"ret":"must start with a letter or number"}
+{"args":["/é😀 ß"],"ret":"must start with a letter or number"}
+{"args":["0."],"ret":{"$u":1}}
+{"args":["0/bß"],"ret":"can't contain \"/\""}
+{"args":["0\n/Z‍Z😀ß/"],"ret":"can't contain U+000A"}
+{"args":["0\nß0/\tßé\t"],"ret":"can't contain U+000A"}
+{"args":["0_Z😀😀\tZ"],"ret":"can't contain \"😀\""}
+{"args":["0béa "],"ret":"can't contain \"é\""}
+{"args":["0b😀\t  \t‍"],"ret":"can't contain \"😀\""}
+{"args":["0é"],"ret":"can't contain \"é\""}
+{"args":["0‍0\t0.ßa0"],"ret":"can't contain U+200D"}
+{"args":["0😀"],"ret":"can't contain \"😀\""}
+{"args":["1 _\t b "],"ret":"can't contain a tab"}
+{"args":["1 中"],"ret":"can't contain \"中\""}
+{"args":["1"],"ret":{"$u":1}}
+{"args":["1-"],"ret":{"$u":1}}
+{"args":["1-."],"ret":{"$u":1}}
+{"args":["11.1中 "],"ret":"can't contain \"中\""}
+{"args":["1\t"],"ret":"can't contain a tab"}
+{"args":["1_ "],"ret":"can't end with a space"}
+{"args":["1abc"],"ret":{"$u":1}}
+{"args":["1😀\ta😀\t中\t_"],"ret":"can't contain \"😀\""}
+{"args":["1😀\t中\t"],"ret":"can't contain \"😀\""}
+{"args":["Z 中"],"ret":"can't contain \"中\""}
+{"args":["Z"],"ret":{"$u":1}}
+{"args":["Z-0 .\t😀"],"ret":"can't contain a tab"}
+{"args":["Z/\n/_éZß中"],"ret":"can't contain \"/\""}
+{"args":["ZZ -中é0ß"],"ret":"can't contain \"中\""}
+{"args":["ZZé"],"ret":"can't contain U+0301"}
+{"args":["Z\n"],"ret":"can't contain U+000A"}
+{"args":["Z_é‍ ‍中 "],"ret":"can't contain \"é\""}
+{"args":["ZéZ Z"],"ret":"can't contain U+0301"}
+{"args":["\n b/.a-‍-0"],"ret":"must start with a letter or number"}
+{"args":["\n"],"ret":"must start with a letter or number"}
+{"args":["\n.😀_a.0_"],"ret":"must start with a letter or number"}
+{"args":["\n00b😀 ‍"],"ret":"must start with a letter or number"}
+{"args":["\n\t"],"ret":"must start with a letter or number"}
+{"args":["\t ---😀 11中"],"ret":"must start with a letter or number"}
+{"args":["\t \t."],"ret":"must start with a letter or number"}
+{"args":["\t a中 _--"],"ret":"must start with a letter or number"}
+{"args":["\t"],"ret":"must start with a letter or number"}
+{"args":["\t0é\n éZ-a_"],"ret":"must start with a letter or number"}
+{"args":["\t1 a.b1"],"ret":"must start with a letter or number"}
+{"args":["\t1-😀 \ta._b"],"ret":"must start with a letter or number"}
+{"args":["\t1中.\t😀中"],"ret":"must start with a letter or number"}
+{"args":["\tZa/0/é_"],"ret":"must start with a letter or number"}
+{"args":["\t\t1.b中"],"ret":"must start with a letter or number"}
+{"args":["\t\t中ß/中-é.."],"ret":"must start with a letter or number"}
+{"args":["\t_11-bb_a"],"ret":"must start with a letter or number"}
+{"args":["\tb _._"],"ret":"must start with a letter or number"}
+{"args":["\tx"],"ret":"must start with a letter or number"}
+{"args":["\tßbé-aab\n\n"],"ret":"must start with a letter or number"}
+{"args":["\té é a中Z😀"],"ret":"must start with a letter or number"}
+{"args":["\t‍ZZa"],"ret":"must start with a letter or number"}
+{"args":["\t中 "],"ret":"must start with a letter or number"}
+{"args":["\t中"],"ret":"must start with a letter or number"}
+{"args":["\t中b中😀_😀-"],"ret":"must start with a letter or number"}
+{"args":["\t😀11"],"ret":"must start with a letter or number"}
+{"args":["\t😀😀.é"],"ret":"must start with a letter or number"}
+{"args":["_ .😀1\t中\t"],"ret":"must start with a letter or number"}
+{"args":["_"],"ret":"must start with a letter or number"}
+{"args":["_--1-1."],"ret":"must start with a letter or number"}
+{"args":["_-Z\tß_0中/Z"],"ret":"must start with a letter or number"}
+{"args":["_-_a"],"ret":"must start with a letter or number"}
+{"args":["_.a 1 .a_a"],"ret":"must start with a letter or number"}
+{"args":["_// ß./_"],"ret":"must start with a letter or number"}
+{"args":["_11-😀中1😀a"],"ret":"must start with a letter or number"}
+{"args":["_ZZ\n\t-éé"],"ret":"must start with a letter or number"}
+{"args":["_\t _中a"],"ret":"must start with a letter or number"}
+{"args":["__proto__"],"ret":"must start with a letter or number"}
+{"args":["_b"],"ret":"must start with a letter or number"}
+{"args":["_ba1\t"],"ret":"must start with a letter or number"}
+{"args":["_x"],"ret":"must start with a letter or number"}
+{"args":["_中a😀"],"ret":"must start with a letter or number"}
+{"args":["_中😀11b1"],"ret":"must start with a letter or number"}
+{"args":["_😀😀1 "],"ret":"must start with a letter or number"}
+{"args":["a  中中😀\t."],"ret":"can't contain \"中\""}
+{"args":["a"],"ret":{"$u":1}}
+{"args":["a$"],"ret":"can't contain \"$\""}
+{"args":["a-1_"],"ret":{"$u":1}}
+{"args":["a-_"],"ret":{"$u":1}}
+{"args":["a.a\t\tb"],"ret":"can't contain a tab"}
+{"args":["a.中 .."],"ret":"can't contain \"中\""}
+{"args":["a/b"],"ret":"can't contain \"/\""}
+{"args":["a11_"],"ret":{"$u":1}}
+{"args":["a\"b"],"ret":"can't contain \"\"\""}
+{"args":["a\n"],"ret":"can't contain U+000A"}
+{"args":["a\tb"],"ret":"can't contain a tab"}
+{"args":["a\u0000"],"ret":"can't contain U+0000"}
+{"args":["a_b-c.d"],"ret":{"$u":1}}
+{"args":["aa"],"ret":{"$u":1}}
+{"args":["aa_😀 -"],"ret":"can't contain \"😀\""}
+{"args":["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":"too long: 49 characters (up to 48)"}
+{"args":["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":"too long: 100 characters (up to 48)"}
+{"args":["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa😀"],"ret":"can't contain \"😀\""}
+{"args":["aé-0‍0aéé"],"ret":"can't contain U+0301"}
+{"args":["a{"],"ret":"can't contain \"{\""}
+{"args":["a~"],"ret":"can't contain \"~\""}
+{"args":["a b"],"ret":"can't contain U+00A0"}
+{"args":["a©"],"ret":"can't contain \"©\""}
+{"args":["aé"],"ret":"can't contain \"é\""}
+{"args":["á"],"ret":"can't contain U+0301"}
+{"args":["a٣"],"ret":"can't contain \"٣\""}
+{"args":["a​"],"ret":"can't contain U+200B"}
+{"args":["a‍ b0"],"ret":"can't contain U+200D"}
+{"args":["a‑b"],"ret":"can't contain \"‑\""}
+{"args":["a "],"ret":"can't contain U+2028"}
+{"args":["a€"],"ret":"can't contain \"€\""}
+{"args":["a中"],"ret":"can't contain \"中\""}
+{"args":["a中中b_"],"ret":"can't contain \"中\""}
+{"args":["a😀"],"ret":"can't contain \"😀\""}
+{"args":["a😀b"],"ret":"can't contain \"😀\""}
+{"args":["a😀‍/\n"],"ret":"can't contain \"😀\""}
+{"args":["a󠀁"],"ret":"can't contain U+E0001"}
+{"args":["a􏿿"],"ret":"can't contain U+10FFFF"}
+{"args":["b "],"ret":"can't end with a space"}
+{"args":["b 111.b😀"],"ret":"can't contain \"😀\""}
+{"args":["b 中0_"],"ret":"can't contain \"中\""}
+{"args":["b"],"ret":{"$u":1}}
+{"args":["b00a "],"ret":"can't end with a space"}
+{"args":["b0_\né‍ a\tß"],"ret":"can't contain U+000A"}
+{"args":["b\t-_😀"],"ret":"can't contain a tab"}
+{"args":["b_\n😀中Z\né\t"],"ret":"can't contain U+000A"}
+{"args":["b_😀 a-_"],"ret":"can't contain \"😀\""}
+{"args":["ba ß"],"ret":"can't contain \"ß\""}
+{"args":["baa\t"],"ret":"can't contain a tab"}
+{"args":["bad/name"],"ret":"can't contain \"/\""}
+{"args":["bb.. a_"],"ret":{"$u":1}}
+{"args":["bb1"],"ret":{"$u":1}}
+{"args":["bb中"],"ret":"can't contain \"中\""}
+{"args":["bß_.0_ bé\t"],"ret":"can't contain \"ß\""}
+{"args":["bé0ß\n_"],"ret":"can't contain \"é\""}
+{"args":["b中 _"],"ret":"can't contain \"中\""}
+{"args":["b中"],"ret":"can't contain \"中\""}
+{"args":["b中1😀a_a-."],"ret":"can't contain \"中\""}
+{"args":["b😀‍Z\n😀b‍\té"],"ret":"can't contain \"😀\""}
+{"args":["b😀😀"],"ret":"can't contain \"😀\""}
+{"args":["constructor"],"ret":"constructor is a reserved name"}
+{"args":["db.migrate"],"ret":{"$u":1}}
+{"args":["é0Z中\n"],"ret":"can't contain U+0301"}
+{"args":["éa中éb😀"],"ret":"can't contain U+0301"}
+{"args":["é中"],"ret":"can't contain U+0301"}
+{"args":["hasOwnProperty"],"ret":{"$u":1}}
+{"args":["lint "],"ret":"can't end with a space"}
+{"args":["lint frontend"],"ret":{"$u":1}}
+{"args":["test"],"ret":{"$u":1}}
+{"args":["toString"],"ret":{"$u":1}}
+{"args":["x "],"ret":"can't end with a space"}
+{"args":["x٣"],"ret":"can't contain \"٣\""}
+{"args":["ß/"],"ret":"must start with a letter or number"}
+{"args":["ß0\na0.\t."],"ret":"must start with a letter or number"}
+{"args":["ß\n -"],"ret":"must start with a letter or number"}
+{"args":["ß\t é"],"ret":"must start with a letter or number"}
+{"args":["ß_é‍‍ab"],"ret":"must start with a letter or number"}
+{"args":["ßb"],"ret":"must start with a letter or number"}
+{"args":["é"],"ret":"must start with a letter or number"}
+{"args":["é//\t😀\taéb\n"],"ret":"must start with a letter or number"}
+{"args":["é_\n_-Z"],"ret":"must start with a letter or number"}
+{"args":["ébaéß中\t"],"ret":"must start with a letter or number"}
+{"args":["é中/中中ß\n"],"ret":"must start with a letter or number"}
+{"args":["٣x"],"ret":"must start with a letter or number"}
+{"args":["‍"],"ret":"must start with a letter or number"}
+{"args":["‍.Z-0😀-"],"ret":"must start with a letter or number"}
+{"args":["‍ZZZé 中a"],"ret":"must start with a letter or number"}
+{"args":["‍__\t\n中ß😀0"],"ret":"must start with a letter or number"}
+{"args":["‍a😀😀a\n😀_"],"ret":"must start with a letter or number"}
+{"args":["‍éßZ中/a0"],"ret":"must start with a letter or number"}
+{"args":["‍ébbZ😀éa‍a"],"ret":"must start with a letter or number"}
+{"args":["‍😀_Zé"],"ret":"must start with a letter or number"}
+{"args":["中 "],"ret":"must start with a letter or number"}
+{"args":["中 b"],"ret":"must start with a letter or number"}
+{"args":["中 b_b1"],"ret":"must start with a letter or number"}
+{"args":["中"],"ret":"must start with a letter or number"}
+{"args":["中-_. 1_中"],"ret":"must start with a letter or number"}
+{"args":["中./éb-"],"ret":"must start with a letter or number"}
+{"args":["中.1"],"ret":"must start with a letter or number"}
+{"args":["中_ b"],"ret":"must start with a letter or number"}
+{"args":["中b"],"ret":"must start with a letter or number"}
+{"args":["中b_"],"ret":"must start with a letter or number"}
+{"args":["中b😀\n"],"ret":"must start with a letter or number"}
+{"args":["中éßaéé‍‍b"],"ret":"must start with a letter or number"}
+{"args":["中ß.0aa\n"],"ret":"must start with a letter or number"}
+{"args":["中中"],"ret":"must start with a letter or number"}
+{"args":["中中_中.\t.中"],"ret":"must start with a letter or number"}
+{"args":["中😀_éé_aa"],"ret":"must start with a letter or number"}
+{"args":["😀  😀中ßé"],"ret":"must start with a letter or number"}
+{"args":["😀"],"ret":"must start with a letter or number"}
+{"args":["😀-.1_\t._a1"],"ret":"must start with a letter or number"}
+{"args":["😀-b.1-1a😀"],"ret":"must start with a letter or number"}
+{"args":["😀.ß -0aé-"],"ret":"must start with a letter or number"}
+{"args":["😀1"],"ret":"must start with a letter or number"}
+{"args":["😀1-😀中-"],"ret":"must start with a letter or number"}
+{"args":["😀1_-😀b "],"ret":"must start with a letter or number"}
+{"args":["😀\n-.b-b"],"ret":"must start with a letter or number"}
+{"args":["😀_"],"ret":"must start with a letter or number"}
+{"args":["😀b1 -_-.-\t"],"ret":"must start with a letter or number"}
+{"args":["😀ß.a-0a0Z"],"ret":"must start with a letter or number"}
+{"args":["😀中中中"],"ret":"must start with a letter or number"}
+{"args":["😀😀😀1a_ab"],"ret":"must start with a letter or number"}

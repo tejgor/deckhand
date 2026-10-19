@@ -1,0 +1,5 @@
+{"args":["created"],"ret":"created and trusted"}
+{"args":["hook"],"ret":"review required (the creation hook hasn't been reviewed)"}
+{"args":["kept"],"ret":"still trusted"}
+{"args":["unreviewed"],"ret":"review required (the file had changes you haven't reviewed)"}
+{"args":[{"$u":1}],"ret":"reviewed before anything from it runs"}

@@ -10,7 +10,7 @@ ts_tests = ["tests/settingsModel.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["settingsModel/actionCount", "settingsModel/actionNameCheck", "settingsModel/actionNameProblem", "settingsModel/actionSavedMessage", "settingsModel/applyChange", "settingsModel/cellDetail", "settingsModel/choiceChange", "settingsModel/choiceOptions", "settingsModel/codexHookNote", "settingsModel/columnProblem", "settingsModel/commandProblem", "settingsModel/currentChoice", "settingsModel/homePath", "settingsModel/infoLayer", "settingsModel/inheritedHint", "settingsModel/initialColumn", "settingsModel/initialLinks", "settingsModel/initialText", "settingsModel/isAppFlag", "settingsModel/layerActions", "settingsModel/layerName", "settingsModel/layerSets", "settingsModel/linkSelection", "settingsModel/otherTarget", "settingsModel/ownValue", "settingsModel/previewLocation", "settingsModel/savedMessage", "settingsModel/settingPath", "settingsModel/settingsGrid", "settingsModel/targetName", "settingsModel/textChange", "settingsModel/trustNote"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
