@@ -1,0 +1,12 @@
+{"args":[{"actions":{}}],"ret":{}}
+{"args":[{"defaultAgent":"pi","defaultWorkspace":"existing","devCommand":"repo dev","setupCommand":"repo setup","actions":{"test":"repo test","lint":"repo lint"}}],"ret":{"defaultAgent":"pi","defaultWorkspace":"existing"}}
+{"args":[{"defaultAgent":"pi"}],"ret":{"defaultAgent":"pi"}}
+{"args":[{"defaultWorkspace":"new"}],"ret":{"defaultWorkspace":"new"}}
+{"args":[{"defaultWorkspace":"none","devCommand":"x"}],"ret":{"defaultWorkspace":"none"}}
+{"args":[{"devCommand":"  "}],"ret":{}}
+{"args":[{"devCommand":"dev 中😀","actions":{"😀":"x"}}],"ret":{}}
+{"args":[{"worktree":{"hook":false}}],"ret":{}}
+{"args":[{"worktree":{"hook":true,"location":"/r/{name}"}}],"ret":{}}
+{"args":[{"worktree":{"location":"{repoParent}/wt/{name}","symlink":["node_modules",".venv"],"files":{"a/b.cfg":"{repoParent}/x.cfg"},"branchFrom":"default","branchName":"{user}/{name}","hook":false}}],"ret":{}}
+{"args":[{"worktree":{"symlink":["a","b"],"files":{"x":"/s/x"}},"setupCommand":"s"}],"ret":{}}
+{"args":[{}],"ret":{}}
