@@ -44,7 +44,7 @@
         "cwd": "/r",
         "repoRoot": "/r",
         "worktree": {
-          "mode": "attach",
+          "mode": "attached",
           "path": "/r",
           "isMain": true
         },

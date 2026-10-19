@@ -1,0 +1,624 @@
+{
+  "sessions": [
+    {
+      "id": "5e550000-0000-4000-8000-000000000001",
+      "title": "Refactor the daemon",
+      "program": "claude",
+      "command": "claude",
+      "args": [
+        "--session-id",
+        "c1a0de00-0000-4000-8000-000000000001",
+        "--name",
+        "Refactor the daemon"
+      ],
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "c1a0de00-0000-4000-8000-000000000001"
+      },
+      "cwd": "/tmp/deckhand-fixture/repos/app",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchCwd": "/tmp/deckhand-fixture/repos/app/src",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "agentStatus": "active",
+      "agentStatusUpdatedAt": "2026-09-10T09:05:00.000Z",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "sidebarOrder": 0,
+      "launchId": "1a000000-0000-4000-8000-000000000001",
+      "agentStartedAt": "2026-09-10T09:00:02.000Z",
+      "attention": {
+        "state": "unknown",
+        "event": "DaemonRestart",
+        "at": "2026-01-01T00:00:00.000Z"
+      },
+      "agentVersion": "2.0.14",
+      "futureSessionField": {
+        "kept": true,
+        "nested": [
+          1,
+          "two",
+          {
+            "three": 3
+          }
+        ]
+      },
+      "exitCode": null,
+      "exitSignal": null,
+      "devRunning": false,
+      "exitReason": "interrupted"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000002",
+      "title": "Check the tests",
+      "program": "claude",
+      "command": "claude",
+      "args": [
+        "--session-id",
+        "c1a0de00-0000-4000-8000-000000000002"
+      ],
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "c1a0de00-0000-4000-8000-000000000002"
+      },
+      "cwd": "/tmp/deckhand-fixture/repos/app",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-09-10T09:40:00.000Z",
+      "createdAt": "2026-09-10T09:30:00.000Z",
+      "updatedAt": "2026-09-10T09:45:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null,
+      "lastPreview": "╭────────────────────────────────╮\n│ ✻ Welcome to Claude Code!      │\n╰────────────────────────────────╯\n\n> run the tests\n\n⏺ All 214 tests pass. 日本語 ✓\n\n> ",
+      "parentSessionId": "5e550000-0000-4000-8000-000000000001",
+      "subSessionKind": "clean",
+      "sidebarOrder": 0,
+      "launchId": "1a000000-0000-4000-8000-000000000002",
+      "agentStartedAt": "2026-09-10T09:30:01.000Z",
+      "attention": {
+        "state": "response-ended",
+        "event": "Stop",
+        "at": "2026-09-10T09:44:00.000Z"
+      },
+      "exitReason": "completed",
+      "agentVersion": "2.0.10"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000003",
+      "title": "Try another approach",
+      "program": "claude",
+      "command": "claude",
+      "args": [
+        "--resume",
+        "c1a0de00-0000-4000-8000-000000000001",
+        "--fork-session",
+        "--session-id",
+        "c1a0de00-0000-4000-8000-000000000003"
+      ],
+      "cwd": "/tmp/deckhand-fixture/repos/app",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-10T10:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "parentSessionId": "5e550000-0000-4000-8000-000000000001",
+      "subSessionKind": "forked",
+      "forkedFromSessionId": "5e550000-0000-4000-8000-000000000001",
+      "forkedFromAgentSessionRef": {
+        "provider": "claude",
+        "kind": "id",
+        "value": "c1a0de00-0000-4000-8000-000000000001"
+      },
+      "sidebarOrder": 1,
+      "launchId": "1a000000-0000-4000-8000-000000000003",
+      "exitCode": null,
+      "exitSignal": null,
+      "devRunning": false,
+      "exitReason": "interrupted",
+      "attention": {
+        "state": "unknown",
+        "event": "DaemonRestart",
+        "at": "2026-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000004",
+      "title": "Feature A",
+      "program": "pi",
+      "command": "pi",
+      "args": [
+        "--session",
+        "/tmp/deckhand-fixture/home/.pi/agent/sessions/feature-a.jsonl"
+      ],
+      "agentSessionRef": {
+        "provider": "pi",
+        "kind": "path",
+        "value": "/tmp/deckhand-fixture/home/.pi/agent/sessions/feature-a.jsonl",
+        "futureRefField": "kept"
+      },
+      "cwd": "/tmp/deckhand-fixture/worktrees/app/feature-a",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchCwd": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "managed",
+        "id": "7e000000-0000-4000-8000-00000000000a",
+        "path": "/tmp/deckhand-fixture/worktrees/app/feature-a",
+        "branch": "feature-a",
+        "head": "3d2d55a8ad588ebb17c43e428f78bfb86fff43a8",
+        "isMain": false,
+        "origin": "created",
+        "creator": "script",
+        "name": "feature-a",
+        "baseRef": "main",
+        "links": {
+          "linked": [
+            ".env"
+          ],
+          "notes": [
+            "node_modules: not found in the main checkout"
+          ],
+          "futureLinksField": "kept"
+        },
+        "futureWorktreeField": {
+          "nested": [
+            1
+          ]
+        }
+      },
+      "status": "exited",
+      "agentStatus": "idle",
+      "agentStatusUpdatedAt": "2026-09-11T09:20:00.000Z",
+      "createdAt": "2026-09-11T09:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "devRunning": false,
+      "sidebarOrder": 4,
+      "launchId": "1a000000-0000-4000-8000-000000000004",
+      "agentStartedAt": "2026-09-11T09:00:30.000Z",
+      "setup": {
+        "command": "npm install",
+        "state": "failed",
+        "output": "added 120 packages\nInterrupted by daemon restart",
+        "futureSetupField": 1
+      },
+      "requestedWorktreeMode": "new",
+      "agentVersion": "0.9.1",
+      "exitCode": null,
+      "exitSignal": null,
+      "exitReason": "interrupted",
+      "attention": {
+        "state": "unknown",
+        "event": "DaemonRestart",
+        "at": "2026-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000005",
+      "title": "Codex sub-session",
+      "program": "codex",
+      "command": "codex",
+      "args": [],
+      "agentSessionRef": {
+        "provider": "codex",
+        "kind": "id",
+        "value": "codex-thread-0005"
+      },
+      "cwd": "/tmp/deckhand-fixture/worktrees/app/feature-a",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/worktrees/app/feature-a",
+      "worktree": {
+        "mode": "none",
+        "id": "7e000000-0000-4000-8000-00000000000a"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-11T10:00:00.000Z",
+      "updatedAt": "2026-09-11T10:30:00.000Z",
+      "exitCode": null,
+      "exitSignal": 9,
+      "devRunning": false,
+      "parentSessionId": "5e550000-0000-4000-8000-000000000004",
+      "subSessionKind": "clean",
+      "sidebarOrder": 0,
+      "attention": {
+        "state": "failed",
+        "event": "StopFailure",
+        "at": "2026-09-11T10:29:00.000Z"
+      },
+      "exitReason": "failed"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000006",
+      "title": "Merged feature",
+      "program": "codex",
+      "command": "codex",
+      "cwd": "/tmp/deckhand-fixture/worktrees/app/feature-merged",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "managed",
+        "id": "7e000000-0000-4000-8000-00000000000b",
+        "path": "/tmp/deckhand-fixture/worktrees/app/feature-merged",
+        "branch": "feature-merged",
+        "head": "b98aca492ffa1291cc67296d409da13db75eab26",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback",
+        "name": "feature-merged",
+        "baseRef": "main"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-12T09:00:00.000Z",
+      "updatedAt": "2026-09-12T11:00:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null,
+      "sidebarOrder": 1,
+      "attention": {
+        "state": "limited",
+        "event": "Notification",
+        "at": "2026-09-12T10:59:00.000Z"
+      },
+      "exitReason": "stopped"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000007",
+      "title": "Attached work",
+      "program": "claude",
+      "command": "claude",
+      "args": [
+        "--resume",
+        "deckhand-attached"
+      ],
+      "agentSessionRef": {
+        "provider": "claude",
+        "kind": "name",
+        "value": "deckhand-attached"
+      },
+      "cwd": "/tmp/deckhand-fixture/worktrees/app/attached",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "attached",
+        "id": "7e000000-0000-4000-8000-00000000000c",
+        "path": "/tmp/deckhand-fixture/worktrees/app/attached",
+        "branch": "attached-work",
+        "head": "79ec00e63ea00f040da4938305914e2850ee0a75",
+        "isMain": false,
+        "origin": "selected",
+        "creator": "picker"
+      },
+      "status": "exited",
+      "agentStatus": "idle",
+      "createdAt": "2026-09-13T09:00:00.000Z",
+      "updatedAt": "2026-09-20T09:00:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null,
+      "sidebarOrder": 5,
+      "attention": {
+        "state": "needs-input",
+        "event": "PreToolUse",
+        "at": "2026-09-13T09:30:00.000Z",
+        "reason": {
+          "kind": "question",
+          "text": "asks: Which DB?",
+          "options": [
+            "Postgres",
+            "SQLite"
+          ]
+        },
+        "futureAttentionField": "kept on exited sessions"
+      },
+      "replyRead": true,
+      "exitReason": "completed",
+      "handoffPath": "/tmp/deckhand-fixture/deckhand-home/handoffs/5e550000-0000-4000-8000-000000000007-1a2b3c4d.md",
+      "requestedWorktreeMode": "existing",
+      "agentVersion": "2.0.12",
+      "doneAt": "2026-09-20T09:00:00.000Z"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000008",
+      "title": "Old deleted worktree",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/tmp/deckhand-fixture/worktrees/app/old",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "managed",
+        "id": "7e000000-0000-4000-8000-00000000000d",
+        "path": "/tmp/deckhand-fixture/worktrees/app/old",
+        "branch": "old-branch",
+        "head": "f5b8bc053709704f6d19a9d490e917ba527f7e76",
+        "isMain": false,
+        "origin": "created",
+        "creator": "fallback"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-01T09:00:00.000Z",
+      "updatedAt": "2026-09-10T08:00:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null,
+      "sidebarOrder": 6,
+      "archivedAt": "2026-09-10T08:00:00.000Z",
+      "exitReason": "stopped",
+      "cleanupError": "git worktree remove failed: fatal: '/tmp/deckhand-fixture/worktrees/app/old' contains modified or untracked files",
+      "requestedWorktreeMode": "new"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000009",
+      "title": "Legacy worktree session",
+      "program": "pi",
+      "command": "pi",
+      "agentSessionRef": {
+        "provider": "pi",
+        "kind": "path",
+        "value": "/tmp/deckhand-fixture/home/.pi/agent/sessions/legacy.jsonl"
+      },
+      "cwd": "/tmp/deckhand-fixture/worktrees/app/legacy",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "managed",
+        "path": "/tmp/deckhand-fixture/worktrees/app/legacy",
+        "branch": "legacy",
+        "head": "f407c0bd000fe7ad9ef80657e94147c6d72dae13",
+        "isMain": false,
+        "origin": "created",
+        "id": "b549f31a-60a7-404e-8f5e-ff71ac694f8c"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-04T09:00:00.000Z",
+      "updatedAt": "2026-09-05T10:00:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null,
+      "sidebarOrder": 7,
+      "agentStartedAt": "2026-09-04T09:00:05.000Z"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-00000000000a",
+      "title": "Legacy sub-session",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/tmp/deckhand-fixture/worktrees/app/legacy",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/worktrees/app/legacy",
+      "status": "exited",
+      "createdAt": "2026-09-04T12:00:00.000Z",
+      "updatedAt": "2026-09-06T10:00:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null,
+      "parentSessionId": "5e550000-0000-4000-8000-000000000009",
+      "subSessionKind": "clean",
+      "sidebarOrder": 0,
+      "worktree": {
+        "mode": "none",
+        "id": "b549f31a-60a7-404e-8f5e-ff71ac694f8c"
+      }
+    },
+    {
+      "id": "5e550000-0000-4000-8000-00000000000b",
+      "title": "Legacy first incarnation",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/tmp/deckhand-fixture/worktrees/app/legacy",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "managed",
+        "path": "/tmp/deckhand-fixture/worktrees/app/legacy",
+        "branch": "legacy-old",
+        "isMain": false,
+        "id": "d6c62f3c-5853-4d4a-8e5d-8441f103b918"
+      },
+      "status": "exited",
+      "createdAt": "2026-08-10T08:00:00.000Z",
+      "updatedAt": "2026-08-15T10:00:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null
+    },
+    {
+      "id": "5e550000-0000-4000-8000-00000000000c",
+      "title": "Main checkout legacy done",
+      "program": "codex",
+      "command": "codex",
+      "cwd": "/tmp/deckhand-fixture/repos/app",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/app",
+      "status": "exited",
+      "createdAt": "2026-09-02T09:00:00.000Z",
+      "updatedAt": "2026-09-07T09:00:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null,
+      "notes": "- [ ] legacy note item\nkept in state.json by an older version\n",
+      "sidebarOrder": 2,
+      "doneAt": "2026-09-07T09:00:00.000Z"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-00000000000d",
+      "title": "Attached to main",
+      "program": "pi",
+      "command": "pi",
+      "cwd": "/tmp/deckhand-fixture/repos/app",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "attached",
+        "path": "/tmp/deckhand-fixture/repos/app",
+        "branch": "main",
+        "isMain": true,
+        "origin": "selected"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-03T09:00:00.000Z",
+      "updatedAt": "2026-09-09T09:00:00.000Z",
+      "exitCode": 1,
+      "exitSignal": null,
+      "notes": "",
+      "sidebarOrder": 3,
+      "doneAt": "2026-09-09T09:00:00.000Z"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-00000000000e",
+      "title": "Lib docs",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/tmp/deckhand-fixture/repos/lib",
+      "repoRoot": "/tmp/deckhand-fixture/repos/lib",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/lib",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-14T09:00:00.000Z",
+      "updatedAt": "2026-09-14T10:00:00.000Z",
+      "exitCode": 0,
+      "exitSignal": 15,
+      "sidebarOrder": 0,
+      "exitReason": "stopped",
+      "startPrompt": "Document the lib: every export"
+    },
+    {
+      "id": "5e550000-0000-4000-8000-00000000000f",
+      "title": "Lib new worktree pending",
+      "program": "codex",
+      "command": "codex",
+      "cwd": "/tmp/deckhand-fixture/repos/lib",
+      "repoRoot": "/tmp/deckhand-fixture/repos/lib",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/lib",
+      "status": "exited",
+      "createdAt": "2026-09-15T09:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "sidebarOrder": 1,
+      "setup": {
+        "command": "pnpm install",
+        "state": "pending",
+        "output": ""
+      },
+      "requestedWorktreeMode": "new",
+      "exitCode": null,
+      "exitSignal": null,
+      "devRunning": false,
+      "exitReason": "interrupted",
+      "attention": {
+        "state": "unknown",
+        "event": "DaemonRestart",
+        "at": "2026-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000010",
+      "title": "Ghost worktree",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/tmp/deckhand-fixture/worktrees/app/ghost",
+      "repoRoot": "/tmp/deckhand-fixture/repos/app",
+      "launchWorktreeRoot": "/tmp/deckhand-fixture/repos/app",
+      "worktree": {
+        "mode": "managed",
+        "id": "7e000000-0000-4000-8000-00000000000f",
+        "path": "/tmp/deckhand-fixture/worktrees/app/ghost",
+        "branch": "ghost",
+        "isMain": false
+      },
+      "status": "exited",
+      "createdAt": "2026-09-05T09:00:00.000Z",
+      "updatedAt": "2026-09-11T09:00:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null,
+      "sidebarOrder": 8
+    },
+    {
+      "id": "5e550000-0000-4000-8000-000000000011",
+      "title": "Plain directory",
+      "program": "pi",
+      "command": "pi",
+      "cwd": "/tmp/deckhand-fixture/plain",
+      "repoRoot": "/tmp/deckhand-fixture/plain",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-16T09:00:00.000Z",
+      "updatedAt": "2026-09-16T09:10:00.000Z",
+      "exitCode": 0,
+      "exitSignal": null,
+      "exitReason": "completed",
+      "attention": {
+        "state": "unknown",
+        "event": "SessionStart",
+        "at": "2026-09-16T09:00:01.000Z"
+      }
+    }
+  ],
+  "worktrees": [
+    {
+      "id": "7e000000-0000-4000-8000-00000000000a",
+      "path": "/tmp/deckhand-fixture/worktrees/app/feature-a",
+      "createdAt": "2026-09-11T09:00:10.000Z",
+      "futureRecordField": {
+        "kept": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "id": "7e000000-0000-4000-8000-00000000000b",
+      "path": "/tmp/deckhand-fixture/worktrees/app/feature-merged",
+      "createdAt": "2026-09-12T09:00:10.000Z",
+      "baseSha": "f5b8bc053709704f6d19a9d490e917ba527f7e76"
+    },
+    {
+      "id": "7e000000-0000-4000-8000-00000000000c",
+      "path": "/tmp/deckhand-fixture/worktrees/app/attached",
+      "createdAt": "2026-09-13T09:00:10.000Z",
+      "mergedAt": "2026-09-20T08:00:00.000Z",
+      "mergeMode": "squash",
+      "mergeTargetBranch": "main",
+      "mergeSourceRef": "attached-work",
+      "mergeSourceSha": "79ec00e63ea00f040da4938305914e2850ee0a75",
+      "mergeMarkedManually": true
+    },
+    {
+      "id": "7e000000-0000-4000-8000-00000000000d",
+      "path": "/tmp/deckhand-fixture/worktrees/app/old",
+      "createdAt": "2026-09-01T09:00:10.000Z",
+      "baseSha": "6248c1e8cc40506c7cf604f943dc9416992a961a",
+      "deletedAt": "2026-09-10T08:00:00.000Z",
+      "mergeDismissedTip": "f5b8bc053709704f6d19a9d490e917ba527f7e76"
+    },
+    {
+      "id": "7e000000-0000-4000-8000-00000000000f",
+      "path": "/tmp/deckhand-fixture/worktrees/app/ghost",
+      "createdAt": "2026-09-05T09:00:00.000Z",
+      "mergedAt": "2026-09-11T09:00:00.000Z",
+      "mergeMode": "merge",
+      "mergeTargetBranch": "main",
+      "mergeSourceRef": "ghost"
+    },
+    {
+      "id": "b549f31a-60a7-404e-8f5e-ff71ac694f8c",
+      "path": "/tmp/deckhand-fixture/worktrees/app/legacy",
+      "createdAt": "2026-09-04T09:00:00.000Z",
+      "mergedAt": "2026-09-06T10:00:00.000Z",
+      "mergeTargetBranch": "main",
+      "mergeSourceRef": "legacy",
+      "mergeMarkedManually": true
+    },
+    {
+      "id": "d6c62f3c-5853-4d4a-8e5d-8441f103b918",
+      "path": "/tmp/deckhand-fixture/worktrees/app/legacy",
+      "createdAt": "2026-08-10T08:00:00.000Z",
+      "deletedAt": "2026-08-15T10:00:00.000Z"
+    }
+  ]
+}

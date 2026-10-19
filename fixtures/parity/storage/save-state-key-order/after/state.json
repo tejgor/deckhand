@@ -1,10 +1,19 @@
 {
-  "worktrees": [],
   "sessions": [
     {
       "status": "exited",
       "id": "z",
-      "title": "t"
+      "title": "t",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z"
     }
-  ]
+  ],
+  "worktrees": []
 }

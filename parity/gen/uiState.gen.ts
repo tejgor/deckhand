@@ -5,6 +5,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {Recorder, arb, fc, installDeterminism, mutate, recordDirCase, runTap, sample} from '../lib.ts';
 import * as uiState from '../../src/uiState.ts';
 
@@ -91,3 +92,10 @@ await save('save-over-empty-file', 'repo', full, put(''));
 await save('save-resolves-repo-path', 'a/../repo', full);
 await save('save-readreplies-cap', 'repo', {sessionTabs: {}, collapsedSessionIds: [], hiddenExitedSessionIds: [], readReplies: Object.fromEntries(Array.from({length: 1010}, (_, i) => [`s${i}`, `t${i}`]))});
 await save('save-preserves-mode-0600', 'repo', full, async root => { await put({})(root); await fs.chmod(path.join(root, file), 0o644); });
+
+// The legacy home (fixtures/state/home-v45): one repository's entry is replaced in place, the others (unknown keys
+// and invalid values included) are written back as read (fixtures/state/MIGRATIONS.md row 35).
+await recordDirCase('uiState', 'save-home-v45', {
+	setup: async root => { await fs.copyFile(fileURLToPath(new URL('../../fixtures/state/home-v45/ui-state.json', import.meta.url)), path.join(root, file)); },
+	fn: 'saveUiState', args: root => [root, '/tmp/deckhand-fixture/repos/lib', {...full, sessionQuery: 'lib'}], run: inHome(uiState.saveUiState),
+});

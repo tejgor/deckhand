@@ -5,6 +5,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {Recorder, arb, fc, installDeterminism, mutate, recordDirCase, registerFn, sample} from '../lib.ts';
 import * as storage from '../../src/storage.ts';
 
@@ -54,7 +55,7 @@ await dirCase('load-state-null-json', 'loadState', storage.loadState, write('sta
 await dirCase('load-state-array-json', 'loadState', storage.loadState, write('state.json', '[]'));
 await dirCase('load-state-plain', 'loadState', storage.loadState, write('state.json', {sessions: [session('a', {futureField: {k: [1, 'two', null]}}), session('b', {status: 'exited', title: '😀 中文'})], worktrees: []}));
 await dirCase('load-state-keeps-unknown-top-keys', 'loadState', storage.loadState, write('state.json', {version: 3, sessions: [session('a')], worktrees: [], extra: 1}));
-await dirCase('load-state-done-marker-migration', 'loadState', storage.loadState, write('state.json', {sessions: [session('a', {mergedAt: '2026-09-11T00:00:00.000Z', mergeTargetBranch: 'main', mergeSourceRef: 'x', mergeMarkedManually: true}), session('b', {doneAt: '2026-09-12T00:00:00.000Z', mergedAt: '2026-09-11T00:00:00.000Z'}), session('c', {worktree: {mode: 'attach', path: '/r', isMain: true, mergedAt: '2026-09-13T00:00:00.000Z', mergeMode: 'merge'}})], worktrees: []}));
+await dirCase('load-state-done-marker-migration', 'loadState', storage.loadState, write('state.json', {sessions: [session('a', {mergedAt: '2026-09-11T00:00:00.000Z', mergeTargetBranch: 'main', mergeSourceRef: 'x', mergeMarkedManually: true}), session('b', {doneAt: '2026-09-12T00:00:00.000Z', mergedAt: '2026-09-11T00:00:00.000Z'}), session('c', {worktree: {mode: 'attached', path: '/r', isMain: true, mergedAt: '2026-09-13T00:00:00.000Z', mergeMode: 'merge'}})], worktrees: []}));
 await dirCase('load-state-worktree-records-kept', 'loadState', storage.loadState, write('state.json', {
 	sessions: [session('a', {cwd: '/w', worktree: {mode: 'managed', path: '/w', id: 'wt-1', mergedAt: 'projected'}}), session('b', {cwd: '/w', worktree: {mode: 'managed', path: '/w', id: 'wt-1'}})],
 	worktrees: [{id: 'wt-1', path: '/w', createdAt: '2026-09-10T09:00:00.000Z', mergedAt: '2026-09-11T00:00:00.000Z'}],
@@ -66,7 +67,9 @@ await dirCase('load-state-missing-record-rebuilt', 'loadState', storage.loadStat
 await dirCase('save-state-new', 'saveState', storage.saveState, () => {}, [{sessions: [], worktrees: []}]);
 await dirCase('save-state-overwrites', 'saveState', storage.saveState, write('state.json', {sessions: [session('old')], worktrees: []}, 0o644), [{sessions: [session('new', {title: '😀 中文 é'})], worktrees: [{id: 'w', path: '/w', createdAt: 'x'}]}]);
 await dirCase('save-state-undefined-props', 'saveState', storage.saveState, () => {}, [{sessions: [{...session('a'), pid: undefined, exitCode: null}], worktrees: []}]);
-await dirCase('save-state-key-order', 'saveState', storage.saveState, () => {}, [{worktrees: [], sessions: [{status: 'exited', id: 'z', title: 't'}]}]);
+// A session's own key order is kept. (Every TS caller passes `{sessions, worktrees}`, the only order the Rust
+// StateFile writes, and only whole session records.)
+await dirCase('save-state-key-order', 'saveState', storage.saveState, () => {}, [{sessions: [{status: 'exited', ...session('z', {status: 'exited', title: 't'})}], worktrees: []}]);
 await dirCase('save-state-loose-dir', 'saveState', storage.saveState, async root => { await fs.chmod(root, 0o755); }, [{sessions: [], worktrees: []}]);
 
 // markAllNonExitedSessionsExited
@@ -132,4 +135,11 @@ await dirCase('update-config-fn-add-trust', 'updateAppConfig', storage.updateApp
 await dirCase('update-config-fn-clear-dev', 'updateAppConfig', storage.updateAppConfig, cfg({dev_command: 'x', keep: 1}), [clearDev]);
 await dirCase('update-config-fn-identity', 'updateAppConfig', storage.updateAppConfig, cfg({trustedProjects: {'/old': 'legacy'}, notifications: 'str'}), [identity]);
 await dirCase('update-config-fn-drop-trusted', 'updateAppConfig', storage.updateAppConfig, cfg({trustedProjects: {'/old': ['a']}}), [dropTrusted]);
+
+// The legacy home (fixtures/state/home-v45, see fixtures/state/MIGRATIONS.md): a v45 state.json recovered on daemon
+// start (rows 1-16) and a v45 config.json updated key by key (rows 31-34). Lifted worktree records take the first
+// seeded randomUUID()s.
+const legacy = (name: string) => async (root: string) => { await fs.copyFile(fileURLToPath(new URL(`../../fixtures/state/home-v45/${name}`, import.meta.url)), path.join(root, name)); };
+await mark('home-v45', legacy('state.json'));
+await dirCase('update-config-home-v45', 'updateAppConfig', storage.updateAppConfig, legacy('config.json'), [{notifications: true}]);
 

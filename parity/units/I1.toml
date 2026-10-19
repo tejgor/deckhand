@@ -62,6 +62,7 @@ fixtures = [
   "storage/update-config-fn-clear-dev",
   "storage/update-config-fn-drop-trusted",
   "storage/update-config-fn-identity",
+  "storage/update-config-home-v45",
   "storage/update-config-not-object",
   "storage/update-config-notifications-new-file",
   "storage/update-config-patch-agent-hooks",
@@ -91,6 +92,7 @@ fixtures = [
   "uiState/load-repo-unicode",
   "uiState/normalizeUiState",
   "uiState/save-defaults",
+  "uiState/save-home-v45",
   "uiState/save-keeps-other-repos",
   "uiState/save-key-order-appends",
   "uiState/save-new-dir-missing",
@@ -110,7 +112,9 @@ fixtures = [
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "global defaults round-trip through config.json, keep other keys, and are validated with a revision check", to = "I6", reason = "exercises projectConfigDocument readGlobalDefaultsDocument/saveGlobalDefaultsDocument and projectConfig resolveSettings (crates/sys/src/config_document.rs, config.rs), built on I1 load/update_app_config" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 # Wave 0 hand-off notes for this unit.

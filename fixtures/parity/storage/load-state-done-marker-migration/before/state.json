@@ -42,7 +42,7 @@
       "cwd": "/r",
       "repoRoot": "/r",
       "worktree": {
-        "mode": "attach",
+        "mode": "attached",
         "path": "/r",
         "isMain": true,
         "mergedAt": "2026-09-13T00:00:00.000Z",
