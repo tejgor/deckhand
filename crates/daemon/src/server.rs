@@ -375,7 +375,6 @@ impl Daemon {
                 let Some(bytes) = chunk.get(..read) else {
                     break;
                 };
-                let mut started = false;
                 for frame in decoder.push(bytes) {
                     let line = match frame {
                         // The connection is multiplexed (UI + attach); one oversized line is rejected, not fatal.
@@ -393,10 +392,13 @@ impl Daemon {
                     wire_log(WireDir::C2d, &value, None);
                     match parse_request(value) {
                         ParsedRequest::Request(request) => {
-                            // TS starts handleRequest without awaiting it.
+                            // TS starts handleRequest without awaiting it, but its synchronous part (getClient,
+                            // synchronous replies) runs before the next line is parsed. Yielding lets the spawned
+                            // task get that far first, so replies keep line order and a malformed line later in
+                            // the chunk can neither drop this reply nor run cleanup before getClient.
                             let (daemon, conn) = (daemon.clone(), Rc::clone(&conn));
                             drop(spawn(async move { daemon.handle_request(&conn, *request).await }));
-                            started = true;
+                            tokio::task::yield_now().await;
                         }
                         ParsedRequest::Ignored | ParsedRequest::Invalid { request_id: None, .. } => {}
                         ParsedRequest::Invalid {
@@ -404,10 +406,6 @@ impl Daemon {
                             message,
                         } => send_message(&conn.client, &failure(&request_id, message)),
                     }
-                }
-                // TS runs each request's synchronous part before the socket's next event (its close included).
-                if started {
-                    tokio::task::yield_now().await;
                 }
             }
             conn.client.destroy();
@@ -931,6 +929,91 @@ pub(crate) mod tests {
                 .unwrap();
             assert_eq!(read.read_line(&mut line).await.unwrap(), 0);
             assert!(line.is_empty());
+        });
+    }
+
+    /// Reads lines until the connection closes.
+    async fn read_until_closed(read: &mut BufReader<tokio::net::unix::OwnedReadHalf>) -> Vec<String> {
+        let mut out = Vec::new();
+        loop {
+            let mut line = String::new();
+            if read.read_line(&mut line).await.unwrap() == 0 {
+                return out;
+            }
+            out.push(line);
+        }
+    }
+
+    #[test]
+    fn earlier_requests_in_a_chunk_are_answered_before_a_malformed_line_closes_it() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = test_daemon(dir.path());
+            daemon.listen().await.unwrap();
+            let stream = UnixStream::connect(&daemon.paths.socket).await.unwrap();
+            let (read, mut write) = stream.into_split();
+            let mut read = BufReader::new(read);
+            // One write: TS runs r1's handler (which answers synchronously) before it parses the malformed line.
+            write
+                .write_all(
+                    b"{\"type\":\"ping\",\"requestId\":\"r1\"}\n{bad}\n{\"type\":\"ping\",\"requestId\":\"r2\"}\n",
+                )
+                .await
+                .unwrap();
+            let got = read_until_closed(&mut read).await;
+            assert_eq!(got.len(), 1, "{got:?}");
+            assert!(got[0].contains("\"requestId\":\"r1\""), "{got:?}");
+        });
+    }
+
+    #[test]
+    fn replies_keep_line_order_within_a_chunk() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = test_daemon(dir.path());
+            daemon.listen().await.unwrap();
+            let stream = UnixStream::connect(&daemon.paths.socket).await.unwrap();
+            let (read, mut write) = stream.into_split();
+            let mut read = BufReader::new(read);
+            let lines = format!(
+                "{{\"type\":\"ping\",\"requestId\":\"r1\"}}\n{{\"type\":\"save-note\",\"requestId\":\"big-1\",\"text\":\"{}\"}}\n{{\"type\":\"ping\",\"requestId\":\"r2\"}}\n{{\"type\":\"subscribe\",\"requestId\":\"bad-1\"}}\n",
+                "x".repeat(MAX_REQUEST_LINE)
+            );
+            write.write_all(lines.as_bytes()).await.unwrap();
+            let mut ids = Vec::new();
+            for _ in 0..4 {
+                let mut line = String::new();
+                read.read_line(&mut line).await.unwrap();
+                let answer: Value = serde_json::from_str(&line).unwrap();
+                ids.push(answer["requestId"].as_str().unwrap().to_owned());
+            }
+            assert_eq!(ids, ["r1", "big-1", "r2", "bad-1"]);
+        });
+    }
+
+    #[test]
+    fn a_client_closed_by_a_malformed_line_is_forgotten() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = test_daemon(dir.path());
+            daemon.listen().await.unwrap();
+            let stream = UnixStream::connect(&daemon.paths.socket).await.unwrap();
+            let (read, mut write) = stream.into_split();
+            let mut read = BufReader::new(read);
+            write
+                .write_all(b"{\"type\":\"subscribe\",\"requestId\":\"r\",\"repoRoot\":\"/x\"}\n{bad}\n")
+                .await
+                .unwrap();
+            let _ = read_until_closed(&mut read).await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            let left: Vec<_> = daemon
+                .server
+                .borrow()
+                .clients
+                .iter()
+                .map(|(id, client)| (*id, client.subscription.repo_root.clone()))
+                .collect();
+            assert!(left.is_empty(), "clients left after the connection closed: {left:?}");
         });
     }
 }
