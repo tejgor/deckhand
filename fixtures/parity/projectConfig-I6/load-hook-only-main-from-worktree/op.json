@@ -1,0 +1,26 @@
+{
+  "fn": "loadProjectConfig",
+  "args": [
+    "$ROOT/main",
+    {},
+    {
+      "root": "$ROOT/wt",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "$ROOT/main"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "root": "$ROOT/wt",
+    "trustRoot": "$ROOT/main",
+    "path": "$ROOT/main/deckhand.json",
+    "config": {},
+    "exists": false,
+    "fingerprint": "e292803202b64c6bd551c11b406d4ae82968925284dde4dd3d35f240928f25f8",
+    "creationHook": {
+      "file": "$ROOT/main/.claude/scripts/create-worktree.sh",
+      "content": "main-only\n",
+      "fingerprint": "f261ea05dfa34da977d0966c15335d0fd6322d4b502f6fd8b21c252875fa3597"
+    }
+  }
+}

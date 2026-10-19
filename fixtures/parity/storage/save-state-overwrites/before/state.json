@@ -1,0 +1,19 @@
+{
+  "sessions": [
+    {
+      "id": "old",
+      "title": "Session old",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "running",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z"
+    }
+  ],
+  "worktrees": []
+}

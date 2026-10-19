@@ -1,0 +1,9 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "{\"defaultAgent\":\"x\"}",
+    null
+  ],
+  "async": true,
+  "throws": "Invalid defaultAgent"
+}

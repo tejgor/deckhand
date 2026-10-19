@@ -481,4 +481,59 @@ mod tests {
             serde_json::from_str(include_str!("../tests/data/help_topics.json")).expect("fixture parses");
         assert_eq!(serde_json::to_value(HELP_TOPICS).expect("serialises"), expected);
     }
+
+    #[test]
+    fn help_topics_parity() {
+        deckhand_parity::replay(
+            "P12",
+            "help/HELP_TOPICS",
+            |_case: &deckhand_parity::Case| -> Result<&[HelpTopic], String> { Ok(HELP_TOPICS) },
+        );
+    }
+
+    // covers: B-P12-01 help: the Sidebar topic explains every row glyph, the gutter marker, the header and the details
+    #[test]
+    fn sidebar_topic_explains_every_glyph() {
+        let topic = HELP_TOPICS
+            .iter()
+            .find(|entry| entry.title == "Sidebar")
+            .expect("a Sidebar topic");
+        let text = topic
+            .lines
+            .iter()
+            .map(|line| match line {
+                HelpLine::Key { keys, text } => format!("{keys} {text}"),
+                HelpLine::Note { note } => (*note).to_owned(),
+                HelpLine::Heading { heading } => (*heading).to_owned(),
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        for glyph in [
+            "⠋",
+            "●",
+            "◌",
+            "○",
+            "!",
+            "?",
+            "◆",
+            "⌛",
+            "▾",
+            "▸",
+            "↳",
+            "⑂",
+            "▶",
+            "▣",
+            "✓",
+            "+N",
+            "✶",
+            "π",
+            "◇",
+            "↑",
+            "╎",
+            "! N",
+            "Below the list",
+        ] {
+            assert!(text.contains(glyph), "{glyph}");
+        }
+    }
 }

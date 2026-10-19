@@ -1,0 +1,16 @@
+{
+  "before": [
+    {
+      "path": "ui-state.json",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "ui-state.json",
+      "type": "file",
+      "mode": "0600"
+    }
+  ]
+}

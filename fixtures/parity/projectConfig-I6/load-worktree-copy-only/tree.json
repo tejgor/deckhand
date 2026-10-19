@@ -1,0 +1,36 @@
+{
+  "before": [
+    {
+      "path": "main",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/deckhand.json",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "main",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/deckhand.json",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

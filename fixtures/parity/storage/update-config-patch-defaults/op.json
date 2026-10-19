@@ -1,0 +1,25 @@
+{
+  "fn": "updateAppConfig",
+  "args": [
+    "$ROOT",
+    {
+      "defaults": {
+        "setupCommand": "npm ci",
+        "actions": {
+          "test": "npm test"
+        }
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "trustedProjects": {},
+    "notifications": false,
+    "defaults": {
+      "setupCommand": "npm ci",
+      "actions": {
+        "test": "npm test"
+      }
+    }
+  }
+}

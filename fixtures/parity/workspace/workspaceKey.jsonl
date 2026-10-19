@@ -1,0 +1,400 @@
+{"args":[{"cwd":"/repos/app","launchWorktreeRoot":"/repos/app","worktree":{"mode":"attached","path":"/repos/app","isMain":true},"requestedWorktreeMode":"existing"}],"ret":"/repos/app"}
+{"args":[{"cwd":"/repos/app","launchWorktreeRoot":"/repos/app","worktree":{"mode":"attached","path":"/repos/app"},"requestedWorktreeMode":"existing"}],"ret":"/repos/app"}
+{"args":[{"cwd":"/repos/app","launchWorktreeRoot":"/repos/app","worktree":{"mode":"none"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"cwd":"/repos/app","launchWorktreeRoot":"/repos/app","worktree":{"mode":"none"},"requestedWorktreeMode":"none"}],"ret":"/repos/app"}
+{"args":[{"cwd":"/repos/app","launchWorktreeRoot":"/repos/pp","worktree":{"mode":"none"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"cwd":"/repos/app/repos/app","worktree":{"mode":"none"},"requestedWorktreeMode":"none"}],"ret":"/repos/app/repos/app"}
+{"args":[{"cwd":"/repos/appé","worktree":{"mode":"none"},"requestedWorktreeMode":"none"}],"ret":"/repos/appé"}
+{"args":[{"cwd":"/wt/feature","launchWorktreeRoot":"/repos/app","worktree":{"mode":"managed","path":"/wt/feature/","deletedAt":"2026-01-01T00:00:00.000Z"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"cwd":"/wt/feature","launchWorktreeRoot":"/repos/app","worktree":{"mode":"managed","path":"/wt/feature/","deletedAt":"2026-01-01T00:0中0:00.000Z"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"cwd":"/wt/feature","launchWorktreeRoot":"/repos/app","worktree":{"mode":"managed"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"cwd":"/wt/other","launchWorktreeRoot":"/wt/other","worktree":{"mode":"none"},"requestedWorktreeMode":"none"}],"ret":"/wt/other"}
+{"args":[{"id":"","cwd":"/","launchWorktreeRoot":"/work/é","worktree":{"mode":"attached","path":"/r/wt-a/","id":"w1"},"requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"","cwd":"/","requestedWorktreeMode":"none"}],"ret":"/"}
+{"args":[{"id":"","cwd":"//r//wt-a","launchWorktreeRoot":"/"}],"ret":"/"}
+{"args":[{"id":"","cwd":"//r//wt-a","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r","launchWorktreeRoot":"/r/wt-a","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r","launchWorktreeRoot":"/work/😀 emoji","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r","worktree":{"mode":"attached","path":"/work/😀‍👨","deletedAt":""}}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"","cwd":"/r/","launchWorktreeRoot":"//r//wt-a","worktree":{"mode":"managed","path":"/work/😀 emoji"}}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"","cwd":"/r/","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"none","path":"//r//wt-a","deletedAt":""}}],"ret":"/r/wt-a"}
+{"args":[{"id":"","cwd":"/r/","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"managed","path":"","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r/","worktree":{"mode":"none","id":"w1"},"requestedWorktreeMode":"none"}],"ret":"/r"}
+{"args":[{"id":"","cwd":"/r/"}],"ret":"/r"}
+{"args":[{"id":"","cwd":"/r/./wt-a","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r/./wt-a","worktree":{"mode":"attached","deletedAt":"","id":"w1"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r/sub","worktree":{"mode":"managed","path":"/work/中文/😀"}}],"ret":"/work/中文/😀"}
+{"args":[{"id":"","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"//r//wt-a","worktree":{"mode":"none","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/r/","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"managed","path":"/work/é","id":"w1"},"requestedWorktreeMode":"none"}],"ret":"/work/é"}
+{"args":[{"id":"","cwd":"/r/wt a/\ttab","worktree":{"mode":"attached","path":"","deletedAt":""}}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r/wt-a","launchWorktreeRoot":"/r/","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r/wt-a","launchWorktreeRoot":"/work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"","cwd":"/r/wt-a","requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"","cwd":"/r/wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"attached","deletedAt":""},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/r/wt-a/"}],"ret":"/r/wt-a"}
+{"args":[{"id":"","cwd":"/r/wt-a/../wt-b","requestedWorktreeMode":"none"}],"ret":"/r/wt-b"}
+{"args":[{"id":"","cwd":"/work/é","launchWorktreeRoot":"/r","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/work/é","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/work/中文","launchWorktreeRoot":"/","worktree":{"mode":"attached","path":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/work/中文"}],"ret":"/work/中文"}
+{"args":[{"id":"","cwd":"/work/😀 emoji","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"managed","path":"","deletedAt":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"","cwd":"/work/😀 emoji","launchWorktreeRoot":"/work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"","cwd":"/work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"","cwd":"/work/😀 emoji","worktree":{"mode":"none","path":"/r/./wt-a","deletedAt":""}}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"","cwd":"/work/😀‍👨","worktree":{"mode":"managed","path":"/r/wt-a/../wt-b","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"-é","cwd":"/","worktree":{"mode":"none"}}],"ret":"/"}
+{"args":[{"id":"/é","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/","worktree":{"mode":"none","path":"/r/./wt-a"}}],"ret":"/r"}
+{"args":[{"id":"1","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"//r//wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"2","cwd":"/r/./wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"2","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/wt-a","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"Zs1","cwd":"/work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"Z中","cwd":"/r/wt-a/../wt-b"}],"ret":"/r/wt-b"}
+{"args":[{"id":"\né","cwd":"/","launchWorktreeRoot":"/work/é","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"\té","cwd":"/r/wt a/\ttab"}],"ret":"/r/wt a/\ttab"}
+{"args":[{"id":"\té","cwd":"/work/😀‍👨","worktree":{"mode":"none","path":"/r/wt-a/../wt-b","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"b","title":"b","program":"claude","command":"claude","cwd":"/wt/feature","repoRoot":"/repo","launchWorktreeRoot":"/repo","worktree":{"mode":"attached","path":"/wt/feature","branch":"feature","isMain":false,"id":"w1","mergedAt":"2026-01-01T00:20:00.000Z","mergeTargetBranch":"main","mergeSourceRef":"feature","mergeMarkedManually":true,"deletedAt":"2026-01-01T00:30:00.000Z"},"status":"exited","createdAt":"2026-01-01T00:02:00.000Z","updatedAt":"2026-01-01T00:02:00.000Z"}],"ret":{"$u":1}}
+{"args":[{"id":"bé","cwd":"/r/wt-a/","launchWorktreeRoot":"/work/中文","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"child","title":"child","program":"claude","command":"claude","cwd":"/wt/feature","repoRoot":"/repo","launchWorktreeRoot":"/wt/feature","worktree":{"mode":"none","id":"w1","mergedAt":"2026-01-01T00:20:00.000Z","mergeTargetBranch":"mai","mergeSourceRef":"feature","mergeMarkedManually":true,"deletedAt":"2026-01-01T00:30:00.000Z"},"status":"exited","createdAt":"2026-01-01T00:03:00.000Z","updatedAt":"2026-01-01T00:03:00.000Z","requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"child","title":"child","program":"claude","command":"claude","cwd":"/wt/feature","repoRoot":"/repo","launchWorktreeRoot":"/wt/feature/wt/feature","worktree":{"mode":"none","id":"w1","mergedAt":"2026-01-01T00:20:00.000Z","mergeTargetBranch":"main","mergeSourceRef":"feature","mergeMarkedManually":true,"deletedAt":"2026-01-01T00:30:00.000Z"},"status":"exited","createdAt":"2026-01-01T00:03:00.000Z","updatedAt":"2026-01-01T00:03:00.000Z","requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"restarted","title":"restarted","program":"claude","command":"claude","cwd":"/wt/feature","repoRoot":"/repo","launchWorktreeRoot":"/repo","worktree":{"mode":"attached","path":"/wt/feature","branch":"feature","isMain":false,"id":"w2"},"status":"exited","createdAt":"2026-01-01T00:04:00.000Z","updatedAt":"2026-01-01T00:04:00.000Z","agentStartedAt":"2026-01-01T00:45:00.000Z"}],"ret":"/wt/feature"}
+{"args":[{"id":"restarted","title":"restarted","program":"claude","command":"claude","cwd":"/wt/feature","repoRoot":"/repo","launchWorktreeRoot":"/repo","worktree":{"mode":"attached","path":"/wt/feature","branch":"feature","isMain":false,"id":"w2"},"status":"exited","createdAt":"2026-01-01T00:04:00.000Z","updatedAt":"2026-0101T00:04:00.000Z","agentStartedAt":"2026-01-01T00:45:00.000Z"}],"ret":"/wt/feature"}
+{"args":[{"id":"s 2","cwd":"/work/😀 emoji"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"s","cwd":"/r/","requestedWorktreeMode":"none"}],"ret":"/r"}
+{"args":[{"id":"s","cwd":"/r/"}],"ret":"/r"}
+{"args":[{"id":"s","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/wt-a/","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s","cwd":"/r/sub","launchWorktreeRoot":"/r/"}],"ret":"/r"}
+{"args":[{"id":"s","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/wt-a","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/wt a/\ttab","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/","launchWorktreeRoot":"/work/e","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/","launchWorktreeRoot":"/work/é","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/","worktree":{"mode":"attached","path":"/r/wt-a/","deletedAt":"","id":"w1"},"requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s1","cwd":"/"}],"ret":"/"}
+{"args":[{"id":"s1","cwd":"//"}],"ret":"/"}
+{"args":[{"id":"s1","cwd":"//r//wt-a","launchWorktreeRoot":"//r//wt-"}],"ret":"/r/wt-"}
+{"args":[{"id":"s1","cwd":"//r//wt-a","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/0"}],"ret":"/0"}
+{"args":[{"id":"s1","cwd":"/r","launchWorktreeRoot":"/work/😀 emoji","worktree":{"mode":"attached","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r","launchWorktreeRoot":"/work/😀 emoji/work/😀 emoji","worktree":{"mode":"attached","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/","requestedWorktreeMode":"none"}],"ret":"/r"}
+{"args":[{"id":"s1","cwd":"/r/","worktree":{"mode":"attached","path":"","deletedAt":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/","worktree":{"mode":"none","id":"w1w1"},"requestedWorktreeMode":"none"}],"ret":"/r"}
+{"args":[{"id":"s1","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"managed","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/su","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/su","worktree":{"mode":"attached","path":"/r","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/sub","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/sub","requestedWorktreeMode":"new","worktree":{"mode":"managed","path":"/r/wt"}}],"ret":"/r/wt"}
+{"args":[{"id":"s1","cwd":"/r/sub","requestedWorktreeMode":"none"}],"ret":"/r/sub"}
+{"args":[{"id":"s1","cwd":"/r/sub","worktree":{"mode":"attached","path":"/r","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/sub","worktree":{"mode":"managed","path":""}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/sub","worktree":{"mode":"managed","path":"/a","deletedAt":"_"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/sub","worktree":{"mode":"managed","path":"/r/wt/"}}],"ret":"/r/wt"}
+{"args":[{"id":"s1","cwd":"/r/sub","worktree":{"mode":"managed"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/sub","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/sub","worktree":{"mode":"none"},"launchWorktreeRoot":"/r/x/../y/r/x/../y"}],"ret":"/r/y/r/y"}
+{"args":[{"id":"s1","cwd":"/r/sub","worktree":{"mode":"none"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/sub/r/sub","requestedWorktreeMode":"new","worktree":{"mode":"managed","path":"/r/wt"}}],"ret":"/r/wt"}
+{"args":[{"id":"s1","cwd":"/r/sub/r/sub","worktree":{"mode":"none"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/t-a/../wt-b","requestedWorktreeMode":"none"}],"ret":"/r/wt-b"}
+{"args":[{"id":"s1","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"//r//wt-a","worktree":{"mode":"none","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/r","worktree":{"mode":"attached","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"managed","path":"","id":"w1"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/r/./wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s1","cwd":"/r/wt a/\ttab","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt a/\ttab","worktree":{"mode":"managed","deletedAt":""},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt a/\ttab","worktree":{"mode":"managed","deletedAt":"."},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt-a","launchWorktreeRoot":"/","requestedWorktreeMode":"none"}],"ret":"/"}
+{"args":[{"id":"s1","cwd":"/r/wt-a","launchWorktreeRoot":"/r","worktree":{"mode":"attached","path":"","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt-a","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/wt-a","worktree":{"mode":"none","deletedAt":""}}],"ret":"/r/wt-a"}
+{"args":[{"id":"s1","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/wt-a/","worktree":{"mode":"none","deletedAt":"_"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/wt-a/../wt-b","requestedWorktreeMode":"none"}],"ret":"/r/wt-b"}
+{"args":[{"id":"s1","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"none","path":"","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt-a/.","launchWorktreeRoot":"/r/wt-a/../wt-b","requestedWorktreeMode":"none"}],"ret":"/r/wt-b"}
+{"args":[{"id":"s1","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/wt a/\ttab","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/r/wt-a/../wt-b","requestedWorktreeMode":"none"}],"ret":"/r/wt-b"}
+{"args":[{"id":"s1","cwd":"/r/wt-a/../wt-b"}],"ret":"/r/wt-b"}
+{"args":[{"id":"s1","cwd":"/r\n/sub","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/rwt a/\ttab","launchWorktreeRoot":"/r/./wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s1","cwd":"/work/e"}],"ret":"/work/e"}
+{"args":[{"id":"s1","cwd":"/work/é","launchWorktreeRoot":"//r//wt-a","worktree":{"mode":"managed","path":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/é","launchWorktreeRoot":"/r/wt-a/../wt-b/r/wt-a/../wt-b","requestedWorktreeMode":"none"}],"ret":"/r/wt-b/r/wt-b"}
+{"args":[{"id":"s1","cwd":"/work/é","launchWorktreeRoot":"/work/é","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/é/","launchWorktreeRoot":"/r/wt-a/../wt-b","requestedWorktreeMode":"none"}],"ret":"/r/wt-b"}
+{"args":[{"id":"s1","cwd":"/work/é/work/é"}],"ret":"/work/é/work/é"}
+{"args":[{"id":"s1","cwd":"/work/中文","launchWorktreeRoot":"/r/wt-a/","worktree":{"mode":"none","path":"/work/😀‍👨","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/中文","launchWorktreeRoot":"/r/wt-a/","worktree":{"mode":"none","path":"/work/😀‍👨/work/😀‍👨","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/中文","launchWorktreeRoot":"/work/é","worktree":{"mode":"none","deletedAt":""},"requestedWorktreeMode":"none"}],"ret":"/work/é"}
+{"args":[{"id":"s1","cwd":"/work/中文","launchWorktreeRoot":"/work/é","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/中文","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/中文","worktree":{"mode":"attached","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/中文","worktree":{"mode":"none","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/中文"}],"ret":"/work/中文"}
+{"args":[{"id":"s1","cwd":"/work/😀 emoji","launchWorktreeRoot":"/r/wt a/\ttab/r/wt a/\ttab"}],"ret":"/r/wt a/\ttab/r/wt a/\ttab"}
+{"args":[{"id":"s1","cwd":"/work/😀 emoji","launchWorktreeRoot":"/work/é","worktree":{"mode":"managed","path":"/r/wt-a/../wt-b","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/😀 emoji","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/😀 emoji","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/😀 emoji","worktree":{"mode":"managed","path":"/r","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":"/r"}
+{"args":[{"id":"s1","cwd":"/work/😀 emoji","worktree":{"mode":"managed","path":"/😀r","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":"/😀r"}
+{"args":[{"id":"s1","cwd":"/work/😀 emoji/work/😀 emoji","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/😀‍👨","launchWorktreeRoot":"/r/wt-a","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/work/😀‍👨","launchWorktreeRoot":"/work/😀 emoji","worktree":{"mode":"none","path":"/work/😀 emoji","deletedAt":"","id":"w1"}}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"s1","cwd":"/work/😀‍👨/work/😀‍👨","launchWorktreeRoot":"/r/wt-a","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s1","cwd":"/wrk/中文"}],"ret":"/wrk/中文"}
+{"args":[{"id":"s1\n","cwd":"//r//wt-a","launchWorktreeRoot":"//r//wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s1_","cwd":"/r/sub","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1s1","cwd":"/r/sub","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1s1","cwd":"/r/wt a/\ttab","requestedWorktreeMode":"none"}],"ret":"/r/wt a/\ttab"}
+{"args":[{"id":"s1s1","cwd":"/r/wt-a","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"managed","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"s1s1","cwd":"/r/wt-a","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"s1s1","cwd":"/work/中文"}],"ret":"/work/中文"}
+{"args":[{"id":"s1s1","cwd":"/work/😀‍👨","launchWorktreeRoot":"/work/😀 emoji","worktree":{"mode":"attached","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/","launchWorktreeRoot":"//wt-a/../wt-b","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/","launchWorktreeRoot":"/r/","worktree":{"mode":"managed","deletedAt":"","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/","launchWorktreeRoot":"/r/wt-a/../wt-b","requestedWorktreeMode":"none"}],"ret":"/r/wt-b"}
+{"args":[{"id":"s2","cwd":"/","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"none","path":"","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/","launchWorktreeRoot":"/r/wt-a/../wt-b/r/wt-a/../wt-b","worktree":{"mode":"none","path":"","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"//","launchWorktreeRoot":"//r//wt-a","requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"//./wt-a","worktree":{"mode":"managed","path":"/r/wt-a/../wt-b","deletedAt":""}}],"ret":"/r/wt-b"}
+{"args":[{"id":"s2","cwd":"//r//wt-a","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"attached","path":"","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1b"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"//r//wt-a","launchWorktreeRoot":"/work/é"}],"ret":"/work/é"}
+{"args":[{"id":"s2","cwd":"//r//wt-a","launchWorktreeRoot":"/work/😀 emoji"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"s2","cwd":"//r//wt-éa","launchWorktreeRoot":"/work/😀 emoji"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"s2","cwd":"/a/r//wt-a","launchWorktreeRoot":"/work/😀 emoji"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"s2","cwd":"/r","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"none","path":"//r//wt-a","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r","launchWorktreeRoot":"/work/e","requestedWorktreeMode":"none"}],"ret":"/work/e"}
+{"args":[{"id":"s2","cwd":"/r","launchWorktreeRoot":"/work/é","requestedWorktreeMode":"none"}],"ret":"/work/é"}
+{"args":[{"id":"s2","cwd":"/r","worktree":{"mode":"attached","path":"/work/😀‍👨","deletedAt":""}}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"s2","cwd":"/r"}],"ret":"/r"}
+{"args":[{"id":"s2","cwd":"/r/","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"managed","path":"","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/","worktree":{"mode":"attached","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/"}],"ret":"/r"}
+{"args":[{"id":"s2","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"none","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/./wt-a","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/./wt-a","worktree":{"mode":"managed","path":"/r/wt-a/../wt-\nb","deletedAt":""}}],"ret":"/r/wt-\nb"}
+{"args":[{"id":"s2","cwd":"/r/./wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"/r/./wt-ab","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r//wt-a","launchWorktreeRoot":"/work/é"}],"ret":"/work/é"}
+{"args":[{"id":"s2","cwd":"/r/\twt-a","launchWorktreeRoot":"/r/./wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"/r/r"}],"ret":"/r/r"}
+{"args":[{"id":"s2","cwd":"/r/w a/\ttab"}],"ret":"/r/w a/\ttab"}
+{"args":[{"id":"s2","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/work/😀 emoji","worktree":{"mode":"attached","path":"","deletedAt":""},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/work/😀 emoji","worktree":{"mode":"attached","path":"/work/😀‍👨","deletedAt":""},"requestedWorktreeMode":"existing"}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"s2","cwd":"/r/wt a/\ttab/r/wt a/\ttab","launchWorktreeRoot":"/r/wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"/r/wt-a","launchWorktreeRoot":"/r/./wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"/r/wt-a","launchWorktreeRoot":"/😀work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/😀work/😀 emoji"}
+{"args":[{"id":"s2","cwd":"/r/wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/./wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/wt-a","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/wt-a/","launchWorktreeRoot":"/work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"s2","cwd":"/r/wt-a/","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/wt-a/"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/","worktree":{"mode":"managed","path":"","deletedAt":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"attached","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"attached","path":"","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/wt-a","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/r/wt-a//r/wt-a/","launchWorktreeRoot":"/r/./wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"/r/wt\n-a","launchWorktreeRoot":"/work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"s2","cwd":"/ra/"}],"ret":"/ra"}
+{"args":[{"id":"s2","cwd":"/ré/","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"managed","path":"","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/é","launchWorktreeRoot":"/r","worktree":{"mode":"managed"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/é","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"managed","deletedAt":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/é","launchWorktreeRoot":"/r/./wt0-a","worktree":{"mode":"managed","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/é","launchWorktreeRoot":"/work/中文","worktree":{"mode":"managed","path":""}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/é","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/é/work/é","launchWorktreeRoot":"/r","worktree":{"mode":"managed"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/中文","launchWorktreeRoot":"//r//wt-a","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/中文","launchWorktreeRoot":"/r","worktree":{"mode":"attached","path":"/r/","id":"1"},"requestedWorktreeMode":"new"}],"ret":"/r"}
+{"args":[{"id":"s2","cwd":"/work/中文","launchWorktreeRoot":"/work/中文","worktree":{"mode":"managed","path":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/中文","launchWorktreeRoot":"/work/😀‍👨","worktree":{"mode":"managed","path":"/r/wt-a/","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2","cwd":"/work/中文","worktree":{"mode":"attached","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/中文","worktree":{"mode":"attached","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/😀 emoji","launchWorktreeRoot":"/work/中文","requestedWorktreeMode":"none"}],"ret":"/work/中文"}
+{"args":[{"id":"s2","cwd":"/work/😀 emoji","launchWorktreeRoot":"/work/😀‍👨","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/😀 emoji","worktree":{"mode":"none","path":"/r/./wt-a","deletedAt":""}}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"s2","cwd":"/work/😀 emoji","worktree":{"mode":"none","path":"/r/.é/wt-a","deletedAt":""}}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"s2","cwd":"/work/😀 emoji/work/😀 emoji","launchWorktreeRoot":"/work/中文","requestedWorktreeMode":"none"}],"ret":"/work/中文"}
+{"args":[{"id":"s2","cwd":"/work/😀‍"}],"ret":"/work/😀‍"}
+{"args":[{"id":"s2","cwd":"/work/😀‍👨","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2","cwd":"/work/😀‍👨"}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"s2","cwd":"/work\n/中文","requestedWorktreeMode":"none"}],"ret":"/work\n/中文"}
+{"args":[{"id":"s2","cwd":"/wor‍k/é","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2_","cwd":"/r/","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"managed","path":"","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2s2","cwd":"//r//wt-a","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"attached","path":"","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"s2s2","cwd":"/r/","worktree":{"mode":"attached","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2s2","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"none","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"s2s2","cwd":"/work/中文","launchWorktreeRoot":"//r//wt-a","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s2s2","cwd":"/work/中文","launchWorktreeRoot":"/work/😀‍👨","worktree":{"mode":"managed","path":"/r/wt-a/","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":"/r/wt-a"}
+{"args":[{"id":"s2s2","cwd":"/work/😀 emoji","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"s\t2","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/r/wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"sé2","cwd":"/work/😀 emoji","launchWorktreeRoot":"/work/é"}],"ret":"/work/é"}
+{"args":[{"id":"é","cwd":"/","launchWorktreeRoot":"/work/é","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/","launchWorktreeRoot":"/worké","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/","worktree":{"mode":"attached","deletedAt":"é"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/","worktree":{"mode":"none"}}],"ret":"/"}
+{"args":[{"id":"é","cwd":"//","worktree":{"mode":"attached","deletedAt":""}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"//r//wt-a","launchWorktreeRoot":"/r/","worktree":{"mode":"attached","path":"","deletedAt":"2026-01-02T00:0000.000Z","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"//r//wt-a","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"attached","path":"/r/./wt-a","deletedAt":"","id":"w1"}}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"//r//wt-a","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"attached","path":"/r/./wt-a","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"//r//wt-a","worktree":{"mode":"none","path":""},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/ork/😀‍👨","launchWorktreeRoot":"/work/é","worktree":{"mode":"none","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r","launchWorktreeRoot":"//wt-a/"}],"ret":"/wt-a"}
+{"args":[{"id":"é","cwd":"/r","launchWorktreeRoot":"/r/wt-a/"}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/r","launchWorktreeRoot":"/work/é","requestedWorktreeMode":"none"}],"ret":"/work/é"}
+{"args":[{"id":"é","cwd":"/r","launchWorktreeRoot":"/work/😀 emoji","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/","launchWorktreeRoot":"//r//wt-a","worktree":{"mode":"managed","id":"w1"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/","launchWorktreeRoot":"//r//wt-a","worktree":{"mode":"managed","id":"w1ß"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"none","path":"//r//wt-a","deletedAt":""}}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/r/","launchWorktreeRoot":"/r/./wt-a/r/./wt-a","worktree":{"mode":"none","path":"//r//wt-a","deletedAt":""}}],"ret":"/r/wt-a/r/wt-a"}
+{"args":[{"id":"é","cwd":"/r/"}],"ret":"/r"}
+{"args":[{"id":"é","cwd":"/r/./wt-.a","launchWorktreeRoot":"/r","worktree":{"mode":"none","path":"//r//wt-a","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/./wt-a","launchWorktreeRoot":"/","worktree":{"mode":"attached","path":"/work/é","id":"w1"}}],"ret":"/work/é"}
+{"args":[{"id":"é","cwd":"/r/./wt-a","launchWorktreeRoot":"/r","worktree":{"mode":"managed","path":"","deletedAt":"","id":"1"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/./wt-a","launchWorktreeRoot":"/r","worktree":{"mode":"managed","path":"","deletedAt":"Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/./wt-a","launchWorktreeRoot":"/r","worktree":{"mode":"none","path":"//r//t-a","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/wt-a","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/wt-a/","worktree":{"mode":"none","path":"","deletedAt":"","id":"1"},"requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/wt-a/","worktree":{"mode":"none","path":"","deletedAt":"","id":"w1"},"requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/r/./wt-a","worktree":{"mode":"none","id":"w1"}}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/r/./wt-a","worktree":{"mode":"none","id":"w1w1"}}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/r/r","launchWorktreeRoot":"/r/wt-a/../wt-b","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/t-a/","launchWorktreeRoot":"/work/中文","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/wt a/\ttab","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/wt a/\ttab","worktree":{"mode":"attached","path":"","deletedAt":""}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/wt a/\ttab","worktree":{"mode":"none","path":"","deletedAt":"","id":"w1"}}],"ret":"/r/wt a/\ttab"}
+{"args":[{"id":"é","cwd":"/r/wt a/\ttab","worktree":{"mode":"none","path":"//r//wt-a","deletedAt":"","id":"w1"}}],"ret":"/r/wt a/\ttab"}
+{"args":[{"id":"é","cwd":"/r/wt a/\ttab"}],"ret":"/r/wt a/\ttab"}
+{"args":[{"id":"é","cwd":"/r/wt-a","launchWorktreeRoot":"/r/","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/wt-a","launchWorktreeRoot":"/r//r/","requestedWorktreeMode":"none"}],"ret":"/r/r"}
+{"args":[{"id":"é","cwd":"/r/wt-a","launchWorktreeRoot":"/r/wt-a/","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/wt-a","launchWorktreeRoot":"/work/é/work/é","worktree":{"mode":"attached"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/wt-a","launchWorktreeRoot":"/work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"é","cwd":"/r/wt-a","requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/r/wt-a","worktree":{"mode":"attached","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/"}],"ret":"/r"}
+{"args":[{"id":"é","cwd":"/r/wt-a/","launchWorktreeRoot":"/work/中文","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/wt-a/"}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/","worktree":{"mode":"none","path":"/r/./wt-a"}}],"ret":"/r"}
+{"args":[{"id":"é","cwd":"/r/wt-a/../wt-b","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/r/wt-a/r/wt-a","requestedWorktreeMode":"none"}],"ret":"/r/wt-a/r/wt-a"}
+{"args":[{"id":"é","cwd":"/work/é","launchWorktreeRoot":"/work/é","worktree":{"mode":"none","path":"/work/😀 emoji","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/é","launchWorktreeRoot":"/work/é","worktree":{"mode":"none","path":"/work/😀 emoji\n","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/é"}],"ret":"/work/é"}
+{"args":[{"id":"é","cwd":"/work/é/work/é"}],"ret":"/work/é/work/é"}
+{"args":[{"id":"é","cwd":"/work/‍👨","worktree":{"mode":"none","path":"/r/wt-a/../wt-b","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/中文","launchWorktreeRoot":"/ér/wt a/\ttab","worktree":{"mode":"managed","path":"/work/é","deletedAt":"","id":"w1"}}],"ret":"/work/é"}
+{"args":[{"id":"é","cwd":"/work/中文","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"managed","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/中文","launchWorktreeRoot":"/r/wt a/\ttab/r/wt a/\ttab","worktree":{"mode":"managed","path":"/work/é","deletedAt":"","id":"w1"}}],"ret":"/work/é"}
+{"args":[{"id":"é","cwd":"/work/中文","worktree":{"mode":"attached","id":"w"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/中文","worktree":{"mode":"attached","path":"","deletedAt":"","id":"w"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/中文","worktree":{"mode":"attached","path":"","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","launchWorktreeRoot":"/","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","launchWorktreeRoot":"//r//wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","launchWorktreeRoot":"/r","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","launchWorktreeRoot":"/r/","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","launchWorktreeRoot":"/r/","worktree":{"mode":"attached","path":"//r/wt-a","id":"w1"},"requestedWorktreeMode":"new"}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"managed","path":"","deletedAt":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","launchWorktreeRoot":"/work/é","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","launchWorktreeRoot":"/work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","requestedWorktreeMode":"none"}],"ret":"/work/😀 emoji"}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","worktree":{"mode":"attached","path":"","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","worktree":{"mode":"attached","path":"/","deletedAt":"","id":"w1"}}],"ret":"/"}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","worktree":{"mode":"attached","path":"//r//wt-a","id":"w"},"requestedWorktreeMode":"existing"}],"ret":"/r/wt-a"}
+{"args":[{"id":"é","cwd":"/work/😀 emoji","worktree":{"mode":"managed"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/😀 emoji/work/😀 emoji","worktree":{"mode":"attached","path":"/","deletedAt":"","id":"w1"}}],"ret":"/"}
+{"args":[{"id":"é","cwd":"/work/😀‍👨","worktree":{"mode":"none","path":"/r/wt-a/../wt-b","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"é","cwd":"/work/😀‍👨"}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"é_","cwd":"/work/中文","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"managed","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"éa","cwd":"/r/wt-a/../wt-b","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"éé","cwd":"/r","launchWorktreeRoot":"/r/wt-a/"}],"ret":"/r/wt-a"}
+{"args":[{"id":"éé","cwd":"/r","launchWorktreeRoot":"/work/é","requestedWorktreeMode":"none"}],"ret":"/work/é"}
+{"args":[{"id":"éé","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/r/","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"éé","cwd":"/r/wt a/\ttab","worktree":{"mode":"attached","path":"","deletedAt":""}}],"ret":{"$u":1}}
+{"args":[{"id":"éé","cwd":"/r/wt a/\ttab"}],"ret":"/r/wt a/\ttab"}
+{"args":[{"id":"éé","cwd":"/r/wt-a/","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"éé","cwd":"/r/wt-a/"}],"ret":"/r/wt-a"}
+{"args":[{"id":"éé","cwd":"/work/中文","launchWorktreeRoot":"/","worktree":{"mode":"attached","path":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"éé","cwd":"/work/中文","worktree":{"mode":"attached","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"managed","path":""},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"managed","path":"/"},"requestedWorktreeMode":"new"}],"ret":"/"}
+{"args":[{"id":"中","cwd":"/","launchWorktreeRoot":"/work/é","worktree":{"mode":"attached","path":"/r/wt-a/","id":"w1"},"requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"中","cwd":"/","launchWorktreeRoot":"/work/é/work/é","worktree":{"mode":"attached","path":"/r/wt-a/","id":"w1"},"requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"中","cwd":"//","launchWorktreeRoot":"/r/wt-a","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"//r//wt-a","launchWorktreeRoot":"/"}],"ret":"/"}
+{"args":[{"id":"中","cwd":"//r//wt-a","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"attached","deletedAt":""}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"//r//wt-a","worktree":{"mode":"managed","path":"/r/\nwt-a/","deletedAt":"","id":"w1"},"requestedWorktreeMode":"none"}],"ret":"/r/\nwt-a"}
+{"args":[{"id":"中","cwd":"//wt a/\ttab","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"managed","path":"/r/wt-a/","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"//wt-a/","launchWorktreeRoot":"/","worktree":{"mode":"managed"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r","launchWorktreeRoot":"/r/wt-a","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r","launchWorktreeRoot":"/r/wt-a../wt-b","worktree":{"mode":"managed","path":"/work/😀‍👨","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"managed","path":"/work/😀‍👨","deletedAt":"2026-01é-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r","launchWorktreeRoot":"/work/😀 emo/ji","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/","launchWorktreeRoot":"/r","worktree":{"mode":"attached","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/","launchWorktreeRoot":"/r/wt-a/../wt-b","worktree":{"mode":"managed","path":"","id":"w1"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/","launchWorktreeRoot":"/work/é","worktree":{"mode":"managed","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/","launchWorktreeRoot":"/work/é","worktree":{"mode":"managed","deletedAt":"‍","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/./wt-a","launchWorktreeRoot":"/"}],"ret":"/"}
+{"args":[{"id":"中","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/wt-a/","worktree":{"mode":"managed","path":"/","deletedAt":"2026-01-02T00:00:00.000Z","id":""},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/wt-a/","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/./wt-a","launchWorktreeRoot":"/r/wt-a/","worktree":{"mode":"none","deletedAt":"2026-01-02T00:00:00.000Z2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/./wt-a","worktree":{"mode":"attached","deletedAt":"","id":"w1"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/a./wt-a","launchWorktreeRoot":"/"}],"ret":"/"}
+{"args":[{"id":"中","cwd":"/r/wt a/\tbtab","launchWorktreeRoot":"/r"}],"ret":"/r"}
+{"args":[{"id":"中","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"managed","path":"/r/wt-a/","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt a/\ttab","launchWorktreeRoot":"/work/😀‍👨"}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"中","cwd":"/r/wt a/\ttab","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a","worktree":{"mode":"attached","path":"","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a","worktree":{"mode":"attached","path":""}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"中","cwd":"/r/wt-a/","launchWorktreeRoot":"/","worktree":{"mode":"managed"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a/","launchWorktreeRoot":"/r/wt-a/../wt-b0","worktree":{"mode":"attached","deletedAt":""},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/","worktree":{"mode":"attached","path":"//r//wt-a"}}],"ret":"/r/wt-a"}
+{"args":[{"id":"中","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/./wßt-a","worktree":{"mode":"managed","path":""}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/r/wt-a/","worktree":{"mode":"none","path":"","id":"w1"},"requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"中","cwd":"/r/wt-a/../wt-b","worktree":{"mode":"attached","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a/../wt-b","worktree":{"mode":"managed"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a/../wt-b/r/wt-a/../wt-b","worktree":{"mode":"managed"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a/r/wt-a","worktree":{"mode":"attached","path":"","deletedAt":"2026-01-02T00:00:00.000Z"},"requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/r/wt-a/r/wt-a","worktree":{"mode":"managed","path":"","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/rZ/"}],"ret":"/rZ"}
+{"args":[{"id":"中","cwd":"/worék/é","launchWorktreeRoot":"/r","requestedWorktreeMode":"new"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work./é","launchWorktreeRoot":"/work/é"}],"ret":"/work/é"}
+{"args":[{"id":"中","cwd":"/work/é","launchWorktreeRoot":"/r","requestedWorktreeMode":"none"}],"ret":"/r"}
+{"args":[{"id":"中","cwd":"/work/é","launchWorktreeRoot":"/r/r","requestedWorktreeMode":"none"}],"ret":"/r/r"}
+{"args":[{"id":"中","cwd":"/work/中文","launchWorktreeRoot":"/r","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/中文","launchWorktreeRoot":"/r/\twt-a/","worktree":{"mode":"attached","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/中文","launchWorktreeRoot":"/work/😀‍👨","worktree":{"mode":"none","path":"","id":""}}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"中","cwd":"/work/中文","launchWorktreeRoot":"/work/😀‍👨","worktree":{"mode":"none","path":"","id":"w1"}}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"中","cwd":"/work/中文","worktree":{"mode":"attached","path":"/work/中文/work/中文","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":"/work/中文/work/中文"}
+{"args":[{"id":"中","cwd":"/work/中文/work/中文","launchWorktreeRoot":"/r","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/中文/work/中文","launchWorktreeRoot":"/work/😀‍👨","worktree":{"mode":"none","path":"","id":"w1"}}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"中","cwd":"/work/😀 emoji","launchWorktreeRoot":"/r/./wt-a"}],"ret":"/r/wt-a"}
+{"args":[{"id":"中","cwd":"/work/😀 emoji","launchWorktreeRoot":"/r/./wt-a/r/./wt-a"}],"ret":"/r/wt-a/r/wt-a"}
+{"args":[{"id":"中","cwd":"/work/😀 emoji","launchWorktreeRoot":"/work/😀 emo_ji","worktree":{"mode":"managed","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀 emoji","launchWorktreeRoot":"/work/😀 emoji","worktree":{"mode":"managed","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"},"requestedWorktreeMode":"none"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀 emoji","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀 emoji","worktree":{"mode":"managed","path":"/work/é","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":"/work/é"}
+{"args":[{"id":"中","cwd":"/work/😀 emoji","worktree":{"mode":"managed","path":"/work/é/work/é","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":"/work/é/work/é"}
+{"args":[{"id":"中","cwd":"/work/😀 emoji/work/😀 emoji","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀‍👨","launchWorktreeRoot":"/r/./wt-a/r/./wt-a","worktree":{"mode":"none","path":"","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀‍👨","launchWorktreeRoot":"/r/wt a/\ttab","worktree":{"mode":"attached","deletedAt":""}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀‍👨","launchWorktreeRoot":"/r/wt-a","requestedWorktreeMode":"none"}],"ret":"/r/wt-a"}
+{"args":[{"id":"中","cwd":"/work/😀‍👨","launchWorktreeRoot":"/r/wt-a","worktree":{"mode":"managed","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀‍👨","launchWorktreeRoot":"/work/é","worktree":{"mode":"attached","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀‍👨","launchWorktreeRoot":"/work/é","worktree":{"mode":"attached","id":"w1ß"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀‍👨","worktree":{"mode":"managed","path":"/r/wt-a/../wt-b/r/wt-a/../wt-b","deletedAt":"2026-01-02T00:00:00.000Z","id":"w1"}}],"ret":{"$u":1}}
+{"args":[{"id":"中","cwd":"/work/😀‍👨","worktree":{"mode":"none","path":"","deletedAt":""}}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"中","cwd":"/work/😀‍👨"}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"中-","cwd":"//r//wt-a","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"attached","deletedAt":""}}],"ret":{"$u":1}}
+{"args":[{"id":"中a","cwd":"/work/😀‍👨","launchWorktreeRoot":"/r/./wt-a","worktree":{"mode":"none","path":"","deletedAt":"2026-01-02T00:00:00.000Z"}}],"ret":{"$u":1}}
+{"args":[{"id":"中é","cwd":"/work/中文","worktree":{"mode":"attached","path":"/work/中文","deletedAt":"","id":"w1"},"requestedWorktreeMode":"existing"}],"ret":"/work/中文"}
+{"args":[{"id":"中中","cwd":"/r/./wt-a","launchWorktreeRoot":"/"}],"ret":"/"}
+{"args":[{"id":"中中","cwd":"/r/wt-a/../wt-b","launchWorktreeRoot":"/","worktree":{"mode":"attached","path":"//r//wt-a"}}],"ret":"/r/wt-a"}
+{"args":[{"id":"中中","cwd":"/work/é","launchWorktreeRoot":"/work/é"}],"ret":"/work/é"}
+{"args":[{"id":"中中","cwd":"/work/中文","launchWorktreeRoot":"/r","requestedWorktreeMode":"existing"}],"ret":{"$u":1}}
+{"args":[{"id":"中中","cwd":"/work/😀‍👨"}],"ret":"/work/😀‍👨"}
+{"args":[{"id":"😀s1","cwd":"/r/sub","requestedWorktreeMode":"none"}],"ret":"/r/sub"}

@@ -1,0 +1,21 @@
+{
+  "before": [
+    {
+      "path": "state.json",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "state.json",
+      "type": "file",
+      "mode": "0600"
+    },
+    {
+      "path": "state.json.corrupt-1767225600000",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

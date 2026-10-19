@@ -1,0 +1,9 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "{\n  \"actions\": {\n    \"Ünï\": \"x\"\n  }\n}\n",
+    null
+  ],
+  "async": true,
+  "throws": "Invalid action name: Ünï"
+}

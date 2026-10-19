@@ -1,0 +1,32 @@
+{
+  "fn": "applyWorktreeLinks",
+  "args": [
+    {
+      "symlink": [
+        "日本語/x.txt",
+        "é.txt",
+        "データ😀.txt"
+      ]
+    },
+    {
+      "launchRoot": "$ROOT/launch",
+      "worktreeRoot": "$ROOT/wt",
+      "vars": {
+        "name": "feature x",
+        "repo": "proj",
+        "repoParent": "$ROOT",
+        "repoRoot": "$ROOT/launch",
+        "home": "$ROOT/home"
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "linked": [
+      "日本語/x.txt",
+      "é.txt",
+      "データ😀.txt"
+    ],
+    "notes": []
+  }
+}

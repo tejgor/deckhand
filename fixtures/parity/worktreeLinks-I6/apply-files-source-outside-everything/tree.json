@@ -1,0 +1,62 @@
+{
+  "before": [
+    {
+      "path": "elsewhere",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "elsewhere/f",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "elsewhere",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "elsewhere/f",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/f",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/elsewhere/f"
+    }
+  ]
+}

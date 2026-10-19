@@ -1,0 +1,24 @@
+{
+  "fn": "loadProjectConfig",
+  "args": [
+    "$ROOT/main",
+    {},
+    {
+      "root": "$ROOT/wt",
+      "trustRoot": "$ROOT/wt"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "root": "$ROOT/wt",
+    "trustRoot": "$ROOT/wt",
+    "config": {},
+    "exists": false,
+    "fingerprint": "05268dea06db457932d4da80ebbc2a37b394b5834700173eee19c0eb45bc8210",
+    "creationHook": {
+      "file": "$ROOT/wt/.claude/scripts/create-worktree.sh",
+      "content": "#!/bin/sh\necho hook\n",
+      "fingerprint": "5ca2d7f845893c39532382d5eb8bbfceb423f5c990191f8820e256fb7513aa76"
+    }
+  }
+}

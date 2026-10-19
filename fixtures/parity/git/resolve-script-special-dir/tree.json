@@ -1,0 +1,46 @@
+{
+  "before": [
+    {
+      "path": "a b & 'c' $d (e) #f",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a b & 'c' $d (e) #f/.claude",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a b & 'c' $d (e) #f/.claude/scripts",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a b & 'c' $d (e) #f/.claude/scripts/create-worktree.sh",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "a b & 'c' $d (e) #f",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a b & 'c' $d (e) #f/.claude",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a b & 'c' $d (e) #f/.claude/scripts",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a b & 'c' $d (e) #f/.claude/scripts/create-worktree.sh",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

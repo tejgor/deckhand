@@ -1,0 +1,8 @@
+{
+  "fn": "loadAppConfig",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "throws": "$ROOT/config.json must contain a JSON object"
+}

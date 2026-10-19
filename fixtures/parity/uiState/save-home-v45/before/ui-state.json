@@ -1,0 +1,40 @@
+{
+  "/tmp/deckhand-fixture/repos/app": {
+    "selectedId": "5e550000-0000-4000-8000-000000000004",
+    "activeTab": "notes",
+    "sessionFilter": "all",
+    "sessionQuery": "",
+    "sidebarWidth": 42,
+    "sessionTabs": {
+      "5e550000-0000-4000-8000-000000000001": "preview",
+      "5e550000-0000-4000-8000-000000000004": "terminal",
+      "5e550000-0000-4000-8000-000000000007": "bogus-tab"
+    },
+    "collapsedSessionIds": [
+      "5e550000-0000-4000-8000-000000000001",
+      "5e550000-0000-4000-8000-000000000009"
+    ],
+    "hiddenExitedSessionIds": [
+      "5e550000-0000-4000-8000-000000000008"
+    ],
+    "readReplies": {
+      "5e550000-0000-4000-8000-000000000002": "2026-09-10T09:50:00.000Z",
+      "5e550000-0000-4000-8000-000000000007": 12345
+    },
+    "futureUiField": "dropped by normalizeUiState on the next save"
+  },
+  "/tmp/deckhand-fixture/repos/lib": {
+    "activeTab": "dev",
+    "sessionFilter": "nonsense",
+    "sessionQuery": "lib",
+    "collapsedSessionIds": "not-an-array",
+    "readReplies": {}
+  },
+  "/tmp/deckhand-fixture/worktrees/app/feature-a": {
+    "selectedId": "5e550000-0000-4000-8000-000000000005",
+    "sessionTabs": {},
+    "collapsedSessionIds": [],
+    "hiddenExitedSessionIds": [],
+    "readReplies": {}
+  }
+}

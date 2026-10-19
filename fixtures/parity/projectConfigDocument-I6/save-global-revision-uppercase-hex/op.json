@@ -1,0 +1,9 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "{}",
+    "694A2C0CF837A11CB310889E83AE0C8AD43ACA68CEA8C6C8904BC70F49FF3EA0"
+  ],
+  "async": true,
+  "throws": "Invalid configuration revision"
+}

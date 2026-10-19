@@ -1,0 +1,28 @@
+{
+  "fn": "applyWorktreeLinks",
+  "args": [
+    {
+      "symlink": [
+        "a"
+      ]
+    },
+    {
+      "launchRoot": "$ROOT/launch",
+      "worktreeRoot": "$ROOT/wt-link",
+      "vars": {
+        "name": "feature x",
+        "repo": "proj",
+        "repoParent": "$ROOT",
+        "repoRoot": "$ROOT/launch",
+        "home": "$ROOT/home"
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "linked": [
+      "a"
+    ],
+    "notes": []
+  }
+}

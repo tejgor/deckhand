@@ -1,0 +1,12 @@
+{
+  "defaults": {
+    "worktree": {
+      "hook": true
+    },
+    "actions": {
+      "B": "b",
+      "A": "a"
+    },
+    "devCommand": "z"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "fn": "loadUiState",
+  "args": [
+    "$ROOT",
+    "$ROOT/😀 中文/repo"
+  ],
+  "async": true,
+  "ret": {
+    "selectedId": "中",
+    "activeTab": "git",
+    "sessionFilter": "attention",
+    "sessionQuery": "😀",
+    "sidebarWidth": 31.5,
+    "sessionTabs": {
+      "a": "notes",
+      "b": "dev"
+    },
+    "collapsedSessionIds": [
+      "x",
+      "y"
+    ],
+    "hiddenExitedSessionIds": [
+      "z"
+    ],
+    "readReplies": {
+      "a": "2026-01-01T00:00:00.000Z"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "null",
+    null
+  ],
+  "async": true,
+  "throws": "defaults must be an object"
+}

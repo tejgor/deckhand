@@ -1,0 +1,30 @@
+{
+  "fn": "savedProjectTrust",
+  "args": [
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "/trust/root 日本語 😀"
+    },
+    {
+      "raw": "{\"bad\":1}",
+      "exists": true
+    },
+    "{\n  \"defaultAgent\": \"pi\",\n  \"devCommand\": \"x\"\n}\n",
+    {
+      "trustedProjects": {
+        "/trust/root 日本語 😀": [
+          "a51e795f039ff0a1b151ae4dc5741824c10c16d0e0d61dbf6a9fe7935785fc8b",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "/other/root": [
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ]
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "trust": "unreviewed"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "fn": "readBoundedUtf8",
+  "args": [
+    "$ROOT/a.json",
+    {
+      "max": 0
+    }
+  ],
+  "async": true,
+  "ret": {
+    "bytes": {
+      "$bytes": ""
+    },
+    "text": "",
+    "mode": 420
+  }
+}

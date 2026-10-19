@@ -1,0 +1,43 @@
+{
+  "fn": "loadProjectConfig",
+  "args": [
+    "$ROOT/main",
+    {},
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "$ROOT/main"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "root": "$ROOT/main",
+    "trustRoot": "$ROOT/main",
+    "path": "$ROOT/main/deckhand.json",
+    "config": {
+      "defaultAgent": "codex",
+      "defaultWorkspace": "existing",
+      "devCommand": "npm run dev",
+      "setupCommand": "npm i",
+      "actions": {
+        "Test": "npm test",
+        "build 1.x": "make"
+      },
+      "worktree": {
+        "location": "~/wt/{name}",
+        "symlink": [
+          "node_modules",
+          "a/b"
+        ],
+        "files": {
+          ".secrets": "{repoRoot}/.secrets"
+        },
+        "branchFrom": "origin",
+        "branchName": "u/{name}",
+        "hook": true
+      }
+    },
+    "exists": true,
+    "fingerprint": "ec0ba41fd1a0539f4ae98cd367b609c6ab1287329245a89b243e4b0d1a192f34"
+  }
+}

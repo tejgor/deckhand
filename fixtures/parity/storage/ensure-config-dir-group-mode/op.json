@@ -1,0 +1,10 @@
+{
+  "fn": "ensureConfigDir",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "ret": {
+    "$u": 1
+  }
+}

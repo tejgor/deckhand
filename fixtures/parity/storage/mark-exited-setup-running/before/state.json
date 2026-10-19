@@ -1,0 +1,62 @@
+{
+  "sessions": [
+    {
+      "id": "a",
+      "title": "Session a",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "running",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z",
+      "setup": {
+        "command": "npm ci",
+        "state": "running",
+        "output": "partial 😀"
+      }
+    },
+    {
+      "id": "b",
+      "title": "Session b",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "running",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z",
+      "setup": {
+        "command": "x",
+        "state": "complete",
+        "output": "done"
+      }
+    },
+    {
+      "id": "c",
+      "title": "Session c",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "running",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z",
+      "setup": {
+        "command": "x",
+        "state": "pending",
+        "output": ""
+      }
+    }
+  ],
+  "worktrees": []
+}

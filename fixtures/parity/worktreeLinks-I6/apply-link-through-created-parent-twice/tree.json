@@ -1,0 +1,83 @@
+{
+  "before": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/a",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/a/one",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "launch/a/two",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/a",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/a/one",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "launch/a/two",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/a",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/a/one",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/launch/a/one"
+    },
+    {
+      "path": "wt/a/two",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/launch/a/two"
+    }
+  ]
+}

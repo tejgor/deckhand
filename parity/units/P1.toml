@@ -10,12 +10,19 @@ ts_tests = ["tests/agents.test.ts", "tests/agentVersions.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = [
+  "agents/agentSpec", "agents/newAgentRef", "agents/launchArgs", "agents/sameAgentSessionRef", "agents/forksParentAgain", "agents/relaunchPlan", "agents/exitRef", "agents/missingConversation", "agents/forkFailed",
+  "agentVersions/parseVersion", "agentVersions/compareVersions", "agentVersions/agentUpdateStatus", "agentVersions/sessionOutdated", "agentVersions/installedVersions", "agentVersions/updateHint",
+  "agentSignals-P1/normalizeHook", "agentSignals-P1/answersPrompt", "agentSignals-P1/hookPayloadFields", "agentSignals-P1/hooksEnabled", "agentSignals-P1/attentionMessage", "agentSignals-P1/shellQuote", "agentSignals-P1/codexResumeFromOutput", "agentSignals-P1/needsAttention",
+]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "sidebar: ↑ before the agent glyph on outdated running sessions, dropped first; the details name both versions", to = "U2", reason = "asserts sidebarRows/sessionDetails (P8) and the rendered Sidebar pane (U2)" },
+  { title = "Agents screen: one row per agent with versions and status, details of the selected one, confirmation, results", to = "F1", reason = "renders the AgentsPane (agentsFlow)" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 

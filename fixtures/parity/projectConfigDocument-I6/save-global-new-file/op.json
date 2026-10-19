@@ -1,0 +1,16 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "{\n  \"defaultAgent\": \"pi\"\n}\n",
+    null
+  ],
+  "async": true,
+  "ret": {
+    "kind": "global",
+    "root": "$ROOT",
+    "path": "$ROOT/config.json",
+    "raw": "{\n  \"defaultAgent\": \"pi\"\n}\n",
+    "revision": "846a557d35520738178033b53ba78884546430a8ab76e9fb6e12cd6e7c3662a7",
+    "exists": true
+  }
+}

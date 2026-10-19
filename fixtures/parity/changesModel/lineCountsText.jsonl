@@ -1,0 +1,18 @@
+{"args":[{"additions":0,"deletions":0}],"ret":"+0 −0"}
+{"args":[{"additions":1.5,"deletions":1e+21}],"ret":"+1.5 −1e+21"}
+{"args":[{"additions":12,"deletions":3}],"ret":"+12 −3"}
+{"args":[{"additions":1}],"ret":""}
+{"args":[{"binary":true,"additions":1,"deletions":2}],"ret":"bin"}
+{"args":[{"binary":true}],"ret":"bin"}
+{"args":[{"deletions":1}],"ret":""}
+{"args":[{"group":"untracked","path":"","status":"?","additions":7,"deletions":0}],"ret":"+7 −0"}
+{"args":[{"group":"untracked","path":"a first.bi","status":"?","binary":true}],"ret":"bin"}
+{"args":[{"group":"untracked","path":"a first.bin","status":"","binary":true}],"ret":"bin"}
+{"args":[{"group":"untracked","path":"a first.bin","status":"?","binary":true}],"ret":"bin"}
+{"args":[{"group":"untracked","path":"a first.bina first.bin","status":"?","binary":true}],"ret":"bin"}
+{"args":[{"group":"untracked","path":"z-last.txt","status":"?","additions":6,"deletions":0}],"ret":"+6 −0"}
+{"args":[{"group":"untracked","path":"z-last.txt","status":"?","additions":7,"deletions":0}],"ret":"+7 −0"}
+{"args":[{"group":"untracked","path":"z-last.txt","status":"?","additions":8,"deletions":0}],"ret":"+8 −0"}
+{"args":[{"group":"untracked","path":"z-lst.txt","status":"?","additions":7,"deletions":0}],"ret":"+7 −0"}
+{"args":[{"group":"untrackeduntracked","path":"a first.bin","status":"?","binary":true}],"ret":"bin"}
+{"args":[{}],"ret":""}
