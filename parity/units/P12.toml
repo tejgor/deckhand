@@ -43,7 +43,10 @@ fixtures = [
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+	{ title = "help topics: keys in one aligned column, descriptions wrap under themselves, a long key gets its own row", to = "U2", reason = "exercises helpPane.tsx helpRows (owned by U2); HELP_TOPICS itself is covered by the help/HELP_TOPICS fixture" },
+	{ title = "help search matches keys, descriptions and notes across topics; the pane shows a topic list when wide and ◂ topic ▸ when narrow", to = "U2", reason = "exercises helpPane.tsx searchHelp and the HelpPane renderer (owned by U2)" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 

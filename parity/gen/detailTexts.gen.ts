@@ -19,13 +19,26 @@ const recorder = new Recorder('detailTexts', {cap: 600});
 recorder.addTap(await runTap({tests: ['tests/cleanupView.test.ts'], tap: ['detailTexts:*']}), {module: 'detailTexts'});
 
 const unicode = arb.text(14);
+
+// Mutations stay inside the declared types: closed string unions keep a member and required booleans stay present.
+// (A mutated `checks: 'passin'` or a deleted `trusted` is no value the daemon can send, and the Rust port receives
+// these records typed.)
+const member = (value: unknown, members: string[]) => value === undefined || members.includes(value as string);
+const typedProject = ([value]: unknown[]): boolean => {
+	const record = value as {exists?: unknown; trusted?: unknown; needsReview?: unknown; config: {defaultAgent?: unknown; defaultWorkspace?: unknown}; disabledHook?: {by: unknown}};
+	return [record.exists, record.trusted, record.needsReview].every(flag => typeof flag === 'boolean')
+		&& member(record.config.defaultAgent, ['claude', 'pi', 'codex']) && member(record.config.defaultWorkspace, ['none', 'new', 'existing'])
+		&& member(record.disabledHook?.by, ['global', 'repository']);
+};
+const typedSummary = ([value]: unknown[]): boolean => member((value as {pr?: {checks: unknown}}).pr?.checks, ['passing', 'pending', 'failing', 'unknown']);
 const word = fc.constantFrom('alpha', 'beta', 'src/main.ts', 'é', '中文', '😀', 'a b', '', 'with\nnewline', 'tab\there', '"quoted"', 'back\\slash', 'main', 'feature/中文-😀');
 
 // 2. trustReviewText(project, purpose?).
 interface ProjectOver {path?: string; exists: boolean; trusted: boolean; needsReview: boolean; hook: 'none' | 'creation' | 'global' | 'repository'; config: Record<string, unknown>; purpose?: string}
 const configs: Record<string, unknown>[] = [
 	{}, {devCommand: 'npm run dev', actions: {test: 'npm test', lint: 'eslint .'}, worktree: {hook: false}},
-	{defaultAgent: 'claude', defaultWorkspace: 'new', setupCommand: 'make setup', note: 'é 中 😀  '},
+	// Only ProjectConfig keys: validateProjectConfig rejects any other, so no project carries one.
+	{defaultAgent: 'claude', defaultWorkspace: 'new', setupCommand: 'make setup', devCommand: 'é 中 😀  '},
 ];
 const project = (over: ProjectOver): Record<string, unknown> => {
 	const record: Record<string, unknown> = {root: '/repo', trustRoot: '/repo'};
@@ -47,7 +60,7 @@ for (const [path, text, purpose, hookFile, hookContent] of sample(fc.tuple(word,
 	(record.creationHook as Record<string, string>).file = hookFile; (record.creationHook as Record<string, string>).content = hookContent;
 	recorder.call('trustReviewText', trustReviewText, [record, ...purpose === undefined ? [] : [purpose]]);
 }
-for (const args of mutate(recorder.argsOf('trustReviewText').slice(0, 40), {variants: 2})) recorder.call('trustReviewText', trustReviewText, args);
+for (const args of mutate(recorder.argsOf('trustReviewText').slice(0, 40), {variants: 2}).filter(typedProject)) recorder.call('trustReviewText', trustReviewText, args);
 
 // 3. cleanupOverrideText(inspection | undefined).
 type FileState = 'changed' | 'untracked' | 'ignored';
@@ -106,7 +119,7 @@ for (const [cwd, branch, head, remote, error] of sample(fc.tuple(word, word, uni
 	recorder.call('workspaceSummaryText', workspaceSummaryText, [value, false, {links: {linked: [cwd], notes: [head, branch]}}]);
 	recorder.call('createPrConfirmText', createPrConfirmText, [value]);
 }
-for (const args of mutate(recorder.argsOf('workspaceSummaryText').filter(args => args[0] !== undefined).slice(0, 60), {variants: 2})) recorder.call('workspaceSummaryText', workspaceSummaryText, args);
-for (const args of mutate(recorder.argsOf('createPrConfirmText').slice(0, 40), {variants: 2})) recorder.call('createPrConfirmText', createPrConfirmText, args);
+for (const args of mutate(recorder.argsOf('workspaceSummaryText').filter(args => args[0] !== undefined).slice(0, 60), {variants: 2}).filter(typedSummary)) recorder.call('workspaceSummaryText', workspaceSummaryText, args);
+for (const args of mutate(recorder.argsOf('createPrConfirmText').slice(0, 40), {variants: 2}).filter(typedSummary)) recorder.call('createPrConfirmText', createPrConfirmText, args);
 
 await recorder.write({prune: true});
