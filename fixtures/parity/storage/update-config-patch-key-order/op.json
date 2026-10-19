@@ -1,0 +1,15 @@
+{
+  "fn": "updateAppConfig",
+  "args": [
+    "$ROOT",
+    {
+      "dev_command": "d"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "dev_command": "d",
+    "trustedProjects": {},
+    "notifications": false
+  }
+}

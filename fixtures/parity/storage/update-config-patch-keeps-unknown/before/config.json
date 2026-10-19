@@ -1,0 +1,8 @@
+{
+  "future_setting": {
+    "keep": true
+  },
+  "trustedProjects": {
+    "/legacy": "old"
+  }
+}

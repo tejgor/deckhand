@@ -1,0 +1,57 @@
+{
+  "sessions": [
+    {
+      "id": "a",
+      "title": "Session a",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "running",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z",
+      "mergedAt": "2026-09-11T00:00:00.000Z",
+      "mergeTargetBranch": "main",
+      "mergeSourceRef": "x",
+      "mergeMarkedManually": true
+    },
+    {
+      "id": "b",
+      "title": "Session b",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "running",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z",
+      "doneAt": "2026-09-12T00:00:00.000Z",
+      "mergedAt": "2026-09-11T00:00:00.000Z"
+    },
+    {
+      "id": "c",
+      "title": "Session c",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "attach",
+        "path": "/r",
+        "isMain": true,
+        "mergedAt": "2026-09-13T00:00:00.000Z",
+        "mergeMode": "merge"
+      },
+      "status": "running",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z"
+    }
+  ],
+  "worktrees": []
+}

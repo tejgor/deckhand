@@ -1,0 +1,15 @@
+{
+  "before": [],
+  "after": [
+    {
+      "path": "a",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "a/b",
+      "type": "dir",
+      "mode": "0700"
+    }
+  ]
+}

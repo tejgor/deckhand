@@ -1,0 +1,23 @@
+{
+  "$ROOT/😀 中文/repo": {
+    "selectedId": "😀",
+    "activeTab": "git",
+    "sessionFilter": "attention",
+    "sessionQuery": "中文 é",
+    "sidebarWidth": 31.5,
+    "sessionTabs": {
+      "a": "notes",
+      "b": "dev"
+    },
+    "collapsedSessionIds": [
+      "😀",
+      "中"
+    ],
+    "hiddenExitedSessionIds": [
+      "z"
+    ],
+    "readReplies": {
+      "😀": "中"
+    }
+  }
+}

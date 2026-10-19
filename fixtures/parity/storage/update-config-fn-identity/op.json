@@ -1,0 +1,18 @@
+{
+  "fn": "updateAppConfig",
+  "args": [
+    "$ROOT",
+    {
+      "$fn": "identity"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "trustedProjects": {
+      "/old": [
+        "legacy"
+      ]
+    },
+    "notifications": false
+  }
+}

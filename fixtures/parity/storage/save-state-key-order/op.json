@@ -1,0 +1,20 @@
+{
+  "fn": "saveState",
+  "args": [
+    "$ROOT",
+    {
+      "worktrees": [],
+      "sessions": [
+        {
+          "status": "exited",
+          "id": "z",
+          "title": "t"
+        }
+      ]
+    }
+  ],
+  "async": true,
+  "ret": {
+    "$u": 1
+  }
+}

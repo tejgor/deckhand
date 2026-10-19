@@ -1,0 +1,6 @@
+{
+  "trustedProjects": {
+    "/old": "legacy"
+  },
+  "notifications": "str"
+}

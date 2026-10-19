@@ -1,0 +1,25 @@
+{
+  "fn": "loadAppConfig",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "ret": {
+    "dev_command": "npm run dev",
+    "attach_scroll_sensitivity": 2.5,
+    "trustedProjects": {
+      "/a": [
+        "h1",
+        "h2"
+      ],
+      "/b": [
+        "legacy"
+      ]
+    },
+    "agent_hooks": true,
+    "notifications": true,
+    "defaults": {
+      "setupCommand": "npm ci"
+    }
+  }
+}
