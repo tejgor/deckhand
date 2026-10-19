@@ -4,7 +4,8 @@ title = "daemon agents + hooks"
 crate = "daemon"
 ts_sources = ["src/daemon.ts"]
 rust_paths = ["crates/daemon/src/agents.rs", "crates/daemon/src/hooks.rs"]
-deps = ["D1"]
+# D3 (merged for its sessions code, with its own deps D2/D4) is in-wave; listed so its files are out of scope.
+deps = ["D1", "D2", "D3", "D4"]
 ts_tests = []
 # TS suites run against target/debug/deckhand (DECKHAND_TEST_BIN); gating only from Wave 4.
 ts_suites = ["tests/agentUpdates.test.ts", "tests/hookBridge.test.ts", "tests/forks.test.ts"]
