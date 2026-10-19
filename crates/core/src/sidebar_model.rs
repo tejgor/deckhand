@@ -446,7 +446,7 @@ pub fn sidebar_header(input: &SidebarHeaderInput<'_>) -> SidebarHeader {
         };
     }
     // The title goes first when the label needs its columns.
-    let title = if room - jlen(&label) - 1 >= jlen("Sessions") {
+    let title = if room - jlen(&label) > jlen("Sessions") {
         "Sessions"
     } else {
         ""
