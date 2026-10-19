@@ -10,7 +10,7 @@ ts_tests = ["tests/tasks.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["tasks/appendNoteItem", "tasks/applyTaskOp", "tasks/cleanTaskTitle", "tasks/clientTaskOp", "tasks/findNoteTaskLink", "tasks/groupTasks", "tasks/isLinked", "tasks/keyOfLink", "tasks/linkKey", "tasks/linkMatches", "tasks/linkOfKey", "tasks/migrateFollowUps", "tasks/noteTaskLinkLine", "tasks/openNoteItems", "tasks/openTaskCount", "tasks/parseNoteTaskLink", "tasks/parseTasks", "tasks/promoteNoteLine", "tasks/promoteOpenNoteLines", "tasks/returnTaskToNote", "tasks/taskPrompt", "tasks/withoutTaskMeta"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 

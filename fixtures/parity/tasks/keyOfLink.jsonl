@@ -1,0 +1,7 @@
+{"args":[{"s":""}],"ret":"s:"}
+{"args":[{"s":"s1"}],"ret":"s:s1"}
+{"args":[{"s":"s2"}],"ret":"s:s2"}
+{"args":[{"wt":""}],"ret":"wt:"}
+{"args":[{"wt":"w1"}],"ret":"wt:w1"}
+{"args":[{"wt":"w2"}],"ret":"wt:w2"}
+{"args":[{"wt":"中"}],"ret":"wt:中"}

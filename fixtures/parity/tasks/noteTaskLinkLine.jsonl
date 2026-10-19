@@ -1,0 +1,12 @@
+{"args":["  ","","abc"],"ret":"  - ↗  <!-- dh:t=abc -->"}
+{"args":["  ","T","abc"],"ret":"  - ↗ T <!-- dh:t=abc -->"}
+{"args":["  ","a <!-- b","abc"],"ret":"  - ↗ a <!-- b <!-- dh:t=abc -->"}
+{"args":["  ","中😀","abc"],"ret":"  - ↗ 中😀 <!-- dh:t=abc -->"}
+{"args":["","","abc"],"ret":"- ↗  <!-- dh:t=abc -->"}
+{"args":["","T","abc"],"ret":"- ↗ T <!-- dh:t=abc -->"}
+{"args":["","a <!-- b","abc"],"ret":"- ↗ a <!-- b <!-- dh:t=abc -->"}
+{"args":["","中😀","abc"],"ret":"- ↗ 中😀 <!-- dh:t=abc -->"}
+{"args":["\t","","abc"],"ret":"\t- ↗  <!-- dh:t=abc -->"}
+{"args":["\t","T","abc"],"ret":"\t- ↗ T <!-- dh:t=abc -->"}
+{"args":["\t","a <!-- b","abc"],"ret":"\t- ↗ a <!-- b <!-- dh:t=abc -->"}
+{"args":["\t","中😀","abc"],"ret":"\t- ↗ 中😀 <!-- dh:t=abc -->"}
