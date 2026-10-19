@@ -1013,11 +1013,22 @@ impl Daemon {
     }
 
     /// TS: handleRequest `task-op` (validated by tasks.ts clientTaskOp; a link is checked first).
+    ///
+    /// NOTE: `TaskOpRequest.op` is a typed `TaskOp` in the protocol crate, so by the time it gets here serde has
+    /// already rejected some ops TS accepts (a non-string `body`, a non-boolean `after`) and normalised away some TS
+    /// refuses (`link: null` reads as no link, an extra `wt`/`s` key on a link is dropped). Re-serialising cannot
+    /// recover those: parity needs the op kept raw (`serde_json::Value`) on the wire type, after which this
+    /// `to_value` is the identity and [`Daemon::handle_client_task_op`] sees exactly what the client sent.
     pub async fn handle_task_op(&self, request: &TaskOpRequest) -> Result<TasksDoc> {
-        let key = self.tasks_key_for(&request.cwd).await?;
-        // The request carries a typed op; clientTaskOp checks the raw one, so it sees the op as the client sent it.
         let raw = serde_json::to_value(&request.op).map_err(|error| DhError::msg(error.to_string()))?;
-        let op = client_task_op(&raw)?;
+        self.handle_client_task_op(&request.cwd, &raw).await
+    }
+
+    /// TS: handleRequest `task-op` body: the list for `cwd`, then clientTaskOp on the op exactly as the client sent
+    /// it (`raw`), the link check, and the change.
+    pub async fn handle_client_task_op(&self, cwd: &str, raw: &serde_json::Value) -> Result<TasksDoc> {
+        let key = self.tasks_key_for(cwd).await?;
+        let op = client_task_op(raw)?;
         if let TaskOp::Add { link: Some(link), .. } | TaskOp::Assign { link: Some(link), .. } = &op {
             self.check_task_link(&key, link).await?;
         }
@@ -1452,6 +1463,68 @@ mod tests {
                     .tasks_keys
                     .contains_key(&path::resolve(elsewhere.to_str().unwrap()))
             );
+        });
+    }
+
+    /// TS daemon.ts task-op runs clientTaskOp on `message.op` as parsed from the line: a null or malformed link is
+    /// refused (not dropped), a non-true `after` and a non-string `body` are ignored, a missing title is named.
+    #[test]
+    fn a_task_op_is_checked_as_the_client_sent_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            let daemon = daemon(dir.path()).await;
+            daemon.set_session(record("here", &root, json!({})));
+            let send = |op: Value| {
+                let daemon = &daemon;
+                let root = root.clone();
+                async move { daemon.handle_client_task_op(&root, &op).await }
+            };
+            let doc = send(json!({"type": "add", "title": "First", "link": {"s": "here"}}))
+                .await
+                .unwrap();
+            let first = find(&daemon, &doc.key, "First");
+            assert_eq!(first.meta.s.as_deref(), Some("here"));
+            let refused = [
+                json!({"type": "assign", "id": first.id, "link": null}),
+                json!({"type": "assign", "id": first.id, "link": {"s": "here", "wt": null}}),
+                json!({"type": "assign", "id": first.id, "link": {"s": "here", "wt": "w1"}}),
+                json!({"type": "add", "title": "x", "link": null}),
+                json!({"type": "add", "title": "x", "link": {"wt": "w1", "s": "s1"}}),
+            ];
+            for op in refused {
+                let error = send(op.clone()).await.unwrap_err();
+                assert_eq!(error.to_string(), "Invalid task change: link", "{op}");
+            }
+            // Nothing changed: the task is still linked and nothing was added.
+            let first = find(&daemon, &doc.key, "First");
+            assert_eq!(first.meta.s.as_deref(), Some("here"));
+            assert_eq!(titles(&daemon.tasks_doc(&doc.key)), ["First"]);
+            let error = send(json!({"type": "add"})).await.unwrap_err();
+            assert_eq!(error.to_string(), "Invalid task change: title");
+            let error = send(json!({"type": "edit", "id": first.id, "title": "t", "body": 5}))
+                .await
+                .unwrap_err();
+            assert_eq!(error.to_string(), "Invalid task change: body");
+            let error = send(json!({"type": "nope"})).await.unwrap_err();
+            assert_eq!(error.to_string(), "Unknown task change");
+            let error = send(json!("add")).await.unwrap_err();
+            assert_eq!(error.to_string(), "Unknown task change");
+            // A non-string body and a non-true `after` are ignored, as in TS.
+            let doc = send(json!({"type": "add", "title": "Second", "body": 5}))
+                .await
+                .unwrap();
+            assert_eq!(titles(&doc), ["First", "Second"]);
+            let second = find(&daemon, &doc.key, "Second");
+            assert_eq!(second.body, "");
+            let doc = send(json!({"type": "move", "id": second.id, "target": first.id, "after": 1}))
+                .await
+                .unwrap();
+            assert_eq!(titles(&doc), ["Second", "First"]);
+            // An explicit unassign (no `link` key) still clears the link.
+            send(json!({"type": "assign", "id": first.id})).await.unwrap();
+            assert_eq!(find(&daemon, &doc.key, "First").meta.s, None);
         });
     }
 
