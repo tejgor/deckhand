@@ -954,6 +954,53 @@ mod tests {
         assert!(loading.toggles.is_empty());
     }
 
+    // covers: B-P4-10 the merge confirmation offers to send the worktree note's open items to the backlog: one row space switches
+    #[test]
+    fn confirmation_open_items_row_switches() {
+        let base = || MergeConfirmInput {
+            title: "auth".into(),
+            preview: Some(preview(json!({"commitCount": 1, "commits": ["feat"],
+                "diff": {"files": 1, "insertions": 1, "deletions": 0}, "uncommitted": 0}))),
+            commit_message: "auth".into(),
+            width: 100,
+            height: 30,
+            ..input()
+        };
+        let send = merge_confirm_layout(&MergeConfirmInput {
+            open_items: Some(OpenItemsToggle {
+                titles: strings(&["Write the parser", "Handle tabs"]),
+                send: true,
+            }),
+            ..base()
+        });
+        assert_eq!(
+            send.toggles,
+            ["☑ 2 open note items → backlog: Write the parser, Handle tabs"]
+        );
+        assert_eq!(send.hint, "enter choose • space toggle • esc cancel");
+        let keep = merge_confirm_layout(&MergeConfirmInput {
+            open_items: Some(OpenItemsToggle {
+                titles: strings(&["Write the parser"]),
+                send: false,
+            }),
+            ..base()
+        });
+        assert_eq!(
+            keep.toggles,
+            ["☐ 1 open note item · stay in the note: Write the parser"]
+        );
+        // Nothing before the preview arrives.
+        let loading = merge_confirm_layout(&MergeConfirmInput {
+            preview: None,
+            open_items: Some(OpenItemsToggle {
+                titles: strings(&["x"]),
+                send: true,
+            }),
+            ..base()
+        });
+        assert!(loading.toggles.is_empty());
+    }
+
     #[test]
     fn plural_and_operation_problem() {
         assert_eq!(plural(1, "file"), "1 file");
