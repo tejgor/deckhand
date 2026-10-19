@@ -563,7 +563,8 @@ pub fn render_changes_pane(props: &ChangesPaneProps<'_>, buf: &mut Buffer, area:
             &diff_rows,
         );
     } else {
-        let list_rows = list.len();
+        // TS: the list is a Box of height listRows, so the rule follows the full reservation.
+        let list_rows = layout.list_rows;
         draw_rows(buf, sub_area(area, 0, 1, width, list_rows), &list);
         let rule = vec![Seg::new("─".repeat(width.max(1)), TextStyle::fg(THEME.border))];
         draw_rows(buf, sub_area(area, 0, 1 + list_rows, width, 1), &[rule]);
@@ -741,6 +742,36 @@ mod tests {
         let side = draw(&props, 110, 6);
         assert!(side[3].contains(" │ -a"), "{side:?}");
         assert!(side[4].contains(" │ +b"), "{side:?}");
+    }
+
+    #[test]
+    fn a_short_stacked_list_keeps_its_reserved_rows() {
+        // TS: ChangesList is a Box of height listRows, so the rule and the diff sit below
+        // the full reservation even when the list draws fewer rows.
+        let changes = record(vec![entry(
+            "unstaged",
+            "M",
+            "a.txt",
+            json!({"additions": 1, "deletions": 1}),
+        )]);
+        let session = session();
+        let props = ChangesPaneProps {
+            session: Some(&session),
+            changes: &changes,
+            focused: true,
+            selected: Some(0),
+            diff: None,
+            diff_scroll: 0,
+        };
+        let layout = changes_layout(40, 12, 2);
+        assert_eq!(layout.list_rows, 3);
+        let l = draw(&props, 40, 12);
+        assert_eq!(l[1], "Changes 1");
+        assert_eq!(l[2], format!("❯ M a.txt{}+1 −1", " ".repeat(26)));
+        assert_eq!(l[3], "");
+        assert_eq!(l[1 + layout.list_rows], "─".repeat(40));
+        assert_eq!(l[2 + layout.list_rows], "unstaged · a.txt");
+        assert_eq!(l[3 + layout.list_rows], "Loading diff…");
     }
 
     #[test]
