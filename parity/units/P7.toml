@@ -10,14 +10,24 @@ ts_tests = ["tests/changesModel.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["changesModel/changeKey", "changesModel/changeLabel", "changesModel/changeRows", "changesModel/classifyDiff", "changesModel/emptyChanges", "changesModel/emptyCounts", "changesModel/findChange", "changesModel/firstChangedLine", "changesModel/groupChanges", "changesModel/groupOffset", "changesModel/lineCountsText", "changesModel/parseNumstat", "changesModel/reselect", "changesModel/stageMode", "changesModel/totalChanges", "changesModel/untrackedDiff"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
-allowlist = []
+allowlist = [
+  { fixture = "changesModel/changeKey", case = 131, reason = "mutated group 'unstagedunstaged' is outside the ChangeGroup union; the Rust enum (protocol wire type) rejects it at deserialization" },
+  { fixture = "changesModel/stageMode", case = 0, reason = "mutated group '.untracked' is outside the ChangeGroup union; unrepresentable in the Rust enum" },
+  { fixture = "changesModel/stageMode", case = 122, reason = "mutated group 'un\\nstaged' is outside the ChangeGroup union; unrepresentable in the Rust enum" },
+  { fixture = "changesModel/stageMode", case = 143, reason = "mutated group 'unstagéed' is outside the ChangeGroup union; unrepresentable in the Rust enum" },
+  { fixture = "changesModel/groupOffset", case = 265, reason = "mutated group 'unstage' is outside the ChangeGroup union; unrepresentable in the Rust enum" },
+  { fixture = "changesModel/groupOffset", case = 268, reason = "mutated group 'unstagedunstaged' is outside the ChangeGroup union; unrepresentable in the Rust enum" },
+  { fixture = "changesModel/groupOffset", case = 309, reason = "mutated group 'nstaged' is outside the ChangeGroup union; unrepresentable in the Rust enum" },
+  { fixture = "changesModel/groupOffset", case = 311, reason = "mutated group 'unsaged' is outside the ChangeGroup union; unrepresentable in the Rust enum" },
+  { fixture = "changesModel/reselect", case = 326, reason = "mutated group '' is outside the ChangeGroup union; unrepresentable in the Rust enum" },
+]
 # Wave 0 hand-off notes for this unit.
 notes = [
   "deckhand_ui::app::state::App::new calls changes_model::empty_changes() — implement it.",
