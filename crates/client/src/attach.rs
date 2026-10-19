@@ -16,7 +16,9 @@
 
 use std::io::{IsTerminal, Write as _};
 use std::os::fd::{AsFd, AsRawFd, OwnedFd, RawFd};
+use std::pin::Pin;
 use std::sync::{Mutex, PoisonError};
+use std::task::Poll;
 use std::thread::JoinHandle;
 
 use nix::errno::Errno;
@@ -34,7 +36,7 @@ use deckhand_protocol::data::{AttachTarget, ProgramKey, SessionStatus, TerminalM
 use deckhand_protocol::events::SessionOutput;
 use deckhand_protocol::wire::{Attach, Detach, Input, Resize};
 
-use crate::client::{MessageReader, open_persistent_connection, write_message};
+use crate::client::{MessageReader, frame_message, open_persistent_connection, socket_error};
 use crate::term_state::RESET_TERMINAL_STATE_SEQUENCE;
 
 /// TS: attach.ts AttachSessionOptions.
@@ -890,10 +892,63 @@ fn stdin_read_loop(fd: RawFd, stop: &OwnedFd, events: &mpsc::UnboundedSender<Con
 // ---------------------------------------------------------------------------------------------------------------
 // The proxy
 
+/// The socket's pending writes. TS `socket.write` never blocks: Node buffers what the kernel will not take yet. The
+/// proxy queues its messages here and the loop drains them while the socket is writable, so stdin handling (and the
+/// detach key) never waits on a daemon that has stopped reading.
+#[derive(Default)]
+struct WriteQueue {
+    buf: Vec<u8>,
+    /// Bytes of `buf` already written.
+    sent: usize,
+}
+
+impl WriteQueue {
+    /// writeMessage: wire-logs and queues one request line.
+    fn push(&mut self, message: &Request) -> Result<(), DhError> {
+        let line = frame_message(message)?;
+        self.buf.extend_from_slice(&line);
+        Ok(())
+    }
+
+    fn is_empty(&self) -> bool {
+        self.sent >= self.buf.len()
+    }
+
+    fn pending(&self) -> &[u8] {
+        self.buf.get(self.sent..).unwrap_or_default()
+    }
+
+    /// `written` more bytes reached the socket.
+    fn advance(&mut self, written: usize) {
+        self.sent = self.sent.saturating_add(written).min(self.buf.len());
+        if self.is_empty() {
+            self.buf.clear();
+            self.sent = 0;
+        } else if self.sent >= self.buf.len() / 2 {
+            self.buf.drain(..self.sent);
+            self.sent = 0;
+        }
+    }
+
+    /// Writes what the socket takes right now, without waiting.
+    async fn flush_now<W: AsyncWrite + Unpin>(&mut self, writer: &mut W) {
+        std::future::poll_fn(|cx| {
+            while !self.is_empty() {
+                match Pin::new(&mut *writer).poll_write(cx, self.pending()) {
+                    Poll::Ready(Ok(written)) if written > 0 => self.advance(written),
+                    _ => break,
+                }
+            }
+            Poll::Ready(())
+        })
+        .await;
+    }
+}
+
 /// The TS closure state of one attachSession call.
-struct Proxy<'a, C: Console, W> {
+struct Proxy<'a, C: Console> {
     console: &'a mut C,
-    writer: W,
+    outgoing: WriteQueue,
     session_id: &'a str,
     target: AttachTarget,
     options: &'a AttachSessionOptions,
@@ -918,13 +973,13 @@ pub(crate) async fn run_attach<C: Console, S: AsyncRead + AsyncWrite + Unpin>(
     options: &AttachSessionOptions,
     request_id: String,
 ) -> Result<(), DhError> {
-    let (read_half, writer) = tokio::io::split(socket);
+    let (read_half, mut writer) = tokio::io::split(socket);
     let mut reader = MessageReader::new(read_half);
     let (events, mut input) = mpsc::unbounded_channel();
     let original_process_title = console.process_title();
     let mut proxy = Proxy {
         console,
-        writer,
+        outgoing: WriteQueue::default(),
         session_id,
         target,
         options,
@@ -943,16 +998,22 @@ pub(crate) async fn run_attach<C: Console, S: AsyncRead + AsyncWrite + Unpin>(
         input_listening: false,
     };
 
-    let outcome = proxy.run(&mut reader, &mut input).await;
-    proxy.cleanup().await;
+    let outcome = proxy.run(&mut reader, &mut writer, &mut input).await;
+    proxy.cleanup();
+    // socket.end(): Node flushes the queued writes, then half-closes, without holding up the settle. Here whatever the
+    // socket takes at once is written and the rest dropped with the socket when the attach returns (the daemon detaches
+    // a client whose connection closes).
+    proxy.outgoing.flush_now(&mut writer).await;
+    let _ = std::future::poll_fn(|cx| Poll::Ready(Pin::new(&mut writer).poll_shutdown(cx))).await;
     outcome
 }
 
-impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
+impl<C: Console> Proxy<'_, C> {
     /// Until `finish`: the settled result.
-    async fn run<R: AsyncRead + Unpin>(
+    async fn run<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
         &mut self,
         reader: &mut MessageReader<R>,
+        writer: &mut W,
         input: &mut mpsc::UnboundedReceiver<ConsoleEvent>,
     ) -> Result<(), DhError> {
         let attach = attach_request(
@@ -964,8 +1025,7 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
                 rows: Some(attach_rows_on(self.console)),
             },
         );
-        // A failed write surfaces as the socket's 'error' event, which finishes with it.
-        write_message(&mut self.writer, &attach).await?;
+        self.outgoing.push(&attach)?;
 
         loop {
             tokio::select! {
@@ -973,7 +1033,7 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
                 biased;
                 message = reader.next() => match message {
                     Ok(Some(message)) => {
-                        if let Some(done) = self.on_message(message).await {
+                        if let Some(done) = self.on_message(message) {
                             return done;
                         }
                     }
@@ -989,13 +1049,20 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
                     // with that error here.)
                     Err(error) => return Err(error),
                 },
+                // The queued writes, while the socket takes them. A failed write is the socket's 'error' event, which
+                // finishes with it.
+                written = writer.write(self.outgoing.pending()), if !self.outgoing.is_empty() => match written {
+                    Ok(0) => return Err(socket_error(&std::io::ErrorKind::WriteZero.into(), "write")),
+                    Ok(written) => self.outgoing.advance(written),
+                    Err(error) => return Err(socket_error(&error, "write")),
+                },
                 event = input.recv(), if self.input_listening => match event {
                     Some(ConsoleEvent::Data(chunk)) => {
-                        if let Some(done) = self.on_input(&chunk).await {
+                        if let Some(done) = self.on_input(&chunk) {
                             return done;
                         }
                     }
-                    Some(ConsoleEvent::Resize) => self.on_resize().await?,
+                    Some(ConsoleEvent::Resize) => self.on_resize()?,
                     None => self.input_listening = false,
                 },
             }
@@ -1003,7 +1070,7 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
     }
 
     /// The attachJsonParser callback: `Some` when the message finishes the attach.
-    async fn on_message(&mut self, message: ServerMessage) -> Option<Result<(), DhError>> {
+    fn on_message(&mut self, message: ServerMessage) -> Option<Result<(), DhError>> {
         if let ServerMessage::Response(response) = &message
             && response.request_id == self.request_id
         {
@@ -1043,7 +1110,7 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
                 self.console.start_input(self.events.clone());
                 self.input_listening = true;
             }
-            return self.on_resize().await.err().map(Err);
+            return self.on_resize().err().map(Err);
         }
 
         if let Some(output) = target_output(self.target, &message)
@@ -1076,7 +1143,7 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
     }
 
     /// The stdin 'data' listener: `Some` when the input detaches (or a write fails).
-    async fn on_input(&mut self, chunk: &[u8]) -> Option<Result<(), DhError>> {
+    fn on_input(&mut self, chunk: &[u8]) -> Option<Result<(), DhError>> {
         // Ctrl+Space is usually NUL (0x00), but attached TUIs can enable enhanced keyboard protocols that encode it
         // as an escape sequence. Ctrl+] (0x1d) remains a secondary attach escape hatch.
         if is_detach_input(chunk) {
@@ -1087,7 +1154,7 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
                 },
             );
             // finish() follows the write at once; its listeners are gone before a write error could be reported.
-            let _ = write_message(&mut self.writer, &detach).await;
+            let _ = self.outgoing.push(&detach);
             return Some(Ok(()));
         }
         let normalized = self.normalize_attach_input.normalize(&String::from_utf8_lossy(chunk));
@@ -1101,11 +1168,11 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
                 data: normalized,
             },
         );
-        write_message(&mut self.writer, &message).await.err().map(Err)
+        self.outgoing.push(&message).err().map(Err)
     }
 
     /// The stdout 'resize' listener (also called once on attach).
-    async fn on_resize(&mut self) -> Result<(), DhError> {
+    fn on_resize(&mut self) -> Result<(), DhError> {
         let message = resize_request(
             self.target,
             Resize {
@@ -1114,11 +1181,11 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
                 rows: attach_rows_on(self.console),
             },
         );
-        write_message(&mut self.writer, &message).await
+        self.outgoing.push(&message)
     }
 
-    /// TS cleanup (runs once, before the promise settles).
-    async fn cleanup(&mut self) {
+    /// TS cleanup (runs once, before the promise settles); `socket.end()` is in [`run_attach`].
+    fn cleanup(&mut self) {
         if self.console.stdin_is_tty() {
             self.console.set_raw_mode(false);
         }
@@ -1134,8 +1201,6 @@ impl<C: Console, W: AsyncWrite + Unpin> Proxy<'_, C, W> {
         }
         self.console.stop_input();
         self.input_listening = false;
-        // socket.end(): half-close; the socket is dropped (closed) when the attach returns.
-        let _ = self.writer.shutdown().await;
     }
 }
 
@@ -1738,6 +1803,70 @@ mod tests {
                 .out
                 .ends_with("\x1b[?1049l\x1b]0;deckhand\x07\x1b]2;deckhand\x07")
         );
+    }
+
+    /// TS writeMessage buffers in memory (socket.write never blocks), so Ctrl+Space detaches even when the daemon
+    /// has stopped reading and the socket's send buffer is full.
+    #[tokio::test(flavor = "current_thread")]
+    async fn detach_works_when_the_daemon_stops_reading() {
+        let (mut console, state, client, mut daemon) = setup(true, Some((80, 24)));
+        let options = AttachSessionOptions {
+            program: Some(ProgramKey::Pi),
+            ..AttachSessionOptions::default()
+        };
+        let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
+        let attach = async { tokio::time::timeout(std::time::Duration::from_secs(3), attach).await };
+        let driver = async {
+            daemon.recv().await;
+            daemon
+                .send(json!({"type": "response", "requestId": "req", "ok": true}))
+                .await;
+            assert_eq!(daemon.recv().await["type"], "resize");
+            // The daemon reads nothing more. A large paste arrives as 64 KiB stdin reads, then Ctrl+Space.
+            for _ in 0..4 {
+                send_input(&state, ConsoleEvent::Data(vec![b'p'; 65536]));
+            }
+            send_input(&state, ConsoleEvent::Data(vec![0]));
+        };
+        let (result, ()) = tokio::join!(attach, driver);
+        result
+            .expect("Ctrl+Space detaches without waiting on the socket")
+            .unwrap();
+        let state = state.lock().unwrap();
+        assert_eq!(state.raw, vec![true, false]);
+        assert!(state.stopped);
+        drop(daemon);
+    }
+
+    /// Queued writes still reach the daemon in order once it reads them, and the detach goes last.
+    #[tokio::test(flavor = "current_thread")]
+    async fn queued_input_is_delivered_in_order() {
+        let (mut console, state, client, mut daemon) = setup(false, None);
+        let options = AttachSessionOptions {
+            program: Some(ProgramKey::Pi),
+            ..AttachSessionOptions::default()
+        };
+        let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
+        let driver = async {
+            daemon.recv().await;
+            daemon
+                .send(json!({"type": "response", "requestId": "req", "ok": true}))
+                .await;
+            assert_eq!(daemon.recv().await["type"], "resize");
+            for index in 0..3u8 {
+                send_input(&state, ConsoleEvent::Data(vec![b'a' + index; 40000]));
+            }
+            for index in 0..3u8 {
+                let message = daemon.recv().await;
+                assert_eq!(message["type"], "input");
+                assert_eq!(message["data"], String::from(char::from(b'a' + index)).repeat(40000));
+            }
+            send_input(&state, ConsoleEvent::Data(vec![0x1d]));
+            assert_eq!(daemon.recv().await, json!({"type": "detach", "sessionId": "s1"}));
+            assert!(daemon.lines.next_line().await.unwrap().is_none());
+        };
+        let (result, ()) = tokio::join!(attach, driver);
+        result.unwrap();
     }
 
     #[tokio::test(flavor = "current_thread")]
