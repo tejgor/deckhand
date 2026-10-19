@@ -1,0 +1,111 @@
+{"args":[{"id":"s","title":"task","program":"claude","command":"claude","cwd":"/repo","repoRoot":"/repo","status":"running","agentStatus":"idle","createdAt":"1970-01-01T00:00:00.000Z","updatedAt":"1970-01-01T00:00:00.000Z","notes":"- [ ] a","sharedNotes":{"kind":"worktree","id":"w","path":"/n/w.md","revision":"r","text":"- [ ] b\n- [ ] c\n- [x] d"}},16],"ret":"☐ 3 open (2 wt)"}
+{"args":[{"id":"s","title":"task","program":"claude","command":"claude","cwd":"/repo","repoRoot":"/repo","status":"running","agentStatus":"idle","createdAt":"1970-01-01T00:00:00.000Z","updatedAt":"1970-01-01T00:00:00.000Z","notes":"- [ ] a","sharedNotes":{"kind":"worktree","id":"w","path":"/n/w.md","revision":"r","text":"- [ ] b\n- [ ] c\n- [x] d"}},30],"ret":"☐ 3 open (2 worktree)"}
+{"args":[{"id":"s","title":"task","program":"claude","command":"claude","cwd":"/repo","repoRoot":"/repo","status":"running","agentStatus":"idle","createdAt":"1970-01-01T00:00:00.000Z","updatedAt":"1970-01-01T00:00:00.000Z","notes":"- [ ] a","sharedNotes":{"kind":"worktree","id":"w","path":"/n/w.md","revision":"r","text":"- [ ] b\n- [ ] c\n- [x] d"}},40],"ret":"☐ 3 open (2 worktree)"}
+{"args":[{"id":"s","title":"task","program":"claude","command":"claude","cwd":"/repo","repoRoot":"/repo","status":"running","agentStatus":"idle","createdAt":"1970-01-01T00:00:00.000Z","updatedAt":"1970-01-01T00:00:00.000Z","notes":"- [ ] a","sharedNotes":{"kind":"worktree","id":"w","path":"/n/w.md","revision":"r","text":"- [ ] b\n- [ ] c\n- [x] d"}},4],"ret":"☐ 3"}
+{"args":[{"id":"s","title":"task","program":"claude","command":"claude","cwd":"/repo","repoRoot":"/repo","status":"running","agentStatus":"idle","createdAt":"1970-01-01T00:00:00.000Z","updatedAt":"1970-01-01T00:00:00.000Z","notes":"- [ ] a","sharedNotes":{"kind":"worktree","id":"w","path":"/n/w.md","revision":"r","text":"- [ ] b\n- [ ] c\n- [x] d"}},9],"ret":"☐ 3 open"}
+{"args":[{"id":"s","title":"task","program":"claude","command":"claude","cwd":"/repo","repoRoot":"/repo","status":"running","agentStatus":"idle","createdAt":"1970-01-01T00:00:00.000Z","updatedAt":"1970-01-01T00:00:00.000Z","notes":"- [ ] a"},40],"ret":"☐ 1 open"}
+{"args":[{"id":"s","title":"task","program":"claude","command":"claude","cwd":"/repo","repoRoot":"/repo","status":"running","agentStatus":"idle","createdAt":"1970-01-01T00:00:00.000Z","updatedAt":"1970-01-01T00:00:00.000Z","notes":"- [x] a"},40],"ret":{"$u":1}}
+{"args":[{"notes":""},-1],"ret":{"$u":1}}
+{"args":[{"notes":""},0],"ret":{"$u":1}}
+{"args":[{"notes":""},11],"ret":{"$u":1}}
+{"args":[{"notes":""},14],"ret":{"$u":1}}
+{"args":[{"notes":""},16],"ret":{"$u":1}}
+{"args":[{"notes":""},1],"ret":{"$u":1}}
+{"args":[{"notes":""},20],"ret":{"$u":1}}
+{"args":[{"notes":""},25],"ret":{"$u":1}}
+{"args":[{"notes":""},2],"ret":{"$u":1}}
+{"args":[{"notes":""},3],"ret":{"$u":1}}
+{"args":[{"notes":""},40],"ret":{"$u":1}}
+{"args":[{"notes":""},6],"ret":{"$u":1}}
+{"args":[{"notes":""},8],"ret":{"$u":1}}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},-1],"ret":{"$u":1}}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},0],"ret":{"$u":1}}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},11],"ret":"☐ 13 open"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},14],"ret":"☐ 13 open"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},16],"ret":"☐ 13 open"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},1],"ret":"☐"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},20],"ret":"☐ 13 open (12 wt)"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},25],"ret":"☐ 13 open (12 worktree)"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},2],"ret":"☐…"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},3],"ret":"☐ …"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},40],"ret":"☐ 13 open (12 worktree)"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},6],"ret":"☐ 13"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z\n- [ ] z"}},8],"ret":"☐ 13"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},-1],"ret":{"$u":1}}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},0],"ret":{"$u":1}}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},11],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},14],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},16],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},1],"ret":"☐"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},20],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},25],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},2],"ret":"☐…"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},3],"ret":"☐ 1"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},40],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},6],"ret":"☐ 1"}
+{"args":[{"notes":"- [ ] a","sharedNotes":{"kind":"repo","id":"r"}},8],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a"},-1],"ret":{"$u":1}}
+{"args":[{"notes":"- [ ] a"},0],"ret":{"$u":1}}
+{"args":[{"notes":"- [ ] a"},11],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a"},14],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a"},16],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a"},1],"ret":"☐"}
+{"args":[{"notes":"- [ ] a"},20],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a"},25],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a"},2],"ret":"☐…"}
+{"args":[{"notes":"- [ ] a"},3],"ret":"☐ 1"}
+{"args":[{"notes":"- [ ] a"},40],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a"},6],"ret":"☐ 1"}
+{"args":[{"notes":"- [ ] a"},8],"ret":"☐ 1 open"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},-1],"ret":{"$u":1}}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},0],"ret":{"$u":1}}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},11],"ret":"☐ 3 open"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},14],"ret":"☐ 3 open"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},16],"ret":"☐ 3 open (1 wt)"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},1],"ret":"☐"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},20],"ret":"☐ 3 open (1 wt)"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},25],"ret":"☐ 3 open (1 worktree)"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},2],"ret":"☐…"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},3],"ret":"☐ 3"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},40],"ret":"☐ 3 open (1 worktree)"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},6],"ret":"☐ 3"}
+{"args":[{"notes":"- [ ] a\n- [ ] b","sharedNotes":{"kind":"repo","id":"r","text":"- [ ] c"}},8],"ret":"☐ 3 open"}
+{"args":[{"notes":"- [x] a"},-1],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},0],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},11],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},14],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},16],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},1],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},20],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},25],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},2],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},3],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},40],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},6],"ret":{"$u":1}}
+{"args":[{"notes":"- [x] a"},8],"ret":{"$u":1}}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},-1],"ret":{"$u":1}}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},0],"ret":{"$u":1}}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},11],"ret":"☐ 2 open"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},14],"ret":"☐ 2 open"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},16],"ret":"☐ 2 open (2 wt)"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},1],"ret":"☐"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},20],"ret":"☐ 2 open (2 wt)"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},25],"ret":"☐ 2 open (2 worktree)"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},2],"ret":"☐…"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},3],"ret":"☐ 2"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},40],"ret":"☐ 2 open (2 worktree)"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},6],"ret":"☐ 2"}
+{"args":[{"sharedNotes":{"kind":"worktree","id":"w","text":"- [ ] c\n- [ ] d\n- [x] e"}},8],"ret":"☐ 2 open"}
+{"args":[{},-1],"ret":{"$u":1}}
+{"args":[{},0],"ret":{"$u":1}}
+{"args":[{},11],"ret":{"$u":1}}
+{"args":[{},14],"ret":{"$u":1}}
+{"args":[{},16],"ret":{"$u":1}}
+{"args":[{},1],"ret":{"$u":1}}
+{"args":[{},20],"ret":{"$u":1}}
+{"args":[{},25],"ret":{"$u":1}}
+{"args":[{},2],"ret":{"$u":1}}
+{"args":[{},3],"ret":{"$u":1}}
+{"args":[{},40],"ret":{"$u":1}}
+{"args":[{},6],"ret":{"$u":1}}
+{"args":[{},8],"ret":{"$u":1}}

@@ -1,0 +1,239 @@
+{"args":["    "],"ret":{"open":0,"done":0}}
+{"args":["   <!-- dh:t=a1 -->\né↗ [-    <!-- dh:t=a1 -->\né↗ [- "],"ret":{"open":0,"done":0}}
+{"args":["   <!-- dh:t=a1 -->\né↗ [- "],"ret":{"open":0,"done":0}}
+{"args":["   [ ]   - [ ] + [ ] \n- - [ ] ]↗ \nx\t- [x] - [x] "],"ret":{"open":0,"done":0}}
+{"args":["  "],"ret":{"open":0,"done":0}}
+{"args":["  + [ ] - - [x] <!-- dh:t=a1 -->\n# aa\nx"],"ret":{"open":1,"done":0}}
+{"args":["  + [ ] - - [x] \n<!-- dh:t=a1 -->\n# aa\nx"],"ret":{"open":1,"done":0}}
+{"args":["  - 0[ ] a\n😀\t↗ \na😀<!-- dh:t=a1 -->"],"ret":{"open":0,"done":0}}
+{"args":["  - [  ↗ \n<!-- dh:t=a1 -->[\n- [x] \t* [x]   ]"],"ret":{"open":0,"done":1}}
+{"args":["  - [ ]   - [ ] + [ ] \n- - [ ] ]↗ \nx\t- [x] - [x] "],"ret":{"open":1,"done":0}}
+{"args":["  - [ ]   -[ ] + [ ] \n- - [ ] ]↗ \nx\t- [x] - [x] "],"ret":{"open":1,"done":0}}
+{"args":["  - [ ]   a  - [ ]   a"],"ret":{"open":1,"done":0}}
+{"args":["  - [ ]   a"],"ret":{"open":1,"done":0}}
+{"args":["  - [ ]   aé"],"ret":{"open":1,"done":0}}
+{"args":["  - [ ] "],"ret":{"open":1,"done":0}}
+{"args":["  - [ ] a\n😀\t↗ \na😀<!-- dh:t=a1 -->  - [ ] a\n😀\t↗ \na😀<!-- dh:t=a1 -->"],"ret":{"open":1,"done":0}}
+{"args":["  - [ ] a\n😀\t↗ \na😀<!-- dh:t=a1 -->"],"ret":{"open":1,"done":0}}
+{"args":["  - [ ] ↗ \n<!-- dh:t=a1 -->[\n- [x] \t* [x]   ]"],"ret":{"open":1,"done":1}}
+{"args":["  - [ ] ↗ ]-😀"],"ret":{"open":1,"done":0}}
+{"args":["  - [ ] ↗é ]-😀"],"ret":{"open":1,"done":0}}
+{"args":["  - [中 ] "],"ret":{"open":0,"done":0}}
+{"args":["  <!-- dh:t=a1 -->↗ a\n  <!-- dh:t=a1 -->↗ a\n"],"ret":{"open":0,"done":0}}
+{"args":["  <!-- dh:t=a1 -->↗ a\n"],"ret":{"open":0,"done":0}}
+{"args":["  <!-- dh:ta1 -->↗ a\n"],"ret":{"open":0,"done":0}}
+{"args":["  😀\n\t\n [x] a"],"ret":{"open":0,"done":0}}
+{"args":["  😀\n\t\n- [x] a"],"ret":{"open":0,"done":1}}
+{"args":[" "],"ret":{"open":0,"done":0}}
+{"args":[" - [ ] ↗ ]-😀"],"ret":{"open":1,"done":0}}
+{"args":[" 中]  - [ ] - \n \t* [x] .x  \n<!-- dh:t=a1 -->]- * [X] \n]  "],"ret":{"open":0,"done":1}}
+{"args":[" 中]  - [ ] - \n \t* [x] x  \n<!-- dh:t=a1 -->]- * [X] \n]  "],"ret":{"open":0,"done":1}}
+{"args":[""],"ret":{"open":0,"done":0}}
+{"args":["# "],"ret":{"open":0,"done":0}}
+{"args":["# H\n## H2\n#nohash\n####### seven0\n###### six"],"ret":{"open":0,"done":0}}
+{"args":["# H\n## H2\n#nohash\n####### seven\n##### six"],"ret":{"open":0,"done":0}}
+{"args":["# H\n## H2\n#nohash\n####### seven\n###### six"],"ret":{"open":0,"done":0}}
+{"args":["# \n]  "],"ret":{"open":0,"done":0}}
+{"args":["# \n]  # \n]  "],"ret":{"open":0,"done":0}}
+{"args":["# \n]\n  "],"ret":{"open":0,"done":0}}
+{"args":["#"],"ret":{"open":0,"done":0}}
+{"args":["* [X] "],"ret":{"open":0,"done":1}}
+{"args":["* [X] + [ ] \n中é] \n😀\n\t* [x] [# - -\n- [x] * [X "],"ret":{"open":0,"done":3}}
+{"args":["* [X] + [ ] \n中é] \n😀\n\t* [x] [# - -\n- [x] * [X] "],"ret":{"open":0,"done":3}}
+{"args":["* [X] + [ ] \n中é] \n😀\n\t* x] [# - -\n- [x] * [X] "],"ret":{"open":0,"done":2}}
+{"args":["* [X] - [x] \t+ [ ] \n\n<!-- dh:t=a1 -->  * [X] ]\né\t* [x] "],"ret":{"open":0,"done":1}}
+{"args":["* [X]"],"ret":{"open":0,"done":1}}
+{"args":["+ [  * [X] \n]+ [ ] -😀# \n- [x] \t* [x] * [X] 中\n[é\n"],"ret":{"open":0,"done":1}}
+{"args":["+ [ ]   # é \n+ [ ] \t* [x] "],"ret":{"open":2,"done":0}}
+{"args":["+ [ ]   # é \n+ [ ] \t* [x] + [ ]   # é \n+ [ ] \t* [x] "],"ret":{"open":3,"done":0}}
+{"args":["+ [ ]   # é\n- "],"ret":{"open":1,"done":0}}
+{"args":["+ [ ]   # é\n- + [ ]   # é\n- "],"ret":{"open":1,"done":0}}
+{"args":["+ [ ] * [X] \n]+ [ ] -😀# \n- [x] \t* [x] * [X] 中\n[é\n"],"ret":{"open":1,"done":1}}
+{"args":["+ [ ] * [X] \n]+ [ ] -😀# \n- [x]\t* [x] * [X] 中\n[é\n"],"ret":{"open":1,"done":1}}
+{"args":["+ [ ] é- \n中 "],"ret":{"open":1,"done":0}}
+{"args":["+ [ ] é- \n中 + [ ] é- \n中 "],"ret":{"open":1,"done":0}}
+{"args":["-  - [ ] - [x] [\n  - [ ] -\n\t  - [ ] \n]\t"],"ret":{"open":2,"done":0}}
+{"args":["- * [X]    # \nx\n- ]a- [ ] -\n+ [ ] \t* [x] + [ ] é"],"ret":{"open":1,"done":0}}
+{"args":["- * [X]    # \nx\n- ]a- [ ] -\n+ [ ] \t* [x] + [ ] é- * [X]    # \nx\n- ]a- [ ] -\n+ [ ] \t* [x] + [ ] é"],"ret":{"open":2,"done":0}}
+{"args":["- * [X]    # \nx\n- ]a- [ ] -\n+ [ ]\t* [x] + [ ] é"],"ret":{"open":1,"done":0}}
+{"args":["- [ ]   - [ ] \n"],"ret":{"open":1,"done":0}}
+{"args":["- [ ]  - [ ] \n"],"ret":{"open":1,"done":0}}
+{"args":["- [ ] -\n\n\n  + [ ] - [x]   - [ ] "],"ret":{"open":2,"done":0}}
+{"args":["- [ ] -\n\n\n  + [ ] - [x]  - [ ] "],"ret":{"open":2,"done":0}}
+{"args":["- [ ] <!-- dh:t=a1 -->\t* [x] - \n↗ "],"ret":{"open":1,"done":0}}
+{"args":["- [ ] <!-- dh:t=a1 -->\t* [x] - \n↗ - [ ] <!-- dh:t=a1 -->\t* [x] - \n↗ "],"ret":{"open":1,"done":0}}
+{"args":["- [ ] <!-- dh\n:t=a1 -->\t* [x] - \n↗ "],"ret":{"open":1,"done":0}}
+{"args":["- [ ] \n[\n-\n- [ ] - [ ] - [ ] "],"ret":{"open":2,"done":0}}
+{"args":["- [ ] \n[\n-\n- [ ] - [ ] - [ ] - [ ] \n[\n-\n- [ ] - [ ] - [ ] "],"ret":{"open":3,"done":0}}
+{"args":["- [ ] a\n  - [x] b\n* [X] c\n+ [ ] d\npain"],"ret":{"open":2,"done":2}}
+{"args":["- [ ] a\n  - [x] b\n* [X] c\n+ [ ] d\nplain"],"ret":{"open":2,"done":2}}
+{"args":["- [ ] a\n- [x] b\n- [X] c"],"ret":{"open":1,"done":2}}
+{"args":["- [ ] very long item that needs to \nwrap across several rows when the width is small, yes really"],"ret":{"open":1,"done":0}}
+{"args":["- [ ] very long item that needs to wrap across several rows when the width is small, yes really"],"ret":{"open":1,"done":0}}
+{"args":["- [ ] very long item that needs to wrap across severalrows when the width is small, yes really"],"ret":{"open":1,"done":0}}
+{"args":["- [ ] ↗ + [ ] \n\t↗ -"],"ret":{"open":1,"done":0}}
+{"args":["- [ ] 中文😀\r\n- [x] crlf"],"ret":{"open":1,"done":1}}
+{"args":["- [ ]\n- [x]\n- [ ]x"],"ret":{"open":1,"done":1}}
+{"args":["- [ ]\n- [x]\n- [ ]x- [ ]\n- [x]\n- [ ]x"],"ret":{"open":1,"done":2}}
+{"args":["- [ ]\t ↗ + [ ] \n\t↗ -"],"ret":{"open":1,"done":0}}
+{"args":["- [x] # <!-- dh:t=a1 --> <!-- dh:t=a1 -->\n    + [ ] 😀\nx+ [ ] \n+ [ ] \n😀\t -* [X] "],"ret":{"open":2,"done":1}}
+{"args":["- [x] # <!-- dh:t=a1 --> <!-- dh:t=a1 -->\n    + [ ] 😀\nx+ [ ] \n+ [ ] \n😀\t _-* [X] "],"ret":{"open":2,"done":1}}
+{"args":["- [x] # <!-- dh:t=a1 --> <!-- dh:t=a1 -->\n    + [ ] 😀\n😀x+ [ ] \n+ [ ] \n😀\t -* [X] "],"ret":{"open":2,"done":1}}
+{"args":["- [x] [- \n]éaé* [X] "],"ret":{"open":0,"done":1}}
+{"args":["- [x] [- \n]éaé* [X] - [x] [- \n]éaé* [X] "],"ret":{"open":0,"done":1}}
+{"args":["- [x] \n\t\n中中\n]\t"],"ret":{"open":0,"done":1}}
+{"args":["- [x] \n\t\n中中\n]\t- [x] \n\t\n中中\n]\t"],"ret":{"open":0,"done":1}}
+{"args":["- [😀 ] \n[\n-\n- [ ] - [ ] - [ ] "],"ret":{"open":1,"done":0}}
+{"args":["- \n-  # "],"ret":{"open":0,"done":0}}
+{"args":["- \n-  # - \n-  # "],"ret":{"open":0,"done":0}}
+{"args":["- \t\né\n\t\n# "],"ret":{"open":0,"done":0}}
+{"args":["- \t] \n  # - [x] a\n[\n\n+ [ ]  * [X] "],"ret":{"open":1,"done":0}}
+{"args":["- \t]↗ \n  # - [x] a\n[\n\n+ [ ]  * [X] "],"ret":{"open":1,"done":0}}
+{"args":["- x# \n- 😀   [ ] "],"ret":{"open":0,"done":0}}
+{"args":["- x# \n- 😀  - [ ] "],"ret":{"open":0,"done":0}}
+{"args":["- x# \n- 😀  -[ ] "],"ret":{"open":0,"done":0}}
+{"args":["- x\n]\t\n  中\t  \né\t\t* [x] "],"ret":{"open":0,"done":0}}
+{"args":["- ↗ Send it <!-- dh:t=abc1 -->\n- ↗ Other <!-- dh:t=9z -->\n- ↗ bare\n  * ↗ nested <!-- dh:t=m1 -->\n- ↗  <!-- dh:t=q -->"],"ret":{"open":0,"done":0}}
+{"args":["- ↗ Sendé it <!-- dh:t=abc1 -->\n- ↗ Other <!-- dh:t=9z -->\n- ↗ bare\n  * ↗ nested <!-- dh:t=m1 -->\n- ↗  <!-- dh:t=q -->"],"ret":{"open":0,"done":0}}
+{"args":["-- [x] \n<!-- dh:t=a1 -->[😀* [X] * [X] \n + [ ]   - [ ] \na😀"],"ret":{"open":1,"done":0}}
+{"args":["-- [x] \n<!-- dh:t=a1 -->[😀* [X] * [X] \n + [ ]   - [ ] \na😀-- [x] \n<!-- dh:t=a1 -->[😀* [X] * [X] \n + [ ]   - [ ] \na😀"],"ret":{"open":2,"done":0}}
+{"args":["-- [x] \n<-- dh:t=a1 -->[😀* [X] * [X] \n + [ ]   - [ ] \na😀"],"ret":{"open":1,"done":0}}
+{"args":["--[[\n\n- 中\n<!-- dh:t=a1 -->"],"ret":{"open":0,"done":0}}
+{"args":["--[[\n\n- 中\n<!-- dh:t=a1 -->--[[\n\n- 中\n<!-- dh:t=a1 -->"],"ret":{"open":0,"done":0}}
+{"args":["--[[é\n\n- 中\n<!-- dh:t=a1 -->"],"ret":{"open":0,"done":0}}
+{"args":["-\n \n* [X] \n"],"ret":{"open":0,"done":1}}
+{"args":["-\n \n* [X] \n-\n \n* [X] \n"],"ret":{"open":0,"done":2}}
+{"args":["-]\n<!- dh:t=a1 --># \nx↗ \t* [x] ]\n中+ [ ] x\n<!-- dh:t=a1 -->↗ 😀"],"ret":{"open":0,"done":0}}
+{"args":["-]\n<!-- dh:t=a1 --># \nx↗ \t* [x] ]\n中+ [ ] x\n<!-- dh:t=a1 -->↗ 😀"],"ret":{"open":0,"done":0}}
+{"args":["-_ [ ] ↗ + [ ] \n\t↗ -"],"ret":{"open":0,"done":0}}
+{"args":["<!-- dh:t=a1 -->  - <!-- dh:t=a1 -->\n↗ \n+ [ ] -+ [ ] é\n]+ [ ] x  - [ ] "],"ret":{"open":1,"done":0}}
+{"args":["<!-- dh:t=a1 -->  - <!-- dh:t=a1 -->\n↗ \n+ [ ] -+ [ ] é\n]+ [ ] x  - [ ] <!-- dh:t=a1 -->  - <!-- dh:t=a1 -->\n↗ \n+ [ ] -+ [ ] é\n]+ [ ] x  - [ ] "],"ret":{"open":2,"done":0}}
+{"args":["<!-- dh:t=a1 -->  - <!-- dh:t=a1 --a>\n↗ \n+ [ ] -+ [ ] é\n]+ [ ] x  - [ ] "],"ret":{"open":1,"done":0}}
+{"args":["[ [\n- [ ] ]"],"ret":{"open":1,"done":0}}
+{"args":["[/\n\t  <!-- dh:t=a1 -->x  "],"ret":{"open":0,"done":0}}
+{"args":["[\n\t  <!-- dh:t=a1 -->x  "],"ret":{"open":0,"done":0}}
+{"args":["[\n\t  <!-- dh:t=a_1 -->x  "],"ret":{"open":0,"done":0}}
+{"args":["[a\n中]\n\n↗   - [ ] \n"],"ret":{"open":0,"done":0}}
+{"args":["[a\n中]\n\n↗   - [ ] \n[a\n中]\n\n↗   - [ ] \n"],"ret":{"open":0,"done":0}}
+{"args":["[a\n中]\n\n↗  😀 - [ ] \n"],"ret":{"open":0,"done":0}}
+{"args":["[é\n+ [ ] + [ ] - [  "],"ret":{"open":1,"done":0}}
+{"args":["[é\n+ [ ] + [ ] - [ ] "],"ret":{"open":1,"done":0}}
+{"args":["[é\n+ [ ] + [ ] - [ ] [é\n+ [ ] + [ ] - [ ] "],"ret":{"open":2,"done":0}}
+{"args":["\n  - [ ] - [x] a - "],"ret":{"open":1,"done":0}}
+{"args":["\n  - [ ] - [x] a - 中"],"ret":{"open":1,"done":0}}
+{"args":["\n  - [ ] 中\n][* [X] ↗ a"],"ret":{"open":1,"done":0}}
+{"args":["\n  - [ ] 中\n][* [X] ↗ a."],"ret":{"open":1,"done":0}}
+{"args":["\n  - [ ] 中\n][* [X] ↗ a\n  - [ ] 中\n][* [X] ↗ a"],"ret":{"open":2,"done":0}}
+{"args":["\n  ↗ x  \n  - [    - [ ] \n\t* [x]  + [ ] \n#   - [ ] "],"ret":{"open":0,"done":1}}
+{"args":["\n  ↗ x  \n  - [ ]   - [ ] \n\t* [x]  + [ ] \n#   - [ ] "],"ret":{"open":1,"done":1}}
+{"args":["\n  ↗ x  \n  - [ ]   - [ ] \n\t* [x]  + [ ] \n#   - [ ] \n  ↗ x  \n  - [ ]   - [ ] \n\t* [x]  + [ ] \n#   - [ ] "],"ret":{"open":2,"done":2}}
+{"args":["\n [ ] "],"ret":{"open":0,"done":0}}
+{"args":["\n* [X] # \n-\n- ↗ \n"],"ret":{"open":0,"done":1}}
+{"args":["\n* [X] # \n-\n-↗ \n"],"ret":{"open":0,"done":1}}
+{"args":["\n+ [ ] "],"ret":{"open":1,"done":0}}
+{"args":["\n+ [ ] \t]x+  [ ] "],"ret":{"open":1,"done":0}}
+{"args":["\n+ [ ] \t]x+ [ ] "],"ret":{"open":1,"done":0}}
+{"args":["\n+ [ ] \t]x+ [ ] \n+ [ ] \t]x+ [ ] "],"ret":{"open":2,"done":0}}
+{"args":["\n- [x] \t\nx\n"],"ret":{"open":0,"done":1}}
+{"args":["\n- [x] \t\nx\n\n- [x] \t\nx\n"],"ret":{"open":0,"done":2}}
+{"args":["\n[a\n中- [x] - [ ] \t* [x] \n-a\né\t* [x] "],"ret":{"open":0,"done":0}}
+{"args":["\n[a\n中- [x] - [a ] \t* [x] \n-a\né\t* [x] "],"ret":{"open":0,"done":0}}
+{"args":["\n\n- [ ] a\n\n"],"ret":{"open":1,"done":0}}
+{"args":["\n\n- [ ] a\n\n\n\n- [ ] a\n\n"],"ret":{"open":2,"done":0}}
+{"args":["\n\na["],"ret":{"open":0,"done":0}}
+{"args":["\n\na[é"],"ret":{"open":0,"done":0}}
+{"args":["\n\n↗ + [ ] + [ ] "],"ret":{"open":0,"done":0}}
+{"args":["\n]<!-- dh:t=a1 -->- [x] ↗ - [x] \n- [x] "],"ret":{"open":0,"done":1}}
+{"args":["\n]<!-- dh:t=a1 -->-Z [x] ↗ - [x] \n- [x] "],"ret":{"open":0,"done":1}}
+{"args":["\na - \n# 中é\t+ [ ] "],"ret":{"open":0,"done":0}}
+{"args":["\na - \n# 中é\t+ [ ] é"],"ret":{"open":0,"done":0}}
+{"args":["\né\né↗ - \t\n* [X]   + [ ] é<!-- dh:t=a1 -->"],"ret":{"open":0,"done":1}}
+{"args":["\t* [x] + [ ] -[\n]x  \n  [# "],"ret":{"open":0,"done":1}}
+{"args":["\t* [x] + [ ] -[]x  \n  [# "],"ret":{"open":0,"done":1}}
+{"args":["\t* [x] é\n- [ ] -"],"ret":{"open":1,"done":1}}
+{"args":["\t* [x] é\n- [ ] -\t* [x] é\n- [ ] -"],"ret":{"open":2,"done":1}}
+{"args":["\t* [x] é\n- [] -"],"ret":{"open":0,"done":1}}
+{"args":["\t* [x] ↗  \n - [x] "],"ret":{"open":0,"done":2}}
+{"args":["\t* [x] ↗  \n- - [x] "],"ret":{"open":0,"done":1}}
+{"args":["\t* [x] ↗ é"],"ret":{"open":0,"done":1}}
+{"args":["\t* x] ↗ é"],"ret":{"open":0,"done":0}}
+{"args":["\t\n↗ - [ ] + [ ] 😀\n# - "],"ret":{"open":0,"done":0}}
+{"args":["\t\n↗ - [ ] + [ ] 😀\n# - \t\n↗ - [ ] + [ ] 😀\n# - "],"ret":{"open":0,"done":0}}
+{"args":["\t]x-"],"ret":{"open":0,"done":0}}
+{"args":["\t]x-\t]x-"],"ret":{"open":0,"done":0}}
+{"args":["]#    - [ ] -\nxé]\n+ [ ] 😀- [ ] \n- [x]   - [ ] + [ ]   - [ ] "],"ret":{"open":1,"done":1}}
+{"args":["]#    - [ ] -\nxé]\n+ [ ] 😀- [ ] \n- [x]   - [ ]+ [ ]   - [ ] "],"ret":{"open":1,"done":1}}
+{"args":["][/]a"],"ret":{"open":0,"done":0}}
+{"args":["][]a"],"ret":{"open":0,"done":0}}
+{"args":["]\n - [ ] - ["],"ret":{"open":1,"done":0}}
+{"args":["]\n - [ ] - []\n - [ ] - ["],"ret":{"open":2,"done":0}}
+{"args":["]\n Z- [ ] - ["],"ret":{"open":0,"done":0}}
+{"args":["]]a"],"ret":{"open":0,"done":0}}
+{"args":["]↗ \t😀  \n\n😀+ [ ] x\n- [ ] -\n↗ * [X] [-   "],"ret":{"open":1,"done":0}}
+{"args":["]↗ \t😀  \n\n😀+ [ ] x\n- [😀 ] -\n↗ * [X] [-   "],"ret":{"open":0,"done":0}}
+{"args":["_"],"ret":{"open":0,"done":0}}
+{"args":["a- ]\n# [\n- [x] ↗ # + [ ] 😀\nx[* [X] \n    - [ ]  "],"ret":{"open":1,"done":1}}
+{"args":["a- ]😀\n# [\n- [x] ↗ # + [ ] 😀\nx[* [X] \n    - [ ]  "],"ret":{"open":1,"done":1}}
+{"args":["a-\t* [x] "],"ret":{"open":0,"done":0}}
+{"args":["a-\t* [x] a-\t* [x] "],"ret":{"open":0,"done":0}}
+{"args":["a-\té* [x] "],"ret":{"open":0,"done":0}}
+{"args":["aa[-中"],"ret":{"open":0,"done":0}}
+{"args":["aa[-中aa[-中"],"ret":{"open":0,"done":0}}
+{"args":["aé"],"ret":{"open":0,"done":0}}
+{"args":["aé\n* [X] 中\n\né- [ ] "],"ret":{"open":0,"done":1}}
+{"args":["aé\n* [X] 中\né\né- [ ] "],"ret":{"open":0,"done":1}}
+{"args":["é中😀# ]"],"ret":{"open":0,"done":0}}
+{"args":["plain\n- bullet\n  * [ ] nested\n\n# Heading"],"ret":{"open":1,"done":0}}
+{"args":["plain\n- bullet\n  * [] nested\n\n# Heading"],"ret":{"open":0,"done":0}}
+{"args":["tab\there\u0001ctl sep end"],"ret":{"open":0,"done":0}}
+{"args":["tab\there\u0001ctl sep endtab\there\u0001ctl sep end"],"ret":{"open":0,"done":0}}
+{"args":["x"],"ret":{"open":0,"done":0}}
+{"args":["x\n* [X] ]"],"ret":{"open":0,"done":1}}
+{"args":["x\n\n* [X] ]"],"ret":{"open":0,"done":1}}
+{"args":["x\n\t\n* [X] ]"],"ret":{"open":0,"done":1}}
+{"args":["x\nx\t* [x]   <!-- dh:t=a1 -->中\n+ [ ] - [ ] "],"ret":{"open":1,"done":0}}
+{"args":["x\nx\t* [x]   <!-- dh:t=a1 -->中\n+ [ ] - [ ] x\nx\t* [x]   <!-- dh:t=a1 -->中\n+ [ ] - [ ] "],"ret":{"open":2,"done":0}}
+{"args":["x\nx\t* [x]   <!-- dh:t=a1 -->中\n+b [ ] - [ ] "],"ret":{"open":0,"done":0}}
+{"args":["x😀* [X] a \na\t* [x] # \t* [x] + [ ] \n\n中-\t* [x] \t  "],"ret":{"open":0,"done":0}}
+{"args":["x😀* [X] a- \na\t* [x] # \t* [x] + [ ] \n\n中-\t* [x] \t  "],"ret":{"open":0,"done":0}}
+{"args":["x😀* [X] a- \na\t* [x] # \t* [x] + [ ] \n\n中-\t* [x] \t  x😀* [X] a- \na\t* [x] # \t* [x] + [ ] \n\n中-\t* [x] \t  "],"ret":{"open":0,"done":0}}
+{"args":["ß\t* [x] ↗ é"],"ret":{"open":0,"done":0}}
+{"args":["é"],"ret":{"open":0,"done":0}}
+{"args":["é# * [X] 中中\n\néx- 😀"],"ret":{"open":0,"done":0}}
+{"args":["é# * [X] 中中\n\néx- 😀é# * [X] 中中\n\néx- 😀"],"ret":{"open":0,"done":0}}
+{"args":["é# * [X] 中中\n\néx-é 😀"],"ret":{"open":0,"done":0}}
+{"args":["é+ [ ] 😀\n  - [  - [ ]  - [ ] \n\tx\n\n\t* [x] + [ ]   "],"ret":{"open":0,"done":1}}
+{"args":["é+ [ ] 😀\n  - [ ] - [ ]  - [ ] \n\tx\n\n\t* [x] + [ ]   "],"ret":{"open":1,"done":1}}
+{"args":["é+ [ ] 😀\n  - [ ] - [ ] - [ ] \n\tx\n\n\t* [x] + [ ]   "],"ret":{"open":1,"done":1}}
+{"args":["é- [ ] \n"],"ret":{"open":0,"done":0}}
+{"args":["é- [ ] \n中"],"ret":{"open":0,"done":0}}
+{"args":["é- _[ ] \n中"],"ret":{"open":0,"done":0}}
+{"args":["é-a😀é"],"ret":{"open":0,"done":0}}
+{"args":["é\n\t中\naé#   - [ ] \n  x\t- [x] # \n  中"],"ret":{"open":0,"done":0}}
+{"args":["é\n\t中\naé#   - [ ] \n  x\t- [x] # \n  中é\n\t中\naé#   - [ ] \n  x\t- [x] # \n  中"],"ret":{"open":0,"done":0}}
+{"args":["‍"],"ret":{"open":0,"done":0}}
+{"args":["‍\t]x-"],"ret":{"open":0,"done":0}}
+{"args":["↗ x [ ] \n\t↗ ["],"ret":{"open":0,"done":0}}
+{"args":["↗ x+ [ ] \n\t↗ ["],"ret":{"open":0,"done":0}}
+{"args":["↗ x+ [ ]\n\t↗ ["],"ret":{"open":0,"done":0}}
+{"args":["中+ [ ] \n↗ [- [x] \n[* [X] -\n"],"ret":{"open":0,"done":0}}
+{"args":["中+ [ ] \n↗ [- [x] \n[* [X]_ -\n"],"ret":{"open":0,"done":0}}
+{"args":["中+ [ ] \n↗ [- _[x] \n[* [X] -\n"],"ret":{"open":0,"done":0}}
+{"args":["中é\n↗ []- [ ] "],"ret":{"open":0,"done":0}}
+{"args":["中é\n↗ []- [ ] 中é\n↗ []- [ ] "],"ret":{"open":0,"done":0}}
+{"args":["中é\n↗ []- [é ] "],"ret":{"open":0,"done":0}}
+{"args":["中中- [x] \n <!-- dh:t=a1 -->😀é\n# + [ ] 😀-  - [ ] \n"],"ret":{"open":0,"done":0}}
+{"args":["中中- [x] \n <!-- dh:t=a1 -->😀é\n# + [ ] 😀-  - [ ] \n中中- [x] \n <!-- dh:t=a1 -->😀é\n# + [ ] 😀-  - [ ] \n"],"ret":{"open":0,"done":0}}
+{"args":["中😀 \t* [x] ↗ \n"],"ret":{"open":0,"done":0}}
+{"args":["中😀 \t* [x] ↗ \n中"],"ret":{"open":0,"done":0}}
+{"args":["中😀 \t* [x] ↗_ \n中"],"ret":{"open":0,"done":0}}
+{"args":["中😀# ]"],"ret":{"open":0,"done":0}}
+{"args":["中😀# a]"],"ret":{"open":0,"done":0}}
+{"args":["😀- \t\né\n\n# "],"ret":{"open":0,"done":0}}
+{"args":["😀- \t\né\n\t\n# "],"ret":{"open":0,"done":0}}
+{"args":["😀[\t\n\n中- # \n  - [ ] aa- [ ] \n中😀"],"ret":{"open":1,"done":0}}
+{"args":["😀[\t\n\n中- # \n  - [ ] aa- [ ] \n中😀😀[\t\n\n中- # \n  - [ ] aa- [ ] \n中😀"],"ret":{"open":2,"done":0}}
+{"args":["😀]\n+ [ ] -   - [ ] + [ ] 😀"],"ret":{"open":1,"done":0}}
+{"args":["😀]\n+ [ ] -   - [ ] + [ ] 😀b"],"ret":{"open":1,"done":0}}
+{"args":["😀]\n+ [ ] -   - [] + [ ] 😀"],"ret":{"open":1,"done":0}}
+{"args":[{"$u":1}],"ret":{"open":0,"done":0}}
