@@ -95,6 +95,8 @@ mod tests {
         assert!(guard::needs_home(&cli::Command::Hook));
         assert!(guard::needs_home(&cli::Command::SessionWorker));
         assert!(guard::needs_home(&cli::Command::WorkspaceWorker));
-        assert!(guard::needs_home(&cli::Command::DevDaemon(cli::DevDaemonAction::Status)));
+        assert!(guard::needs_home(&cli::Command::DevDaemon(
+            cli::DevDaemonAction::Status
+        )));
     }
 }
