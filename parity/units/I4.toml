@@ -10,7 +10,7 @@ ts_tests = ["tests/workspaceGit.test.ts", "tests/changesGit.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["workspaceGit/parseStatus"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
