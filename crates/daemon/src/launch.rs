@@ -560,17 +560,30 @@ impl Daemon {
             return Err(DhError::msg("Startup cancelled"));
         }
         let agent_version = launch_version.await;
-        let patched = agent_version.clone();
-        self.patch_session(&session.id, move |current| {
-            current.touch("agentVersion");
-            current.agent_version = patched;
-        });
+        // Unlike TS, where the cached version is usually settled and this await never yields to worker events, the
+        // `--version` read of a changed binary can outlast the agent here: its running message lets a kill through and
+        // the exit record lands meanwhile. The caller's running save would revive it, so the cancel check repeats.
+        let current = self.held_session(&session.id);
+        let same_launch = current
+            .as_ref()
+            .is_some_and(|current| current.launch_id.as_deref() == Some(launch_id.as_str()));
+        if same_launch {
+            let patched = agent_version.clone();
+            self.patch_session(&session.id, move |current| {
+                current.touch("agentVersion");
+                current.agent_version = patched;
+            });
+        }
         // A launch may be the first to see a new installed version (updated outside Deckhand).
         {
             let daemon = self.clone();
             drop(spawn(async move {
                 daemon.publish_agent_versions().await;
             }));
+        }
+        if !same_launch || current.is_some_and(|current| current.status == SessionStatus::Exited) {
+            self.stop_worker(&worker);
+            return Err(DhError::msg("Startup cancelled"));
         }
         started.touch("agentVersion");
         started.agent_version = agent_version;
@@ -1789,5 +1802,70 @@ mod tests {
             spawn_error("/bin/zsh", &std::io::Error::from_raw_os_error(libc::ENOENT)).to_string(),
             "spawn /bin/zsh ENOENT"
         );
+    }
+
+    // Regression (forks.test.ts / daemonFeatures.test.ts under load): the agent says running, is killed and exits
+    // while the launch still reads a changed binary's `--version`; the launch must not then answer it as running
+    // (its caller's save revived the exited record, so the kill never showed as exited).
+    #[test]
+    fn an_exit_during_the_version_read_is_not_revived_as_running() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let _home = crate::hooks::tests::Home::set(dir.path());
+        let executable = |name: &str, text: &str| {
+            let file = dir.path().join(name);
+            std::fs::write(&file, text).unwrap();
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+            file
+        };
+        let agent = executable("codex", "#!/bin/sh\nsleep 1\necho 'codex-cli 1.2.3'\n");
+        let cwd = dir.path().join("repo");
+        std::fs::create_dir_all(&cwd).unwrap();
+        let cwd = cwd.to_str().unwrap().to_owned();
+        let mut starting = session("s", &cwd, &cwd);
+        starting.command = agent.to_str().unwrap().to_owned();
+        starting.status = SessionStatus::Starting;
+        starting.launch_id = Some("l1".into());
+        let data = dir.path().join("started.json");
+        std::fs::write(&data, serde_json::to_string(&starting).unwrap()).unwrap();
+        // Answers `start` as running at once, then the agent exits 0.3 s later (well inside the 1 s version read).
+        let worker = executable(
+            "worker.sh",
+            &format!(
+                r#"#!/bin/sh
+printf '{{"type":"hello","version":46}}\n' >&3
+while IFS= read -r line <&3; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"requestId":"\([^"]*\)".*/\1/p')
+  case "$line" in
+    *'"type":"start"'*)
+      printf '{{"type":"running","pid":%s}}\n' $$ >&3
+      printf '{{"type":"response","requestId":"%s","ok":true,"data":' "$id" >&3
+      cat '{data}' >&3
+      printf '}}\n' >&3
+      sleep 0.3
+      printf '{{"type":"exit","exitCode":0,"exitSignal":15,"lastPreview":""}}\n' >&3
+      exit 0 ;;
+  esac
+done
+"#,
+                data = data.display()
+            ),
+        );
+        let daemon = Daemon::with_paths(
+            crate::daemon::DaemonOptions {
+                worker_exe: Some(worker),
+            },
+            test_daemon(dir.path()).paths.clone(),
+        );
+        daemon.notes_tasks.borrow_mut().notes = None;
+        put(&daemon, starting.clone());
+        local(async {
+            let result = daemon.start_worker(starting, 80, 24).await;
+            assert_eq!(result.unwrap_err().to_string(), "Startup cancelled");
+            let held = daemon.get_session("s").unwrap();
+            assert_eq!(held.status, SessionStatus::Exited);
+            assert_eq!(held.exit_signal, Some(Some(15)));
+            assert_eq!(held.agent_version.as_deref(), Some("1.2.3"));
+        });
     }
 }
