@@ -1,0 +1,48 @@
+{
+  "placeholder": "/tmp/deckhand-fixture",
+  "deckhandHome": "deckhand-home",
+  "home": "home",
+  "bin": "bin",
+  "git": {
+    "name": "Deckhand Fixture",
+    "email": "fixture@example.invalid",
+    "start": "2026-09-01T09:00:00Z",
+    "stepSeconds": 60
+  },
+  "steps": [
+    {"op": "init", "repo": "repos/app"},
+    {"op": "write", "path": "repos/app/README.md", "text": "# app\n\nFixture repository for the v45 state fixture.\n"},
+    {"op": "write", "path": "repos/app/deckhand.json", "text": "{\n  \"defaultAgent\": \"claude\",\n  \"devCommand\": \"npm run dev\",\n  \"actions\": {\n    \"lint\": \"npm run lint\"\n  },\n  \"worktree\": {\n    \"symlink\": [\".env\"]\n  }\n}\n"},
+    {"op": "write", "path": "repos/app/.gitignore", "text": ".env\n"},
+    {"op": "commit", "repo": "repos/app", "message": "initial"},
+    {"op": "write", "path": "repos/app/src/index.ts", "text": "export const answer = 42;\n"},
+    {"op": "commit", "repo": "repos/app", "message": "add index"},
+    {"op": "worktree", "repo": "repos/app", "path": "worktrees/app/feature-a", "branch": "feature-a"},
+    {"op": "write", "path": "worktrees/app/feature-a/src/a.ts", "text": "export const a = 'a';\n"},
+    {"op": "commit", "repo": "worktrees/app/feature-a", "message": "feature a"},
+    {"op": "write", "path": "worktrees/app/feature-a/src/a.ts", "text": "export const a = 'a, uncommitted';\n"},
+    {"op": "worktree", "repo": "repos/app", "path": "worktrees/app/feature-merged", "branch": "feature-merged"},
+    {"op": "write", "path": "worktrees/app/feature-merged/src/merged.ts", "text": "export const merged = true;\n"},
+    {"op": "commit", "repo": "worktrees/app/feature-merged", "message": "feature merged work"},
+    {"op": "merge", "repo": "repos/app", "branch": "feature-merged", "message": "Merge branch 'feature-merged'"},
+    {"op": "worktree", "repo": "repos/app", "path": "worktrees/app/legacy", "branch": "legacy"},
+    {"op": "write", "path": "worktrees/app/legacy/LEGACY.md", "text": "legacy work\n"},
+    {"op": "commit", "repo": "worktrees/app/legacy", "message": "legacy work"},
+    {"op": "worktree", "repo": "repos/app", "path": "worktrees/app/attached", "branch": "attached-work"},
+    {"op": "write", "path": "worktrees/app/attached/notes.txt", "text": "untracked in the attached worktree\n"},
+    {"op": "init", "repo": "repos/lib"},
+    {"op": "write", "path": "repos/lib/lib.ts", "text": "export function lib(): number { return 1; }\n"},
+    {"op": "commit", "repo": "repos/lib", "message": "lib initial"},
+    {"op": "mkdir", "path": "plain"}
+  ],
+  "expect": {
+    "repos/app": {"main": "79ec00e63ea00f040da4938305914e2850ee0a75", "feature-a": "3d2d55a8ad588ebb17c43e428f78bfb86fff43a8", "feature-merged": "b98aca492ffa1291cc67296d409da13db75eab26", "legacy": "f407c0bd000fe7ad9ef80657e94147c6d72dae13", "attached-work": "79ec00e63ea00f040da4938305914e2850ee0a75"},
+    "repos/lib": {"main": "fbe642a8906580959aba5b5765e4b3aacc13f8ed"}
+  },
+  "agents": {
+    "claude": "2.0.14 (Claude Code)",
+    "codex": "codex-cli 0.46.0",
+    "pi": "0.9.3"
+  },
+  "agentLatest": {"claude": "2.0.20", "codex": "0.46.0"}
+}
