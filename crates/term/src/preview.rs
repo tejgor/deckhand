@@ -238,6 +238,15 @@ mod tests {
     }
 
     #[test]
+    fn byte_order_marks_never_reach_the_screen() {
+        let mut preview = Preview::new(10.0, 2.0);
+        preview.write("a\u{FEFF}b");
+        assert_eq!(preview.get_snapshot(None), "ab");
+        assert_eq!(preview.terminal().cursor().x, 2);
+        assert_eq!(preview.get_ansi_frame(), "\x1b[2J\x1b[H\x1b[1;1Hab\x1b[1;3H");
+    }
+
+    #[test]
     fn ansi_frame_places_rows_and_cursor() {
         let mut preview = Preview::new(10.0, 3.0);
         preview.write("ab\r\n\r\ncd");

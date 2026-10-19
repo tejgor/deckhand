@@ -2564,7 +2564,7 @@ impl Core {
         self.alt.setup_tab_stops(Some(cols));
     }
 
-    /// TS: InputHandler.parse(string) — decoded to code points, in chunks of MAX_PARSEBUFFER_LENGTH UTF-16 units.
+    /// TS: InputHandler.parse(string) — decoded to code points (U+FEFF dropped), in chunks of MAX_PARSEBUFFER_LENGTH UTF-16 units.
     fn write(&mut self, text: &str) {
         let mut chunk: Vec<u32> = Vec::new();
         let mut units = 0;
@@ -2576,7 +2576,10 @@ impl Core {
                 chunk.clear();
                 chunk_end += MAX_PARSEBUFFER_LENGTH;
             }
-            chunk.push(u32::from(ch));
+            // TS: StringToUtf32.decode — drops every U+FEFF (BOM / ZWNBSP); it still counts toward the chunk.
+            if ch != '\u{FEFF}' {
+                chunk.push(u32::from(ch));
+            }
             units += ch.len_utf16();
         }
         if !chunk.is_empty() {
@@ -4085,6 +4088,23 @@ mod tests {
         t.write(&bytes[..1]);
         t.write(&bytes[1..]);
         assert_eq!(t.line_text(0, true).as_deref(), Some("é"));
+    }
+
+    #[test]
+    fn byte_order_marks_are_dropped_before_parsing() {
+        // xterm's StringToUtf32/Utf8ToUtf32 decoders skip every U+FEFF, wherever it sits.
+        let mut t = term(10, 2);
+        t.write_str("a\u{FEFF}b\u{FEFF}");
+        assert_eq!(t.line_text(0, true).as_deref(), Some("ab"));
+        assert_eq!(t.cursor().x, 2);
+        t.write_str("\r\n\u{FEFE}\u{FEFF}\u{FF00}");
+        assert_eq!(t.line_text(1, true).as_deref(), Some("\u{FEFE}\u{FF00}"));
+        let bytes = "\u{FEFF}c".as_bytes();
+        t.write(&bytes[..2]);
+        t.write(&bytes[2..]);
+        assert_eq!(t.line_text(1, true).as_deref(), Some("\u{FEFE}\u{FF00}c"));
+        t.write_str("\x1b]0;ti\u{FEFF}tle\x07");
+        assert_eq!(t.title().as_deref(), Some("title"));
     }
 
     #[test]
