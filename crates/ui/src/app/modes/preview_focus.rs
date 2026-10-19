@@ -2,52 +2,395 @@
 //! wheel to Claude, which scrolls its own view), and the changes-/notes-focus hand-off to their flows.
 
 use deckhand_core::key::Input;
+use deckhand_protocol::data::{JsNumber, ProgramKey, SessionStatus};
+use deckhand_protocol::records::AppConfig;
+use deckhand_sys::storage::patch_app_config;
 
-use crate::app::WheelDirection;
-use crate::app::state::App;
-use crate::keymap::Keymap;
+use crate::app::state::{App, Mode};
+use crate::app::{
+    SCROLL_SENSITIVITY_STEP, WheelDirection, format_scroll_sensitivity, mouse_wheel_sequence,
+    normalize_scroll_sensitivity, parse_mouse_wheel,
+};
+use crate::flow::Flow;
+use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 
 /// Preview focus keys.
-pub static KEYMAP: Keymap = &[];
+pub static KEYMAP: Keymap = &[
+    Binding {
+        keys: &[
+            KeySpec::Named(NamedKey::Escape),
+            KeySpec::Named(NamedKey::Left),
+            KeySpec::Char("h"),
+        ],
+        action: "back to the session list",
+        help: HelpRef::Topic("Panes"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("+"), KeySpec::Char("-")],
+        action: "mouse-wheel speed (saved)",
+        help: HelpRef::Topic("Panes"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("=")],
+        action: "mouse-wheel speed up",
+        help: HelpRef::Hidden("= is + without Shift"),
+    },
+    Binding {
+        keys: &[
+            KeySpec::Char("k"),
+            KeySpec::Named(NamedKey::Up),
+            KeySpec::Char("j"),
+            KeySpec::Named(NamedKey::Down),
+        ],
+        action: "scroll",
+        help: HelpRef::Topic("Panes"),
+    },
+    Binding {
+        keys: &[KeySpec::Named(NamedKey::PageUp), KeySpec::Named(NamedKey::PageDown)],
+        action: "scroll a page",
+        help: HelpRef::Topic("Panes"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("g"), KeySpec::Char("G")],
+        action: "top / bottom",
+        help: HelpRef::Topic("Panes"),
+    },
+];
 
 /// TS: the preview-focus branch of the useTerminalInput handler.
 pub fn handle_preview_focus(app: &mut App, input: &Input) {
-    let _ = (app, input);
-    todo!("A2")
+    let key = &input.key;
+    let text = input.input.as_str();
+    if key.escape || key.left_arrow || text == "h" {
+        app.set_mode(Mode::Browse);
+        return;
+    }
+    // Mouse-wheel speed (also used when attached), saved to the config.
+    if text == "+" || text == "=" || text == "-" {
+        adjust_scroll_sensitivity(
+            app,
+            if text == "-" {
+                -SCROLL_SENSITIVITY_STEP
+            } else {
+                SCROLL_SENSITIVITY_STEP
+            },
+        );
+        return;
+    }
+    if text == "k" || key.up_arrow {
+        scroll_preview(app, WheelDirection::Up, 1);
+        return;
+    }
+    if text == "j" || key.down_arrow {
+        scroll_preview(app, WheelDirection::Down, 1);
+        return;
+    }
+    let rows = i64::from(app.layout().preview_rows);
+    if key.page_up || key.page_down {
+        let direction = if key.page_up {
+            WheelDirection::Up
+        } else {
+            WheelDirection::Down
+        };
+        scroll_preview(app, direction, usize::try_from((rows - 2).max(1)).unwrap_or(1));
+        return;
+    }
+    if text == "g" {
+        // Claude scrolls its own view, so only the wheel fallback applies there.
+        if !send_claude_wheel(app, WheelDirection::Up, 12) {
+            let offset = app.preview_focus.scroll_offset;
+            app.preview_focus.scroll_offset = app.panes.preview.max_scroll_offset.unwrap_or(offset + rows);
+        }
+        return;
+    }
+    if text == "G" && !send_claude_wheel(app, WheelDirection::Down, 12) {
+        app.preview_focus.scroll_offset = 0;
+    }
 }
 
 /// TS: the preview-focus `stdin.on('data')` listener: wheel reports scaled by the sensitivity (accumulated).
 pub fn on_mouse_data(app: &mut App, text: &str) {
-    let _ = (app, text);
-    todo!("A2")
+    let Some(wheel) = parse_mouse_wheel(text) else {
+        return;
+    };
+    let mut scaled = 0usize;
+    for _ in 0..wheel.count {
+        app.preview_focus.wheel_accumulator += app.preview_focus.scroll_sensitivity;
+        if app.preview_focus.wheel_accumulator >= 1.0 {
+            scaled += 1;
+            app.preview_focus.wheel_accumulator -= 1.0;
+        }
+    }
+    if scaled == 0 {
+        return;
+    }
+    scroll_preview(app, wheel.direction, scaled);
+}
+
+/// JS `Math.round` (halves round up, towards +∞).
+fn js_round(value: f64) -> f64 {
+    let floor = value.floor();
+    if value - floor >= 0.5 { floor + 1.0 } else { floor }
 }
 
 /// TS `adjustScrollSensitivity` (+ / −): saved to the config.
 pub fn adjust_scroll_sensitivity(app: &mut App, delta: f64) {
-    let _ = (app, delta);
-    todo!("A2")
+    let current = app.preview_focus.scroll_sensitivity;
+    let next = normalize_scroll_sensitivity(Some(js_round((current + delta) * 100.0) / 100.0));
+    app.preview_focus.scroll_sensitivity = next;
+    app.preview_focus.wheel_accumulator = 0.0;
+    app.set_status(Some(format!(
+        "Scroll multiplier {} (saved)",
+        format_scroll_sensitivity(next)
+    )));
+    let saved = patch_app_config(AppConfig {
+        attach_scroll_sensitivity: Some(JsNumber(next)),
+        ..AppConfig::default()
+    });
+    drop(app.dispatch().spawn(saved, |app: &mut App, result| {
+        if let Err(error) = result {
+            app.set_error(Some(error.to_string()));
+        }
+    }));
 }
 
 /// TS `sendClaudeWheel`: Claude scrolls its own view; true when sent.
 pub fn send_claude_wheel(app: &mut App, direction: WheelDirection, count: usize) -> bool {
-    let _ = (app, direction, count);
-    todo!("A2")
+    let Some(client) = app.client() else {
+        return false;
+    };
+    let Some(session) = app
+        .selected_session()
+        .filter(|session| session.program == ProgramKey::Claude && session.status == SessionStatus::Running)
+    else {
+        return false;
+    };
+    let layout = app.layout();
+    client.send_agent_input(
+        &session.id,
+        &mouse_wheel_sequence(direction, layout.preview_cols, layout.preview_rows, count),
+    );
+    app.preview_focus.scroll_offset = 0;
+    true
 }
 
 /// TS `scrollPreview`: the wheel to Claude, else the preview's scroll offset.
 pub fn scroll_preview(app: &mut App, direction: WheelDirection, count: usize) {
-    let _ = (app, direction, count);
-    todo!("A2")
+    if send_claude_wheel(app, direction, count) {
+        return;
+    }
+    let count = i64::try_from(count).unwrap_or(i64::MAX);
+    let offset = app.preview_focus.scroll_offset;
+    app.preview_focus.scroll_offset = match direction {
+        WheelDirection::Up => {
+            let up = offset.saturating_add(count);
+            app.panes.preview.max_scroll_offset.unwrap_or(up).min(up)
+        }
+        WheelDirection::Down => offset.saturating_sub(count).max(0),
+    };
 }
 
 /// TS: the changes-focus branch: the Changes flow's keys.
 pub fn handle_changes_focus(app: &mut App, input: &Input) {
-    let _ = (app, input);
-    todo!("A2")
+    app.changes_flow_call(|flow, props, cx| flow.handle_input(props, input, cx));
 }
 
 /// TS: the notes-focus branch: the Notes flow's keys.
 pub fn handle_notes_focus(app: &mut App, input: &Input) {
-    let _ = (app, input);
-    todo!("A2")
+    app.notes_flow_call(|flow, props, cx| flow.handle_input(props, input, cx));
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use deckhand_core::key::Key;
+    use deckhand_protocol::data::{ProgramKey, SessionStatus};
+    use deckhand_sys::storage::load_app_config;
+
+    use super::*;
+    use crate::app::modes::browse::tests::{Daemon, apply, local, named, text, with_sessions};
+
+    /// Tests that change `DECKHAND_HOME` hold this.
+    static ENV: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn esc_left_and_h_step_back_out() {
+        for input in [
+            named(Key {
+                escape: true,
+                ..Key::NONE
+            }),
+            named(Key {
+                left_arrow: true,
+                ..Key::NONE
+            }),
+            text("h"),
+        ] {
+            let (mut app, _rx) = with_sessions(1);
+            app.set_mode(Mode::PreviewFocus);
+            handle_preview_focus(&mut app, &input);
+            assert_eq!(app.mode, Mode::Browse);
+        }
+    }
+
+    #[test]
+    fn keys_scroll_the_preview_within_its_bounds() {
+        let (mut app, _rx) = with_sessions(1);
+        // Not Claude: the preview's own scroll offset.
+        app.data.repo_sessions[0].program = ProgramKey::Codex;
+        app.set_mode(Mode::PreviewFocus);
+        app.panes.preview.max_scroll_offset = Some(3);
+        for _ in 0..5 {
+            handle_preview_focus(&mut app, &text("k"));
+        }
+        assert_eq!(app.preview_focus.scroll_offset, 3);
+        handle_preview_focus(
+            &mut app,
+            &named(Key {
+                down_arrow: true,
+                ..Key::NONE
+            }),
+        );
+        assert_eq!(app.preview_focus.scroll_offset, 2);
+        handle_preview_focus(&mut app, &text("j"));
+        handle_preview_focus(&mut app, &text("j"));
+        handle_preview_focus(&mut app, &text("j"));
+        assert_eq!(app.preview_focus.scroll_offset, 0);
+        handle_preview_focus(&mut app, &text("g"));
+        assert_eq!(app.preview_focus.scroll_offset, 3);
+        handle_preview_focus(&mut app, &text("G"));
+        assert_eq!(app.preview_focus.scroll_offset, 0);
+        // Without a known maximum: up as far as asked; g a page up.
+        app.panes.preview.max_scroll_offset = None;
+        let rows = i64::from(app.layout().preview_rows);
+        handle_preview_focus(
+            &mut app,
+            &named(Key {
+                page_up: true,
+                ..Key::NONE
+            }),
+        );
+        assert_eq!(app.preview_focus.scroll_offset, rows - 2);
+        handle_preview_focus(
+            &mut app,
+            &named(Key {
+                page_down: true,
+                ..Key::NONE
+            }),
+        );
+        assert_eq!(app.preview_focus.scroll_offset, 0);
+        handle_preview_focus(&mut app, &text("g"));
+        assert_eq!(app.preview_focus.scroll_offset, rows);
+        // Other keys do nothing.
+        handle_preview_focus(&mut app, &text("x"));
+        assert_eq!(app.preview_focus.scroll_offset, rows);
+        assert_eq!(app.mode, Mode::PreviewFocus);
+    }
+
+    #[test]
+    fn the_wheel_is_scaled_by_the_sensitivity() {
+        let (mut app, _rx) = with_sessions(1);
+        app.data.repo_sessions[0].program = ProgramKey::Codex;
+        app.preview_focus.scroll_sensitivity = 0.5;
+        let up = mouse_wheel_sequence(WheelDirection::Up, 10, 10, 1);
+        on_mouse_data(&mut app, &up);
+        assert_eq!(app.preview_focus.scroll_offset, 0);
+        on_mouse_data(&mut app, &up);
+        assert_eq!(app.preview_focus.scroll_offset, 1);
+        on_mouse_data(&mut app, &mouse_wheel_sequence(WheelDirection::Up, 10, 10, 4));
+        assert_eq!(app.preview_focus.scroll_offset, 3);
+        on_mouse_data(&mut app, &mouse_wheel_sequence(WheelDirection::Down, 10, 10, 8));
+        assert_eq!(app.preview_focus.scroll_offset, 0);
+        on_mouse_data(&mut app, "plain text");
+        assert_eq!(app.preview_focus.scroll_offset, 0);
+    }
+
+    #[test]
+    fn a_running_claude_gets_the_wheel_itself() {
+        local(async {
+            let (mut app, _rx) = with_sessions(1);
+            let mut daemon = Daemon::connect(&mut app);
+            app.preview_focus.scroll_offset = 2;
+            app.preview_focus.scroll_sensitivity = 1.0;
+            let layout = app.layout();
+            on_mouse_data(&mut app, &mouse_wheel_sequence(WheelDirection::Up, 1, 1, 2));
+            let message = daemon.next().await;
+            assert_eq!(message["type"], "input");
+            assert_eq!(message["sessionId"], "s0");
+            assert_eq!(
+                message["data"],
+                mouse_wheel_sequence(WheelDirection::Up, layout.preview_cols, layout.preview_rows, 2)
+            );
+            assert_eq!(app.preview_focus.scroll_offset, 0);
+            handle_preview_focus(&mut app, &text("G"));
+            let message = daemon.next().await;
+            assert_eq!(
+                message["data"],
+                mouse_wheel_sequence(WheelDirection::Down, layout.preview_cols, layout.preview_rows, 12)
+            );
+            // An exited session scrolls the preview instead.
+            app.data.repo_sessions[0].status = SessionStatus::Exited;
+            assert!(!send_claude_wheel(&mut app, WheelDirection::Up, 1));
+            scroll_preview(&mut app, WheelDirection::Up, 1);
+            assert_eq!(app.preview_focus.scroll_offset, 1);
+        });
+    }
+
+    #[test]
+    fn plus_and_minus_change_the_wheel_speed_and_save_it() {
+        let _guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let home = tempfile::Builder::new()
+            .prefix("deckhand-preview-")
+            .tempdir()
+            .unwrap_or_else(|error| panic!("{error}"));
+        let previous = std::env::var_os(deckhand_sys::paths::HOME_ENV);
+        // SAFETY: tests touching the environment hold ENV.
+        unsafe { std::env::set_var(deckhand_sys::paths::HOME_ENV, home.path()) };
+        local(async {
+            let (mut app, mut rx) = with_sessions(1);
+            app.preview_focus.wheel_accumulator = 0.7;
+            handle_preview_focus(&mut app, &text("+"));
+            assert_eq!(app.preview_focus.scroll_sensitivity, 0.16);
+            assert_eq!(app.preview_focus.wheel_accumulator, 0.0);
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("Scroll multiplier 0.16 (saved)")
+            );
+            apply(&mut app, &mut rx).await;
+            handle_preview_focus(&mut app, &text("="));
+            handle_preview_focus(&mut app, &text("-"));
+            handle_preview_focus(&mut app, &text("-"));
+            assert_eq!(app.preview_focus.scroll_sensitivity, 0.12);
+            for _ in 0..3 {
+                apply(&mut app, &mut rx).await;
+            }
+            assert_eq!(app.messages.error, None);
+            let config = load_app_config().await.unwrap_or_else(|error| panic!("{error}"));
+            assert_eq!(config.attach_scroll_sensitivity.map(|value| value.0), Some(0.12));
+            for _ in 0..10 {
+                adjust_scroll_sensitivity(&mut app, -SCROLL_SENSITIVITY_STEP);
+            }
+            assert_eq!(app.preview_focus.scroll_sensitivity, 0.0);
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("Scroll multiplier 0 (saved)")
+            );
+        });
+        // SAFETY: as above (ENV is still held).
+        unsafe {
+            match previous {
+                Some(value) => std::env::set_var(deckhand_sys::paths::HOME_ENV, value),
+                None => std::env::remove_var(deckhand_sys::paths::HOME_ENV),
+            }
+        }
+    }
+
+    #[test]
+    fn js_round_rounds_halves_up() {
+        assert_eq!(js_round(2.5), 3.0);
+        assert_eq!(js_round(-2.5), -2.0);
+        assert_eq!(js_round(15.999999999999998), 16.0);
+        assert_eq!(js_round(0.49999999999999994), 0.0);
+    }
 }
