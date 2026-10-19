@@ -13,8 +13,21 @@ export const SESSION_FILTER_KEYS: Record<SessionFilter, string> = {active: 'a', 
 export function filterForKey(input: string): SessionFilter | undefined {
 	return SESSION_FILTERS.find(filter => SESSION_FILTER_KEYS[filter] === input);
 }
+/** The agent can't go on without you: it asks, failed, is rate-limited, or exited failed or interrupted. */
+export function sessionBlocked(session: SessionRecord): boolean {
+	return (session.attention?.state !== 'response-ended' && needsAttention(session.attention?.state)) || session.exitReason === 'failed' || session.exitReason === 'interrupted';
+}
+/** Its turn ended and you haven't attached to it since. */
+export function sessionHasUnreadReply(session: SessionRecord): boolean {
+	return session.attention?.state === 'response-ended' && !session.replyRead;
+}
 export function sessionNeedsAttention(session: SessionRecord): boolean {
-	return needsAttention(session.attention?.state) || session.exitReason === 'failed' || session.exitReason === 'interrupted';
+	return sessionBlocked(session) || sessionHasUnreadReply(session);
+}
+/** Marks a response-ended reply read when you detached from the agent after it arrived (`readReplies`: src/uiState.ts). */
+export function withReplyRead(session: SessionRecord, readReplies: Record<string, string> = {}): SessionRecord {
+	const readAt = readReplies[session.id];
+	return session.attention?.state === 'response-ended' && readAt && readAt >= session.attention.at ? {...session, replyRead: true} : session;
 }
 /** `taskTitle`: the title of the task a session works on, so searching for a task finds its sessions. */
 export function filterSessionList(sessions: SessionRecord[], filter: SessionFilter, query: string, taskTitle?: (session: SessionRecord) => string | undefined): SessionRecord[] {

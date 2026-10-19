@@ -67,6 +67,7 @@ async function runUi(uiState: UiState): Promise<UiExitResult | undefined> {
 			initialSessionTabs: uiState.sessionTabs,
 			initialCollapsedSessionIds: uiState.collapsedSessionIds,
 			initialHiddenExitedSessionIds: uiState.hiddenExitedSessionIds,
+			readReplies: uiState.readReplies,
 			initialSessionFilter: uiState.sessionFilter,
 			initialSessionQuery: uiState.sessionQuery,
 			initialTerminalView: terminalView,
@@ -196,6 +197,8 @@ async function main(): Promise<void> {
 			try {
 				const config = await loadAppConfig();
 				await attachSession(result.sessionId, result.target, {title: result.title, program: result.program, scrollSensitivity: config.attach_scroll_sensitivity});
+				// Only attaching to the agent reads its reply; selecting the session or its other tabs does not.
+				if (result.target === 'agent') { delete uiState.readReplies[result.sessionId]; uiState.readReplies[result.sessionId] = new Date().toISOString(); }
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				process.stderr.write(`\nattach failed: ${message}\n`);

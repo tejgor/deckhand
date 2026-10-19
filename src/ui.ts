@@ -80,7 +80,7 @@ export function programGlyph(program: SessionRecord['program']): string {
 export function statusGlyph(session: SessionRecord, spinnerFrame: string): string {
 	if (session.status === 'running') {
 		if (session.attention?.state === 'needs-input') return '?';
-		if (session.attention?.state === 'response-ended') return '◆';
+		if (session.attention?.state === 'response-ended' && !session.replyRead) return '◆';
 		if (session.attention?.state === 'failed') return '!';
 		if (session.attention?.state === 'limited') return '⌛';
 		if (session.attention?.state === 'working') return spinnerFrame;
@@ -125,6 +125,6 @@ export function statusLabel(session?: SessionRecord): string {
 	if (!session) return '—';
 	if (session.status === 'exited') return session.exitReason ?? 'exited';
 	if (session.status === 'starting') return session.setup?.state === 'running' ? 'preparing workspace' : 'starting';
-	if (session.attention && session.attention.state !== 'unknown') return session.attention.state === 'response-ended' ? 'response ended (not task success)' : session.attention.state;
+	if (session.attention && session.attention.state !== 'unknown' && !session.replyRead) return session.attention.state === 'response-ended' ? 'response ended' : session.attention.state;
 	return session.agentStatus ?? 'running';
 }

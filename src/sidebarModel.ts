@@ -190,7 +190,7 @@ export function statusWords(session: SessionRecord): string {
 	if (session.status === 'running') {
 		switch (session.attention?.state) {
 			case 'needs-input': return 'needs input';
-			case 'response-ended': return 'response ended';
+			case 'response-ended': if (session.replyRead) break; return 'response ended';
 			case 'failed': return 'failed';
 			case 'limited': return 'rate-limited';
 			case 'working': return 'working';

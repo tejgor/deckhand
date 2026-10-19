@@ -146,7 +146,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 | *The model* | Two places: the session list on the left, the pane on the right. `→`/`l` steps into the pane, `←`/`h` or `esc` steps back out. The same keys mean the same thing on every screen: `enter` opens or chooses, `space` toggles, `a` adds, `x` removes or stops, `E` opens your editor, `o` goes full screen |
 | `j` / `k`, `↑` / `↓` | Move between visible sessions |
 | `1`–`9`, `0` | Jump to that numbered visible session (`0` selects visible session 10). With more than 10, type the number: `enter` or a short pause selects it, `esc` clears it |
-| `/` / `f` / `!` | Search titles, notes, tasks, provider, branch, path / filter menu (`a` active, `r` running, `!` attention, `e` exited, `A` archived, `*` all; `f f` back to active) / next session that needs you |
+| `/` / `f` / `!` | Search titles, notes, tasks, provider, branch, path / filter menu (`a` active, `r` running, `!` attention, `e` exited, `A` archived, `*` all; `f f` back to active) / next session that needs you (blocked ones first, then unread replies) |
 | `J` / `K`, `c` | Move the selected session down / up among its siblings (order is persisted); cycle its sub-sessions: hide the exited ones, collapse, expand |
 | `<` / `>` | Narrow / widen the sidebar |
 | `tab` / `]`, `shift+tab` / `[` | Next / previous tab: Preview, Terminal, Git, Dev, Notes |
@@ -191,7 +191,7 @@ Press `o` to attach to the selected session's active pane. To branch off related
 │ ⎇ feat/auth ╎2 ▶               │   branch; ╎2 two others share it, ▶ Dev runs
 ```
 
-- **Before the title:** status — spinner starting/working, `●` idle, `◌` activity unknown, `○` exited; with agent signals `?` needs input, `◆` response ended (not task success), `!` failed or failed/interrupted exit, `⌛` rate-limited. Tree — `▾`/`▸` expanded/collapsed parent, `↳` clean and `⑂` forked sub-session.
+- **Before the title:** status — spinner starting/working, `●` idle, `◌` activity unknown, `○` exited; with agent signals `?` needs input, `◆` response ended (unread until you attach to the agent), `!` failed or failed/interrupted exit, `⌛` rate-limited. Tree — `▾`/`▸` expanded/collapsed parent, `↳` clean and `⑂` forked sub-session.
 - **After the title:** `▶` Dev running (once per worktree), `▣` archived, `!` cleanup error, `✓` merged (by `m`, `M`, or found merged elsewhere), `☑` done (`space`), `+N` hidden sub-sessions, `↑` running an older agent version than the one now installed (restart it to update; the details line then shows both versions, e.g. `✶ claude 2.1.287 · 2.1.290 installed`), then the agent: `✶` Claude, `π` Pi, `◇` Codex.
 - Archived rows are dimmed; in the archived view the parents shown for context are dimmed instead. Done rows have a muted title (their markers and status stay readable), and the details show `☑2d` (done 2 days ago). Below the branch, the details repeat the row's markers as glyphs (`╎N` others in the worktree, `▶`, `✓`, `☑2d`, `▣`); a long branch is shortened to keep them. `?` → Sidebar lists all of this in the app.
 
@@ -345,7 +345,7 @@ Deckhand reads configuration from `~/.deckhand/config.json`. `DECKHAND_HOME` sel
 
 Session defaults, a Dev command, a setup command and layout/symlinks for new worktrees, and named actions come from two layers, both edited in place from the **C** Settings screen: global `defaults` in your user `config.json` (never need trust), overridden per repository by one `deckhand.json` in the main checkout. The repository file applies only once you trust its exact contents; Deckhand asks inline (Enter trusts, `s` continues with global defaults only) when you create a session, open actions, start Dev or retry setup. Edits you make in Deckhand keep the file trusted if it was trusted (or new); changes from outside need review — see [project configuration, trust and cleanup](docs/no-brainers.md) for the full behaviour.
 
-**Agent signals** and optional **Notifications** (Settings → Agents, global only; `agent_hooks`/`notifications` in user config) enable capability-gated lifecycle integration and best-effort desktop notifications. Agent signals are on for Claude unless switched off (Claude needs nothing else); switching them on adds Codex, which needs `deckhand hooks codex` in `~/.codex/hooks.json` (Settings warns when it's missing). Notifications default off. A session's details (and its notification) say what it waits on: the question it asks with its options, a plan to approve, the command it asks permission for, or the last line of its reply. Native approvals stay in agent terminals. A response ending is **not task success**.
+**Agent signals** and optional **Notifications** (Settings → Agents, global only; `agent_hooks`/`notifications` in user config) enable capability-gated lifecycle integration and best-effort desktop notifications. Agent signals are on for Claude unless switched off (Claude needs nothing else); switching them on adds Codex, which needs `deckhand hooks codex` in `~/.codex/hooks.json` (Settings warns when it's missing). Notifications default off. A session's details (and its notification) say what it waits on: the question it asks with its options, a plan to approve, the command it asks permission for, or the last line of its reply. Native approvals stay in agent terminals.
 
 ### Terminal, Git and Dev Panes
 

@@ -3,11 +3,25 @@ import {test} from 'node:test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {tempDir, withEnv} from './helpers.js';
-import {SESSION_FILTERS, filterForKey, filterSessionList, handoffMarkdown, sessionFilterCounts} from '../src/sessionFeatures.js';
+import {SESSION_FILTERS, filterForKey, filterSessionList, handoffMarkdown, sessionBlocked, sessionFilterCounts, sessionNeedsAttention, withReplyRead} from '../src/sessionFeatures.js';
+import {normalizeUiState} from '../src/uiState.js';
 import {answersPrompt, normalizeHook, codexResumeFromOutput, needsAttention, integrationArgs, hookPayloadFields, hooksEnabled, hookSettings, attentionMessage} from '../src/agentSignals.js';
 import type {SessionRecord} from '../src/types.js';
 const root = {id: 'root', title: 'Parent', cwd: '/repo', program: 'claude', status: 'running', notes: '', repoRoot: '/repo'} as SessionRecord;
 const child = {...root, id: 'child', title: 'Parent / Child', parentSessionId: 'root', archivedAt: 'yesterday', notes: 'special context'};
+test('a response-ended reply needs you until you attach to the agent after it arrived; blocked sessions always do', () => {
+	const ended = {...root, attention: {state: 'response-ended', event: 'Stop', at: '2026-10-19T10:00:00.000Z'}} as SessionRecord;
+	assert.equal(sessionNeedsAttention(withReplyRead(ended)), true); assert.equal(sessionBlocked(ended), false);
+	// Detached before the reply arrived: still unread. After: read, and no longer needs attention.
+	assert.equal(sessionNeedsAttention(withReplyRead(ended, {root: '2026-10-19T09:59:59.000Z'})), true);
+	const read = withReplyRead(ended, {root: '2026-10-19T10:05:00.000Z'});
+	assert.equal(read.replyRead, true); assert.equal(sessionNeedsAttention(read), false);
+	assert.deepEqual(filterSessionList([read], 'attention', ''), []);
+	// Only a reply is read: a session that asks or failed stays blocked whenever you last attached.
+	const asks = withReplyRead({...ended, attention: {state: 'needs-input', event: 'PermissionRequest', at: '2026-10-19T10:00:00.000Z'}}, {root: '2026-10-19T10:05:00.000Z'});
+	assert.equal(asks.replyRead, undefined); assert.equal(sessionBlocked(asks), true);
+	assert.deepEqual(normalizeUiState({readReplies: {root: '2026-10-19T10:05:00.000Z', bad: 1}}).readReplies, {root: '2026-10-19T10:05:00.000Z'});
+});
 test('filters retain ancestry/order and distinguish archive, running, attention and search', () => {
 	assert.deepEqual(filterSessionList([root, child], 'active', '').map(item => item.id), ['root']);
 	// Archived lists only archived sessions: no live parent for context.
