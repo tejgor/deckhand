@@ -882,6 +882,7 @@ mod tests {
     /// A session worker that exits on `kill` (`OBEY` set) or ignores it.
     const SH_WORKER: &str = r#"#!/bin/sh
 printf '{"type":"hello","version":46}\n' >&3
+: > "$KILLS.ready"
 while IFS= read -r line <&3; do
   case "$line" in
     *'"type":"kill"'*) printf '%s\n' "$line" >> "$KILLS"; if [ -n "$OBEY" ]; then exit 0; fi ;;
@@ -892,7 +893,7 @@ done
     fn spawn_worker(dir: &Path, name: &str, obey: bool) -> Rc<crate::launch::WorkerRuntime> {
         use crate::worker_channel::{SpawnOptions, WorkerChannel, WorkerKind};
         use std::cell::{Cell, RefCell};
-        let exe = dir.join("worker.sh");
+        let exe = dir.join(format!("worker-{name}.sh"));
         std::fs::write(&exe, SH_WORKER).unwrap();
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
         let mut env = vec![(
@@ -947,7 +948,16 @@ done
             wait.insert("type".to_owned(), Value::String("wait".to_owned()));
             let channel = stubborn.channel.clone();
             let pending = spawn(async move { channel.request::<Value>(wait).await });
-            tokio::task::yield_now().await;
+            // The grace is measured from cleanup on, so both workers must be up first: on macOS a freshly written
+            // script took ~320 ms to start even alone and over 500 ms in `nextest --workspace` (neither worker had run
+            // its first line when the SIGKILL came, so no kill was recorded).
+            let spawned = std::time::Instant::now();
+            for id in ["a", "b"] {
+                while !dir.path().join(format!("{id}.kills.ready")).exists() {
+                    assert!(spawned.elapsed() < Duration::from_secs(20), "worker {id} never started");
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }
             let started = std::time::Instant::now();
             daemon.cleanup().await;
             let took = started.elapsed();
