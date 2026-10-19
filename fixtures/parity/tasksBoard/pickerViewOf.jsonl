@@ -1,0 +1,8 @@
+{"args":["s:"],"ret":"sessions"}
+{"args":["s:main"],"ret":"sessions"}
+{"args":["wt:"],"ret":"worktrees"}
+{"args":["wt:w1"],"ret":"worktrees"}
+{"args":["wt:w3"],"ret":"worktrees"}
+{"args":["wt:w9"],"ret":"worktrees"}
+{"args":["zzz"],"ret":"worktrees"}
+{"args":[{"$u":1}],"ret":"worktrees"}
