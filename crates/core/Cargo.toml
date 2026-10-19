@@ -24,4 +24,5 @@ sha2 = { workspace = true }
 chrono = { workspace = true }
 
 [dev-dependencies]
+deckhand-parity = { workspace = true }
 tempfile = { workspace = true }

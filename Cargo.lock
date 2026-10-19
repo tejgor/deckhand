@@ -302,6 +302,7 @@ dependencies = [
  "deckhand-client",
  "deckhand-core",
  "deckhand-daemon",
+ "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "deckhand-term",
@@ -322,6 +323,7 @@ name = "deckhand-client"
 version = "3.0.0"
 dependencies = [
  "deckhand-core",
+ "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "deckhand-term",
@@ -341,6 +343,7 @@ name = "deckhand-core"
 version = "3.0.0"
 dependencies = [
  "chrono",
+ "deckhand-parity",
  "deckhand-protocol",
  "indexmap 2.14.2",
  "regex",
@@ -361,6 +364,7 @@ version = "3.0.0"
 dependencies = [
  "chrono",
  "deckhand-core",
+ "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "deckhand-term",
@@ -394,6 +398,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "deckhand-parity"
+version = "3.0.0"
+dependencies = [
+ "indexmap 2.14.2",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "deckhand-protocol"
 version = "3.0.0"
 dependencies = [
@@ -411,6 +424,7 @@ version = "3.0.0"
 dependencies = [
  "chrono",
  "deckhand-core",
+ "deckhand-parity",
  "deckhand-protocol",
  "futures",
  "indexmap 2.14.2",
@@ -434,6 +448,7 @@ version = "3.0.0"
 dependencies = [
  "alacritty_terminal",
  "deckhand-core",
+ "deckhand-parity",
  "deckhand-protocol",
  "libc",
  "nix",
@@ -450,6 +465,7 @@ dependencies = [
  "crossterm",
  "deckhand-client",
  "deckhand-core",
+ "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "futures",
@@ -468,6 +484,7 @@ name = "deckhand-worker"
 version = "3.0.0"
 dependencies = [
  "deckhand-core",
+ "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "deckhand-term",
