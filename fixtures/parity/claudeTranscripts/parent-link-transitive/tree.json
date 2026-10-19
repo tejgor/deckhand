@@ -1,0 +1,66 @@
+{
+  "before": [
+    {
+      "path": "projects",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/-work-repo",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/-work-repo/a.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/-work-repo/b.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/-work-repo/c.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/-work-repo/other.jsonl",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "projects",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/-work-repo",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/-work-repo/a.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/-work-repo/b.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/-work-repo/c.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/-work-repo/other.jsonl",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}
