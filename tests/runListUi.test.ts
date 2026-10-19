@@ -25,10 +25,11 @@ test('x in the run list stops the running action from the Dev row too', {timeout
 	press('runs'); await screen('Name: runs'); press('\r');
 	await screen('fake agent ready');
 	press('r'); await screen('○ stopped'); press('j'); await screen('Selected command'); press('\r');
-	await screen('slow-started');
+	await screen('│ slow-started'); // its output in the pane, not the command line in the run list
 	// Its output shows while starting it still holds the UI busy (keys are dropped then): wait for the latest frame to
-	// be idle before pressing r again.
-	await waitFor(async () => { const output = await screen(''); return output.slice(output.lastIndexOf('deckhand · DEV')); }, frame => !frame.includes('Working…'), UI_WAIT_MS);
+	// be idle before pressing r again: back on the session (its footer drawn, so not a half-drawn frame) without Working…,
+	// which is drawn below that footer.
+	await waitFor(() => ui.screenText(), frame => frame.includes('q quit') && !frame.includes('Working…'), UI_WAIT_MS);
 	// Back in the run list, on the Dev row: the running action is named, and x stops it.
 	press('r'); await screen('slow is still running in this worktree: x stops it.'); await screen('x stop slow');
 	press('x'); await screen('Stopped slow');

@@ -123,8 +123,8 @@ export function terminalUi(t: TestContext, options: {args: string[]; cwd: string
 	const script = /\.[cm]?[jt]s$/.test(options.args[0] ?? '');
 	const term = pty.spawn(script ? process.execPath : bin, options.args, {cwd: options.cwd, env, cols: UI_COLS, rows: UI_ROWS});
 	const model = new Terminal({cols: UI_COLS, rows: UI_ROWS, scrollback: 0, allowProposedApi: true});
-	let chunks = 0, chunksSincePress = 0, exited = false, disposed = false;
-	term.onData(data => { if (disposed) return; chunks++; chunksSincePress++; model.write(data); });
+	let chunks = 0, chunksSincePress = 0, lastChunkAt = 0, exited = false, disposed = false;
+	term.onData(data => { if (disposed) return; chunks++; chunksSincePress++; lastChunkAt = Date.now(); model.write(data); });
 	const ended = new Promise<number>(resolve => term.onExit(event => { exited = true; resolve(event.exitCode); }));
 	t.after(async () => {
 		if (!exited) { try { term.kill(); } catch {} }
@@ -132,9 +132,12 @@ export function terminalUi(t: TestContext, options: {args: string[]; cwd: string
 		await stopDevDaemon(options.home, env);
 		for (const directory of [options.home, userHome, ...options.remove ?? []]) await fs.rm(directory, {recursive: true, force: true});
 	});
+	// A frame can arrive split over several chunks: read once output has paused briefly (bounded, as a spinner never
+	// stops), so a half-drawn frame (erased, bottom rows not yet redrawn) is not taken for the screen.
 	// xterm parses writes asynchronously; an empty write's callback runs once everything before it is on the model.
 	// Output that arrives meanwhile is flushed too, so the text read is never older than the newest chunk received.
 	const screenText = async () => {
+		for (const deadline = Date.now() + 300; Date.now() - lastChunkAt < 50 && Date.now() < deadline;) await new Promise(resolve => setTimeout(resolve, 10));
 		for (let seen = -1; seen !== chunks;) { seen = chunks; await new Promise<void>(resolve => model.write('', resolve)); }
 		const buffer = model.buffer.active, rows: string[] = [];
 		for (let row = 0; row < UI_ROWS; row++) rows.push(buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? '');
