@@ -212,10 +212,10 @@ mod tests {
     fn has_action_parity() {
         replay("U1", "terminalPane/hasAction", |case: &Case| -> Result<bool, String> {
             let session_arg = tags::untag(case.arg(0));
-            let session = match session_arg.get("id").and_then(Value::as_str) {
-                Some(id) => Some(session(json!({"id": id}))),
-                None => None,
-            };
+            let session = session_arg
+                .get("id")
+                .and_then(Value::as_str)
+                .map(|id| session(json!({"id": id})));
             Ok(has_action(session.as_ref(), &pane(&tags::untag(case.arg(1)))?))
         });
     }

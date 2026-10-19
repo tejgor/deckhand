@@ -589,7 +589,7 @@ mod tests {
         );
         let short = menu_pane_budget(2, 9, true, 8);
         assert!(!short.show_details);
-        assert_eq!(short.head, 2.min(3));
+        assert_eq!(short.head, 2);
         assert_eq!(menu_pane_budget(0, 0, false, 0).menu_rows, 1);
     }
 
