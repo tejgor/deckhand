@@ -1,0 +1,216 @@
+{
+  "before": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/repos",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/repos/8528dc67ee723172.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/sessions/.5e550000-0000-4000-8000-000000000001.md.tmp-4194301-abcd1234",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000001.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000002.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000004.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000005.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000006.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-00000000000e.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/README.txt",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/tasks",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/tasks/8528dc67ee723172.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/tasks/ef34d05a15277f22.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/trash",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/trash/2026-09-12T08-00-00_session_old-session_5e550000-0000-4000-8000-0000000000ff.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/worktrees",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/worktrees/7e000000-0000-4000-8000-00000000000b.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/worktrees/7e000000-0000-4000-8000-00000000000c.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/worktrees/7e000000-0000-4000-8000-00000000000d.md",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/repos",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/repos/8528dc67ee723172.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/sessions/.5e550000-0000-4000-8000-000000000001.md.tmp-4194301-abcd1234",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000001.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000002.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000004.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000005.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-000000000006.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/5e550000-0000-4000-8000-00000000000e.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/README.txt",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/tasks",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/tasks/8528dc67ee723172.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/tasks/ef34d05a15277f22.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/trash",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/trash/2026-09-12T08-00-00_session_old-session_5e550000-0000-4000-8000-0000000000ff.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/worktrees",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/worktrees/7e000000-0000-4000-8000-00000000000b.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/worktrees/7e000000-0000-4000-8000-00000000000c.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/worktrees/7e000000-0000-4000-8000-00000000000d.md",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

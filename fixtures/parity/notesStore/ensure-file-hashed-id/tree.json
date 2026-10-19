@@ -1,0 +1,20 @@
+{
+  "before": [],
+  "after": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/tasks",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/tasks/x-887fcea6a80333c6c02ae7e79735f0ed.md",
+      "type": "file",
+      "mode": "0600"
+    }
+  ]
+}

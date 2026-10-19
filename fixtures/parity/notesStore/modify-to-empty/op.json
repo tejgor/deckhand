@@ -1,0 +1,26 @@
+{
+  "fn": "NotesStore.modify",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "worktree",
+      "id": "w"
+    },
+    {
+      "$fn": "clear"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "result": "cleared",
+    "note": {
+      "text": "",
+      "revision": "e3b0c44298fc1c14"
+    },
+    "changed": true,
+    "get": {
+      "text": "",
+      "revision": "e3b0c44298fc1c14"
+    }
+  }
+}

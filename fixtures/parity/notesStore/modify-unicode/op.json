@@ -1,0 +1,29 @@
+{
+  "fn": "NotesStore.modify",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "worktree",
+      "id": "w"
+    },
+    {
+      "$fn": "uppercase"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "result": [
+      10,
+      3
+    ],
+    "note": {
+      "text": "É中😀\nLINE\n",
+      "revision": "cc1b4dc97ab3cd28"
+    },
+    "changed": true,
+    "get": {
+      "text": "É中😀\nLINE\n",
+      "revision": "cc1b4dc97ab3cd28"
+    }
+  }
+}

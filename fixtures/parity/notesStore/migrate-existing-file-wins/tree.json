@@ -1,0 +1,51 @@
+{
+  "before": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions/a1.md",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/repos",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions/a1.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/tasks",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/worktrees",
+      "type": "dir",
+      "mode": "0700"
+    }
+  ]
+}

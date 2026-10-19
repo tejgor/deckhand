@@ -1,0 +1,21 @@
+{
+  "fn": "NotesStore.migrate",
+  "args": [
+    "$ROOT",
+    [
+      {
+        "id": "a1",
+        "notes": "hello"
+      },
+      {
+        "id": "b2",
+        "notes": "日本語\n"
+      },
+      {
+        "id": "c3"
+      }
+    ]
+  ],
+  "async": true,
+  "ret": true
+}

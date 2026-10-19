@@ -1,0 +1,8 @@
+{
+  "fn": "writeNotesVimScript",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "ret": "$ROOT/notes.vim"
+}

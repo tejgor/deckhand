@@ -1,0 +1,21 @@
+{
+  "fn": "NotesStore.save",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "repo",
+      "id": "/Users/me/repo"
+    },
+    "v2",
+    "3bfc269594ef6492"
+  ],
+  "async": true,
+  "ret": {
+    "saved": true,
+    "changed": true,
+    "after": {
+      "text": "v2",
+      "revision": "fb04dcb6970e4c3d"
+    }
+  }
+}

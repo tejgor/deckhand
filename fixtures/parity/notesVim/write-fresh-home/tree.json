@@ -1,0 +1,10 @@
+{
+  "before": [],
+  "after": [
+    {
+      "path": "notes.vim",
+      "type": "file",
+      "mode": "0600"
+    }
+  ]
+}

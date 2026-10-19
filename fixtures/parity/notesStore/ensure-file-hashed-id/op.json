@@ -1,0 +1,12 @@
+{
+  "fn": "NotesStore.ensureFile",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "tasks",
+      "id": "x y"
+    }
+  ],
+  "async": true,
+  "ret": "$ROOT/notes/tasks/x-887fcea6a80333c6c02ae7e79735f0ed.md"
+}

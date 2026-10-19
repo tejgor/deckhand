@@ -1,0 +1,13 @@
+{
+  "fn": "NotesStore.load",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "ret": {
+    "session": [],
+    "worktree": [],
+    "repo": [],
+    "tasks": []
+  }
+}

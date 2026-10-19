@@ -1,0 +1,18 @@
+{
+  "fn": "NotesStore.remove",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "worktree",
+      "id": "wt-9"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "get": {
+      "text": "",
+      "revision": "e3b0c44298fc1c14"
+    },
+    "entries": []
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "before": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions/11111111-2222-4333-8444-555555555555.md",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions/11111111-2222-4333-8444-555555555555.md",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "fn": "NotesStore.save",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "session",
+      "id": "11111111-2222-4333-8444-555555555555"
+    },
+    "hello\n",
+    "e3b0c44298fc1c14"
+  ],
+  "async": true,
+  "ret": {
+    "saved": true,
+    "changed": true,
+    "after": {
+      "text": "hello\n",
+      "revision": "5891b5b522d5df08"
+    }
+  }
+}

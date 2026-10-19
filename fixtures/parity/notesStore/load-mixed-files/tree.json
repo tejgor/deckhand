@@ -1,0 +1,186 @@
+{
+  "before": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/repos",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/repos/bad-utf8.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/repos/big.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions/.a.md.tmp-1-abcd",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/.hidden.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/a.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/empty.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/notes.txt",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/tasks",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/tasks/r.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/tasks/subdir.md",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/trash",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/trash/2026-01-01T00-00-00_session_x_a.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/worktrees",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/worktrees/w-plain.md",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "notes",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/repos",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/repos/bad-utf8.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/repos/big.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/sessions/.a.md.tmp-1-abcd",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/.hidden.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/a.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/empty.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/sessions/notes.txt",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/tasks",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/tasks/r.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/tasks/subdir.md",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/trash",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "notes/trash/2026-01-01T00-00-00_session_x_a.md",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes/worktrees",
+      "type": "dir",
+      "mode": "0700"
+    },
+    {
+      "path": "notes/worktrees/w-plain.md",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}
