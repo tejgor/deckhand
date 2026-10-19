@@ -10,7 +10,25 @@ ts_tests = ["tests/terminalEditor.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = [
+	"desktop/isVimFamily",
+	"desktop/resolveTerminalEditor",
+	"desktop/terminalEditorArgs",
+	"agentVersionCheck/npmLatest",
+	"agentVersionCheck/runBounded",
+	"agentVersionCheck/find-broken-symlink",
+	"agentVersionCheck/find-empty-path",
+	"agentVersionCheck/find-empty-path-entries",
+	"agentVersionCheck/find-first-of-two",
+	"agentVersionCheck/find-nested-program",
+	"agentVersionCheck/find-not-found",
+	"agentVersionCheck/find-relative-entry",
+	"agentVersionCheck/find-skips-directory",
+	"agentVersionCheck/find-skips-non-executable",
+	"agentVersionCheck/find-symlink-to-executable",
+	"agentVersionCheck/find-trailing-slash-entry",
+	"agentVersionCheck/find-unicode-name",
+]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 

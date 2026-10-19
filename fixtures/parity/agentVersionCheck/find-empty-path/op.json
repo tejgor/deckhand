@@ -1,0 +1,11 @@
+{
+  "fn": "findOnPath",
+  "args": [
+    "tool",
+    ""
+  ],
+  "async": true,
+  "ret": {
+    "$u": 1
+  }
+}

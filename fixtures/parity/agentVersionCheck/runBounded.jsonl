@@ -1,0 +1,18 @@
+{"args":["/",[],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":null,"output":"","timedOut":false,"error":"spawn / EACCES"}}
+{"args":["/bin/sh",["-c","cat; printf done"],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":0,"output":"done","timedOut":false}}
+{"args":["/bin/sh",["-c","echo err 1>&2; exit 2"],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":2,"output":"err\n","timedOut":false}}
+{"args":["/bin/sh",["-c","exit 3"],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":3,"output":"","timedOut":false}}
+{"args":["/bin/sh",["-c","kill -9 $$"],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":null,"output":"","timedOut":false}}
+{"args":["/bin/sh",["-c","printf 0123456789abcdef"],{"timeout":5000,"limit":5}],"async":true,"ret":{"exitCode":0,"output":"bcdef","timedOut":false}}
+{"args":["/bin/sh",["-c","printf \"$0 $1\"","zero","one"],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":0,"output":"zero one","timedOut":false}}
+{"args":["/bin/sh",["-c","printf \"\\344\\270\\255\\360\\237\\230\\200\""],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":0,"output":"中😀","timedOut":false}}
+{"args":["/bin/sh",["-c","printf \"line1\\nline2\\n\""],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":0,"output":"line1\nline2\n","timedOut":false}}
+{"args":["/bin/sh",["-c","printf abc"],{"timeout":5000,"limit":0}],"async":true,"ret":{"exitCode":0,"output":"abc","timedOut":false}}
+{"args":["/bin/sh",["-c","printf abc"],{"timeout":5000,"limit":2}],"async":true,"ret":{"exitCode":0,"output":"bc","timedOut":false}}
+{"args":["/bin/sh",["-c","printf abc"],{"timeout":5000,"limit":3}],"async":true,"ret":{"exitCode":0,"output":"abc","timedOut":false}}
+{"args":["/bin/sh",["-c","printf before; sleep 30"],{"timeout":150,"limit":100}],"async":true,"ret":{"exitCode":null,"output":"before","timedOut":true}}
+{"args":["/bin/sh",["-c","printf hello"],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":0,"output":"hello","timedOut":false}}
+{"args":["/bin/sh",["-c","printf out; exit 1"],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":1,"output":"out","timedOut":false}}
+{"args":["/bin/sh",["-c","sleep 30"],{"timeout":150,"limit":100}],"async":true,"ret":{"exitCode":null,"output":"","timedOut":true}}
+{"args":["/no/such/binary",["--version"],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":null,"output":"","timedOut":false,"error":"spawn /no/such/binary ENOENT"}}
+{"args":["/no/such/binary",[],{"timeout":5000,"limit":100}],"async":true,"ret":{"exitCode":null,"output":"","timedOut":false,"error":"spawn /no/such/binary ENOENT"}}

@@ -1,0 +1,11 @@
+{
+  "fn": "findOnPath",
+  "args": [
+    "tool",
+    "relative/dir"
+  ],
+  "async": true,
+  "ret": {
+    "$u": 1
+  }
+}

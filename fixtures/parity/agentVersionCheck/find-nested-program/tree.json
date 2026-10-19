@@ -1,0 +1,36 @@
+{
+  "before": [
+    {
+      "path": "a",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a/sub",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a/sub/tool",
+      "type": "file",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "a",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a/sub",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a/sub/tool",
+      "type": "file",
+      "mode": "0755"
+    }
+  ]
+}
