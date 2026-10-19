@@ -60,9 +60,6 @@
 {"args":[{"type":"input","sessionId":"s","data":"􎿮򓱟􋞩򉒪򺬄򻀄𰞝򟠖"}],"ret":"{\"type\":\"input\",\"sessionId\":\"s\",\"data\":\"􎿮򓱟􋞩򉒪򺬄򻀄𰞝򟠖\"}\n"}
 {"args":[{"type":"inputinput","sessionId":"s","data":""}],"ret":"{\"type\":\"inputinput\",\"sessionId\":\"s\",\"data\":\"\"}\n"}
 {"args":[{"type":"iput","sessionId":"s","data":"\u001b[A\u0000"}],"ret":"{\"type\":\"iput\",\"sessionId\":\"s\",\"data\":\"\\u001b[A\\u0000\"}\n"}
-{"args":[{"type":"lone","data":{"$utf16":[55296,55296]}}],"ret":"{\"type\":\"lone\",\"data\":\"\\ud800\\ud800\"}\n"}
-{"args":[{"type":"lone","data":{"$utf16":[55296]}}],"ret":"{\"type\":\"lone\",\"data\":\"\\ud800\"}\n"}
-{"args":[{"type":"lonée","data":{"$utf16":[55296]}}],"ret":"{\"type\":\"lonée\",\"data\":\"\\ud800\"}\n"}
 {"args":[{"type":"nput","sessionId":"s","data":"\u001b[A\u0000"}],"ret":"{\"type\":\"nput\",\"sessionId\":\"s\",\"data\":\"\\u001b[A\\u0000\"}\n"}
 {"args":[{"type":"ping","requestId":""}],"ret":"{\"type\":\"ping\",\"requestId\":\"\"}\n"}
 {"args":[{"type":"ping","requestId":"r1"}],"ret":"{\"type\":\"ping\",\"requestId\":\"r1\"}\n"}

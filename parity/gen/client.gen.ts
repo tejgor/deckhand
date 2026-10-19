@@ -44,14 +44,14 @@ function attachJsonParserFixture(chunks: Chunk[], detachAfter?: number): {messag
 	return error === undefined ? {messages, listeners} : {messages, error, listeners};
 }
 
-// writeMessage
+// writeMessage. No lone-surrogate strings: a Rust String cannot hold one, so the port can never be handed one (the UI
+// decodes its input as UTF-8 before it reaches writeMessage).
 const messages: unknown[] = [
 	{type: 'ping', requestId: 'r1'},
 	{type: 'input', sessionId: 's', data: ''},
 	{type: 'input', sessionId: 's', data: 'héllo 😀 日本語  \n\t"\\'},
 	{type: 'input', sessionId: 's', data: '\x1b[A\x00\x7f'},
 	{type: 'x', n: [1, 2.5, -0, 1e21, null], nested: {a: {b: [true, false]}, u: undefined}},
-	{type: 'lone', data: '\uD800'},
 	{},
 ];
 for (const message of messages) recorder.call('writeMessage', writeMessageFixture, [message]);
