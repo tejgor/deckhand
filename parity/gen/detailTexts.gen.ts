@@ -56,7 +56,7 @@ const inspection = (reasons: string[], files: {path: string; state: FileState}[]
 recorder.call('cleanupOverrideText', cleanupOverrideText, [undefined]);
 for (const reasons of [[], ['2 uncommitted files'], ['2 uncommitted files', '1 unpushed commit', 'Branch is not merged: 中文 😀']]) {
 	for (const files of [undefined, [], [{path: 'a.txt', state: 'changed'}], states.map((state, index) => ({path: `dir/file-${index} é.txt`, state})), Array.from({length: 12}, (_, index) => ({path: `f${index}`, state: states[index % 3]!}))] as ({path: string; state: FileState}[] | undefined)[]) {
-		for (const counts of [[0, 0, 0], [1, 0, 0], [2, 3, 4], [0, 0, 1], [5, 5, 5], [20, 0, 0]] as const) recorder.call('cleanupOverrideText', cleanupOverrideText, [inspection(reasons, files, ...counts)]);
+		for (const counts of [[0, 0, 0], [1, 0, 0], [2, 3, 4], [0, 0, 1], [5, 5, 5], [20, 0, 0]] as const) recorder.call('cleanupOverrideText', cleanupOverrideText, [inspection(reasons, files, counts[0], counts[1], counts[2])]);
 	}
 }
 for (const [reason, filePath, state, extra] of sample(fc.tuple(unicode, unicode, fc.constantFrom(...states), fc.integer({min: 0, max: 6})), 80, 32)) {
