@@ -552,8 +552,7 @@ pub fn handle_confirm_merge(app: &mut App, input: &Input) {
         // The preview decides what the toggle applies to; until it (or its error) arrives, only Cancel works.
         let flow = app.merge.flow.as_ref();
         let pending = app.merge.confirm_index < 2
-            && !flow.is_some_and(|flow| flow.preview.is_some())
-            && !flow.is_some_and(|flow| truthy(flow.preview_error.as_ref()));
+            && flow.is_none_or(|flow| flow.preview.is_none() && !truthy(flow.preview_error.as_ref()));
         if pending {
             app.set_status(Some("Still checking what will be merged…".to_owned()));
         } else {
@@ -2660,6 +2659,158 @@ mod tests {
         };
         let rows = drawn(&app, |buf, area| render_remove_confirm_pane(&props, buf, area));
         assert!(rows[4].contains("1 unchecked item:"));
+    }
+
+    /// `compactPath` reads `$HOME`: tests that set it hold this lock (TS `withEnv`).
+    static HOME_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// The rows of a pane drawn by `draw` into `width` x `height`, as plain text.
+    fn plain_rows(width: u16, height: u16, draw: impl FnOnce(&mut Buffer, Rect)) -> Vec<String> {
+        let area = Rect::new(0, 0, width, height);
+        let mut buf = Buffer::empty(area);
+        draw(&mut buf, area);
+        (0..height)
+            .map(|y| {
+                let mut row = String::new();
+                let mut x = 0;
+                while x < width {
+                    let symbol = buf[(x, y)].symbol();
+                    row.push_str(symbol);
+                    x += u16::try_from(string_width(symbol).max(1)).unwrap_or(1);
+                }
+                row
+            })
+            .collect()
+    }
+
+    // covers: B-A4-01 rendered: the confirmation fills exactly its pane (warn target, toggle, notes) and the conflict view shows only the choices
+    #[test]
+    fn rendered_confirmation_fills_its_pane_and_the_conflict_view_shows_the_choices() {
+        let _guard = HOME_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let saved = std::env::var_os("HOME");
+        // SAFETY: every test of this module that reads or writes HOME holds HOME_LOCK.
+        unsafe { std::env::set_var("HOME", "/home/me") };
+        let outcome = std::panic::catch_unwind(|| {
+            let record: SessionRecord = serde_json::from_value(json!({
+                "id": "s", "title": "auth refactor", "program": "claude", "command": "claude",
+                "cwd": "/home/me/wt/auth", "repoRoot": "/home/me/code/app",
+                "worktree": {"mode": "managed", "id": "w", "path": "/home/me/wt/auth", "branch": "auth"},
+                "status": "running", "createdAt": "", "updatedAt": "", "notes": "- [ ] cookie flags"
+            }))
+            .unwrap();
+            let preview: MergePreview = serde_json::from_value(json!({
+                "sourceRef": "feat/auth", "sourceSha": "a".repeat(40), "targetRoot": "/home/me/wt/release",
+                "targetBranch": "release", "targetIsMain": false, "defaultBranch": "main", "commitCount": 8,
+                "commits": ["add login form", "wire the session cookie", "fix tests", "rename handler", "docs", "lint"],
+                "diff": {"files": 5, "insertions": 120, "deletions": 14}, "uncommitted": 4,
+                "overlap": {"committed": ["src/auth.ts"], "uncommitted": []}
+            }))
+            .unwrap();
+            let flow = MergeFlow {
+                session_id: "s".to_owned(),
+                commit_first: true,
+                preview: Some(preview),
+                ..MergeFlow::default()
+            };
+            let sessions = [record.clone()];
+            for height in [30u16, 16] {
+                let props = MergeConfirmPaneProps {
+                    session: sessions.first(),
+                    sessions: &refs(&sessions),
+                    flow: Some(&flow),
+                    selected_index: 1,
+                    tasks: &[],
+                };
+                let lines = plain_rows(84, height, |buf, area| render_merge_confirm_pane(&props, buf, area));
+                assert_eq!(lines.len(), usize::from(height), "{height}");
+                assert!(lines[2].contains("Into release · ~/wt/release"), "{}", lines[2]);
+                assert!(
+                    lines
+                        .iter()
+                        .any(|line| line.contains("☑ commit them first (\"auth refactor\")"))
+                );
+                assert!(lines.iter().any(|line| {
+                    line.contains("⚠ Target has uncommitted changes in 1 file the merge touches: src/auth.ts")
+                }));
+                assert!(
+                    lines
+                        .iter()
+                        .any(|line| line.contains("❯ Squash merge into release without committing"))
+                );
+                assert_eq!(
+                    lines.iter().any(|line| line.contains("cookie flags")),
+                    height == 30,
+                    "{height}"
+                );
+            }
+            // The worktree's task is ticked by the merge; its note's open items are one row, here selected.
+            let tasks = deckhand_core::tasks::parse_tasks(
+                "- [ ] Add OAuth <!-- dh:t=a wt=w -->\n- [ ] Elsewhere <!-- dh:t=c wt=x -->",
+            );
+            let mut with_note = record.clone();
+            with_note.shared_notes = Some(SharedNote {
+                path: "/n/w.md".to_owned(),
+                revision: "r".to_owned(),
+                ..worktree_note("w", "- [x] Read\n- [ ] Add tests")
+            });
+            let sessions = [with_note];
+            let on_items = MergeFlow {
+                on_items: true,
+                ..flow.clone()
+            };
+            let props = MergeConfirmPaneProps {
+                session: sessions.first(),
+                sessions: &refs(&sessions),
+                flow: Some(&on_items),
+                selected_index: 0,
+                tasks: &tasks,
+            };
+            let with_tasks = plain_rows(84, 30, |buf, area| render_merge_confirm_pane(&props, buf, area));
+            assert!(
+                with_tasks
+                    .iter()
+                    .any(|line| line.contains("◆ Task \"Add OAuth\" will be marked done"))
+            );
+            assert!(
+                with_tasks
+                    .iter()
+                    .any(|line| line.contains("❯ ☑ 1 open note item → backlog: Add tests"))
+            );
+            assert!(!with_tasks.iter().any(|line| line.contains("Elsewhere")));
+            assert!(
+                !with_tasks.iter().any(|line| line.contains("❯ Merge into")),
+                "the options are not selected while the items row is"
+            );
+            let result: WorktreeMergeResult = serde_json::from_value(merge_result(
+                json!({"sourceRef": "auth", "conflicted": true, "conflicts": ["src/auth.ts"], "conflictCount": 1}),
+            ))
+            .unwrap();
+            let conflict = plain_rows(70, 7, |buf, area| render_merge_conflict_pane(&result, buf, area));
+            let inner: Vec<String> = conflict[1..conflict.len() - 1]
+                .iter()
+                .map(|line| line.chars().skip(2).collect::<String>())
+                .map(|line| line.trim_end_matches(|c: char| c == '│' || c == ' ').to_owned())
+                .collect();
+            assert_eq!(
+                inner,
+                [
+                    "Merged with conflicts in 1 file",
+                    "  src/auth.ts",
+                    "",
+                    "enter keep it: resolve it in your editor or the Git tab (esc too)",
+                    "x     abort the merge"
+                ]
+            );
+        });
+        match saved {
+            // SAFETY: as above.
+            Some(saved) => unsafe { std::env::set_var("HOME", saved) },
+            // SAFETY: as above.
+            None => unsafe { std::env::remove_var("HOME") },
+        }
+        if let Err(panic) = outcome {
+            std::panic::resume_unwind(panic);
+        }
     }
 
     #[test]
