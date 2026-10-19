@@ -1,0 +1,27 @@
+{
+  "zeta": {
+    "nested": [
+      1,
+      2
+    ]
+  },
+  "dev_command": "npm run dev",
+  "trustedProjects": {
+    "/old/repo": [
+      "abc123"
+    ],
+    "/repo": [
+      "f1",
+      "f0"
+    ]
+  },
+  "notifications": "yes",
+  "attach_scroll_sensitivity": 1.5,
+  "defaults": {
+    "defaultAgent": "pi",
+    "actions": {
+      "test": "npm test"
+    }
+  },
+  "agent_hooks": true
+}
