@@ -1,0 +1,3 @@
+{"args":["claude"],"ret":{"label":"Claude","idAtLaunch":true,"forks":true,"forksAcrossDirectories":true,"version":{"npmPackage":"@anthropic-ai/claude-code","updateArgs":["update"]},"hasExitRef":true,"hasMissingConversation":true,"hasForkFailed":false}}
+{"args":["codex"],"ret":{"label":"Codex","idAtLaunch":false,"forks":true,"forksAcrossDirectories":false,"version":{"npmPackage":"@openai/codex","updateArgs":["update"]},"hasExitRef":true,"hasMissingConversation":false,"hasForkFailed":false}}
+{"args":["pi"],"ret":{"label":"Pi","idAtLaunch":true,"forks":true,"forksAcrossDirectories":true,"version":{"npmPackage":"@earendil-works/pi-coding-agent","updateArgs":["update","--self"]},"hasExitRef":false,"hasMissingConversation":false,"hasForkFailed":true}}

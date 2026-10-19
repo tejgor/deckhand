@@ -1,0 +1,193 @@
+{"args":["    - [ ] ↗ - \n\n 😀[<!-- dh:t=a1 -->中\n-\n<!-- dh:t=a1 -->] ",0],"ret":"    - [x] ↗ - \n\n 😀[<!-- dh:t=a1 -->中\n-\n<!-- dh:t=a1 -->] "}
+{"args":["   - [x] # - ",2],"ret":{"$u":1}}
+{"args":["  - [ ]   \té\t\n* [X] ]+ [ ] \t* [x] ",1],"ret":"  - [ ]   \té\t\n* [ ] ]+ [ ] \t* [x] "}
+{"args":["  - [ ]  ]- - ",3],"ret":{"$u":1}}
+{"args":["  - [ ] -\t* [x] 中",0],"ret":"  - [x] -\t* [x] 中"}
+{"args":["  - [ ] <!-- dh:t=a1 -->]- [ ] \n[aax\néa \tx\n  - [ ]   -\n+ [ ] a 😀\t* [x] ",5],"ret":{"$u":1}}
+{"args":["  - [ ] ]  \n\né- [x] \n中# ",1],"ret":{"$u":1}}
+{"args":["  - [ ] ]↗ \n]",2],"ret":{"$u":1}}
+{"args":["  - [ ] 😀😀中↗ \n😀- [x] \n中# ",5],"ret":{"$u":1}}
+{"args":["  <!-- dh:t=a1 -->  xé",1],"ret":{"$u":1}}
+{"args":["  \n# + [ ] \t]-",5],"ret":{"$u":1}}
+{"args":["  \n\n# éé",1],"ret":{"$u":1}}
+{"args":["  \n\t   - [ ] 中\n",1],"ret":"  \n\t   - [x] 中\n"}
+{"args":["  \na- -\t* [x] # \n😀",3],"ret":{"$u":1}}
+{"args":["  中↗ -\n<!-- dh:t=a1 -->\nx[-",2],"ret":{"$u":1}}
+{"args":[" + [ ] \n\n",5],"ret":{"$u":1}}
+{"args":[" \t中- - ",4],"ret":{"$u":1}}
+{"args":[" 中]",5],"ret":{"$u":1}}
+{"args":["",-1],"ret":{"$u":1}}
+{"args":["",0],"ret":{"$u":1}}
+{"args":["",1.5],"ret":{"$u":1}}
+{"args":["",1],"ret":{"$u":1}}
+{"args":["",2],"ret":{"$u":1}}
+{"args":["",3],"ret":{"$u":1}}
+{"args":["",4],"ret":{"$u":1}}
+{"args":["",5],"ret":{"$u":1}}
+{"args":["",99],"ret":{"$u":1}}
+{"args":["# H\n## H2\n#nohash\n####### seven\n###### six",-1],"ret":{"$u":1}}
+{"args":["# H\n## H2\n#nohash\n####### seven\n###### six",0],"ret":{"$u":1}}
+{"args":["# H\n## H2\n#nohash\n####### seven\n###### six",1.5],"ret":{"$u":1}}
+{"args":["# H\n## H2\n#nohash\n####### seven\n###### six",1],"ret":{"$u":1}}
+{"args":["# H\n## H2\n#nohash\n####### seven\n###### six",2],"ret":{"$u":1}}
+{"args":["# H\n## H2\n#nohash\n####### seven\n###### six",3],"ret":{"$u":1}}
+{"args":["# H\n## H2\n#nohash\n####### seven\n###### six",99],"ret":{"$u":1}}
+{"args":["# Plan\n- [x] Read the spec\n- [ ] Write the parser\n  - [ ] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose",0],"ret":{"$u":1}}
+{"args":["# Plan\n- [x] Read the spec\n- [ ] Write the parser\n  - [ ] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose",1],"ret":"# Plan\n- [ ] Read the spec\n- [ ] Write the parser\n  - [ ] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose"}
+{"args":["# Plan\n- [x] Read the spec\n- [ ] Write the parser\n  - [ ] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose",2],"ret":"# Plan\n- [x] Read the spec\n- [x] Write the parser\n  - [ ] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose"}
+{"args":["# Plan\n- [x] Read the spec\n- [ ] Write the parser\n  - [ ] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose",3],"ret":"# Plan\n- [x] Read the spec\n- [ ] Write the parser\n  - [x] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose"}
+{"args":["# [# ] \n# ",2],"ret":{"$u":1}}
+{"args":["# \n  ]- \t* [x] x\n-x\n   a",3],"ret":{"$u":1}}
+{"args":["* [X] - -\n\n  - [ ] a\t* [x] 😀\t* [x] ",3],"ret":{"$u":1}}
+{"args":["* [X] -",3],"ret":{"$u":1}}
+{"args":["+ [ ]   - [ ] \n# \n- -é- [x] [\n- [ ] ",5],"ret":{"$u":1}}
+{"args":["+ [ ] # 中]\n  😀\n- a😀↗ \n\n<!-- dh:t=a1 -->-[x  ",2],"ret":{"$u":1}}
+{"args":["+ [ ] <!-- dh:t=a1 -->\n-   <!-- dh:t=a1 -->- \n   - [ ] [\n-+ [ ] ↗ \n\t- [x] 😀a]",0],"ret":"+ [x] <!-- dh:t=a1 -->\n-   <!-- dh:t=a1 -->- \n   - [ ] [\n-+ [ ] ↗ \n\t- [x] 😀a]"}
+{"args":["+ [ ] <!-- dh:t=a1 -->中 - [x] \n][- 中- [x] ",0],"ret":"+ [x] <!-- dh:t=a1 -->中 - [x] \n][- 中- [x] "}
+{"args":["+ [ ] [- 😀\n中-",4],"ret":{"$u":1}}
+{"args":["+ [ ] ]\n↗ -",3],"ret":{"$u":1}}
+{"args":["+ [ ] x\n+ [ ] 😀<!-- dh:t=a1 -->\n# - [x] \n- \ta<!-- dh:t=a1 -->  - [ ] \n[# ",1],"ret":"+ [ ] x\n+ [x] 😀<!-- dh:t=a1 -->\n# - [x] \n- \ta<!-- dh:t=a1 -->  - [ ] \n[# "}
+{"args":["-   # [",2],"ret":{"$u":1}}
+{"args":["-   - [ ] <!-- dh:t=a1 -->\n\n\t\n* [X] \t* [x] + [ ]   ]",2],"ret":{"$u":1}}
+{"args":["-   - [ ] 😀\n",3],"ret":{"$u":1}}
+{"args":["- [ ]  <!-- dh:t=a1 --> ",0],"ret":"- [x]  <!-- dh:t=a1 --> "}
+{"args":["- [ ]  😀é\n]  - [ ] \n  \n[",0],"ret":"- [x]  😀é\n]  - [ ] \n  \n["}
+{"args":["- [ ] ",1],"ret":{"$u":1}}
+{"args":["- [ ] + [ ] \n- [x] - [ ] * [X] \né<!-- dh:t=a1 -->  - [ ] - [ ] ",4],"ret":{"$u":1}}
+{"args":["- [ ] \n+ [ ] \t* [x] ",4],"ret":{"$u":1}}
+{"args":["- [ ] a\n- [x] b\n- [X] c",-1],"ret":{"$u":1}}
+{"args":["- [ ] a\n- [x] b\n- [X] c",0],"ret":"- [x] a\n- [x] b\n- [X] c"}
+{"args":["- [ ] a\n- [x] b\n- [X] c",1.5],"ret":{"$u":1}}
+{"args":["- [ ] a\n- [x] b\n- [X] c",1],"ret":"- [ ] a\n- [ ] b\n- [X] c"}
+{"args":["- [ ] a\n- [x] b\n- [X] c",2],"ret":"- [ ] a\n- [x] b\n- [ ] c"}
+{"args":["- [ ] a\n- [x] b\n- [X] c",3],"ret":{"$u":1}}
+{"args":["- [ ] a\n- [x] b\n- [X] c",99],"ret":{"$u":1}}
+{"args":["- [ ] very long item that needs to wrap across several rows when the width is small, yes really",-1],"ret":{"$u":1}}
+{"args":["- [ ] very long item that needs to wrap across several rows when the width is small, yes really",0],"ret":"- [x] very long item that needs to wrap across several rows when the width is small, yes really"}
+{"args":["- [ ] very long item that needs to wrap across several rows when the width is small, yes really",1.5],"ret":{"$u":1}}
+{"args":["- [ ] very long item that needs to wrap across several rows when the width is small, yes really",1],"ret":{"$u":1}}
+{"args":["- [ ] very long item that needs to wrap across several rows when the width is small, yes really",2],"ret":{"$u":1}}
+{"args":["- [ ] very long item that needs to wrap across several rows when the width is small, yes really",3],"ret":{"$u":1}}
+{"args":["- [ ] very long item that needs to wrap across several rows when the width is small, yes really",99],"ret":{"$u":1}}
+{"args":["- [ ] 中文😀\r\n- [x] crlf",-1],"ret":{"$u":1}}
+{"args":["- [ ] 中文😀\r\n- [x] crlf",0],"ret":"- [x] 中文😀\r\n- [x] crlf"}
+{"args":["- [ ] 中文😀\r\n- [x] crlf",1.5],"ret":{"$u":1}}
+{"args":["- [ ] 中文😀\r\n- [x] crlf",1],"ret":"- [ ] 中文😀\r\n- [ ] crlf"}
+{"args":["- [ ] 中文😀\r\n- [x] crlf",2],"ret":{"$u":1}}
+{"args":["- [ ] 中文😀\r\n- [x] crlf",3],"ret":{"$u":1}}
+{"args":["- [ ] 中文😀\r\n- [x] crlf",99],"ret":{"$u":1}}
+{"args":["- [ ] 中😀  - [ ] \n\n😀",3],"ret":{"$u":1}}
+{"args":["- [ ]\n- [x]\n- [ ]x",-1],"ret":{"$u":1}}
+{"args":["- [ ]\n- [x]\n- [ ]x",0],"ret":"- [x]\n- [x]\n- [ ]x"}
+{"args":["- [ ]\n- [x]\n- [ ]x",1.5],"ret":{"$u":1}}
+{"args":["- [ ]\n- [x]\n- [ ]x",1],"ret":"- [ ]\n- [ ]\n- [ ]x"}
+{"args":["- [ ]\n- [x]\n- [ ]x",2],"ret":{"$u":1}}
+{"args":["- [ ]\n- [x]\n- [ ]x",3],"ret":{"$u":1}}
+{"args":["- [ ]\n- [x]\n- [ ]x",99],"ret":{"$u":1}}
+{"args":["- [# # - [x] \n- [ ] [\n😀",1],"ret":"- [# # - [x] \n- [x] [\n😀"}
+{"args":["- [x]   - [ ] \n# <!-- dh:t=a1 -->[  - [ ] ",1],"ret":{"$u":1}}
+{"args":["- [x] ",5],"ret":{"$u":1}}
+{"args":["- [x] - ]-",4],"ret":{"$u":1}}
+{"args":["- [x] \t[- [x] ",3],"ret":{"$u":1}}
+{"args":["- [x] a* [X] x\n\t* [x] ",5],"ret":{"$u":1}}
+{"args":["- [x] 😀\nx",5],"ret":{"$u":1}}
+{"args":["- \n- - \n\t",2],"ret":{"$u":1}}
+{"args":["- \n\t* [x] <!-- dh:t=a1 -->\n<!-- dh:t=a1 -->* [X] - [# \n]-",1],"ret":"- \n\t* [ ] <!-- dh:t=a1 -->\n<!-- dh:t=a1 -->* [X] - [# \n]-"}
+{"args":["- ↗ Send it <!-- dh:t=abc1 -->\n- ↗ Other <!-- dh:t=9z -->\n- ↗ bare\n  * ↗ nested <!-- dh:t=m1 -->\n- ↗  <!-- dh:t=q -->",-1],"ret":{"$u":1}}
+{"args":["- ↗ Send it <!-- dh:t=abc1 -->\n- ↗ Other <!-- dh:t=9z -->\n- ↗ bare\n  * ↗ nested <!-- dh:t=m1 -->\n- ↗  <!-- dh:t=q -->",0],"ret":{"$u":1}}
+{"args":["- ↗ Send it <!-- dh:t=abc1 -->\n- ↗ Other <!-- dh:t=9z -->\n- ↗ bare\n  * ↗ nested <!-- dh:t=m1 -->\n- ↗  <!-- dh:t=q -->",1.5],"ret":{"$u":1}}
+{"args":["- ↗ Send it <!-- dh:t=abc1 -->\n- ↗ Other <!-- dh:t=9z -->\n- ↗ bare\n  * ↗ nested <!-- dh:t=m1 -->\n- ↗  <!-- dh:t=q -->",1],"ret":{"$u":1}}
+{"args":["- ↗ Send it <!-- dh:t=abc1 -->\n- ↗ Other <!-- dh:t=9z -->\n- ↗ bare\n  * ↗ nested <!-- dh:t=m1 -->\n- ↗  <!-- dh:t=q -->",2],"ret":{"$u":1}}
+{"args":["- ↗ Send it <!-- dh:t=abc1 -->\n- ↗ Other <!-- dh:t=9z -->\n- ↗ bare\n  * ↗ nested <!-- dh:t=m1 -->\n- ↗  <!-- dh:t=q -->",3],"ret":{"$u":1}}
+{"args":["- ↗ Send it <!-- dh:t=abc1 -->\n- ↗ Other <!-- dh:t=9z -->\n- ↗ bare\n  * ↗ nested <!-- dh:t=m1 -->\n- ↗  <!-- dh:t=q -->",99],"ret":{"$u":1}}
+{"args":["-- \t[]\n↗ 中  - [ ] 😀\n- [x] ]\n+ [ ] x↗ - [x] ",5],"ret":{"$u":1}}
+{"args":["-\n\t* [x] \nx  é-  \n\nx",5],"ret":{"$u":1}}
+{"args":["-\n中<!-- dh:t=a1 -->[<!-- dh:t=a1 -->",1],"ret":{"$u":1}}
+{"args":["-\t* [x] \n \n\na-- [x] \t* [x] \n",1],"ret":{"$u":1}}
+{"args":["-x",1],"ret":{"$u":1}}
+{"args":["<!-- dh:t=a1 --> ↗ ",1],"ret":{"$u":1}}
+{"args":["<!-- dh:t=a1 -->-  ",1],"ret":{"$u":1}}
+{"args":["<!-- dh:t=a1 -->-\n<!-- dh:t=a1 -->  - [ ] é- <!-- dh:t=a1 -->\n- [x] ",1],"ret":{"$u":1}}
+{"args":["<!-- dh:t=a1 -->[* [X] # \né↗ ↗ \n- [ ] 😀[😀  \n]x# - \n",3],"ret":{"$u":1}}
+{"args":["<!-- dh:t=a1 -->[+ [ ] \n  é",1],"ret":{"$u":1}}
+{"args":["<!-- dh:t=a1 -->[\n- [x] ",1],"ret":"<!-- dh:t=a1 -->[\n- [ ] "}
+{"args":["<!-- dh:t=a1 -->\n中# # \n- ↗ \t# ",5],"ret":{"$u":1}}
+{"args":["[  - [ ] \n\n\n - [ ] # \n]中",3],"ret":"[  - [ ] \n\n\n - [x] # \n]中"}
+{"args":["[",3],"ret":{"$u":1}}
+{"args":["[- ",3],"ret":{"$u":1}}
+{"args":["[- [ ]   - [ ] * [X] é",1],"ret":{"$u":1}}
+{"args":["[\t* [x] + [ ] \n\t* [x] ",0],"ret":{"$u":1}}
+{"args":["[a]x- [ ] \n-- [ ] x\n]\na\n]#   [",4],"ret":{"$u":1}}
+{"args":["\n  - [ ] - \t+ [ ]   \n]😀 # - [x] \n * [X] ",3],"ret":"\n  - [ ] - \t+ [ ]   \n]😀 # - [x] \n * [ ] "}
+{"args":["\n# <!-- dh:t=a1 -->\t* [x] + [ ] [\n]a  - [ ] -\n\téé↗ - [ ] ",1],"ret":{"$u":1}}
+{"args":["\n* [X] - [x]   - [ ] ",5],"ret":{"$u":1}}
+{"args":["\n* [X] - [x] \t- [ ] * [X] \n😀é\n\t* [x] ",2],"ret":{"$u":1}}
+{"args":["\n* [X] \n<!-- dh:t=a1 -->\n↗ # <!-- dh:t=a1 -->",1],"ret":"\n* [ ] \n<!-- dh:t=a1 -->\n↗ # <!-- dh:t=a1 -->"}
+{"args":["\n* [X] \n😀\n",0],"ret":{"$u":1}}
+{"args":["\n* [X] ↗ \n\n+ [ ] ",5],"ret":{"$u":1}}
+{"args":["\n- [ ] \n",0],"ret":{"$u":1}}
+{"args":["\n\n# # ",1],"ret":{"$u":1}}
+{"args":["\n\n- [ ] a\n\n",-1],"ret":{"$u":1}}
+{"args":["\n\n- [ ] a\n\n",0],"ret":{"$u":1}}
+{"args":["\n\n- [ ] a\n\n",1.5],"ret":{"$u":1}}
+{"args":["\n\n- [ ] a\n\n",1],"ret":{"$u":1}}
+{"args":["\n\n- [ ] a\n\n",2],"ret":"\n\n- [x] a\n\n"}
+{"args":["\n\n- [ ] a\n\n",3],"ret":{"$u":1}}
+{"args":["\n\n- [ ] a\n\n",99],"ret":{"$u":1}}
+{"args":["\n\n\t* [x] 中\n",0],"ret":{"$u":1}}
+{"args":["\n\n↗ \né- * [X] \né* [X] \t* [x] \t* [x] ",2],"ret":{"$u":1}}
+{"args":["\n]\t]\n\n↗ + [ ] -\n\t* [x] x]",0],"ret":{"$u":1}}
+{"args":["\nx* [X] - * [X] \n  <!-- dh:t=a1 -->\t[# \n😀中[ ",3],"ret":{"$u":1}}
+{"args":["\nx* [X] ↗ 😀a",0],"ret":{"$u":1}}
+{"args":["\nx↗ - # ",4],"ret":{"$u":1}}
+{"args":["\né- [ ] \n  \n[+ [ ] ]\t\n  - [ ] 😀-- [ ] ",1],"ret":{"$u":1}}
+{"args":["\n中<!-- dh:t=a1 -->\n\n* [X]   😀é-\na[😀<!-- dh:t=a1 -->[",0],"ret":{"$u":1}}
+{"args":["\n中\t* [x] a- [x] \n[\n ]+ [ ] -",2],"ret":{"$u":1}}
+{"args":["\n😀 \t* [x] * [X] \t\n😀😀-\na中- [ ] x中\n  - [ ] * [X] * [X] ",3],"ret":{"$u":1}}
+{"args":["\t* [x] - -\n中é- [ ] 😀\n+ [ ] a- [x] \n\n- [ ] ]# -",3],"ret":{"$u":1}}
+{"args":["\t* [x] 中-\n- [x] a- [ ] [😀\n\t\n<!-- dh:t=a1 -->\t# ",0],"ret":"\t* [ ] 中-\n- [x] a- [ ] [😀\n\t\n<!-- dh:t=a1 -->\t# "}
+{"args":["\t* [x] 😀* [X] \né😀\t-   \n\n",1],"ret":{"$u":1}}
+{"args":["\t+ [ ] ]\na\t-- ",4],"ret":{"$u":1}}
+{"args":["]\n\n- ",0],"ret":{"$u":1}}
+{"args":["]↗ 中  \n- [ ] - [ ] éx* [X] ",2],"ret":{"$u":1}}
+{"args":["]中 \n\n<!-- dh:t=a1 -->😀* [X] \n-a<!-- dh:t=a1 -->",2],"ret":{"$u":1}}
+{"args":["a     - [ ] x\n- [x] x[é\n中- [ ] \n[- - 中",4],"ret":{"$u":1}}
+{"args":["a  - [ ] 😀 ",1],"ret":{"$u":1}}
+{"args":["a  x\n+ [ ] 😀+ [ ] 😀  \n  - [ ] [+ [ ] <!-- dh:t=a1 -->",3],"ret":{"$u":1}}
+{"args":["a\t😀  - [ ] # ",3],"ret":{"$u":1}}
+{"args":["a↗ \n\tx\n[é* [X] [  \n<!-- dh:t=a1 -->[a",5],"ret":{"$u":1}}
+{"args":["plain\n- bullet\n  * [ ] nested\n\n# Heading",-1],"ret":{"$u":1}}
+{"args":["plain\n- bullet\n  * [ ] nested\n\n# Heading",0],"ret":{"$u":1}}
+{"args":["plain\n- bullet\n  * [ ] nested\n\n# Heading",1.5],"ret":{"$u":1}}
+{"args":["plain\n- bullet\n  * [ ] nested\n\n# Heading",1],"ret":{"$u":1}}
+{"args":["plain\n- bullet\n  * [ ] nested\n\n# Heading",2],"ret":"plain\n- bullet\n  * [x] nested\n\n# Heading"}
+{"args":["plain\n- bullet\n  * [ ] nested\n\n# Heading",3],"ret":{"$u":1}}
+{"args":["plain\n- bullet\n  * [ ] nested\n\n# Heading",99],"ret":{"$u":1}}
+{"args":["tab\there\u0001ctl sep end",-1],"ret":{"$u":1}}
+{"args":["tab\there\u0001ctl sep end",0],"ret":{"$u":1}}
+{"args":["tab\there\u0001ctl sep end",1.5],"ret":{"$u":1}}
+{"args":["tab\there\u0001ctl sep end",1],"ret":{"$u":1}}
+{"args":["tab\there\u0001ctl sep end",2],"ret":{"$u":1}}
+{"args":["tab\there\u0001ctl sep end",3],"ret":{"$u":1}}
+{"args":["tab\there\u0001ctl sep end",99],"ret":{"$u":1}}
+{"args":["x[\n\t* [x] a  - [ ] \na]* [X] []\n\t",4],"ret":{"$u":1}}
+{"args":["é  ",2],"ret":{"$u":1}}
+{"args":["é  \n↗ + [ ] x\n+ [ ] \t* [x] <!-- dh:t=a1 --># \n\t\nx",0],"ret":{"$u":1}}
+{"args":["é\n  - [ ] ↗ - \n\t* [x] \t* [x] \t\n\t* [x] - [x] <!-- dh:t=a1 -->\n",5],"ret":{"$u":1}}
+{"args":["é\n]- ",5],"ret":{"$u":1}}
+{"args":["é\t😀x+ [ ] ",3],"ret":{"$u":1}}
+{"args":["↗ - \n- [ ] + [ ] ]- [ ]   \n* [X]   - [x] [",5],"ret":{"$u":1}}
+{"args":["↗ -<!-- dh:t=a1 --><!-- dh:t=a1 -->  - [ ] \n-x  - [ ] a- ",5],"ret":{"$u":1}}
+{"args":["↗ [\t* [X] [\n😀- [x]   - [ ] é\n]",5],"ret":{"$u":1}}
+{"args":["↗ \n+ [ ] \t* [x] x  [\né-- [x] \t* [x] <!-- dh:t=a1 -->",3],"ret":{"$u":1}}
+{"args":["↗ x+ [ ] x- [x] \n]😀↗ * [X] \n↗ 中  + [ ] ",0],"ret":{"$u":1}}
+{"args":["中    \t\n<!-- dh:t=a1 -->- + [ ]  \n↗ \n+ [ ] \t* [X] x\t\n<!-- dh:t=a1 -->- ",1],"ret":{"$u":1}}
+{"args":["中  - [ ] -\t* [x] \n# * [X] \n😀\n][\n-\t]",0],"ret":{"$u":1}}
+{"args":["中  - [ ] \n\n-\n-<!-- dh:t=a1 -->]\n- 😀😀* [X]   - [ ] ",4],"ret":{"$u":1}}
+{"args":["😀  - [ ] -\n[-- - ",1],"ret":{"$u":1}}
+{"args":["😀  \n  ",5],"ret":{"$u":1}}
+{"args":["😀\n\t* [x] [x\n#   - [ ] ",1],"ret":"😀\n\t* [ ] [x\n#   - [ ] "}
+{"args":["😀\na* [X] ",5],"ret":{"$u":1}}
+{"args":["😀\nx",0],"ret":{"$u":1}}
+{"args":["😀ax\n\t* [x] 中😀- [x] \n  - [ ] x- [ ] 😀  - [ ] \na[+ [ ] 😀",0],"ret":{"$u":1}}
+{"args":["😀x# \t\n\n- [* [X] <!-- dh:t=a1 -->a\n  - [ ] \n  <!-- dh:t=a1 -->😀\t* [x] ",3],"ret":"😀x# \t\n\n- [* [X] <!-- dh:t=a1 -->a\n  - [x] \n  <!-- dh:t=a1 -->😀\t* [x] "}
