@@ -10,7 +10,7 @@ ts_tests = ["tests/projectConfig.test.ts", "tests/projectConfigDocument.test.ts"
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["projectConfig-P10/explainSettings", "projectConfig-P10/globalDefaults", "projectConfig-P10/isProjectTrusted", "projectConfig-P10/parseProjectConfig", "projectConfig-P10/projectFingerprint", "projectConfig-P10/projectNeedsReview", "projectConfig-P10/resolveDevCommand", "projectConfig-P10/resolveSettings", "projectConfig-P10/resolveSetupCommand", "projectConfig-P10/sha256", "projectConfig-P10/trustProjectConfig", "projectConfig-P10/untrustedLayer", "projectConfig-P10/validateProjectConfig"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
