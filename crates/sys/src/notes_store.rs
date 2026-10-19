@@ -302,7 +302,14 @@ async fn write_atomically(file: &Path, text: &str) -> Result<()> {
             .open(&temporary)
             .await
             .map_err(|error| DhError::io(&error, "open", &display(&temporary)))?;
-        tokio::io::AsyncWriteExt::write_all(&mut handle, text.as_bytes()).await?;
+        // tokio's File::poll_write only starts the write on a blocking thread; flush waits for it and surfaces its
+        // error, so a failed write (EFBIG, ENOSPC, EIO) rejects here, before the rename, as fs.writeFile does.
+        tokio::io::AsyncWriteExt::write_all(&mut handle, text.as_bytes())
+            .await
+            .map_err(|error| write_error(&error))?;
+        tokio::io::AsyncWriteExt::flush(&mut handle)
+            .await
+            .map_err(|error| write_error(&error))?;
         drop(handle);
         tokio::fs::rename(&temporary, file)
             .await
@@ -311,6 +318,17 @@ async fn write_atomically(file: &Path, text: &str) -> Result<()> {
     .await;
     let _ = tokio::fs::remove_file(&temporary).await;
     result
+}
+
+/// Node's error for a failed `write(2)` inside fs.writeFile: `EFBIG: file too large, write` (no path).
+pub(crate) fn write_error(error: &io::Error) -> DhError {
+    match deckhand_core::error::errno_code(error) {
+        Some(code) => DhError::with_code(
+            code,
+            format!("{code}: {}, write", deckhand_core::error::errno_description(code)),
+        ),
+        None => DhError::Msg(error.to_string()),
+    }
 }
 
 /// `fs.rm(file, {force: true})`.
@@ -1240,6 +1258,65 @@ pub(crate) mod tests {
                 })
             );
             assert_eq!(store.get(&note).text, "two");
+        });
+    }
+
+    /// Set in the child process `a_failed_write_keeps_the_note_on_disk` re-runs itself in.
+    const FSIZE_CHILD_VAR: &str = "DECKHAND_I2_FSIZE_CHILD";
+
+    /// TS writeAtomically awaits fs.writeFile, so a failed write rejects before the rename and the old file stays.
+    /// RLIMIT_FSIZE is process-wide, so the body runs in a child copy of this test binary.
+    #[test]
+    fn a_failed_write_keeps_the_note_on_disk() {
+        const NAME: &str = "notes_store::tests::a_failed_write_keeps_the_note_on_disk";
+        if std::env::var_os(FSIZE_CHILD_VAR).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().expect("current_exe"))
+                .args([NAME, "--exact", "--nocapture", "--test-threads=1"])
+                .env(FSIZE_CHILD_VAR, "1")
+                .output()
+                .expect("spawn child test");
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert!(
+                output.status.success(),
+                "child failed:\n{stdout}\n{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(stdout.contains("1 passed"), "child ran no test:\n{stdout}");
+            return;
+        }
+        let root = tempfile::tempdir().expect("tempdir");
+        let _home = Home::set(root.path());
+        let note = NoteId {
+            kind: NoteKind::Session,
+            id: "s2".into(),
+        };
+        let file = note_file_path(&note);
+        std::fs::create_dir_all(file.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&file, "precious\n").expect("seed");
+        block_on(async {
+            let store = NotesStore::new(|_, _| {});
+            store.load().await.expect("load");
+            let revision = store.get(&note).revision;
+            // SAFETY: this child process runs only this test; ignoring SIGXFSZ makes an over-limit write fail with
+            // EFBIG instead of killing the process.
+            unsafe { libc::signal(libc::SIGXFSZ, libc::SIG_IGN) };
+            let limit = libc::rlimit {
+                rlim_cur: 4,
+                rlim_max: libc::RLIM_INFINITY,
+            };
+            // SAFETY: a plain setrlimit call with a valid struct.
+            assert_eq!(unsafe { libc::setrlimit(libc::RLIMIT_FSIZE, &limit) }, 0);
+            let outcome = store.save(&note, "a much longer replacement text\n", &revision).await;
+            let error = outcome.expect_err("save must fail");
+            assert_eq!(error.code(), Some("EFBIG"));
+            assert_eq!(error.message(), "EFBIG: file too large, write");
+            assert_eq!(std::fs::read_to_string(&file).expect("read"), "precious\n");
+            assert_eq!(store.get(&note).text, "precious\n");
+            let names: Vec<_> = std::fs::read_dir(file.parent().expect("parent"))
+                .expect("read_dir")
+                .map(|entry| entry.expect("entry").file_name())
+                .collect();
+            assert_eq!(names, vec![std::ffi::OsString::from("s2.md")]);
         });
     }
 

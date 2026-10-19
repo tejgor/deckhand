@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use tokio::io::AsyncWriteExt;
 
+use crate::notes_store::write_error;
 use crate::paths;
 use deckhand_core::error::{DhError, Result};
 
@@ -111,8 +112,11 @@ pub async fn write_notes_vim_script() -> Result<PathBuf> {
         .open(&file)
         .await
         .map_err(|error| DhError::io(&error, "open", &file.to_string_lossy()))?;
-    handle.write_all(NOTES_VIM_SCRIPT.as_bytes()).await?;
-    handle.flush().await?;
+    handle
+        .write_all(NOTES_VIM_SCRIPT.as_bytes())
+        .await
+        .map_err(|error| write_error(&error))?;
+    handle.flush().await.map_err(|error| write_error(&error))?;
     Ok(file)
 }
 
