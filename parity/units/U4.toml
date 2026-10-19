@@ -10,9 +10,9 @@ ts_tests = []
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["notesPane/notesLayout", "changesPane/changesLayout", "changesPane/diffLines"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
-utf16_fields = {}
+utf16_fields = { "notesPane/notesLayout" = { "args.0.shared.editing.cursor" = "args.0.shared.text", "args.0.session.editing.cursor" = "args.0.session.text" } }
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
 deferred_tests = []
