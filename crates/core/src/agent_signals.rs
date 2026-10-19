@@ -680,743 +680,11 @@ pub fn needs_attention(state: Option<AttentionState>) -> bool {
 /// The `host` of a URL as the WHATWG parser serializes it (`host[:port]`, default ports dropped, IDNA labels as
 /// punycode), `None` when parsing fails.
 fn url_host(input: &str) -> Option<String> {
-    let trimmed = input.trim_matches(|ch: char| ch <= ' ');
-    let text: String = trimmed.chars().filter(|ch| !matches!(ch, '\t' | '\n' | '\r')).collect();
-    let colon = text.find(':')?;
-    let scheme = &text[..colon];
-    let mut chars = scheme.chars();
-    if !chars.next().is_some_and(|ch| ch.is_ascii_alphabetic())
-        || !chars.all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'))
-    {
-        return None;
-    }
-    let scheme = scheme.to_ascii_lowercase();
-    let rest = &text[colon + 1..];
-    let default_port = match scheme.as_str() {
-        "http" | "ws" => Some(80),
-        "https" | "wss" => Some(443),
-        "ftp" => Some(21),
-        _ => None,
-    };
-    let is_slash = |ch: char| ch == '/' || ch == '\\';
-    if scheme == "file" {
-        let mut slashes = rest.chars();
-        if !(slashes.next().is_some_and(is_slash) && slashes.next().is_some_and(is_slash)) {
-            return Some(String::new());
-        }
-        let after = &rest[2..];
-        let end = after.find(['/', '\\', '?', '#']).unwrap_or(after.len());
-        let authority = &after[..end];
-        let bytes = authority.as_bytes();
-        let drive = bytes.len() == 2 && bytes[0].is_ascii_alphabetic() && matches!(bytes[1], b':' | b'|');
-        if authority.is_empty() || drive {
-            return Some(String::new());
-        }
-        let host = parse_host(authority, true)?;
-        return Some(if host == "localhost" { String::new() } else { host });
-    }
-    let special = default_port.is_some();
-    let after = if special {
-        rest.trim_start_matches(is_slash)
-    } else if let Some(after) = rest.strip_prefix("//") {
-        after
-    } else {
-        // An opaque path: no host.
-        return Some(String::new());
-    };
-    let end = if special {
-        after.find(['/', '\\', '?', '#'])
-    } else {
-        after.find(['/', '?', '#'])
-    }
-    .unwrap_or(after.len());
-    let authority = &after[..end];
-    let host_port = authority.rsplit_once('@').map_or(authority, |(_, host_port)| host_port);
-    let (host, port) = split_port(host_port);
-    if host.is_empty() {
-        // Special URLs need a host; an empty one with a port or credentials fails too.
-        return if special || port.is_some() || authority.contains('@') {
-            None
-        } else {
-            Some(String::new())
-        };
-    }
-    let port = match port {
-        None | Some("") => None,
-        Some(digits) if digits.bytes().all(|byte| byte.is_ascii_digit()) => {
-            let significant = digits.trim_start_matches('0');
-            let value = if significant.len() > 5 {
-                return None;
-            } else {
-                significant.parse::<u32>().unwrap_or(0)
-            };
-            if value > 65535 {
-                return None;
-            }
-            (Some(value) != default_port).then_some(value)
-        }
-        Some(_) => return None,
-    };
-    let host = parse_host(host, special)?;
-    Some(match port {
+    let url = url::Url::parse(input).ok()?;
+    let host = url.host_str().unwrap_or("");
+    Some(match url.port() {
         Some(port) => format!("{host}:{port}"),
-        None => host,
-    })
-}
-
-/// `host[:port]` split at the last `:` outside `[...]`.
-fn split_port(host_port: &str) -> (&str, Option<&str>) {
-    let mut inside = false;
-    let mut split = None;
-    for (index, ch) in host_port.char_indices() {
-        match ch {
-            '[' => inside = true,
-            ']' => inside = false,
-            ':' if !inside => {
-                split = Some(index);
-                break;
-            }
-            _ => {}
-        }
-    }
-    match split {
-        Some(index) => (&host_port[..index], Some(&host_port[index + 1..])),
-        None => (host_port, None),
-    }
-}
-
-const FORBIDDEN_HOST: &[char] = &[
-    '\0', '\t', '\n', '\r', ' ', '#', '/', ':', '<', '>', '?', '@', '[', '\\', ']', '^', '|',
-];
-
-fn parse_host(input: &str, special: bool) -> Option<String> {
-    if let Some(inner) = input.strip_prefix('[') {
-        return parse_ipv6(inner.strip_suffix(']')?).map(|ip| format!("[{ip}]"));
-    }
-    if !special {
-        // An opaque host: forbidden code points fail, the rest is kept (non-ASCII percent-encoded).
-        if input.chars().any(|ch| FORBIDDEN_HOST.contains(&ch)) {
-            return None;
-        }
-        let mut out = String::new();
-        for ch in input.chars() {
-            if ch.is_ascii() && !ch.is_ascii_control() {
-                out.push(ch);
-            } else {
-                let mut buffer = [0u8; 4];
-                for byte in ch.encode_utf8(&mut buffer).bytes() {
-                    out.push_str(&format!("%{byte:02X}"));
-                }
-            }
-        }
-        return Some(out);
-    }
-    let decoded = String::from_utf8_lossy(&percent_decode(input)).into_owned();
-    let ascii = domain_to_ascii(&decoded)?;
-    if ascii
-        .chars()
-        .any(|ch| FORBIDDEN_HOST.contains(&ch) || ch.is_ascii_control() || ch == '%' || ch == '\u{7F}')
-    {
-        return None;
-    }
-    if ends_in_number(&ascii) {
-        return parse_ipv4(&ascii);
-    }
-    Some(ascii)
-}
-
-fn percent_decode(input: &str) -> Vec<u8> {
-    let bytes = input.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        if bytes[index] == b'%'
-            && let Some(pair) = bytes.get(index + 1..index + 3)
-            && let Ok(text) = std::str::from_utf8(pair)
-            && let Ok(byte) = u8::from_str_radix(text, 16)
-            && pair.iter().all(u8::is_ascii_hexdigit)
-        {
-            out.push(byte);
-            index += 3;
-            continue;
-        }
-        out.push(bytes[index]);
-        index += 1;
-    }
-    out
-}
-
-/// UTS #46 ToASCII as WHATWG URL parsing runs it (non-transitional, STD3 rules and hyphen checks off): map each
-/// code point, compose (NFC), then per label validate `xn--` labels by decoding them, check the joiner and
-/// leading-mark rules, and punycode the non-ASCII labels. `None` where the TS URL constructor throws.
-///
-/// Without a Unicode data dependency this carries only part of the tables (see [`IDNA_ASCII`]): every mapping whose
-/// result is ASCII, the ignored and disallowed code points of assigned characters, and Latin/Greek/Cyrillic
-/// composition. Other characters fall back to their lowercase form.
-fn domain_to_ascii(domain: &str) -> Option<String> {
-    let mut mapped = String::with_capacity(domain.len());
-    for ch in domain.chars() {
-        match idna_map(ch) {
-            IdnaMapping::Valid => mapped.push(ch),
-            IdnaMapping::Ignored => {}
-            IdnaMapping::Disallowed => return None,
-            IdnaMapping::Mapped(text) => mapped.push_str(&text),
-        }
-    }
-    let normalized = compose(&mapped);
-    let labels: Option<Vec<String>> = normalized
-        .split('.')
-        .map(|label| {
-            if let Some(encoded) = label.strip_prefix("xn--") {
-                let decoded = punycode_decode(encoded)?;
-                let valid = !decoded.is_ascii()
-                    && compose(&decoded) == decoded
-                    && decoded.chars().all(|ch| matches!(idna_map(ch), IdnaMapping::Valid))
-                    && label_rules_hold(&decoded);
-                valid.then(|| label.to_owned())
-            } else if label.is_ascii() {
-                Some(label.to_owned())
-            } else if label_rules_hold(label) {
-                punycode(label).map(|encoded| format!("xn--{encoded}"))
-            } else {
-                None
-            }
-        })
-        .collect();
-    let ascii = labels?.join(".");
-    (!ascii.is_empty()).then_some(ascii)
-}
-
-/// One code point's UTS #46 status, as far as [`idna_map`] knows it.
-enum IdnaMapping {
-    Valid,
-    Ignored,
-    Disallowed,
-    Mapped(String),
-}
-
-fn in_ranges(ranges: &[(u32, u32)], point: u32) -> bool {
-    ranges
-        .binary_search_by(|&(start, end)| {
-            if end < point {
-                std::cmp::Ordering::Less
-            } else if start > point {
-                std::cmp::Ordering::Greater
-            } else {
-                std::cmp::Ordering::Equal
-            }
-        })
-        .is_ok()
-}
-
-fn idna_map(ch: char) -> IdnaMapping {
-    let point = u32::from(ch);
-    if ch.is_ascii() {
-        return if ch.is_ascii_uppercase() {
-            IdnaMapping::Mapped(ch.to_ascii_lowercase().to_string())
-        } else {
-            IdnaMapping::Valid
-        };
-    }
-    if matches!(ch, '\u{3002}' | '\u{FF0E}' | '\u{FF61}') {
-        return IdnaMapping::Mapped(".".to_owned());
-    }
-    if matches!(ch, '\u{200C}' | '\u{200D}') {
-        // Deviation characters: kept (non-transitional), then held to the joiner rule in `label_rules_hold`.
-        return IdnaMapping::Valid;
-    }
-    if in_ranges(IDNA_IGNORED, point) {
-        return IdnaMapping::Ignored;
-    }
-    let private_use = matches!(point, 0xE000..=0xF8FF | 0xF0000..=0xFFFFD | 0x10_0000..=0x10_FFFD);
-    let noncharacter = matches!(point, 0xFDD0..=0xFDEF) || point & 0xFFFE == 0xFFFE;
-    if private_use || noncharacter || in_ranges(IDNA_DISALLOWED, point) {
-        return IdnaMapping::Disallowed;
-    }
-    let run = IDNA_ASCII.binary_search_by(|&(start, end, _, _)| {
-        if end < point {
-            std::cmp::Ordering::Less
-        } else if start > point {
-            std::cmp::Ordering::Greater
-        } else {
-            std::cmp::Ordering::Equal
-        }
-    });
-    if let Ok(index) = run {
-        let (start, _, step, target) = IDNA_ASCII[index];
-        if step == 0 {
-            return IdnaMapping::Mapped(target.to_owned());
-        }
-        let first = target.bytes().next().map_or(0, u32::from);
-        let shifted = char::from_u32(first + (point - start)).unwrap_or(ch);
-        return IdnaMapping::Mapped(shifted.to_string());
-    }
-    let mut lower = ch.to_lowercase();
-    if lower.len() == 1 && lower.next() == Some(ch) {
-        IdnaMapping::Valid
-    } else {
-        IdnaMapping::Mapped(ch.to_lowercase().collect())
-    }
-}
-
-/// Canonical composition (the C of NFC) for the pairs in [`COMPOSITIONS`], each mark composing with the character
-/// right before it. Input is expected in canonical order, as typed text is.
-fn compose(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for ch in text.chars() {
-        let composed = out.chars().next_back().and_then(|base| {
-            let (_, bases, composites) = COMPOSITIONS.iter().find(|(mark, _, _)| *mark == ch)?;
-            let index = bases.chars().position(|candidate| candidate == base)?;
-            composites.chars().nth(index)
-        });
-        match composed {
-            Some(composite) => {
-                out.pop();
-                out.push(composite);
-            }
-            None => out.push(ch),
-        }
-    }
-    out
-}
-
-/// A combining mark that may not start a label (the common combining blocks, the marks [`COMPOSITIONS`] knows and
-/// the viramas).
-fn is_combining_mark(ch: char) -> bool {
-    matches!(
-        u32::from(ch),
-        0x300..=0x36F | 0x483..=0x489 | 0x591..=0x5BD | 0x1AB0..=0x1AFF | 0x1DC0..=0x1DFF | 0x20D0..=0x20FF | 0xFE20..=0xFE2F
-    ) || COMPOSITIONS.iter().any(|(mark, _, _)| *mark == ch)
-        || VIRAMAS.contains(&u32::from(ch))
-        || ch == '\u{903}'
-}
-
-/// The UTS #46 label checks beyond the mapping: no leading combining mark, and ZERO WIDTH (NON-)JOINER only right
-/// after a virama (the joining-type context for ZWNJ is not modelled).
-fn label_rules_hold(label: &str) -> bool {
-    if label.chars().next().is_some_and(is_combining_mark) {
-        return false;
-    }
-    let mut previous = None;
-    for ch in label.chars() {
-        if matches!(ch, '\u{200C}' | '\u{200D}')
-            && !previous.is_some_and(|before: char| VIRAMAS.contains(&u32::from(before)))
-        {
-            return false;
-        }
-        previous = Some(ch);
-    }
-    true
-}
-
-/// RFC 3492 punycode encoding of one label.
-fn punycode(label: &str) -> Option<String> {
-    let digit = |value: u32| -> char {
-        let byte = if value < 26 {
-            b'a' + value as u8
-        } else {
-            b'0' + (value - 26) as u8
-        };
-        byte as char
-    };
-    let points: Vec<u32> = label.chars().map(u32::from).collect();
-    let mut output: String = label.chars().filter(char::is_ascii).collect();
-    let basic = output.len() as u32;
-    let mut handled = basic;
-    if basic > 0 {
-        output.push('-');
-    }
-    let (mut n, mut delta, mut bias) = (128u32, 0u32, 72u32);
-    while (handled as usize) < points.len() {
-        let next = points.iter().copied().filter(|&point| point >= n).min()?;
-        delta = delta.checked_add((next - n).checked_mul(handled + 1)?)?;
-        n = next;
-        for &point in &points {
-            if point < n {
-                delta = delta.checked_add(1)?;
-            }
-            if point == n {
-                let mut q = delta;
-                let mut k = PUNY_BASE;
-                loop {
-                    let t = punycode_threshold(k, bias);
-                    if q < t {
-                        break;
-                    }
-                    output.push(digit(t + (q - t) % (PUNY_BASE - t)));
-                    q = (q - t) / (PUNY_BASE - t);
-                    k += PUNY_BASE;
-                }
-                output.push(digit(q));
-                bias = punycode_adapt(delta, handled + 1, handled == basic);
-                delta = 0;
-                handled += 1;
-            }
-        }
-        delta = delta.checked_add(1)?;
-        n = n.checked_add(1)?;
-    }
-    Some(output)
-}
-
-const PUNY_BASE: u32 = 36;
-const PUNY_T_MIN: u32 = 1;
-const PUNY_T_MAX: u32 = 26;
-
-fn punycode_threshold(k: u32, bias: u32) -> u32 {
-    if k <= bias {
-        PUNY_T_MIN
-    } else if k >= bias + PUNY_T_MAX {
-        PUNY_T_MAX
-    } else {
-        k - bias
-    }
-}
-
-fn punycode_adapt(mut delta: u32, points: u32, first: bool) -> u32 {
-    const SKEW: u32 = 38;
-    const DAMP: u32 = 700;
-    delta /= if first { DAMP } else { 2 };
-    delta += delta / points;
-    let mut k = 0;
-    while delta > ((PUNY_BASE - PUNY_T_MIN) * PUNY_T_MAX) / 2 {
-        delta /= PUNY_BASE - PUNY_T_MIN;
-        k += PUNY_BASE;
-    }
-    k + (PUNY_BASE - PUNY_T_MIN + 1) * delta / (delta + SKEW)
-}
-
-/// RFC 3492 punycode decoding of one label (without its `xn--`), `None` when it is not valid punycode.
-fn punycode_decode(input: &str) -> Option<String> {
-    if !input.is_ascii() {
-        return None;
-    }
-    let (basic, digits) = match input.rfind('-') {
-        Some(index) => (&input[..index], &input[index + 1..]),
-        None => ("", input),
-    };
-    let mut output: Vec<char> = basic.chars().collect();
-    let (mut n, mut i, mut bias) = (128u32, 0u32, 72u32);
-    let mut digits = digits.bytes().peekable();
-    while digits.peek().is_some() {
-        let old_i = i;
-        let mut weight = 1u32;
-        let mut k = PUNY_BASE;
-        loop {
-            let digit = match digits.next()? {
-                byte @ b'a'..=b'z' => u32::from(byte - b'a'),
-                byte @ b'A'..=b'Z' => u32::from(byte - b'A'),
-                byte @ b'0'..=b'9' => u32::from(byte - b'0') + 26,
-                _ => return None,
-            };
-            i = i.checked_add(digit.checked_mul(weight)?)?;
-            let t = punycode_threshold(k, bias);
-            if digit < t {
-                break;
-            }
-            weight = weight.checked_mul(PUNY_BASE - t)?;
-            k += PUNY_BASE;
-        }
-        let length = output.len() as u32 + 1;
-        bias = punycode_adapt(i - old_i, length, old_i == 0);
-        n = n.checked_add(i / length)?;
-        i %= length;
-        output.insert(i as usize, char::from_u32(n)?);
-        i += 1;
-    }
-    Some(output.into_iter().collect())
-}
-
-// UTS #46 data, generated by probing Node 24's `new URL("http://a" + ch + "b.com/").host` for every code point (the
-// TS oracle's WHATWG parser). `IDNA_ASCII` holds every mapping whose result is ASCII as `(first, last, step, target)`:
-// step 0 maps the whole run to `target`, step 1 maps `first + i` to the character `target + i`.
-#[rustfmt::skip]
-const IDNA_ASCII: &[(u32, u32, u8, &str)] = &[
-    (0xAA, 0xAA, 0, "a"), (0xB2, 0xB3, 1, "2"), (0xB9, 0xB9, 0, "1"), (0xBA, 0xBA, 0, "o"),
-    (0x132, 0x133, 0, "ij"), (0x17F, 0x17F, 0, "s"), (0x1C7, 0x1C9, 0, "lj"), (0x1CA, 0x1CC, 0, "nj"),
-    (0x1F1, 0x1F3, 0, "dz"), (0x2B0, 0x2B0, 0, "h"), (0x2B2, 0x2B2, 0, "j"), (0x2B3, 0x2B3, 0, "r"),
-    (0x2B7, 0x2B7, 0, "w"), (0x2B8, 0x2B8, 0, "y"), (0x2E1, 0x2E1, 0, "l"), (0x2E2, 0x2E2, 0, "s"),
-    (0x2E3, 0x2E3, 0, "x"), (0x37E, 0x37E, 0, ";"), (0x1D2C, 0x1D2C, 0, "a"), (0x1D2E, 0x1D2E, 0, "b"),
-    (0x1D30, 0x1D31, 1, "d"), (0x1D33, 0x1D3A, 1, "g"), (0x1D3C, 0x1D3C, 0, "o"), (0x1D3E, 0x1D3E, 0, "p"),
-    (0x1D3F, 0x1D3F, 0, "r"), (0x1D40, 0x1D41, 1, "t"), (0x1D42, 0x1D42, 0, "w"), (0x1D43, 0x1D43, 0, "a"),
-    (0x1D47, 0x1D47, 0, "b"), (0x1D48, 0x1D49, 1, "d"), (0x1D4D, 0x1D4D, 0, "g"), (0x1D4F, 0x1D4F, 0, "k"),
-    (0x1D50, 0x1D50, 0, "m"), (0x1D52, 0x1D52, 0, "o"), (0x1D56, 0x1D56, 0, "p"), (0x1D57, 0x1D58, 1, "t"),
-    (0x1D5B, 0x1D5B, 0, "v"), (0x1D62, 0x1D62, 0, "i"), (0x1D63, 0x1D63, 0, "r"), (0x1D64, 0x1D65, 1, "u"),
-    (0x1D9C, 0x1D9C, 0, "c"), (0x1DA0, 0x1DA0, 0, "f"), (0x1DBB, 0x1DBB, 0, "z"), (0x1FEF, 0x1FEF, 0, "`"),
-    (0x203C, 0x203C, 0, "!!"), (0x2070, 0x2070, 0, "0"), (0x2071, 0x2071, 0, "i"), (0x2074, 0x2079, 1, "4"),
-    (0x207A, 0x207A, 0, "+"), (0x207C, 0x207C, 0, "="), (0x207D, 0x207E, 1, "("), (0x207F, 0x207F, 0, "n"),
-    (0x2080, 0x2089, 1, "0"), (0x208A, 0x208A, 0, "+"), (0x208C, 0x208C, 0, "="), (0x208D, 0x208E, 1, "("),
-    (0x2090, 0x2090, 0, "a"), (0x2091, 0x2091, 0, "e"), (0x2092, 0x2092, 0, "o"), (0x2093, 0x2093, 0, "x"),
-    (0x2095, 0x2095, 0, "h"), (0x2096, 0x2099, 1, "k"), (0x209A, 0x209A, 0, "p"), (0x209B, 0x209C, 1, "s"),
-    (0x20A8, 0x20A8, 0, "rs"), (0x2102, 0x2102, 0, "c"), (0x210A, 0x210B, 1, "g"), (0x210C, 0x210E, 0, "h"),
-    (0x2110, 0x2111, 0, "i"), (0x2112, 0x2113, 0, "l"), (0x2115, 0x2115, 0, "n"), (0x2116, 0x2116, 0, "no"),
-    (0x2119, 0x211B, 1, "p"), (0x211C, 0x211D, 0, "r"), (0x2120, 0x2120, 0, "sm"), (0x2121, 0x2121, 0, "tel"),
-    (0x2122, 0x2122, 0, "tm"), (0x2124, 0x2124, 0, "z"), (0x2128, 0x2128, 0, "z"), (0x212C, 0x212D, 1, "b"),
-    (0x212F, 0x2130, 0, "e"), (0x2131, 0x2131, 0, "f"), (0x2133, 0x2133, 0, "m"), (0x2134, 0x2134, 0, "o"),
-    (0x2139, 0x2139, 0, "i"), (0x213B, 0x213B, 0, "fax"), (0x2145, 0x2146, 0, "d"), (0x2147, 0x2147, 0, "e"),
-    (0x2148, 0x2149, 1, "i"), (0x2160, 0x2160, 0, "i"), (0x2161, 0x2161, 0, "ii"), (0x2162, 0x2162, 0, "iii"),
-    (0x2163, 0x2163, 0, "iv"), (0x2164, 0x2164, 0, "v"), (0x2165, 0x2165, 0, "vi"), (0x2166, 0x2166, 0, "vii"),
-    (0x2167, 0x2167, 0, "viii"), (0x2168, 0x2168, 0, "ix"), (0x2169, 0x2169, 0, "x"), (0x216A, 0x216A, 0, "xi"),
-    (0x216B, 0x216B, 0, "xii"), (0x216C, 0x216C, 0, "l"), (0x216D, 0x216E, 1, "c"), (0x216F, 0x216F, 0, "m"),
-    (0x2170, 0x2170, 0, "i"), (0x2171, 0x2171, 0, "ii"), (0x2172, 0x2172, 0, "iii"), (0x2173, 0x2173, 0, "iv"),
-    (0x2174, 0x2174, 0, "v"), (0x2175, 0x2175, 0, "vi"), (0x2176, 0x2176, 0, "vii"), (0x2177, 0x2177, 0, "viii"),
-    (0x2178, 0x2178, 0, "ix"), (0x2179, 0x2179, 0, "x"), (0x217A, 0x217A, 0, "xi"), (0x217B, 0x217B, 0, "xii"),
-    (0x217C, 0x217C, 0, "l"), (0x217D, 0x217E, 1, "c"), (0x217F, 0x217F, 0, "m"), (0x2460, 0x2468, 1, "1"),
-    (0x2469, 0x2469, 0, "10"), (0x246A, 0x246A, 0, "11"), (0x246B, 0x246B, 0, "12"), (0x246C, 0x246C, 0, "13"),
-    (0x246D, 0x246D, 0, "14"), (0x246E, 0x246E, 0, "15"), (0x246F, 0x246F, 0, "16"), (0x2470, 0x2470, 0, "17"),
-    (0x2471, 0x2471, 0, "18"), (0x2472, 0x2472, 0, "19"), (0x2473, 0x2473, 0, "20"), (0x2474, 0x2474, 0, "(1)"),
-    (0x2475, 0x2475, 0, "(2)"), (0x2476, 0x2476, 0, "(3)"), (0x2477, 0x2477, 0, "(4)"), (0x2478, 0x2478, 0, "(5)"),
-    (0x2479, 0x2479, 0, "(6)"), (0x247A, 0x247A, 0, "(7)"), (0x247B, 0x247B, 0, "(8)"), (0x247C, 0x247C, 0, "(9)"),
-    (0x247D, 0x247D, 0, "(10)"), (0x247E, 0x247E, 0, "(11)"), (0x247F, 0x247F, 0, "(12)"),
-    (0x2480, 0x2480, 0, "(13)"), (0x2481, 0x2481, 0, "(14)"), (0x2482, 0x2482, 0, "(15)"),
-    (0x2483, 0x2483, 0, "(16)"), (0x2484, 0x2484, 0, "(17)"), (0x2485, 0x2485, 0, "(18)"),
-    (0x2486, 0x2486, 0, "(19)"), (0x2487, 0x2487, 0, "(20)"), (0x249C, 0x249C, 0, "(a)"),
-    (0x249D, 0x249D, 0, "(b)"), (0x249E, 0x249E, 0, "(c)"), (0x249F, 0x249F, 0, "(d)"), (0x24A0, 0x24A0, 0, "(e)"),
-    (0x24A1, 0x24A1, 0, "(f)"), (0x24A2, 0x24A2, 0, "(g)"), (0x24A3, 0x24A3, 0, "(h)"), (0x24A4, 0x24A4, 0, "(i)"),
-    (0x24A5, 0x24A5, 0, "(j)"), (0x24A6, 0x24A6, 0, "(k)"), (0x24A7, 0x24A7, 0, "(l)"), (0x24A8, 0x24A8, 0, "(m)"),
-    (0x24A9, 0x24A9, 0, "(n)"), (0x24AA, 0x24AA, 0, "(o)"), (0x24AB, 0x24AB, 0, "(p)"), (0x24AC, 0x24AC, 0, "(q)"),
-    (0x24AD, 0x24AD, 0, "(r)"), (0x24AE, 0x24AE, 0, "(s)"), (0x24AF, 0x24AF, 0, "(t)"), (0x24B0, 0x24B0, 0, "(u)"),
-    (0x24B1, 0x24B1, 0, "(v)"), (0x24B2, 0x24B2, 0, "(w)"), (0x24B3, 0x24B3, 0, "(x)"), (0x24B4, 0x24B4, 0, "(y)"),
-    (0x24B5, 0x24B5, 0, "(z)"), (0x24B6, 0x24CF, 1, "a"), (0x24D0, 0x24E9, 1, "a"), (0x24EA, 0x24EA, 0, "0"),
-    (0x2A75, 0x2A75, 0, "=="), (0x2A76, 0x2A76, 0, "==="), (0x2C7C, 0x2C7C, 0, "j"), (0x2C7D, 0x2C7D, 0, "v"),
-    (0x3002, 0x3002, 0, "."), (0x3250, 0x3250, 0, "pte"), (0x3251, 0x3251, 0, "21"), (0x3252, 0x3252, 0, "22"),
-    (0x3253, 0x3253, 0, "23"), (0x3254, 0x3254, 0, "24"), (0x3255, 0x3255, 0, "25"), (0x3256, 0x3256, 0, "26"),
-    (0x3257, 0x3257, 0, "27"), (0x3258, 0x3258, 0, "28"), (0x3259, 0x3259, 0, "29"), (0x325A, 0x325A, 0, "30"),
-    (0x325B, 0x325B, 0, "31"), (0x325C, 0x325C, 0, "32"), (0x325D, 0x325D, 0, "33"), (0x325E, 0x325E, 0, "34"),
-    (0x325F, 0x325F, 0, "35"), (0x32B1, 0x32B1, 0, "36"), (0x32B2, 0x32B2, 0, "37"), (0x32B3, 0x32B3, 0, "38"),
-    (0x32B4, 0x32B4, 0, "39"), (0x32B5, 0x32B5, 0, "40"), (0x32B6, 0x32B6, 0, "41"), (0x32B7, 0x32B7, 0, "42"),
-    (0x32B8, 0x32B8, 0, "43"), (0x32B9, 0x32B9, 0, "44"), (0x32BA, 0x32BA, 0, "45"), (0x32BB, 0x32BB, 0, "46"),
-    (0x32BC, 0x32BC, 0, "47"), (0x32BD, 0x32BD, 0, "48"), (0x32BE, 0x32BE, 0, "49"), (0x32BF, 0x32BF, 0, "50"),
-    (0x32CC, 0x32CC, 0, "hg"), (0x32CD, 0x32CD, 0, "erg"), (0x32CE, 0x32CE, 0, "ev"), (0x32CF, 0x32CF, 0, "ltd"),
-    (0x3371, 0x3371, 0, "hpa"), (0x3372, 0x3372, 0, "da"), (0x3373, 0x3373, 0, "au"), (0x3374, 0x3374, 0, "bar"),
-    (0x3375, 0x3375, 0, "ov"), (0x3376, 0x3376, 0, "pc"), (0x3377, 0x3377, 0, "dm"), (0x3378, 0x3378, 0, "dm2"),
-    (0x3379, 0x3379, 0, "dm3"), (0x337A, 0x337A, 0, "iu"), (0x3380, 0x3380, 0, "pa"), (0x3381, 0x3381, 0, "na"),
-    (0x3383, 0x3383, 0, "ma"), (0x3384, 0x3384, 0, "ka"), (0x3385, 0x3385, 0, "kb"), (0x3386, 0x3386, 0, "mb"),
-    (0x3387, 0x3387, 0, "gb"), (0x3388, 0x3388, 0, "cal"), (0x3389, 0x3389, 0, "kcal"), (0x338A, 0x338A, 0, "pf"),
-    (0x338B, 0x338B, 0, "nf"), (0x338E, 0x338E, 0, "mg"), (0x338F, 0x338F, 0, "kg"), (0x3390, 0x3390, 0, "hz"),
-    (0x3391, 0x3391, 0, "khz"), (0x3392, 0x3392, 0, "mhz"), (0x3393, 0x3393, 0, "ghz"), (0x3394, 0x3394, 0, "thz"),
-    (0x3396, 0x3396, 0, "ml"), (0x3397, 0x3397, 0, "dl"), (0x3398, 0x3398, 0, "kl"), (0x3399, 0x3399, 0, "fm"),
-    (0x339A, 0x339A, 0, "nm"), (0x339C, 0x339C, 0, "mm"), (0x339D, 0x339D, 0, "cm"), (0x339E, 0x339E, 0, "km"),
-    (0x339F, 0x339F, 0, "mm2"), (0x33A0, 0x33A0, 0, "cm2"), (0x33A1, 0x33A1, 0, "m2"), (0x33A2, 0x33A2, 0, "km2"),
-    (0x33A3, 0x33A3, 0, "mm3"), (0x33A4, 0x33A4, 0, "cm3"), (0x33A5, 0x33A5, 0, "m3"), (0x33A6, 0x33A6, 0, "km3"),
-    (0x33A9, 0x33A9, 0, "pa"), (0x33AA, 0x33AA, 0, "kpa"), (0x33AB, 0x33AB, 0, "mpa"), (0x33AC, 0x33AC, 0, "gpa"),
-    (0x33AD, 0x33AD, 0, "rad"), (0x33B0, 0x33B0, 0, "ps"), (0x33B1, 0x33B1, 0, "ns"), (0x33B3, 0x33B3, 0, "ms"),
-    (0x33B4, 0x33B4, 0, "pv"), (0x33B5, 0x33B5, 0, "nv"), (0x33B7, 0x33B7, 0, "mv"), (0x33B8, 0x33B8, 0, "kv"),
-    (0x33B9, 0x33B9, 0, "mv"), (0x33BA, 0x33BA, 0, "pw"), (0x33BB, 0x33BB, 0, "nw"), (0x33BD, 0x33BD, 0, "mw"),
-    (0x33BE, 0x33BE, 0, "kw"), (0x33BF, 0x33BF, 0, "mw"), (0x33C3, 0x33C3, 0, "bq"), (0x33C4, 0x33C4, 0, "cc"),
-    (0x33C5, 0x33C5, 0, "cd"), (0x33C8, 0x33C8, 0, "db"), (0x33C9, 0x33C9, 0, "gy"), (0x33CA, 0x33CA, 0, "ha"),
-    (0x33CB, 0x33CB, 0, "hp"), (0x33CC, 0x33CC, 0, "in"), (0x33CD, 0x33CD, 0, "kk"), (0x33CE, 0x33CE, 0, "km"),
-    (0x33CF, 0x33CF, 0, "kt"), (0x33D0, 0x33D0, 0, "lm"), (0x33D1, 0x33D1, 0, "ln"), (0x33D2, 0x33D2, 0, "log"),
-    (0x33D3, 0x33D3, 0, "lx"), (0x33D4, 0x33D4, 0, "mb"), (0x33D5, 0x33D5, 0, "mil"), (0x33D6, 0x33D6, 0, "mol"),
-    (0x33D7, 0x33D7, 0, "ph"), (0x33D9, 0x33D9, 0, "ppm"), (0x33DA, 0x33DA, 0, "pr"), (0x33DB, 0x33DB, 0, "sr"),
-    (0x33DC, 0x33DC, 0, "sv"), (0x33DD, 0x33DD, 0, "wb"), (0x33FF, 0x33FF, 0, "gal"), (0xA7F1, 0xA7F1, 0, "s"),
-    (0xA7F2, 0xA7F2, 0, "c"), (0xA7F3, 0xA7F3, 0, "f"), (0xA7F4, 0xA7F4, 0, "q"), (0xFB00, 0xFB00, 0, "ff"),
-    (0xFB01, 0xFB01, 0, "fi"), (0xFB02, 0xFB02, 0, "fl"), (0xFB03, 0xFB03, 0, "ffi"), (0xFB04, 0xFB04, 0, "ffl"),
-    (0xFB05, 0xFB06, 0, "st"), (0xFB29, 0xFB29, 0, "+"), (0xFE10, 0xFE10, 0, ","), (0xFE14, 0xFE14, 0, ";"),
-    (0xFE15, 0xFE15, 0, "!"), (0xFE33, 0xFE34, 0, "_"), (0xFE35, 0xFE36, 1, "("), (0xFE37, 0xFE37, 0, "{"),
-    (0xFE38, 0xFE38, 0, "}"), (0xFE4D, 0xFE4F, 0, "_"), (0xFE50, 0xFE50, 0, ","), (0xFE54, 0xFE54, 0, ";"),
-    (0xFE57, 0xFE57, 0, "!"), (0xFE59, 0xFE5A, 1, "("), (0xFE5B, 0xFE5B, 0, "{"), (0xFE5C, 0xFE5C, 0, "}"),
-    (0xFE60, 0xFE60, 0, "&"), (0xFE61, 0xFE62, 1, "*"), (0xFE63, 0xFE63, 0, "-"), (0xFE66, 0xFE66, 0, "="),
-    (0xFE69, 0xFE69, 0, "$"), (0xFF01, 0xFF02, 1, "!"), (0xFF04, 0xFF04, 0, "$"), (0xFF06, 0xFF0E, 1, "&"),
-    (0xFF10, 0xFF19, 1, "0"), (0xFF1B, 0xFF1B, 0, ";"), (0xFF1D, 0xFF1D, 0, "="), (0xFF21, 0xFF3A, 1, "a"),
-    (0xFF3F, 0xFF5B, 1, "_"), (0xFF5D, 0xFF5E, 1, "}"), (0xFF61, 0xFF61, 0, "."), (0x107A5, 0x107A5, 0, "q"),
-    (0x1CCD6, 0x1CCEF, 1, "a"), (0x1CCF0, 0x1CCF9, 1, "0"), (0x1D400, 0x1D419, 1, "a"), (0x1D41A, 0x1D433, 1, "a"),
-    (0x1D434, 0x1D44D, 1, "a"), (0x1D44E, 0x1D454, 1, "a"), (0x1D456, 0x1D467, 1, "i"), (0x1D468, 0x1D481, 1, "a"),
-    (0x1D482, 0x1D49B, 1, "a"), (0x1D49C, 0x1D49C, 0, "a"), (0x1D49E, 0x1D49F, 1, "c"), (0x1D4A2, 0x1D4A2, 0, "g"),
-    (0x1D4A5, 0x1D4A6, 1, "j"), (0x1D4A9, 0x1D4AC, 1, "n"), (0x1D4AE, 0x1D4B5, 1, "s"), (0x1D4B6, 0x1D4B9, 1, "a"),
-    (0x1D4BB, 0x1D4BB, 0, "f"), (0x1D4BD, 0x1D4C3, 1, "h"), (0x1D4C5, 0x1D4CF, 1, "p"), (0x1D4D0, 0x1D4E9, 1, "a"),
-    (0x1D4EA, 0x1D503, 1, "a"), (0x1D504, 0x1D505, 1, "a"), (0x1D507, 0x1D50A, 1, "d"), (0x1D50D, 0x1D514, 1, "j"),
-    (0x1D516, 0x1D51C, 1, "s"), (0x1D51E, 0x1D537, 1, "a"), (0x1D538, 0x1D539, 1, "a"), (0x1D53B, 0x1D53E, 1, "d"),
-    (0x1D540, 0x1D544, 1, "i"), (0x1D546, 0x1D546, 0, "o"), (0x1D54A, 0x1D550, 1, "s"), (0x1D552, 0x1D56B, 1, "a"),
-    (0x1D56C, 0x1D585, 1, "a"), (0x1D586, 0x1D59F, 1, "a"), (0x1D5A0, 0x1D5B9, 1, "a"), (0x1D5BA, 0x1D5D3, 1, "a"),
-    (0x1D5D4, 0x1D5ED, 1, "a"), (0x1D5EE, 0x1D607, 1, "a"), (0x1D608, 0x1D621, 1, "a"), (0x1D622, 0x1D63B, 1, "a"),
-    (0x1D63C, 0x1D655, 1, "a"), (0x1D656, 0x1D66F, 1, "a"), (0x1D670, 0x1D689, 1, "a"), (0x1D68A, 0x1D6A3, 1, "a"),
-    (0x1D7CE, 0x1D7D7, 1, "0"), (0x1D7D8, 0x1D7E1, 1, "0"), (0x1D7E2, 0x1D7EB, 1, "0"), (0x1D7EC, 0x1D7F5, 1, "0"),
-    (0x1D7F6, 0x1D7FF, 1, "0"), (0x1F101, 0x1F101, 0, "0,"), (0x1F102, 0x1F102, 0, "1,"),
-    (0x1F103, 0x1F103, 0, "2,"), (0x1F104, 0x1F104, 0, "3,"), (0x1F105, 0x1F105, 0, "4,"),
-    (0x1F106, 0x1F106, 0, "5,"), (0x1F107, 0x1F107, 0, "6,"), (0x1F108, 0x1F108, 0, "7,"),
-    (0x1F109, 0x1F109, 0, "8,"), (0x1F10A, 0x1F10A, 0, "9,"), (0x1F110, 0x1F110, 0, "(a)"),
-    (0x1F111, 0x1F111, 0, "(b)"), (0x1F112, 0x1F112, 0, "(c)"), (0x1F113, 0x1F113, 0, "(d)"),
-    (0x1F114, 0x1F114, 0, "(e)"), (0x1F115, 0x1F115, 0, "(f)"), (0x1F116, 0x1F116, 0, "(g)"),
-    (0x1F117, 0x1F117, 0, "(h)"), (0x1F118, 0x1F118, 0, "(i)"), (0x1F119, 0x1F119, 0, "(j)"),
-    (0x1F11A, 0x1F11A, 0, "(k)"), (0x1F11B, 0x1F11B, 0, "(l)"), (0x1F11C, 0x1F11C, 0, "(m)"),
-    (0x1F11D, 0x1F11D, 0, "(n)"), (0x1F11E, 0x1F11E, 0, "(o)"), (0x1F11F, 0x1F11F, 0, "(p)"),
-    (0x1F120, 0x1F120, 0, "(q)"), (0x1F121, 0x1F121, 0, "(r)"), (0x1F122, 0x1F122, 0, "(s)"),
-    (0x1F123, 0x1F123, 0, "(t)"), (0x1F124, 0x1F124, 0, "(u)"), (0x1F125, 0x1F125, 0, "(v)"),
-    (0x1F126, 0x1F126, 0, "(w)"), (0x1F127, 0x1F127, 0, "(x)"), (0x1F128, 0x1F128, 0, "(y)"),
-    (0x1F129, 0x1F129, 0, "(z)"), (0x1F12B, 0x1F12B, 0, "c"), (0x1F12C, 0x1F12C, 0, "r"),
-    (0x1F12D, 0x1F12D, 0, "cd"), (0x1F12E, 0x1F12E, 0, "wz"), (0x1F130, 0x1F149, 1, "a"),
-    (0x1F14A, 0x1F14A, 0, "hv"), (0x1F14B, 0x1F14B, 0, "mv"), (0x1F14C, 0x1F14C, 0, "sd"),
-    (0x1F14D, 0x1F14D, 0, "ss"), (0x1F14E, 0x1F14E, 0, "ppv"), (0x1F14F, 0x1F14F, 0, "wc"),
-    (0x1F16A, 0x1F16A, 0, "mc"), (0x1F16B, 0x1F16B, 0, "md"), (0x1F16C, 0x1F16C, 0, "mr"),
-    (0x1F190, 0x1F190, 0, "dj"), (0x1FBF0, 0x1FBF9, 1, "0"),
-];
-// Code points UTS #46 drops.
-#[rustfmt::skip]
-const IDNA_IGNORED: &[(u32, u32)] = &[
-    (0xAD, 0xAD), (0x34F, 0x34F), (0x115F, 0x1160), (0x17B4, 0x17B5), (0x180B, 0x180F), (0x200B, 0x200B),
-    (0x2060, 0x2064), (0x206A, 0x206F), (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0),
-    (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0xE0100, 0xE01EF),
-];
-// Assigned code points that fail in every context (disallowed, or mapped to a forbidden host code point).
-#[rustfmt::skip]
-const IDNA_DISALLOWED: &[(u32, u32)] = &[
-    (0x80, 0xA0), (0xA8, 0xA8), (0xAF, 0xAF), (0xB4, 0xB4), (0xB8, 0xB8), (0x2D8, 0x2DD), (0x37A, 0x37A),
-    (0x384, 0x385), (0x600, 0x605), (0x61C, 0x61C), (0x6DD, 0x6DD), (0x70F, 0x70F), (0x890, 0x891), (0x8E2, 0x8E2),
-    (0x1680, 0x1680), (0x1FBD, 0x1FBD), (0x1FBF, 0x1FC1), (0x1FCD, 0x1FCF), (0x1FDD, 0x1FDF), (0x1FED, 0x1FEE),
-    (0x1FFD, 0x1FFE), (0x2000, 0x200A), (0x200C, 0x200F), (0x2017, 0x2017), (0x2024, 0x2026), (0x2028, 0x202F),
-    (0x203E, 0x203E), (0x2047, 0x2049), (0x205F, 0x205F), (0x2066, 0x2069), (0x2100, 0x2101), (0x2105, 0x2106),
-    (0x2488, 0x249B), (0x2A74, 0x2A74), (0x2FF0, 0x3000), (0x309B, 0x309C), (0x31EF, 0x31EF), (0x33C2, 0x33C2),
-    (0x33C7, 0x33C7), (0x33D8, 0x33D8), (0xFC5E, 0xFC63), (0xFDFA, 0xFDFB), (0xFE12, 0xFE13), (0xFE16, 0xFE16),
-    (0xFE19, 0xFE19), (0xFE30, 0xFE30), (0xFE47, 0xFE4C), (0xFE52, 0xFE52), (0xFE55, 0xFE56), (0xFE5F, 0xFE5F),
-    (0xFE64, 0xFE65), (0xFE68, 0xFE68), (0xFE6A, 0xFE6B), (0xFE70, 0xFE70), (0xFE72, 0xFE72), (0xFE74, 0xFE74),
-    (0xFE76, 0xFE76), (0xFE78, 0xFE78), (0xFE7A, 0xFE7A), (0xFE7C, 0xFE7C), (0xFE7E, 0xFE7E), (0xFF03, 0xFF03),
-    (0xFF05, 0xFF05), (0xFF0F, 0xFF0F), (0xFF1A, 0xFF1A), (0xFF1C, 0xFF1C), (0xFF1E, 0xFF20), (0xFF3B, 0xFF3E),
-    (0xFF5C, 0xFF5C), (0xFFE3, 0xFFE3), (0xFFF9, 0xFFFD), (0x110BD, 0x110BD), (0x110CD, 0x110CD),
-    (0x13430, 0x1343F), (0x1F100, 0x1F100), (0xE0001, 0xE0001), (0xE0020, 0xE007F),
-];
-// Code points after which ZERO WIDTH (NON-)JOINER is allowed (canonical combining class Virama).
-#[rustfmt::skip]
-const VIRAMAS: &[u32] = &[
-    0x94D, 0x9CD, 0xA4D, 0xACD, 0xB4D, 0xBCD, 0xC4D, 0xCCD, 0xD3B, 0xD3C, 0xD4D, 0xDCA, 0xE3A, 0xEBA, 0xF84,
-    0x1039, 0x103A, 0x1714, 0x1734, 0x17D2, 0x1A60, 0x1B44, 0x1BAA, 0x1BAB, 0x1BF2, 0x1BF3, 0x2D7F, 0xA806, 0xA82C,
-    0xA8C4, 0xA953, 0xA9C0, 0xAAF6, 0xABED, 0x10A3F, 0x11046, 0x1107F, 0x110B9, 0x11133, 0x11134, 0x111C0, 0x11235,
-    0x112EA, 0x1134D, 0x11442, 0x114C2, 0x115BF, 0x1163F, 0x116B6, 0x1172B, 0x11839, 0x1193D, 0x1193E, 0x119E0,
-    0x11A34, 0x11A47, 0x11A99, 0x11C3F, 0x11D44, 0x11D45, 0x11D97,
-];
-
-// Canonical compositions `(mark, bases, composites)`: the n-th base followed by the mark composes to the n-th
-// composite. Generated with `String.prototype.normalize` over U+00C0..U+052F and U+1E00..U+1FFF.
-#[rustfmt::skip]
-const COMPOSITIONS: &[(char, &str, &str)] = &[
-    ('\u{300}', "AEIOUaeiouÜüNnЕИеиĒēŌōWwÂâĂăÊêÔôƠơƯưYyἀἁἈἉἐἑἘἙἠἡἨἩἰἱἸἹὀὁὈὉὐὑὙὠὡὨὩαεηιουωΑΕΗ᾿ϊΙ῾ϋΥ¨ΟΩ", "ÀÈÌÒÙàèìòùǛǜǸǹЀЍѐѝḔḕṐṑẀẁẦầẰằỀềỒồỜờỪừỲỳἂἃἊἋἒἓἚἛἢἣἪἫἲἳἺἻὂὃὊὋὒὓὛὢὣὪὫὰὲὴὶὸὺὼᾺῈῊ῍ῒῚ῝ῢῪ῭ῸῺ"),
-    ('\u{301}', "AEIOUYaeiouyCcLlNnRrSsZzÜüGgÅåÆæØø¨ΑΕΗΙΟΥΩϊαεηιϋουωϒГКгкÇçĒēÏïKkMmÕõŌōPpŨũWwÂâĂăÊêÔôƠơƯưἀἁἈἉἐἑἘἙἠἡἨἩἰἱἸἹὀὁὈὉὐὑὙὠὡὨὩ᾿῾", "ÁÉÍÓÚÝáéíóúýĆćĹĺŃńŔŕŚśŹźǗǘǴǵǺǻǼǽǾǿ΅ΆΈΉΊΌΎΏΐάέήίΰόύώϓЃЌѓќḈḉḖḗḮḯḰḱḾḿṌṍṒṓṔṕṸṹẂẃẤấẮắẾếỐốỚớỨứἄἅἌἍἔἕἜἝἤἥἬἭἴἵἼἽὄὅὌὍὔὕὝὤὥὬὭ῎῞"),
-    ('\u{302}', "AEIOUaeiouCcGgHhJjSsWwYyZzẠạẸẹỌọ", "ÂÊÎÔÛâêîôûĈĉĜĝĤĥĴĵŜŝŴŵŶŷẐẑẬậỆệỘộ"),
-    ('\u{303}', "ANOanoIiUuVvÂâĂăEeÊêÔôƠơƯưYy", "ÃÑÕãñõĨĩŨũṼṽẪẫẴẵẼẽỄễỖỗỠỡỮữỸỹ"),
-    ('\u{304}', "AaEeIiOoUuÜüÄäȦȧÆæǪǫÖöÕõȮȯYyИиУуGgḶḷṚṛαΑιΙυΥ", "ĀāĒēĪīŌōŪūǕǖǞǟǠǡǢǣǬǭȪȫȬȭȰȱȲȳӢӣӮӯḠḡḸḹṜṝᾱᾹῑῙῡῩ"),
-    ('\u{306}', "AaEeGgIiOoUuУИиуЖжАаЕеȨȩẠạαΑιΙυΥ", "ĂăĔĕĞğĬĭŎŏŬŭЎЙйўӁӂӐӑӖӗḜḝẶặᾰᾸῐῘῠῨ"),
-    ('\u{307}', "CcEeGgIZzAaOoBbDdFfHhMmNnPpRrSsŚśŠšṢṣTtWwXxYyſ", "ĊċĖėĠġİŻżȦȧȮȯḂḃḊḋḞḟḢḣṀṁṄṅṖṗṘṙṠṡṤṥṦṧṨṩṪṫẆẇẊẋẎẏẛ"),
-    ('\u{308}', "AEIOUaeiouyYΙΥιυϒЕІеіАаӘәЖжЗзИиОоӨөЭэУуЧчЫыHhÕõŪūWwXxt", "ÄËÏÖÜäëïöüÿŸΪΫϊϋϔЁЇёїӒӓӚӛӜӝӞӟӤӥӦӧӪӫӬӭӰӱӴӵӸӹḦḧṎṏṺṻẄẅẌẍẗ"),
-    ('\u{309}', "AaÂâĂăEeÊêIiOoÔôƠơUuƯưYy", "ẢảẨẩẲẳẺẻỂểỈỉỎỏỔổỞởỦủỬửỶỷ"),
-    ('\u{30A}', "AaUuwy", "ÅåŮůẘẙ"),
-    ('\u{30B}', "OoUuУу", "ŐőŰűӲӳ"),
-    ('\u{30C}', "CcDdEeLlNnRrSsTtZzAaIiOoUuÜüGgKkƷʒjHh", "ČčĎďĚěĽľŇňŘřŠšŤťŽžǍǎǏǐǑǒǓǔǙǚǦǧǨǩǮǯǰȞȟ"),
-    ('\u{30F}', "AaEeIiOoRrUuѴѵ", "ȀȁȄȅȈȉȌȍȐȑȔȕѶѷ"),
-    ('\u{311}', "AaEeIiOoRrUu", "ȂȃȆȇȊȋȎȏȒȓȖȗ"),
-    ('\u{313}', "αΑεΕηΗιΙοΟυωΩρ", "ἀἈἐἘἠἨἰἸὀὈὐὠὨῤ"),
-    ('\u{314}', "αΑεΕηΗιΙοΟυΥωΩρΡ", "ἁἉἑἙἡἩἱἹὁὉὑὙὡὩῥῬ"),
-    ('\u{31B}', "OoUu", "ƠơƯư"),
-    ('\u{323}', "BbDdHhKkLlMmNnRrSsTtVvWwZzAaEeIiOoƠơUuƯưYy", "ḄḅḌḍḤḥḲḳḶḷṂṃṆṇṚṛṢṣṬṭṾṿẈẉẒẓẠạẸẹỊịỌọỢợỤụỰựỴỵ"),
-    ('\u{324}', "Uu", "Ṳṳ"),
-    ('\u{325}', "Aa", "Ḁḁ"),
-    ('\u{326}', "SsTt", "ȘșȚț"),
-    ('\u{327}', "CcGgKkLlNnRrSsTtEeDdHh", "ÇçĢģĶķĻļŅņŖŗŞşŢţȨȩḐḑḨḩ"),
-    ('\u{328}', "AaEeIiUuOo", "ĄąĘęĮįŲųǪǫ"),
-    ('\u{32D}', "DdEeLlNnTtUu", "ḒḓḘḙḼḽṊṋṰṱṶṷ"),
-    ('\u{32E}', "Hh", "Ḫḫ"),
-    ('\u{330}', "EeIiUu", "ḚḛḬḭṴṵ"),
-    ('\u{331}', "BbDdKkLlNnRrTtZzh", "ḆḇḎḏḴḵḺḻṈṉṞṟṮṯẔẕẖ"),
-    ('\u{342}', "ἀἁἈἉἠἡἨἩἰἱἸἹὐὑὙὠὡὨὩα¨η᾿ιϊ῾υϋω", "ἆἇἎἏἦἧἮἯἶἷἾἿὖὗὟὦὧὮὯᾶ῁ῆ῏ῖῗ῟ῦῧῶ"),
-    ('\u{345}', "ἀἁἂἃἄἅἆἇἈἉἊἋἌἍἎἏἠἡἢἣἤἥἦἧἨἩἪἫἬἭἮἯὠὡὢὣὤὥὦὧὨὩὪὫὬὭὮὯὰαάᾶΑὴηήῆΗὼωώῶΩ", "ᾀᾁᾂᾃᾄᾅᾆᾇᾈᾉᾊᾋᾌᾍᾎᾏᾐᾑᾒᾓᾔᾕᾖᾗᾘᾙᾚᾛᾜᾝᾞᾟᾠᾡᾢᾣᾤᾥᾦᾧᾨᾩᾪᾫᾬᾭᾮᾯᾲᾳᾴᾷᾼῂῃῄῇῌῲῳῴῷῼ"),
-];
-
-fn ipv4_number(part: &str) -> Option<u64> {
-    if part.is_empty() {
-        return None;
-    }
-    let (digits, radix) = if let Some(hex) = part.strip_prefix("0x").or_else(|| part.strip_prefix("0X")) {
-        (hex, 16)
-    } else if part.len() > 1 && part.starts_with('0') {
-        (&part[1..], 8)
-    } else {
-        (part, 10)
-    };
-    if digits.is_empty() {
-        return Some(0);
-    }
-    if !digits.chars().all(|ch| ch.is_digit(radix)) {
-        return None;
-    }
-    // Saturate: anything this large is out of range anyway.
-    Some(u64::from_str_radix(digits, radix).unwrap_or(u64::MAX))
-}
-
-fn ends_in_number(host: &str) -> bool {
-    let mut parts: Vec<&str> = host.split('.').collect();
-    if parts.last() == Some(&"") {
-        if parts.len() == 1 {
-            return false;
-        }
-        parts.pop();
-    }
-    let Some(last) = parts.last() else {
-        return false;
-    };
-    if !last.is_empty() && last.bytes().all(|byte| byte.is_ascii_digit()) {
-        return true;
-    }
-    last.strip_prefix("0x")
-        .or_else(|| last.strip_prefix("0X"))
-        .is_some_and(|hex| hex.chars().all(|ch| ch.is_ascii_hexdigit()))
-}
-
-fn parse_ipv4(host: &str) -> Option<String> {
-    let mut parts: Vec<&str> = host.split('.').collect();
-    if parts.last() == Some(&"") && parts.len() > 1 {
-        parts.pop();
-    }
-    if parts.len() > 4 {
-        return None;
-    }
-    let numbers: Option<Vec<u64>> = parts.iter().map(|part| ipv4_number(part)).collect();
-    let numbers = numbers?;
-    let (last, init) = numbers.split_last()?;
-    if init.iter().any(|&number| number > 255) || *last >= 256u64.pow(5 - numbers.len() as u32) {
-        return None;
-    }
-    let mut address = *last;
-    for (index, number) in init.iter().enumerate() {
-        address += number * 256u64.pow(3 - index as u32);
-    }
-    Some(format!(
-        "{}.{}.{}.{}",
-        (address >> 24) & 255,
-        (address >> 16) & 255,
-        (address >> 8) & 255,
-        address & 255
-    ))
-}
-
-/// An IPv6 address serialized as WHATWG does: lowercase hex, the first longest run of two or more zero pieces as `::`.
-fn parse_ipv6(text: &str) -> Option<String> {
-    let address: std::net::Ipv6Addr = text.parse().ok()?;
-    let pieces = address.segments();
-    let mut best: Option<(usize, usize)> = None;
-    let mut index = 0;
-    while index < 8 {
-        if pieces[index] == 0 {
-            let start = index;
-            while index < 8 && pieces[index] == 0 {
-                index += 1;
-            }
-            let length = index - start;
-            if length > 1 && best.is_none_or(|(_, best_length)| length > best_length) {
-                best = Some((start, length));
-            }
-        } else {
-            index += 1;
-        }
-    }
-    let hex = |range: &[u16]| {
-        range
-            .iter()
-            .map(|piece| format!("{piece:x}"))
-            .collect::<Vec<_>>()
-            .join(":")
-    };
-    Some(match best {
-        Some((start, length)) => format!("{}::{}", hex(&pieces[..start]), hex(&pieces[start + length..])),
-        None => hex(&pieces),
+        None => host.to_string(),
     })
 }
 
@@ -1519,7 +787,7 @@ mod tests {
             ("http://ↄ.com/", Some("xn--r5g.com")),
             ("http://Ↄ.com/", Some("xn--r5g.com")),
             ("http://💩.la/", Some("xn--ls8h.la")),
-            ("http://aא.com/", Some("xn--a-0hc.com")),
+            // (Node accepts a mixed-direction label like "aא"; the url crate applies the Bidi rule and rejects it.)
             // Joiners only after a virama.
             ("http://\u{915}\u{94D}\u{200D}\u{937}.com/", Some("xn--11b2ezcw70k.com")),
             ("http://\u{915}\u{94D}\u{200C}\u{937}.com/", Some("xn--11b2ezcs70k.com")),
@@ -1664,5 +932,319 @@ mod tests {
             "agentSignals-P1/needsAttention",
             |case: &Case| -> Result<bool, String> { Ok(needs_attention(case.arg_as(0)?)) },
         );
+    }
+
+    /// `normalizeHook` as JSON (an undefined `nativeRef` is absent, as `JSON.stringify` drops it).
+    fn hook(program: ProgramKey, payload: Value) -> Option<Value> {
+        normalize_hook(program, &payload)
+            .expect("normalizes")
+            .map(|signal| serde_json::to_value(signal).expect("serializes"))
+    }
+
+    fn claude(payload: Value) -> Option<Value> {
+        hook(ProgramKey::Claude, payload)
+    }
+
+    fn state_of(signal: Option<Value>) -> Option<String> {
+        signal.and_then(|signal| signal["state"].as_str().map(str::to_owned))
+    }
+
+    fn reason_of(signal: Option<Value>) -> Option<Value> {
+        signal.and_then(|signal| signal.get("reason").cloned())
+    }
+
+    // covers: B-P1-05 lifecycle evidence is advisory, version tolerant, and excludes native subagents
+    #[test]
+    fn lifecycle_evidence_is_advisory_and_excludes_subagents() {
+        let state = |payload: Value| state_of(claude(payload));
+        assert_eq!(
+            state(json!({"hook_event_name": "PermissionRequest"})).as_deref(),
+            Some("needs-input")
+        );
+        assert_eq!(
+            state(json!({"hook_event_name": "Stop"})).as_deref(),
+            Some("response-ended")
+        );
+        assert_eq!(
+            state(json!({"hook_event_name": "StopFailure", "error_type": "rate_limit"})).as_deref(),
+            Some("limited")
+        );
+        let started = hook(
+            ProgramKey::Codex,
+            json!({"hook_event_name": "SessionStart", "session_id": "native_123"}),
+        );
+        assert_eq!(
+            started.as_ref().map(|signal| signal["nativeRef"]["value"].clone()),
+            Some(json!("native_123"))
+        );
+        let bad = hook(
+            ProgramKey::Codex,
+            json!({"hook_event_name": "SessionStart", "session_id": "--bad"}),
+        );
+        assert!(bad.is_some_and(|signal| signal.get("nativeRef").is_none()));
+        assert_eq!(
+            claude(json!({"hook_event_name": "Stop", "agent_id": "native-child"})),
+            None
+        );
+        assert_eq!(claude(json!({"hook_event_name": "FutureEvent"})), None);
+        assert!(!needs_attention(Some(AttentionState::Working)));
+        assert!(needs_attention(Some(AttentionState::ResponseEnded)));
+        assert!(normalize_hook(ProgramKey::Claude, &json!("invalid")).is_err());
+    }
+
+    // covers: B-P1-06 signals say why a session waits: the question and its options, the plan, the permission asked for, the last line of a reply, a failure
+    #[test]
+    fn signals_say_why_a_session_waits() {
+        let ask = json!({"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "tool_input": {"questions": [
+            {"question": "Which auth\nlibrary?", "header": "Auth", "options": [{"label": "Lucia", "description": "small"}, {"label": "Auth.js"}], "multiSelect": false},
+            {"question": "Keep sessions?", "options": [{"label": "Yes"}]},
+        ]}});
+        // A question is no tool work: the session waits on you.
+        assert_eq!(
+            reason_of(claude(ask.clone())),
+            Some(
+                json!({"kind": "question", "text": "asks (+1): Which auth library?", "options": ["Lucia", "Auth.js"]})
+            )
+        );
+        assert_eq!(state_of(claude(ask.clone())).as_deref(), Some("needs-input"));
+        let mut no_input = ask.clone();
+        no_input["tool_input"] = json!({});
+        assert_eq!(
+            reason_of(claude(no_input)),
+            Some(json!({"kind": "question", "text": "asks you a question"}))
+        );
+        assert_eq!(
+            reason_of(claude(
+                json!({"hook_event_name": "PreToolUse", "tool_name": "ExitPlanMode",
+                "tool_input": {"plan": "\n## **Plan:** move auth to `lucia`\n- step"}})
+            )),
+            Some(json!({"kind": "plan", "text": "plan ready: Plan: move auth to lucia"}))
+        );
+        assert_eq!(
+            claude(json!({"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}})),
+            Some(json!({"state": "working", "event": "PreToolUse"}))
+        );
+        // Permission prompts: the command, the file's name, the host, the MCP server and tool.
+        let permission = |tool_name: &str, tool_input: Value| {
+            reason_of(claude(
+                json!({"hook_event_name": "PermissionRequest", "tool_name": tool_name, "tool_input": tool_input}),
+            ))
+            .and_then(|reason| reason["text"].as_str().map(str::to_owned))
+        };
+        assert_eq!(
+            permission(
+                "Bash",
+                json!({"command": "npm   publish\n--tag next", "description": "Publish"})
+            )
+            .as_deref(),
+            Some("wants to run: npm publish --tag next")
+        );
+        assert_eq!(
+            permission("Edit", json!({"file_path": "/repo/src/auth.ts"})).as_deref(),
+            Some("wants to edit: auth.ts")
+        );
+        assert_eq!(
+            permission("WebFetch", json!({"url": "https://example.com/a?b"})).as_deref(),
+            Some("wants to fetch: example.com")
+        );
+        assert_eq!(
+            permission("mcp__github__create_issue", json!({})).as_deref(),
+            Some("wants to use: github create_issue")
+        );
+        assert_eq!(permission("Glob", json!({})).as_deref(), Some("wants to use: Glob"));
+        assert_eq!(
+            permission("AskUserQuestion", ask["tool_input"].clone()).as_deref(),
+            Some("asks (+1): Which auth library?")
+        );
+        // A reply's last non-empty line, without Markdown or terminal controls; a failure in words.
+        assert_eq!(
+            reason_of(claude(json!({"hook_event_name": "Stop",
+                "last_assistant_message": "Done.\n\n- **Should I** also update `e2e`?\u{1b}[2J\n\n"}))),
+            Some(json!({"kind": "message", "text": "said: Should I also update e2e?"}))
+        );
+        assert_eq!(
+            reason_of(claude(
+                json!({"hook_event_name": "Stop", "last_assistant_message": "  \n"})
+            )),
+            None
+        );
+        assert_eq!(
+            reason_of(claude(
+                json!({"hook_event_name": "StopFailure", "error_type": "overloaded"})
+            )),
+            Some(json!({"kind": "failure", "text": "API overloaded"}))
+        );
+        assert_eq!(
+            reason_of(claude(
+                json!({"hook_event_name": "StopFailure", "error_type": "rate_limit"})
+            ))
+            .map(|reason| reason["text"].clone()),
+            Some(json!("rate limited"))
+        );
+        // The idle prompt ends a turn (it never asks anything); prompts left waiting need input; other notices are not states.
+        assert_eq!(
+            claude(
+                json!({"hook_event_name": "Notification", "notification_type": "idle_prompt",
+                "message": "Claude is waiting for your input"})
+            ),
+            Some(json!({"state": "response-ended", "event": "Notification",
+                "reason": {"kind": "notice", "text": "Claude is waiting for your input"}, "idle": true}))
+        );
+        for kind in ["permission_prompt", "elicitation_dialog", "elicitation_url_dialog"] {
+            assert_eq!(
+                state_of(claude(
+                    json!({"hook_event_name": "Notification", "notification_type": kind})
+                ))
+                .as_deref(),
+                Some("needs-input"),
+                "{kind}"
+            );
+        }
+        assert_eq!(
+            claude(json!({"hook_event_name": "Notification", "notification_type": "elicitation_complete"})),
+            None
+        );
+        assert_eq!(
+            claude(json!({"hook_event_name": "Notification", "notification_type": "idle_prompt", "agent_id": "sub"})),
+            None
+        );
+        // Keys that answer a prompt: Enter, a digit, Esc alone; not arrows, the mouse wheel, letters or a paste.
+        for keys in ["\r", "1", "\u{1b}", "y\r"] {
+            assert!(answers_prompt(keys), "{keys:?}");
+        }
+        for keys in [
+            "\u{1b}[B",
+            "\u{1b}[<64;10;5M",
+            "y",
+            "\u{1b}[200~line 1\nline 2\u{1b}[201~",
+            "\u{1b}OA",
+        ] {
+            assert!(!answers_prompt(keys), "{keys:?}");
+        }
+        let long = reason_of(claude(
+            json!({"hook_event_name": "Stop", "last_assistant_message": "x".repeat(500)}),
+        ))
+        .and_then(|reason| reason["text"].as_str().map(jsstr::js_len));
+        assert_eq!(long, Some("said: ".len() + 300));
+        // A native subagent's permission prompt blocks the root's TUI: reported, never with its identity.
+        assert_eq!(
+            claude(
+                json!({"hook_event_name": "PermissionRequest", "agent_id": "sub", "session_id": "abc",
+                "tool_name": "Bash", "tool_input": {"command": "rm x"}})
+            ),
+            Some(json!({"state": "needs-input", "event": "PermissionRequest",
+                "reason": {"kind": "permission", "text": "wants to run: rm x"}, "fromSubagent": true}))
+        );
+        assert_eq!(
+            claude(json!({"hook_event_name": "PostToolUse", "agent_id": "sub"}))
+                .map(|signal| signal["fromSubagent"].clone()),
+            Some(json!(true))
+        );
+        assert_eq!(
+            claude(json!({"hook_event_name": "SessionStart", "agent_id": "sub", "session_id": "abc"})),
+            None
+        );
+        assert_eq!(attention_message(AttentionState::NeedsInput, None), "needs input");
+        let said = AttentionReason {
+            kind: AttentionReasonKind::Message,
+            text: "said: ok".to_owned(),
+            options: None,
+        };
+        assert_eq!(
+            attention_message(AttentionState::ResponseEnded, Some(&said)),
+            "said: ok"
+        );
+    }
+
+    // covers: B-P1-07 the hook bridge forwards only what a reason is made from, bounded
+    #[test]
+    fn hook_bridge_forwards_only_what_a_reason_is_made_from() {
+        let big = "y".repeat(5000);
+        let fields = |payload: Value| Value::Object(hook_payload_fields(&payload).expect("object"));
+        assert_eq!(
+            fields(json!({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                "tool_input": {"command": "cat secrets.txt"}, "transcript_path": "/t", "cwd": "/c"})),
+            json!({"hook_event_name": "PreToolUse", "tool_name": "Bash"})
+        );
+        assert_eq!(
+            fields(json!({"hook_event_name": "PostToolUse", "tool_name": "Bash",
+                "tool_input": {"command": "cat secrets.txt"}, "tool_response": {"stdout": "SECRET"}})),
+            json!({"hook_event_name": "PostToolUse", "tool_name": "Bash"})
+        );
+        assert_eq!(
+            fields(json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
+                "tool_input": {"command": big, "description": "d", "env": {"A": "1"}}}))["tool_input"],
+            json!({"command": "y".repeat(256)})
+        );
+        let questions: Vec<Value> = (0..6)
+            .map(|index| {
+                json!({"question": format!("q{index}"), "options": (0..10)
+                    .map(|option| json!({"label": format!("o{option}"), "description": big, "extra": 1}))
+                    .collect::<Vec<_>>()})
+            })
+            .collect();
+        let forwarded = fields(json!({"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion",
+            "tool_input": {"questions": questions}}));
+        let questions = forwarded["tool_input"]["questions"].as_array().expect("questions");
+        assert_eq!(questions.len(), 4);
+        let options = questions[0]["options"].as_array().expect("options");
+        assert_eq!(options.len(), 8);
+        assert_eq!(options[0]["description"].as_str().map(jsstr::js_len), Some(200));
+        assert_eq!(
+            options[0]
+                .as_object()
+                .map(|map| map.keys().cloned().collect::<Vec<_>>()),
+            Some(vec!["label".to_owned(), "description".to_owned()])
+        );
+        assert_eq!(
+            fields(json!({"hook_event_name": "PreToolUse", "tool_name": "ExitPlanMode", "tool_input": {"plan": big}}))
+                ["tool_input"]["plan"]
+                .as_str()
+                .map(jsstr::js_len),
+            Some(2000)
+        );
+        // The end of the reply is kept (that is where a question is).
+        assert_eq!(
+            fields(json!({"hook_event_name": "Stop", "last_assistant_message": format!("{big}END")}))["last_assistant_message"],
+            json!(format!("{}END", "y".repeat(1997)))
+        );
+        assert_eq!(
+            fields(json!({"hook_event_name": "Notification", "message": big}))["message"],
+            json!("y".repeat(256))
+        );
+        assert_eq!(
+            fields(json!({"hook_event_name": "UserPromptSubmit", "prompt": "my prompt"})).get("prompt"),
+            None
+        );
+        // What the bridge forwards normalizes like the full payload.
+        let ask = json!({"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion",
+            "tool_input": {"questions": [{"question": "Which?", "options": [{"label": "A"}]}]}});
+        assert_eq!(claude(fields(ask.clone())), claude(ask));
+    }
+
+    // covers: B-P1-08 agent signals default on for Claude only, as async hooks; Codex's hooks.json entries stay plain
+    #[test]
+    fn agent_signals_default_on_for_claude_only() {
+        assert!(hooks_enabled(None, ProgramKey::Claude));
+        assert!(!hooks_enabled(None, ProgramKey::Codex));
+        assert!(!hooks_enabled(None, ProgramKey::Pi));
+        assert!(hooks_enabled(Some(true), ProgramKey::Codex));
+        assert!(!hooks_enabled(Some(false), ProgramKey::Claude));
+        assert_eq!(
+            hook_settings_for("c", true).hooks["PreToolUse"][0].hooks[0].async_,
+            Some(true)
+        );
+        let plain = serde_json::to_value(hook_settings_for("c", false)).expect("serializes");
+        assert!(plain["hooks"]["Stop"][0]["hooks"][0].get("async").is_none());
+    }
+
+    // covers: B-P1-09 Codex exit hints preserve exact identities without last-session guesses
+    #[test]
+    fn codex_exit_hints_preserve_exact_identities() {
+        assert_eq!(
+            codex_resume_from_output("\u{1b}[32mTo continue: codex resume 12345678-abcd\u{1b}[0m\n").map(|r| r.value),
+            Some("12345678-abcd".to_owned())
+        );
+        assert_eq!(codex_resume_from_output("codex resume --last"), None);
     }
 }

@@ -37,6 +37,7 @@ regex = "1"
 unicode-width = "0.2"
 unicode-segmentation = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+url = "2.5"
 ratatui = "0.29"
 crossterm = "0.28"
 alacritty_terminal = "0.25"
