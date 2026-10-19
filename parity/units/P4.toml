@@ -10,7 +10,7 @@ ts_tests = ["tests/mergeModel.test.ts", "tests/worktreesModel.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["mergeModel/conflictView", "mergeModel/mergeConfirmLayout", "mergeModel/mergeConfirmRows", "mergeModel/mergeOptions", "mergeModel/overlappingFiles", "mergeModel/surprisingTarget", "worktreesModel/bulkTargets", "worktreesModel/deleteRefusal", "worktreesModel/lastActivity", "worktreesModel/mergedText", "worktreesModel/protectedBranch", "worktreesModel/selectableWorktreeRow", "worktreesModel/worktreeGroup", "worktreesModel/worktreeName", "worktreesModel/worktreeRowKey", "worktreesModel/worktreeRows", "worktreesModel/worktreeTags"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 

@@ -1,0 +1,82 @@
+{"args":[" ",""],"ret":false}
+{"args":["",""],"ret":true}
+{"args":["","\t"],"ret":false}
+{"args":["","b"],"ret":false}
+{"args":["","dev"],"ret":false}
+{"args":["","main"],"ret":false}
+{"args":["","release"],"ret":false}
+{"args":["","trunk"],"ret":false}
+{"args":["","😀"],"ret":false}
+{"args":[""],"ret":false}
+{"args":["-ß/","main"],"ret":false}
+{"args":["."],"ret":false}
+{"args":[".a ","."],"ret":false}
+{"args":["/","dev"],"ret":false}
+{"args":["0-Zé/","ß"],"ret":false}
+{"args":["Main"],"ret":false}
+{"args":["MainMain"],"ret":false}
+{"args":["Mainé"],"ret":false}
+{"args":["\t","dev"],"ret":false}
+{"args":["_"],"ret":false}
+{"args":["_‍","main"],"ret":false}
+{"args":["aZ-/éZ b"],"ret":false}
+{"args":["ain"],"ret":false}
+{"args":["a中_ß\n0a","dev"],"ret":false}
+{"args":["b","main"],"ret":false}
+{"args":["b.a","/中é\t‍😀"],"ret":false}
+{"args":["b/éé","‍é ‍\t\n"],"ret":false}
+{"args":["b0","😀éß Zé"],"ret":false}
+{"args":["b\n‍0‍\téa0","main"],"ret":false}
+{"args":["dev",""],"ret":false}
+{"args":["dev","0dev"],"ret":false}
+{"args":["dev","dev"],"ret":true}
+{"args":["dev","devdev"],"ret":false}
+{"args":["dev","de中v"],"ret":false}
+{"args":["dev","main"],"ret":false}
+{"args":["dev","maién"],"ret":false}
+{"args":["dev"],"ret":false}
+{"args":["devdev"],"ret":false}
+{"args":["dv"],"ret":false}
+{"args":["ev","main"],"ret":false}
+{"args":["ev"],"ret":false}
+{"args":["feature/中文","relase"],"ret":false}
+{"args":["feature/中文","release"],"ret":false}
+{"args":["m.ain"],"ret":false}
+{"args":["ma.in ","main"],"ret":false}
+{"args":["mai ","main"],"ret":false}
+{"args":["main ","main"],"ret":false}
+{"args":["main ","mainmain"],"ret":false}
+{"args":["main","./😀"],"ret":true}
+{"args":["main",".é中"],"ret":true}
+{"args":["main","Zé0ß\ta中0/"],"ret":true}
+{"args":["main","aZé😀/Zéé"],"ret":true}
+{"args":["main","a\n"],"ret":true}
+{"args":["main","dev"],"ret":true}
+{"args":["main","éß."],"ret":true}
+{"args":["main","main"],"ret":true}
+{"args":["main","‍"],"ret":true}
+{"args":["main"],"ret":true}
+{"args":["master",""],"ret":true}
+{"args":["master","0\n"],"ret":true}
+{"args":["master","\n.Z😀Z/中/"],"ret":true}
+{"args":["master","_0\na_/ßß\n0"],"ret":true}
+{"args":["master","_a‍\t😀"],"ret":true}
+{"args":["master","dev"],"ret":true}
+{"args":["master","main"],"ret":true}
+{"args":["master"],"ret":true}
+{"args":["mastermaster"],"ret":false}
+{"args":["maséter"],"ret":false}
+{"args":["trunk","trnk"],"ret":false}
+{"args":["trunk","trunk"],"ret":true}
+{"args":["trunktrunk","trunk"],"ret":false}
+{"args":["é /\n-‍aé",""],"ret":false}
+{"args":["é"],"ret":false}
+{"args":["é._b0","a\t中ééßé😀."],"ret":false}
+{"args":["‍0","dev"],"ret":false}
+{"args":["‍\tééa0ß","main"],"ret":false}
+{"args":["中","a_é中Z/\t中‍"],"ret":false}
+{"args":["😀",""],"ret":false}
+{"args":["😀","dev"],"ret":false}
+{"args":["😀","😀"],"ret":true}
+{"args":["😀éaßé.ß -","dev"],"ret":false}
+{"args":["😀ß ","dev"],"ret":false}

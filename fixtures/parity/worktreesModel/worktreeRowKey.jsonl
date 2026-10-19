@@ -1,0 +1,6 @@
+{"args":[{"kind":"empty","text":"No other worktrees"}],"ret":{"$u":1}}
+{"args":[{"kind":"heading","group":"idle","count":1}],"ret":"group:idle"}
+{"args":[{"kind":"heading","group":"main","count":1}],"ret":"group:main"}
+{"args":[{"kind":"heading","group":"ready","count":2}],"ret":"group:ready"}
+{"args":[{"kind":"worktree","group":"main","entry":{"path":"/r/中文","branch":"x","head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","isMain":false,"sessionIds":[],"runningIds":[],"lastCommitAt":"2026-10-08T12:00:00.000Z","inspection":{"safe":true,"reasons":[],"dirtyFiles":0,"untrackedFiles":0,"ignoredFiles":0},"aheadOfDefault":2}}],"ret":"wt:/r/中文"}
+{"args":[{"kind":"worktree","group":"ready","entry":{"path":"/w/x","branch":"x","head":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","isMain":false,"sessionIds":[],"runningIds":[],"lastCommitAt":"2026-10-08T12:00:00.000Z","inspection":{"safe":true,"reasons":[],"dirtyFiles":0,"untrackedFiles":0,"ignoredFiles":0},"aheadOfDefault":2}}],"ret":"wt:/w/x"}
