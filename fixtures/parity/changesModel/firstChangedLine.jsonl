@@ -1,0 +1,223 @@
+{"args":["  c\n"],"ret":1}
+{"args":["  c\na.中😀\n\\ No newline at end of file\n"],"ret":1}
+{"args":["  c\nb/é._0\né\n"],"ret":1}
+{"args":["  c\ndiff --git a/x b/x\na-b_é/\n-😀a-/ \n.😀‍中_ \t-\n中\n@@ -1,2 +3,4 @@\n中é\t_‍\n/\nß😀\n"],"ret":7}
+{"args":["  c\n‍ß\n\n b中😀\n@@@ -1 -1 +2 @@@\n"],"ret":3}
+{"args":[" "],"ret":1}
+{"args":[" /b\nindex 1..2\ndiff --git a/x b/x\ndiff --git a/x b/x\n名前\nß😀_b \t0é\naZ\tßbb\n‍"],"ret":1}
+{"args":[" \t/Zb/\n+-mix\nindex 1..2\n"],"ret":1}
+{"args":[" b0 _\na\nbßa0\ndiff --git a/x b/x\n\\ No newline at end of file\nindex 1..2\n ctx\né. -/a\n\\ No newline at end of file\n\n😀"],"ret":1}
+{"args":[" ctx\n ctx\n/Z_a.\n.b/\nbé\n@@@ -1 -1 +2 @@@\n\n😀\n ctx\n\\ No newline at end of file\n"],"ret":6}
+{"args":[" ctx\n"],"ret":1}
+{"args":[" ctx\n+++ b\nindex 1..2\n--- a\n  c\n"],"ret":1}
+{"args":[" ctx\n@@ -1,2 +3,4 @@\n😀\n😀\n中😀_\t\n😀0😀中\n\n\n中😀ééé😀"],"ret":10}
+{"args":[" ctx\n\n\\ No newline at end of file\nindex 1..2\nZé😀Z0a\n\néZé\n\nbé-‍0_\n"],"ret":1}
+{"args":[" ctx\ndiff --git a/x b/x\né\n\nß-中\n \n-del\ndiff --git a/x b/x\n😀\n名前"],"ret":1}
+{"args":[" ctx\né_.中‍\n.中\n/_‍\n@@ -1,2 +3,4 @@\n\\ No newline at end of file\n\n-b😀.😀\n+++ b\n"],"ret":4}
+{"args":[" ctx\n名前\n中é\n--- a\n@@ -1,2 +3,4 @@\n\n0-ß\na/0/\n+-mix\nindex 1..2\n"],"ret":6}
+{"args":[""],"ret":1}
+{"args":["+++ b\n  c\n0\n ctx\n‍\n\nßaé\n@@@ -1 -1 +2 @@@\ndiff --git a/x b/x\n"],"ret":2}
+{"args":["+++ b\n"],"ret":1}
+{"args":["+++ b\nb\n\n.‍\n+++ b\n+add\n"],"ret":1}
+{"args":["+++ b\nßßZb\nbéß\nß\té/-\nß\n"],"ret":1}
+{"args":["+++ b\n名前\n/😀_😀 ß中_\nindex 1..2\nZ_ß/é\t\n@@ -1,2 +3,4 @@\n__‍\n中\nindex 1..2\né.__0Z\n"],"ret":8}
+{"args":["++both\n  c\n  c\n"],"ret":1}
+{"args":["++both\n"],"ret":1}
+{"args":["++both\n+++ b\na😀\n"],"ret":1}
+{"args":["++both\n\n+add\n😀\té/a\n\n\n😀  /.é\nb\t中a-ZéZ\n中Zéé\n"],"ret":1}
+{"args":["++both\na-"],"ret":1}
+{"args":["++both\ndiff --git a/x b/x"],"ret":1}
+{"args":["++both\n‍a\n+add\n\nb\n"],"ret":1}
+{"args":["+-mix\n"],"ret":1}
+{"args":["+-mix\n/Z-\n0‍ß‍Z\n😀\n ctx\n ctx"],"ret":1}
+{"args":["+-mix\n/aZ.\n\n@@@ -1 -1 +2 @@@\n"],"ret":3}
+{"args":["+-mix\nZ0bé\n\t/é0\n😀\n😀\n-Z\n-del\naé_\n//é\nßb"],"ret":1}
+{"args":["+-mix\nbZ_😀\n名前\n ctx\n++both\n ctx\néß\n中éa\n+-mix"],"ret":1}
+{"args":["+-mix\néb\n ß_/\n\\ No newline at end of file\n\\ No newline at end of file"],"ret":1}
+{"args":["+add\n++both\nindex 1..2\n\n ctx\n@@@ -1 -1 +2 @@@\né\n\n‍‍/0b"],"ret":5}
+{"args":["+add\n.\téba\n_中\ndiff --git a/x b/x\n\n\n\na_‍b\n😀\n\nb\n‍\t 0\nindex 1..2\n ctx"],"ret":1}
+{"args":["+add\n\\ No newline at end of file\n \t.ßé.Z\n\\ No newline at end of file\n\n//.😀b\n0中/0b ß\n a-  \n-del\n"],"ret":1}
+{"args":["+add\n\\ No newline at end of file\néééa\n++both\n ctx\né‍"],"ret":1}
+{"args":["--- a\n  c"],"ret":1}
+{"args":["--- a\n  c\n+-mix\n+add\n+-mix\n‍中a\n‍  ß\naß\té.😀é\n名前\n\\ No newline at end of file"],"ret":1}
+{"args":["--- a\n"],"ret":1}
+{"args":["--- a\n+++ b\n@@ -1 +1 @@\n-old\n+new\n"],"ret":1}
+{"args":["--- a\n+-mix\nZ-_中\n--- a\n0b\n"],"ret":1}
+{"args":["--- a\n--- a\n\n é中 Z\n名前\né ß😀__😀中\n\n/ 😀\n\nß‍-b_é\t\n名前\n"],"ret":1}
+{"args":["--- a\n名前\n\n++both\n+-mix\nindex 1..2\n+-mix\nßé-\nb‍ßé\n+add\n"],"ret":1}
+{"args":["-.é\n@@@ -1 -1 +2 @@@"],"ret":2}
+{"args":["-del\n"],"ret":1}
+{"args":["-del\n@@@ -1 -1 +2 @@@\n\n\t\t\n😀\n"],"ret":6}
+{"args":["-del\n_/bé\t-b\né😀Z\n@@@ -1 -1 +2 @@@\n\\ No newline at end of file\né\t中/"],"ret":3}
+{"args":["-del\na😀é\n ctx\n@@@ -1 -1 +2 @@@\nbéé中Z/‍\t\ndiff --git a/x b/x\n\n/\t\n_Zé/ \nindex 1..2"],"ret":3}
+{"args":["-del\n😀bé\n\té\t\n.é中\n/‍é 0-aZ\nßéa \n@@@ -1 -1 +2 @@@\n‍b\n"],"ret":4}
+{"args":["-é/é中‍b-\n"],"ret":1}
+{"args":["-éZ / \n"],"ret":1}
+{"args":["-éé.\n😀\n- b-.\n‍.aab/Z\n😀\n@@@ -1 -1 +2 @@@\n-del\nébé \n"],"ret":2}
+{"args":["-‍é\n"],"ret":1}
+{"args":["."],"ret":1}
+{"args":[".0-.__😀\néé😀a0\n😀\nbZbaß\n\\ No newline at end of file\n- b_‍\tß0\n😀\n名前"],"ret":1}
+{"args":[".a0- 😀\tb\n \nindex 1..2\n名前\n0😀ééZb\n \n+-mix\na😀ß‍/😀\n‍\t\t中\n"],"ret":1}
+{"args":[".é\t中.\na0ß\n--- a\n+++ b"],"ret":1}
+{"args":["/.\tbZ.\n"],"ret":1}
+{"args":["/.\t😀‍ß\t\néé‍\t.0é.\n++both\nZ-a\nZé-ßbß\t\t\n‍ 😀\n\n\t_中中é\n.中b"],"ret":1}
+{"args":["/‍ßß\n"],"ret":1}
+{"args":["0-a/\t_-😀\n0\n0ß\n😀中😀0.ZZ/\n++both\n"],"ret":1}
+{"args":["0/_.\n\té\nba_Z/é\nb _ß-\n- \n+add\n a\n"],"ret":1}
+{"args":["00é中.aZ \n--- a\n  c\n.-中‍bß\n\n\t\nab\n😀ß\n  c\n名前\n ctx\n Z"],"ret":1}
+{"args":["0😀/Za\n-del\n \n名前\n  c\n-0/ßbbé😀\n -‍ 中aé\néZé.Za0\n\n"],"ret":1}
+{"args":["@@ -,2 +3 @@\n keep\n\\ No newline at end of file\n-gone"],"ret":1}
+{"args":["@@ -0,0 +1,2 @@\n+_a\n+b"],"ret":1}
+{"args":["@@ -0,0 +1,2 @@\n+a\n+b"],"ret":1}
+{"args":["@@ -0,0 +1,2 @@\n+a\n+b@@ -0,0 +1,2 @@\n+a\n+b"],"ret":1}
+{"args":["@@ -0,0 +1,2 @@\n+a\n+éb"],"ret":1}
+{"args":["@@ -0,0_ +1,2 @@\n+a\n+b"],"ret":1}
+{"args":["@@ -1 +0 @@\n x\ndiff --git a b\n x"],"ret":1}
+{"args":["@@ -1 +1 @@\n x\n\n\n"],"ret":5}
+{"args":["@@ -1 +1 @@\n+x"],"ret":1}
+{"args":["@@ -1 +1 @@\n名前\n😀\n+x"],"ret":3}
+{"args":["@@ -1 +1 @@\r\n a\r\n+b\r\n"],"ret":2}
+{"args":["@@ -1,2 +10,2 @@\n a\n b\n c"],"ret":13}
+{"args":["@@ -1,2 +10,2 @@\n a\n b\n-c\n+d"],"ret":12}
+{"args":["@@ -1,2 +3,4 @@\n"],"ret":4}
+{"args":["@@ -1,2 +3,4 @@\n-del\n+add\n+++ b\n--- a\n"],"ret":3}
+{"args":["@@ -1,2 +3,4 @@\n-del\nZé0中0Z\n  c\n@@@ -1 -1 +2 @@@\n中中ß\n-中‍\n+++ b\n名前\n+-mix"],"ret":3}
+{"args":["@@ -1,2 +3,4 @@\n/__-é‍\n+++ b\n ctx"],"ret":4}
+{"args":["@@ -1,2 +3,4 @@\n@@@ -1 -1 +2 @@@\ndiff --git a/x b/x\n"],"ret":3}
+{"args":["@@ -1,2 +3,4 @@\n\n😀\n"],"ret":6}
+{"args":["@@ -1,2 +3,4 @@\ndiff --git a/x b/x\nééaZ\n"],"ret":3}
+{"args":["@@ -1,2 +3,4 @@\nß-\n-0éé_\n_中\tßZ"],"ret":4}
+{"args":["@@ -1,2 +3,4 @@\n名前\n‍‍中\n\n  c\ndiff --git a/x b/x\n._-\n"],"ret":7}
+{"args":["@@ -1,2 +5 @@\n \\ No newline\n x\n+y"],"ret":7}
+{"args":["@@ -1,3 +0,0 @@\n-a"],"ret":1}
+{"args":["@@ -1,3 +0,0 @@\n-a@@ -1,3 +0,0 @@\n-a"],"ret":1}
+{"args":["@@ -1,3 +0,中0 @@\n-a"],"ret":1}
+{"args":["@@ -3,2 +3 @@\n keep\n\\ No newline at end of file\n-gone"],"ret":4}
+{"args":["@@ -3,2 +3 @@\n keep\n\\ No newline até end of file\n-gone"],"ret":4}
+{"args":["@@ -3,2+3 @@\n keep\n\\ No newline at end of file\n-gone"],"ret":1}
+{"args":["@@0 -1,3 +0,0 @@\n-a"],"ret":1}
+{"args":["@@@ -1 -1 +2 @@@\n  c\n+-mix\n😀"],"ret":3}
+{"args":["@@@ -1 -1 +2 @@@\n éé\nééb a\néß\t/a中‍"],"ret":5}
+{"args":["@@@ -1 -1 +2 @@@\n"],"ret":3}
+{"args":["@@@ -1 -1 +2 @@@\n+-mix\n\n_0ß_0\né\n\n\n+add\n\t😀a-😀b\n\n"],"ret":2}
+{"args":["@@@ -1 -1 +2 @@@\n+add\n😀\n\n\n-del"],"ret":2}
+{"args":["@@@ -1 -1 +2 @@@\n/.\n😀中é\t‍/\nZ😀/中\néa/😀éé/\ndiff --git a/x b/x\nZ.\t ß\nindex 1..2\n‍\n+-mix"],"ret":6}
+{"args":["@@@ -1 -1 +2 @@@\né\t\n😀\n"],"ret":5}
+{"args":["@@@ -1 -1 +7 @@@\n  x\n  y\n++z"],"ret":9}
+{"args":["Binary files a/ and b/x differ"],"ret":1}
+{"args":["Binary files a/x and b/x differ"],"ret":1}
+{"args":["Binary files a/x and b/x differBinary files a/x and b/x differ"],"ret":1}
+{"args":["Binary files ax and b/x differ"],"ret":1}
+{"args":["Z\n ctx\n-Z\n\\ No newline at end of file\n/Z\n@@ -1,2 +3,4 @@\né\nß/é\n\n‍a"],"ret":7}
+{"args":["Z\né\né\n😀 \né\n++both\n\téß_\n--- a\n/Z / ßéé\n"],"ret":1}
+{"args":["ZéZ-😀\n-del\nßéb\nb\tb\n@@ -1,2 +3,4 @@\n\\ No newline at end of file\n😀\naß‍😀_b\n"],"ret":6}
+{"args":["Z‍éß/0\n  c\n/_0/_😀é中\n+++ b\nindex 1..2\n"],"ret":1}
+{"args":["Z中😀\n\n\n@@@ -1 -1 +2 @@@\n"],"ret":3}
+{"args":["\\ No newline at end of file\n"],"ret":1}
+{"args":["\\ No newline at end of file\n+add\n  c\n"],"ret":1}
+{"args":["\\ No newline at end of file\n0\nindex 1..2\n@@@ -1 -1 +2 @@@"],"ret":2}
+{"args":["\\ No newline at end of file\n@@@ -1 -1 +2 @@@\né \n..a\n_éß😀😀ß//\n+-mix\n-del\n@@ -1,2 +3,4 @@\n\té 😀\t\n@@@ -1 -1 +2 @@@\n+-mix"],"ret":5}
+{"args":["\\ No newline at end of file\nZßaaé\n0中\n@@@ -1 -1 +2 @@@\n\\ No newline at end of file\n\\ No newline at end of file\n ctx\n\n/_ß0-"],"ret":5}
+{"args":["\\ No newline at end of file\n\n+add\n"],"ret":1}
+{"args":["\\ No newline at end of file\ndiff --git a/x b/x"],"ret":1}
+{"args":["\n ctx\n\ndiff --git a/x b/x"],"ret":1}
+{"args":["\n"],"ret":1}
+{"args":["\n+++ b\n.\na中Zbß\n/中é \n\né‍ßbé😀Z\nb\n-ZZ\n名前"],"ret":1}
+{"args":["\n+add\n中ß😀ß._0/\naé0-a/Z\n@@ -1,2 +3,4 @@\na_😀.é\t\n++both\nindex 1..2"],"ret":4}
+{"args":["\n--- a"],"ret":1}
+{"args":["\n-😀ß -\n\n\\ No newline at end of file\n"],"ret":1}
+{"args":["\n.中\n aé"],"ret":1}
+{"args":["\n/_\n@@ -1,2 +3,4 @@\n😀ß\n"],"ret":5}
+{"args":["\n/éb /é.\n\n+add\n/\n😀‍_-\n/中ß\n\n0/"],"ret":1}
+{"args":["\n0\nZ \n.ß😀 \néb\n-del\n😀 \n"],"ret":1}
+{"args":["\n@@ -1,2 +3,4 @@\n0中\n+-mix\n.0Z .ßa-\n/\nZé😀_\n\\ No newline at end of file\nZ\t\n- é"],"ret":4}
+{"args":["\n\n@@@ -1 -1 +2 @@@\n"],"ret":3}
+{"args":["\n\té\n--- a\n++both\n_Z/Z Zéé"],"ret":1}
+{"args":["\n\t‍é-é\n"],"ret":1}
+{"args":["\na-\n😀😀é0\nbb\n‍\t\nindex 1..2\nindex 1..2\nßé/0é‍\n\n@@ -1,2 +3,4 @@\n‍"],"ret":4}
+{"args":["\na\nbß\na\nZ a😀😀bßé\n++both\n --é\n\n\n😀bb😀\n\\ No newline at end of file"],"ret":1}
+{"args":["\nb -a-\tZ"],"ret":1}
+{"args":["\nbZb\n+++ b\n\na😀_é😀a\n++both\n@@ -1,2 +3,4 @@\n+++ b\n  c\n😀\n"],"ret":3}
+{"args":["\né-/0\n.éé 😀0\nZ\nb-中/.\n/中\n  c\n++both\né0\t\nindex 1..2\n+-mix"],"ret":1}
+{"args":["\néaZéa00\n--- a\n__\t\t\n_‍‍\na/\t_0 \n‍/😀\t\n\n+add\n\n\\ No newline at end of file\n"],"ret":1}
+{"args":["\t //Z\n  c"],"ret":1}
+{"args":["\t"],"ret":1}
+{"args":["\ta.😀a\n"],"ret":1}
+{"args":["\té\n++both\n0-ß-ßZ\nß\n‍\na‍.\n ctx\n--- a\n\né😀ßa_"],"ret":1}
+{"args":["\tßß‍\né_\t\n++both\n--- a\n😀\n/😀ß\n\\ No newline at end of file"],"ret":1}
+{"args":["\té-‍\n+++ b\nßé\n😀\n名前\n‍/éZ_‍é\n名前\né\nZéé-\n"],"ret":1}
+{"args":["\téßéa\nß中é\n\ta😀b\n/0\nßß‍b‍/\nß😀é中ZZ-\n++both\n\n0‍"],"ret":1}
+{"args":["_-\n\n\n"],"ret":1}
+{"args":["_/\n😀\n_a\t 中\n"],"ret":1}
+{"args":["_\n ctx"],"ret":1}
+{"args":["_éZ中a.‍中\n+++ b\n😀\n-/aZ\t\n\né\n\n@@@ -1 -1 +2 @@@\n--- a\n"],"ret":2}
+{"args":["a\ndiff --git a/x b/x"],"ret":1}
+{"args":["a\t\n\\ No newline at end of file"],"ret":1}
+{"args":["a_\n中a0/\n😀\n.‍é中- b"],"ret":1}
+{"args":["a‍0_a_\t\n Z‍\n@@ -1,2 +3,4 @@\n"],"ret":4}
+{"args":["b éZ\n_\n_.\nb_\n"],"ret":1}
+{"args":["b"],"ret":1}
+{"args":["b\té\n ctx"],"ret":1}
+{"args":["bé中0. \n名前\n ctx\n.é.aba\n  .\té a中\n名前\n-b中-é 0é\n ctx\n名前\n  c"],"ret":1}
+{"args":["bé\t\n😀\né\n\né中é00\n"],"ret":1}
+{"args":["bé😀.\n"],"ret":1}
+{"args":["b‍.0éb\n"],"ret":1}
+{"args":["b😀 中\n++both\n\n"],"ret":1}
+{"args":["diff --cc both.txt\n@@@ -1,2 -1,2 +1,6 @@@  x\n++<<<<<<< HEAD\n +main"],"ret":1}
+{"args":["diff --cc both.txt\n@@@ -1,2 -1,2 +1,6 @@@\n  x\n++<<<<<<< HEAD\n +main"],"ret":2}
+{"args":["diff --cc both.txt\n@@@ -1,2 -1,2 +1,6 @@@\n  x\n++<<<<<<< HEAD\n +maindiff --cc both.txt\n@@@ -1,2 -1,2 +1,6 @@@\n  x\n++<<<<<<< HEAD\n +main"],"ret":2}
+{"args":["diff --cc both.txt\n@@@ -1,2. -1,2 +1,6 @@@\n  x\n++<<<<<<< HEAD\n +main"],"ret":1}
+{"args":["diff --cc f\n@@@ -1,3 -1,3 +1,3 @@@\n  a\n  b\n  c\n"],"ret":5}
+{"args":["diff --cc f\n@@@ -1,3 -1,3 +1,3 @@@\n  a\n +b\n- c\n++d\n"],"ret":2}
+{"args":["diff --git a/f b/f\n@@ -1 +1 @@\n a\n@@ -9 +9 @@\n-b\n"],"ret":2}
+{"args":["diff --git a/f b/f\nindex 1..2 100644\n--- a/f\n+++ b/f\n@@ -10,7 +12,8 @@ function x() {\n one\n two\n three\n-old\n+new\n four\n@@ -40 +41 @@\n-x\n+y"],"ret":15}
+{"args":["diff --git a/f b/f\nindex 1..2 100644\n--- a/f\n+++ b/f\n@@ -10,7 +12,8 @@ function x() {\n one\n two\n three\n-old\n+new\n four\n@@ -40 +41 @@\n-x\n+ydiff --git a/f b/f\nindex 1..2 100644\n--- a/f\n+++ b/f\n@@ -10,7 +12,8 @@ function x() {\n one\n two\n three\n-old\n+new\n four\n@@ -40 +41 @@\n-x\n+y"],"ret":15}
+{"args":["diff --git a/f b/f\nindex 1..2 100644\n--- a/f\n+++ b/f\n@@ -3,3 +3,3 @@ ctx\n a\n b\n-c\n+d\n"],"ret":5}
+{"args":["diff --git a/f b/f\nindex 1..2 100644\n---. a/f\n+++ b/f\n@@ -10,7 +12,8 @@ function x() {\n one\n two\n three\n-old\n+new\n four\n@@ -40 +41 @@\n-x\n+y"],"ret":15}
+{"args":["diff --git a/x b/x\n"],"ret":1}
+{"args":["diff --git a/x b/x\n0.a\n-/"],"ret":1}
+{"args":["diff --git a/x b/x\n0\n😀\n😀\n+++ b\n++both\nßZ/-\n  c\n\n"],"ret":1}
+{"args":["diff --git a/x b/x\n0‍0ßßé"],"ret":1}
+{"args":["diff --git a/x b/x\n_Z_\n\\ No newline at end of file\n\n\n\n@@ -1,2 +3,4 @@\n😀\n\tb-\n\t\n éZ/a\n"],"ret":8}
+{"args":["diff --git a/x b/x\naa_-‍/\n-del\n😀😀\n\n中/\n-😀\néb\nb/😀/.-😀\ndiff --git a/x b/x"],"ret":1}
+{"args":["diff --git a/x b/x\n😀Z0"],"ret":1}
+{"args":["diff -git a/f b/f\nindex 1..2 100644\n--- a/f\n+++ b/f\n@@ -10,7 +12,8 @@ function x() {\n one\n two\n three\n-old\n+new\n four\n@@ -40 +41 @@\n-x\n+y"],"ret":15}
+{"args":["diff a\n@@ -1 +1 @@\n x\ndiff b\n@@ -1 +4 @@\n-y\n"],"ret":2}
+{"args":["é-ßéaé\n.\n"],"ret":1}
+{"args":["éb.aß\naa0é./ß\ndiff --git a/x b/x\n\n 0.ß‍‍b\nß\t\n++both\n+++ b\nééZé"],"ret":1}
+{"args":["éé\t‍\n"],"ret":1}
+{"args":["ééa\né-"],"ret":1}
+{"args":["index 1..2\n"],"ret":1}
+{"args":["index 1..2\n+++ b\nb\t\n😀éZ\n\n\n\n"],"ret":1}
+{"args":["index 1..2\n+-mix\na😀ß\n\n  c\n.😀\tb\n"],"ret":1}
+{"args":["index 1..2\n\t‍\né._0Z\n-é "],"ret":1}
+{"args":["index 1..2\nindex 1..2"],"ret":1}
+{"args":["index 1..2\nß_\n\n\n\\ No newline at end of file\n"],"ret":1}
+{"args":["index 1..2\n名前"],"ret":1}
+{"args":["no hunk\n"],"ret":1}
+{"args":["ßZ/\na0_\n_/-‍\n@@@ -1 -1 +2 @@@\n++both\n  c\n+add\n Z0 éZ \n-del\n-_\n"],"ret":2}
+{"args":["ß\t\n ctx\n  bb\n\n.-_\n"],"ret":1}
+{"args":["ß😀😀\n  c\n_😀‍a\n0‍\n-del\nb\téßZ/é0\n\na.a\n\ndiff --git a/x b/x\n"],"ret":1}
+{"args":["é/éß.\n.\n-‍\t\n😀\n0‍\n\\ No newline at end of file\nb\t-😀\n_中//./-\n"],"ret":1}
+{"args":["é_.b\n ctx"],"ret":1}
+{"args":["ééßbb.\n/中0\n.0é\n--- a\n"],"ret":1}
+{"args":["éß.-_\n ctx\n@@@ -1 -1 +2 @@@\n\n--- a\n\t_‍"],"ret":3}
+{"args":["‍.‍/é\n\\ No newline at end of file\n+++ b\n/0中Zé 😀\nindex 1..2\n--- a"],"ret":1}
+{"args":["‍//😀\na\n\n@@ -1,2 +3,4 @@\n_/.\n ctx\n"],"ret":6}
+{"args":["‍/\n\n./中\nééZ0Z-😀\n中中0  Z/\n"],"ret":1}
+{"args":["‍\n"],"ret":1}
+{"args":["‍é\ndiff --git a/x b/x"],"ret":1}
+{"args":["中0Z\n名前"],"ret":1}
+{"args":["中\n++both"],"ret":1}
+{"args":["中\nb\t\t\n0\n.Z\n  c\nindex 1..2\n\\ No newline at end of file\nb\n-中\n0😀_\n0éééb\n"],"ret":1}
+{"args":["中中\n"],"ret":1}
+{"args":["名前\n ctx"],"ret":1}
+{"args":["名前\n+-mix\nindex 1..2\nßéé-éß\néß\n@@@ -1 -1 +2 @@@\n\n_ 😀 a\n中\néZ_‍éß\n-del"],"ret":6}
+{"args":["名前\n\t \n-Z\na_\n\t/0\n/_a‍\n中/Zß"],"ret":1}
+{"args":["名前\n\t"],"ret":1}
+{"args":["名前\n_\n‍\n😀éé😀😀_0\n 中‍ßaßßé\n‍aa\n名前"],"ret":1}
+{"args":["😀.\n😀\n-del\na\n++both\n"],"ret":1}
+{"args":["😀\n+add\n\t中\nß中_\n0-é-\nß😀\n中\n"],"ret":1}
+{"args":["😀\n\\ No newline at end of file\nindex 1..2\n😀\n+++ b\n@@@ -1 -1 +2 @@@\n++both\n"],"ret":2}
+{"args":["😀\n\tß \n+-mix\n@@@ -1 -1 +2 @@@\nZ\n\n  c\n+++ b\n"],"ret":5}
+{"args":["😀\t\né__‍\t\nindex 1..2\n"],"ret":1}

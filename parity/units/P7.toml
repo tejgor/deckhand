@@ -10,7 +10,7 @@ ts_tests = ["tests/changesModel.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["changesModel/changeKey", "changesModel/changeLabel", "changesModel/changeRows", "changesModel/classifyDiff", "changesModel/emptyChanges", "changesModel/emptyCounts", "changesModel/findChange", "changesModel/firstChangedLine", "changesModel/groupChanges", "changesModel/groupOffset", "changesModel/lineCountsText", "changesModel/parseNumstat", "changesModel/reselect", "changesModel/stageMode", "changesModel/totalChanges", "changesModel/untrackedDiff"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
