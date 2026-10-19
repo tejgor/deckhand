@@ -15,6 +15,7 @@ mod setup;
 mod ui_loop;
 
 use std::future::Future;
+use std::io::Write;
 use std::process::ExitCode;
 
 /// The runtime every Deckhand process runs on: a current_thread tokio runtime (I/O and time drivers on) driving
@@ -45,7 +46,9 @@ fn main() -> ExitCode {
     {
         // A hook must never affect the agent: it still answers `{}` and succeeds.
         if command == cli::Command::Hook {
-            print!("{}", hook::HOOK_OUTPUT);
+            let mut stdout = std::io::stdout().lock();
+            let _ = stdout.write_all(hook::HOOK_OUTPUT.as_bytes());
+            let _ = stdout.flush();
             return ExitCode::SUCCESS;
         }
         eprintln!("{error}");
