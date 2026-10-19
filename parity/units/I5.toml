@@ -10,7 +10,45 @@ ts_tests = ["tests/processTree.test.ts", "tests/claudeTranscripts.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = [
+  "processTree/survivors",
+  "processTree/killSurvivors",
+  "claudeTranscripts/claudeProjectKey",
+  "claudeTranscripts/claudeProjectsDir",
+  "claudeTranscripts/bad-lines-and-non-objects",
+  "claudeTranscripts/bad-timestamp",
+  "claudeTranscripts/different-title-no-parent",
+  "claudeTranscripts/empty-hints",
+  "claudeTranscripts/exclude-unrelated",
+  "claudeTranscripts/first-message-beyond-head-window",
+  "claudeTranscripts/fork-excluded",
+  "claudeTranscripts/fork-followed",
+  "claudeTranscripts/hint-mismatch-found-in-other-project",
+  "claudeTranscripts/large-records-beyond-64k",
+  "claudeTranscripts/metadata-after-messages-ignored",
+  "claudeTranscripts/missing-id",
+  "claudeTranscripts/no-hints",
+  "claudeTranscripts/no-projects-dir",
+  "claudeTranscripts/no-successor",
+  "claudeTranscripts/non-jsonl-and-dirs-ignored",
+  "claudeTranscripts/non-string-title-and-parent",
+  "claudeTranscripts/other-project-dir-searched-in-order",
+  "claudeTranscripts/parent-link-transitive",
+  "claudeTranscripts/parent-link-unrelated-not-followed",
+  "claudeTranscripts/plan-accepted",
+  "claudeTranscripts/plan-chain-from-impl",
+  "claudeTranscripts/plan-chain-from-latest",
+  "claudeTranscripts/plan-chain-from-plan",
+  "claudeTranscripts/resumed-earlier-wins",
+  "claudeTranscripts/stored-without-timestamps",
+  "claudeTranscripts/successor-quiet-older-activity",
+  "claudeTranscripts/successor-same-start-not-followed",
+  "claudeTranscripts/successor-started-before-not-followed",
+  "claudeTranscripts/title-first-wins",
+  "claudeTranscripts/unicode-title-and-ids",
+  "claudeTranscripts/untitled-not-matched-by-title",
+  "claudeTranscripts/uuid-substring-not-matched",
+]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 

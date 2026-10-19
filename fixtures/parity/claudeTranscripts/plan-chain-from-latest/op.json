@@ -1,0 +1,16 @@
+{
+  "fn": "latestClaudeConversation",
+  "args": [
+    "impl2",
+    {
+      "projectsDir": "$ROOT/projects",
+      "cwdHints": [
+        "/work/repo"
+      ]
+    }
+  ],
+  "async": true,
+  "ret": {
+    "$u": 1
+  }
+}

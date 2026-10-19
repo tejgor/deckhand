@@ -1,0 +1,3 @@
+{"type":"custom-title","customTitle":"タスク 😀"}
+{"type":"user","uuid":"q-1","parentUuid":"p-2","timestamp":"2026-01-01T12:11:00.000Z"}
+{"type":"assistant","uuid":"q-2","parentUuid":"q-1","timestamp":"2026-01-01T12:30:00.000Z"}
