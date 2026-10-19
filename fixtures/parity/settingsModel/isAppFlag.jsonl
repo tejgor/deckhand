@@ -1,0 +1,12 @@
+{"args":["actions"],"ret":false}
+{"args":["agentHooks"],"ret":true}
+{"args":["defaultAgent"],"ret":false}
+{"args":["defaultWorkspace"],"ret":false}
+{"args":["devCommand"],"ret":false}
+{"args":["notifications"],"ret":true}
+{"args":["setupCommand"],"ret":false}
+{"args":["worktree.branchFrom"],"ret":false}
+{"args":["worktree.branchName"],"ret":false}
+{"args":["worktree.hook"],"ret":false}
+{"args":["worktree.links"],"ret":false}
+{"args":["worktree.location"],"ret":false}

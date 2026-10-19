@@ -10,12 +10,15 @@ ts_tests = ["tests/settingsModel.test.ts"]
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["settingsModel/actionCount", "settingsModel/actionNameCheck", "settingsModel/actionNameProblem", "settingsModel/actionSavedMessage", "settingsModel/applyChange", "settingsModel/cellDetail", "settingsModel/choiceChange", "settingsModel/choiceOptions", "settingsModel/codexHookNote", "settingsModel/columnProblem", "settingsModel/commandProblem", "settingsModel/currentChoice", "settingsModel/homePath", "settingsModel/infoLayer", "settingsModel/inheritedHint", "settingsModel/initialColumn", "settingsModel/initialLinks", "settingsModel/initialText", "settingsModel/isAppFlag", "settingsModel/layerActions", "settingsModel/layerName", "settingsModel/layerSets", "settingsModel/linkSelection", "settingsModel/otherTarget", "settingsModel/ownValue", "settingsModel/previewLocation", "settingsModel/savedMessage", "settingsModel/settingPath", "settingsModel/settingsGrid", "settingsModel/targetName", "settingsModel/textChange", "settingsModel/trustNote"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "Settings pane: two value columns from 64 columns (one, with ◂ ▸, below); an option's warning is on its own line under its full path; edits are titled \"<Setting> · <Layer>\"", to = "U5", reason = "renders SettingsPane (settingsPane.tsx); the settingsModel inputs it uses are covered by B-P9-01/04" },
+  { title = "Settings pane, Linked items · Global: the global entries and what your repos share, counted per repo; nothing suggested is preselected", to = "U5", reason = "renders SettingsPane's Linked items view (settingsPane.tsx); initialLinks(…, false) is replayed in settingsModel/initialLinks" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 

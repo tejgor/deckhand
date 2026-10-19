@@ -1,0 +1,400 @@
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"actions\":{\"test\":\"global test\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"actions\":{\"test\":\"global test\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"actions\":{\"test\":\"global test\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"actions\": {\n    \"test\": \"global test\"\n  },\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"actions\":{\"test\":\"global test\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["worktree","symlink"]}],"ret":"{\n  \"actions\": {\n    \"test\": \"global test\"\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"codex\",\"defaultWorkspace\":\"existing\",\"devCommand\":\"yarn dev\",\"setupCommand\":\"yarn\",\"actions\":{\"test\":\"yarn test\",\"build\":\"yarn build\"},\"worktree\":{\"location\":\"{repoParent}/wt/{name}\",\"branchName\":\"{user}/{name}\",\"branchFrom\":\"default\",\"hook\":false,\"files\":{\"a.cfg\":\"/x/a.cfg\"}}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"defaultAgent\": \"codex\",\n  \"defaultWorkspace\": \"existing\",\n  \"devCommand\": \"yarn dev\",\n  \"setupCommand\": \"yarn\",\n  \"actions\": {\n    \"test\": \"npm test\",\n    \"build\": \"yarn build\"\n  },\n  \"worktree\": {\n    \"location\": \"{repoParent}/wt/{name}\",\n    \"branchName\": \"{user}/{name}\",\n    \"branchFrom\": \"default\",\n    \"hook\": false,\n    \"files\": {\n      \"a.cfg\": \"/x/a.cfg\"\n    }\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"codex\",\"defaultWorkspace\":\"existing\",\"devCommand\":\"yarn dev\",\"setupCommand\":\"yarn\",\"actions\":{\"test\":\"yarn test\",\"build\":\"yarn build\"},\"worktree\":{\"location\":\"{repoParent}/wt/{name}\",\"branchName\":\"{user}/{name}\",\"branchFrom\":\"default\",\"hook\":false,\"files\":{\"a.cfg\":\"/x/a.cfg\"}}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"defaultAgent\": \"codex\",\n  \"defaultWorkspace\": \"existing\",\n  \"devCommand\": \"make dev\",\n  \"setupCommand\": \"yarn\",\n  \"actions\": {\n    \"test\": \"yarn test\",\n    \"build\": \"yarn build\"\n  },\n  \"worktree\": {\n    \"location\": \"{repoParent}/wt/{name}\",\n    \"branchName\": \"{user}/{name}\",\n    \"branchFrom\": \"default\",\n    \"hook\": false,\n    \"files\": {\n      \"a.cfg\": \"/x/a.cfg\"\n    }\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"codex\",\"defaultWorkspace\":\"existing\",\"devCommand\":\"yarn dev\",\"setupCommand\":\"yarn\",\"actions\":{\"test\":\"yarn test\",\"build\":\"yarn build\"},\"worktree\":{\"location\":\"{repoParent}/wt/{name}\",\"branchName\":\"{user}/{name}\",\"branchFrom\":\"default\",\"hook\":false,\"files\":{\"a.cfg\":\"/x/a.cfg\"}}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["worktree","symlink"]}],"ret":"{\n  \"defaultAgent\": \"codex\",\n  \"defaultWorkspace\": \"existing\",\n  \"devCommand\": \"yarn dev\",\n  \"setupCommand\": \"yarn\",\n  \"actions\": {\n    \"test\": \"yarn test\",\n    \"build\": \"yarn build\"\n  },\n  \"worktree\": {\n    \"location\": \"{repoParent}/wt/{name}\",\n    \"branchName\": \"{user}/{name}\",\n    \"branchFrom\": \"default\",\n    \"hook\": false,\n    \"files\": {\n      \"a.cfg\": \"/x/a.cfg\"\n    }\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"pi\",\"worktree\":{\"symlink\":[\"shared\"],\"branchFrom\":\"origin\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"defaultAgent\": \"pi\",\n  \"worktree\": {\n    \"symlink\": [\n      \"shared\"\n    ],\n    \"branchFrom\": \"origin\"\n  },\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"pi\",\"worktree\":{\"symlink\":[\"shared\"],\"branchFrom\":\"origin\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"defaultAgent\": \"pi\",\n  \"worktree\": {\n    \"symlink\": [\n      \"shared\"\n    ],\n    \"branchFrom\": \"origin\"\n  },\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"pi\",\"worktree\":{\"symlink\":[\"shared\"],\"branchFrom\":\"origin\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["worktree","hook"],"value":false}],"ret":"{\n  \"defaultAgent\": \"pi\",\n  \"worktree\": {\n    \"symlink\": [\n      \"shared\"\n    ],\n    \"branchFrom\": \"origin\",\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"devCommand\":\"make dev\"}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","a"]}],"ret":"{\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"devCommand\":\"make dev\"}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions"]}],"ret":"{\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"devCommand\":\"make dev\"}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"worktree\":{\"location\":\"{repoRoot}/.worktrees/{name}\",\"symlink\":[\"node_modules\"]}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","a"]}],"ret":"{\n  \"worktree\": {\n    \"location\": \"{repoRoot}/.worktrees/{name}\",\n    \"symlink\": [\n      \"node_modules\"\n    ]\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"worktree\":{\"location\":\"{repoRoot}/.worktrees/{name}\",\"symlink\":[\"node_modules\"]}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"worktree\": {\n    \"location\": \"{repoRoot}/.worktrees/{name}\",\n    \"symlink\": [\n      \"node_modules\"\n    ]\n  },\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"worktree\":{\"location\":\"{repoRoot}/.worktrees/{name}\",\"symlink\":[\"node_modules\"]}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"]}],"ret":"{\n  \"worktree\": {\n    \"location\": \"{repoRoot}/.worktrees/{name}\",\n    \"symlink\": [\n      \"node_modules\"\n    ]\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","a"]}],"ret":"{}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{}","revision":null,"exists":false},{"path":["actions","a"]}],"ret":"{}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{}","revision":null,"exists":false},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{}","revision":null,"exists":false},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"defaultAgent\":\"codex\",\"defaultWorkspace\":\"new\",\"setupCommand\":\"npm ci\",\"actions\":{\"test\":\"npm t\",\"lint frontend\":\"eslint .\",\"db.migrate\":\"make m\"},\"worktree\":{\"branchFrom\":\"default\",\"branchName\":\"{user}/{name}\",\"symlink\":[\"node_modules\",\"shared\"],\"hook\":false}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","a"],"value":""}],"throws":"Invalid command: a"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"defaultAgent\":\"codex\",\"defaultWorkspace\":\"new\",\"setupCommand\":\"npm ci\",\"actions\":{\"test\":\"npm t\",\"lint frontend\":\"eslint .\",\"db.migrate\":\"make m\"},\"worktree\":{\"branchFrom\":\"default\",\"branchName\":\"{user}/{name}\",\"symlink\":[\"node_modules\",\"shared\"],\"hook\":false}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","test"]}],"ret":"{\n  \"defaultAgent\": \"codex\",\n  \"defaultWorkspace\": \"new\",\n  \"setupCommand\": \"npm ci\",\n  \"actions\": {\n    \"lint frontend\": \"eslint .\",\n    \"db.migrate\": \"make m\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"default\",\n    \"branchName\": \"{user}/{name}\",\n    \"symlink\": [\n      \"node_modules\",\n      \"shared\"\n    ],\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"defaultAgent\":\"codex\",\"defaultWorkspace\":\"new\",\"setupCommand\":\"npm ci\",\"actions\":{\"test\":\"npm t\",\"lint frontend\":\"eslint .\",\"db.migrate\":\"make m\"},\"worktree\":{\"branchFrom\":\"default\",\"branchName\":\"{user}/{name}\",\"symlink\":[\"node_modules\",\"shared\"],\"hook\":false}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"devCommand\":\"npm run dev\",\"actions\":{\"test\":\"npm test\"},\"worktree\":{\"location\":\"{repoParent}/worktrees/{name}\",\"files\":{\"backend/.env\":\"{repoParent}/b.env\"}}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","a"],"value":""}],"throws":"Invalid command: a"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"devCommand\":\"npm run dev\",\"actions\":{\"test\":\"npm test\"},\"worktree\":{\"location\":\"{repoParent}/worktrees/{name}\",\"files\":{\"backend/.env\":\"{repoParent}/b.env\"}}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"devCommand\": \"npm run dev\",\n  \"actions\": {\n    \"test\": \"npm test\"\n  },\n  \"worktree\": {\n    \"location\": \"{repoParent}/worktrees/{name}\",\n    \"files\": {\n      \"backend/.env\": \"{repoParent}/b.env\"\n    }\n  }\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"devCommand\":\"npm run dev\",\"actions\":{\"test\":\"npm test\"},\"worktree\":{\"location\":\"{repoParent}/worktrees/{name}\",\"files\":{\"backend/.env\":\"{repoParent}/b.env\"}}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"devCommand\": \"npm run dev\",\n  \"actions\": {\n    \"test\": \"npm test\"\n  },\n  \"worktree\": {\n    \"location\": \"{repoParent}/worktrees/{name}\",\n    \"files\": {\n      \"backend/.env\": \"{repoParent}/b.env\"\n    }\n  },\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"devCommand\":\"npm run dev\",\"actions\":{\"test\":\"npm test\"},\"worktree\":{\"location\":\"{repoParent}/worktrees/{name}\",\"files\":{\"backend/.env\":\"{repoParent}/b.env\"}}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"]}],"ret":"{\n  \"actions\": {\n    \"test\": \"npm test\"\n  },\n  \"worktree\": {\n    \"location\": \"{repoParent}/worktrees/{name}\",\n    \"files\": {\n      \"backend/.env\": \"{repoParent}/b.env\"\n    }\n  }\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"devCommand\":\"npm run dev\"}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"devCommand\":\"npm run dev\"}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","test"]}],"ret":"{\n  \"devCommand\": \"npm run dev\"\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"devCommand\":\"npm run dev\"}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"worktree\":[]}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["worktree","hook"],"value":false}],"throws":"worktree is not an object; press E to repair it first"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"worktree\":{\"location\":\"{repoRoot}/.worktrees/{name}\",\"branchFrom\":\"origin\",\"symlink\":[\"a\",\"b\"]}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"worktree\": {\n    \"location\": \"{repoRoot}/.worktrees/{name}\",\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  },\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"worktree\":{\"location\":\"{repoRoot}/.worktrees/{name}\",\"branchFrom\":\"origin\",\"symlink\":[\"a\",\"b\"]}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"],"value":""}],"throws":"Invalid command: devCommand"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"worktree\":{\"location\":\"{repoRoot}/.worktrees/{name}\",\"branchFrom\":\"origin\",\"symlink\":[\"a\",\"b\"]}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["worktree","symlink"]}],"ret":"{\n  \"worktree\": {\n    \"location\": \"{repoRoot}/.worktrees/{name}\",\n    \"branchFrom\": \"origin\"\n  }\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["devCommand"],"value":""}],"throws":"Invalid command: devCommand"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},{"path":["worktree","symlink"]}],"ret":"{}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{}","revision":null,"exists":false},{"path":["actions","bad name!"],"value":"x"}],"throws":"Invalid action name: bad name!"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{}","revision":null,"exists":false},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{}","revision":null,"exists":false},{"path":["worktree","symlink"],"value":["a","b"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"","exists":false,"kind":"global"},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"raw":"","exists":false,"kind":"global"},{"path":["actions","test"]}],"ret":"{}\n"}
+{"args":[{"raw":"","exists":false,"kind":"global"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"","exists":false,"kind":"global"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"","exists":false,"kind":"global"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"worktree.branchFrom must be one of current, default, origin"}
+{"args":[{"raw":"","exists":false,"kind":"global"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"worktree.location must contain {name}"}
+{"args":[{"raw":"","exists":false,"kind":"global"},{"path":["worktree","symlink"],"value":["a","b"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"","exists":false,"kind":"repository"},{"path":["actions","a"],"value":""}],"throws":"Invalid command: a"}
+{"args":[{"raw":"","exists":false,"kind":"repository"},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"raw":"","exists":false,"kind":"repository"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"","exists":false,"kind":"repository"},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"raw":"","exists":false,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"worktree.branchFrom must be one of current, default, origin"}
+{"args":[{"raw":"","exists":false,"kind":"repository"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"worktree.location must contain {name}"}
+{"args":[{"raw":"","exists":false,"kind":"repository"},{"path":["worktree","symlink"]}],"ret":"{}\n"}
+{"args":[{"raw":"","exists":true,"kind":"global"},{"path":["actions","a"],"value":""}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"global"},{"path":["actions"],"value":{"z":"y"}}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"global"},{"path":["defaultWorkspace"],"value":"new"}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"global"},{"path":["devCommand"]}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"global"},{"path":["worktree","branchFrom"],"value":"origin"}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"global"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"global"},{"path":["worktree","symlink"]}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"repository"},{"path":["actions","a"]}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"repository"},{"path":["actions"],"value":{"z":"y"}}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"repository"},{"path":["defaultWorkspace"],"value":"new"}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"repository"},{"path":["notifications"],"value":true}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"origin"}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"","exists":true,"kind":"repository"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":false,"kind":"global"},{"path":["a","b","c"],"value":1}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"[1]","exists":false,"kind":"global"},{"path":["actions","a"]}],"ret":"{}\n"}
+{"args":[{"raw":"[1]","exists":false,"kind":"global"},{"path":["actions"]}],"ret":"{}\n"}
+{"args":[{"raw":"[1]","exists":false,"kind":"global"},{"path":["devCommand"],"value":""}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"[1]","exists":false,"kind":"global"},{"path":["notifications"],"value":true}],"throws":"Unknown defaults setting: notifications"}
+{"args":[{"raw":"[1]","exists":false,"kind":"global"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"ret":"{\n  \"worktree\": {\n    \"branchName\": \"{user}/{name}\"\n  }\n}\n"}
+{"args":[{"raw":"[1]","exists":false,"kind":"global"},{"path":["worktree","location"]}],"ret":"{}\n"}
+{"args":[{"raw":"[1]","exists":false,"kind":"repository"},{"path":["a","b","c"],"value":1}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"[1]","exists":false,"kind":"repository"},{"path":["actions","bad name!"],"value":"x"}],"throws":"Invalid action name: bad name!"}
+{"args":[{"raw":"[1]","exists":false,"kind":"repository"},{"path":["actions"]}],"ret":"{}\n"}
+{"args":[{"raw":"[1]","exists":false,"kind":"repository"},{"path":["devCommand"],"value":""}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"[1]","exists":false,"kind":"repository"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"ret":"{\n  \"setupCommand\": \"日本語 😀 && echo\"\n}\n"}
+{"args":[{"raw":"[1]","exists":false,"kind":"repository"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"ret":"{\n  \"worktree\": {\n    \"branchName\": \"{user}/{name}\"\n  }\n}\n"}
+{"args":[{"raw":"[1]","exists":false,"kind":"repository"},{"path":["worktree","location"]}],"ret":"{}\n"}
+{"args":[{"raw":"[1]","exists":true,"kind":"global"},{"path":["a","b","c"]}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"global"},{"path":["actions","bad name!"],"value":"x"}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"global"},{"path":["agent_hooks"],"value":true}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"global"},{"path":["devCommand"],"value":"make dev"}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"global"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"global"},{"path":["worktree","hook"],"value":false}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"global"},{"path":["worktree","location"]}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"repository"},{"path":["a","b","c"]}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"repository"},{"path":["actions","test"],"value":"npm test"}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"repository"},{"path":["agent_hooks"],"value":true}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"repository"},{"path":["devCommand"],"value":"make dev"}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"repository"},{"path":["unknownKey"],"value":1}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"repository"},{"path":["worktree","hook"],"value":false}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"[1]","exists":true,"kind":"repository"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"global"},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"global"},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"global"},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"global"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"global"},{"path":["unknownKey"],"value":1}],"throws":"Unknown defaults setting: unknownKey"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"global"},{"path":["worktree","hook"]}],"ret":"{}\n"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"global"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"Invalid worktree.symlink path: \"../escape\""}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"repository"},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"repository"},{"path":["actions","test"]}],"ret":"{}\n"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"repository"},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"repository"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"worktree.branchFrom must be one of current, default, origin"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"repository"},{"path":["worktree","hook"]}],"ret":"{}\n"}
+{"args":[{"raw":"\"s\"","exists":false,"kind":"repository"},{"path":["worktree","symlink"],"value":["a","b"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"global"},{"path":["actions","a"],"value":""}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"global"},{"path":["actions","test"]}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"global"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"global"},{"path":["devCommand"],"value":5}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"global"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"global"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"global"},{"path":["worktree","symlink"],"value":["a","b"]}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"repository"},{"path":["actions","a"],"value":""}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"repository"},{"path":["actions"],"value":{"z":"y"}}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"repository"},{"path":["defaultAgent"],"value":"nope"}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"repository"},{"path":["devCommand"]}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"origin"}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"repository"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"\"s\"","exists":true,"kind":"repository"},{"path":["worktree","symlink"]}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":false,"kind":"global"},{"path":["actions","a"]}],"ret":"{}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"global"},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"global"},{"path":["defaultWorkspace"],"value":"new"}],"ret":"{\n  \"defaultWorkspace\": \"new\"\n}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"global"},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"global"},{"path":["worktree","branchFrom"],"value":"origin"}],"ret":"{\n  \"worktree\": {\n    \"branchFrom\": \"origin\"\n  }\n}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"global"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"ret":"{\n  \"worktree\": {\n    \"location\": \"{repoParent}/wt/{name}\"\n  }\n}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"global"},{"path":["worktree","symlink"]}],"ret":"{}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"repository"},{"path":["actions","a"]}],"ret":"{}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"repository"},{"path":["actions"]}],"ret":"{}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"repository"},{"path":["defaultWorkspace"],"value":"new"}],"ret":"{\n  \"defaultWorkspace\": \"new\"\n}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"repository"},{"path":["notifications"],"value":true}],"throws":"Unknown deckhand.json setting: notifications"}
+{"args":[{"raw":"null","exists":false,"kind":"repository"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"ret":"{\n  \"worktree\": {\n    \"branchName\": \"{user}/{name}\"\n  }\n}\n"}
+{"args":[{"raw":"null","exists":false,"kind":"repository"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"ret":"{\n  \"worktree\": {\n    \"location\": \"{repoParent}/wt/{name}\"\n  }\n}\n"}
+{"args":[{"raw":"null","exists":true,"kind":"global"},{"path":["a","b","c"],"value":1}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"global"},{"path":["actions","a"]}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"global"},{"path":["actions"]}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"global"},{"path":["devCommand"],"value":""}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"global"},{"path":["notifications"],"value":true}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"global"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"global"},{"path":["worktree","location"]}],"throws":"Global defaults are not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"repository"},{"path":["a","b","c"],"value":1}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"repository"},{"path":["actions","bad name!"],"value":"x"}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"repository"},{"path":["agent_hooks"],"value":true}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"repository"},{"path":["devCommand"],"value":""}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"repository"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"repository"},{"path":["worktree","hook"],"value":false}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"null","exists":true,"kind":"repository"},{"path":["worktree","location"]}],"throws":"deckhand.json is not a JSON object; press E to repair it first"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"global"},{"path":["a","b","c"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"global"},{"path":["actions","bad name!"],"value":"x"}],"throws":"Invalid action name: bad name!"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"global"},{"path":["agent_hooks"],"value":true}],"throws":"Unknown defaults setting: agent_hooks"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"global"},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"global"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"ret":"{\n  \"setupCommand\": \"日本語 😀 && echo\"\n}\n"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"global"},{"path":["worktree","hook"],"value":false}],"ret":"{\n  \"worktree\": {\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"global"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"Invalid worktree.symlink path: \"../escape\""}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"repository"},{"path":["a","b","c"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"repository"},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"repository"},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"repository"},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"repository"},{"path":["unknownKey"],"value":1}],"throws":"Unknown deckhand.json setting: unknownKey"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"repository"},{"path":["worktree","hook"],"value":false}],"ret":"{\n  \"worktree\": {\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"raw":"{\"a\":1}","exists":false,"kind":"repository"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"Invalid worktree.symlink path: \"../escape\""}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"global"},{"path":["actions"," x"],"value":"x"}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"global"},{"path":["actions","test"],"value":"npm test"}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"global"},{"path":["defaultAgent"],"value":"codex"}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"global"},{"path":["devCommand"],"value":5}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"global"},{"path":["unknownKey"],"value":1}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"global"},{"path":["worktree","hook"]}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"global"},{"path":["worktree","symlink"],"value":["a","b"]}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"repository"},{"path":["actions"," x"],"value":"x"}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"repository"},{"path":["actions","test"]}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"repository"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"repository"},{"path":["devCommand"],"value":5}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"repository"},{"path":["worktree","hook"]}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"a\":1}","exists":true,"kind":"repository"},{"path":["worktree","symlink"],"value":["a","b"]}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"global"},{"path":["actions","a"],"value":""}],"throws":"Invalid command: a"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"global"},{"path":["actions","test"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"global"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"global"},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"global"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"worktree.branchFrom must be one of current, default, origin"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"global"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"worktree.location must contain {name}"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"global"},{"path":["worktree","symlink"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"repository"},{"path":["actions","a"],"value":""}],"throws":"Invalid command: a"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"repository"},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"repository"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"repository"},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"origin"}],"ret":"{\n  \"worktree\": {\n    \"branchFrom\": \"origin\"\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"repository"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"worktree.location must contain {name}"}
+{"args":[{"raw":"{\"actions\":[]}","exists":false,"kind":"repository"},{"path":["worktree","symlink"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"global"},{"path":["actions","a"]}],"throws":"actions is not an object; press E to repair it first"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"global"},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"global"},{"path":["defaultWorkspace"],"value":"new"}],"throws":"actions must be a command map"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"global"},{"path":["notifications"],"value":true}],"throws":"Unknown defaults setting: notifications"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"global"},{"path":["worktree","branchFrom"],"value":"origin"}],"throws":"actions must be a command map"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"global"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"throws":"actions must be a command map"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"repository"},{"path":["a","b","c"],"value":1}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"repository"},{"path":["actions","a"]}],"throws":"actions is not an object; press E to repair it first"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"repository"},{"path":["actions"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"repository"},{"path":["defaultWorkspace"],"value":"new"}],"throws":"actions must be a command map"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"repository"},{"path":["notifications"],"value":true}],"throws":"Unknown deckhand.json setting: notifications"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"repository"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"throws":"actions must be a command map"}
+{"args":[{"raw":"{\"actions\":[]}","exists":true,"kind":"repository"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"throws":"actions must be a command map"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"global"},{"path":["a","b","c"],"value":1}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"global"},{"path":["actions","bad name!"],"value":"x"}],"throws":"Invalid action name: bad name!"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"global"},{"path":["actions"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"global"},{"path":["devCommand"],"value":""}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"global"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"ret":"{\n  \"setupCommand\": \"日本語 😀 && echo\"\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"global"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"ret":"{\n  \"worktree\": {\n    \"branchName\": \"{user}/{name}\"\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"global"},{"path":["worktree","location"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"repository"},{"path":["a","b","c"],"value":1}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"repository"},{"path":["actions","bad name!"],"value":"x"}],"throws":"Invalid action name: bad name!"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"repository"},{"path":["agent_hooks"],"value":true}],"throws":"Unknown deckhand.json setting: agent_hooks"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"repository"},{"path":["devCommand"],"value":""}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"repository"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"ret":"{\n  \"setupCommand\": \"日本語 😀 && echo\"\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"repository"},{"path":["worktree","hook"],"value":false}],"ret":"{\n  \"worktree\": {\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":false,"kind":"repository"},{"path":["worktree","location"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"global"},{"path":["a","b","c"]}],"ret":"{\n  \"actions\": {\n    \"a\": \"b\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"n\"\n    ],\n    \"files\": {\n      \"f\": \"g\"\n    }\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"global"},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"a\": \"b\",\n    \"test\": \"npm test\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"n\"\n    ],\n    \"files\": {\n      \"f\": \"g\"\n    }\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"global"},{"path":["agent_hooks"],"value":true}],"throws":"Unknown defaults setting: agent_hooks"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"global"},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"actions\": {\n    \"a\": \"b\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"n\"\n    ],\n    \"files\": {\n      \"f\": \"g\"\n    }\n  },\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"global"},{"path":["unknownKey"],"value":1}],"throws":"Unknown defaults setting: unknownKey"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"global"},{"path":["worktree","hook"],"value":false}],"ret":"{\n  \"actions\": {\n    \"a\": \"b\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"n\"\n    ],\n    \"files\": {\n      \"f\": \"g\"\n    },\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"global"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"Invalid worktree.symlink path: \"../escape\""}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"repository"},{"path":["a","b","c"]}],"ret":"{\n  \"actions\": {\n    \"a\": \"b\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"n\"\n    ],\n    \"files\": {\n      \"f\": \"g\"\n    }\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"repository"},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"a\": \"b\",\n    \"test\": \"npm test\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"n\"\n    ],\n    \"files\": {\n      \"f\": \"g\"\n    }\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"repository"},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"actions\": {\n    \"a\": \"b\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"n\"\n    ],\n    \"files\": {\n      \"f\": \"g\"\n    }\n  },\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"repository"},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"actions\": {\n    \"a\": \"b\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"n\"\n    ],\n    \"files\": {\n      \"f\": \"g\"\n    }\n  },\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"repository"},{"path":["unknownKey"],"value":1}],"throws":"Unknown deckhand.json setting: unknownKey"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"repository"},{"path":["worktree","hook"]}],"ret":"{\n  \"actions\": {\n    \"a\": \"b\"\n  },\n  \"worktree\": {\n    \"branchFrom\": \"origin\",\n    \"symlink\": [\n      \"n\"\n    ],\n    \"files\": {\n      \"f\": \"g\"\n    }\n  }\n}\n"}
+{"args":[{"raw":"{\"actions\":{\"a\":\"b\"},\"worktree\":{\"branchFrom\":\"origin\",\"symlink\":[\"n\"],\"files\":{\"f\":\"g\"}}}","exists":true,"kind":"repository"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"Invalid worktree.symlink path: \"../escape\""}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"global"},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"global"},{"path":["actions","test"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"global"},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"global"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"global"},{"path":["unknownKey"],"value":1}],"throws":"Unknown defaults setting: unknownKey"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"global"},{"path":["worktree","hook"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"global"},{"path":["worktree","symlink"],"value":["a","b"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"repository"},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"repository"},{"path":["actions","test"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"repository"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"repository"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"worktree.branchFrom must be one of current, default, origin"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"repository"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"worktree.location must contain {name}"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":false,"kind":"repository"},{"path":["worktree","symlink"],"value":["a","b"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"global"},{"path":["actions","a"],"value":""}],"throws":"Unknown defaults setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"global"},{"path":["actions"],"value":{"z":"y"}}],"throws":"Unknown defaults setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"global"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Unknown defaults setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"global"},{"path":["devCommand"]}],"throws":"Unknown defaults setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"global"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"Unknown defaults setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"global"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"Unknown defaults setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"global"},{"path":["worktree","symlink"]}],"throws":"Unknown defaults setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"repository"},{"path":["actions","a"],"value":""}],"throws":"Unknown deckhand.json setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"repository"},{"path":["actions"],"value":{"z":"y"}}],"throws":"Unknown deckhand.json setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"repository"},{"path":["defaultWorkspace"],"value":"new"}],"throws":"Unknown deckhand.json setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"repository"},{"path":["devCommand"]}],"throws":"Unknown deckhand.json setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"origin"}],"throws":"Unknown deckhand.json setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"repository"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"throws":"Unknown deckhand.json setting: unknown"}
+{"args":[{"raw":"{\"devCommand\":\"d\",\"unknown\":{\"k\":[1,2]}}","exists":true,"kind":"repository"},{"path":["worktree","symlink"]}],"throws":"Unknown deckhand.json setting: unknown"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"global"},{"path":["actions","a"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"global"},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"global"},{"path":["defaultWorkspace"],"value":"new"}],"ret":"{\n  \"defaultWorkspace\": \"new\"\n}\n"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"global"},{"path":["notifications"],"value":true}],"throws":"Unknown defaults setting: notifications"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"global"},{"path":["worktree","branchFrom"],"value":"origin"}],"ret":"{\n  \"worktree\": {\n    \"branchFrom\": \"origin\"\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"global"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"ret":"{\n  \"worktree\": {\n    \"location\": \"{repoParent}/wt/{name}\"\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"repository"},{"path":["a","b","c"],"value":1}],"throws":"Unknown deckhand.json setting: a"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"repository"},{"path":["actions","a"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"repository"},{"path":["actions"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"repository"},{"path":["devCommand"],"value":""}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"repository"},{"path":["notifications"],"value":true}],"throws":"Unknown deckhand.json setting: notifications"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"repository"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"ret":"{\n  \"worktree\": {\n    \"branchName\": \"{user}/{name}\"\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":5}","exists":false,"kind":"repository"},{"path":["worktree","location"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"global"},{"path":["a","b","c"],"value":1}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"global"},{"path":["actions","bad name!"],"value":"x"}],"throws":"Invalid action name: bad name!"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"global"},{"path":["actions"]}],"throws":"worktree must be an object"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"global"},{"path":["devCommand"],"value":""}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"global"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"throws":"worktree must be an object"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"global"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"throws":"worktree is not an object; press E to repair it first"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"global"},{"path":["worktree","location"]}],"throws":"worktree is not an object; press E to repair it first"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"repository"},{"path":["a","b","c"]}],"throws":"worktree must be an object"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"repository"},{"path":["actions","bad name!"],"value":"x"}],"throws":"Invalid action name: bad name!"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"repository"},{"path":["agent_hooks"],"value":true}],"throws":"Unknown deckhand.json setting: agent_hooks"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"repository"},{"path":["devCommand"],"value":"make dev"}],"throws":"worktree must be an object"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"repository"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"throws":"worktree must be an object"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"repository"},{"path":["worktree","hook"],"value":false}],"throws":"worktree is not an object; press E to repair it first"}
+{"args":[{"raw":"{\"worktree\":5}","exists":true,"kind":"repository"},{"path":["worktree","location"]}],"throws":"worktree is not an object; press E to repair it first"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"global"},{"path":["a","b","c"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"global"},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"global"},{"path":["agent_hooks"],"value":true}],"throws":"Unknown defaults setting: agent_hooks"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"global"},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"global"},{"path":["unknownKey"],"value":1}],"throws":"Unknown defaults setting: unknownKey"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"global"},{"path":["worktree","hook"],"value":false}],"ret":"{\n  \"worktree\": {\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"global"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"Invalid worktree.symlink path: \"../escape\""}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"repository"},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"repository"},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"repository"},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"repository"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"repository"},{"path":["unknownKey"],"value":1}],"throws":"Unknown deckhand.json setting: unknownKey"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"repository"},{"path":["worktree","hook"]}],"ret":"{}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":false,"kind":"repository"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"Invalid worktree.symlink path: \"../escape\""}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"global"},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"global"},{"path":["actions","test"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"x\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"global"},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"x\"\n    ]\n  },\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"global"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"global"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"worktree.branchFrom must be one of current, default, origin"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"global"},{"path":["worktree","hook"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"x\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"global"},{"path":["worktree","symlink"],"value":["a","b"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"repository"},{"path":["actions","a"],"value":""}],"throws":"Invalid command: a"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"repository"},{"path":["actions","test"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"x\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"repository"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"repository"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"worktree.branchFrom must be one of current, default, origin"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"repository"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"worktree.location must contain {name}"}
+{"args":[{"raw":"{\"worktree\":{\"symlink\":[\"x\"]}}","exists":true,"kind":"repository"},{"path":["worktree","symlink"],"value":["a","b"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"global"},{"path":["actions","a"],"value":""}],"throws":"Invalid command: a"}
+{"args":[{"raw":"{broken","exists":false,"kind":"global"},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"global"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"{broken","exists":false,"kind":"global"},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"global"},{"path":["worktree","branchFrom"],"value":"origin"}],"ret":"{\n  \"worktree\": {\n    \"branchFrom\": \"origin\"\n  }\n}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"global"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"worktree.location must contain {name}"}
+{"args":[{"raw":"{broken","exists":false,"kind":"global"},{"path":["worktree","symlink"]}],"ret":"{}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"repository"},{"path":["actions","a"]}],"ret":"{}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"repository"},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"repository"},{"path":["defaultWorkspace"],"value":"new"}],"ret":"{\n  \"defaultWorkspace\": \"new\"\n}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"repository"},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"origin"}],"ret":"{\n  \"worktree\": {\n    \"branchFrom\": \"origin\"\n  }\n}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"repository"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"ret":"{\n  \"worktree\": {\n    \"location\": \"{repoParent}/wt/{name}\"\n  }\n}\n"}
+{"args":[{"raw":"{broken","exists":false,"kind":"repository"},{"path":["worktree","symlink"]}],"ret":"{}\n"}
+{"args":[{"raw":"{broken","exists":true,"kind":"global"},{"path":["actions","a"]}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"global"},{"path":["actions"]}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"global"},{"path":["defaultWorkspace"],"value":"new"}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"global"},{"path":["notifications"],"value":true}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"global"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"global"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"throws":"Global defaults are not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"repository"},{"path":["a","b","c"],"value":1}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"repository"},{"path":["actions","a"]}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"repository"},{"path":["actions"]}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"repository"},{"path":["devCommand"],"value":""}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"repository"},{"path":["notifications"],"value":true}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"repository"},{"path":["worktree","branchName"],"value":"{user}/{name}"}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{broken","exists":true,"kind":"repository"},{"path":["worktree","location"]}],"throws":"deckhand.json is not valid JSON; press E to repair it first"}
+{"args":[{"raw":"{}","exists":false,"kind":"global"},{"path":["a","b","c"],"value":1}],"throws":"Unknown defaults setting: a"}
+{"args":[{"raw":"{}","exists":false,"kind":"global"},{"path":["actions","bad name!"],"value":"x"}],"throws":"Invalid action name: bad name!"}
+{"args":[{"raw":"{}","exists":false,"kind":"global"},{"path":["agent_hooks"],"value":true}],"throws":"Unknown defaults setting: agent_hooks"}
+{"args":[{"raw":"{}","exists":false,"kind":"global"},{"path":["devCommand"],"value":""}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{}","exists":false,"kind":"global"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"ret":"{\n  \"setupCommand\": \"日本語 😀 && echo\"\n}\n"}
+{"args":[{"raw":"{}","exists":false,"kind":"global"},{"path":["worktree","hook"],"value":false}],"ret":"{\n  \"worktree\": {\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"raw":"{}","exists":false,"kind":"global"},{"path":["worktree","location"]}],"ret":"{}\n"}
+{"args":[{"raw":"{}","exists":false,"kind":"repository"},{"path":["a","b","c"]}],"ret":"{}\n"}
+{"args":[{"raw":"{}","exists":false,"kind":"repository"},{"path":["actions","bad name!"],"value":"x"}],"throws":"Invalid action name: bad name!"}
+{"args":[{"raw":"{}","exists":false,"kind":"repository"},{"path":["agent_hooks"],"value":true}],"throws":"Unknown deckhand.json setting: agent_hooks"}
+{"args":[{"raw":"{}","exists":false,"kind":"repository"},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"raw":"{}","exists":false,"kind":"repository"},{"path":["setupCommand"],"value":"日本語 😀 && echo"}],"ret":"{\n  \"setupCommand\": \"日本語 😀 && echo\"\n}\n"}
+{"args":[{"raw":"{}","exists":false,"kind":"repository"},{"path":["worktree","hook"],"value":false}],"ret":"{\n  \"worktree\": {\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"raw":"{}","exists":false,"kind":"repository"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"Invalid worktree.symlink path: \"../escape\""}
+{"args":[{"raw":"{}","exists":true,"kind":"global"},{"path":["a","b","c"]}],"ret":"{}\n"}
+{"args":[{"raw":"{}","exists":true,"kind":"global"},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"raw":"{}","exists":true,"kind":"global"},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"raw":"{}","exists":true,"kind":"global"},{"path":["devCommand"],"value":"make dev"}],"ret":"{\n  \"devCommand\": \"make dev\"\n}\n"}
+{"args":[{"raw":"{}","exists":true,"kind":"global"},{"path":["unknownKey"],"value":1}],"throws":"Unknown defaults setting: unknownKey"}
+{"args":[{"raw":"{}","exists":true,"kind":"global"},{"path":["worktree","hook"],"value":false}],"ret":"{\n  \"worktree\": {\n    \"hook\": false\n  }\n}\n"}
+{"args":[{"raw":"{}","exists":true,"kind":"global"},{"path":["worktree","symlink"],"value":["../escape"]}],"throws":"Invalid worktree.symlink path: \"../escape\""}
+{"args":[{"raw":"{}","exists":true,"kind":"repository"},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"raw":"{}","exists":true,"kind":"repository"},{"path":["actions","test"],"value":"npm test"}],"ret":"{\n  \"actions\": {\n    \"test\": \"npm test\"\n  }\n}\n"}
+{"args":[{"raw":"{}","exists":true,"kind":"repository"},{"path":["defaultAgent"],"value":"codex"}],"ret":"{\n  \"defaultAgent\": \"codex\"\n}\n"}
+{"args":[{"raw":"{}","exists":true,"kind":"repository"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"{}","exists":true,"kind":"repository"},{"path":["unknownKey"],"value":1}],"throws":"Unknown deckhand.json setting: unknownKey"}
+{"args":[{"raw":"{}","exists":true,"kind":"repository"},{"path":["worktree","hook"]}],"ret":"{}\n"}
+{"args":[{"raw":"{}","exists":true,"kind":"repository"},{"path":["worktree","symlink"],"value":["a","b"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"global"},{"path":["actions"," x"],"value":"x"}],"throws":"Invalid action name:  x"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"global"},{"path":["actions","test"]}],"ret":"{}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"global"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"global"},{"path":["devCommand"],"value":5}],"throws":"Invalid command: devCommand"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"global"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"worktree.branchFrom must be one of current, default, origin"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"global"},{"path":["worktree","hook"]}],"ret":"{}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"global"},{"path":["worktree","symlink"],"value":["a","b"]}],"ret":"{\n  \"worktree\": {\n    \"symlink\": [\n      \"a\",\n      \"b\"\n    ]\n  }\n}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"repository"},{"path":["actions","a"],"value":""}],"throws":"Invalid command: a"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"repository"},{"path":["actions","test"]}],"ret":"{}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"repository"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"repository"},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"bogus"}],"throws":"worktree.branchFrom must be one of current, default, origin"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"repository"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"worktree.location must contain {name}"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":false,"kind":"repository"},{"path":["worktree","symlink"]}],"ret":"{}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"global"},{"path":["actions","a"],"value":""}],"throws":"Invalid command: a"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"global"},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"devCommand\": \"x\",\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"global"},{"path":["defaultAgent"],"value":"nope"}],"throws":"Invalid defaultAgent"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"global"},{"path":["devCommand"]}],"ret":"{}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"global"},{"path":["worktree","branchFrom"],"value":"origin"}],"ret":"{\n  \"devCommand\": \"x\",\n  \"worktree\": {\n    \"branchFrom\": \"origin\"\n  }\n}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"global"},{"path":["worktree","location"],"value":"/no-name"}],"throws":"worktree.location must contain {name}"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"global"},{"path":["worktree","symlink"]}],"ret":"{\n  \"devCommand\": \"x\"\n}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"repository"},{"path":["actions","a"]}],"ret":"{\n  \"devCommand\": \"x\"\n}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"repository"},{"path":["actions"],"value":{"z":"y"}}],"ret":"{\n  \"devCommand\": \"x\",\n  \"actions\": {\n    \"z\": \"y\"\n  }\n}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"repository"},{"path":["defaultWorkspace"],"value":"new"}],"ret":"{\n  \"devCommand\": \"x\",\n  \"defaultWorkspace\": \"new\"\n}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"repository"},{"path":["notifications"],"value":true}],"throws":"Unknown deckhand.json setting: notifications"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"repository"},{"path":["worktree","branchFrom"],"value":"origin"}],"ret":"{\n  \"devCommand\": \"x\",\n  \"worktree\": {\n    \"branchFrom\": \"origin\"\n  }\n}\n"}
+{"args":[{"raw":"﻿{\"devCommand\":\"x\"}","exists":true,"kind":"repository"},{"path":["worktree","location"],"value":"{repoParent}/wt/{name}"}],"ret":"{\n  \"devCommand\": \"x\",\n  \"worktree\": {\n    \"location\": \"{repoParent}/wt/{name}\"\n  }\n}\n"}
