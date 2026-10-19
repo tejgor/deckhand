@@ -1,8 +1,7 @@
 # ⚓ Deckhand
 
-[![npm version](https://img.shields.io/npm/v/@tejgor/deckhand.svg)](https://www.npmjs.com/package/@tejgor/deckhand)
+[![Release](https://img.shields.io/github/v/release/tejgor/deckhand.svg)](https://github.com/tejgor/deckhand/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/node/v/@tejgor/deckhand.svg)](https://nodejs.org)
 
 **A lightweight agent workbench for your IDE terminal.**
 
@@ -69,24 +68,39 @@ See [the feature guide](docs/no-brainers.md) and [isolated dev testing](docs/dev
 
 ## 📋 Requirements
 
-- **Node.js**: `>= 20`
-- **OS**: macOS or Linux with a POSIX shell
+- **OS**: macOS or Linux (x86_64 or aarch64) with a POSIX shell. Deckhand is a single native binary: no Node.js or other runtime is needed
+- **Rust** *(only to build from source)*: 1.88 or newer
 - **Git**: `git` on `PATH`
 - **Agents**: `claude`, `pi`, and/or `codex` on `PATH` — whichever agents you plan to run
-- **Optional**: [`lazygit`](https://github.com/jesseduffield/lazygit) on `PATH`, attached from the Git tab with `o`
+- **Optional**: `npm` on `PATH` (only for the agent update check), [`lazygit`](https://github.com/jesseduffield/lazygit) on `PATH`, attached from the Git tab with `o`
 
 ---
 
 ## 🚀 Installation
 
-Deckhand requires Node.js 20 or newer. If you do not have Node installed, install the latest recommended version from the [Node.js website](https://nodejs.org/en/download/).
+Deckhand is a single native binary named `deckhand`. Pick one way to get it.
 
-Install Deckhand globally from npm:
+**From a GitHub release.** Download the archive for your platform from the [releases page](https://github.com/tejgor/deckhand/releases) (`aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu` or `aarch64-unknown-linux-gnu`), check it against `SHA256SUMS`, and put the binary on your `PATH`:
 
 ```bash
-npm install -g @tejgor/deckhand
+tar -xzf deckhand-v3.0.0-aarch64-apple-darwin.tar.gz
+shasum -a 256 -c SHA256SUMS --ignore-missing      # run next to the downloaded archive
+install -m 755 deckhand-v3.0.0-aarch64-apple-darwin/deckhand ~/.local/bin/deckhand
 deckhand
 ```
+
+On macOS a downloaded binary may be quarantined; if Gatekeeper blocks it, run `xattr -d com.apple.quarantine ~/.local/bin/deckhand`.
+
+**From source with cargo.**
+
+```bash
+cargo install --git https://github.com/tejgor/deckhand deckhand   # latest main
+# or, from a checkout:
+cargo install --path crates/deckhand
+deckhand
+```
+
+`cargo install` puts the binary in `~/.cargo/bin`; make sure that directory is on your `PATH`. Check the install with `deckhand --version`.
 
 ### First-Time Setup
 
@@ -105,7 +119,7 @@ The setup helper installs:
 
 ### Keeping Agents Up to Date
 
-Press `U` in Deckhand to see each agent's installed version beside its latest release (from npm), and press Enter to run that agent's own updater (`claude update`, `codex update`, `pi update --self`). Running sessions are never restarted: they keep the version they launched with until you restart them, and the sidebar marks them with a dim `↑`. When an update is available the header says so quietly (e.g. `codex update · U`). Installing a missing agent is still `deckhand setup`'s job.
+Press `U` in Deckhand to see each agent's installed version beside its latest release (looked up with `npm view`; without `npm` on `PATH` it shows "latest unknown" and everything else works), and press Enter to run that agent's own updater (`claude update`, `codex update`, `pi update --self`). Running sessions are never restarted: they keep the version they launched with until you restart them, and the sidebar marks them with a dim `↑`. When an update is available the header says so quietly (e.g. `codex update · U`). Installing a missing agent is still `deckhand setup`'s job.
 
 ### Optional: Lazygit
 
@@ -345,7 +359,7 @@ Deckhand reads configuration from `~/.deckhand/config.json`. `DECKHAND_HOME` sel
 
 Session defaults, a Dev command, a setup command and layout/symlinks for new worktrees, and named actions come from two layers, both edited in place from the **C** Settings screen: global `defaults` in your user `config.json` (never need trust), overridden per repository by one `deckhand.json` in the main checkout. The repository file applies only once you trust its exact contents; Deckhand asks inline (Enter trusts, `s` continues with global defaults only) when you create a session, open actions, start Dev or retry setup. Edits you make in Deckhand keep the file trusted if it was trusted (or new); changes from outside need review — see [project configuration, trust and cleanup](docs/no-brainers.md) for the full behaviour.
 
-**Agent signals** and optional **Notifications** (Settings → Agents, global only; `agent_hooks`/`notifications` in user config) enable capability-gated lifecycle integration and best-effort desktop notifications. Agent signals are on for Claude unless switched off (Claude needs nothing else); switching them on adds Codex, which needs `deckhand hooks codex` in `~/.codex/hooks.json` (Settings warns when it's missing). Notifications default off. A session's details (and its notification) say what it waits on: the question it asks with its options, a plan to approve, the command it asks permission for, or the last line of its reply. Native approvals stay in agent terminals.
+**Agent signals** and optional **Notifications** (Settings → Agents, global only; `agent_hooks`/`notifications` in user config) enable capability-gated lifecycle integration and best-effort desktop notifications. Agent signals are on for Claude unless switched off (Claude needs nothing else); switching them on adds Codex, which needs its hooks configured: run `deckhand hooks codex`, merge the JSON it prints into `~/.codex/hooks.json` (Deckhand never writes to the Codex home), then review them with `/hooks` in Codex. Settings warns when they are missing. If Codex's hook config still calls the old Node bridge (`node … cli.js hook`, left over from a pre-native install), Settings and `deckhand doctor` warn about that stale command too and tell you to regenerate it with `deckhand hooks codex`; `deckhand hooks` (no argument) prints the Claude-style settings. Notifications default off. A session's details (and its notification) say what it waits on: the question it asks with its options, a plan to approve, the command it asks permission for, or the last line of its reply. Native approvals stay in agent terminals.
 
 ### Terminal, Git and Dev Panes
 
@@ -462,14 +476,14 @@ echo "$DIR"
 
 ## 🏗️ Architecture
 
-Deckhand has four main pieces:
+Deckhand is one native binary that plays four roles, selected by how it is started:
 
-1. **Ink Frontend** — renders the terminal UI, sends requests to the daemon, and attaches to live panes on request.
+1. **UI** — a [ratatui](https://ratatui.rs) terminal frontend that sends requests to the daemon and hands your terminal to a live pane on request.
 2. **Local Daemon** — owns session state, IPC, worktree operations, and worker supervision.
 3. **Session Workers** — one per running session; each owns the agent PTY.
 4. **Workspace Workers** — one per worktree in use (started on demand: the first Terminal view, lazygit attach, or starting Dev); each owns the Terminal (shell), lazygit and Dev PTYs shared by every session in that worktree. The Git tab's Changes view needs no worker: the daemon reads Git status for the worktrees being watched.
 
-Terminal output is fed into a headless [`xterm.js`](https://github.com/xtermjs/xterm.js) model. The UI receives rendered snapshots for previews, while attach mode streams input and output directly between your terminal and the selected PTY.
+The daemon and workers are the same executable re-launched with an internal flag; the daemon talks to each worker over a private NDJSON channel. Terminal output is fed into a headless terminal emulator ([`alacritty_terminal`](https://crates.io/crates/alacritty_terminal)). The UI receives rendered snapshots for previews, while attach mode streams input and output directly between your terminal and the selected PTY. See [HANDOFF.md](HANDOFF.md) for the crate layout.
 
 ### Daemon Lifecycle
 
@@ -486,30 +500,26 @@ Deckhand spawns a long-lived supervisor daemon the first time you launch the UI.
 
 ## 🛠️ Development
 
-**Preview safely alongside a production daemon:** `npm start` builds and opens the isolated dev build in a disposable sandbox; `npm stop`, `npm restart` and `npm run status` control only that dev daemon. No global link/install or production restart. See [the testing checklist](docs/dev-build.md).
-
-For ordinary local development, install from source. The plain `dev`/`daemon` commands below share production state unless you explicitly configure isolation:
+**Preview safely alongside a production daemon:** `scripts/deckhand-dev.sh --sandbox` runs this checkout's build against an isolated state directory (`~/.deckhand-dev`) in a disposable sandbox repository; `scripts/deckhand-dev.sh status` and `stop` control only that dev daemon. No install, no production restart. See [docs/dev-build.md](docs/dev-build.md).
 
 ```bash
 git clone https://github.com/tejgor/deckhand.git
 cd deckhand
-npm install
-npm run dev      # run from source via tsx
-npm run daemon   # run only the daemon in dev mode
-npm run build    # compile to dist/
-npm link         # link globally
+cargo build -p deckhand                  # target/debug/deckhand
+cargo nextest run --workspace            # unit, parity and e2e tests (cargo test works too)
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all --check
 ```
 
-After changing source code, rebuild with `npm run build` before re-running the linked CLI.
-
-> **macOS note:** `npm install` runs `scripts/fix-node-pty.js`, which attempts to repair the `node-pty` `spawn-helper` binary. See [Troubleshooting](#-troubleshooting) if install fails.
+Tests use temporary `DECKHAND_HOME` and `HOME` directories and fake agents; they never touch `~/.deckhand` or start a real agent. Debug builds refuse `~/.deckhand` unless `DECKHAND_ALLOW_PROD_HOME=1`. The manual end-to-end checklist is [docs/port-smoke.md](docs/port-smoke.md).
 
 ---
 
 ## 🚑 Troubleshooting
 
 - **`deckhand` can't find an agent:** Confirm the binary is on `PATH` with `which claude`, `which pi`, or `which codex`. Deckhand inherits the launching shell's environment.
-- **`node-pty` fails to load on macOS:** Re-run the repair script directly: `node scripts/fix-node-pty.js`. If that doesn't help, reinstall: `rm -rf node_modules && npm install`.
+- **Codex hooks warning mentioning `cli.js hook`:** Codex's hook config still points at the old Node bridge. Run `deckhand hooks codex`, merge the output into `~/.codex/hooks.json`, and review it with `/hooks` in Codex. `deckhand doctor` (read-only) reports the same.
+- **macOS says the binary can't be opened:** it was downloaded and quarantined: `xattr -d com.apple.quarantine "$(command -v deckhand)"`. Binaries built with `cargo install` are not affected.
 - **Stale daemon socket or PID:** If `deckhand` hangs at startup, the supervisor may have exited uncleanly. Remove stale files: `rm -f ~/.deckhand/daemon.pid ~/.deckhand/daemon.sock` and relaunch.
 - **`o` on the Git tab fails:** Install [`lazygit`](https://github.com/jesseduffield/lazygit) and ensure it is on `PATH`. The Changes list itself only needs `git`.
 - **Dev tab does nothing:** Press `d` twice quickly (or `r` and choose **Dev**, the first row) to start or stop the command; a single `d` only shows the tab. Ensure a `devCommand` is set in global defaults (**C**) or a trusted `deckhand.json`.
@@ -519,8 +529,11 @@ After changing source code, rebuild with `npm run build` before re-running the l
 ## 🗑️ Uninstall
 
 ```bash
-npm uninstall -g @tejgor/deckhand
+cargo uninstall deckhand      # if installed with cargo install
+rm "$(command -v deckhand)"   # if installed from a release archive
 ```
+
+Stop the daemon first (see [Daemon Lifecycle](#daemon-lifecycle)): it ends all running sessions.
 
 To remove all local state (sessions, logs, and auto-created worktrees):
 
@@ -534,7 +547,7 @@ rm -rf ~/.deckhand
 
 ## 🤝 Contributing
 
-Issues and pull requests are welcome. For larger changes, please open an issue first to discuss the approach. Run `npm test` and confirm the isolated CLI launches before sending a PR.
+Issues and pull requests are welcome. For larger changes, please open an issue first to discuss the approach. Run `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo nextest run --workspace`, and confirm the isolated build launches (`scripts/deckhand-dev.sh --sandbox`) before sending a PR.
 
 ## 📄 License
 
