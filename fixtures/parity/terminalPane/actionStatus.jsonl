@@ -1,0 +1,217 @@
+{"args":[{"content":" ","live":false,"exitCode":-1,"exitSignal":null}],"ret":{"text":"✗ exit -1","color":"red"}}
+{"args":[{"content":" ","live":false,"exitCode":0}],"ret":{"text":"✓ exit 0","color":"green"}}
+{"args":[{"content":" ","live":false,"exitCode":null,"exitSignal":null}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"","exitCode":-1,"exitSignal":null}],"ret":{"text":"✗ exit -1","color":"red"}}
+{"args":[{"content":"","exitCode":1,"exitSignal":0}],"ret":{"text":"✗ exit 1","color":"red"}}
+{"args":[{"content":"","exitCode":1,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","exitCode":1,"exitSignal":null}],"ret":{"text":"✗ exit 1","color":"red"}}
+{"args":[{"content":"","exitCode":127,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","exitCode":1}],"ret":{"text":"✗ exit 1","color":"red"}}
+{"args":[{"content":"","exitCode":2}],"ret":{"text":"✗ exit 2","color":"red"}}
+{"args":[{"content":"","exitCode":null}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"","exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-1,"exitSignal":0}],"ret":{"text":"✗ exit -1","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-1,"exitSignal":14}],"ret":{"text":"✗ signal 14","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-1,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-1,"exitSignal":18}],"ret":{"text":"✗ signal 18","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-1,"exitSignal":1}],"ret":{"text":"✗ signal 1","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-1,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-1,"exitSignal":null}],"ret":{"text":"✗ exit -1","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-1}],"ret":{"text":"✗ exit -1","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-2,"exitSignal":0}],"ret":{"text":"✗ exit -2","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-2,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-2,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":-2}],"ret":{"text":"✗ exit -2","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":0,"exitSignal":0}],"ret":{"text":"✓ exit 0","color":"green"}}
+{"args":[{"content":"","live":false,"exitCode":0,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":0,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":0,"exitSignal":null}],"ret":{"text":"✓ exit 0","color":"green"}}
+{"args":[{"content":"","live":false,"exitCode":0}],"ret":{"text":"✓ exit 0","color":"green"}}
+{"args":[{"content":"","live":false,"exitCode":1,"exitSignal":0}],"ret":{"text":"✗ exit 1","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":1,"exitSignal":14}],"ret":{"text":"✗ signal 14","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":1,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":1,"exitSignal":8}],"ret":{"text":"✗ signal 8","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":1,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":1,"exitSignal":null}],"ret":{"text":"✗ exit 1","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":126,"exitSignal":null}],"ret":{"text":"✗ exit 126","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":127,"exitSignal":-1}],"ret":{"text":"✗ signal -1","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":127,"exitSignal":0}],"ret":{"text":"✗ exit 127","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":127,"exitSignal":14}],"ret":{"text":"✗ signal 14","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":127,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":127,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":127,"exitSignal":null}],"ret":{"text":"✗ exit 127","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":127}],"ret":{"text":"✗ exit 127","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":128,"exitSignal":0}],"ret":{"text":"✗ exit 128","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":128,"exitSignal":null}],"ret":{"text":"✗ exit 128","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":1}],"ret":{"text":"✗ exit 1","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":2,"exitSignal":0}],"ret":{"text":"✗ exit 2","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":2,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":2,"exitSignal":16}],"ret":{"text":"✗ signal 16","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":2,"exitSignal":30}],"ret":{"text":"✗ signal 30","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":2,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":2,"exitSignal":null}],"ret":{"text":"✗ exit 2","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":254}],"ret":{"text":"✗ exit 254","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":2}],"ret":{"text":"✗ exit 2","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":3,"exitSignal":0}],"ret":{"text":"✗ exit 3","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":3,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":3,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":null,"exitSignal":0}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"","live":false,"exitCode":null,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":null,"exitSignal":30}],"ret":{"text":"✗ signal 30","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":null,"exitSignal":8}],"ret":{"text":"✗ signal 8","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":null,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitCode":null,"exitSignal":null}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"","live":false,"exitCode":null}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"","live":false,"exitSignal":0}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"","live":false,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"","live":false,"exitSignal":30}],"ret":{"text":"✗ signal 30","color":"red"}}
+{"args":[{"content":"","live":false,"exitSignal":8}],"ret":{"text":"✗ signal 8","color":"red"}}
+{"args":[{"content":"","live":false,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"","live":false,"exitSignal":null}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"","live":false}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"","live":true,"exitCode":-1,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":-1,"exitSignal":14}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":-1,"exitSignal":15}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":-1,"exitSignal":1}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":-1,"exitSignal":9}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":-1,"exitSignal":null}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":-1}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":-2}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":0,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":0,"exitSignal":15}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":0,"exitSignal":9}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":0,"exitSignal":null}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":1,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":1,"exitSignal":15}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":1,"exitSignal":9}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":1,"exitSignal":null}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":127,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":127,"exitSignal":15}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":127,"exitSignal":9}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":127,"exitSignal":null}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":127}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":1}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":2,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":2,"exitSignal":15}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":2,"exitSignal":9}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":2,"exitSignal":null}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":2}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":null,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":null,"exitSignal":15}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":null,"exitSignal":9}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":null,"exitSignal":null}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitCode":null}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitSignal":15}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitSignal":9}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true,"exitSignal":null}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"","live":true}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":""}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"-","live":false,"exitCode":0,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"/","live":false,"exitCode":0,"exitSignal":0}],"ret":{"text":"✓ exit 0","color":"green"}}
+{"args":[{"content":"/","live":false}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"0","live":false,"exitCode":1,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"0","live":false,"exitCode":null,"exitSignal":0}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"Z","live":false,"exitCode":0,"exitSignal":0}],"ret":{"text":"✓ exit 0","color":"green"}}
+{"args":[{"content":"Z","live":false,"exitSignal":null}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"\n","live":false,"exitCode":-1,"exitSignal":null}],"ret":{"text":"✗ exit -1","color":"red"}}
+{"args":[{"content":"\n","live":false,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"\t","live":false,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"_","live":false,"exitCode":1,"exitSignal":null}],"ret":{"text":"✗ exit 1","color":"red"}}
+{"args":[{"content":"a","live":false,"exitCode":127,"exitSignal":9}],"ret":{"text":"✗ signal 9","color":"red"}}
+{"args":[{"content":"b","live":false,"exitCode":127,"exitSignal":null}],"ret":{"text":"✗ exit 127","color":"red"}}
+{"args":[{"content":"b","live":false,"exitCode":null,"exitSignal":null}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-1,"exitSignal":39}],"ret":{"text":"✗ signal 39","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-100,"exitSignal":17}],"ret":{"text":"✗ signal 17","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-108,"exitSignal":54}],"ret":{"text":"✗ signal 54","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-115,"exitSignal":60}],"ret":{"text":"✗ signal 60","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-119,"exitSignal":1}],"ret":{"text":"✗ signal 1","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-119,"exitSignal":62}],"ret":{"text":"✗ signal 62","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-165,"exitSignal":49}],"ret":{"text":"✗ signal 49","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-188,"exitSignal":3}],"ret":{"text":"✗ signal 3","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-191,"exitSignal":56}],"ret":{"text":"✗ signal 56","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-218,"exitSignal":1}],"ret":{"text":"✗ signal 1","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-24,"exitSignal":63}],"ret":{"text":"✗ signal 63","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-240,"exitSignal":10}],"ret":{"text":"✗ signal 10","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-247,"exitSignal":29}],"ret":{"text":"✗ signal 29","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-286,"exitSignal":19}],"ret":{"text":"✗ signal 19","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-294,"exitSignal":2}],"ret":{"text":"✗ signal 2","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-295,"exitSignal":16}],"ret":{"text":"✗ signal 16","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-295,"exitSignal":3}],"ret":{"text":"✗ signal 3","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-296,"exitSignal":48}],"ret":{"text":"✗ signal 48","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-300,"exitSignal":4}],"ret":{"text":"✗ signal 4","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-32,"exitSignal":60}],"ret":{"text":"✗ signal 60","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-5,"exitSignal":63}],"ret":{"text":"✗ signal 63","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-72,"exitSignal":60}],"ret":{"text":"✗ signal 60","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-75,"exitSignal":63}],"ret":{"text":"✗ signal 63","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-8,"exitSignal":28}],"ret":{"text":"✗ signal 28","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":-95,"exitSignal":26}],"ret":{"text":"✗ signal 26","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":1,"exitSignal":52}],"ret":{"text":"✗ signal 52","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":1,"exitSignal":5}],"ret":{"text":"✗ signal 5","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":108,"exitSignal":45}],"ret":{"text":"✗ signal 45","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":137,"exitSignal":6}],"ret":{"text":"✗ signal 6","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":168,"exitSignal":33}],"ret":{"text":"✗ signal 33","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":170,"exitSignal":1}],"ret":{"text":"✗ signal 1","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":179,"exitSignal":23}],"ret":{"text":"✗ signal 23","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":180,"exitSignal":12}],"ret":{"text":"✗ signal 12","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":196,"exitSignal":0}],"ret":{"text":"✗ exit 196","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":246,"exitSignal":35}],"ret":{"text":"✗ signal 35","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":257,"exitSignal":60}],"ret":{"text":"✗ signal 60","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":27,"exitSignal":10}],"ret":{"text":"✗ signal 10","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":278,"exitSignal":44}],"ret":{"text":"✗ signal 44","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":5,"exitSignal":18}],"ret":{"text":"✗ signal 18","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":50,"exitSignal":6}],"ret":{"text":"✗ signal 6","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":6,"exitSignal":62}],"ret":{"text":"✗ signal 62","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":8,"exitSignal":2}],"ret":{"text":"✗ signal 2","color":"red"}}
+{"args":[{"content":"out","live":false,"command":"x","exitCode":85,"exitSignal":46}],"ret":{"text":"✗ signal 46","color":"red"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-1,"exitSignal":31}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-100,"exitSignal":4}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-175,"exitSignal":25}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-202,"exitSignal":4}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-206,"exitSignal":4}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-238,"exitSignal":64}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-295,"exitSignal":1}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-296,"exitSignal":21}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-299,"exitSignal":5}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-299,"exitSignal":63}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-41,"exitSignal":5}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-47,"exitSignal":13}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-62,"exitSignal":34}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-73,"exitSignal":57}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-8,"exitSignal":59}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-85,"exitSignal":55}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-97,"exitSignal":32}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":-99,"exitSignal":6}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":122,"exitSignal":10}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":163,"exitSignal":38}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":19,"exitSignal":2}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":198,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":2,"exitSignal":1}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":203,"exitSignal":3}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":211,"exitSignal":42}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":219,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":230,"exitSignal":64}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":272,"exitSignal":3}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":294,"exitSignal":56}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":299,"exitSignal":0}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":4,"exitSignal":6}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":45,"exitSignal":46}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":48,"exitSignal":55}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":75,"exitSignal":60}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":8,"exitSignal":41}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":83,"exitSignal":20}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"out","live":true,"command":"x","exitCode":99,"exitSignal":11}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"ß","live":false,"exitCode":null,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"ß","live":false,"exitSignal":0}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"ß","live":false,"exitSignal":null}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"ß","live":true,"exitCode":-1,"exitSignal":null}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"é","live":false,"exitCode":null,"exitSignal":0}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"é","live":false,"exitSignal":0}],"ret":{"text":"○ stopped","color":"gray"}}
+{"args":[{"content":"é","live":true,"exitCode":-1,"exitSignal":15}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"‍","live":false,"exitCode":0,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"‍","live":false,"exitCode":2,"exitSignal":null}],"ret":{"text":"✗ exit 2","color":"red"}}
+{"args":[{"content":"‍","live":true,"exitCode":-1,"exitSignal":15}],"ret":{"text":"● running","color":"green"}}
+{"args":[{"content":"😀","live":false,"exitCode":2,"exitSignal":null}],"ret":{"text":"✗ exit 2","color":"red"}}
+{"args":[{"content":"😀","live":false,"exitCode":null,"exitSignal":15}],"ret":{"text":"✗ signal 15","color":"red"}}
+{"args":[{"content":"😀","live":false,"exitCode":null,"exitSignal":null}],"ret":{"text":"○ stopped","color":"gray"}}
