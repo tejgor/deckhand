@@ -10,7 +10,37 @@ ts_tests = ["tests/worktreeRecords.test.ts", "tests/workspace.test.ts", "tests/s
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = [
+  "worktreeRecords/liveWorktreeRecord",
+  "worktreeRecords/migrateDoneMarkers",
+  "worktreeRecords/migrateWorktreeRecords",
+  "worktreeRecords/ownWorktreePath",
+  "worktreeRecords/projectWorktree",
+  "worktreeRecords/storedSession",
+  "worktreeRecords/withoutMarkers",
+  "worktreeRecords/worktreeMarkers",
+  "workspace/noWorkspaceReason",
+  "workspace/workspaceKey",
+  "workspace/workspacePaneUnavailable",
+  "workspace/workspaceWorkerId",
+  "sessionScope/isPathInside",
+  "sessionScope/sessionMatchesScope",
+  "sessionOrder/compareSessionOrder",
+  "sessionOrder/countHiddenSessionDescendants",
+  "sessionOrder/countSessionDescendants",
+  "sessionOrder/filterCollapsedSessions",
+  "sessionOrder/sessionDepth",
+  "sessionOrder/sessionDescendants",
+  "sessionOrder/sessionHasChildren",
+  "sessionOrder/sortSessionsForSidebar",
+  "worktreeLinks-P2/branchNameProblem",
+  "worktreeLinks-P2/expandBranchName",
+  "worktreeLinks-P2/expandWorktreeTemplate",
+  "worktreeLinks-P2/mergeWorktreeSettings",
+  "worktreeLinks-P2/validRelativePath",
+  "worktreeLinks-P2/validateWorktreeSettings",
+  "worktreeLinks-P2/worktreeLocation",
+]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
