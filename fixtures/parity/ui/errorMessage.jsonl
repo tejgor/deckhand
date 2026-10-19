@@ -1,0 +1,21 @@
+{"args":[""],"ret":""}
+{"args":["plain string"],"ret":"plain string"}
+{"args":["é😀"],"ret":"é😀"}
+{"args":[-1],"ret":"-1"}
+{"args":[0.30000000000000004],"ret":"0.30000000000000004"}
+{"args":[0],"ret":"0"}
+{"args":[1.5],"ret":"1.5"}
+{"args":[1e+21],"ret":"1e+21"}
+{"args":[42],"ret":"42"}
+{"args":[false],"ret":"false"}
+{"args":[null],"ret":"null"}
+{"args":[true],"ret":"true"}
+{"args":[{"$error":{"name":"CustomError","message":"custom 😀 中"}}],"ret":"custom 😀 中"}
+{"args":[{"$error":{"name":"Error","message":""}}],"ret":""}
+{"args":[{"$error":{"name":"Error","message":"boom"}}],"ret":"boom"}
+{"args":[{"$error":{"name":"Error","message":"multi\nline"}}],"ret":"multi\nline"}
+{"args":[{"$error":{"name":"TypeError","message":"bad type"}}],"ret":"bad type"}
+{"args":[{"$num":"-Infinity"}],"ret":"-Infinity"}
+{"args":[{"$num":"Infinity"}],"ret":"Infinity"}
+{"args":[{"$num":"NaN"}],"ret":"NaN"}
+{"args":[{"$u":1}],"ret":"undefined"}

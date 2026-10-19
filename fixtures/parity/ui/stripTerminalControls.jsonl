@@ -1,0 +1,252 @@
+{"args":["  "],"ret":"  "}
+{"args":[" "],"ret":" "}
+{"args":[" ;\n\r]\u0000😀é"],"ret":" ;]😀é"}
+{"args":[" ; \u00000\r"],"ret":" ; 0"}
+{"args":[" ?中\n\r\u001f"],"ret":" ?中"}
+{"args":[" @];? \u000b\r"],"ret":" @];? "}
+{"args":[" \t\u0000a]\n[0"],"ret":" a][0"}
+{"args":[" \u000b"],"ret":" "}
+{"args":[" \u001b"],"ret":" "}
+{"args":[" a/\n😀\t\n"],"ret":" a/😀"}
+{"args":[""],"ret":""}
+{"args":["//é"],"ret":"//é"}
+{"args":["/\r"],"ret":"/"}
+{"args":["/\u0000@["],"ret":"/@["}
+{"args":["0K0\u0007"],"ret":"0K0"}
+{"args":["0[\u0000\u0007/K\u000000中"],"ret":"0[/K00中"}
+{"args":["0\b[?\u000b "],"ret":"0[? "}
+{"args":["0\u001b"],"ret":"0"}
+{"args":["0aKm ;"],"ret":"0aKm ;"}
+{"args":["0中\ra"],"ret":"0中a"}
+{"args":["; @"],"ret":"; @"}
+{"args":["; \n00\\"],"ret":"; 00\\"}
+{"args":[";@"],"ret":";@"}
+{"args":[";\n"],"ret":";"}
+{"args":[";\u0000中0😀\\\u0000;"],"ret":";中0😀\\;"}
+{"args":[";]\u001b\u000b[\b\n\t😀"],"ret":";][😀"}
+{"args":[";é"],"ret":";é"}
+{"args":[";é@\u001f😀\u001f😀"],"ret":";é@😀😀"}
+{"args":["?"],"ret":"?"}
+{"args":["?0"],"ret":"?0"}
+{"args":["?K[Z\u000bé"],"ret":"?K[Zé"}
+{"args":["?\u0000é"],"ret":"?é"}
+{"args":["?a"],"ret":"?a"}
+{"args":["?am0[m\u0007\b"],"ret":"?am0[m"}
+{"args":["?中"],"ret":"?中"}
+{"args":["@"],"ret":"@"}
+{"args":["@0\n]\b\u000b\b中"],"ret":"@0]中"}
+{"args":["@[/\u0007\u000b\\"],"ret":"@[/\\"}
+{"args":["@\\?"],"ret":"@\\?"}
+{"args":["@\b\u001b"],"ret":"@"}
+{"args":["@\n\u0007\ta\tZ 0"],"ret":"@aZ 0"}
+{"args":["@\u0000\u001f0\u0000\u0007"],"ret":"@0"}
+{"args":["@é\t~\u001f中\n"],"ret":"@é~中"}
+{"args":["K"],"ret":"K"}
+{"args":["KKé;~"],"ret":"KKé;~"}
+{"args":["K[?\\"],"ret":"K[?\\"}
+{"args":["K\\;"],"ret":"K\\;"}
+{"args":["K\n"],"ret":"K"}
+{"args":["K\n\nm~\n\u0000\nm"],"ret":"Km~m"}
+{"args":["K\t ;\u001b"],"ret":"K ;"}
+{"args":["K\u000b"],"ret":"K"}
+{"args":["K\u000b\téa 0"],"ret":"Kéa 0"}
+{"args":["K\b"],"ret":"K"}
+{"args":["K\r~?"],"ret":"K~?"}
+{"args":["Z"],"ret":"Z"}
+{"args":["Z/"],"ret":"Z/"}
+{"args":["Z\u0000]@;\\?\u0007"],"ret":"Z]@;\\?"}
+{"args":["Z\u0000] Z]\u0000"],"ret":"Z] Z]"}
+{"args":["Z\u0000@aé/Z\\"],"ret":"Z@aé/Z\\"}
+{"args":["Z]@ m]\\\u000b\u0007\n"],"ret":"Z]@ m]\\"}
+{"args":["Z😀"],"ret":"Z😀"}
+{"args":["Z😀\t\u000bé\né["],"ret":"Z😀éé["}
+{"args":["Z😀\t][@[/ 0"],"ret":"Z😀][@[/ 0"}
+{"args":["[ é 中"],"ret":"[ é 中"}
+{"args":["["],"ret":"["}
+{"args":["[;"],"ret":"[;"}
+{"args":["[?\t😀\u001b~"],"ret":"[?😀~"}
+{"args":["[Z[\t[\u000ba a"],"ret":"[Z[[a a"}
+{"args":["[\u001ba"],"ret":"[a"}
+{"args":["[]\\/\bé\t\b"],"ret":"[]\\/é"}
+{"args":["[mK0/😀\\m中~"],"ret":"[mK0/😀\\m中~"}
+{"args":["[é"],"ret":"[é"}
+{"args":["\\/\u001fK中\r"],"ret":"\\/K中"}
+{"args":["\\;\r\r\t/"],"ret":"\\;/"}
+{"args":["\\Z"],"ret":"\\Z"}
+{"args":["\\[\r\n"],"ret":"\\["}
+{"args":["\\\r\u001bm"],"ret":"\\m"}
+{"args":["\\\u0000\t \u001b;]aK"],"ret":"\\ ;]aK"}
+{"args":["\\\u0007@ \b/ "],"ret":"\\@ / "}
+{"args":["\\]é0?\u001f\u0007é@"],"ret":"\\]é0?é@"}
+{"args":["\b"],"ret":""}
+{"args":["\b\r@中\u001b@"],"ret":"@中"}
+{"args":["\b\\ \r;a 中"],"ret":"\\ ;a 中"}
+{"args":["\b "],"ret":" "}
+{"args":["\b中0"],"ret":"中0"}
+{"args":["\b😀"],"ret":"😀"}
+{"args":["\n0é\u001b"],"ret":"0é"}
+{"args":["\n;\u001b~"],"ret":";~"}
+{"args":["\nK\u001b0;\b?"],"ret":"K0;?"}
+{"args":["\nK\u001b~中"],"ret":"K~中"}
+{"args":["\n\n\n"],"ret":""}
+{"args":["\n\u000b\\😀é\u0007"],"ret":"\\😀é"}
+{"args":["\n~\u001b\\"],"ret":"~"}
+{"args":["\né\r\u001b"],"ret":"é"}
+{"args":["\n😀]"],"ret":"😀]"}
+{"args":["\n😀é K\u001b"],"ret":"😀é K"}
+{"args":["\r0😀"],"ret":"0😀"}
+{"args":["\r?\u0007\t\u0007😀"],"ret":"?😀"}
+{"args":["\r@~0\u001b\b\bZK"],"ret":"@~0ZK"}
+{"args":["\r\n mZ😀K\u0000"],"ret":" mZ😀K"}
+{"args":["\rx"],"ret":"x"}
+{"args":["\r; \u0000\u0007@Z"],"ret":"; @Z"}
+{"args":["\r中\u001b? "],"ret":"中? "}
+{"args":["\r😀 ]~\n"],"ret":"😀 ]~"}
+{"args":["\t "],"ret":" "}
+{"args":["\t;"],"ret":";"}
+{"args":["\t[\nKé\b\\@"],"ret":"[Ké\\@"}
+{"args":["\t\\\té~"],"ret":"\\é~"}
+{"args":["\t\n"],"ret":""}
+{"args":["\t\t"],"ret":""}
+{"args":["\tm😀\b\n"],"ret":"m😀"}
+{"args":["\u0000/0]?"],"ret":"/0]?"}
+{"args":["\u0000K\r\u001fK\t"],"ret":"KK"}
+{"args":["\u0000K\n\r\\?a];"],"ret":"K\\?a];"}
+{"args":["\u0000\r~"],"ret":"~"}
+{"args":["\u0000\u0001\b\u000b\f\u001f "],"ret":" "}
+{"args":["\u0000a\u00000]m0\n\né"],"ret":"a0]m0é"}
+{"args":["\u0000\t\b\t"],"ret":""}
+{"args":["\u0000"],"ret":""}
+{"args":["\u0007"],"ret":""}
+{"args":["\u0007]😀@]\r;😀"],"ret":"]😀@];😀"}
+{"args":["\u0007é\u001bZ@;~"],"ret":"é@;~"}
+{"args":["\u000b0\b;0\r中\u001b ?"],"ret":"0;0中 ?"}
+{"args":["\u000b?\u0000K\\\u001f"],"ret":"?K\\"}
+{"args":["\u000b\b"],"ret":""}
+{"args":["\u000b\u001f\b"],"ret":""}
+{"args":["\u000b];é"],"ret":"];é"}
+{"args":["\u000b [é\b0中?\b"],"ret":" [é0中?"}
+{"args":["\u000béK[?"],"ret":"éK[?"}
+{"args":["\u000b"],"ret":""}
+{"args":["\u000b \u001f@?m "],"ret":" @?m "}
+{"args":["\u001b"],"ret":""}
+{"args":["\u001b?~\r[;?"],"ret":"?~[;?"}
+{"args":["\u001bM"],"ret":""}
+{"args":["\u001bZ"],"ret":""}
+{"args":["\u001b["],"ret":"["}
+{"args":["\u001b[1;38;5;196mbold\u001b[m"],"ret":"bold"}
+{"args":["\u001b[2K\r$ ls\r\nfile  \u001b[34mdir\u001b[0m\r\n"],"ret":"$ lsfile  dir"}
+{"args":["\u001b[31"],"ret":"[31"}
+{"args":["\u001b[31mred\u001b[0m"],"ret":"red"}
+{"args":["\u001b[38;2;1;2;3mtrue\u001b[0m\t\n"],"ret":"true"}
+{"args":["\u001b[?25l\u001b[2Jx"],"ret":"x"}
+{"args":["\u001b\r\r\u001f/?]0中"],"ret":"/?]0中"}
+{"args":["\u001b\t\\ @"],"ret":"\\ @"}
+{"args":["\u001b\u0000/a\u000b\u0000\t"],"ret":"/a"}
+{"args":["\u001b]0;title\u0007text"],"ret":"text"}
+{"args":["\u001b]8;;https://e.x\u001b\\link\u001b]8;;\u001b\\"],"ret":"link"}
+{"args":["\u001b]unterminated"],"ret":""}
+{"args":["\u001b_"],"ret":""}
+{"args":["\u001bc"],"ret":"c"}
+{"args":["\u001f"],"ret":""}
+{"args":["\u001f0😀Z~\t/"],"ret":"0😀Z~/"}
+{"args":["\u001f;m\u0000\u001f~Zm\u000b"],"ret":";m~Zm"}
+{"args":["\u001f\r\n]\n \r?"],"ret":"] ?"}
+{"args":["\u001f\u0000"],"ret":""}
+{"args":["\u001fé\u001f\u0000 é0"],"ret":"é é0"}
+{"args":["]"],"ret":"]"}
+{"args":["]?@\u001b\t\t[K]"],"ret":"]?@[K]"}
+{"args":["]\r"],"ret":"]"}
+{"args":["]]["],"ret":"]]["}
+{"args":["]~\n\u000b😀 @\\"],"ret":"]~😀 @\\"}
+{"args":["a"],"ret":"a"}
+{"args":["a?;"],"ret":"a?;"}
+{"args":["a\u001b\\b"],"ret":"ab"}
+{"args":["a\u001b\u001f?\u001b\b😀@\n"],"ret":"a?😀@"}
+{"args":["abc\r\rdef\r"],"ret":"abcdef"}
+{"args":["am\t😀\\\u0007\ta?"],"ret":"am😀\\a?"}
+{"args":["a~]@\u0000a\u001b  "],"ret":"a~]@a  "}
+{"args":["a😀@é\u0000\u0000\tZ@"],"ret":"a😀@éZ@"}
+{"args":["a\r\b"],"ret":"a"}
+{"args":["a m😀\u0007é?"],"ret":"a m😀é?"}
+{"args":["aémZmm?\n "],"ret":"aémZmm? "}
+{"args":["a😀\u001b~"],"ret":"a😀~"}
+{"args":["cr\roverwrite"],"ret":"croverwrite"}
+{"args":["line1\nline2"],"ret":"line1line2"}
+{"args":["m"],"ret":"m"}
+{"args":["m0\ta\t\u000ba"],"ret":"m0aa"}
+{"args":["m@\t\u00000\u0000 "],"ret":"m@0 "}
+{"args":["mK00\\\u001f"],"ret":"mK00\\"}
+{"args":["m[@😀Z]K\n"],"ret":"m[@😀Z]K"}
+{"args":["m\\Z \r\r"],"ret":"m\\Z "}
+{"args":["m\n~K0\u001fa\u0000"],"ret":"m~K0a"}
+{"args":["m~\u000b\u000bé"],"ret":"m~é"}
+{"args":["m "],"ret":"m "}
+{"args":["one\r\ntwo\r\n"],"ret":"onetwo"}
+{"args":["plain"],"ret":"plain"}
+{"args":["progress 10%\rprogress 100%\n"],"ret":"progress 10%progress 100%"}
+{"args":["tab\tsep"],"ret":"tabsep"}
+{"args":["wide 中文 and emoji 😀 and é"],"ret":"wide 中文 and emoji 😀 and é"}
+{"args":["x\r"],"ret":"x"}
+{"args":["~ ?é~a\u000b\b\r"],"ret":"~ ?é~a"}
+{"args":["~"],"ret":"~"}
+{"args":["~?\u001ba\u0000😀/\u0007;"],"ret":"~?a😀/;"}
+{"args":["~@Z\t"],"ret":"~@Z"}
+{"args":["~K@]Z\b\u0007\\\u001f "],"ret":"~K@]Z\\ "}
+{"args":["~\u0007\u0000?\\~\u001b"],"ret":"~?\\~"}
+{"args":["~\u001b中\u0000];\u0007\u001b\\"],"ret":"~中];"}
+{"args":["~ \u0000;;\u000b\\~"],"ret":"~ ;;\\~"}
+{"args":["~😀~"],"ret":"~😀~"}
+{"args":[""],"ret":""}
+{"args":["@"],"ret":"@"}
+{"args":["\b"],"ret":""}
+{"args":["\r😀\u0007\u000b\u001b0\t]"],"ret":"😀0]"}
+{"args":[" [?~"],"ret":" [?~"}
+{"args":["é?"],"ret":"é?"}
+{"args":["/"],"ret":"/"}
+{"args":["@\u0000 😀\b"],"ret":"@ 😀"}
+{"args":["Z\u0007K\u001f"],"ret":"ZK"}
+{"args":["Z Z]é\\]\u001b/"],"ret":"Z Z]é\\]/"}
+{"args":["\u000bé@?"],"ret":"é@?"}
+{"args":["\u001b\n中\u001b"],"ret":"中"}
+{"args":["]]a \u0007?\nK"],"ret":"]]a ?K"}
+{"args":["~a\b[\\"],"ret":"~a[\\"}
+{"args":[" \t\b\u001f; Z中"],"ret":" ; Z中"}
+{"args":["😀"],"ret":"😀"}
+{"args":[""],"ret":""}
+{"args":["@"],"ret":"@"}
+{"args":["@\bé[;\u001fa中@"],"ret":"@é[;a中@"}
+{"args":["Z0\u0007é?@"],"ret":"Z0é?@"}
+{"args":["\\中@m a"],"ret":"\\中@m a"}
+{"args":["\n;\bZ[;[/"],"ret":";Z[;[/"}
+{"args":["\u0000"],"ret":""}
+{"args":["\u0000a\t😀\u000b/é"],"ret":"a😀/é"}
+{"args":["K"],"ret":"K"}
+{"args":["  \u000b\t\u0007~\n?\b\u0000"],"ret":"  ~?"}
+{"args":[" \b\t~@\r"],"ret":" ~@"}
+{"args":[" \r//~ Z\t "],"ret":" //~ Z "}
+{"args":[" \u0007"],"ret":" "}
+{"args":[" \u000b]"],"ret":" ]"}
+{"args":[" ][Z\u001b\n0"],"ret":" ][Z0"}
+{"args":[" ]\\"],"ret":" ]\\"}
+{"args":[" a中 a ;😀"],"ret":" a中 a ;😀"}
+{"args":[" ~ ]"],"ret":" ~ ]"}
+{"args":[" 中K\u0000\u001f\u001fa"],"ret":" 中Ka"}
+{"args":[" 😀m中Kém"],"ret":" 😀m中Kém"}
+{"args":["é0 ]"],"ret":"é0 ]"}
+{"args":["é0\u001f\u000b中\\"],"ret":"é0中\\"}
+{"args":["é\n Z\\\u000bé;\u000b\n"],"ret":"é Z\\é;"}
+{"args":["é]\r"],"ret":"é]"}
+{"args":["é 😀\u0000\u001fé["],"ret":"é 😀é["}
+{"args":["中 \b\b 😀"],"ret":"中  😀"}
+{"args":["中\\Ka"],"ret":"中\\Ka"}
+{"args":["中\b [?\u0007  "],"ret":"中 [?  "}
+{"args":["中\t0\na\u001b"],"ret":"中0a"}
+{"args":["中\u0007/~/\t[\r\r"],"ret":"中/~/["}
+{"args":["中\u001f中a\u000b\u0000"],"ret":"中中a"}
+{"args":["中0[ \u001b~\r0\b"],"ret":"中0[ ~0"}
+{"args":["中\b][ m"],"ret":"中][ m"}
+{"args":["中~?"],"ret":"中~?"}
+{"args":["😀"],"ret":"😀"}
+{"args":["😀;[Z😀[?/\n"],"ret":"😀;[Z😀[?/"}
+{"args":["😀\n;\n0\r "],"ret":"😀;0 "}
