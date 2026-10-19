@@ -15,7 +15,9 @@ fixtures = []
 utf16_fields = {}
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
-deferred_tests = []
+deferred_tests = [
+  { title = "concurrent starts sign node-pty's spawn-helper once, atomically, and leave a valid one alone", to = "drop", reason = "tests nodePty.signIfNeeded, which signs node-pty's prebuilt spawn-helper; the port spawns PTYs natively (deckhand_term::pty) and ships no helper to sign" },
+]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
 allowlist = []
 # Wave 0 hand-off notes for this unit.
