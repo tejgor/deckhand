@@ -14,11 +14,38 @@ const recorder = new Recorder(MODULE);
 
 // Lone surrogates cannot be held by a Rust String; skip generated cases whose result contains one.
 const LONE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+// JSON.stringify escapes lone surrogates (`\ud83d`), so look at every string of the result itself.
+const hasLone = (value: unknown): boolean => typeof value === 'string' ? LONE.test(value)
+	: Array.isArray(value) ? value.some(hasLone)
+	: value && typeof value === 'object' ? Object.values(value).some(hasLone) : false;
 const clean = (fn: Function, args: unknown[]): boolean => {
-	try { return !LONE.test(JSON.stringify(fn(...args))); } catch { return true; }
+	try { return !hasLone(fn(...args)); } catch { return true; }
+};
+
+// Rust records are typed: a string-union field holding a value outside its union (a TS type error the mutations
+// below produce) cannot be represented, nor can a negative "more" count. Such calls are not recorded.
+const SESSION_UNIONS: Record<string, readonly unknown[]> = {
+	status: ['starting', 'running', 'exited'], program: ['claude', 'pi', 'codex'],
+	exitReason: ['stopped', 'failed', 'completed', 'interrupted'],
+};
+const ATTENTION_STATES: readonly unknown[] = ['unknown', 'working', 'needs-input', 'response-ended', 'failed', 'limited'];
+const typedSession = (session: any): boolean => !session || typeof session !== 'object' || (
+	Object.entries(SESSION_UNIONS).every(([key, values]) => session[key] === undefined || values.includes(session[key]))
+	&& (session.attention === undefined || ATTENTION_STATES.includes(session.attention.state)));
+const typedList = (list: unknown): boolean => !Array.isArray(list) || list.every(typedSession);
+const typedGit = (context: any): boolean => !context || (context.moreCommits >= 0 && context.moreChanges >= 0);
+const typed = (name: string, args: any[]): boolean => {
+	switch (name) {
+		case 'sessionBlocked': case 'sessionHasUnreadReply': case 'sessionNeedsAttention': case 'withReplyRead': return typedSession(args[0]);
+		case 'filterSessionList': return typedList(args[0]) && (SESSION_FILTERS as unknown[]).includes(args[1]);
+		case 'sessionFilterCounts': return typedList(args[0]);
+		case 'handoffGitLines': return typedGit(args[0]);
+		case 'handoffMarkdown': return typedSession(args[0]) && typedGit(args[2]);
+		default: return true;
+	}
 };
 const call = (name: string, fn: Function, args: unknown[]) => {
-	if (!clean(fn, args)) return;
+	if (!typed(name, args as any[]) || !clean(fn, args)) return;
 	try { recorder.call(name, fn, args); } catch {}
 };
 

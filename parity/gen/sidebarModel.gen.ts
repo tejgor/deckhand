@@ -16,11 +16,43 @@ installDeterminism();
 const recorder = new Recorder(MODULE);
 
 const LONE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+// JSON.stringify escapes lone surrogates (`\ud83d`), so look at every string of the result itself.
+const hasLone = (value: unknown): boolean => typeof value === 'string' ? LONE.test(value)
+	: Array.isArray(value) ? value.some(hasLone)
+	: value && typeof value === 'object' ? Object.values(value).some(hasLone) : false;
 const clean = (fn: Function, args: unknown[]): boolean => {
-	try { return !LONE.test(JSON.stringify(fn(...args))); } catch { return false; } // invalid shapes (TypeError text) are not portable
+	try { return !hasLone(fn(...args)); } catch { return false; } // invalid shapes (TypeError text) are not portable
+};
+
+// Rust records are typed: a string-union field holding a value outside its union (a TS type error the mutations
+// below produce) cannot be represented, nor can a negative count or row number. Such calls are not recorded.
+const SESSION_UNIONS: Record<string, readonly unknown[]> = {
+	status: ['starting', 'running', 'exited'], program: ['claude', 'pi', 'codex'], agentStatus: ['unknown', 'active', 'idle'],
+	exitReason: ['stopped', 'failed', 'completed', 'interrupted'], subSessionKind: ['clean', 'forked'], requestedWorktreeMode: ['none', 'new', 'existing'],
+};
+const REASON_KINDS: readonly unknown[] = ['question', 'plan', 'permission', 'message', 'failure', 'notice'];
+const ATTENTION_STATES: readonly unknown[] = ['unknown', 'working', 'needs-input', 'response-ended', 'failed', 'limited'];
+const typedSession = (session: any): boolean => !session || typeof session !== 'object' || (
+	Object.entries(SESSION_UNIONS).every(([key, values]) => session[key] === undefined || values.includes(session[key]))
+	&& (session.worktree?.mode === undefined || ['none', 'managed', 'attached'].includes(session.worktree.mode))
+	&& (session.attention === undefined || (ATTENTION_STATES.includes(session.attention.state)
+		&& (session.attention.reason === undefined || REASON_KINDS.includes(session.attention.reason.kind)))));
+const typedList = (list: unknown): boolean => !Array.isArray(list) || list.every(typedSession);
+const isFilter = (value: unknown): boolean => (SESSION_FILTERS as unknown[]).includes(value);
+const typed = (name: string, args: any[]): boolean => {
+	switch (name) {
+		case 'rowDimmed': return typedSession(args[0]) && isFilter(args[1]);
+		case 'statusWords': case 'statusSince': case 'attentionReasonLines': return typedSession(args[0]);
+		case 'sidebarHeader': return isFilter(args[0].filter) && typedList(args[0].allSessions) && args[0].shown >= 0 && args[0].total >= 0;
+		case 'filterMenuLines': return isFilter(args[0]) && Object.values(args[1] as Record<string, number>).every(count => count >= 0);
+		case 'sidebarRows': return isFilter(args[0].filter) && typedList(args[0].rows) && typedList(args[0].allSessions) && args[0].firstNumber >= 0;
+		case 'locationText': return typedSession(args[0]) && typedList(args[1]);
+		case 'sessionDetails': return typedSession(args[0]) && typedList(args[1]) && !(args[6]?.more < 0);
+		default: return true;
+	}
 };
 const call = (name: string, fn: Function, args: unknown[]) => {
-	if (!clean(fn, args)) return;
+	if (!typed(name, args as any[]) || !clean(fn, args)) return;
 	try { recorder.call(name, fn, args); } catch {}
 };
 
