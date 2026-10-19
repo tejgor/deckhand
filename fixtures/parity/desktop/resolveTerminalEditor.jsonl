@@ -1,0 +1,12 @@
+{"args":[{"EDITOR":"  /bin/sh  "}],"ret":{"command":"/bin/sh","args":[],"label":"sh"}}
+{"args":[{"EDITOR":"/bin/sh/"}],"ret":{"$u":1}}
+{"args":[{"EDITOR":"/bin/sh\t-e"}],"ret":{"command":"/bin/sh","args":["-e"],"label":"sh"}}
+{"args":[{"EDITOR":"/no/such/dir/vim --clean"}],"ret":{"$u":1}}
+{"args":[{"EDITOR":"\"sh\""}],"ret":{"$u":1}}
+{"args":[{"EDITOR":"deckhand-no-such-editor"}],"ret":{"$u":1}}
+{"args":[{"EDITOR":"sh 中 😀"}],"ret":{"command":"sh","args":["中","😀"],"label":"sh"}}
+{"args":[{"EDITOR":"sh;echo"}],"ret":{"$u":1}}
+{"args":[{"VISUAL":"/bin/sh -c  -x   y","EDITOR":""}],"ret":{"command":"/bin/sh","args":["-c","-x","y"],"label":"sh"}}
+{"args":[{"VISUAL":"/bin/sh","EDITOR":"nope"}],"ret":{"command":"/bin/sh","args":[],"label":"sh"}}
+{"args":[{"VISUAL":"deckhand-no-such-editor","EDITOR":"sh"}],"ret":{"$u":1}}
+{"args":[{"VISUAL":"sh -x","EDITOR":"nope"}],"ret":{"command":"sh","args":["-x"],"label":"sh"}}

@@ -1,0 +1,60 @@
+{"args":["","claude","@x/claude"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["[]","claude","@x/claude"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["[]","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["[]","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["not json","claude","@x/claude"],"async":true,"throws":"Unexpected token 'o', \"not json\" is not valid JSON"}
+{"args":["not json","codex","@x/codex"],"async":true,"throws":"Unexpected token 'o', \"not json\" is not valid JSON"}
+{"args":["not json","pi","@x/pi"],"async":true,"throws":"Unexpected token 'o', \"not json\" is not valid JSON"}
+{"args":["null","claude","@x/claude"],"async":true,"throws":"Cannot read properties of null (reading 'claude')"}
+{"args":["null","codex","@x/codex"],"async":true,"throws":"Cannot read properties of null (reading 'codex')"}
+{"args":["null","pi","@x/pi"],"async":true,"throws":"Cannot read properties of null (reading 'pi')"}
+{"args":["{\"claude\":42}","claude","@x/claude"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":42}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":42}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"01.002.0003\"}","claude","@x/claude"],"async":true,"ret":"1.2.3"}
+{"args":["{\"claude\":\"01.002.0003\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"01.002.0003\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"1.2.3-beta.1\"}","claude","@x/claude"],"async":true,"ret":"1.2.3"}
+{"args":["{\"claude\":\"1.2.3-beta.1\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"1.2.3-beta.1\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"1.2.3.4\"}","claude","@x/claude"],"async":true,"ret":"1.2.3"}
+{"args":["{\"claude\":\"1.2.3.4\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"1.2.3.4\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"1.2.3\"}","claude","@x/claude"],"async":true,"ret":"1.2.3"}
+{"args":["{\"claude\":\"1.2.3\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"1.2.3\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"1.2\"}","claude","@x/claude"],"async":true,"ret":{"$u":1}}
+{"args":["{\"claude\":\"1.2\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"1.2\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"9999999999.0.0\"}","claude","@x/claude"],"async":true,"ret":"9999999999.0.0"}
+{"args":["{\"claude\":\"9999999999.0.0\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"9999999999.0.0\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"Claude Code 3.4.5 (build)\"}","claude","@x/claude"],"async":true,"ret":"3.4.5"}
+{"args":["{\"claude\":\"Claude Code 3.4.5 (build)\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"Claude Code 3.4.5 (build)\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"\"}","claude","@x/claude"],"async":true,"ret":{"$u":1}}
+{"args":["{\"claude\":\"\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"nope\"}","claude","@x/claude"],"async":true,"ret":{"$u":1}}
+{"args":["{\"claude\":\"nope\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"nope\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"v2.0.10\"}","claude","@x/claude"],"async":true,"ret":"2.0.10"}
+{"args":["{\"claude\":\"v2.0.10\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"v2.0.10\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"版本 1.2.3 😀\"}","claude","@x/claude"],"async":true,"ret":"1.2.3"}
+{"args":["{\"claude\":\"版本 1.2.3 😀\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":\"版本 1.2.3 😀\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":null}","claude","@x/claude"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":null}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"claude\":null}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"codex\":\"0.1.0\"}","claude","@x/claude"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"codex\":\"0.1.0\"}","codex","@x/codex"],"async":true,"ret":"0.1.0"}
+{"args":["{\"codex\":\"0.1.0\"}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"pi\":\"0.5.9\",\"claude\":\"1.0.0\"}","claude","@x/claude"],"async":true,"ret":"1.0.0"}
+{"args":["{\"pi\":\"0.5.9\",\"claude\":\"1.0.0\"}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{\"pi\":\"0.5.9\",\"claude\":\"1.0.0\"}","pi","@x/pi"],"async":true,"ret":"0.5.9"}
+{"args":["{}","claude","@x/claude"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{}","codex","@x/codex"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
+{"args":["{}","pi","@x/pi"],"async":true,"throws":"not listed in DECKHAND_AGENT_LATEST"}
