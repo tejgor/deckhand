@@ -10,7 +10,7 @@ ts_tests = []
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = []
+fixtures = ["sidebar/partStyle", "sidebar/moreText", "helpPane/searchHelp", "helpPane/helpRows"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
 utf16_fields = {}
 
