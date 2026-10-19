@@ -5,12 +5,13 @@
 
 use std::time::Duration;
 
-use deckhand_core::error::Result;
+use deckhand_core::error::{DhError, Result};
 use deckhand_protocol::data::{AgentUpdateResult, AgentVersions, ProgramKey};
 use deckhand_protocol::events::{AgentVersionsUpdated, ServerMessage};
 use deckhand_protocol::wire::AgentVersionsRequest;
 use deckhand_sys::agent_version_check::AgentVersionChecker;
 use deckhand_sys::async_util::{Interval, spawn};
+use serde_json::Value;
 
 use crate::daemon::Daemon;
 use crate::server::send_message;
@@ -28,6 +29,52 @@ pub struct AgentsState {
     pub published: Option<String>,
     /// TS `agentVersionsTimer`.
     pub timer: Option<Interval>,
+}
+
+/// TS `String(value)` for a decoded JSON value (`undefined` when absent).
+fn js_string(value: Option<&Value>) -> String {
+    match value {
+        None => "undefined".to_owned(),
+        Some(Value::Null) => "null".to_owned(),
+        Some(Value::Bool(flag)) => flag.to_string(),
+        Some(Value::String(text)) => text.clone(),
+        Some(Value::Number(number)) => match number.as_f64() {
+            // JS prints integral doubles without a fraction (`1`, not `1.0`) below 1e21; the bound keeps the cast exact.
+            #[allow(clippy::cast_possible_truncation)]
+            Some(float) if !number.is_i64() && !number.is_u64() && float.fract() == 0.0 && float.abs() < 1e21 => {
+                (float as i128).to_string()
+            }
+            _ => number.to_string(),
+        },
+        // Array.prototype.join: null items print as nothing.
+        Some(Value::Array(items)) => items
+            .iter()
+            .map(|item| match item {
+                Value::Null => String::new(),
+                item => js_string(Some(item)),
+            })
+            .collect::<Vec<_>>()
+            .join(","),
+        Some(Value::Object(_)) => "[object Object]".to_owned(),
+    }
+}
+
+/// TS: updateAgent's guard (``if (!Object.hasOwn(AGENTS, program)) throw new Error(`Unknown agent ${String(program)}`)``)
+/// for a raw `update-agent` request: the failure TS answers when `program` names no agent, else `None`.
+///
+/// [`Daemon::update_agent`] takes a [`ProgramKey`], so a request naming no agent never decodes into a call; the
+/// request decoder (server.rs `parse_request`) answers such a request with this error rather than its decode failure
+/// (`Invalid update-agent request: ...`), which TS clients do not expect (tests/agentUpdates.test.ts `/Unknown agent/`).
+pub fn unknown_agent_error(request: &Value) -> Option<DhError> {
+    if request.get("type").and_then(Value::as_str) != Some("update-agent") {
+        return None;
+    }
+    // Object.hasOwn looks up the property key, i.e. String(program).
+    let program = js_string(request.get("program"));
+    if serde_json::from_value::<ProgramKey>(Value::String(program.clone())).is_ok() {
+        return None;
+    }
+    Some(DhError::msg(format!("Unknown agent {program}")))
 }
 
 /// TS: `exitCode` in a template literal (`null` when the updater was killed or never started).
@@ -91,7 +138,8 @@ impl Daemon {
     }
 
     /// TS: InkDaemon.updateAgent: runs the agent's update command and reports the new versions (sessions keep
-    /// running their version). TS `Unknown agent <program>` cannot happen: [`ProgramKey`] is closed.
+    /// running their version). TS `Unknown agent <program>` (a request naming no agent) is raised before a
+    /// [`ProgramKey`] exists: see [`unknown_agent_error`].
     pub async fn update_agent(&self, program: ProgramKey) -> Result<AgentUpdateResult> {
         let daemon = self.downgrade();
         // Clients see the agent as updating as soon as the update started.
@@ -339,5 +387,45 @@ exit 3
         assert_eq!(exit_code_text(Some(0)), "0");
         assert_eq!(exit_code_text(Some(-1)), "-1");
         assert_eq!(exit_code_text(None), "null");
+    }
+
+    #[test]
+    fn update_requests_naming_no_agent_fail_like_ts() {
+        let request = |program: Option<Value>| {
+            let mut request = serde_json::json!({"type": "update-agent", "requestId": "r"});
+            if let Some(program) = program {
+                request["program"] = program;
+            }
+            unknown_agent_error(&request).map(|error| error.to_string())
+        };
+        assert_eq!(request(Some("nope".into())).as_deref(), Some("Unknown agent nope"));
+        assert_eq!(request(None).as_deref(), Some("Unknown agent undefined"));
+        assert_eq!(request(Some(Value::Null)).as_deref(), Some("Unknown agent null"));
+        assert_eq!(request(Some(serde_json::json!(7))).as_deref(), Some("Unknown agent 7"));
+        assert_eq!(
+            request(Some(serde_json::json!(7.0))).as_deref(),
+            Some("Unknown agent 7")
+        );
+        assert_eq!(
+            request(Some(serde_json::json!(1.5))).as_deref(),
+            Some("Unknown agent 1.5")
+        );
+        assert_eq!(
+            request(Some(serde_json::json!(false))).as_deref(),
+            Some("Unknown agent false")
+        );
+        assert_eq!(
+            request(Some(serde_json::json!({"a": 1}))).as_deref(),
+            Some("Unknown agent [object Object]")
+        );
+        assert_eq!(
+            request(Some(serde_json::json!(["x", null, 2]))).as_deref(),
+            Some("Unknown agent x,,2")
+        );
+        // Every agent passes the guard, as do other requests.
+        for program in ["claude", "pi", "codex"] {
+            assert_eq!(request(Some(program.into())), None);
+        }
+        assert!(unknown_agent_error(&serde_json::json!({"type": "agent-versions", "program": "nope"})).is_none());
     }
 }

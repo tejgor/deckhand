@@ -205,22 +205,44 @@ impl Daemon {
     /// You answered what the agent asked (Enter, a digit or Esc typed into it while it needs input): it works again.
     /// Claude sends no hook until the tool you allowed ends, which can take minutes; hooks that started before the
     /// answer are stale. A settled screen makes it unknown, as for any working state.
-    pub async fn mark_answered(&self, session_id: &str) -> Result<()> {
+    ///
+    /// TS calls it without awaiting, so its part before the save's first await runs as the answer arrives: the
+    /// answer's time and the working state are in place when this returns (before any hook queued behind the
+    /// input), and the returned future only persists and broadcasts. Call it where the input is handled; spawn
+    /// only the future.
+    pub fn mark_answered(&self, session_id: &str) -> impl Future<Output = Result<()>> + 'static {
+        let answered = self.answer(session_id);
+        let daemon = self.clone();
+        async move {
+            let Some(session) = answered else {
+                return Ok(());
+            };
+            // The rest of saveSession (sessions.rs `save_session`), whose synchronous part `answer` ran.
+            daemon.persist().await?;
+            daemon.broadcast_session_updated(&session);
+            daemon.sync_change_watches();
+            daemon.require_session(&session.id)?;
+            Ok(())
+        }
+    }
+
+    /// markAnswered up to saveSession's first await: the answered session, held as working.
+    fn answer(&self, session_id: &str) -> Option<Ordered<SessionRecord>> {
         let (Some(mut session), Some(worker)) = (self.get_session(session_id), self.session_worker(session_id)) else {
-            return Ok(());
+            return None;
         };
         let needs_input =
             session.attention.as_ref().map(|attention| attention.state) == Some(AttentionState::NeedsInput);
         if session.status != SessionStatus::Running || !needs_input {
-            return Ok(());
+            return None;
         }
         worker
             .last_hook_at
             .set(Some(worker.last_hook_at.get().unwrap_or(0).max(date::now_ms())));
         session.touch("attention");
         session.attention = Some(plain_attention(AttentionState::Working, "Answered", now_iso()));
-        self.save_session(session).await?;
-        Ok(())
+        self.set_session_in_workspace(session.clone());
+        Some(session)
     }
 
     /// TS: InkDaemon.acceptedNativeRef: the conversation ID a hook reports, when the session should adopt it.
@@ -820,6 +842,34 @@ pub(crate) mod tests {
             daemon.mark_answered("s").await.unwrap();
             assert_eq!(state(&daemon), Some(AttentionState::NeedsInput));
             assert_eq!(worker.last_hook_at.get(), None);
+        });
+    }
+
+    #[test]
+    fn an_answer_makes_hooks_that_started_before_it_stale_at_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, worker, _fake) = setup(dir.path()).await;
+            seed(&daemon, AttentionState::NeedsInput, Some("Allow Bash?"), None);
+            let before = date::now_ms();
+            // TS starts markAnswered without awaiting it: its part up to the save runs as the answer arrives, before
+            // any hook queued behind the input. Saving runs the workspace bookkeeping (D6), not ported yet, which
+            // panics after the session is held; the state this test checks is in place by then.
+            let answered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| daemon.mark_answered("s")));
+            assert!(worker.last_hook_at.get().is_some_and(|last| last >= before));
+            let held = attention(&daemon).unwrap();
+            assert_eq!(held.state, AttentionState::Working);
+            assert_eq!(held.event, "Answered");
+            assert_eq!(held.reason, None);
+            // A hook that started before the answer is stale (this Stop would end the response).
+            daemon
+                .handle_agent_hook(&hook(json!({"hook_event_name": "Stop"}), Some(before - 1000)))
+                .await
+                .unwrap();
+            assert_eq!(attention(&daemon).unwrap().event, "Answered");
+            assert!(worker.last_hook_at.get().is_some_and(|last| last >= before));
+            drop(answered);
         });
     }
 
