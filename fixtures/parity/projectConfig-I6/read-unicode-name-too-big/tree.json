@@ -1,0 +1,28 @@
+{
+  "before": [
+    {
+      "path": "big.bin",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "设置😀.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "big.bin"
+    }
+  ],
+  "after": [
+    {
+      "path": "big.bin",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "设置😀.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "big.bin"
+    }
+  ]
+}

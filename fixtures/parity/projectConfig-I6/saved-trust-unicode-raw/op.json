@@ -1,0 +1,31 @@
+{
+  "fn": "savedProjectTrust",
+  "args": [
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "/trust/root 日本語 😀"
+    },
+    {
+      "raw": "{\n  \"devCommand\": \"echo 日本語 😀\"\n}\n",
+      "exists": true
+    },
+    "{\n  \"devCommand\": \"echo 日本語 😀 é\"\n}\n",
+    {
+      "trustedProjects": {
+        "/trust/root 日本語 😀": [
+          "7582b5e4c7013502ba0351e14added165d66cc03cee29efd565e426e3c1f1703",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "/other/root": [
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ]
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "trust": "kept",
+    "fingerprint": "e45f1320160b33faf8063732afcb4afeea67ea5a332f7a6ac1f0217c12379f34"
+  }
+}

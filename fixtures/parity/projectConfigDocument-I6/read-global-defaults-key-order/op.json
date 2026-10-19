@@ -1,0 +1,13 @@
+{
+  "fn": "readGlobalDefaultsDocument",
+  "args": [],
+  "async": true,
+  "ret": {
+    "kind": "global",
+    "root": "$ROOT",
+    "path": "$ROOT/config.json",
+    "raw": "{\n  \"worktree\": {\n    \"hook\": true\n  },\n  \"actions\": {\n    \"B\": \"b\",\n    \"A\": \"a\"\n  },\n  \"devCommand\": \"z\"\n}\n",
+    "revision": "9e3d1434f4fadaf970692857618efd08b627d6d5895fb008f38df5f7a67807ec",
+    "exists": true
+  }
+}

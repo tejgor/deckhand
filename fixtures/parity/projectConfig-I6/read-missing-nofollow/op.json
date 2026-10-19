@@ -1,0 +1,12 @@
+{
+  "fn": "readBoundedUtf8",
+  "args": [
+    "$ROOT/nope.json",
+    {
+      "max": 1024,
+      "noFollow": true
+    }
+  ],
+  "async": true,
+  "throws": "ENOENT: no such file or directory, open '$ROOT/nope.json'"
+}

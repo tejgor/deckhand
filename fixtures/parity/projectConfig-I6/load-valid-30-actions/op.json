@@ -1,0 +1,54 @@
+{
+  "fn": "loadProjectConfig",
+  "args": [
+    "$ROOT/main",
+    {},
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "$ROOT/main"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "root": "$ROOT/main",
+    "trustRoot": "$ROOT/main",
+    "path": "$ROOT/main/deckhand.json",
+    "config": {
+      "actions": {
+        "a0": "x",
+        "a1": "x",
+        "a2": "x",
+        "a3": "x",
+        "a4": "x",
+        "a5": "x",
+        "a6": "x",
+        "a7": "x",
+        "a8": "x",
+        "a9": "x",
+        "a10": "x",
+        "a11": "x",
+        "a12": "x",
+        "a13": "x",
+        "a14": "x",
+        "a15": "x",
+        "a16": "x",
+        "a17": "x",
+        "a18": "x",
+        "a19": "x",
+        "a20": "x",
+        "a21": "x",
+        "a22": "x",
+        "a23": "x",
+        "a24": "x",
+        "a25": "x",
+        "a26": "x",
+        "a27": "x",
+        "a28": "x",
+        "a29": "x"
+      }
+    },
+    "exists": true,
+    "fingerprint": "9fd2dbfc3e7fef1c94a46547bf96adcb55821b22a3a3153c020952774c92ab73"
+  }
+}

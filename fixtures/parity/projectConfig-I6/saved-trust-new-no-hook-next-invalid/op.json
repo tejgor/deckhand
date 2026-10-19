@@ -1,0 +1,18 @@
+{
+  "fn": "savedProjectTrust",
+  "args": [
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "/trust/root 日本語 😀"
+    },
+    {
+      "raw": "",
+      "exists": false
+    },
+    "{\"bad\":1}",
+    {}
+  ],
+  "async": true,
+  "throws": "Unknown deckhand.json setting: bad"
+}

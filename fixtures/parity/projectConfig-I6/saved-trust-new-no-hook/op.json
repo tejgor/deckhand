@@ -1,0 +1,21 @@
+{
+  "fn": "savedProjectTrust",
+  "args": [
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "/trust/root 日本語 😀"
+    },
+    {
+      "raw": "",
+      "exists": false
+    },
+    "{\n  \"defaultAgent\": \"pi\",\n  \"devCommand\": \"x\"\n}\n",
+    {}
+  ],
+  "async": true,
+  "ret": {
+    "trust": "created",
+    "fingerprint": "15c1016d7b2f10c036c37c5726791e233263a389a9e9cee6f4fad47a61960c2d"
+  }
+}

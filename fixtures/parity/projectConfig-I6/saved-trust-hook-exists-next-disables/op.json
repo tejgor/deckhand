@@ -1,0 +1,31 @@
+{
+  "fn": "savedProjectTrust",
+  "args": [
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "/trust/root 日本語 😀"
+    },
+    {
+      "raw": "{\n  \"defaultAgent\": \"claude\"\n}\n",
+      "exists": true
+    },
+    "{\n  \"worktree\": {\n    \"hook\": false\n  }\n}\n",
+    {
+      "trustedProjects": {
+        "/trust/root 日本語 😀": [
+          "e5de1657f06d9b22ae4ef8edd7ea034f1cfcdbcc205491f967d280e8901d268d",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "/other/root": [
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ]
+      }
+    }
+  ],
+  "async": true,
+  "ret": {
+    "trust": "kept",
+    "fingerprint": "6e7556b2a6ee7bb4f69ee99b937f013c8bad91a01227b78c1407040d51d76e99"
+  }
+}
