@@ -1,0 +1,194 @@
+{"args":[{"$u":1}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"","latest":"","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"","latest":"1.2.3","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"","latest":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"","latest":"1.2.4","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"","latest":"2.0.0","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"","latest":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"","latest":"junk","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"","latest":"v1.2.3","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","installed":"1.2.3","latest":"","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"1.2.3","latest":"1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3","latest":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3","latest":"1.2.4","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"1.2.3","latest":"2.0.0","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"1.2.3","latest":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3","latest":"junk","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3","latest":"v1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"1.2.3-alpha.1","latest":"","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"1.2.3-alpha.1","latest":"1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3-alpha.1","latest":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3-alpha.1","latest":"1.2.4","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"1.2.3-alpha.1","latest":"2.0.0","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"1.2.3-alpha.1","latest":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3-alpha.1","latest":"junk","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3-alpha.1","latest":"v1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"1.2.4","latest":"","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"1.2.4","latest":"1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.4","latest":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.4","latest":"1.2.4","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.4","latest":"2.0.0","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"1.2.4","latest":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.4","latest":"junk","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.4","latest":"v1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"1.2.4","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"2.0.0","latest":"","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"2.0.0","latest":"1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"2.0.0","latest":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"2.0.0","latest":"1.2.4","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"2.0.0","latest":"2.0.0","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"2.0.0","latest":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"2.0.0","latest":"junk","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"2.0.0","latest":"v1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"2.0.0","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"codex-cli 0.157.0","latest":"","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"codex-cli 0.157.0","latest":"1.2.3","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"codex-cli 0.157.0","latest":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"codex-cli 0.157.0","latest":"1.2.4","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"codex-cli 0.157.0","latest":"2.0.0","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"codex-cli 0.157.0","latest":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"codex-cli 0.157.0","latest":"junk","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"codex-cli 0.157.0","latest":"v1.2.3","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"junk","latest":"","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"junk","latest":"1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"junk","latest":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"junk","latest":"1.2.4","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"junk","latest":"2.0.0","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"junk","latest":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"junk","latest":"junk","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"junk","latest":"v1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"junk","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"v1.2.3","latest":"","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","installed":"v1.2.3","latest":"1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"v1.2.3","latest":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"v1.2.3","latest":"1.2.4","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"v1.2.3","latest":"2.0.0","path":"/usr/bin/claude"}],"ret":"update available"}
+{"args":[{"program":"claude","installed":"v1.2.3","latest":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"v1.2.3","latest":"junk","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"v1.2.3","latest":"v1.2.3","path":"/usr/bin/claude"}],"ret":"up to date"}
+{"args":[{"program":"claude","installed":"v1.2.3","path":"/usr/bin/claude"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","latest":"","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","latest":"1.2.3","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","latest":"1.2.3-alpha.1","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","latest":"1.2.4","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","latest":"2.0.0","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","latest":"codex-cli 0.157.0","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","latest":"junk","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","latest":"v1.2.3","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","path":"/usr/bin/claude"}],"ret":"not installed"}
+{"args":[{"program":"claude","running":0,"outdated":0,"installed":"2.1.287","latest":"2.1.291"}],"ret":"update available"}
+{"args":[{"program":"claude","running":0,"outdated":0,"installed":"2.1.287"}],"ret":"latest unknown"}
+{"args":[{"program":"claude","running":0,"outdated":0,"installed":"2.1.291","latest":"2.1.291"}],"ret":"up to date"}
+{"args":[{"program":"claude","running":0,"outdated":0,"installed":"2.1.292","latest":"2.1.291"}],"ret":"up to date"}
+{"args":[{"program":"claude","running":0,"outdated":0,"latest":"2.1.291"}],"ret":"not installed"}
+{"args":[{"program":"claude","running":0,"outdated":0}],"ret":"not installed"}
+{"args":[{"program":"claude","running":3,"outdated":1,"installed":"2.1.287","latest":"2.1.291","path":"/Users/me/.local/bin/claude","checkedAt":"2026-10-05T11:57:00.000Z"}],"ret":"update available"}
+{"args":[{"program":"claude"}],"ret":"not installed"}
+{"args":[{"program":"codex","running":0,"outdated":0,"installed":"0.160.1","latest":"0.160.1","path":"/usr/local/bin/codex","checkedAt":"2026-10-05T11:57:00.000Z"}],"ret":"up to date"}
+{"args":[{"program":"codex","running":0,"outdated":0}],"ret":"not installed"}
+{"args":[{"program":"pi","installed":"0.0.0","latest":"0.17.5"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"0.0.10"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"0.1000.16"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"0.2.0","latest":"100.14.3"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"0.28.20","latest":"1000.2.10"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"0.287.100"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"0.29.1"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"0.3.99","latest":"28.100.8"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"0.9.0","latest":"6.1000.0"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"0.9.29","latest":"1.287.25"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"1.0.0","latest":"99.11.1"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"1.0.1000","latest":"7.100.9"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"1.100.0"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"1.1000.27"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"1.1000.30","latest":"24.0.287"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"1.11.7","latest":"20.0.100"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"1.15.16","latest":"15.0.29"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"1.27.9","latest":"1.27.10"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"1.9.287","latest":"10.28.9"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"10.0.10","latest":"9.26.100"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"10.10.0","latest":"5.4.287"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"10.100.14","latest":"3.100.25"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"10.100.99","latest":"1.100.1000"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"10.16.26","latest":"99.1.24"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"10.9.24","latest":"26.100.30"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"100.1.9"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"100.5.14","latest":"1000.9.9"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"1000.0.9","latest":"2.100.17"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"1000.1.100","latest":"0.2.2"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"1000.1.3","latest":"1000.2.100"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"1000.12.9","latest":"100.9.2"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"1000.287.9","latest":"99.20.1000"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"11.10.16","latest":"27.99.16"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"11.10.29","latest":"4.28.100"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"11.13.0"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"12.287.5"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"14.10.1000","latest":"1.10.100"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"15.99.99"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"16.9.10","latest":"14.1.3"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"19.15.1000","latest":"27.3.21"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"2.9.3","latest":"10.287.100"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"23.0.10","latest":"26.1000.2"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"23.9.8","latest":"99.4.26"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"24.0.100"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"24.0.26"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"24.15.287","latest":"20.0.1"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"24.3.8"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"25.1.27","latest":"30.26.10"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"25.100.9","latest":"287.3.100"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"25.9.28","latest":"21.27.10"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"27.1.27"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"27.5.99","latest":"0.1.287"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"28.1.10","latest":"1000.27.1"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"28.9.26","latest":"1000.25.29"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"287.1.1","latest":"0.9.4"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"287.1.100","latest":"8.14.1"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"287.1.4","latest":"24.1000.1"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"287.100.99","latest":"0.27.2"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"287.2.9","latest":"100.9.287"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"287.287.1","latest":"287.1.18"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"287.3.6","latest":"27.10.10"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"287.9.10","latest":"17.9.0"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"287.99.287","latest":"13.16.20"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"29.26.1","latest":"0.17.23"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"3.10.28","latest":"1000.1.17"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"3.6.99","latest":"1.287.1"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"30.0.24"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"4.1.287","latest":"99.4.99"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"6.287.1000","latest":"1000.0.1"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"7.99.10"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"8.29.29","latest":"26.10.28"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"8.4.1","latest":"9.99.13"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"8.9.2"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"9.0.3","latest":"28.15.100"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"9.10.3","latest":"26.9.6"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"9.15.3","latest":"28.5.1000"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"9.24.1","latest":"100.30.25"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"9.27.1000","latest":"6.0.26"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"9.27.4","latest":"22.16.1000"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"9.99.16","latest":"3.3.24"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"99.1.1"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","installed":"99.1.99","latest":"20.0.9"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"99.10.4","latest":"1000.1.10"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"99.1000.28","latest":"287.2.1"}],"ret":"update available"}
+{"args":[{"program":"pi","installed":"99.8.0","latest":"0.1000.1"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"99.9.1000","latest":"29.1.0"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"99.9.17","latest":"4.26.99"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"99.99.1","latest":"10.11.1"}],"ret":"up to date"}
+{"args":[{"program":"pi","installed":"99.99.99","latest":"18.100.23"}],"ret":"up to date"}
+{"args":[{"program":"pi","latest":"0.287.4"}],"ret":"not installed"}
+{"args":[{"program":"pi","latest":"18.9.27"}],"ret":"not installed"}
+{"args":[{"program":"pi","latest":"19.26.9"}],"ret":"not installed"}
+{"args":[{"program":"pi","latest":"27.27.18"}],"ret":"not installed"}
+{"args":[{"program":"pi","latest":"28.2.1"}],"ret":"not installed"}
+{"args":[{"program":"pi","latest":"287.10.7"}],"ret":"not installed"}
+{"args":[{"program":"pi","latest":"6.3.100"}],"ret":"not installed"}
+{"args":[{"program":"pi","latest":"99.100.27"}],"ret":"not installed"}
+{"args":[{"program":"pi","latest":"99.19.1"}],"ret":"not installed"}
+{"args":[{"program":"pi","running":0,"outdated":0,"installed":"1.0.2","path":"/usr/local/bin/pi","checkedAt":"2026-10-05T11:57:00.000Z","error":"latest unknown: npm view timed out"}],"ret":"latest unknown"}
+{"args":[{"program":"pi","running":0,"outdated":0}],"ret":"not installed"}
+{"args":[{"program":"pi"}],"ret":"not installed"}
+{"args":[{}],"ret":"not installed"}

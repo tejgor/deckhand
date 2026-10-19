@@ -1,0 +1,872 @@
+{"args":["  "],"ret":false}
+{"args":["  ?0 \u001b  ?0 \u001b"],"ret":true}
+{"args":["  ?0 \u001b"],"ret":true}
+{"args":[" "],"ret":false}
+{"args":[" .[1xA"],"ret":true}
+{"args":[" 02O; A"],"ret":true}
+{"args":[" 12x?"],"ret":true}
+{"args":[" 12~O?O"],"ret":true}
+{"args":[" 1\r2O x 1\r2O x"],"ret":true}
+{"args":[" 1\r2O x"],"ret":true}
+{"args":[" 1\r2O xé"],"ret":true}
+{"args":[" 1x?"],"ret":true}
+{"args":[" 21"],"ret":true}
+{"args":[" 2O; A 2O; A"],"ret":true}
+{"args":[" 2O; A"],"ret":true}
+{"args":[" 2~O?O"],"ret":true}
+{"args":[" 2中1"],"ret":true}
+{"args":[" ;~\u001b0"],"ret":false}
+{"args":[" ?😀;;;😀"],"ret":false}
+{"args":[" ?😀;;é;😀"],"ret":false}
+{"args":[" A A"],"ret":false}
+{"args":[" A"],"ret":false}
+{"args":[" O1"],"ret":true}
+{"args":[" O11"],"ret":true}
+{"args":[" O\r.2\n2\n"],"ret":true}
+{"args":[" O\r2\n2\n"],"ret":true}
+{"args":[" [ ["],"ret":false}
+{"args":[" ["],"ret":false}
+{"args":[" [1xA"],"ret":true}
+{"args":[" [;0?xx [;0?xx"],"ret":true}
+{"args":[" [;0?xx"],"ret":true}
+{"args":[" x30O;\r~\u001bx x30O;\r~\u001bx"],"ret":true}
+{"args":[" x30O;\r~\u001bx"],"ret":true}
+{"args":[" x30O;é\r~\u001bx"],"ret":true}
+{"args":[" ~3? x"],"ret":true}
+{"args":[" ~? x"],"ret":false}
+{"args":[" ~OA ?  ~OA ? "],"ret":false}
+{"args":[" ~OA ? "],"ret":false}
+{"args":[" 😀"],"ret":false}
+{"args":[" 😀?😀?20\n0"],"ret":true}
+{"args":[" 😀?😀?20\n0["],"ret":true}
+{"args":[" 😀\u001b;\n0 \nA;"],"ret":true}
+{"args":[" 😀\u001b;\n0 \n中A;"],"ret":true}
+{"args":[" 😀😀\n?~2\u001b; 😀😀\n?~2\u001b;"],"ret":true}
+{"args":[" 😀😀\n?~2\u001b;"],"ret":true}
+{"args":[" 😀😀\n\n?~2\u001b;"],"ret":true}
+{"args":[" 😀😀\u001b2?\r1 😀😀\u001b2?\r1"],"ret":true}
+{"args":[" 😀😀\u001b2?\r1"],"ret":true}
+{"args":[""],"ret":false}
+{"args":["."],"ret":false}
+{"args":[".O;\u001bx😀3;\r3"],"ret":true}
+{"args":["/1;0OxOA\u001b\u001b"],"ret":true}
+{"args":["/AOA;\n"],"ret":true}
+{"args":["/O\r2\n"],"ret":true}
+{"args":["0 0\u001b ?.;?"],"ret":true}
+{"args":["0 0\u001b ?;?"],"ret":true}
+{"args":["0"],"ret":true}
+{"args":["00\rO01x"],"ret":true}
+{"args":["00\rO01x2"],"ret":true}
+{"args":["00\r\nO01x2"],"ret":true}
+{"args":["00xx["],"ret":true}
+{"args":["00xx[00xx["],"ret":true}
+{"args":["01?3"],"ret":true}
+{"args":["021AA"],"ret":true}
+{"args":["021AA\n"],"ret":true}
+{"args":["02\n\u001b"],"ret":true}
+{"args":["02\u001b"],"ret":true}
+{"args":["0?3 \u001bx\n["],"ret":true}
+{"args":["0O"],"ret":true}
+{"args":["0["],"ret":true}
+{"args":["0[1"],"ret":true}
+{"args":["0[202~Ox~"],"ret":true}
+{"args":["0[3\nO"],"ret":true}
+{"args":["0[3\nO0[3\nO"],"ret":true}
+{"args":["0[\rA[x?O \r"],"ret":true}
+{"args":["0[\rA[x?O \r0[\rA[x?O \r"],"ret":true}
+{"args":["0[\rA[x?😀O \r"],"ret":true}
+{"args":["0\n;\u001b~[1?1?1"],"ret":true}
+{"args":["0\nO"],"ret":true}
+{"args":["0\r2\rO;2"],"ret":true}
+{"args":["0\r2\rO;20\r2\rO;2"],"ret":true}
+{"args":["0\r2\rO;2_"],"ret":true}
+{"args":["0\r\r"],"ret":true}
+{"args":["0\r\r0\r\r"],"ret":true}
+{"args":["0\u001b \u001bO~"],"ret":true}
+{"args":["0\u001b \u001bO~0\u001b \u001bO~"],"ret":true}
+{"args":["0\u001b"],"ret":true}
+{"args":["0\u001bA1"],"ret":true}
+{"args":["0\u001bO😀?"],"ret":true}
+{"args":["0\u001bO😀O?"],"ret":true}
+{"args":["0\u001b~"],"ret":true}
+{"args":["0~ ~\u001b"],"ret":true}
+{"args":["0~?3 \u001bx\n["],"ret":true}
+{"args":["0😀 "],"ret":true}
+{"args":["0😀 0😀 "],"ret":true}
+{"args":["1 "],"ret":true}
+{"args":["1"],"ret":true}
+{"args":["11 "],"ret":true}
+{"args":["11 11 "],"ret":true}
+{"args":["11"],"ret":true}
+{"args":["12 00;0"],"ret":true}
+{"args":["12;x2\u001b"],"ret":true}
+{"args":["12;x2\u001b12;x2\u001b"],"ret":true}
+{"args":["12~O?O"],"ret":true}
+{"args":["13;02\n;\n["],"ret":true}
+{"args":["13;0a2\n;\n["],"ret":true}
+{"args":["1;0OxOA\u001b\u001b"],"ret":true}
+{"args":["1?"],"ret":true}
+{"args":["1?1?"],"ret":true}
+{"args":["1?x3[ ?"],"ret":true}
+{"args":["1?x3[ ?1?x3[ ?"],"ret":true}
+{"args":["1?x3😀[ ?"],"ret":true}
+{"args":["1O"],"ret":true}
+{"args":["1O;"],"ret":true}
+{"args":["1\n"],"ret":true}
+{"args":["1\n."],"ret":true}
+{"args":["1\n[?\nx"],"ret":true}
+{"args":["1\n[?\nx1\n[?\nx"],"ret":true}
+{"args":["1\n\u001b00?O2O"],"ret":true}
+{"args":["1\n\u001bx00?O2O"],"ret":true}
+{"args":["1\n中"],"ret":true}
+{"args":["1\u001b"],"ret":true}
+{"args":["1\u001b0"],"ret":true}
+{"args":["1_?"],"ret":true}
+{"args":["1a~x"],"ret":true}
+{"args":["1~A \u001b"],"ret":true}
+{"args":["1~A\u001b"],"ret":true}
+{"args":["1~\u001bAA3;"],"ret":true}
+{"args":["1~\u001bAA3;1~\u001bAA3;"],"ret":true}
+{"args":["1~x"],"ret":true}
+{"args":["1~x1~x"],"ret":true}
+{"args":["2 2😀2"],"ret":true}
+{"args":["2 O~A\n["],"ret":true}
+{"args":["2 O~A\n[2 O~A\n["],"ret":true}
+{"args":["2 \n\u001bO\n "],"ret":true}
+{"args":["2 \n\u001bO\n é"],"ret":true}
+{"args":["2"],"ret":true}
+{"args":["202\n"],"ret":true}
+{"args":["20[A xx2\r"],"ret":true}
+{"args":["20[AZ xx2\r"],"ret":true}
+{"args":["21A\u001bA😀;; "],"ret":true}
+{"args":["22 x\n\r 0x1"],"ret":true}
+{"args":["22 x\n\r 0x1é"],"ret":true}
+{"args":["222"],"ret":true}
+{"args":["22\n2"],"ret":true}
+{"args":["2A"],"ret":true}
+{"args":["2A[\r2\r[\n"],"ret":true}
+{"args":["2A[\r2\r[x\n"],"ret":true}
+{"args":["2AxA?2x😀A0"],"ret":true}
+{"args":["2AxA?2x😀A02AxA?2x😀A0"],"ret":true}
+{"args":["2AxA?2😀A0"],"ret":true}
+{"args":["2\n[\u001b"],"ret":true}
+{"args":["2\rO 1[x"],"ret":true}
+{"args":["2\u001bA"],"ret":true}
+{"args":["2\u001bA2\u001bA"],"ret":true}
+{"args":["2x2"],"ret":true}
+{"args":["2x22x2"],"ret":true}
+{"args":["2~2\n3\n;2?"],"ret":true}
+{"args":["2~O/\r😀2;"],"ret":true}
+{"args":["2~O\r😀2;"],"ret":true}
+{"args":["2~O\r😀;"],"ret":true}
+{"args":["2😀"],"ret":true}
+{"args":["2😀2😀"],"ret":true}
+{"args":["3 \u001b[1~3"],"ret":true}
+{"args":["3"],"ret":true}
+{"args":["32?😀A"],"ret":true}
+{"args":["32?😀😀A"],"ret":true}
+{"args":["32\rx~3 ["],"ret":true}
+{"args":["32é\rx~3 ["],"ret":true}
+{"args":["32😀;"],"ret":true}
+{"args":["32😀;32😀;"],"ret":true}
+{"args":["3;;\rx\u001bx\r "],"ret":true}
+{"args":["3;;\rx\u001bx\r 3;;\rx\u001bx\r "],"ret":true}
+{"args":["3;;\rxx\r "],"ret":true}
+{"args":["3;[???"],"ret":true}
+{"args":["3A"],"ret":true}
+{"args":["3A3A"],"ret":true}
+{"args":["3A\n?O\r[\u001b\u001b"],"ret":true}
+{"args":["3O ~2\r?O"],"ret":true}
+{"args":["3O;"],"ret":true}
+{"args":["3O~ ~2\r?O"],"ret":true}
+{"args":["3O~ ~2\r?O3O~ ~2\r?O"],"ret":true}
+{"args":["3\n?O\r[\u001b\u001b"],"ret":true}
+{"args":["3\u001b3"],"ret":true}
+{"args":["3\u001b33\u001b3"],"ret":true}
+{"args":["3\u001bb3"],"ret":true}
+{"args":["3~2 "],"ret":true}
+{"args":["3~2"],"ret":true}
+{"args":["3😀 O \r0"],"ret":true}
+{"args":["3😀 O \ré0"],"ret":true}
+{"args":["3😀1x?😀xA~"],"ret":true}
+{"args":["3😀1😀x?😀xA~"],"ret":true}
+{"args":["3😀1😀x?😀xA~3😀1😀x?😀xA~"],"ret":true}
+{"args":["3😀O~2😀😀"],"ret":true}
+{"args":["3😀O~~2😀"],"ret":true}
+{"args":["3😀O~~2😀😀"],"ret":true}
+{"args":["9"],"ret":true}
+{"args":["; "],"ret":false}
+{"args":["; ; "],"ret":false}
+{"args":["; ~021[22"],"ret":true}
+{"args":[";0030[2"],"ret":true}
+{"args":[";00310[2"],"ret":true}
+{"args":[";00310[2;00310[2"],"ret":true}
+{"args":[";0;A~[O\nx"],"ret":true}
+{"args":[";0~;A_~[O\nx"],"ret":true}
+{"args":[";0~;A~[O\nx"],"ret":true}
+{"args":[";0~\r22A\u001b"],"ret":true}
+{"args":[";0~\r22A_\u001b"],"ret":true}
+{"args":[";0~\r22éA\u001b"],"ret":true}
+{"args":[";1"],"ret":true}
+{"args":[";1;1"],"ret":true}
+{"args":[";1O~;\r"],"ret":true}
+{"args":[";1O~;\rA"],"ret":true}
+{"args":[";1O~;\rA;1O~;\rA"],"ret":true}
+{"args":[";1x1"],"ret":true}
+{"args":[";1x_1"],"ret":true}
+{"args":[";2A"],"ret":true}
+{"args":[";2A1"],"ret":true}
+{"args":[";2Aa1"],"ret":true}
+{"args":[";2\n[\u001b"],"ret":true}
+{"args":[";2\n[\u001b;2\n[\u001b"],"ret":true}
+{"args":[";2\rx😀\r😀~"],"ret":true}
+{"args":[";2\rx😀\r😀~;2\rx😀\r😀~"],"ret":true}
+{"args":[";2\rx😀😀~"],"ret":true}
+{"args":[";3 "],"ret":true}
+{"args":[";3 ;3 "],"ret":true}
+{"args":[";3 \u001b[1~3"],"ret":true}
+{"args":[";3 \u001b[1~3\n"],"ret":true}
+{"args":[";3 b"],"ret":true}
+{"args":[";3"],"ret":true}
+{"args":[";;\u001b1A[~"],"ret":false}
+{"args":[";;\u001b1A[~;;\u001b1A[~"],"ret":false}
+{"args":[";;\u001b\t1A[~"],"ret":true}
+{"args":[";?0A "],"ret":true}
+{"args":[";?0A1 "],"ret":true}
+{"args":[";?[~???;"],"ret":false}
+{"args":[";?\u001b[~???;"],"ret":false}
+{"args":[";?\u001b~???;"],"ret":false}
+{"args":[";A;\txA[\n"],"ret":true}
+{"args":[";A;xA[\n"],"ret":true}
+{"args":[";[;\rA2A"],"ret":true}
+{"args":[";[;\rA\n2A"],"ret":true}
+{"args":[";[O?A0A"],"ret":true}
+{"args":[";[O?A0A;[O?A0A"],"ret":true}
+{"args":[";\r"],"ret":true}
+{"args":[";\r?20"],"ret":true}
+{"args":[";\r?20;\r?20"],"ret":true}
+{"args":[";\u001b 22😀3~"],"ret":true}
+{"args":[";\u001b 22😀3~x"],"ret":true}
+{"args":[";\u001b 22😀3~x;\u001b 22😀3~x"],"ret":true}
+{"args":[";\u001b 3 O3[?"],"ret":true}
+{"args":[";\u001b 32 O3[?"],"ret":true}
+{"args":[";\u001b 32 O3[?;\u001b 32 O3[?"],"ret":true}
+{"args":[";\u001b"],"ret":false}
+{"args":[";\u001b\n"],"ret":true}
+{"args":[";\u001b\n;\u001b\n"],"ret":true}
+{"args":[";x2"],"ret":true}
+{"args":[";~ Ox\r3~1/1"],"ret":true}
+{"args":[";~ Ox\r3~11"],"ret":true}
+{"args":[";~02122"],"ret":true}
+{"args":[";~021[22"],"ret":true}
+{"args":[";~0?\u001bx😀"],"ret":true}
+{"args":[";~1? O1O"],"ret":true}
+{"args":[";~?\u001bx"],"ret":false}
+{"args":[";~?\u001bx😀"],"ret":false}
+{"args":[";~\u001b0"],"ret":false}
+{"args":[";😀2"],"ret":true}
+{"args":[";😀[;\rA2A"],"ret":true}
+{"args":[";😀\nO"],"ret":true}
+{"args":["? "],"ret":false}
+{"args":["? ? "],"ret":false}
+{"args":["?"],"ret":false}
+{"args":["?0"],"ret":true}
+{"args":["?31~\rO3"],"ret":true}
+{"args":["?31~\rO3?31~\rO3"],"ret":true}
+{"args":["?323[;"],"ret":true}
+{"args":["?32‍3[;"],"ret":true}
+{"args":["?3\n~["],"ret":true}
+{"args":["?3\n~[?3\n~["],"ret":true}
+{"args":["??"],"ret":false}
+{"args":["????"],"ret":false}
+{"args":["?A?  ?\n"],"ret":true}
+{"args":["?AA?  ?\n"],"ret":true}
+{"args":["?O?_x"],"ret":false}
+{"args":["?O?x"],"ret":false}
+{"args":["?[2 1\n\rxA"],"ret":true}
+{"args":["?[2 1\n\rxA?[2 1\n\rxA"],"ret":true}
+{"args":["?\n; "],"ret":true}
+{"args":["?\n; /"],"ret":true}
+{"args":["?\n;\n "],"ret":true}
+{"args":["?\n\u001b"],"ret":true}
+{"args":["?\n\u001b2"],"ret":true}
+{"args":["?\r3"],"ret":true}
+{"args":["?\ré3"],"ret":true}
+{"args":["?\u001b"],"ret":false}
+{"args":["?\u001b?\u001b"],"ret":false}
+{"args":["?x"],"ret":false}
+{"args":["?x~"],"ret":false}
+{"args":["?~"],"ret":false}
+{"args":["?😀2;A[1"],"ret":true}
+{"args":["?😀2;A[1?😀2;A[1"],"ret":true}
+{"args":["?😀2A[1"],"ret":true}
+{"args":["?😀;;;😀"],"ret":false}
+{"args":["?😀O😀?0"],"ret":true}
+{"args":["A  ~~"],"ret":false}
+{"args":["A 0[\n[\n"],"ret":true}
+{"args":["A O"],"ret":false}
+{"args":["A ~~"],"ret":false}
+{"args":["A"],"ret":false}
+{"args":["A2O?\r1"],"ret":true}
+{"args":["A2O?\u001b\r1"],"ret":true}
+{"args":["A2O?\u001b\r1A2O?\u001b\r1"],"ret":true}
+{"args":["A3[~\u001b"],"ret":true}
+{"args":["A3[~\u001b😀"],"ret":true}
+{"args":["A;xA[\n"],"ret":true}
+{"args":["A;😀010"],"ret":true}
+{"args":["A;😀0110"],"ret":true}
+{"args":["A?"],"ret":false}
+{"args":["A?A?"],"ret":false}
+{"args":["AA 0[\n[\n"],"ret":true}
+{"args":["AA 0[\n[\nAA 0[\n[\n"],"ret":true}
+{"args":["AA"],"ret":false}
+{"args":["AA2;[2xO\n["],"ret":true}
+{"args":["AA2;[2xO\n[AA2;[2xO\n["],"ret":true}
+{"args":["AA2[2xO\n["],"ret":true}
+{"args":["AA3"],"ret":true}
+{"args":["AA3["],"ret":true}
+{"args":["AA3[AA3["],"ret":true}
+{"args":["AA\r[\u001b 2x2"],"ret":true}
+{"args":["AOA;\n"],"ret":true}
+{"args":["AO\n"],"ret":true}
+{"args":["A["],"ret":false}
+{"args":["A[~2\n"],"ret":true}
+{"args":["A[~2\nA[~2\n"],"ret":true}
+{"args":["A[~\n"],"ret":true}
+{"args":["A\n?0A"],"ret":true}
+{"args":["A\n?0AA\n?0A"],"ret":true}
+{"args":["A\né?0A"],"ret":true}
+{"args":["A\r"],"ret":true}
+{"args":["A\r/"],"ret":true}
+{"args":["A\r😀;😀"],"ret":true}
+{"args":["A\r😀;😀ß"],"ret":true}
+{"args":["A\u001b1x\n"],"ret":true}
+{"args":["A\u001b21x\n"],"ret":true}
+{"args":["A\u001b21x\nA\u001b21x\n"],"ret":true}
+{"args":["A\u001b;0[\r~"],"ret":true}
+{"args":["A\u001b;0[\r~3"],"ret":true}
+{"args":["A\u001b;0[\r~3A\u001b;0[\r~3"],"ret":true}
+{"args":["A\u001b\u001b [ \rA~"],"ret":true}
+{"args":["A\u001b\u001b3 [ \rA~"],"ret":true}
+{"args":["Ax"],"ret":false}
+{"args":["Ax;\u001b?\u001bA"],"ret":false}
+{"args":["Ax\u001b?\u001bA"],"ret":false}
+{"args":["A~["],"ret":false}
+{"args":["A~[A~["],"ret":false}
+{"args":["A~~\r"],"ret":true}
+{"args":["A~~\r."],"ret":true}
+{"args":["A~~\r\t"],"ret":true}
+{"args":["Aé O"],"ret":false}
+{"args":["A😀\u001b2A"],"ret":false}
+{"args":["A😀\u001bA"],"ret":false}
+{"args":["O "],"ret":false}
+{"args":["O"],"ret":false}
+{"args":["O.O~\u001b\nO\u001bxx"],"ret":true}
+{"args":["O00["],"ret":true}
+{"args":["O1?\n\r O😀"],"ret":true}
+{"args":["O1?\u001b1~b~~2"],"ret":true}
+{"args":["O1?\u001b1~~~2"],"ret":true}
+{"args":["O1?\u001b1~~~2O1?\u001b1~~~2"],"ret":true}
+{"args":["O1\r;0x?"],"ret":true}
+{"args":["O2 2😀2"],"ret":true}
+{"args":["O2 2😀2O2 2😀2"],"ret":true}
+{"args":["O2;\r21A ?A"],"ret":true}
+{"args":["O2;\r21A ?AO2;\r21A ?A"],"ret":true}
+{"args":["O3 "],"ret":true}
+{"args":["O3"],"ret":true}
+{"args":["O3[[~A"],"ret":true}
+{"args":["O3~[[~A"],"ret":true}
+{"args":["O;"],"ret":false}
+{"args":["O;2?[😀["],"ret":true}
+{"args":["O;\u001bx😀3;\r3"],"ret":true}
+{"args":["O;\u001bx😀3;\r3O;\u001bx😀3;\r3"],"ret":true}
+{"args":["O?"],"ret":false}
+{"args":["O?O?"],"ret":false}
+{"args":["OA"],"ret":false}
+{"args":["OA12\u001b~"],"ret":true}
+{"args":["OA12\u001b~OA12\u001b~"],"ret":true}
+{"args":["OAA"],"ret":false}
+{"args":["OAAA"],"ret":false}
+{"args":["OAaAA"],"ret":false}
+{"args":["OA😀;"],"ret":false}
+{"args":["OO 110\nxA"],"ret":true}
+{"args":["OO 110\nxAOO 110\nxA"],"ret":true}
+{"args":["OO"],"ret":false}
+{"args":["OOO3?3x"],"ret":true}
+{"args":["OOO3?3xOOO3?3x"],"ret":true}
+{"args":["OOO3?x"],"ret":true}
+{"args":["OO\n\u001b?00112"],"ret":true}
+{"args":["OO\n\u001b?00112OO\n\u001b?00112"],"ret":true}
+{"args":["OO~\nO\u001bxx"],"ret":true}
+{"args":["OO~\u001b\nO\u001bxx"],"ret":true}
+{"args":["OZ\u001b00?3A;"],"ret":true}
+{"args":["O[3120"],"ret":true}
+{"args":["O[3120O[3120"],"ret":true}
+{"args":["O[b3120"],"ret":true}
+{"args":["O\n "],"ret":true}
+{"args":["O\n O\n "],"ret":true}
+{"args":["O\n"],"ret":true}
+{"args":["O\n\r"],"ret":true}
+{"args":["O\n\rO\n\r"],"ret":true}
+{"args":["O\n\u001b?00112"],"ret":true}
+{"args":["O\r2\n"],"ret":true}
+{"args":["O\r2\n\n"],"ret":true}
+{"args":["O\r;0x?"],"ret":true}
+{"args":["O\r\u001b~x~2A11"],"ret":true}
+{"args":["O\r\u001b~x~2A11\n"],"ret":true}
+{"args":["O\r\u001b~x~2Aa11"],"ret":true}
+{"args":["O\t;2?[😀["],"ret":true}
+{"args":["O\u001b \r"],"ret":true}
+{"args":["O\u001b00?3A;"],"ret":true}
+{"args":["Ox"],"ret":false}
+{"args":["Ox;3 \nA["],"ret":true}
+{"args":["Ox;3 \nA[Ox;3 \nA["],"ret":true}
+{"args":["Ox;3\nA["],"ret":true}
+{"args":["OxOx"],"ret":false}
+{"args":["O~[\r\r;;"],"ret":true}
+{"args":["O~\u001b \r"],"ret":true}
+{"args":["O~\u001b \rO~\u001b \r"],"ret":true}
+{"args":["O中 "],"ret":false}
+{"args":["O😀;😀xAO2😀 "],"ret":true}
+{"args":["O😀;😀xAO2😀 O😀;😀xAO2😀 "],"ret":true}
+{"args":["O😀;😀xAO2😀 _"],"ret":true}
+{"args":["Z3"],"ret":true}
+{"args":["Z~"],"ret":false}
+{"args":["[  ;\u001b0 "],"ret":false}
+{"args":["[  ;\u001b0 ~"],"ret":false}
+{"args":["[ "],"ret":false}
+{"args":["[ [A2"],"ret":true}
+{"args":["[ [A32"],"ret":true}
+{"args":["[ [A32[ [A32"],"ret":true}
+{"args":["["],"ret":false}
+{"args":["[1  O[[0😀3"],"ret":true}
+{"args":["[1  O[[0😀3[1  O[[0😀3"],"ret":true}
+{"args":["[1"],"ret":true}
+{"args":["[1[1"],"ret":true}
+{"args":["[1x"],"ret":true}
+{"args":["[1xA"],"ret":true}
+{"args":["[1x[1x"],"ret":true}
+{"args":["[2 A"],"ret":true}
+{"args":["[2 A‍"],"ret":true}
+{"args":["[202Ox~"],"ret":true}
+{"args":["[202~Ox~"],"ret":true}
+{"args":["[20\n03[\r "],"ret":true}
+{"args":["[3O"],"ret":true}
+{"args":["[;😀3;\n\rA2 "],"ret":true}
+{"args":["[;😀3;\n\rA2 [;😀3;\n\rA2 "],"ret":true}
+{"args":["[<64;10;5M"],"ret":true}
+{"args":["[? 😀02"],"ret":true}
+{"args":["[? 😀02[? 😀02"],"ret":true}
+{"args":["[?"],"ret":false}
+{"args":["[?00"],"ret":true}
+{"args":["[?3O"],"ret":true}
+{"args":["[?O3"],"ret":true}
+{"args":["[O1?\n O😀"],"ret":true}
+{"args":["[O1?\n\r O😀"],"ret":true}
+{"args":["[O3 3O"],"ret":true}
+{"args":["[O3 3O[O3 3O"],"ret":true}
+{"args":["[O33O"],"ret":true}
+{"args":["[O?\r["],"ret":true}
+{"args":["[Ox 23"],"ret":true}
+{"args":["[[?00"],"ret":true}
+{"args":["[\n1?"],"ret":true}
+{"args":["[\n1?\r"],"ret":true}
+{"args":["[\n3O?\r0O;"],"ret":true}
+{"args":["[\n3O~?\r0O;"],"ret":true}
+{"args":["[\n3O~?\r0O;[\n3O~?\r0O;"],"ret":true}
+{"args":["[\u001b\u001b"],"ret":false}
+{"args":["[é  ;\u001b0 ~"],"ret":false}
+{"args":["[~ -xAA21["],"ret":true}
+{"args":["[~ A2[? ~~"],"ret":true}
+{"args":["[~ A2[? ~~[~ A2[? ~~"],"ret":true}
+{"args":["[~ xAA21["],"ret":true}
+{"args":["[~ xAA21[[~ xAA21["],"ret":true}
+{"args":["[é😀"],"ret":false}
+{"args":["[中?"],"ret":false}
+{"args":["[😀"],"ret":false}
+{"args":["\n"],"ret":true}
+{"args":["\n-1"],"ret":true}
+{"args":["\n1"],"ret":true}
+{"args":["\n12 00;0"],"ret":true}
+{"args":["\n12 \n?😀"],"ret":true}
+{"args":["\n12 \nA?😀"],"ret":true}
+{"args":["\n12\n \nA?😀"],"ret":true}
+{"args":["\n1é~;\r?"],"ret":true}
+{"args":["\n1~;\r"],"ret":true}
+{"args":["\n1~;\r?"],"ret":true}
+{"args":["\n2x3 A;\n/O"],"ret":true}
+{"args":["\n2x3 A;\nO"],"ret":true}
+{"args":["\n2x3A;\nO"],"ret":true}
+{"args":["\n;\u001b~[1?11"],"ret":true}
+{"args":["\n;\u001b~[1?1?1"],"ret":true}
+{"args":["\n? A\r;"],"ret":true}
+{"args":["\n? A\r;_"],"ret":true}
+{"args":["\n? Ab\r;"],"ret":true}
+{"args":["\n?"],"ret":true}
+{"args":["\n?x"],"ret":true}
+{"args":["\nA;😀0110"],"ret":true}
+{"args":["\n[1"],"ret":true}
+{"args":["\n[1\u001b3Z😀~3\u001b"],"ret":true}
+{"args":["\n[1\u001b3😀~3\u001b"],"ret":true}
+{"args":["\n[O\r[;x~2;"],"ret":true}
+{"args":["\n[O\r[;x~2;\n[O\r[;x~2;"],"ret":true}
+{"args":["\n[O\ra[;x~2;"],"ret":true}
+{"args":["\n[xA"],"ret":true}
+{"args":["\n[xA\n[xA"],"ret":true}
+{"args":["\n\n"],"ret":true}
+{"args":["\n\nO?"],"ret":true}
+{"args":["\n\nZO?"],"ret":true}
+{"args":["\n\n\n\n"],"ret":true}
+{"args":["\n\r1"],"ret":true}
+{"args":["\n\rb1"],"ret":true}
+{"args":["\n_"],"ret":true}
+{"args":["\nx;3\r;"],"ret":true}
+{"args":["\nx\r?O\nx"],"ret":true}
+{"args":["\nx😀;;0"],"ret":true}
+{"args":["\nx😀;;0\nx😀;;0"],"ret":true}
+{"args":["\n~?["],"ret":true}
+{"args":["\n~\u001b?["],"ret":true}
+{"args":["\n😀x?\r😀"],"ret":true}
+{"args":["\n😀x?_\r😀"],"ret":true}
+{"args":["\n😀😀2x[   😀"],"ret":true}
+{"args":["\n😀😀2x[   😀\n😀😀2x[   😀"],"ret":true}
+{"args":["\n😀😀x[   😀"],"ret":true}
+{"args":["\r 2?"],"ret":true}
+{"args":["\r \n2?"],"ret":true}
+{"args":["\r \n2?\r \n2?"],"ret":true}
+{"args":["\r"],"ret":true}
+{"args":["\r0 "],"ret":true}
+{"args":["\r0 \u001b"],"ret":true}
+{"args":["\r1"],"ret":true}
+{"args":["\r1\t"],"ret":true}
+{"args":["\r2"],"ret":true}
+{"args":["\r2\u001bx10x~x"],"ret":true}
+{"args":["\r2\u001bx10x~x?"],"ret":true}
+{"args":["\r2\u001bx1x~x?"],"ret":true}
+{"args":["\r;~;A\u001b\n? ?"],"ret":true}
+{"args":["\r;~;A\u001b\n? ?\r;~;A\u001b\n? ?"],"ret":true}
+{"args":["\rA 3\n2O"],"ret":true}
+{"args":["\rA3\n2O"],"ret":true}
+{"args":["\rA3\n2O\rA3\n2O"],"ret":true}
+{"args":["\rO00"],"ret":true}
+{"args":["\rO00["],"ret":true}
+{"args":["\rO\u001b 3xA\r2x"],"ret":true}
+{"args":["\rO\u001b 3xA\r2x\rO\u001b 3xA\r2x"],"ret":true}
+{"args":["\rO\u001b 3x😀A\r2x"],"ret":true}
+{"args":["\r[OO11~A["],"ret":true}
+{"args":["\r[OO11~A[\r[OO11~A["],"ret":true}
+{"args":["\r[OO11~["],"ret":true}
+{"args":["\r\n"],"ret":true}
+{"args":["\r\n0[\u001b~~A0?"],"ret":true}
+{"args":["\r\n0[\u001b~~A0?\r\n0[\u001b~~A0?"],"ret":true}
+{"args":["\r\n\n0[\u001b~~A0?"],"ret":true}
+{"args":["\r\r"],"ret":true}
+{"args":["\r\t\u001bx33O~~"],"ret":true}
+{"args":["\r\u001b3202"],"ret":true}
+{"args":["\r\u001b32A02"],"ret":true}
+{"args":["\r\u001bx33O~~"],"ret":true}
+{"args":["\r~Ox"],"ret":true}
+{"args":["\r😀;\n321\u001b\r?"],"ret":true}
+{"args":["\r😀;\n321\u001b\r?\r😀;\n321\u001b\r?"],"ret":true}
+{"args":["\t"],"ret":false}
+{"args":["\t."],"ret":false}
+{"args":["\t0["],"ret":true}
+{"args":["\t3O;"],"ret":true}
+{"args":["\t[[?00"],"ret":true}
+{"args":["\u0003"],"ret":false}
+{"args":["\u0003\u0003"],"ret":false}
+{"args":["\u001b AO?"],"ret":false}
+{"args":["\u001b AO?\u001b AO?"],"ret":false}
+{"args":["\u001b \tAO?"],"ret":false}
+{"args":["\u001b"],"ret":true}
+{"args":["\u001b0"],"ret":false}
+{"args":["\u001b01"],"ret":true}
+{"args":["\u001b01\u001b01"],"ret":true}
+{"args":["\u001b0\u001b0"],"ret":false}
+{"args":["\u001b0~"],"ret":false}
+{"args":["\u001b0~."],"ret":false}
+{"args":["\u001b1"],"ret":false}
+{"args":["\u001b1\u001b1"],"ret":false}
+{"args":["\u001b22x"],"ret":true}
+{"args":["\u001b2["],"ret":false}
+{"args":["\u001b2[\u001b2["],"ret":false}
+{"args":["\u001b2\n[1 \r\u001b1;"],"ret":true}
+{"args":["\u001b2\n[1 \r\u001b1;\u001b2\n[1 \r\u001b1;"],"ret":true}
+{"args":["\u001b2\n[1 \r\u001b1_;"],"ret":true}
+{"args":["\u001b3 O2?["],"ret":true}
+{"args":["\u001b3 O2?[\u001b3 O2?["],"ret":true}
+{"args":["\u001b;"],"ret":false}
+{"args":["\u001b;\u001b;"],"ret":false}
+{"args":["\u001b?😀O😀?0"],"ret":true}
+{"args":["\u001b?😀O😀?0\u001b?😀O😀?0"],"ret":true}
+{"args":["\u001bA1"],"ret":true}
+{"args":["\u001bA22x"],"ret":true}
+{"args":["\u001bA\r[xA"],"ret":true}
+{"args":["\u001bOA"],"ret":false}
+{"args":["\u001bOA\u001bOA"],"ret":false}
+{"args":["\u001bO~[\r\r;;"],"ret":true}
+{"args":["\u001bO~[\r\r;;\u001bO~[\r\r;;"],"ret":true}
+{"args":["\u001b[ 0"],"ret":true}
+{"args":["\u001b[ 0["],"ret":true}
+{"args":["\u001b[ 0ß["],"ret":true}
+{"args":["\u001b["],"ret":false}
+{"args":["\u001b[0-9m"],"ret":true}
+{"args":["\u001b[09m"],"ret":false}
+{"args":["\u001b[1;5"],"ret":true}
+{"args":["\u001b[1;5A"],"ret":false}
+{"args":["\u001b[1;5A\u001b[1;5A"],"ret":false}
+{"args":["\u001b[1m"],"ret":false}
+{"args":["\u001b[200~102\u001b[201~"],"ret":false}
+{"args":["\u001b[200~12\u001b[201"],"ret":true}
+{"args":["\u001b[200~12\u001b[201~"],"ret":false}
+{"args":["\u001b[200~\n\u001b[201~"],"ret":false}
+{"args":["\u001b[200~\n\u001b[201~\u001b[200~\n\u001b[201~"],"ret":false}
+{"args":["\u001b[200~a\u001b[201~\u001b[200~1\u001b[201~"],"ret":false}
+{"args":["\u001b[200~a\u001b[201~\u001b_[200~1\u001b[201~"],"ret":true}
+{"args":["\u001b[200~a\u001b[21~\u001b[200~1\u001b[201~"],"ret":false}
+{"args":["\u001b[200~line 1\nlin0e 2\u001b[201~"],"ret":false}
+{"args":["\u001b[200~line 1\nline 2\u001b[201~"],"ret":false}
+{"args":["\u001b[200~paste\u001b201~\r"],"ret":true}
+{"args":["\u001b[200~paste\u001b[201~\r"],"ret":true}
+{"args":["\u001b[200~paste\u001b[201~\r\u001b[200~paste\u001b[201~\r"],"ret":true}
+{"args":["\u001b[200~unterminated 01"],"ret":true}
+{"args":["\u001b[200~unterminated 1"],"ret":true}
+{"args":["\u001b[200~unterminated 1\u001b[200~unterminated 1"],"ret":true}
+{"args":["\u001b[2K\n"],"ret":true}
+{"args":["\u001b[2K\n\u001b[2K\n"],"ret":true}
+{"args":["\u001b[2😀K\n"],"ret":true}
+{"args":["\u001b[31m"],"ret":false}
+{"args":["\u001b[31m1"],"ret":true}
+{"args":["\u001b[31m1\u001b[31m1"],"ret":true}
+{"args":["\u001b[3m"],"ret":false}
+{"args":["\u001b[<0;1.0;5M"],"ret":true}
+{"args":["\u001b[<0;10;5M"],"ret":false}
+{"args":["\u001b[<0;10;M"],"ret":false}
+{"args":["\u001b[<6410;5M"],"ret":false}
+{"args":["\u001b[<64;10;5M"],"ret":false}
+{"args":["\u001b[?25h5"],"ret":true}
+{"args":["\u001b[?‍25h5"],"ret":true}
+{"args":["\u001b[A"],"ret":false}
+{"args":["\u001b[A\n"],"ret":true}
+{"args":["\u001b[B"],"ret":false}
+{"args":["\u001b[\u001b["],"ret":false}
+{"args":["\u001b[bA"],"ret":false}
+{"args":["\u001b\rx"],"ret":true}
+{"args":["\u001b\rxO"],"ret":true}
+{"args":["\u001b\rxO\u001b\rxO"],"ret":true}
+{"args":["\u001b\rx~~["],"ret":true}
+{"args":["\u001b\rx~~[\u001b"],"ret":true}
+{"args":["\u001b\rx~~[😀\u001b"],"ret":true}
+{"args":["\u001b\u001b"],"ret":false}
+{"args":["\u001b\u001b?"],"ret":false}
+{"args":["\u001b\u001bA\r[xA"],"ret":true}
+{"args":["\u001b\u001b[?"],"ret":false}
+{"args":["\u001b\u001b[?\u001b\u001b[?"],"ret":false}
+{"args":["\u001b\u001b中"],"ret":false}
+{"args":["\u001bé0"],"ret":true}
+{"args":["\u001bx"],"ret":false}
+{"args":["\u001b~"],"ret":false}
+{"args":["\u001b~22[~ 12 "],"ret":true}
+{"args":["\u001b~22[~ 12 \u001b~22[~ 12 "],"ret":true}
+{"args":["\u001b~22[~ 12 é"],"ret":true}
+{"args":["\u001b😀\u001b"],"ret":false}
+{"args":["_0O"],"ret":true}
+{"args":["_9"],"ret":true}
+{"args":["_\n\nO?"],"ret":true}
+{"args":["a1"],"ret":true}
+{"args":["a1a1"],"ret":true}
+{"args":["a3😀 O \r0"],"ret":true}
+{"args":["a[Ox 23"],"ret":true}
+{"args":["a\rb"],"ret":true}
+{"args":["a\rba\rb"],"ret":true}
+{"args":["abc"],"ret":false}
+{"args":["ac"],"ret":false}
+{"args":["a😀 x;?x\u001b"],"ret":false}
+{"args":["b\r;~;A\u001b\n? ?"],"ret":true}
+{"args":["b~~;??21"],"ret":true}
+{"args":["é;1x1"],"ret":true}
+{"args":["éO"],"ret":false}
+{"args":["é\r"],"ret":true}
+{"args":["n"],"ret":false}
+{"args":["nn"],"ret":false}
+{"args":["x 0"],"ret":true}
+{"args":["x 2?3"],"ret":true}
+{"args":["x 2?3_"],"ret":true}
+{"args":["x A\u001b~1\u001b"],"ret":true}
+{"args":["x A\u001b~1x\u001b"],"ret":true}
+{"args":["x A\u001b~1x\u001bx A\u001b~1x\u001b"],"ret":true}
+{"args":["x [\u001b3[0A?"],"ret":true}
+{"args":["x [\u001b3[0A?x [\u001b3[0A?"],"ret":true}
+{"args":["x [\u001bZ3[0A?"],"ret":true}
+{"args":["x"],"ret":false}
+{"args":["x0"],"ret":true}
+{"args":["x03;"],"ret":true}
+{"args":["x0[3;"],"ret":true}
+{"args":["x0x0"],"ret":true}
+{"args":["x1?"],"ret":true}
+{"args":["x1?x1?"],"ret":true}
+{"args":["x1O[😀\n0\u001b03A"],"ret":true}
+{"args":["x1O[😀\n\u001b03A"],"ret":true}
+{"args":["x1\rA "],"ret":true}
+{"args":["x1\r[A "],"ret":true}
+{"args":["x2?;"],"ret":true}
+{"args":["x2?;b"],"ret":true}
+{"args":["x2[ A1x\r"],"ret":true}
+{"args":["x3A\r \r"],"ret":true}
+{"args":["x3A\r \rx3A\r \r"],"ret":true}
+{"args":["x?1O0x😀3"],"ret":true}
+{"args":["x?1Ox3"],"ret":true}
+{"args":["x?1Ox😀3"],"ret":true}
+{"args":["x?O\nx"],"ret":true}
+{"args":["x?\r0"],"ret":true}
+{"args":["x?\r0x?\r0"],"ret":true}
+{"args":["xA\u001b0"],"ret":false}
+{"args":["xA\u001b中0"],"ret":true}
+{"args":["xA😀\u001b0"],"ret":false}
+{"args":["xOOx? O"],"ret":false}
+{"args":["xOOx? O["],"ret":false}
+{"args":["xOOx? O[xOOx? O["],"ret":false}
+{"args":["x[?;O\n20;"],"ret":true}
+{"args":["x[?;O\n20;x[?;O\n20;"],"ret":true}
+{"args":["x[\r\u001b"],"ret":true}
+{"args":["x\nA~ A~1\r"],"ret":true}
+{"args":["x\nA~ A~1\rß"],"ret":true}
+{"args":["x\n[1"],"ret":true}
+{"args":["x\n😀3\u001bx~2["],"ret":true}
+{"args":["x\n😀3\u001bx~2[x\n😀3\u001bx~2["],"ret":true}
+{"args":["x\n😀3\u001bx~["],"ret":true}
+{"args":["x\r?O\nx"],"ret":true}
+{"args":["x\r\u001b\u001b\r"],"ret":true}
+{"args":["x\r\u001b\u001b\rx\r\u001b\u001b\r"],"ret":true}
+{"args":["x\u001b ~ O\n"],"ret":true}
+{"args":["x\u001b ~ O\nx\u001b ~ O\n"],"ret":true}
+{"args":["x\u001b;0\n"],"ret":true}
+{"args":["x\u001b;0\nx\u001b;0\n"],"ret":true}
+{"args":["xx"],"ret":false}
+{"args":["xx2[ A1x\r"],"ret":true}
+{"args":["xx2[ A1x\rxx2[ A1x\r"],"ret":true}
+{"args":["xx\n0\n"],"ret":true}
+{"args":["xx\n0\nO"],"ret":true}
+{"args":["xx\n0\nOxx\n0\nO"],"ret":true}
+{"args":["x中\u001b;0\n"],"ret":true}
+{"args":["x😀;;0"],"ret":true}
+{"args":["y"],"ret":false}
+{"args":["y\r"],"ret":true}
+{"args":["y\ry\r"],"ret":true}
+{"args":["yy"],"ret":false}
+{"args":["y‍"],"ret":false}
+{"args":["~ \u001b\u001bA😀"],"ret":false}
+{"args":["~"],"ret":false}
+{"args":["~1"],"ret":true}
+{"args":["~2 "],"ret":true}
+{"args":["~3"],"ret":true}
+{"args":["~322\nAO\u001b3"],"ret":true}
+{"args":["~32\nAO\u001b3"],"ret":true}
+{"args":["~;"],"ret":false}
+{"args":["~;~;"],"ret":false}
+{"args":["~?-1"],"ret":true}
+{"args":["~?1"],"ret":true}
+{"args":["~A\u001b"],"ret":false}
+{"args":["~O"],"ret":false}
+{"args":["~O\n~~[O~"],"ret":true}
+{"args":["~O\n~~[O~~O\n~~[O~"],"ret":true}
+{"args":["~O\u001b"],"ret":false}
+{"args":["~O~~[O~"],"ret":false}
+{"args":["~[0?x;;;["],"ret":true}
+{"args":["~[0?x;;;[~[0?x;;;["],"ret":true}
+{"args":["~[0?😀2O\u001bx "],"ret":true}
+{"args":["~[0?😀2O\u001bx"],"ret":true}
+{"args":["~[0?😀2O\u001bxß"],"ret":true}
+{"args":["~\n?03"],"ret":true}
+{"args":["~\n?xOO"],"ret":true}
+{"args":["~\n?xOO\r"],"ret":true}
+{"args":["~\n?xOO\ra"],"ret":true}
+{"args":["~\nx?~\u001b[?😀x"],"ret":true}
+{"args":["~\r1~"],"ret":true}
+{"args":["~\r1~~\r1~"],"ret":true}
+{"args":["~\t[0?x;;;["],"ret":true}
+{"args":["~x;x "],"ret":false}
+{"args":["~x;x"],"ret":false}
+{"args":["~x??"],"ret":false}
+{"args":["~x??~x??"],"ret":false}
+{"args":["~x😀33\r3;😀0"],"ret":true}
+{"args":["~~2"],"ret":true}
+{"args":["~~2~~2"],"ret":true}
+{"args":["~~;??21"],"ret":true}
+{"args":["~~;??21~~;??21"],"ret":true}
+{"args":["~😀 \u001b\u001bA😀"],"ret":false}
+{"args":["~😀A\r"],"ret":true}
+{"args":["~😀A\r."],"ret":true}
+{"args":["~😀Aé\r"],"ret":true}
+{"args":[""],"ret":false}
+{"args":["Z"],"ret":false}
+{"args":[""],"ret":false}
+{"args":[""],"ret":false}
+{"args":[""],"ret":false}
+{"args":["ß2\rO 1[x"],"ret":true}
+{"args":["é"],"ret":false}
+{"args":["é0~?3 \u001bx\n["],"ret":true}
+{"args":["é1"],"ret":true}
+{"args":["‍2~2\n3\n;2?"],"ret":true}
+{"args":["‍\n[1\u001b3😀~3\u001b"],"ret":true}
+{"args":["‍x"],"ret":false}
+{"args":["‍x1?"],"ret":true}
+{"args":["中1"],"ret":true}
+{"args":["中1中1"],"ret":true}
+{"args":["中[\u001b\u001b"],"ret":false}
+{"args":["😀 x;?x\u001b"],"ret":false}
+{"args":["😀 x;?x\u001b😀 x;?x\u001b"],"ret":false}
+{"args":["😀"],"ret":false}
+{"args":["😀01?3"],"ret":true}
+{"args":["😀031~\n"],"ret":true}
+{"args":["😀031~\n\u001b"],"ret":true}
+{"args":["😀031~\n\u001b😀031~\n\u001b"],"ret":true}
+{"args":["😀0?"],"ret":true}
+{"args":["😀0?😀0?"],"ret":true}
+{"args":["😀0\r\u001bxO"],"ret":true}
+{"args":["😀0\r\u001bxO0"],"ret":true}
+{"args":["😀0\r\u001bxO😀0\r\u001bxO"],"ret":true}
+{"args":["😀32?😀A"],"ret":true}
+{"args":["😀3;23"],"ret":true}
+{"args":["😀3;23😀3;23"],"ret":true}
+{"args":["😀;\u001b ;3;"],"ret":true}
+{"args":["😀;\u001b ;3Z;"],"ret":true}
+{"args":["😀;~3;😀~00\n"],"ret":true}
+{"args":["😀;~3;😀~0\n"],"ret":true}
+{"args":["😀;~;😀~0\n"],"ret":true}
+{"args":["😀?"],"ret":false}
+{"args":["😀?1\r23é~"],"ret":true}
+{"args":["😀?1\r23~"],"ret":true}
+{"args":["😀O ;; \nAA"],"ret":true}
+{"args":["😀O ;; \nAA😀O ;; \nAA"],"ret":true}
+{"args":["😀O ;;😀 \nAA"],"ret":true}
+{"args":["😀OA😀;"],"ret":false}
+{"args":["😀OA😀;😀OA😀;"],"ret":false}
+{"args":["😀\nO"],"ret":true}
+{"args":["😀\r"],"ret":true}
+{"args":["😀\r[😀é~~\r["],"ret":true}
+{"args":["😀\r[😀~é~\r["],"ret":true}
+{"args":["😀\r[😀~~\r["],"ret":true}
+{"args":["😀\r~Ox"],"ret":true}
+{"args":["😀\t😀?A"],"ret":false}
+{"args":["😀\u001b ;3;"],"ret":true}
+{"args":["😀\u001b0\r"],"ret":true}
+{"args":["😀\u001b0\r\r"],"ret":true}
+{"args":["😀\u001b0~"],"ret":false}
+{"args":["😀\u001b\n\r; "],"ret":true}
+{"args":["😀\u001b\n\r; 😀\u001b\n\r; "],"ret":true}
+{"args":["😀\u001b\n中\r; "],"ret":true}
+{"args":["😀x"],"ret":false}
+{"args":["😀x1O[😀\n\u001b03A"],"ret":true}
+{"args":["😀x😀x"],"ret":false}
+{"args":["😀~;x\u001b\r😀2"],"ret":true}
+{"args":["😀~;x\u001b\r😀_2"],"ret":true}
+{"args":["😀~Ox"],"ret":false}
+{"args":["😀~x\u001b\r😀2"],"ret":true}
+{"args":["😀é"],"ret":false}
+{"args":["😀😀"],"ret":false}
+{"args":["😀😀?A"],"ret":false}
+{"args":["😀😀?A😀😀?A"],"ret":false}
+{"args":["１"],"ret":false}
+{"args":["１😀"],"ret":false}
+{"args":["１１"],"ret":false}

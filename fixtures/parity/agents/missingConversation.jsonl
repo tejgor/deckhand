@@ -1,0 +1,163 @@
+{"args":["claude",""],"ret":{"$u":1}}
+{"args":["claude","CLAUDE  --RESUME  ABC"],"ret":{"$u":1}}
+{"args":["claude","CLAUDE  --RESUME  ABCCLAUDE  --RESUME  ABC"],"ret":{"$u":1}}
+{"args":["claude","No conversation found with session ID: 0f8fad5b-d9cb-469f-_a716-446655440000"],"ret":{"$u":1}}
+{"args":["claude","No conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":"0f8fad5b-d9cb-469f-a716-446655440000"}
+{"args":["claude","No conversation found with session ID: short"],"ret":{"$u":1}}
+{"args":["claude","No session found matching abc"],"ret":{"$u":1}}
+{"args":["claude","Resume 0this session with:\nclaude --resume \"my session\""],"ret":{"$u":1}}
+{"args":["claude","Resume this session with:\nclaude --resume \"my session\""],"ret":{"$u":1}}
+{"args":["claude","Resume this session with:\nclaude -中-resume \"my session\""],"ret":{"$u":1}}
+{"args":["claude","To continue this conversation, run codex resume 019a1b2c-3d4e"],"ret":{"$u":1}}
+{"args":["claude","To continue this conversation, run codex resume 019a1b2c-3d4eTo continue this conversation, run codex resume 019a1b2c-3d4e"],"ret":{"$u":1}}
+{"args":["claude","\n  claude --resume 0f8fad5b-d9cb-469f-a716-446655440000\n"],"ret":{"$u":1}}
+{"args":["claude","\n  claude --resume 0f8fad5b-d9cb-469fé-a716-446655440000\n"],"ret":{"$u":1}}
+{"args":["claude","\u001b[1mNo conversation found with session I: 0f8fad5b-d9cb-469f-a716-446655440000\u001b[0m"],"ret":{"$u":1}}
+{"args":["claude","\u001b[1mNo conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000\u001b[0m"],"ret":"0f8fad5b-d9cb-469f-a716-446655440000"}
+{"args":["claude","\u001b[1mclaude --resume\u001b[0m 0f8ad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["claude","\u001b[1mclaude --resume\u001b[0m 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["claude","\u001b[1mclaude --resume\u001b[0m 0f8fad5b-d9cb-469f-a716-446655440000\u001b[1mclaude --resume\u001b[0m 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["claude","\u001b[1mcodex resume abcdefgh\u001b[0m"],"ret":{"$u":1}}
+{"args":["claude","\u001b[31mred\u001b[0m\u001b[?25h"],"ret":{"$u":1}}
+{"args":["claude","b"],"ret":{"$u":1}}
+{"args":["claude","caude --resume 'quoted name'"],"ret":{"$u":1}}
+{"args":["claude","claud.e --resume   "],"ret":{"$u":1}}
+{"args":["claude","claude --esume 中文 more"],"ret":{"$u":1}}
+{"args":["claude","claude --resume   "],"ret":{"$u":1}}
+{"args":["claude","claude --resume   claude --resume   "],"ret":{"$u":1}}
+{"args":["claude","claude --resume 'quoted name'"],"ret":{"$u":1}}
+{"args":["claude","claude --resume 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["claude","claude --resume \"\""],"ret":{"$u":1}}
+{"args":["claude","claude --resume 中文 more"],"ret":{"$u":1}}
+{"args":["claude","claude --resume=eq-name"],"ret":{"$u":1}}
+{"args":["claude","codex   resume   abcdefgh_-12 trailing"],"ret":{"$u":1}}
+{"args":["claude","codex resume -abcdefgh"],"ret":{"$u":1}}
+{"args":["claude","codex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["claude","codex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["claude","codex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacodex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["claude","codex resume abcdefg"],"ret":{"$u":1}}
+{"args":["claude","codex resume abcdefgcodex resume abcdefg"],"ret":{"$u":1}}
+{"args":["claude","codex resume abcdefgh!"],"ret":{"$u":1}}
+{"args":["claude","codex resume abcdefgh"],"ret":{"$u":1}}
+{"args":["claude","codex resume abcdefghcodex resume abcdefgh"],"ret":{"$u":1}}
+{"args":["claude","codex resume 😀😀😀😀😀😀😀😀"],"ret":{"$u":1}}
+{"args":["claude","error: No session found matching \"x\""],"ret":{"$u":1}}
+{"args":["claude","error: No session found matcing \"x\""],"ret":{"$u":1}}
+{"args":["claude","no conversation found with session id:   0F8FAD5B-D9CB-469F-A716-446655440000"],"ret":"0F8FAD5B-D9CB-469F-A716-446655440000"}
+{"args":["claude","no session found matching"],"ret":{"$u":1}}
+{"args":["claude","x claude --resume nope"],"ret":{"$u":1}}
+{"args":["claude","xcodex resume abcdefgh"],"ret":{"$u":1}}
+{"args":["claude","😀 c_laude --resume A1B2C3D4-0000-4000-8000-000000000001"],"ret":{"$u":1}}
+{"args":["claude","😀 claude --resume A1B2C3D4-0000-4000-8000-000000000001"],"ret":{"$u":1}}
+{"args":["claude","😀 claude --resume A1\nB2C3D4-0000-4000-8000-000000000001"],"ret":{"$u":1}}
+{"args":["codex",""],"ret":{"$u":1}}
+{"args":["codex","CLAUDE  --RESUME  ABC"],"ret":{"$u":1}}
+{"args":["codex","CLAUDE  --RESUME  ABCCLAUDE  --RESUME  ABC"],"ret":{"$u":1}}
+{"args":["codex","No conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["codex","No conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000No conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["codex","No conversation found with session ID: 0f8fad5b-d9c😀b-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["codex","No conversation found with session ID: short"],"ret":{"$u":1}}
+{"args":["codex","No session found matching abc"],"ret":{"$u":1}}
+{"args":["codex","No session found matching abcNo session found matching abc"],"ret":{"$u":1}}
+{"args":["codex","Resume this session with:\nclaude --resume \"my session\""],"ret":{"$u":1}}
+{"args":["codex","To continue this conversation, run codex resume 019a1b2c-3d4e"],"ret":{"$u":1}}
+{"args":["codex","To contiue this conversation, run codex resume 019a1b2c-3d4e"],"ret":{"$u":1}}
+{"args":["codex","\n  claude --resume 0f8fad5b-d9cb-469f-a716-446655440000\n"],"ret":{"$u":1}}
+{"args":["codex","\u001b[1mNo conversation found with session ID: 0f8fad5b-d9c-469f-a716-446655440000\u001b[0m"],"ret":{"$u":1}}
+{"args":["codex","\u001b[1mNo conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000\u001b[0m"],"ret":{"$u":1}}
+{"args":["codex","\u001b[1mclaude --resume\u001b[0m 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["codex","\u001b[1mcodex resume abcdefgh\u001b[0m"],"ret":{"$u":1}}
+{"args":["codex","\u001b[1modex resume abcdefgh\u001b[0m"],"ret":{"$u":1}}
+{"args":["codex","\u001b[31mred\u001b[0m\u001b[?25h"],"ret":{"$u":1}}
+{"args":["codex","\u001b[31mred\u001b[0m\u001b[?25h\u001b[31mred\u001b[0m\u001b[?25h"],"ret":{"$u":1}}
+{"args":["codex","c/laude --resume 中文 more"],"ret":{"$u":1}}
+{"args":["codex","claude --resume   "],"ret":{"$u":1}}
+{"args":["codex","claude --resume 'quoted name'"],"ret":{"$u":1}}
+{"args":["codex","claude --resume 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["codex","claude --resume 0f8fad5b-d9cb-469f-a716-446655440000claude --resume 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["codex","claude --resume \"\""],"ret":{"$u":1}}
+{"args":["codex","claude --resume 中文 more"],"ret":{"$u":1}}
+{"args":["codex","claude --resume=eq-name"],"ret":{"$u":1}}
+{"args":["codex","claude --resume=eq-nameclaude --resume=eq-name"],"ret":{"$u":1}}
+{"args":["codex","claéude --resume   "],"ret":{"$u":1}}
+{"args":["codex","clude --resume 'quoted name'"],"ret":{"$u":1}}
+{"args":["codex","code resume abcdefgh!"],"ret":{"$u":1}}
+{"args":["codex","codex   resume   abcdefgh_-12 trailing"],"ret":{"$u":1}}
+{"args":["codex","codex   resume   abcd😀efgh_-12 trailing"],"ret":{"$u":1}}
+{"args":["codex","codex esume abcdefg"],"ret":{"$u":1}}
+{"args":["codex","codex resume -abcdefgh"],"ret":{"$u":1}}
+{"args":["codex","codex resume a bcdefgh"],"ret":{"$u":1}}
+{"args":["codex","codex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["codex","codex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["codex","codex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaacodex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["codex","codex resume abcdefg"],"ret":{"$u":1}}
+{"args":["codex","codex resume abcdefgh!"],"ret":{"$u":1}}
+{"args":["codex","codex resume abcdefgh"],"ret":{"$u":1}}
+{"args":["codex","codex resume abcefgh!"],"ret":{"$u":1}}
+{"args":["codex","codex resume 😀😀😀😀😀😀😀😀"],"ret":{"$u":1}}
+{"args":["codex","codex resume 😀😀😀😀😀😀😀😀codex resume 😀😀😀😀😀😀😀😀"],"ret":{"$u":1}}
+{"args":["codex","error: No session found matching \"x\""],"ret":{"$u":1}}
+{"args":["codex","error: No session found matching \"x\"error: No session found matching \"x\""],"ret":{"$u":1}}
+{"args":["codex","no conversation found with session id:   0F8FAD5B-D9CB-469F-A716-446655440000"],"ret":{"$u":1}}
+{"args":["codex","no session found matching"],"ret":{"$u":1}}
+{"args":["codex","x claude --resume nope"],"ret":{"$u":1}}
+{"args":["codex","xcodex resuZme abcdefgh"],"ret":{"$u":1}}
+{"args":["codex","xcodex resume abcdefgh"],"ret":{"$u":1}}
+{"args":["codex","😀 claude --resume A1B2C3D4-0000-4000-8000-000000000001"],"ret":{"$u":1}}
+{"args":["pi"," "],"ret":{"$u":1}}
+{"args":["pi",""],"ret":{"$u":1}}
+{"args":["pi","CLAUDE  --RESUME  ABC"],"ret":{"$u":1}}
+{"args":["pi","CLAUDE --RESUME  ABC"],"ret":{"$u":1}}
+{"args":["pi","No conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["pi","No conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000No conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["pi","No conversation found with session ID: short"],"ret":{"$u":1}}
+{"args":["pi","No session faound matching abc"],"ret":{"$u":1}}
+{"args":["pi","No session foun matching abc"],"ret":{"$u":1}}
+{"args":["pi","No session found matching abc"],"ret":{"$u":1}}
+{"args":["pi","Resume this session with:\nclaude --resume \"my session\""],"ret":{"$u":1}}
+{"args":["pi","Resume this session with:\nclaude --resume \"my session\"Resume this session with:\nclaude --resume \"my session\""],"ret":{"$u":1}}
+{"args":["pi","To continue this conversation, run codex resume 0/19a1b2c-3d4e"],"ret":{"$u":1}}
+{"args":["pi","To continue this conversation, run codex resume 019a1b2c-3d4e"],"ret":{"$u":1}}
+{"args":["pi","To co‍ntinue this conversation, run codex resume 019a1b2c-3d4e"],"ret":{"$u":1}}
+{"args":["pi","\n  claude --resume 0f8fad5b-d9cb-469f-a716-446655440000\n"],"ret":{"$u":1}}
+{"args":["pi","\n  claude --resume 0f8fad5b-d9cb-469f-a716446655440000\n"],"ret":{"$u":1}}
+{"args":["pi","\u001b[1mNo conversation found with ses/sion ID: 0f8fad5b-d9cb-469f-a716-446655440000\u001b[0m"],"ret":{"$u":1}}
+{"args":["pi","\u001b[1mNo conversation found with session ID: 0f8fad5b-d9cb-469f-a716-446655440000\u001b[0m"],"ret":{"$u":1}}
+{"args":["pi","\u001b[1mNo conversation fund with session ID: 0f8fad5b-d9cb-469f-a716-446655440000\u001b[0m"],"ret":{"$u":1}}
+{"args":["pi","\u001b[1mclaude --resume\u001b[0m 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["pi","\u001b[1mclaude --resume\u001b[0m 0f8fad5b-d9cb-469f-a716-446655440000\u001b[1mclaude --resume\u001b[0m 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["pi","\u001b[1mcodex resume abcdefgh\u001b[0m"],"ret":{"$u":1}}
+{"args":["pi","\u001b[1mcodex resume😀 abcdefgh\u001b[0m"],"ret":{"$u":1}}
+{"args":["pi","\u001b[31mred\u001b[0m\u001b[?25h"],"ret":{"$u":1}}
+{"args":["pi","clade --resume=eq-name"],"ret":{"$u":1}}
+{"args":["pi","claude --resume   "],"ret":{"$u":1}}
+{"args":["pi","claude --resume 'quoted name'"],"ret":{"$u":1}}
+{"args":["pi","claude --resume 0f8fad5b-d9cb-469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["pi","claude --resume 0f8fad5b-d9cb469f-a716-446655440000"],"ret":{"$u":1}}
+{"args":["pi","claude --resume \"\""],"ret":{"$u":1}}
+{"args":["pi","claude --resume 中文 more"],"ret":{"$u":1}}
+{"args":["pi","claude --resume=eq-name"],"ret":{"$u":1}}
+{"args":["pi","codex   esume   abcdefgh_-12 trailing"],"ret":{"$u":1}}
+{"args":["pi","codex   resume   abcdefgh_-12 trailing"],"ret":{"$u":1}}
+{"args":["pi","codex resue abcdefgh!"],"ret":{"$u":1}}
+{"args":["pi","codex resume -abbcdefgh"],"ret":{"$u":1}}
+{"args":["pi","codex resume -abcdefgh"],"ret":{"$u":1}}
+{"args":["pi","codex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["pi","codex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["pi","codex resume aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"ret":{"$u":1}}
+{"args":["pi","codex resume abcdefg"],"ret":{"$u":1}}
+{"args":["pi","codex resume abcdefgh!"],"ret":{"$u":1}}
+{"args":["pi","codex resume abcdefgh"],"ret":{"$u":1}}
+{"args":["pi","codex resume abcdeéfg"],"ret":{"$u":1}}
+{"args":["pi","codex resume 😀😀😀😀😀😀😀😀"],"ret":{"$u":1}}
+{"args":["pi","codex rsume abcdefgh!"],"ret":{"$u":1}}
+{"args":["pi","error: No session found matching \"x\""],"ret":{"$u":1}}
+{"args":["pi","error: No session found matching \"x\"error: No session found matching \"x\""],"ret":{"$u":1}}
+{"args":["pi","é"],"ret":{"$u":1}}
+{"args":["pi","no conversation found with session id:   08FAD5B-D9CB-469F-A716-446655440000"],"ret":{"$u":1}}
+{"args":["pi","no conversation found with session id:   0F8FAD5B-D9CB-469F-A716-446655440000"],"ret":{"$u":1}}
+{"args":["pi","no session found matching"],"ret":{"$u":1}}
+{"args":["pi","x claude --resume nope"],"ret":{"$u":1}}
+{"args":["pi","xcodex resume abcdefgh"],"ret":{"$u":1}}
+{"args":["pi","😀 claude --resume A1B2C3D4-0000-4000-8000-000000000001"],"ret":{"$u":1}}
+{"args":["pi","😀 claude --resume A1B2C3D4-0000-4000-8000-_000000000001"],"ret":{"$u":1}}
