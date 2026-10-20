@@ -28,6 +28,7 @@ use serde_json::Value;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
 
+use deckhand_core::display::ThemeMode;
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::{js_collapse_whitespace, js_len, js_slice, js_trim};
 use deckhand_protocol::Request;
@@ -47,6 +48,8 @@ pub struct AttachSessionOptions {
     pub title: Option<String>,
     /// Fraction of vertical wheel events forwarded (0..=1, default 0.12).
     pub scroll_sensitivity: Option<f64>,
+    /// The colors of the status line above an attached agent.
+    pub theme: ThemeMode,
 }
 
 /// TS: attach.ts targetRequestNames result: the message types of one attach target.
@@ -977,7 +980,13 @@ pub(crate) async fn run_attach<C: Console, S: AsyncRead + AsyncWrite + Unpin>(
     let status = (target == AttachTarget::Agent && console.stdout_is_tty())
         .then(|| {
             let title = options.title.as_deref().unwrap_or(session_id);
-            StatusLine::new(session_id, title, attach_rows_on(console), attach_cols_on(console))
+            StatusLine::new(
+                session_id,
+                title,
+                attach_rows_on(console),
+                attach_cols_on(console),
+                options.theme,
+            )
         })
         .flatten();
     let mut proxy = Proxy {
@@ -1689,6 +1698,7 @@ mod tests {
         let options = AttachSessionOptions {
             title: Some(String::from("Fix bug")),
             scroll_sensitivity: Some(1.0),
+            theme: ThemeMode::Terminal,
         };
         let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
         let driver = async {

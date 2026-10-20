@@ -49,6 +49,95 @@ pub const THEME: Theme = Theme {
     error: "red",
 };
 
+/// A 24-bit color.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Rgb(pub u8, pub u8, pub u8);
+
+/// Deckhand's own colors (docs/brand/deckhand-design-system.html, "Terminal Native, dusk").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Palette {
+    /// The page; everything sits on it.
+    pub ground: Rgb,
+    /// Panels and cards.
+    pub surface: Rgb,
+    /// Inside a terminal window: the UI's ground.
+    pub term: Rgb,
+    /// Boxes inside the terminal.
+    pub box_fill: Rgb,
+    /// Title bars, tab strips.
+    pub chrome: Rgb,
+    /// Headlines, body text.
+    pub ink: Rgb,
+    /// Secondary text.
+    pub muted: Rgb,
+    /// Rules, borders, hints.
+    pub dim: Rgb,
+    /// Thin rules in chrome.
+    pub rule: Rgb,
+    /// Box and window outlines.
+    pub edge: Rgb,
+    /// Grid dots.
+    pub faint: Rgb,
+    /// Text on fills (the selection bar, chips).
+    pub ink_dark: Rgb,
+    /// Brand: logo, accents, cursor, focused borders.
+    pub magenta: Rgb,
+    /// Brand titles in the product.
+    pub magenta_bright: Rgb,
+    /// Active / selected.
+    pub cyan: Rgb,
+    /// Success: working, done, additions.
+    pub green: Rgb,
+    /// Attention and annotation.
+    pub yellow: Rgb,
+    /// Error: failures, deletions.
+    pub red: Rgb,
+    /// Third-party marks.
+    pub orange: Rgb,
+}
+
+/// The dusk palette's tokens.
+pub const DUSK: Palette = Palette {
+    ground: Rgb(0x4a, 0x52, 0x60),
+    surface: Rgb(0x3c, 0x43, 0x4f),
+    term: Rgb(0x36, 0x3c, 0x46),
+    box_fill: Rgb(0x3f, 0x46, 0x51),
+    chrome: Rgb(0x42, 0x49, 0x55),
+    ink: Rgb(0xf4, 0xf2, 0xec),
+    muted: Rgb(0xc3, 0xc8, 0xd0),
+    dim: Rgb(0x84, 0x8c, 0x99),
+    rule: Rgb(0x59, 0x61, 0x6e),
+    edge: Rgb(0x9a, 0xa2, 0xae),
+    faint: Rgb(0x55, 0x5d, 0x6b),
+    ink_dark: Rgb(0x2a, 0x2f, 0x38),
+    magenta: Rgb(0xf7, 0xa8, 0xf0),
+    magenta_bright: Rgb(0xfb, 0xcd, 0xf6),
+    cyan: Rgb(0x86, 0xe2, 0xee),
+    green: Rgb(0xb8, 0xe6, 0x9c),
+    yellow: Rgb(0xf6, 0xd4, 0x7e),
+    red: Rgb(0xff, 0xa2, 0x9b),
+    orange: Rgb(0xff, 0xb9, 0x8f),
+};
+
+/// How Deckhand colors its own UI.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ThemeMode {
+    /// The dusk palette in 24-bit color, on its own background.
+    Dusk,
+    /// The 16 ANSI named colors, on the terminal's background, so the palette follows the terminal's theme.
+    #[default]
+    Terminal,
+}
+
+/// The theme for the `theme` setting of config.json: dusk only when it is `"dusk"` (an opt-in, e.g. for recording
+/// demos in the brand's colors), otherwise terminal.
+pub fn theme_mode(setting: Option<&str>) -> ThemeMode {
+    match setting {
+        Some("dusk") => ThemeMode::Dusk,
+        _ => ThemeMode::Terminal,
+    }
+}
+
 /// TS: ui.ts errorMessage (`error.message`, else `String(error)`).
 pub fn error_message(error: &dyn std::fmt::Display) -> String {
     error.to_string()
@@ -595,6 +684,14 @@ mod tests {
     #[test]
     fn theme_parity() {
         replay("P12", "ui/THEME", |_case: &Case| -> Result<Theme, String> { Ok(THEME) });
+    }
+
+    #[test]
+    fn dusk_is_opt_in() {
+        assert_eq!(theme_mode(Some("dusk")), ThemeMode::Dusk);
+        assert_eq!(theme_mode(Some("terminal")), ThemeMode::Terminal);
+        assert_eq!(theme_mode(Some("auto")), ThemeMode::Terminal);
+        assert_eq!(theme_mode(None), ThemeMode::Terminal);
     }
 
     #[test]

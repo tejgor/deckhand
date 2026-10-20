@@ -53,7 +53,7 @@ use crate::panes::terminal::{TerminalPaneProps, action_status, has_action, rende
 use crate::primitives::{
     Border, Row, Seg, TextStyle, Wrap, bordered, draw_rows, row_width, space_between, truncate_row,
 };
-use crate::theme::THEME;
+use crate::theme::{THEME, apply_dusk};
 
 /// TS: app.tsx HEADER_ROWS.
 pub const HEADER_ROWS: u16 = 2;
@@ -331,7 +331,7 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
             format!("Search: /{} • enter keep • esc clear", app.browse.session_query),
             THEME.active,
         ),
-        Mode::Tasks | Mode::Worktrees => (flow_hint(app, derived, cols).unwrap_or_default(), THEME.muted),
+        Mode::Tasks | Mode::Worktrees => (flow_hint(app, derived, cols).unwrap_or_default(), THEME.hint),
         mode => {
             let action = &app.panes.action;
             let showing = app.showing_action();
@@ -362,7 +362,7 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
                 notes_hint: notes_hint.as_deref(),
                 terminal_action: terminal_action.as_ref(),
             });
-            (text, THEME.muted)
+            (text, THEME.hint)
         }
     };
     let hint_row = truncate_row(&[Seg::new(hint, TextStyle::fg(color))], cols, Wrap::TruncateEnd);
@@ -820,6 +820,7 @@ pub fn render_app(app: &mut App, frame: &mut Frame<'_>) {
             buf[(x, y)] = canvas[(x, y)].clone();
         }
     }
+    apply_dusk(buf, area, &THEME);
 }
 
 /// The hint parts of the browse footer (TS footerHint's `browse` case), before fitting.

@@ -230,6 +230,20 @@ While attached, and while you scroll the preview, Deckhand damps trackpad and mo
 
 The value is clamped to 0..1. Use `1` for normal terminal scrolling, lower values for slower scrolling or `0` to ignore vertical wheel events. The default is `0.12`. Pi gets `pgup`/`pgdn` instead of wheel events.
 
+## Colours
+
+Deckhand uses your terminal's own colours, so it follows your terminal theme: magenta for the brand and focused boxes, cyan for the selection, yellow for what needs you, and green and red for success and errors.
+
+It can also draw itself in the dusk palette of [the design system](brand/deckhand-design-system.html), on its own slate background. That is mainly for recording demos and screenshots in the brand's colours. It needs a terminal with 24-bit colour. Turn it on in the user config (`~/.deckhand/config.json`); there is no Settings (`C`) row for it:
+
+```json
+{
+  "theme": "dusk"
+}
+```
+
+Remove the key (or set `"terminal"`) to go back. Deckhand reads it when the UI starts and each time you come back from an attached session, so quit and reopen the UI after changing it. The status line above an attached agent follows the same setting. Only Deckhand's own UI changes colour; agents' output keeps its own colours.
+
 ## Git changes
 
 The Git tab (`g`) is a built-in, read-mostly take on VS Code's Source Control panel for the selected session's worktree. You rarely need to open the worktree in an editor just to see what changed. lazygit is still there for everything else: `o` attaches it, and it starts on that first attach, not when you open the tab.

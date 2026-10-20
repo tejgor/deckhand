@@ -98,6 +98,8 @@ pub struct AppConfig {
     pub trusted_projects: Option<IndexMap<String, Vec<String>>>,
     pub agent_hooks: Option<bool>,
     pub notifications: Option<bool>,
+    /// The UI theme: `"dusk"` for the brand palette; anything else or unset: the terminal's colors (see `theme_mode`).
+    pub theme: Option<String>,
     /// Global project defaults (deckhand.json schema), kept as stored (`null` included).
     #[serde(default, deserialize_with = "crate::events::present_value")]
     pub defaults: Option<Value>,
@@ -136,6 +138,7 @@ impl AppConfig {
             trusted_projects: Some(trusted),
             agent_hooks: raw.get("agent_hooks").and_then(Value::as_bool),
             notifications: Some(raw.get("notifications") == Some(&Value::Bool(true))),
+            theme: raw.get("theme").and_then(Value::as_str).map(str::to_owned),
             // `defaults: parsed.defaults` keeps even null.
             defaults: raw.get("defaults").cloned(),
         }

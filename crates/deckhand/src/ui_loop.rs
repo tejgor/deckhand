@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use deckhand_client::attach::{AttachSessionOptions, attach_session};
 use deckhand_client::term_state::reset_terminal_state;
+use deckhand_core::display::{ThemeMode, theme_mode};
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::date;
 use deckhand_protocol::UiState;
@@ -183,6 +184,7 @@ pub async fn run_ui(
         timer: Rc::default(),
     };
     let props = app_props(repo_root, ui_state, terminal_view, &saver);
+    deckhand_ui::theme::set_mode(configured_theme_mode().await);
     enter_alternate_screen();
     let result = deckhand_ui::app::run(props).await;
     saver.cancel();
@@ -194,6 +196,13 @@ pub async fn run_ui(
         write_stderr(&format!("deckhand: could not save UI state: {error}\n"));
     }
     result.map_err(|error| DhError::msg(error.to_string()))
+}
+
+/// The theme the `theme` setting of config.json chooses (an unreadable config: terminal).
+/// Read on every round trip, so an edited setting applies the next time the UI starts or comes back from an attach.
+async fn configured_theme_mode() -> ThemeMode {
+    let setting = load_app_config().await.ok().and_then(|config| config.theme);
+    theme_mode(setting.as_deref())
 }
 
 /// The UI process's hold on its terminal, from startup until the UI loop ends (however it ends): saves stdin's startup
@@ -330,6 +339,7 @@ pub async fn hand_off_attach(
         let options = AttachSessionOptions {
             title: title.map(str::to_owned),
             scroll_sensitivity: config.attach_scroll_sensitivity.map(|value| value.0),
+            theme: theme_mode(config.theme.as_deref()),
         };
         attach_session(session_id, Some(target), options).await
     }

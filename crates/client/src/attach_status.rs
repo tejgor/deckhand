@@ -23,6 +23,7 @@ use indexmap::IndexMap;
 use unicode_width::UnicodeWidthChar;
 
 use deckhand_core::agent_signals::needs_attention;
+use deckhand_core::display::{DUSK, Rgb, ThemeMode};
 use deckhand_protocol::data::{AttentionState, SessionRecord, SessionStatus};
 
 /// The rows Deckhand takes at the top: the line, and the rule under it.
@@ -30,6 +31,76 @@ const HEIGHT: u16 = 2;
 
 /// Fewer outer rows than this leaves the agent too little room: no status line.
 const MIN_ROWS: u16 = HEIGHT + 3;
+
+/// The status line's SGR colours, for one [`ThemeMode`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Colours {
+    /// The line's background and plain text.
+    line: String,
+    /// ` deckhand `, bold.
+    brand: String,
+    /// Separators and quiet text, not bold.
+    quiet: String,
+    title: String,
+    /// The other sessions waiting, bold.
+    waiting: String,
+    /// The rule under the line (on the terminal's background).
+    rule: String,
+    working: String,
+    needs_you: String,
+    done: String,
+    failed: String,
+    idle: String,
+}
+
+impl Colours {
+    fn of(theme: ThemeMode) -> Self {
+        match theme {
+            ThemeMode::Terminal => Colours {
+                line: "\x1b[48;5;236m\x1b[38;5;250m".to_owned(),
+                brand: "\x1b[1;38;5;212m".to_owned(),
+                quiet: "\x1b[22;38;5;245m".to_owned(),
+                title: "\x1b[38;5;252m".to_owned(),
+                waiting: "\x1b[1;38;5;221m".to_owned(),
+                rule: "\x1b[38;5;239m".to_owned(),
+                working: "\x1b[38;5;117m".to_owned(),
+                needs_you: "\x1b[38;5;221m".to_owned(),
+                done: "\x1b[38;5;114m".to_owned(),
+                failed: "\x1b[38;5;203m".to_owned(),
+                idle: "\x1b[38;5;245m".to_owned(),
+            },
+            // The design system's chrome: a title bar in its own background, glyph colours as in the UI.
+            ThemeMode::Dusk => Colours {
+                line: format!("\x1b[{};{}m", sgr(48, DUSK.chrome), sgr(38, DUSK.muted)),
+                brand: format!("\x1b[1;{}m", sgr(38, DUSK.magenta)),
+                quiet: format!("\x1b[22;{}m", sgr(38, DUSK.dim)),
+                title: format!("\x1b[{}m", sgr(38, DUSK.ink)),
+                waiting: format!("\x1b[1;{}m", sgr(38, DUSK.yellow)),
+                rule: format!("\x1b[{}m", sgr(38, DUSK.rule)),
+                working: format!("\x1b[{}m", sgr(38, DUSK.green)),
+                needs_you: format!("\x1b[{}m", sgr(38, DUSK.yellow)),
+                done: format!("\x1b[{}m", sgr(38, DUSK.green)),
+                failed: format!("\x1b[{}m", sgr(38, DUSK.red)),
+                idle: format!("\x1b[{}m", sgr(38, DUSK.dim)),
+            },
+        }
+    }
+
+    fn state(&self, state: AttentionState) -> &str {
+        match state {
+            AttentionState::Working => &self.working,
+            AttentionState::NeedsInput | AttentionState::Limited => &self.needs_you,
+            AttentionState::ResponseEnded => &self.done,
+            AttentionState::Failed => &self.failed,
+            AttentionState::Unknown => &self.idle,
+        }
+    }
+}
+
+/// The SGR parameters of a 24-bit colour (`layer` 38: foreground, 48: background).
+fn sgr(layer: u8, Rgb(r, g, b): Rgb) -> String {
+    format!("{layer};2;{r};{g};{b}")
+}
 
 /// What the status line knows about one session.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -71,11 +142,13 @@ pub struct StatusLine {
     /// Cursor position reports the agent asked for (`CSI 6 n`) whose answers have not come back yet.
     pending_reports: u32,
     sessions: IndexMap<String, SessionSummary>,
+    colours: Colours,
 }
 
 impl StatusLine {
-    /// A status line for an outer terminal of `rows` × `cols`, or `None` when it is too small for one.
-    pub fn new(session_id: &str, title: &str, rows: i64, cols: i64) -> Option<Self> {
+    /// A status line for an outer terminal of `rows` × `cols` in `theme`'s colours, or `None` when it is too small for
+    /// one.
+    pub fn new(session_id: &str, title: &str, rows: i64, cols: i64, theme: ThemeMode) -> Option<Self> {
         let (rows, cols) = (clamp_u16(rows), clamp_u16(cols));
         if rows < MIN_ROWS || cols == 0 {
             return None;
@@ -91,6 +164,7 @@ impl StatusLine {
             redraw_due: false,
             pending_reports: 0,
             sessions: IndexMap::new(),
+            colours: Colours::of(theme),
         })
     }
 
@@ -351,32 +425,31 @@ impl StatusLine {
             .get(&self.session_id)
             .and_then(|summary| summary.attention);
         let mut out = String::from("\x1b[?2026h");
-        out.push_str("\x1b[1;1H\x1b[0m\x1b[48;5;236m\x1b[38;5;250m");
+        let colours = &self.colours;
+        out.push_str("\x1b[1;1H\x1b[0m");
+        out.push_str(&colours.line);
         let mut line = Line::new(usize::from(self.cols));
-        line.push("\x1b[1;38;5;212m", " deckhand ");
-        line.push("\x1b[22;38;5;245m", "│ ");
-        line.push("\x1b[38;5;252m", &self.title);
+        line.push(&colours.brand, " deckhand ");
+        line.push(&colours.quiet, "│ ");
+        line.push(&colours.title, &self.title);
         if let Some(state) = own {
-            line.push("\x1b[38;5;245m", " · ");
-            line.push(state_colour(state), state_label(state));
+            line.push(&colours.quiet, " · ");
+            line.push(colours.state(state), state_label(state));
         }
-        line.push("\x1b[38;5;245m", " │ ");
+        line.push(&colours.quiet, " │ ");
         if waiting > 0 {
             let plural = if waiting == 1 { "" } else { "s" };
-            line.push(
-                "\x1b[1;38;5;221m",
-                &format!("! {waiting} other session{plural} waiting"),
-            );
+            line.push(&colours.waiting, &format!("! {waiting} other session{plural} waiting"));
             line.push("\x1b[22m", "");
         } else {
-            line.push("\x1b[38;5;245m", "nothing else waiting");
+            line.push(&colours.quiet, "nothing else waiting");
         }
-        line.push("\x1b[38;5;245m", " │ Ctrl+] detach");
+        line.push(&colours.quiet, " │ Ctrl+] detach");
         out.push_str(&line.finish());
         out.push_str("\x1b[0m\x1b[2;1H");
         // Like the line, the rule leaves the last cell empty.
         let mut rule = Line::new(usize::from(self.cols));
-        rule.push("\x1b[38;5;239m", &"─".repeat(usize::from(self.cols - 1)));
+        rule.push(&colours.rule, &"─".repeat(usize::from(self.cols - 1)));
         out.push_str(&rule.finish());
         out.push_str("\x1b[0m");
         let screen = self.mirror.screen();
@@ -448,16 +521,6 @@ fn state_label(state: AttentionState) -> &'static str {
         AttentionState::Failed => "failed",
         AttentionState::Limited => "rate limited",
         AttentionState::Unknown => "idle",
-    }
-}
-
-fn state_colour(state: AttentionState) -> &'static str {
-    match state {
-        AttentionState::Working => "\x1b[38;5;117m",
-        AttentionState::NeedsInput | AttentionState::Limited => "\x1b[38;5;221m",
-        AttentionState::ResponseEnded => "\x1b[38;5;114m",
-        AttentionState::Failed => "\x1b[38;5;203m",
-        AttentionState::Unknown => "\x1b[38;5;245m",
     }
 }
 
@@ -543,7 +606,7 @@ mod tests {
     use super::*;
 
     fn line() -> StatusLine {
-        StatusLine::new("s", "fix-login", 6, 40).unwrap()
+        StatusLine::new("s", "fix-login", 6, 40, ThemeMode::Terminal).unwrap()
     }
 
     /// The outer terminal after `writes`, as a vt100 screen of the full size.
@@ -560,8 +623,30 @@ mod tests {
     }
 
     #[test]
+    fn dusk_draws_the_line_in_the_design_colours() {
+        let status = StatusLine::new("s", "fix-login", 6, 40, ThemeMode::Dusk).unwrap();
+        let parser = outer(&[status.setup()]);
+        let screen = parser.screen();
+        assert!(row_text(&parser, 0).starts_with(" deckhand │ fix-login"));
+        let brand = screen.cell(0, 1).unwrap();
+        assert_eq!(brand.fgcolor(), vt100::Color::Rgb(0xf7, 0xa8, 0xf0));
+        assert_eq!(brand.bgcolor(), vt100::Color::Rgb(0x42, 0x49, 0x55));
+        assert!(brand.bold());
+        let title = screen.cell(0, 12).unwrap();
+        assert_eq!(title.fgcolor(), vt100::Color::Rgb(0xf4, 0xf2, 0xec));
+        assert!(!title.bold());
+        assert_eq!(
+            screen.cell(1, 0).unwrap().fgcolor(),
+            vt100::Color::Rgb(0x59, 0x61, 0x6e)
+        );
+        // The terminal theme keeps its 256-colour line.
+        let terminal = outer(&[line().setup()]);
+        assert_eq!(terminal.screen().cell(0, 1).unwrap().fgcolor(), vt100::Color::Idx(212));
+    }
+
+    #[test]
     fn too_small_a_terminal_gets_no_line() {
-        assert!(StatusLine::new("s", "t", 4, 80).is_none());
+        assert!(StatusLine::new("s", "t", 4, 80, ThemeMode::Terminal).is_none());
         assert_eq!(line().agent_rows(), 4);
     }
 
@@ -660,7 +745,7 @@ mod tests {
 
     #[test]
     fn other_sessions_waiting_are_counted() {
-        let mut status = StatusLine::new("s", "fix-login", 6, 80).unwrap();
+        let mut status = StatusLine::new("s", "fix-login", 6, 80, ThemeMode::Terminal).unwrap();
         let session = |id: &str, state: Option<AttentionState>| -> SessionRecord {
             let mut value = serde_json::json!({
                 "id": id, "title": id, "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r",

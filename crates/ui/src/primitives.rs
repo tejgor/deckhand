@@ -15,6 +15,8 @@ use ratatui::text::{Line, Span};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthChar;
 
+use crate::theme::THEME;
+
 /// cli-truncate's truncation character.
 pub const ELLIPSIS: &str = "…";
 
@@ -790,6 +792,10 @@ pub fn draw_border(buf: &mut Buffer, area: Rect, border: &Border) -> Rect {
         )
     };
     let clip = buf.area.intersection(area);
+    // Dusk mode fills the box (before its content draws, which keeps the background).
+    if let Some(fill) = THEME.box_fill {
+        buf.set_style(clip.intersection(border.inner(area)), Style::default().bg(fill));
+    }
     let mut put = |x: u16, y: u16, text: &str| {
         if clip.contains((x, y).into()) {
             buf.set_stringn(x, y, text, usize::from(clip.right() - x), style);

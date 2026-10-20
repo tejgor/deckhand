@@ -939,13 +939,14 @@ fn json_of<T: Serialize>(value: &Option<T>) -> Option<Value> {
 }
 
 /// The AppConfig properties in normalizeAppConfig key order (all of them, as `Object.keys` lists them).
-fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 6] {
+fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 7] {
     [
         ("dev_command", json_of(&config.dev_command)),
         ("attach_scroll_sensitivity", json_of(&config.attach_scroll_sensitivity)),
         ("trustedProjects", json_of(&config.trusted_projects)),
         ("agent_hooks", json_of(&config.agent_hooks)),
         ("notifications", json_of(&config.notifications)),
+        ("theme", json_of(&config.theme)),
         ("defaults", config.defaults.clone()),
     ]
 }
@@ -1003,6 +1004,7 @@ pub fn patch_app_config(patch: AppConfig) -> Task<Result<AppConfig>> {
             trusted_projects: patch.trusted_projects.or(current.trusted_projects),
             agent_hooks: patch.agent_hooks.or(current.agent_hooks),
             notifications: patch.notifications.or(current.notifications),
+            theme: patch.theme.or(current.theme),
             defaults: patch.defaults.or(current.defaults),
         })
     })
