@@ -307,7 +307,7 @@ pub async fn read_codex_hooks() -> Option<CodexHookStatus> {
     let commands = codex_hook_commands(hooks_json.as_deref(), config_toml.as_deref());
     let state = codex_hook_state(&commands, &hook_command().ok()?)?;
     let command = if paths::is_dev_channel() {
-        "node scripts/deckhand-dev.mjs hooks codex"
+        "scripts/deckhand-dev.sh hooks codex"
     } else {
         "deckhand hooks codex"
     };

@@ -236,7 +236,7 @@ pub fn format_codex_hook_report(report: &CodexHookReport, regenerate: &str) -> S
 /// The command that prints the Codex hooks config for this channel (TS: settingsInfo.ts readCodexHooks `command`).
 pub fn regenerate_command(dev_channel: bool) -> &'static str {
     if dev_channel {
-        "node scripts/deckhand-dev.mjs hooks codex"
+        "scripts/deckhand-dev.sh hooks codex"
     } else {
         "deckhand hooks codex"
     }
@@ -492,7 +492,7 @@ mod tests {
             format!(
                 "Codex hooks ({file}):\n\
                  • No Codex hook calls this Deckhand.\n\
-                 Fix: save the output of `node scripts/deckhand-dev.mjs hooks codex` as {file}, then trust them with \
+                 Fix: save the output of `scripts/deckhand-dev.sh hooks codex` as {file}, then trust them with \
                  /hooks in Codex.\n"
             )
         );
@@ -528,6 +528,6 @@ mod tests {
     #[test]
     fn regenerate_command_follows_the_channel() {
         assert_eq!(regenerate_command(false), "deckhand hooks codex");
-        assert_eq!(regenerate_command(true), "node scripts/deckhand-dev.mjs hooks codex");
+        assert_eq!(regenerate_command(true), "scripts/deckhand-dev.sh hooks codex");
     }
 }

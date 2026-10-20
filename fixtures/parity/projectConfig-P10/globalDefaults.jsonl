@@ -1,12 +1,12 @@
-{"args":[{"defaults":"x"}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: defaults must be an object. Repair it with C (Settings): ← to the Global column, then e for the raw JSON."}
-{"args":[{"defaults":[]}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: defaults must be an object. Repair it with C (Settings): ← to the Global column, then e for the raw JSON."}
-{"args":[{"defaults":null}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: defaults must be an object. Repair it with C (Settings): ← to the Global column, then e for the raw JSON."}
-{"args":[{"defaults":{"bogus":1}}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: Unknown defaults setting: bogus. Repair it with C (Settings): ← to the Global column, then e for the raw JSON."}
+{"args":[{"defaults":"x"}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: defaults must be an object. Repair it with C (Settings): ← to the Global column, then E for the raw JSON."}
+{"args":[{"defaults":[]}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: defaults must be an object. Repair it with C (Settings): ← to the Global column, then E for the raw JSON."}
+{"args":[{"defaults":null}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: defaults must be an object. Repair it with C (Settings): ← to the Global column, then E for the raw JSON."}
+{"args":[{"defaults":{"bogus":1}}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: Unknown defaults setting: bogus. Repair it with C (Settings): ← to the Global column, then E for the raw JSON."}
 {"args":[{"defaults":{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"global test","fmt":"global fmt"}},"dev_command":"legacy"}],"ret":{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"global test","fmt":"global fmt"},"devCommand":"legacy"}}
-{"args":[{"defaults":{"devCommand":"","actions":{"a":"b"}}}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: Invalid command: devCommand. Repair it with C (Settings): ← to the Global column, then e for the raw JSON."}
+{"args":[{"defaults":{"devCommand":"","actions":{"a":"b"}}}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: Invalid command: devCommand. Repair it with C (Settings): ← to the Global column, then E for the raw JSON."}
 {"args":[{"defaults":{"devCommand":"d"},"trustedProjects":{"/r":["f"]}}],"ret":{"devCommand":"d"}}
 {"args":[{"defaults":{"devCommand":"npm run dev"},"dev_command":"legacy"}],"ret":{"devCommand":"npm run dev"}}
-{"args":[{"defaults":{"setupCommand":""}}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: Invalid command: setupCommand. Repair it with C (Settings): ← to the Global column, then e for the raw JSON."}
+{"args":[{"defaults":{"setupCommand":""}}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: Invalid command: setupCommand. Repair it with C (Settings): ← to the Global column, then E for the raw JSON."}
 {"args":[{"defaults":{"setupCommand":"gs"},"trustedProjects":{"/r":["f"]}}],"ret":{"setupCommand":"gs"}}
 {"args":[{"defaults":{"worktree":{"branchName":"{user}/{name}","symlink":["node_modules","a"],"files":{"x":"/g/x","y":"/g/y"},"location":"/g/{name}"},"actions":{"lint":"g lint"}}}],"ret":{"worktree":{"branchName":"{user}/{name}","symlink":["node_modules","a"],"files":{"x":"/g/x","y":"/g/y"},"location":"/g/{name}"},"actions":{"lint":"g lint"}}}
 {"args":[{"defaults":{"worktree":{"hook":false}}}],"ret":{"worktree":{"hook":false}}}

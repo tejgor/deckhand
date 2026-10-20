@@ -10,12 +10,12 @@ use deckhand_core::error::DhError;
 use crate::cli::Command;
 
 /// Whether `command` reads or writes the state directory (`DECKHAND_HOME` / `~/.deckhand`): everything except
-/// printing the hooks config, `setup`/`doctor` (which only probe the PATH and read Codex's own config) and
-/// `--version`.
+/// printing the hooks config, `setup`/`doctor` (which only probe the PATH and read Codex's own config), `--version`
+/// and `help`.
 pub fn needs_home(command: &Command) -> bool {
     !matches!(
         command,
-        Command::Hooks(_) | Command::Setup(_) | Command::Doctor(_) | Command::Version
+        Command::Hooks(_) | Command::Setup(_) | Command::Doctor(_) | Command::Version | Command::Help
     )
 }
 

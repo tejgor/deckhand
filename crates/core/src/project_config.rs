@@ -581,7 +581,7 @@ pub fn global_defaults(user: &UserSettings, config_dir: &str) -> Result<Ordered<
     if let Some(value) = &user.defaults {
         let validated = validate_project_config(value, Some("defaults")).map_err(|error| {
             DhError::msg(format!(
-                "Invalid \"defaults\" in {}: {error}. Repair it with C (Settings): ← to the Global column, then e for the raw JSON.",
+                "Invalid \"defaults\" in {}: {error}. Repair it with C (Settings): ← to the Global column, then E for the raw JSON.",
                 path::join(&[config_dir, "config.json"])
             ))
         })?;

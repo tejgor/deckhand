@@ -2,9 +2,9 @@
 //!
 //! One binary plays every role the TS split between `node dist/cli.js <mode>` invocations: the Ink UI, the daemon
 //! (`--daemon`), the per-session and per-workspace workers (`--session-worker`, `--workspace-worker`), the agent hook
-//! bridge (`hook`), the hooks config printer (`hooks [codex]`), `setup`/`doctor`, the dev channel's `status`/`stop`
-//! and `--version`. Whatever the role, the process runs on one current_thread tokio runtime with a `LocalSet`, so
-//! shared state is `Rc<RefCell<..>>` and futures need not be `Send` (docs/port/CONVENTIONS.md, Runtime model).
+//! bridge (`hook`), the hooks config printer (`hooks [codex]`), `setup`/`doctor`, the dev channel's `status`/`stop`,
+//! `--version` and `help`. Whatever the role, the process runs on one current_thread tokio runtime with a `LocalSet`,
+//! so shared state is `Rc<RefCell<..>>` and futures need not be `Send` (docs/port/CONVENTIONS.md, Runtime model).
 
 mod cli;
 mod doctor;
@@ -98,6 +98,7 @@ mod tests {
     #[test]
     fn guard_skips_commands_that_never_touch_the_state_dir() {
         assert!(!guard::needs_home(&cli::Command::Version));
+        assert!(!guard::needs_home(&cli::Command::Help));
         assert!(!guard::needs_home(&cli::Command::Setup(vec!["--check".into()])));
         assert!(!guard::needs_home(&cli::Command::Doctor(Vec::new())));
         assert!(!guard::needs_home(&cli::Command::Hooks(hooks::HooksTarget::Codex)));

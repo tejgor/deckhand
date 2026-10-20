@@ -68,7 +68,7 @@ pub const OPTIONAL_TOOLS: [ToolInstall; 1] = [ToolInstall {
     label: "lazygit",
     command: "lazygit",
     install_command: None,
-    description: "optional Git tab UI",
+    description: "opened with o on the Git tab",
     optional: true,
 }];
 
@@ -337,7 +337,7 @@ async fn run_setup_with(args: &[String], host: &mut impl SetupHost) {
         .collect();
     if missing_agents.is_empty() {
         host.log(
-            "All supported agents are installed. lazygit is optional; install it separately if you want the Git tab.",
+            "All supported agents are installed. lazygit is optional: the Git tab only needs git, and `o` there opens lazygit if you install it.",
         );
         return;
     }
@@ -375,7 +375,7 @@ async fn run_setup_with(args: &[String], host: &mut impl SetupHost) {
         .iter()
         .any(|status| status.tool.key == "lazygit" && !status.installed)
     {
-        host.log("lazygit is optional and is not installed by setup; install it separately if you want the Git tab.");
+        host.log("lazygit is optional and is not installed by setup: the Git tab only needs git, and `o` there opens lazygit if you install it.");
     }
 }
 
@@ -524,7 +524,7 @@ mod tests {
              ✓ Claude Code: Anthropic Claude Code agent (/bin/claude)\n\
              • Pi: Pi coding agent (not installed)\n\
              • Codex: OpenAI Codex CLI agent (not installed)\n\
-             ✓ lazygit optional: optional Git tab UI (/bin/lazygit)\n\n"
+             ✓ lazygit optional: opened with o on the Git tab (/bin/lazygit)\n\n"
         );
         assert_eq!(format_status(&[]), "Deckhand setup check\n\n\n");
     }
@@ -665,7 +665,7 @@ mod tests {
         assert_eq!(
             fake.out,
             format!(
-                "{}All supported agents are installed. lazygit is optional; install it separately if you want the Git tab.\n",
+                "{}All supported agents are installed. lazygit is optional: the Git tab only needs git, and `o` there opens lazygit if you install it.\n",
                 format_status(&detected)
             )
         );
@@ -714,7 +714,7 @@ mod tests {
              Codex can be installed with: curl -fsSL https://chatgpt.com/codex/install.sh | sh\n\
              \nAfter setup:\n{}\
              Some agents are still missing. Restart your terminal if installs succeeded but are not detected yet.\n\
-             lazygit is optional and is not installed by setup; install it separately if you want the Git tab.\n",
+             lazygit is optional and is not installed by setup: the Git tab only needs git, and `o` there opens lazygit if you install it.\n",
             format_status(&before),
             format_status(&after)
         );

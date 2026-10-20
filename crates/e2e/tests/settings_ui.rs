@@ -186,7 +186,7 @@ fn settings_grid_global_and_repo_columns() {
     ui.press("\r");
     ui.screen("Agent signals on (global)");
     ui.screen("on ⚠ Codex");
-    ui.screen("Codex hooks not set up: node scripts/deckhand-dev.mjs hooks codex >");
+    ui.screen("Codex hooks not set up: scripts/deckhand-dev.sh hooks codex >");
     assert_eq!(read_json(&config)["agent_hooks"], json!(true));
     ui.press("k");
     ui.screen("❯ Creation hook");

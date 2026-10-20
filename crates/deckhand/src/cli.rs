@@ -46,9 +46,27 @@ pub enum Command {
     Doctor(Vec<String>),
     /// `--version` (not in TS): prints [`version_line`].
     Version,
+    /// `help`, `--help` or `-h` (not in TS, where they opened the UI): prints [`HELP_TEXT`].
+    Help,
     /// Anything else: the terminal UI for the current directory's repository.
     Ui,
 }
+
+/// `deckhand help` (not in TS). Lists what a user runs by hand: not the internal `--daemon`, `--session-worker`,
+/// `--workspace-worker` and `--notify`, nor the dev channel's `status`/`stop`.
+pub const HELP_TEXT: &str = "\
+Usage: deckhand [command]
+
+Commands:
+  (none)                       Open the UI in the current Git repository
+  setup [--check] [--yes|-y]   Check which agents are installed and offer to install missing ones
+  doctor [--check] [--yes|-y]  The same as setup, then check Codex's hook config
+  hooks [codex]                Print the hooks config to save in an agent's settings (codex: for Codex)
+  --version                    Print the version
+  help, --help, -h             Show this help
+
+--check only reports; --yes (-y) installs without asking.
+deckhand hook is run by agents, not by hand.";
 
 /// The dev channel's daemon controls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -67,7 +85,8 @@ pub fn process_title(dev_channel: bool) -> &'static str {
 /// TS: cli.ts main's argv tests, in order: dev `status`/`stop` (first argument, dev channel only), `hook`, `hooks`
 /// (second argument `codex` selects Codex), `--session-worker`, `--workspace-worker`, `--daemon` (anywhere), `setup`
 /// / `doctor` (first argument; the rest are passed on), `--version` (first argument), else the UI. `args` excludes
-/// the program name (`process.argv.slice(2)`).
+/// the program name (`process.argv.slice(2)`). The port adds `help` / `--help` / `-h` (first argument) beside
+/// `--version`, so the worker and daemon flags still win over it.
 pub fn parse_args(args: &[String], dev_channel: bool) -> Command {
     let first = args.first().map(String::as_str);
     match first {
@@ -92,6 +111,7 @@ pub fn parse_args(args: &[String], dev_channel: bool) -> Command {
         Some("setup") => Command::Setup(rest()),
         Some("doctor") => Command::Doctor(rest()),
         Some("--version") => Command::Version,
+        Some("help" | "--help" | "-h") => Command::Help,
         _ => Command::Ui,
     }
 }
@@ -133,6 +153,7 @@ pub async fn run(command: Command) -> Result<ExitCode, DhError> {
         Command::Setup(args) => setup::run_setup(&args).await?,
         Command::Doctor(args) => return Ok(doctor_exit_code(doctor::run_doctor(&args).await?)),
         Command::Version => print_line(&version_line()),
+        Command::Help => print_line(HELP_TEXT),
         Command::Ui => ui_loop::run_ui_loop().await?,
     }
     Ok(ExitCode::SUCCESS)
@@ -324,6 +345,56 @@ mod tests {
         assert_eq!(parse_args(&args(&["--version"]), false), Command::Version);
         assert_eq!(parse_args(&args(&["x", "--version"]), false), Command::Ui);
         assert_eq!(parse_args(&args(&["hook"]), true), Command::Hook);
+    }
+
+    #[test]
+    fn help_is_the_first_argument_and_internal_flags_win_over_it() {
+        for flag in ["help", "--help", "-h"] {
+            assert_eq!(parse_args(&args(&[flag]), false), Command::Help);
+            assert_eq!(parse_args(&args(&[flag]), true), Command::Help);
+            assert_eq!(parse_args(&args(&[flag, "--version"]), false), Command::Help);
+            assert_eq!(parse_args(&args(&["x", flag]), false), Command::Ui);
+            assert_eq!(parse_args(&args(&[flag, "--daemon"]), false), Command::Daemon);
+            assert_eq!(
+                parse_args(&args(&[flag, "--session-worker"]), false),
+                Command::SessionWorker
+            );
+            assert_eq!(
+                parse_args(&args(&[flag, "--workspace-worker"]), false),
+                Command::WorkspaceWorker
+            );
+            assert_eq!(
+                parse_args(&args(&["setup", flag]), false),
+                Command::Setup(args(&[flag]))
+            );
+            assert_eq!(parse_args(&args(&["hook", flag]), false), Command::Hook);
+        }
+        assert_eq!(parse_args(&args(&["--version", "--help"]), false), Command::Version);
+        assert_eq!(parse_args(&args(&["--HELP"]), false), Command::Ui);
+    }
+
+    #[test]
+    fn help_text_lists_the_user_commands_only() {
+        for listed in [
+            "setup [--check] [--yes|-y]",
+            "doctor [--check] [--yes|-y]",
+            "hooks [codex]",
+            "--version",
+        ] {
+            assert!(HELP_TEXT.contains(listed), "{listed}");
+        }
+        assert!(HELP_TEXT.contains("deckhand hook is run by agents, not by hand."));
+        for internal in [
+            "--daemon",
+            "--session-worker",
+            "--workspace-worker",
+            "--notify",
+            "status",
+            "stop",
+        ] {
+            assert!(!HELP_TEXT.contains(internal), "{internal}");
+        }
+        assert!(!HELP_TEXT.ends_with('\n'));
     }
 
     #[test]

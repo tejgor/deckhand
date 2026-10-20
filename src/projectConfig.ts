@@ -196,7 +196,7 @@ export function globalDefaults(user: UserSettings): ProjectConfig {
 	let defaults: ProjectConfig = {};
 	if (user.defaults !== undefined) {
 		try { defaults = validateProjectConfig(user.defaults, 'defaults'); }
-		catch (error) { throw new Error(`Invalid "defaults" in ${getConfigPath()}: ${error instanceof Error ? error.message : String(error)}. Repair it with C (Settings): ← to the Global column, then e for the raw JSON.`); }
+		catch (error) { throw new Error(`Invalid "defaults" in ${getConfigPath()}: ${error instanceof Error ? error.message : String(error)}. Repair it with C (Settings): ← to the Global column, then E for the raw JSON.`); }
 	}
 	const legacyDev = user.dev_command?.trim();
 	return defaults.devCommand === undefined && legacyDev ? {...defaults, devCommand: legacyDev} : defaults;
