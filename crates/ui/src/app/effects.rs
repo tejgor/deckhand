@@ -1126,11 +1126,12 @@ pub fn report_state(app: &mut App) {
     active_tab_effect(app);
 }
 
-/// TS: the mount effect: loads `attach_scroll_sensitivity` from the app config.
+/// TS: the mount effect: loads the wheel speed from the app config (`scroll_speed`; the TS read
+/// `attach_scroll_sensitivity`).
 pub fn load_scroll_sensitivity(app: &mut App) {
     let task = app.dispatch().spawn(load_app_config(), |app: &mut App, result| {
         app.preview_focus.scroll_sensitivity = match result {
-            Ok(config) => normalize_scroll_sensitivity(config.attach_scroll_sensitivity.map(|value| value.0)),
+            Ok(config) => normalize_scroll_sensitivity(config.scroll_speed.map(|value| value.0)),
             Err(_) => crate::app::state::DEFAULT_SCROLL_SENSITIVITY,
         };
     });

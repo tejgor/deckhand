@@ -18,7 +18,7 @@ use deckhand_core::jsstr::{js_len, js_pad_end, js_pad_start, js_slice};
 use deckhand_core::settings_model::{
     ACTIONS_INTRO, COLUMNS, ChoiceOption, GridCell, GridRow, NEEDS_TRUST_DETAIL, SETTINGS, SettingControl, SettingId,
     SettingSection, cell_detail, column_titles, entry_count, entry_noun, home_path, layer_entries, layer_name,
-    max_entries, settings_grid,
+    max_entries,
 };
 use deckhand_core::text_editor::EditorState;
 use deckhand_protocol::data::{
@@ -1703,6 +1703,8 @@ pub struct SettingsPaneProps<'a> {
     pub links: Option<&'a LinksState>,
     pub sizes: &'a IndexMap<String, Option<i64>>,
     pub notice: Option<&'a Notice>,
+    /// Not in the TS: the grid of `info` (`settings_grid`; the fixture replays pass the TS's, `oracle_settings_grid`).
+    pub grid: fn(&SettingsInfo) -> Vec<GridRow>,
 }
 
 /// Global: which of your repositories a link would reach.
@@ -1851,7 +1853,7 @@ pub fn render_settings_pane(props: &SettingsPaneProps<'_>, scroll: &mut Settings
             scroll_slot = &mut scroll.actions;
         }
         _ => {
-            let grid = settings_grid(info);
+            let grid = (props.grid)(info);
             let current = props.row.min(grid.len().saturating_sub(1));
             lines = grid_lines(&grid, current, props.column, layout);
             selected = current;
@@ -2228,6 +2230,7 @@ mod tests {
             links: links.as_ref(),
             sizes: &sizes,
             notice: notice.as_ref(),
+            grid: deckhand_core::settings_model::oracle_settings_grid,
         };
         let area = Rect::new(0, 0, width, height);
         let mut buf = Buffer::empty(area);
@@ -2456,6 +2459,7 @@ mod ts_tests {
                 links: self.links.as_ref(),
                 sizes: &sizes,
                 notice: None,
+                grid: deckhand_core::settings_model::settings_grid,
             };
             let area = Rect::new(0, 0, self.width, self.height);
             let mut buf = Buffer::empty(area);

@@ -939,7 +939,7 @@ fn json_of<T: Serialize>(value: &Option<T>) -> Option<Value> {
 }
 
 /// The AppConfig properties in normalizeAppConfig key order (all of them, as `Object.keys` lists them).
-fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 8] {
+fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 9] {
     [
         ("dev_command", json_of(&config.dev_command)),
         ("attach_scroll_sensitivity", json_of(&config.attach_scroll_sensitivity)),
@@ -948,6 +948,7 @@ fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 8] {
         ("notifications", json_of(&config.notifications)),
         ("theme", json_of(&config.theme)),
         ("claude_scroll_override", json_of(&config.claude_scroll_override)),
+        ("scroll_speed", json_of(&config.scroll_speed)),
         ("defaults", config.defaults.clone()),
     ]
 }
@@ -1007,6 +1008,7 @@ pub fn patch_app_config(patch: AppConfig) -> Task<Result<AppConfig>> {
             notifications: patch.notifications.or(current.notifications),
             theme: patch.theme.or(current.theme),
             claude_scroll_override: patch.claude_scroll_override.or(current.claude_scroll_override),
+            scroll_speed: patch.scroll_speed.or(current.scroll_speed),
             defaults: patch.defaults.or(current.defaults),
         })
     })

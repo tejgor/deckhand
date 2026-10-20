@@ -147,11 +147,11 @@ pub fn adjust_scroll_sensitivity(app: &mut App, delta: f64) {
     app.preview_focus.scroll_sensitivity = next;
     app.preview_focus.wheel = WheelScaler::default();
     app.set_status(Some(format!(
-        "Scroll multiplier {} (saved)",
+        "Scroll speed {} (saved)",
         format_scroll_sensitivity(next)
     )));
     let saved = patch_app_config(AppConfig {
-        attach_scroll_sensitivity: Some(JsNumber(next)),
+        scroll_speed: Some(JsNumber(next)),
         ..AppConfig::default()
     });
     drop(app.dispatch().spawn(saved, |app: &mut App, result| {
@@ -389,10 +389,7 @@ mod tests {
             handle_preview_focus(&mut app, &text("+"));
             assert_eq!(app.preview_focus.scroll_sensitivity, 1.1);
             assert_eq!(app.preview_focus.wheel, WheelScaler::default());
-            assert_eq!(
-                app.messages.status_message.as_deref(),
-                Some("Scroll multiplier 1.1 (saved)")
-            );
+            assert_eq!(app.messages.status_message.as_deref(), Some("Scroll speed 1.1 (saved)"));
             apply(&mut app, &mut rx).await;
             handle_preview_focus(&mut app, &text("="));
             handle_preview_focus(&mut app, &text("-"));
@@ -403,7 +400,8 @@ mod tests {
             }
             assert_eq!(app.messages.error, None);
             let config = load_app_config().await.unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(config.attach_scroll_sensitivity.map(|value| value.0), Some(1.0));
+            assert_eq!(config.scroll_speed.map(|value| value.0), Some(1.0));
+            assert_eq!(config.attach_scroll_sensitivity, None);
             for _ in 0..40 {
                 adjust_scroll_sensitivity(&mut app, SCROLL_SENSITIVITY_STEP);
             }
@@ -412,10 +410,7 @@ mod tests {
                 adjust_scroll_sensitivity(&mut app, -SCROLL_SENSITIVITY_STEP);
             }
             assert_eq!(app.preview_focus.scroll_sensitivity, 0.0);
-            assert_eq!(
-                app.messages.status_message.as_deref(),
-                Some("Scroll multiplier 0 (saved)")
-            );
+            assert_eq!(app.messages.status_message.as_deref(), Some("Scroll speed 0 (saved)"));
         });
         // SAFETY: as above (ENV is still held).
         unsafe {

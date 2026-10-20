@@ -92,6 +92,8 @@ pub type RawConfig = IndexMap<String, Value>;
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AppConfig {
     pub dev_command: Option<String>,
+    /// The TS wheel multiplier (default 0.12), still read and kept as stored but no longer used: [`Self::scroll_speed`]
+    /// replaced it with a new default (1), so a value tuned to the old one does not crawl.
     pub attach_scroll_sensitivity: Option<JsNumber>,
     /// Trusted project fingerprints per trust root, newest first.
     #[serde(rename = "trustedProjects")]
@@ -103,6 +105,9 @@ pub struct AppConfig {
     /// Not in the TS: unless false, Claude is launched scrolling one line per wheel event without its own
     /// acceleration, so the wheel feels the same for everyone and Deckhand's scroll sensitivity alone sets the speed.
     pub claude_scroll_override: Option<bool>,
+    /// Not in the TS: how far the mouse wheel scrolls, when attached and in Preview focus (`deckhand_core::wheel`; 1,
+    /// the default: each wheel event as the terminal sends it). Settings (`C`) and `+`/`-` in Preview focus save it.
+    pub scroll_speed: Option<JsNumber>,
     /// Global project defaults (deckhand.json schema), kept as stored (`null` included).
     #[serde(default, deserialize_with = "crate::events::present_value")]
     pub defaults: Option<Value>,
@@ -143,6 +148,7 @@ impl AppConfig {
             notifications: Some(raw.get("notifications") == Some(&Value::Bool(true))),
             theme: raw.get("theme").and_then(Value::as_str).map(str::to_owned),
             claude_scroll_override: raw.get("claude_scroll_override").and_then(Value::as_bool),
+            scroll_speed: raw.get("scroll_speed").and_then(Value::as_f64).map(JsNumber),
             // `defaults: parsed.defaults` keeps even null.
             defaults: raw.get("defaults").cloned(),
         }

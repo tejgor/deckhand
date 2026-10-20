@@ -1019,6 +1019,8 @@ pub struct SettingsInfo {
     pub codex_hooks: Option<CodexHookStatus>,
     /// Not in the TS: macOS's answer for Deckhand.app, read while Notifications are on (`None` elsewhere).
     pub notification_permission: Option<NotificationPermission>,
+    /// Not in the TS: `scroll_speed` as stored in config.json (`None`: unset, the default).
+    pub scroll_speed: Option<f64>,
 }
 
 /// settingsInfo.ts WorktreeCandidate. Its literals differ in where `source`, `layers`, `repos` and `missing` go, so

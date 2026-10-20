@@ -58,6 +58,8 @@ pub enum FlowEffect<H> {
     Session(Box<SessionRecord>),
     /// TS settingsFlow `onReview(cwd, back)`: the inline trust review of `cwd`; `back` runs when it closes.
     Review { cwd: String, back: HostCallback<H> },
+    /// Not in the TS: Settings saved a new wheel speed (`scroll_speed`), for Preview focus to use right away.
+    ScrollSpeed(f64),
 }
 
 impl<H> std::fmt::Debug for FlowEffect<H> {
@@ -77,6 +79,7 @@ impl<H> std::fmt::Debug for FlowEffect<H> {
             FlowEffect::OpenNote(id) => f.debug_tuple("OpenNote").field(id).finish(),
             FlowEffect::Session(session) => f.debug_tuple("Session").field(&session.id).finish(),
             FlowEffect::Review { cwd, .. } => f.debug_struct("Review").field("cwd", cwd).finish_non_exhaustive(),
+            FlowEffect::ScrollSpeed(speed) => f.debug_tuple("ScrollSpeed").field(speed).finish(),
         }
     }
 }

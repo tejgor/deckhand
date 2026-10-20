@@ -22,13 +22,15 @@ pub struct HelpTopic {
     pub lines: &'static [HelpLine],
 }
 
-/// Not in the TS: the guide's lines about the port's own features (Dev processes, Dev one worktree at a time).
+/// Not in the TS: the guide's lines about the port's own features (Dev processes, Dev one worktree at a time, the
+/// wheel speed).
 /// [`oracle_topics`] leaves them out, so the TS oracle's recorded guide still replays line for line.
 pub const PORT_LINES: &[&str] = &[
     "On Dev with several processes: select the next one (Enter opens it)",
     "In the run list, with several Dev processes: a row for each after Dev; Enter starts or restarts it, x stops it",
     "Dev can run several processes side by side, such as a backend and a frontend: in Settings (C), Enter on the Dev command lists them and + Add a process adds one. The Dev tab splits to show each one's output.",
     "Dev runs in one worktree of a repository at a time, since they share its ports: starting it in one worktree stops it in the others.",
+    "Mouse wheel: Scroll speed in Settings (C); \"claude_scroll_override\": false in config.json keeps your own Claude scroll settings.",
 ];
 
 /// Not in the TS: guide lines the port reworded, as (the port's text, the TS oracle's), which [`oracle_topics`]
@@ -292,6 +294,9 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             HelpLine::Key {
                 keys: "j k  ↑↓",
                 text: "Scroll (PgUp/PgDn a page, g/G top/bottom, the mouse wheel; + − change wheel speed)",
+            },
+            HelpLine::Note {
+                note: "Mouse wheel: Scroll speed in Settings (C); \"claude_scroll_override\": false in config.json keeps your own Claude scroll settings.",
             },
             HelpLine::Note {
                 note: "Agents ask for approvals in their own terminal: open it (Enter) to answer. Terminal, Git and Dev belong to the worktree: all its sessions share them, also after their agents exit.",

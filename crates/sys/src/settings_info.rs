@@ -485,6 +485,7 @@ pub async fn read_settings_info(cwd: &str) -> Result<SettingsInfo> {
         user: user_slug(),
         agent_hooks: user.agent_hooks,
         notifications: user.notifications == Some(true),
+        scroll_speed: user.scroll_speed.map(|value| value.0),
         codex_hooks,
         notification_permission,
     })

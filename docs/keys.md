@@ -70,9 +70,9 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `j`, `↓` | Scroll down |
 | `k`, `↑` | Scroll up |
 | `pgdn` / `pgup` | Scroll a page |
-| `g` / `G` | Go to the top / bottom |
+| `g` / `G` | Go to the top / bottom (a fullscreen agent gets Ctrl+Home / Ctrl+End) |
 | mouse wheel | Scroll |
-| `+` (or `=`) / `-` | Raise / lower the wheel speed ([scroll sensitivity](features.md#attach-scroll-sensitivity)) |
+| `+` (or `=`) / `-` | Raise / lower the [scroll speed](features.md#scroll-speed) |
 
 **In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic, `/` searches every topic, `pgup`/`pgdn` scroll and `esc` closes.
 
@@ -133,7 +133,7 @@ Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessio
 | any other key | Sent to the attached pane |
 | `ctrl+space` | Detach and return to Deckhand |
 | `ctrl+]` | Detach and return to Deckhand |
-| mouse wheel | Scroll the pane, damped by the [scroll sensitivity](features.md#attach-scroll-sensitivity) |
+| mouse wheel | Scroll the pane, scaled by the [scroll speed](features.md#scroll-speed) |
 
 ## Notes editor
 

@@ -1409,6 +1409,10 @@ impl FlowHost for App {
                 FlowEffect::GoTo(session_id) => self.go_to_session(&session_id),
                 FlowEffect::OpenNote(session_id) => self.open_note(&session_id),
                 FlowEffect::Session(session) => self.upsert(*session),
+                FlowEffect::ScrollSpeed(speed) => {
+                    self.preview_focus.scroll_sensitivity = normalize_scroll_sensitivity(Some(speed));
+                    self.preview_focus.wheel = deckhand_core::wheel::WheelScaler::default();
+                }
                 FlowEffect::Review { cwd, back } => {
                     let options = ReviewOptions {
                         back: Some(once_callback(back)),

@@ -1,4 +1,5 @@
-//! Not in the TS: the mouse-wheel scaling shared by attach and Preview focus (`attach_scroll_sensitivity`).
+//! Not in the TS: the mouse-wheel scaling shared by attach and Preview focus (`scroll_speed`, which replaced the TS's
+//! `attach_scroll_sensitivity`).
 //!
 //! Claude is launched scrolling one line per wheel event with its own acceleration off (`claude_scroll_override`),
 //! so the events Deckhand forwards decide the distance alone. The TS forwarded one event per whole unit of a running
@@ -8,7 +9,7 @@
 
 use std::time::{Duration, Instant};
 
-/// `attach_scroll_sensitivity` when unset: every wheel event as the terminal sends it.
+/// `scroll_speed` when unset: every wheel event as the terminal sends it.
 pub const DEFAULT_SCROLL_SENSITIVITY: f64 = 1.0;
 
 /// The highest sensitivity: three events per wheel event (vim's three lines per notch).
@@ -24,8 +25,8 @@ pub enum WheelDirection {
     Down,
 }
 
-/// `attach_scroll_sensitivity` as used: clamped to 0..=[`MAX_SCROLL_SENSITIVITY`], the default when unset or
-/// not finite.
+/// `scroll_speed` as used: clamped to 0..=[`MAX_SCROLL_SENSITIVITY`], the default when unset or not
+/// finite.
 pub fn normalize_scroll_sensitivity(value: Option<f64>) -> f64 {
     match value {
         Some(value) if value.is_finite() => value.clamp(0.0, MAX_SCROLL_SENSITIVITY),

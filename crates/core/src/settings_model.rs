@@ -51,6 +51,9 @@ pub enum SettingId {
     AgentHooks,
     #[serde(rename = "notifications")]
     Notifications,
+    /// Not in the TS: `scroll_speed` (how far the mouse wheel scrolls).
+    #[serde(rename = "scrollSpeed")]
+    ScrollSpeed,
 }
 
 impl SettingId {
@@ -69,6 +72,7 @@ impl SettingId {
             SettingId::WorktreeHook => "worktree.hook",
             SettingId::AgentHooks => "agentHooks",
             SettingId::Notifications => "notifications",
+            SettingId::ScrollSpeed => "scrollSpeed",
         }
     }
 }
@@ -118,7 +122,7 @@ const fn def(id: SettingId, label: &'static str, section: SettingSection, contro
 }
 
 /// TS: settingsModel.ts SETTINGS (screen order).
-pub const SETTINGS: [SettingDef; 12] = [
+pub const SETTINGS: [SettingDef; 13] = [
     def(
         SettingId::DefaultAgent,
         "Default agent",
@@ -197,13 +201,42 @@ pub const SETTINGS: [SettingDef; 12] = [
             SettingControl::Choice,
         )
     },
+    SettingDef {
+        global_only: true,
+        ..def(
+            SettingId::ScrollSpeed,
+            "Scroll speed",
+            SettingSection::Agents,
+            SettingControl::Choice,
+        )
+    },
 ];
 
-/// TS: settingsModel.ts APP_FLAG (the config.json key of a global-only setting).
-pub const APP_FLAG: [(SettingId, &str); 2] = [
+/// TS: settingsModel.ts APP_FLAG (the config.json key of a global-only setting; Scroll speed, not in the TS, is a
+/// number, not a flag).
+pub const APP_FLAG: [(SettingId, &str); 3] = [
     (SettingId::AgentHooks, "agent_hooks"),
     (SettingId::Notifications, "notifications"),
+    (SettingId::ScrollSpeed, "scroll_speed"),
 ];
+
+/// Not in the TS: the Scroll speed row's choices, as (speed, what it does).
+pub const SCROLL_SPEED_CHOICES: [(f64, &str); 4] = [
+    (0.5, "every other wheel event: slower"),
+    (1.0, "each wheel event as your terminal sends it"),
+    (2.0, "each wheel event twice: faster"),
+    (3.0, "each wheel event three times: fastest"),
+];
+
+/// Not in the TS: the wheel speed in effect (`scroll_speed`, else the default).
+pub fn scroll_speed(info: &SettingsInfo) -> f64 {
+    crate::wheel::normalize_scroll_sensitivity(info.scroll_speed)
+}
+
+/// Not in the TS: a wheel speed for display, to two decimals (`1`, `0.5`, `0.7`).
+pub fn scroll_speed_text(speed: f64) -> String {
+    format!("{}", (speed * 100.0).round() / 100.0)
+}
 
 /// TS: settingsModel.ts isAppFlag.
 pub fn is_app_flag(id: SettingId) -> bool {
@@ -507,6 +540,24 @@ pub fn settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
     SETTINGS
         .iter()
         .map(|def| {
+            if def.id == SettingId::ScrollSpeed {
+                let set = info.scroll_speed.is_some();
+                return GridRow {
+                    def: *def,
+                    cells: GridCells {
+                        global: GridCell {
+                            text: scroll_speed_text(scroll_speed(info)),
+                            set,
+                            effective: true,
+                            built_in: (!set).then_some(true),
+                            ..GridCell::default()
+                        },
+                        repository: global_only_cell(),
+                    },
+                    note: None,
+                    warn: None,
+                };
+            }
             if is_app_flag(def.id) {
                 let on = app_flag(info, def.id);
                 let set = stored_flag(info, def.id).is_some();
@@ -531,16 +582,12 @@ pub fn settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
                     warning: warning.map(String::from),
                     ..GridCell::default()
                 };
-                let repository = GridCell {
-                    text: String::from("global only"),
-                    set: false,
-                    effective: false,
-                    global_only: Some(true),
-                    ..GridCell::default()
-                };
                 return GridRow {
                     def: *def,
-                    cells: GridCells { global, repository },
+                    cells: GridCells {
+                        global,
+                        repository: global_only_cell(),
+                    },
                     warn: note.as_ref().map(|_| true),
                     note,
                 };
@@ -674,6 +721,33 @@ pub fn settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
         .collect()
 }
 
+/// [`settings_grid`] as the TS oracle had it (for replaying its fixtures in tests): without the port's Scroll speed
+/// row, and `global only` in the This repo cell of a global-only row, which the port leaves empty.
+pub fn oracle_settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
+    settings_grid(info)
+        .into_iter()
+        .filter(|row| row.def.id != SettingId::ScrollSpeed)
+        .map(|mut row| {
+            if row.cells.repository.global_only == Some(true) {
+                row.cells.repository.text = String::from("global only");
+            }
+            row
+        })
+        .collect()
+}
+
+/// The This repo cell of a global-only row: empty (the TS said `global only`; the cursor never stops there, Global is
+/// selected instead).
+fn global_only_cell() -> GridCell {
+    GridCell {
+        text: String::new(),
+        set: false,
+        effective: false,
+        global_only: Some(true),
+        ..GridCell::default()
+    }
+}
+
 /// TS: settingsModel.ts NEEDS_TRUST_DETAIL.
 pub const NEEDS_TRUST_DETAIL: &str = "Applies once trusted — you'll be asked the first time it runs (or press T)";
 
@@ -700,6 +774,7 @@ pub fn cell_detail(info: &SettingsInfo, row: &GridRow, column: ConfigTargetKind)
     if is_app_flag(id) {
         return match column {
             ConfigTargetKind::Repository => base(String::from("global only: it is about your machine, not the repo")),
+            ConfigTargetKind::Global if id == SettingId::ScrollSpeed => base(scroll_speed_detail(info)),
             ConfigTargetKind::Global => base(app_flag_detail(info, id).to_owned()),
         };
     }
@@ -959,6 +1034,33 @@ pub fn choice_options(info: &SettingsInfo, id: SettingId, target: ConfigTargetKi
             ),
             option("off", flag(false), None),
         ],
+        SettingId::ScrollSpeed => {
+            let current = scroll_speed_text(scroll_speed(info));
+            let mut options: Vec<ChoiceOption> = SCROLL_SPEED_CHOICES
+                .iter()
+                .map(|(speed, detail)| {
+                    let label = scroll_speed_text(*speed);
+                    option(&label, text(&label), Some(detail))
+                })
+                .collect();
+            // A speed set with + / − in Preview focus that is none of the choices.
+            if !options.iter().any(|option| option.label == current) {
+                let at = options
+                    .iter()
+                    .position(|option| {
+                        option
+                            .label
+                            .parse::<f64>()
+                            .is_ok_and(|speed| speed > scroll_speed(info))
+                    })
+                    .unwrap_or(options.len());
+                options.insert(
+                    at,
+                    option(&current, text(&current), Some("set with + / − in Preview focus")),
+                );
+            }
+            options
+        }
         SettingId::WorktreeHook => vec![
             option(
                 "on",
@@ -1053,6 +1155,14 @@ pub fn current_choice(
     options: &[ChoiceOption],
 ) -> CurrentChoice {
     let position = |found: &dyn Fn(&ChoiceOption) -> bool| options.iter().position(found);
+    if id == SettingId::ScrollSpeed {
+        let current = Some(StringOrBool::String(scroll_speed_text(scroll_speed(info))));
+        let index = position(&|option| option.value == current);
+        return CurrentChoice {
+            index,
+            current: info.scroll_speed.and(index),
+        };
+    }
     if is_app_flag(id) {
         let on = app_flag(info, id);
         let index = position(&|option| option.value == Some(StringOrBool::Bool(on)));
@@ -1102,6 +1212,17 @@ pub fn choice_change(
     option: &ChoiceOption,
 ) -> Option<SettingChange> {
     let value = option.value.as_ref().map(or_bool_value);
+    if id == SettingId::ScrollSpeed {
+        let Some(StringOrBool::String(text)) = &option.value else {
+            return None;
+        };
+        let speed = text.parse::<f64>().ok()?;
+        let unchanged = info.scroll_speed.is_some() && scroll_speed_text(scroll_speed(info)) == *text;
+        return (!unchanged).then(|| SettingChange {
+            path: vec![String::from("scroll_speed")],
+            value: serde_json::Number::from_f64(speed).map(Value::Number),
+        });
+    }
     if let Some(flag) = app_flag_key(id) {
         // Agent signals not set stores either choice (on adds Codex); otherwise picking the current value changes nothing.
         let unchanged = if id == SettingId::AgentHooks {
@@ -2005,7 +2126,20 @@ fn built_in_detail(id: SettingId) -> &'static str {
         SettingId::WorktreeHook => "On by default: a trusted create-worktree.sh makes worktrees.",
         SettingId::AgentHooks => "Off: attention (! and the session markers) comes from terminal activity only.",
         SettingId::Notifications => "Off: no desktop notifications.",
+        SettingId::ScrollSpeed => "Not set: 1, each wheel event as your terminal sends it.",
     }
+}
+
+/// Not in the TS: what the Scroll speed in effect does (Global's detail line).
+fn scroll_speed_detail(info: &SettingsInfo) -> String {
+    if info.scroll_speed.is_none() {
+        return format!(
+            "{} · when attached and in Preview focus (+ / − there change it too)",
+            built_in_detail(SettingId::ScrollSpeed)
+        );
+    }
+    let speed = scroll_speed_text(scroll_speed(info));
+    format!("{speed}× the wheel events your terminal sends · when attached and in Preview focus (+ / − there too)")
 }
 
 /// TS appFlagDetail: what a global-only setting does when on (Notifications also says what Agent signals adds).
@@ -2262,7 +2396,9 @@ mod tests {
         replay(
             "P9",
             "settingsModel/settingsGrid",
-            |case: &Case| -> std::result::Result<Vec<GridRow>, String> { Ok(settings_grid(&info_arg(case, 0)?)) },
+            |case: &Case| -> std::result::Result<Vec<GridRow>, String> {
+                Ok(oracle_settings_grid(&info_arg(case, 0)?))
+            },
         );
         replay(
             "P9",
@@ -2566,6 +2702,7 @@ mod tests {
             notifications: false,
             codex_hooks: None,
             notification_permission: None,
+            scroll_speed: None,
         }
     }
 
@@ -2642,6 +2779,7 @@ mod tests {
                 "Worktrees/Creation hook",
                 "Agents/Agent signals",
                 "Agents/Notifications",
+                "Agents/Scroll speed",
             ]
         );
         use SettingId::*;
@@ -2797,6 +2935,57 @@ mod tests {
         );
     }
 
+    // Not in the TS: Scroll speed is a global-only number with a few choices, plus one set with + / −.
+    #[test]
+    fn scroll_speed_row() {
+        use SettingId::ScrollSpeed;
+        let mut info = settings_info(Some(REPO), Some(global()), false, None);
+        assert_eq!(
+            serde_json::to_value(row(&info, ScrollSpeed).cells).unwrap(),
+            json!({"global": {"text": "1", "set": false, "effective": true, "builtIn": true}, "repository": {"text": "", "set": false, "effective": false, "globalOnly": true}})
+        );
+        assert!(detail(&info, ScrollSpeed, Global).relation.starts_with("Not set: 1"));
+        let labels = |info: &SettingsInfo| -> Vec<String> {
+            choice_options(info, ScrollSpeed, Global)
+                .into_iter()
+                .map(|option| option.label)
+                .collect()
+        };
+        assert_eq!(labels(&info), ["0.5", "1", "2", "3"]);
+        let options = choice_options(&info, ScrollSpeed, Global);
+        // Unset: 1 is highlighted but not stored, so picking it saves it.
+        assert_eq!(
+            current_choice(&info, ScrollSpeed, Global, &options),
+            CurrentChoice {
+                index: Some(1),
+                current: None
+            }
+        );
+        assert_eq!(
+            choice_change(&info, ScrollSpeed, Global, &options[1]),
+            Some(SettingChange {
+                path: vec![String::from("scroll_speed")],
+                value: Some(json!(1.0)),
+            })
+        );
+        // Stored: picking it again changes nothing, another choice is a number.
+        info.scroll_speed = Some(2.0);
+        assert_eq!(row(&info, ScrollSpeed).cells.global.text, "2");
+        assert_eq!(choice_change(&info, ScrollSpeed, Global, &options[2]), None);
+        assert_eq!(
+            choice_change(&info, ScrollSpeed, Global, &options[0]).and_then(|change| change.value),
+            Some(json!(0.5))
+        );
+        // A speed from + / − joins the choices in order.
+        info.scroll_speed = Some(0.7000000000000001);
+        assert_eq!(labels(&info), ["0.5", "0.7", "1", "2", "3"]);
+        let options = choice_options(&info, ScrollSpeed, Global);
+        assert_eq!(current_choice(&info, ScrollSpeed, Global, &options).current, Some(1));
+        // Out of range: shown as used.
+        info.scroll_speed = Some(9.0);
+        assert_eq!(row(&info, ScrollSpeed).cells.global.text, "3");
+    }
+
     // covers: B-P9-02 Agent signals and Notifications are global only (config.json flags); Agent signals warns when Codex's hooks do not call this Deckhand
     #[test]
     fn global_only_flags() {
@@ -2806,7 +2995,7 @@ mod tests {
         let unset = settings_info(Some(REPO), Some(global()), false, None);
         assert_eq!(
             serde_json::to_value(row(&unset, AgentHooks).cells).unwrap(),
-            json!({"global": {"text": "on", "set": false, "effective": true, "builtIn": true}, "repository": {"text": "global only", "set": false, "effective": false, "globalOnly": true}})
+            json!({"global": {"text": "on", "set": false, "effective": true, "builtIn": true}, "repository": {"text": "", "set": false, "effective": false, "globalOnly": true}})
         );
         assert!(
             detail(&unset, AgentHooks, Global)

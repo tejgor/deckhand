@@ -90,7 +90,7 @@ The [worktree creation hook](worktree-hooks.md) remains the escape hatch for any
 - **General**: Default agent, Default workspace.
 - **Commands**: Dev command (or the names of its processes), Setup command, Actions (the names).
 - **Worktrees**: Location, Branch from, Branch name, Linked items (`worktree.symlink` plus `worktree.files`, as a count), Creation hook (on/off).
-- **Agents**: Agent signals (`agent_hooks`) and Notifications (`notifications`). These are global only: they describe your machine and your agent CLIs, not a project. They are stored in `config.json` itself (not under `defaults`), and a repository can never switch them on. The This repo cell says *global only* and can't be selected. On these rows the cursor moves to Global, then returns to This repo when you leave the row. See [Lifecycle signals and notifications](#lifecycle-signals-and-notifications).
+- **Agents**: Agent signals (`agent_hooks`), Notifications (`notifications`) and [Scroll speed](#scroll-speed) (`scroll_speed`). These are global only: they describe your machine and your agent CLIs, not a project. They are stored in `config.json` itself (not under `defaults`), and a repository can never set them. Their This repo cell is empty and can't be selected. On these rows the cursor moves to Global, then returns to This repo when you leave the row. See [Lifecycle signals and notifications](#lifecycle-signals-and-notifications).
 
 Each cell shows that layer's own stored value (`—` when it sets none). Templates show their expansion for this repository, with the template in the details box. `●` marks the value in effect, shown bold; a value the other layer overrides is dimmed. When neither layer sets a value, the Global column shows the built-in default in italics, for example *dev (built-in)*. A value this repository's `deckhand.json` sets while the file is untrusted stays in its cell with `⚠` (*⚠ needs trust* when there is room). The emphasis stays on what applies now. The value applies once you trust the file: you're asked the first time it runs, or press `T`. `defaultAgent`, `defaultWorkspace` and `worktree.hook: false` apply untrusted too. Lists show a compact summary per layer: action names, or a count of linked items.
 
@@ -243,17 +243,34 @@ Each command runs with your shell (`$SHELL -ic`) in the session's worktree, so `
 
 Every worktree of a repository runs the same Dev config, so its servers want the same ports. Dev therefore runs in one worktree of a repository at a time: starting it in one worktree (`d` `d`, or a process from the `r` list) first stops it in the repository's other worktrees, and the status line says where (*Started Dev · stopped it in fix-login*). Other repositories are not affected.
 
-## Attach scroll sensitivity
+## Scroll speed
 
-While attached, and while you scroll the preview, Deckhand damps trackpad and mouse-wheel scrolling. While scrolling a preview (`→` on Preview), press `+` / `-` to raise or lower the multiplier. It is saved immediately and also applies when attached. Or edit the user config directly:
+While attached, and while you scroll the preview, Deckhand scales trackpad and mouse-wheel scrolling by the scroll speed. Pick it in Settings (`C` → **Scroll speed** in the Agents rows: 0.5, 1, 2 or 3), or while scrolling a preview (`→` on Preview) press `+` / `-` to raise or lower it by 0.1. Either is saved immediately and applies to both. Or edit the user config directly:
 
 ```json
 {
-  "attach_scroll_sensitivity": 0.12
+  "scroll_speed": 1
 }
 ```
 
-The value is clamped to 0..1. Use `1` for normal terminal scrolling, lower values for slower scrolling or `0` to ignore vertical wheel events. The default is `0.12`. Pi gets `pgup`/`pgdn` instead of wheel events.
+The default, `1`, passes every wheel event on as your terminal sends it. Lower values scroll slower and `0` ignores vertical wheel events; values up to `3` scroll faster (each event is sent several times). Below `1`, the first notch of a scroll always moves, and a pause or a change of direction starts over, so a short flick never does nothing.
+
+The TS version's `attach_scroll_sensitivity` (default `0.12`) is kept in `config.json` as it was but no longer read: its values were tuned to the old behaviour and would now scroll very slowly.
+
+Every agent scrolls a fixed distance per wheel event, so the multiplier alone sets the speed:
+
+- **Claude** is launched scrolling one line per event with its wheel acceleration off: `--settings` carries `CLAUDE_CODE_SCROLL_SPEED=1` in its `env` and `wheelScrollAccelerationEnabled: false` (Claude Code 2.1.174 or later), and the environment repeats the speed for a Claude without `--settings`. Claude otherwise guesses a speed from the terminal it was started in (for agents in Deckhand, whichever terminal started the daemon) and speeds up on fast scrolls, which the scaled event stream confused. This overrides a speed you saved with `/scroll-speed`, inside Deckhand only. To keep your own Claude scroll settings and acceleration in Deckhand, set this in the user config; it has no Settings (`C`) row and applies to sessions started after the change:
+
+  ```json
+  {
+    "claude_scroll_override": false
+  }
+  ```
+
+- **Codex** scrolls `tui.mouse_scroll_speed` rows per event (1 unless set) and does not accelerate.
+- **Pi** scrolls one line per event on macOS; on Linux, or when started over SSH, it accelerates on fast scrolls unless `fullscreenWheelScrollLines` is set to a number in its settings.
+
+In the preview of a fullscreen agent, `g` / `G` send Ctrl+Home / Ctrl+End, which all three treat as the top of the conversation and the latest output.
 
 ## Colours
 
@@ -424,7 +441,7 @@ Notifications on their own still notify when a session exits; agent signals add 
 - **Why it waits**: the session details under the list, a started task's details in the task list and the notification say what a session waits on, in one or two lines. That is `asks: <question>` for a question tool (`(+N)` when it asks more), `plan ready: <first line>` for plan approval, or a permission prompt: `wants to run: <command>`, `wants to edit: <file>`, `wants to fetch: <host>` or `wants to use: <tool>`. When a turn ends it is `said: <last line of its reply>`, and on failure the failure (`rate limited`, `API overloaded`, …). The agent's own generic notification text never replaces one of these. A question or plan approval counts as needs input, not working. This text is held in memory only: `state.json` never stores it.
 - **Approvals**: the agent's own approvals stay in its terminal. Attach to it (`enter`) to answer.
 - **Settling**: a **working** signal on a screen that has settled (no change for 5 s) becomes unknown, so the session shows idle. Claude sends no hook when `esc` interrupts it.
-- **Claude**: unless `agent_hooks` is false, new launches check `claude --help` and pass hook settings for the supported events with `--settings`. They are `async` hooks, so the agent never waits on Deckhand. Repository and user agent config is not modified. `deckhand hooks` (no argument) prints these Claude-style settings.
+- **Claude**: unless `agent_hooks` is false, new launches check `claude --help` and pass hook settings for the supported events with `--settings` (the same flag also carries the [scroll settings](#scroll-speed), with or without hooks). They are `async` hooks, so the agent never waits on Deckhand. Repository and user agent config is not modified. `deckhand hooks` (no argument) prints these Claude-style settings.
 - **Codex**: with `agent_hooks: true`, launches add `--no-daemon` when the installed Codex supports it, so callback identity is not shared through a Codex daemon. The isolated dev build requires `--no-daemon` even with signals off, and refuses Codex versions without it. Codex hooks can't be passed at launch, so set them up once in Codex's own config:
   1. Run `deckhand hooks codex` (`scripts/deckhand-dev.sh hooks codex` for the dev build).
   2. Save its output as `$CODEX_HOME/hooks.json` (by default `~/.codex/hooks.json`). If the file exists, merge it into its `hooks` object, replacing stale Deckhand entries. Check `config.toml` in the same directory for stale entries too.

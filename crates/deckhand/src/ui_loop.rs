@@ -351,7 +351,7 @@ pub async fn hand_off_attach(
         let config = load_app_config().await?;
         let options = AttachSessionOptions {
             title: title.map(str::to_owned),
-            scroll_sensitivity: config.attach_scroll_sensitivity.map(|value| value.0),
+            scroll_sensitivity: config.scroll_speed.map(|value| value.0),
             theme: theme_mode(config.theme.as_deref()),
             dev_process: process,
         };

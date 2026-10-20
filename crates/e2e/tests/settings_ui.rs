@@ -140,6 +140,8 @@ fn settings_grid_global_and_repo_columns() {
     ui.press("\x1b[C");
     ui.screen("This repo · ");
     ui.press("\x1b[F");
+    ui.screen("❯ Scroll speed");
+    ui.press("k");
     ui.screen("❯ Notifications");
     ui.press("k");
     ui.screen("❯ Agent signals");
@@ -181,10 +183,21 @@ fn settings_grid_global_and_repo_columns() {
     ui.press("\x1b");
     ui.screen("Settings · sandbox");
 
-    // Agents: global-only config.json flags. The repo cell says so and the cursor selects Global on these rows (from
-    // the This repo column too); Agent signals, not set (on for Claude), saves agent_hooks and hints that Codex (its
-    // home exists here) has no Deckhand hooks yet. Leaving the row returns to This repo.
+    // Agents: global-only config.json settings. The repo cell is empty and the cursor selects Global on these rows
+    // (from the This repo column too); Scroll speed (not in the TS) saves scroll_speed as a number; Agent signals, not
+    // set (on for Claude), saves agent_hooks and hints that Codex (its home exists here) has no Deckhand hooks yet.
+    // Leaving the row returns to This repo.
     ui.press("\x1b[F");
+    ui.screen("❯ Scroll speed");
+    ui.screen("Not set: 1, each wheel event");
+    ui.press("\r");
+    ui.screen("Scroll speed · Global");
+    ui.press("j");
+    ui.screen("❯ ○ 2");
+    ui.press("\r");
+    ui.screen("Scroll speed 2 (global)");
+    assert_eq!(read_json(&config)["scroll_speed"], json!(2));
+    ui.press("k");
     ui.screen("❯ Notifications");
     ui.press("k");
     ui.screen("❯ Agent signals");

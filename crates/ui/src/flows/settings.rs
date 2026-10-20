@@ -22,14 +22,14 @@ use deckhand_core::settings_model::{
     action_saved_message, apply_change, choice_change, choice_options, column_problem, command_problem, current_choice,
     derive_process_name, dev_command_change, dev_name_problem, dev_process_saved_message, dev_processes_of, entry_noun,
     info_layer, inherited_hint, initial_column, initial_links, initial_text, is_app_flag, layer_entries, layer_sets,
-    link_selection, other_target, own_value, preview_location, saved_message, setting_path, target_name, text_change,
-    trust_note,
+    link_selection, other_target, own_value, preview_location, saved_message, scroll_speed_text, setting_path,
+    target_name, text_change, trust_note,
 };
 use deckhand_core::text_editor::{EditOptions, EditorState, edit_text};
 use deckhand_core::worktree_links::{BranchVars, expand_branch_name, valid_relative_path};
 use deckhand_protocol::data::{
-    CandidateConfigured, CandidateKind, CandidateSuggestion, ConfigTargetKind, ConfigTargets, ProjectConfigDocument,
-    SaveTrust, SettingsInfo, StringOrBool, WorktreeCandidate, WorktreeCandidates,
+    CandidateConfigured, CandidateKind, CandidateSuggestion, ConfigTargetKind, ConfigTargets, JsNumber,
+    ProjectConfigDocument, SaveTrust, SettingsInfo, StringOrBool, WorktreeCandidate, WorktreeCandidates,
 };
 use deckhand_protocol::{AppConfig, Ordered};
 use deckhand_sys::notify;
@@ -533,6 +533,46 @@ impl SettingsFlow {
         });
     }
 
+    /// Not in the TS: saves the Scroll speed (`scroll_speed` in config.json), which Preview focus takes at once and
+    /// attaching reads when it starts.
+    pub fn save_scroll_speed(
+        &mut self,
+        label: &str,
+        speed: f64,
+        props: &SettingsFlowProps<'_>,
+        cx: &mut FlowCx<App, Self>,
+    ) {
+        cx.set_busy(true);
+        let patch = AppConfig {
+            scroll_speed: Some(JsNumber(speed)),
+            ..AppConfig::default()
+        };
+        let client = props.client.cloned();
+        let cwd = self.cwd.clone();
+        let label = label.to_owned();
+        cx.spawn(
+            patch_app_config(patch),
+            move |flow: &mut SettingsFlow, result, cx| match result {
+                Ok(_) => {
+                    cx.set_busy(false);
+                    flow.notice = None;
+                    cx.emit(FlowEffect::ScrollSpeed(speed));
+                    let after: LoadAfter = Box::new(move |_flow, _next, cx| {
+                        cx.set_status(Some(format!(
+                            "{label} {} (global) · applies when attached and in Preview focus",
+                            scroll_speed_text(speed)
+                        )));
+                    });
+                    flow.load_with(client.as_ref(), &cwd, Some(after), false, cx);
+                }
+                Err(error) => {
+                    cx.set_busy(false);
+                    flow.notice = notice(format!("{label} was not saved: {}", error_message(&error)), true);
+                }
+            },
+        );
+    }
+
     /// TS: useSettingsFlow saveFlag: a global-only setting stored in config.json itself.
     pub fn save_flag(
         &mut self,
@@ -889,6 +929,14 @@ impl SettingsFlow {
                 self.notice = notice(format!("{label} unchanged: {why}"), false);
                 return;
             };
+            if id == SettingId::ScrollSpeed {
+                if let Some(StringOrBool::String(text)) = &option.value
+                    && let Ok(speed) = text.parse::<f64>()
+                {
+                    self.save_scroll_speed(label, speed, props, cx);
+                }
+                return;
+            }
             if is_app_flag(id) {
                 let on = option.value == Some(StringOrBool::Bool(true));
                 self.save_flag(id, label, on, props, cx);
@@ -1692,7 +1740,12 @@ impl SettingsFlow {
         }
         if is_app_flag(def.id) {
             if clear {
-                self.notice = notice(format!("{}: Enter switches it on or off", def.label), false);
+                let how = if def.id == SettingId::ScrollSpeed {
+                    "Enter picks a speed"
+                } else {
+                    "Enter switches it on or off"
+                };
+                self.notice = notice(format!("{}: {how}", def.label), false);
             } else {
                 self.edit = Some(choice_edit(info, def.id, def.label, ConfigTargetKind::Global));
             }
@@ -1866,6 +1919,7 @@ impl Flow<App> for SettingsFlow {
             links: self.links.as_ref(),
             sizes: &self.sizes,
             notice: self.notice.as_ref(),
+            grid: deckhand_core::settings_model::settings_grid,
         };
         render_settings_pane(&pane, &mut self.scroll, buf, area);
     }
