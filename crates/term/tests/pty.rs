@@ -378,3 +378,86 @@ async fn large_output_is_fully_read() {
     assert_eq!(output.lines().count(), 2000);
     assert!(output.ends_with("line-1999\r\n"));
 }
+
+/// Pulls the `bg:<pid>` a script echoed.
+fn background_pid(output: &str) -> i32 {
+    output
+        .split("bg:")
+        .nth(1)
+        .and_then(|rest| rest.split_whitespace().next())
+        .and_then(|pid| pid.parse().ok())
+        .expect("background pid")
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_reaped_leaders_group_is_never_signalled() {
+    // The background sleep ignores the SIGHUP of its session leader's exit, so it outlives the reaped leader in the
+    // leader's process group: a pgid the kernel may hand to an unrelated process once that group empties.
+    let pty = sh("trap '' HUP; sleep 30 & echo \"bg:$!\"", options(80, 24));
+    let background = background_pid(&read_until(&pty, "\r\n").await);
+    assert_eq!(wait(&pty).await.exit_code, 0);
+    assert!(alive(background));
+    let refused = pty.kill_group(Signal::SIGTERM).expect_err("group of a reaped leader");
+    assert_eq!(refused.raw_os_error(), Some(libc::ESRCH));
+    let refused = pty.kill(Some(Signal::SIGTERM)).expect_err("reaped leader");
+    assert_eq!(refused.raw_os_error(), Some(libc::ESRCH));
+    drop(pty);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let survived = alive(background);
+    let _ = nix::sys::signal::kill(Pid::from_raw(background), Signal::SIGKILL);
+    assert!(survived, "dropping a reaped PTY signalled its old process group");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn inherited_descriptors_are_closed_before_exec() {
+    // node-pty spawned with POSIX_SPAWN_CLOEXEC_DEFAULT: nothing the worker holds open reaches the agent.
+    let mut fds = [0; 2];
+    // SAFETY: pipe writes two descriptors into `fds`; both are closed below.
+    assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+    let script = fds
+        .iter()
+        .map(|fd| format!("if [ -e /dev/fd/{fd} ]; then echo open:{fd}; else echo closed:{fd}; fi;"))
+        .collect::<String>();
+    let pty = sh(&script, options(80, 24));
+    let output = read_to_eof(&pty).await;
+    for fd in fds {
+        // SAFETY: closing the descriptors this test opened.
+        unsafe { libc::close(fd) };
+    }
+    for fd in fds {
+        assert!(output.contains(&format!("closed:{fd}")), "fd {fd}: {output:?}");
+    }
+    assert_eq!(wait(&pty).await.exit_code, 0);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_missing_cwd_exits_one_like_node_pty() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut opts = options(80, 24);
+    opts.cwd = Some(dir.path().join("missing"));
+    let pty = sh("echo ran", opts);
+    let output = read_to_eof(&pty).await;
+    assert_eq!(
+        wait(&pty).await,
+        PtyExit {
+            exit_code: 1,
+            signal: 0
+        }
+    );
+    // Linux node-pty's forked child perror()s; macOS's spawn-helper exits silently.
+    #[cfg(target_os = "macos")]
+    assert_eq!(output, "");
+    #[cfg(not(target_os = "macos"))]
+    assert_eq!(output, "chdir(2) failed.: No such file or directory\r\n");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_missing_command_reports_like_node_pty() {
+    let pty = Pty::spawn("deckhand-no-such-command", &[], options(80, 24)).expect("spawn still succeeds");
+    let output = read_to_eof(&pty).await;
+    assert_eq!(wait(&pty).await.exit_code, 1);
+    #[cfg(target_os = "macos")]
+    assert_eq!(output, "");
+    #[cfg(not(target_os = "macos"))]
+    assert_eq!(output, "execvp(3) failed.: No such file or directory\r\n");
+}

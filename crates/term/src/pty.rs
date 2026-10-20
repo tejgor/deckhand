@@ -17,6 +17,7 @@ use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::raw::c_char;
 use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use nix::errno::Errno;
@@ -56,6 +57,17 @@ const DEFAULT_PATH: &str = "/bin:/usr/bin";
 /// Highest signal number reset to its default disposition in the child (Linux real-time signals end at 64).
 const MAX_SIGNAL: libc::c_int = 64;
 
+/// Room for a perror(3) line in the child, which cannot allocate.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+const PERROR_BUFFER: usize = 256;
+
+/// Upper bound of the brute-force descriptor sweep, used only when the child cannot list or range-close its fds.
+const FD_SWEEP_LIMIT: libc::c_int = 1 << 16;
+
+/// Linux `close_range(2)` (5.9+): the same number on every architecture, so no per-target libc constant is needed.
+#[cfg(target_os = "linux")]
+const SYS_CLOSE_RANGE: libc::c_long = 436;
+
 /// Serialises PTY creation and fork within this process (see [`Pty::spawn`]).
 static SPAWN_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
@@ -86,7 +98,8 @@ pub struct PtyExit {
 
 /// TS: node-pty IPty (UnixTerminal) — a child process on a pseudo-terminal.
 ///
-/// Dropping it sends `SIGKILL` to the child's process group; a background thread reaps the child.
+/// Dropping it sends `SIGKILL` to the child's process group unless the child was already reaped; a background thread
+/// reaps the child.
 #[derive(Debug)]
 pub struct Pty {
     master: AsyncFd<OwnedFd>,
@@ -95,6 +108,15 @@ pub struct Pty {
     size: AtomicU32,
     exit: watch::Receiver<Option<PtyExit>>,
     write_lock: Mutex<()>,
+    reaped: Reaped,
+}
+
+/// Whether the child has been reaped. Signals are sent with the lock held and only while it is `false`: until the
+/// reap the kernel cannot reuse the pid (and so the group id), after it an unrelated process may own either.
+type Reaped = Arc<std::sync::Mutex<bool>>;
+
+fn lock_reaped(reaped: &Reaped) -> std::sync::MutexGuard<'_, bool> {
+    reaped.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 /// Everything the child needs, allocated before `fork` (only async-signal-safe calls happen after it).
@@ -103,6 +125,111 @@ struct ExecPlan {
     envp: Vec<CString>,
     cwd: Option<CString>,
     candidates: Vec<CString>,
+}
+
+/// perror(3)'s line, `<prefix>: <strerror(errno)>\n`, built in `buf` without allocating (the forked child may only make
+/// async-signal-safe calls) and truncated to fit. Returns its length.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+fn perror_line(prefix: &[u8], errno: libc::c_int, buf: &mut [u8]) -> usize {
+    let parts: [&[u8]; 4] = [prefix, b": ", Errno::from_raw(errno).desc().as_bytes(), b"\n"];
+    let mut len = 0;
+    for byte in parts.into_iter().flatten() {
+        let Some(slot) = buf.get_mut(len) else {
+            break;
+        };
+        *slot = *byte;
+        len += 1;
+    }
+    len
+}
+
+/// Reports a failed chdir/exec in the child the way node-pty did: Linux's forked child `perror`s into the PTY, macOS's
+/// spawn-helper exits silently.
+///
+/// # Safety
+/// Async-signal-safe; for the forked child.
+unsafe fn child_perror(prefix: &[u8], errno: libc::c_int) {
+    #[cfg(target_os = "macos")]
+    let _ = (prefix, errno);
+    #[cfg(not(target_os = "macos"))]
+    {
+        let mut buf = [0u8; PERROR_BUFFER];
+        let len = perror_line(prefix, errno, &mut buf);
+        // SAFETY: buf holds len initialised bytes.
+        unsafe { libc::write(libc::STDERR_FILENO, buf.as_ptr().cast(), len) };
+    }
+}
+
+/// What the child needs to close every descriptor above stderr before exec, as node-pty's macOS spawn did with
+/// `POSIX_SPAWN_CLOEXEC_DEFAULT` (whatever the worker holds open without close-on-exec must not reach the agent).
+/// Prepared before fork, since the child cannot allocate.
+struct InheritedFds {
+    /// macOS: room for the `PROC_PIDLISTFDS` listing, with slack for descriptors opened before the fork.
+    #[cfg(target_os = "macos")]
+    listing: Vec<libc::proc_fdinfo>,
+}
+
+impl InheritedFds {
+    fn prepare() -> Self {
+        #[cfg(target_os = "macos")]
+        {
+            // SAFETY: a size query (null buffer) about our own process.
+            let bytes =
+                unsafe { libc::proc_pidinfo(libc::getpid(), libc::PROC_PIDLISTFDS, 0, std::ptr::null_mut(), 0) };
+            let entries = usize::try_from(bytes).unwrap_or(0) / std::mem::size_of::<libc::proc_fdinfo>();
+            let empty = libc::proc_fdinfo {
+                proc_fd: -1,
+                proc_fdtype: 0,
+            };
+            Self {
+                listing: vec![empty; entries + 256],
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        Self {}
+    }
+
+    /// Closes every descriptor above 2.
+    ///
+    /// # Safety
+    /// Async-signal-safe; for the forked child just before exec.
+    unsafe fn close_all(&mut self) {
+        // SAFETY (whole body): syscalls on our own descriptor table and a buffer allocated before fork.
+        unsafe {
+            #[cfg(target_os = "linux")]
+            {
+                let (first, last, flags): (libc::c_uint, libc::c_uint, libc::c_uint) = (3, libc::c_uint::MAX, 0);
+                if libc::syscall(SYS_CLOSE_RANGE, first, last, flags) == 0 {
+                    return;
+                }
+            }
+            #[cfg(target_os = "macos")]
+            {
+                let entry = std::mem::size_of::<libc::proc_fdinfo>();
+                let capacity = libc::c_int::try_from(self.listing.len() * entry).unwrap_or(libc::c_int::MAX);
+                let bytes = libc::proc_pidinfo(
+                    libc::getpid(),
+                    libc::PROC_PIDLISTFDS,
+                    0,
+                    self.listing.as_mut_ptr().cast(),
+                    capacity,
+                );
+                // A full buffer may have been cut short; sweep instead.
+                if bytes > 0 && bytes < capacity {
+                    let count = usize::try_from(bytes).unwrap_or(0) / entry;
+                    for info in self.listing.iter().take(count) {
+                        if info.proc_fd > 2 {
+                            libc::close(info.proc_fd);
+                        }
+                    }
+                    return;
+                }
+            }
+            for fd in 3..FD_SWEEP_LIMIT {
+                libc::close(fd);
+            }
+        }
+    }
 }
 
 fn invalid_input(message: impl Into<String>) -> io::Error {
@@ -358,9 +485,11 @@ fn null_terminated(strings: &[CString]) -> Vec<*const c_char> {
 ///
 /// # Safety
 /// Must only be called in the child right after `fork`; every pointer array must be null-terminated and outlive it.
+#[allow(clippy::too_many_arguments)]
 unsafe fn exec_child(
     slave: RawFd,
     master: RawFd,
+    inherited: &mut InheritedFds,
     cwd: Option<&CString>,
     argv: &[*const c_char],
     envp: &[*const c_char],
@@ -382,6 +511,7 @@ unsafe fn exec_child(
             libc::close(slave);
         }
         libc::close(master);
+        inherited.close_all();
 
         // Inherited ignored dispositions (and tokio's handlers) must not leak into the agent.
         let mut action: libc::sigaction = std::mem::zeroed();
@@ -397,17 +527,36 @@ unsafe fn exec_child(
         if let Some(cwd) = cwd
             && libc::chdir(cwd.as_ptr()) == -1
         {
+            child_perror(b"chdir(2) failed.", Errno::last_raw());
             libc::_exit(1);
         }
+        // glibc execvp's search: an empty name is ENOENT, a missing or unreachable candidate moves on, any other
+        // failure ends the search, and an EACCES seen on the way is what gets reported.
+        let mut errno = libc::ENOENT;
+        let mut denied = false;
         for (index, candidate) in candidates.iter().enumerate() {
             libc::execve(*candidate, argv.as_ptr(), envp.as_ptr());
+            errno = Errno::last_raw();
             // Like execvp: a file the kernel cannot run is retried as a shell script.
-            if Errno::last_raw() == libc::ENOEXEC
+            if errno == libc::ENOEXEC
                 && let Some(shell_argv) = shell_argvs.get(index)
             {
                 libc::execve(c"/bin/sh".as_ptr(), shell_argv.as_ptr(), envp.as_ptr());
+                errno = Errno::last_raw();
+            }
+            match errno {
+                libc::EACCES => denied = true,
+                libc::ENOENT | libc::ESTALE | libc::ENOTDIR | libc::ENODEV | libc::ETIMEDOUT => {}
+                _ => {
+                    denied = false;
+                    break;
+                }
             }
         }
+        if denied {
+            errno = libc::EACCES;
+        }
+        child_perror(b"execvp(3) failed.", errno);
         libc::_exit(1)
     }
 }
@@ -426,15 +575,46 @@ fn exit_from_status(status: Result<WaitStatus, Errno>) -> PtyExit {
     }
 }
 
-fn spawn_reaper(pid: Pid, sender: watch::Sender<Option<PtyExit>>) -> io::Result<()> {
+fn spawn_reaper(pid: Pid, sender: watch::Sender<Option<PtyExit>>, reaped: Reaped) -> io::Result<()> {
     std::thread::Builder::new()
         .name(format!("deckhand-pty-wait-{pid}"))
         .spawn(move || {
-            let status = loop {
+            // Wait for the exit without reaping, then reap under the lock signallers hold. Should waitid fail, reap
+            // without the lock rather than block signallers until the child exits.
+            let exited = loop {
+                // SAFETY: siginfo_t is a plain C struct waitid fills in.
+                let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+                // SAFETY: waitid on our own child with a valid siginfo pointer.
+                let result = unsafe {
+                    libc::waitid(
+                        libc::P_PID,
+                        pid.as_raw() as libc::id_t,
+                        &mut info,
+                        libc::WEXITED | libc::WNOWAIT,
+                    )
+                };
+                if result == 0 {
+                    break true;
+                }
+                if Errno::last() != Errno::EINTR {
+                    break false;
+                }
+            };
+            let reap = || loop {
                 match waitpid(pid, None) {
                     Err(Errno::EINTR) => continue,
                     other => break other,
                 }
+            };
+            let status = if exited {
+                let mut reaped = lock_reaped(&reaped);
+                let status = reap();
+                *reaped = true;
+                status
+            } else {
+                let status = reap();
+                *lock_reaped(&reaped) = true;
+                status
             };
             let _ = sender.send(Some(exit_from_status(status)));
         })?;
@@ -511,6 +691,7 @@ impl Pty {
         let slave_raw = slave.as_raw_fd();
         // SAFETY: the OwnedFd stays open and unchanged for as long as the AsyncFd owns it.
         let master = unsafe { AsyncFd::register(master) }?;
+        let mut inherited = InheritedFds::prepare();
 
         // Block every signal across fork so no handler runs in the child before it resets them (node-pty does too).
         let mut previous = SigSet::empty();
@@ -523,6 +704,7 @@ impl Pty {
                 exec_child(
                     slave_raw,
                     master_raw,
+                    &mut inherited,
                     plan.cwd.as_ref(),
                     &argv,
                     &envp,
@@ -542,7 +724,8 @@ impl Pty {
         drop(spawning);
 
         let (sender, receiver) = watch::channel(None);
-        if let Err(error) = spawn_reaper(pid, sender) {
+        let reaped = Reaped::default();
+        if let Err(error) = spawn_reaper(pid, sender, reaped.clone()) {
             let _ = killpg(pid, Signal::SIGKILL);
             let _ = waitpid(pid, None);
             return Err(error);
@@ -553,6 +736,7 @@ impl Pty {
             size: AtomicU32::new(pack_size(cols, rows)),
             exit: receiver,
             write_lock: Mutex::new(()),
+            reaped,
         })
     }
 
@@ -615,14 +799,24 @@ impl Pty {
         Ok(())
     }
 
-    /// TS: IPty.kill(signal = 'SIGHUP') — signals the child process only.
+    /// TS: IPty.kill(signal = 'SIGHUP') — signals the child process only. ESRCH once the child has been reaped.
     pub fn kill(&self, signal: Option<Signal>) -> io::Result<()> {
-        kill(self.pid, signal.unwrap_or(Signal::SIGHUP)).map_err(io::Error::from)
+        self.signal_unreaped(|pid| kill(pid, signal.unwrap_or(Signal::SIGHUP)))
     }
 
-    /// TS: process.kill(-term.pid, signal) — signals the child's whole process group.
+    /// TS: process.kill(-term.pid, signal) — signals the child's whole process group. ESRCH once the child (the
+    /// group leader) has been reaped: from then on that group id may belong to an unrelated process.
     pub fn kill_group(&self, signal: Signal) -> io::Result<()> {
-        killpg(self.pid, signal).map_err(io::Error::from)
+        self.signal_unreaped(|pid| killpg(pid, signal))
+    }
+
+    /// Runs `send` with the child's pid while it is unreaped (and so cannot be reused before `send` returns).
+    fn signal_unreaped(&self, send: impl FnOnce(Pid) -> nix::Result<()>) -> io::Result<()> {
+        let reaped = lock_reaped(&self.reaped);
+        if *reaped {
+            return Err(io::Error::from_raw_os_error(libc::ESRCH));
+        }
+        send(self.pid).map_err(io::Error::from)
     }
 
     /// The exit status, once the child has been reaped.
@@ -643,8 +837,9 @@ impl Pty {
 
 impl Drop for Pty {
     fn drop(&mut self) {
-        // The group outlives a dead leader while its members run, so this also reaps orphans of an exited child.
-        let _ = killpg(self.pid, Signal::SIGKILL);
+        // An exited but unreaped leader still pins its group id, so this also reaches the orphans it left; once the
+        // reaper has run, the id is no longer ours to signal.
+        let _ = self.signal_unreaped(|pid| killpg(pid, Signal::SIGKILL));
     }
 }
 
@@ -738,5 +933,17 @@ mod tests {
             }
         );
         assert_eq!(exit_from_status(Err(Errno::ECHILD)), PtyExit::default());
+    }
+
+    #[test]
+    fn child_errors_read_like_perror() {
+        let mut buf = [0u8; PERROR_BUFFER];
+        let len = perror_line(b"execvp(3) failed.", libc::ENOENT, &mut buf);
+        assert_eq!(&buf[..len], b"execvp(3) failed.: No such file or directory\n");
+        let len = perror_line(b"chdir(2) failed.", libc::EACCES, &mut buf);
+        assert_eq!(&buf[..len], b"chdir(2) failed.: Permission denied\n");
+        let mut tiny = [0u8; 8];
+        let len = perror_line(b"chdir(2) failed.", libc::ENOENT, &mut tiny);
+        assert_eq!(&tiny[..len], b"chdir(2)");
     }
 }
