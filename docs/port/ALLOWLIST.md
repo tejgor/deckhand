@@ -1,5 +1,7 @@
 # Parity allowlist (gate G2 — for user review)
 
+> **Approved** by Tejas Gorla on 2026-10-20 (gate G2): all 31 entries and the known deviations below.
+
 Fixture cases where the Rust port deliberately differs from the TS oracle. verify-unit allows at most 2% of a fixture's cases, each with a reason. Every other recorded case matches exactly.
 
 | Unit | Fixture | Case | Reason |
