@@ -213,6 +213,7 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
   - Terminal/Dev/action size their shared workspace PTYs to the pane viewport of the last viewer (last watch/resize wins); lazygit is sized by its attach.
   - Attach mode sizes the active PTY to the full terminal.
   - Returning from attach reapplies pane sizing.
+- Colours follow the user's terminal: the theme is ANSI named colours on the terminal's background (`TERMINAL_THEME` in `crates/ui/src/theme.rs`). The design system's dusk palette (`docs/brand/deckhand-design-system.html`, `DUSK` in `crates/core/src/display.rs`) is an opt-in (`"theme": "dusk"` in `config.json`) for recording demos and screenshots, not the default: tried as the default, its fixed slate background and pastel text looked worse in a real terminal than the terminal's own theme, and clashed with the agents, which draw in the terminal's colours. In dusk mode `apply_dusk` (run last in `render_app`) resolves what the terminal would decide: default background and text (plain text in `--muted`, bold in `--ink`), inverse as a fill with `--ink-dark` text, dim as a fade toward the background; `draw_border` fills boxes, and the attach status line has its own dusk colours. Keep both modes working when changing colours: use `THEME` roles and Ink color names, never fixed colours in panes.
 
 
 ## UI behavior and controls
