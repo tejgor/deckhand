@@ -450,6 +450,10 @@ pub fn run_terminal_editor(
 mod tests {
     use super::*;
 
+    /// Held by the tests that hold a [`UiTerminal`]: [`PANIC_RESTORE`] and the panic hook are process-wide, so under
+    /// `cargo test` (tests in parallel threads) one test's drop took the termios the other's panic was to restore.
+    static UI_TERMINAL: Mutex<()> = Mutex::new(());
+
     /// Whether the terminal on `fd` is in canonical (cooked) mode with echo.
     fn is_cooked(fd: std::os::fd::RawFd) -> bool {
         let mut termios = std::mem::MaybeUninit::<libc::termios>::uninit();
@@ -466,6 +470,7 @@ mod tests {
     fn leaving_the_ui_loop_restores_the_startup_termios() {
         use deckhand_ui::app::event_loop::RawMode;
         use std::os::fd::AsRawFd;
+        let _serial = UI_TERMINAL.lock().unwrap_or_else(PoisonError::into_inner);
         let pty = nix::pty::openpty(None, None).unwrap_or_else(|error| panic!("{error}"));
         let fd = pty.slave.as_raw_fd();
         {
@@ -483,7 +488,8 @@ mod tests {
     fn a_panic_restores_the_terminal_before_its_report_prints() {
         use deckhand_ui::app::event_loop::RawMode;
         use std::os::fd::AsRawFd;
-        use std::sync::{Arc, Mutex};
+        use std::sync::Arc;
+        let _serial = UI_TERMINAL.lock().unwrap_or_else(PoisonError::into_inner);
         let pty = nix::pty::openpty(None, None).unwrap_or_else(|error| panic!("{error}"));
         let fd = pty.slave.as_raw_fd();
         // Stands in for the default hook that prints the report: records the tty's mode at that moment.

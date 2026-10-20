@@ -265,9 +265,31 @@ mod tests {
         assert_eq!(doctor_exit_code(doctor::DoctorStatus::Problems), ExitCode::SUCCESS);
     }
 
+    /// Set in the child process `doctor_check_with_stale_codex_hooks_exits_zero` re-runs itself in.
+    const DOCTOR_CHILD_VAR: &str = "DECKHAND_DOCTOR_CHECK_CHILD";
+
+    /// The environment it sets (HOME, PATH, SHELL, ...) is process-wide and never restored, which under `cargo test`
+    /// (one process for every test) broke later tests (`true` no longer on PATH), so the body runs in a child copy of
+    /// this test binary.
     #[test]
     fn doctor_check_with_stale_codex_hooks_exits_zero() {
         use std::os::unix::fs::PermissionsExt;
+        const NAME: &str = "cli::tests::doctor_check_with_stale_codex_hooks_exits_zero";
+        if std::env::var_os(DOCTOR_CHILD_VAR).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().expect("current_exe"))
+                .args([NAME, "--exact", "--nocapture", "--test-threads=1"])
+                .env(DOCTOR_CHILD_VAR, "1")
+                .output()
+                .expect("spawn child test");
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert!(
+                output.status.success(),
+                "child failed:\n{stdout}\n{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(stdout.contains("1 passed"), "child ran no test:\n{stdout}");
+            return;
+        }
         let root = tempfile::tempdir().expect("tempdir");
         let dir = |name: &str| {
             let path = root.path().join(name);
@@ -287,7 +309,7 @@ mod tests {
         let stale = "'/usr/local/bin/node' '/Users/me/deckhand/dist/cli.js' 'hook'";
         let hooks = serde_json::json!({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": stale}]}]}});
         std::fs::write(codex_home.join(doctor::CODEX_HOOKS_FILE), hooks.to_string()).expect("hooks.json");
-        // SAFETY: nextest runs each test in its own process, so nothing else reads the environment concurrently.
+        // SAFETY: this runs alone in its child process (above), so nothing else reads the environment concurrently.
         unsafe {
             std::env::set_var("HOME", &home);
             std::env::set_var(paths::HOME_ENV, &deckhand_home);

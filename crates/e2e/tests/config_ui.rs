@@ -81,7 +81,8 @@ fn isolated_terminal_ui_trust_raw_json_editing_filters_and_quit() {
     ui.screen("Name: wt1");
     ui.press("\r");
     ui.screen("Review repository configuration");
-    ui.screen("setupCommand (touch repo-setup-ran)");
+    // Only the start: where the line wraps depends on the sidebar's width.
+    ui.screen("setupCommand (touch repo-setup-");
     ui.press("\x1b");
     ui.screen("Workspace: new worktree");
     ui.press("\r");
