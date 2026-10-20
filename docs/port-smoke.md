@@ -170,10 +170,10 @@ Before you start:
 - **Run it from a plain terminal, not from inside a Deckhand session.** Step 2 stops the v45 daemon, which ends every agent session it hosts, including an agent you might be talking to.
 - **`~/.deckhand/worktrees/` holds real git worktrees**, possibly including the checkout you build from. Never delete `~/.deckhand` as a whole; the rollback in step 6 restores only the state files.
 
-1. **Back up the real state** (the persisted formats are unchanged, but keep a copy):
+1. **Back up the real state.** The persisted formats are unchanged, but keep a copy. The command skips the git worktrees, which can be large and are not state, and the live socket:
 
    ```sh
-   cp -a ~/.deckhand ~/.deckhand.pre-rust
+   rsync -a --exclude worktrees --exclude daemon.sock ~/.deckhand/ ~/.deckhand.pre-rust/
    ```
 
 2. **Stop the running TypeScript (v45) daemon.** This ends every running session; make sure nothing in flight needs you first. Conversation references survive in `state.json`, so `s` resumes them later.
