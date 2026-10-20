@@ -1048,13 +1048,10 @@ mod tests {
     use deckhand_sys::paths;
     use std::os::unix::fs::PermissionsExt;
     use std::path::Path;
-    use std::sync::{Mutex, MutexGuard};
+    use std::sync::MutexGuard;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::UnixStream;
     use tokio::sync::{mpsc, oneshot};
-
-    /// Tests that set DECKHAND_HOME run one at a time.
-    static ENV: Mutex<()> = Mutex::new(());
 
     /// DECKHAND_HOME = `dir` while this lives (persisting and config reads go there).
     struct Home {
@@ -1064,9 +1061,9 @@ mod tests {
 
     impl Home {
         fn set(dir: &Path) -> Home {
-            let guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let guard = crate::server::tests::env_lock();
             let previous = std::env::var_os(paths::HOME_ENV);
-            // SAFETY: tests touching the environment hold ENV.
+            // SAFETY: tests touching the environment hold server::tests::env_lock.
             unsafe { std::env::set_var(paths::HOME_ENV, dir) };
             Home {
                 _guard: guard,
@@ -1077,7 +1074,7 @@ mod tests {
 
     impl Drop for Home {
         fn drop(&mut self) {
-            // SAFETY: as in Home::set (ENV is still held).
+            // SAFETY: as in Home::set (the environment lock is still held).
             unsafe {
                 match self.previous.take() {
                     Some(value) => std::env::set_var(paths::HOME_ENV, value),

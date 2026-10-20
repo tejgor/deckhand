@@ -224,7 +224,7 @@ exit 3
                 joined.push(":");
                 joined.push(path);
             }
-            // SAFETY: the caller holds Home's environment lock.
+            // SAFETY: the caller holds Home, and with it server::tests::env_lock.
             unsafe {
                 std::env::set_var("PATH", joined);
                 std::env::set_var("DECKHAND_AGENT_LATEST", r#"{"claude":"2.0.0","pi":"1.0.0"}"#);
