@@ -23,6 +23,7 @@ use deckhand_sys::git::ensure_git_repo;
 use deckhand_sys::notes_vim::write_notes_vim_script;
 use deckhand_sys::storage::load_app_config;
 use deckhand_sys::ui_state::{load_ui_state, save_ui_state};
+use deckhand_ui::app::event_loop::{capture_startup_termios, restore_startup_termios, stdin_fd};
 use deckhand_ui::app::state::{AppCallbacks, AppProps};
 
 /// TS: cli.ts `terminalView` (`'shell' | 'action'`): what the Terminal tab shows, kept across attach round trips (the
@@ -194,9 +195,28 @@ pub async fn run_ui(
     result.map_err(|error| DhError::msg(error.to_string()))
 }
 
+/// The UI process's hold on its terminal, from startup until the UI loop ends (however it ends): saves stdin's startup
+/// termios, and puts it back on the way out as Node's ResetStdio does at exit. Raw-mode entries only restore what they
+/// found, which is raw when `$EDITOR` left the tty that way.
+struct UiTerminal;
+
+impl UiTerminal {
+    fn start(fd: std::os::fd::RawFd) -> UiTerminal {
+        capture_startup_termios(fd);
+        UiTerminal
+    }
+}
+
+impl Drop for UiTerminal {
+    fn drop(&mut self) {
+        restore_startup_termios();
+    }
+}
+
 /// TS: cli.ts main's UI branch: loads the UI state of the cwd's repository (`ensure_git_repo`), then runs the UI and
 /// performs each hand-off until it quits.
 pub async fn run_ui_loop() -> Result<(), DhError> {
+    let _terminal = UiTerminal::start(stdin_fd());
     let repo_root = ensure_git_repo(None).await?;
     let ui_state = Rc::new(RefCell::new(load_ui_state(&repo_root).await));
     let terminal_view = Rc::new(Cell::new(TerminalView::Shell));
@@ -348,6 +368,35 @@ pub fn run_terminal_editor(editor: &EditorCommand, file: &str, vim_script: Optio
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Whether the terminal on `fd` is in canonical (cooked) mode with echo.
+    fn is_cooked(fd: std::os::fd::RawFd) -> bool {
+        let mut termios = std::mem::MaybeUninit::<libc::termios>::uninit();
+        // SAFETY: tcgetattr fills the termios on success, which the assert checks before it is read.
+        let termios = unsafe {
+            assert_eq!(libc::tcgetattr(fd, termios.as_mut_ptr()), 0);
+            termios.assume_init()
+        };
+        let cooked = (libc::ICANON | libc::ECHO) as libc::tcflag_t;
+        termios.c_lflag & cooked == cooked
+    }
+
+    #[test]
+    fn leaving_the_ui_loop_restores_the_startup_termios() {
+        use deckhand_ui::app::event_loop::RawMode;
+        use std::os::fd::AsRawFd;
+        let pty = nix::pty::openpty(None, None).unwrap_or_else(|error| panic!("{error}"));
+        let fd = pty.slave.as_raw_fd();
+        {
+            let _terminal = UiTerminal::start(fd);
+            // A UI round trip, then $EDITOR quits leaving the tty raw and the UI's next raw-mode entry saves that.
+            drop(RawMode::enable(fd).unwrap_or_else(|error| panic!("{error}")));
+            std::mem::forget(RawMode::enable(fd).unwrap_or_else(|error| panic!("{error}")));
+            drop(RawMode::enable(fd).unwrap_or_else(|error| panic!("{error}")));
+            assert!(!is_cooked(fd));
+        }
+        assert!(is_cooked(fd));
+    }
 
     #[test]
     fn attach_targets_select_their_tab() {

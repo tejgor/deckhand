@@ -387,13 +387,77 @@ pub fn termination_signal() -> io::Result<impl std::future::Future<Output = i32>
     })
 }
 
-/// Dies of `signal` with its default action (what signal-exit does after the cleanups ran).
+/// Dies of `signal` with its default action (what signal-exit does after the cleanups ran), after Node's ResetStdio
+/// put back the startup termios.
 pub fn die_of_signal(signal: i32) {
     use nix::sys::signal::{SigHandler, Signal, raise, signal as install};
     let Ok(signal) = Signal::try_from(signal) else { return };
+    restore_startup_termios();
     // SAFETY: restoring the default disposition installs no Rust handler.
     let _ = unsafe { install(signal, SigHandler::SigDfl) };
     let _ = raise(signal);
+}
+
+/// A terminal's termios as Node saves stdio's at startup (`PlatformInit`) and puts back at exit (`ResetStdio`, also
+/// run before dying of a signal). Raw-mode entries restore what they found instead ([`RawMode`]), so only this undoes a
+/// tty an `$EDITOR` left raw.
+#[derive(Clone, Copy)]
+pub struct SavedTermios {
+    fd: RawFd,
+    termios: libc::termios,
+}
+
+impl std::fmt::Debug for SavedTermios {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SavedTermios")
+            .field("fd", &self.fd)
+            .finish_non_exhaustive()
+    }
+}
+
+impl SavedTermios {
+    /// `fd`'s current termios; `None` when it is not a terminal.
+    pub fn capture(fd: RawFd) -> Option<SavedTermios> {
+        // SAFETY: an all-zero termios is a valid value for tcgetattr to overwrite.
+        let mut termios: libc::termios = unsafe { std::mem::zeroed() };
+        // SAFETY: tcgetattr writes one termios through a pointer to a live one; a bad fd only fails.
+        (unsafe { libc::tcgetattr(fd, &mut termios) } == 0).then_some(SavedTermios { fd, termios })
+    }
+
+    /// Puts the saved termios back (best effort). As Node's ResetStdio: at once (`TCSANOW`), retried on `EINTR`, with
+    /// SIGTTOU blocked so a background process is not stopped for it. Only plain libc calls: the panic hook runs this.
+    pub fn restore(&self) {
+        // SAFETY: the sigset is initialised by sigemptyset before use; the masks only touch this thread's.
+        unsafe {
+            let mut block: libc::sigset_t = std::mem::zeroed();
+            let mut previous: libc::sigset_t = std::mem::zeroed();
+            libc::sigemptyset(&mut block);
+            libc::sigaddset(&mut block, libc::SIGTTOU);
+            let masked = libc::pthread_sigmask(libc::SIG_BLOCK, &block, &mut previous) == 0;
+            while libc::tcsetattr(self.fd, libc::TCSANOW, &self.termios) == -1
+                && io::Error::last_os_error().raw_os_error() == Some(libc::EINTR)
+            {}
+            if masked {
+                libc::pthread_sigmask(libc::SIG_SETMASK, &previous, std::ptr::null_mut());
+            }
+        }
+    }
+}
+
+/// The process's startup termios (stdin's), captured once.
+static STARTUP_TERMIOS: std::sync::OnceLock<Option<SavedTermios>> = std::sync::OnceLock::new();
+
+/// Saves `fd`'s termios as the one to restore at exit, unless one was saved already (the first capture wins, so call
+/// it at startup). Returns what is saved.
+pub fn capture_startup_termios(fd: RawFd) -> Option<SavedTermios> {
+    *STARTUP_TERMIOS.get_or_init(|| SavedTermios::capture(fd))
+}
+
+/// Node's ResetStdio: restores the termios [`capture_startup_termios`] saved (nothing when none was).
+pub fn restore_startup_termios() {
+    if let Some(Some(saved)) = STARTUP_TERMIOS.get() {
+        saved.restore();
+    }
 }
 
 /// TS app.tsx getTerminalSize: `process.stdout.columns || 80`, `rows || 24`.
@@ -681,6 +745,44 @@ mod tests {
                 assert_eq!(rows(&terminal)[0], "count 41    ");
             })
             .await;
+    }
+
+    /// Whether the terminal on `fd` is in canonical (cooked) mode.
+    fn is_cooked(fd: RawFd) -> bool {
+        // SAFETY: the test keeps `fd` open.
+        let borrowed = unsafe { BorrowedFd::borrow_raw(fd) };
+        let attrs = termios::tcgetattr(borrowed).expect("tcgetattr");
+        attrs.local_flags.contains(LocalFlags::ICANON | LocalFlags::ECHO)
+    }
+
+    #[test]
+    fn exit_restores_the_startup_termios_not_the_latest_raw_entry() {
+        let pty = nix::pty::openpty(None, None).expect("openpty");
+        let fd = pty.slave.as_raw_fd();
+        assert!(is_cooked(fd));
+        let startup = SavedTermios::capture(fd).expect("a tty");
+        // Each raw-mode entry restores what it found (libuv's per-handle orig_termios).
+        drop(RawMode::enable(fd).expect("raw"));
+        assert!(is_cooked(fd));
+        // $EDITOR quits leaving the tty raw; the UI comes back and later quits.
+        std::mem::forget(RawMode::enable(fd).expect("raw"));
+        assert!(!is_cooked(fd));
+        drop(RawMode::enable(fd).expect("raw"));
+        assert!(!is_cooked(fd));
+        // Node's ResetStdio at exit: the termios saved at startup.
+        startup.restore();
+        assert!(is_cooked(fd));
+        // The process-wide copy is captured once; later captures keep the first.
+        assert_eq!(capture_startup_termios(fd).map(|saved| saved.fd), Some(fd));
+        std::mem::forget(RawMode::enable(fd).expect("raw"));
+        let (read, _write) = nix::unistd::pipe().expect("pipe");
+        assert_eq!(
+            capture_startup_termios(read.as_raw_fd()).map(|saved| saved.fd),
+            Some(fd)
+        );
+        restore_startup_termios();
+        assert!(is_cooked(fd));
+        assert!(SavedTermios::capture(read.as_raw_fd()).is_none());
     }
 
     #[test]
