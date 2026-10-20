@@ -166,6 +166,10 @@ Expected: `$DH status` says not running. `~/.deckhand` was never modified.
 
 **This section changes your real Deckhand. It is for you to run by hand once every step above passed. No agent or script should run it for you.** It keeps a full copy of the old state so you can go back.
 
+Before you start:
+- **Run it from a plain terminal, not from inside a Deckhand session.** Step 2 stops the v45 daemon, which ends every agent session it hosts, including an agent you might be talking to.
+- **`~/.deckhand/worktrees/` holds real git worktrees**, possibly including the checkout you build from. Never delete `~/.deckhand` as a whole; the rollback in step 6 restores only the state files.
+
 1. **Back up the real state** (the persisted formats are unchanged, but keep a copy):
 
    ```sh
@@ -194,4 +198,14 @@ Expected: `$DH status` says not running. `~/.deckhand` was never modified.
 
 5. **Doctor:** `deckhand doctor`. Expected: agents found; if Codex hooks were set up for the TypeScript version, a warning about the stale `node ... cli.js hook` command. Fix it: `deckhand hooks codex`, merge the printed JSON into `~/.codex/hooks.json`, then `/hooks` in Codex to review.
 
-6. **Roll back if needed:** stop the new daemon (`kill "$(cat ~/.deckhand/daemon.pid)"`), `rm -rf ~/.deckhand && mv ~/.deckhand.pre-rust ~/.deckhand`, reinstall the TypeScript package, and report which step failed.
+6. **Roll back if needed.** This restores the state files only and leaves the worktrees alone:
+
+   ```sh
+   kill "$(cat ~/.deckhand/daemon.pid)"     # stop the native daemon; wait until it exits
+   cd ~/.deckhand.pre-rust
+   cp -a state.json config.json ui-state.json ~/.deckhand/
+   cp -a notes/. ~/.deckhand/notes/          # likewise handoffs/ and notes-backups/ if you changed them
+   npm i -g @tejgor/deckhand@2.0.0           # reinstall the TypeScript version
+   ```
+
+   Then report which step failed.
