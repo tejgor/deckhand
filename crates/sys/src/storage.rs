@@ -1684,8 +1684,40 @@ pub(crate) mod tests {
         }
     }
 
-    /// Tests that set DECKHAND_HOME run one at a time.
+    /// Every test in this crate that sets or reads a process-wide environment variable (DECKHAND_HOME,
+    /// DECKHAND_CHANNEL, ...) holds this, so tests in different modules never see each other's values under the
+    /// parallel test runner.
     static ENV: Mutex<()> = Mutex::new(());
+
+    /// Takes [`ENV`] (a test that panicked while holding it has already restored the environment in its guard's drop).
+    pub(crate) fn env_lock() -> MutexGuard<'static, ()> {
+        ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    #[test]
+    fn every_module_shares_the_one_environment_lock() {
+        let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut offenders = Vec::new();
+        for entry in std::fs::read_dir(&src).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            if name == "storage.rs" || path.extension().is_none_or(|ext| ext != "rs") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).unwrap();
+            if text.contains("Mutex<()>") {
+                offenders.push(format!("{name}: declares its own environment lock"));
+            }
+            let mutates = text.contains("std::env::set_var") || text.contains("std::env::remove_var");
+            if mutates && !text.contains("storage::tests::Home") && !text.contains("env_lock") {
+                offenders.push(format!(
+                    "{name}: changes the environment without storage::tests::env_lock"
+                ));
+            }
+        }
+        offenders.sort();
+        assert!(offenders.is_empty(), "{offenders:#?}");
+    }
 
     /// DECKHAND_HOME set to a directory while this lives.
     pub(crate) struct Home {
@@ -1695,7 +1727,7 @@ pub(crate) mod tests {
 
     impl Home {
         pub(crate) fn set(home: &Path) -> Home {
-            let guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let guard = env_lock();
             let previous = std::env::var_os(paths::HOME_ENV);
             // SAFETY: tests touching the environment hold ENV.
             unsafe { std::env::set_var(paths::HOME_ENV, home) };
