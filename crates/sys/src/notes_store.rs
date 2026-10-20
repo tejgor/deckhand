@@ -851,7 +851,6 @@ async fn read_names(directory: &Path) -> Vec<String> {
 pub(crate) mod tests {
     use std::cell::Cell;
     use std::path::Path;
-    use std::sync::{Mutex, MutexGuard};
 
     use deckhand_core::jsstr::js_to_upper;
     use deckhand_parity::{Case, DirOp, replay, replay_dir};
@@ -871,39 +870,8 @@ pub(crate) mod tests {
         CLOCK.with(Cell::get)
     }
 
-    /// Tests that set DECKHAND_HOME run one at a time.
-    static ENV: Mutex<()> = Mutex::new(());
-
-    pub(crate) struct Home {
-        _guard: MutexGuard<'static, ()>,
-        previous: Option<std::ffi::OsString>,
-    }
-
-    impl Home {
-        pub(crate) fn set(home: &Path) -> Home {
-            let guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-            let previous = std::env::var_os(paths::HOME_ENV);
-            // SAFETY: tests touching the environment hold ENV; nothing else in this crate's tests reads it
-            // concurrently.
-            unsafe { std::env::set_var(paths::HOME_ENV, home) };
-            Home {
-                _guard: guard,
-                previous,
-            }
-        }
-    }
-
-    impl Drop for Home {
-        fn drop(&mut self) {
-            // SAFETY: as in Home::set (ENV is still held).
-            unsafe {
-                match self.previous.take() {
-                    Some(value) => std::env::set_var(paths::HOME_ENV, value),
-                    None => std::env::remove_var(paths::HOME_ENV),
-                }
-            }
-        }
-    }
+    /// DECKHAND_HOME set while it lives, under the crate-wide test environment lock.
+    pub(crate) use crate::storage::tests::Home;
 
     /// Runs `future` on a fresh current_thread runtime inside a LocalSet.
     fn block_on<F: std::future::Future>(future: F) -> F::Output {

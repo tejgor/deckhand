@@ -11,8 +11,9 @@
 //!   `LiveClient` handlers, replies of requests, timers and intervals all send a closure that runs on the model.
 //!
 //! After each batch the model's effects run ([`UiModel::after_update`], React's `useEffect` phase) and the frame is
-//! drawn once with ratatui (which writes only the cells that changed). [`UiModel::exit`] ends the loop with the
-//! result Ink's `waitUntilExit` resolved to.
+//! drawn with ratatui (which writes only the cells that changed), at most once per [`RENDER_THROTTLE`] as Ink
+//! throttles its renders, each frame wrapped in synchronized output ([`InkBackend`]). [`UiModel::exit`] ends the loop
+//! with the result Ink's `waitUntilExit` resolved to.
 
 use std::cell::RefCell;
 use std::future::Future;
@@ -27,8 +28,11 @@ use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use nix::sys::termios::{self, ControlFlags, InputFlags, LocalFlags, OutputFlags, SetArg, Termios};
 use ratatui::Frame;
 use ratatui::Terminal;
-use ratatui::backend::Backend;
+use ratatui::backend::{Backend, ClearType, CrosstermBackend, WindowSize};
+use ratatui::buffer::Cell;
+use ratatui::layout::{Position, Size};
 use tokio::sync::mpsc;
+use tokio::time::Instant;
 
 use deckhand_sys::async_util::{Interval, Task, Timer, spawn};
 
@@ -167,6 +171,7 @@ async fn handle_term_event<M: UiModel, B: Backend>(
     events: &mut mpsc::UnboundedReceiver<TermEvent>,
     first: TermEvent,
     exit: &mut Option<M::Exit>,
+    resized: &mut bool,
 ) -> io::Result<bool> {
     let mut next = Some(first);
     while let Some(event) = next.take() {
@@ -195,6 +200,7 @@ async fn handle_term_event<M: UiModel, B: Backend>(
             TermEvent::Resize { cols, rows } => {
                 // TS: app.tsx onResize clears the screen before the next render.
                 terminal.clear()?;
+                *resized = true;
                 model.on_resize(cols, rows);
                 *exit = model.exit();
                 next = events.try_recv().ok();
@@ -211,12 +217,30 @@ async fn handle_term_event<M: UiModel, B: Backend>(
     Ok(true)
 }
 
-/// Runs the UI until the model exits or stdin closes. The first frame is drawn before any input is read.
+/// TS: Ink's render throttle: `maxFps` 30 → `throttle(onRender, Math.ceil(1000 / 30))`, leading and trailing.
+pub const RENDER_THROTTLE: Duration = Duration::from_millis(34);
+
+/// Runs the UI until the model exits or stdin closes. The first frame is drawn before any input is read; later frames
+/// are throttled to [`RENDER_THROTTLE`].
 pub async fn run<M: UiModel, B: Backend>(
     model: &mut M,
     terminal: &mut Terminal<B>,
     events: &mut mpsc::UnboundedReceiver<TermEvent>,
     updates: &mut mpsc::UnboundedReceiver<Update<M>>,
+) -> io::Result<LoopEnd<M::Exit>> {
+    run_throttled(model, terminal, events, updates, RENDER_THROTTLE).await
+}
+
+/// [`run`] with frames at most once per `throttle`, as Ink's throttled `onRender` (lodash-style leading and trailing
+/// edges): a frame is drawn at once when none was drawn for `throttle`, else once the window ends, with everything
+/// that changed meanwhile. The model's effects still run after every batch (React commits every update; only Ink's
+/// output is throttled). A resize draws at once, as Ink's `resized` calls `onRender` directly.
+pub async fn run_throttled<M: UiModel, B: Backend>(
+    model: &mut M,
+    terminal: &mut Terminal<B>,
+    events: &mut mpsc::UnboundedReceiver<TermEvent>,
+    updates: &mut mpsc::UnboundedReceiver<Update<M>>,
+    throttle: Duration,
 ) -> io::Result<LoopEnd<M::Exit>> {
     let mut parser = StdinParser::new();
     let mut exit = None;
@@ -226,12 +250,16 @@ pub async fn run<M: UiModel, B: Backend>(
         return Ok(LoopEnd::Exit(result));
     }
     terminal.draw(|frame| model.render(frame))?;
+    let mut last_draw = Instant::now();
+    let mut draw_pending = false;
     loop {
+        let mut resized = false;
         tokio::select! {
             biased;
             event = events.recv(), if input_open => match event {
                 Some(event) => {
-                    input_open = handle_term_event(model, terminal, &mut parser, events, event, &mut exit).await?;
+                    input_open =
+                        handle_term_event(model, terminal, &mut parser, events, event, &mut exit, &mut resized).await?;
                 }
                 None => input_open = false,
             },
@@ -247,6 +275,13 @@ pub async fn run<M: UiModel, B: Backend>(
                 None if !input_open => return Ok(LoopEnd::InputClosed),
                 None => {}
             },
+            () = tokio::time::sleep_until(last_draw + throttle), if draw_pending => {
+                // The trailing edge: the effects of what it shows have run already.
+                terminal.draw(|frame| model.render(frame))?;
+                last_draw = Instant::now();
+                draw_pending = false;
+                continue;
+            }
         }
         if let Some(result) = exit.take() {
             return Ok(LoopEnd::Exit(result));
@@ -258,7 +293,117 @@ pub async fn run<M: UiModel, B: Backend>(
         if let Some(result) = model.exit() {
             return Ok(LoopEnd::Exit(result));
         }
-        terminal.draw(|frame| model.render(frame))?;
+        if resized || last_draw.elapsed() >= throttle {
+            terminal.draw(|frame| model.render(frame))?;
+            last_draw = Instant::now();
+            draw_pending = false;
+        } else {
+            draw_pending = true;
+        }
+    }
+}
+
+/// TS: Ink's write-synchronized.js `bsu` (begin synchronized update, DEC private mode 2026).
+pub const BEGIN_SYNCHRONIZED_UPDATE: &str = "\x1b[?2026h";
+/// TS: Ink's write-synchronized.js `esu` (end synchronized update).
+pub const END_SYNCHRONIZED_UPDATE: &str = "\x1b[?2026l";
+
+/// TS: is-in-ci (`CI` or `CONTINUOUS_INTEGRATION` set to anything but `0` or `false`).
+pub fn is_in_ci() -> bool {
+    is_in_ci_with(|key| std::env::var_os(key).map(|value| value.to_string_lossy().into_owned()))
+}
+
+fn is_in_ci_with(env: impl Fn(&str) -> Option<String>) -> bool {
+    let check = |key: &str| env(key).is_some_and(|value| value != "0" && value != "false");
+    check("CI") || check("CONTINUOUS_INTEGRATION")
+}
+
+/// TS: Ink's shouldSynchronize(stdout): a TTY stdout outside CI.
+pub fn should_synchronize() -> bool {
+    use std::io::IsTerminal;
+    io::stdout().is_terminal() && !is_in_ci()
+}
+
+/// The crossterm backend the UI draws with, writing frames as Ink's throttled log does: a frame that changes no cell
+/// writes no cells (Ink skips output equal to the last), and when `synchronize` (see [`should_synchronize`]) a frame
+/// that does is wrapped in [`BEGIN_SYNCHRONIZED_UPDATE`] … [`END_SYNCHRONIZED_UPDATE`], so the terminal shows it
+/// whole. The frame ends at ratatui's final flush, after the cursor update.
+#[derive(Debug)]
+pub struct InkBackend<W: io::Write> {
+    inner: CrosstermBackend<W>,
+    synchronize: bool,
+    in_frame: bool,
+}
+
+impl<W: io::Write> InkBackend<W> {
+    /// A backend writing to `writer`.
+    pub fn new(writer: W, synchronize: bool) -> InkBackend<W> {
+        InkBackend {
+            inner: CrosstermBackend::new(writer),
+            synchronize,
+            in_frame: false,
+        }
+    }
+}
+
+impl<W: io::Write> Backend for InkBackend<W> {
+    fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
+    where
+        I: Iterator<Item = (u16, u16, &'a Cell)>,
+    {
+        let mut content = content.peekable();
+        if content.peek().is_none() {
+            return Ok(());
+        }
+        if self.synchronize && !self.in_frame {
+            io::Write::write_all(&mut self.inner, BEGIN_SYNCHRONIZED_UPDATE.as_bytes())?;
+            self.in_frame = true;
+        }
+        self.inner.draw(content)
+    }
+
+    fn hide_cursor(&mut self) -> io::Result<()> {
+        self.inner.hide_cursor()
+    }
+
+    fn show_cursor(&mut self) -> io::Result<()> {
+        self.inner.show_cursor()
+    }
+
+    fn get_cursor_position(&mut self) -> io::Result<Position> {
+        self.inner.get_cursor_position()
+    }
+
+    fn set_cursor_position<P: Into<Position>>(&mut self, position: P) -> io::Result<()> {
+        self.inner.set_cursor_position(position)
+    }
+
+    fn clear(&mut self) -> io::Result<()> {
+        self.inner.clear()
+    }
+
+    fn clear_region(&mut self, clear_type: ClearType) -> io::Result<()> {
+        self.inner.clear_region(clear_type)
+    }
+
+    fn append_lines(&mut self, n: u16) -> io::Result<()> {
+        self.inner.append_lines(n)
+    }
+
+    fn size(&self) -> io::Result<Size> {
+        self.inner.size()
+    }
+
+    fn window_size(&mut self) -> io::Result<WindowSize> {
+        self.inner.window_size()
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        if self.in_frame {
+            self.in_frame = false;
+            io::Write::write_all(&mut self.inner, END_SYNCHRONIZED_UPDATE.as_bytes())?;
+        }
+        self.inner.flush()
     }
 }
 
@@ -387,13 +532,77 @@ pub fn termination_signal() -> io::Result<impl std::future::Future<Output = i32>
     })
 }
 
-/// Dies of `signal` with its default action (what signal-exit does after the cleanups ran).
+/// Dies of `signal` with its default action (what signal-exit does after the cleanups ran), after Node's ResetStdio
+/// put back the startup termios.
 pub fn die_of_signal(signal: i32) {
     use nix::sys::signal::{SigHandler, Signal, raise, signal as install};
     let Ok(signal) = Signal::try_from(signal) else { return };
+    restore_startup_termios();
     // SAFETY: restoring the default disposition installs no Rust handler.
     let _ = unsafe { install(signal, SigHandler::SigDfl) };
     let _ = raise(signal);
+}
+
+/// A terminal's termios as Node saves stdio's at startup (`PlatformInit`) and puts back at exit (`ResetStdio`, also
+/// run before dying of a signal). Raw-mode entries restore what they found instead ([`RawMode`]), so only this undoes a
+/// tty an `$EDITOR` left raw.
+#[derive(Clone, Copy)]
+pub struct SavedTermios {
+    fd: RawFd,
+    termios: libc::termios,
+}
+
+impl std::fmt::Debug for SavedTermios {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SavedTermios")
+            .field("fd", &self.fd)
+            .finish_non_exhaustive()
+    }
+}
+
+impl SavedTermios {
+    /// `fd`'s current termios; `None` when it is not a terminal.
+    pub fn capture(fd: RawFd) -> Option<SavedTermios> {
+        // SAFETY: an all-zero termios is a valid value for tcgetattr to overwrite.
+        let mut termios: libc::termios = unsafe { std::mem::zeroed() };
+        // SAFETY: tcgetattr writes one termios through a pointer to a live one; a bad fd only fails.
+        (unsafe { libc::tcgetattr(fd, &mut termios) } == 0).then_some(SavedTermios { fd, termios })
+    }
+
+    /// Puts the saved termios back (best effort). As Node's ResetStdio: at once (`TCSANOW`), retried on `EINTR`, with
+    /// SIGTTOU blocked so a background process is not stopped for it. Only plain libc calls: the panic hook runs this.
+    pub fn restore(&self) {
+        // SAFETY: the sigset is initialised by sigemptyset before use; the masks only touch this thread's.
+        unsafe {
+            let mut block: libc::sigset_t = std::mem::zeroed();
+            let mut previous: libc::sigset_t = std::mem::zeroed();
+            libc::sigemptyset(&mut block);
+            libc::sigaddset(&mut block, libc::SIGTTOU);
+            let masked = libc::pthread_sigmask(libc::SIG_BLOCK, &block, &mut previous) == 0;
+            while libc::tcsetattr(self.fd, libc::TCSANOW, &self.termios) == -1
+                && io::Error::last_os_error().raw_os_error() == Some(libc::EINTR)
+            {}
+            if masked {
+                libc::pthread_sigmask(libc::SIG_SETMASK, &previous, std::ptr::null_mut());
+            }
+        }
+    }
+}
+
+/// The process's startup termios (stdin's), captured once.
+static STARTUP_TERMIOS: std::sync::OnceLock<Option<SavedTermios>> = std::sync::OnceLock::new();
+
+/// Saves `fd`'s termios as the one to restore at exit, unless one was saved already (the first capture wins, so call
+/// it at startup). Returns what is saved.
+pub fn capture_startup_termios(fd: RawFd) -> Option<SavedTermios> {
+    *STARTUP_TERMIOS.get_or_init(|| SavedTermios::capture(fd))
+}
+
+/// Node's ResetStdio: restores the termios [`capture_startup_termios`] saved (nothing when none was).
+pub fn restore_startup_termios() {
+    if let Some(Some(saved)) = STARTUP_TERMIOS.get() {
+        saved.restore();
+    }
 }
 
 /// TS app.tsx getTerminalSize: `process.stdout.columns || 80`, `rows || 24`.
@@ -447,6 +656,21 @@ impl Drop for RawMode {
         let borrowed = unsafe { BorrowedFd::borrow_raw(self.fd) };
         let _ = termios::tcsetattr(borrowed, SetArg::TCSADRAIN, &self.saved);
     }
+}
+
+/// TS: Ink 6 components/App.js handleSetRawMode's error when `process.stdin` is not a TTY (`isRawModeSupported` is
+/// `stdin.isTTY`).
+pub const RAW_MODE_UNSUPPORTED: &str = "Raw mode is not supported on the current process.stdin, which Ink uses as input \
+stream by default.\nRead about how to prevent this error on https://github.com/vadimdemedes/ink/#israwmodesupported";
+
+/// TS: Ink's `setRawMode(true)` from useInput: [`RAW_MODE_UNSUPPORTED`] unless `fd` is a TTY, else [`RawMode::enable`].
+/// The error reaches cli.ts `main().catch`, which prints its message and exits 1.
+pub fn enable_ink_raw_mode(fd: RawFd) -> io::Result<RawMode> {
+    // SAFETY: isatty only inspects the descriptor (a closed one is simply not a TTY).
+    if unsafe { libc::isatty(fd) } != 1 {
+        return Err(io::Error::other(RAW_MODE_UNSUPPORTED));
+    }
+    RawMode::enable(fd)
 }
 
 /// stdin's descriptor.
@@ -653,7 +877,8 @@ mod tests {
                 let (tx, mut events) = mpsc::unbounded_channel::<TermEvent>();
                 let (dispatch, mut update_rx) = Dispatch::<Recorder>::channel();
                 let _task = dispatch.spawn(async { 41 }, |model, value| model.counter = value);
-                let _timer = dispatch.after(Duration::from_millis(5), |model| {
+                // Later than the render throttle, so the trailing frame shows the spawned value first.
+                let _timer = dispatch.after(RENDER_THROTTLE * 3, |model| {
                     model.counter += 1;
                     model.quit = Some("timer");
                 });
@@ -666,6 +891,162 @@ mod tests {
                 assert_eq!(rows(&terminal)[0], "count 41    ");
             })
             .await;
+    }
+
+    /// Whether the terminal on `fd` is in canonical (cooked) mode.
+    fn is_cooked(fd: RawFd) -> bool {
+        // SAFETY: the test keeps `fd` open.
+        let borrowed = unsafe { BorrowedFd::borrow_raw(fd) };
+        let attrs = termios::tcgetattr(borrowed).expect("tcgetattr");
+        attrs.local_flags.contains(LocalFlags::ICANON | LocalFlags::ECHO)
+    }
+
+    #[test]
+    fn exit_restores_the_startup_termios_not_the_latest_raw_entry() {
+        let pty = nix::pty::openpty(None, None).expect("openpty");
+        let fd = pty.slave.as_raw_fd();
+        assert!(is_cooked(fd));
+        let startup = SavedTermios::capture(fd).expect("a tty");
+        // Each raw-mode entry restores what it found (libuv's per-handle orig_termios).
+        drop(RawMode::enable(fd).expect("raw"));
+        assert!(is_cooked(fd));
+        // $EDITOR quits leaving the tty raw; the UI comes back and later quits.
+        std::mem::forget(RawMode::enable(fd).expect("raw"));
+        assert!(!is_cooked(fd));
+        drop(RawMode::enable(fd).expect("raw"));
+        assert!(!is_cooked(fd));
+        // Node's ResetStdio at exit: the termios saved at startup.
+        startup.restore();
+        assert!(is_cooked(fd));
+        // The process-wide copy is captured once; later captures keep the first.
+        assert_eq!(capture_startup_termios(fd).map(|saved| saved.fd), Some(fd));
+        std::mem::forget(RawMode::enable(fd).expect("raw"));
+        let (read, _write) = nix::unistd::pipe().expect("pipe");
+        assert_eq!(
+            capture_startup_termios(read.as_raw_fd()).map(|saved| saved.fd),
+            Some(fd)
+        );
+        restore_startup_termios();
+        assert!(is_cooked(fd));
+        assert!(SavedTermios::capture(read.as_raw_fd()).is_none());
+    }
+
+    #[test]
+    fn raw_mode_on_a_non_tty_fails_with_inks_message() {
+        let (read, _write) = nix::unistd::pipe().expect("pipe");
+        let error = enable_ink_raw_mode(read.as_raw_fd())
+            .err()
+            .map(|error| error.to_string());
+        assert_eq!(
+            error.as_deref(),
+            Some(
+                "Raw mode is not supported on the current process.stdin, which Ink uses as input stream by default.\n\
+                 Read about how to prevent this error on https://github.com/vadimdemedes/ink/#israwmodesupported"
+            )
+        );
+        // A closed stdin is not a TTY either.
+        assert_eq!(
+            enable_ink_raw_mode(-1).err().map(|error| error.to_string()),
+            Some(RAW_MODE_UNSUPPORTED.to_owned())
+        );
+    }
+
+    #[test]
+    fn renders_are_throttled_like_ink_max_fps_30() {
+        // TS: Ink's maxFps 30 → throttle(onRender, ceil(1000 / 30), {leading: true, trailing: true}).
+        assert_eq!(RENDER_THROTTLE, Duration::from_millis(34));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn updates_within_the_throttle_window_share_one_trailing_frame() {
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let mut terminal = Terminal::new(TestBackend::new(12, 2)).expect("terminal");
+                let mut model = Recorder::default();
+                let (_tx, mut events) = mpsc::unbounded_channel::<TermEvent>();
+                let (dispatch, mut update_rx) = Dispatch::<Recorder>::channel();
+                // A wide window so the timers below land inside it however loaded the machine is.
+                let window = Duration::from_millis(400);
+                let _timers: Vec<Timer> = (1..=3)
+                    .map(|step| dispatch.after(Duration::from_millis(5 * step), |model| model.counter += 1))
+                    .collect();
+                let _quit = dispatch.after(window * 2, |model| model.quit = Some("done"));
+                let end = run_throttled(&mut model, &mut terminal, &mut events, &mut update_rx, window)
+                    .await
+                    .expect("loop runs");
+                assert_eq!(end, LoopEnd::Exit("done"));
+                // The leading frame, then one trailing frame with all three updates; every batch ran its effects.
+                assert_eq!(model.renders, 2);
+                assert!(model.effects >= 4);
+                assert_eq!(rows(&terminal)[0], "count 3     ");
+            })
+            .await;
+    }
+
+    #[test]
+    fn frames_are_wrapped_in_synchronized_output_when_they_write() {
+        use ratatui::layout::Rect;
+        use ratatui::{TerminalOptions, Viewport};
+        let options = || TerminalOptions {
+            viewport: Viewport::Fixed(Rect::new(0, 0, 8, 1)),
+        };
+        /// What the backend wrote, shared with the test.
+        #[derive(Clone, Default)]
+        struct Out(Rc<RefCell<Vec<u8>>>);
+        impl io::Write for Out {
+            fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+                self.0.borrow_mut().extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let written = |out: &Out| String::from_utf8(std::mem::take(&mut *out.0.borrow_mut())).expect("utf-8");
+        let out = Out::default();
+        let mut terminal = Terminal::with_options(InkBackend::new(out.clone(), true), options()).expect("terminal");
+        terminal
+            .draw(|frame| frame.render_widget(Line::from("hi"), frame.area()))
+            .expect("draw");
+        let first = written(&out);
+        assert!(first.starts_with("\x1b[?2026h"), "{first:?}");
+        assert!(first.ends_with("\x1b[?2026l"), "{first:?}");
+        assert!(first.contains("hi"));
+        // An unchanged frame writes no cells, so it is not wrapped (Ink skips output equal to the last).
+        terminal
+            .draw(|frame| frame.render_widget(Line::from("hi"), frame.area()))
+            .expect("draw");
+        let second = written(&out);
+        assert!(!second.contains("2026") && !second.contains("hi"), "{second:?}");
+        // Off a TTY (or in CI) Ink does not synchronize.
+        let plain_out = Out::default();
+        let mut plain = Terminal::with_options(InkBackend::new(plain_out.clone(), false), options()).expect("terminal");
+        plain
+            .draw(|frame| frame.render_widget(Line::from("hi"), frame.area()))
+            .expect("draw");
+        let plain_text = written(&plain_out);
+        assert!(
+            plain_text.contains("hi") && !plain_text.contains("2026"),
+            "{plain_text:?}"
+        );
+    }
+
+    #[test]
+    fn ci_detection_matches_is_in_ci() {
+        let env = |pairs: &[(&str, &str)]| {
+            let pairs: Vec<(String, String)> = pairs.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
+            move |key: &str| pairs.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
+        };
+        assert!(!is_in_ci_with(env(&[])));
+        assert!(is_in_ci_with(env(&[("CI", "")])));
+        assert!(is_in_ci_with(env(&[("CI", "1")])));
+        assert!(!is_in_ci_with(env(&[("CI", "0")])));
+        assert!(!is_in_ci_with(env(&[("CI", "false")])));
+        assert!(is_in_ci_with(env(&[
+            ("CI", "false"),
+            ("CONTINUOUS_INTEGRATION", "true")
+        ])));
     }
 
     #[test]

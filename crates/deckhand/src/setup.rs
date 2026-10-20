@@ -7,7 +7,7 @@
 // B1 wires `deckhand setup`/`doctor` into the binary; until then only the tests reach these items.
 #![allow(dead_code)]
 
-use std::io::{BufRead, Write};
+use std::io::Write;
 
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr;
@@ -219,22 +219,54 @@ pub(crate) fn log(line: &str) {
 }
 
 /// TS: setup.ts promptYes (`<question> [y/N] ` on stdout; `y`/`yes`, trimmed and lowercased, is yes; `assume_yes`
-/// skips the prompt).
-pub async fn prompt_yes(question: &str, assume_yes: bool) -> bool {
+/// skips the prompt). `None` once stdin has ended: TS's `rl.question` then never settles, so runSetup goes no further
+/// and the process exits 0 with nothing more printed.
+pub async fn prompt_yes(question: &str, assume_yes: bool) -> Option<bool> {
     if assume_yes {
-        return true;
+        return Some(true);
     }
     write_stdout(&format!("{question} [y/N] "));
     // A blocking read off the runtime thread (tokio's async stdin is not enabled in this workspace).
-    let line = tokio::task::spawn_blocking(|| {
-        let mut line = Vec::new();
-        std::io::stdin().lock().read_until(b'\n', &mut line).map(|_| line)
-    })
-    .await;
-    // End of input answers no, as does a read error.
-    match line {
-        Ok(Ok(line)) => is_yes(&String::from_utf8_lossy(&line)),
-        _ => false,
+    let line = tokio::task::spawn_blocking(|| read_answer(libc::STDIN_FILENO)).await;
+    line.ok().flatten().map(|line| is_yes(&line))
+}
+
+/// Node's stream read size (64 KiB).
+const READ_CHUNK: usize = 64 * 1024;
+
+/// The line a fresh readline interface on `fd` answers its question with: the bytes up to the first `\n` or `\r`
+/// (readline splits on `\r\n|\n|\r`), gathered over as many reads as it takes. Whatever followed it in the same read
+/// is dropped, as it goes with the interface `rl.close()` discards. `None` when input ends (or fails) first, even
+/// after a partial line: the interface closes without answering. Reads `fd` directly, never through a buffer that
+/// would carry input over to the next prompt.
+fn read_answer(fd: std::os::fd::RawFd) -> Option<String> {
+    let mut line = Vec::new();
+    let mut chunk = vec![0u8; READ_CHUNK];
+    loop {
+        let count = match nix::unistd::read(fd, &mut chunk) {
+            Ok(0) => return None,
+            Ok(count) => count,
+            Err(nix::errno::Errno::EINTR) => continue,
+            Err(nix::errno::Errno::EAGAIN) => {
+                // An inherited non-blocking stdin: wait for input instead of spinning.
+                // SAFETY: `fd` is open for the duration of this call (read just reported it would block).
+                let input = unsafe { std::os::fd::BorrowedFd::borrow_raw(fd) };
+                let mut fds = [nix::poll::PollFd::new(input, nix::poll::PollFlags::POLLIN)];
+                match nix::poll::poll(&mut fds, nix::poll::PollTimeout::NONE) {
+                    Ok(_) | Err(nix::errno::Errno::EINTR) => continue,
+                    Err(_) => return None,
+                }
+            }
+            Err(_) => return None,
+        };
+        let got = chunk.get(..count).unwrap_or_default();
+        match got.iter().position(|byte| matches!(byte, b'\n' | b'\r')) {
+            Some(end) => {
+                line.extend_from_slice(got.get(..end).unwrap_or_default());
+                return Some(String::from_utf8_lossy(&line).into_owned());
+            }
+            None => line.extend_from_slice(got),
+        }
     }
 }
 
@@ -249,7 +281,8 @@ trait SetupHost {
     async fn detect(&mut self) -> Vec<ToolStatus>;
     /// `console.log(text)`.
     fn log(&mut self, text: &str);
-    async fn prompt(&mut self, question: &str, assume_yes: bool) -> bool;
+    /// `None`: stdin ended before an answer.
+    async fn prompt(&mut self, question: &str, assume_yes: bool) -> Option<bool>;
     async fn install(&mut self, command: &str) -> i32;
 }
 
@@ -265,7 +298,7 @@ impl SetupHost for RealHost {
         log(text);
     }
 
-    async fn prompt(&mut self, question: &str, assume_yes: bool) -> bool {
+    async fn prompt(&mut self, question: &str, assume_yes: bool) -> Option<bool> {
         prompt_yes(question, assume_yes).await
     }
 
@@ -315,7 +348,11 @@ async fn run_setup_with(args: &[String], host: &mut impl SetupHost) {
 
     for (label, command) in missing_agents {
         host.log(&format!("{label} can be installed with: {command}"));
-        if host.prompt(&format!("Install {label} now?"), assume_yes).await {
+        let Some(install) = host.prompt(&format!("Install {label} now?"), assume_yes).await else {
+            // TS: the pending `rl.question` never settles once stdin has ended; nothing else keeps Node running.
+            return;
+        };
+        if install {
             let code = host.install(command).await;
             if code != 0 {
                 host.log(&format!("{label} install failed. You can run this manually: {command}"));
@@ -346,6 +383,7 @@ async fn run_setup_with(args: &[String], host: &mut impl SetupHost) {
 mod tests {
     use super::*;
     use std::collections::VecDeque;
+    use std::os::fd::AsRawFd;
     use std::os::unix::fs::PermissionsExt;
     use std::path::Path;
 
@@ -377,7 +415,8 @@ mod tests {
         detections: VecDeque<Vec<ToolStatus>>,
         out: String,
         prompts: Vec<(String, bool)>,
-        answers: VecDeque<bool>,
+        /// `None`: stdin closed while the prompt waited.
+        answers: VecDeque<Option<bool>>,
         installs: Vec<String>,
         codes: VecDeque<i32>,
     }
@@ -392,9 +431,12 @@ mod tests {
             self.out.push('\n');
         }
 
-        async fn prompt(&mut self, question: &str, assume_yes: bool) -> bool {
+        async fn prompt(&mut self, question: &str, assume_yes: bool) -> Option<bool> {
             self.prompts.push((question.to_owned(), assume_yes));
-            assume_yes || self.answers.pop_front().unwrap_or(false)
+            if assume_yes {
+                return Some(true);
+            }
+            self.answers.pop_front().unwrap_or(Some(false))
         }
 
         async fn install(&mut self, command: &str) -> i32 {
@@ -499,7 +541,48 @@ mod tests {
 
     #[test]
     fn assume_yes_skips_the_prompt() {
-        assert!(runtime().block_on(prompt_yes("Install Pi now?", true)));
+        assert_eq!(runtime().block_on(prompt_yes("Install Pi now?", true)), Some(true));
+    }
+
+    #[test]
+    fn each_prompt_reads_like_a_fresh_readline_interface() {
+        let (read, write) = nix::unistd::pipe().expect("pipe");
+        let fd = read.as_raw_fd();
+        // The rest of the chunk that held the answer goes with the interface that read it.
+        nix::unistd::write(&write, b"n\ny\n").expect("write");
+        assert_eq!(read_answer(fd).as_deref(), Some("n"));
+        // A line can span reads; `\r` ends a line as readline's `\r\n|\n|\r` does.
+        nix::unistd::write(&write, b"ye").expect("write");
+        let reader = std::thread::spawn(move || read_answer(fd));
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        nix::unistd::write(&write, b"s\rn\n").expect("write");
+        assert_eq!(reader.join().ok().flatten().as_deref(), Some("yes"));
+        // End of input before a line ends answers nothing, not even the partial line.
+        nix::unistd::write(&write, b"y").expect("write");
+        drop(write);
+        assert_eq!(read_answer(fd), None);
+        // A closed stdin is the same end of input.
+        assert_eq!(read_answer(-1), None);
+    }
+
+    #[test]
+    fn closed_input_stops_setup_at_the_pending_prompt() {
+        // TS: once stdin has ended `rl.question` never settles, so setup ends there and the process exits 0 without
+        // the After-setup report.
+        let before = statuses(&["pi"]);
+        let mut fake = host(vec![before.clone(), statuses(&["pi"])]);
+        fake.answers = vec![None].into();
+        runtime().block_on(run_setup_with(&[], &mut fake));
+        assert_eq!(fake.prompts, [("Install Claude Code now?".to_owned(), false)]);
+        assert!(fake.installs.is_empty());
+        assert_eq!(
+            fake.out,
+            format!(
+                "{}Claude Code can be installed with: curl -fsSL https://claude.ai/install.sh | bash\n",
+                format_status(&before)
+            )
+        );
+        assert_eq!(fake.detections.len(), 1);
     }
 
     #[test]
@@ -643,7 +726,7 @@ mod tests {
         let before = statuses(&["pi", "lazygit"]);
         let after = statuses(&["claude", "pi", "codex", "lazygit"]);
         let mut fake = host(vec![before.clone(), after.clone()]);
-        fake.answers = vec![false, true].into();
+        fake.answers = vec![Some(false), Some(true)].into();
         runtime().block_on(run_setup_with(&[], &mut fake));
         assert_eq!(
             fake.prompts,

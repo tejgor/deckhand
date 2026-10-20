@@ -298,6 +298,58 @@ fn records<T: serde::de::DeserializeOwned>(parsed: &Value, key: &str) -> (Vec<Or
     (records, unreadable)
 }
 
+/// A worktree record as TS migrateWorktreeRecords keeps it: any entry with a string `id` and `path`, whatever its other
+/// fields hold. A field this version cannot read with its type (`createdAt` missing or off-type, an unknown
+/// `mergeMode`, a `null` marker) is carried as read in `extra` (in its place, by the recorded key order), so the
+/// record keeps its other markers (a deleted worktree stays deleted) and is written back as it was; a missing
+/// `createdAt` is read as `""` and not written ([`StoredWorktree`]).
+fn worktree_record(item: &Value) -> Option<Ordered<WorktreeRecord>> {
+    if let Ok(record) = serde_json::from_value::<Ordered<WorktreeRecord>>(item.clone()) {
+        return Some(record);
+    }
+    let Value::Object(map) = item else { return None };
+    let id = map.get("id")?.as_str()?;
+    let path = map.get("path")?.as_str()?;
+    let mut base = serde_json::Map::new();
+    base.insert("id".to_owned(), Value::String(id.to_owned()));
+    base.insert("path".to_owned(), Value::String(path.to_owned()));
+    base.insert("createdAt".to_owned(), Value::String(String::new()));
+    let mut known = base.clone();
+    let mut aside = Vec::new();
+    for (key, value) in map {
+        if key == "id" || key == "path" {
+            continue;
+        }
+        // Each field alone on a minimal record: does this version read it with its type?
+        let mut probe = base.clone();
+        probe.insert(key.clone(), value.clone());
+        if !value.is_null() && serde_json::from_value::<WorktreeRecord>(Value::Object(probe)).is_ok() {
+            known.insert(key.clone(), value.clone());
+        } else {
+            aside.push((key.clone(), value.clone()));
+        }
+    }
+    let mut record: WorktreeRecord = serde_json::from_value(Value::Object(known)).ok()?;
+    record.extra.extend(aside);
+    Some(Ordered::with_order(record, KeyOrder::of(item)))
+}
+
+/// `Array.isArray(parsed.worktrees) ? parsed.worktrees : []`, as records ([`worktree_record`]), and the entries that
+/// are not one (with their index).
+fn worktree_records(parsed: &Value) -> (Vec<Ordered<WorktreeRecord>>, Vec<(usize, Value)>) {
+    let mut records = Vec::new();
+    let mut unreadable = Vec::new();
+    if let Some(Value::Array(items)) = parsed.get("worktrees") {
+        for (index, item) in items.iter().enumerate() {
+            match worktree_record(item) {
+                Some(record) => records.push(record),
+                None => unreadable.push((index, item.clone())),
+            }
+        }
+    }
+    (records, unreadable)
+}
+
 /// `session.worktree?.id` of a raw session entry (the worktree record it references).
 fn raw_worktree_id(session: &Value) -> Option<&str> {
     session.get("worktree")?.get("id")?.as_str().filter(|id| !id.is_empty())
@@ -335,7 +387,7 @@ pub async fn read_state() -> Result<ReadState> {
         return Err(DhError::msg("Cannot read properties of null (reading 'sessions')"));
     }
     let (sessions, unreadable_sessions) = records::<SessionRecord>(&parsed, "sessions");
-    let (worktrees, unreadable_worktrees) = records::<WorktreeRecord>(&parsed, "worktrees");
+    let (worktrees, unreadable_worktrees) = worktree_records(&parsed);
     // Worktree records an unreadable session references: TS sees that session, so they are not unreferenced.
     let used: HashSet<String> = unreadable_sessions
         .iter()
@@ -404,11 +456,61 @@ async fn write_state<T: Serialize + ?Sized>(state: &T) -> Result<()> {
 }
 
 /// One element of a written `sessions`/`worktrees` array: a record, or an entry kept as read.
-#[derive(Serialize)]
-#[serde(untagged)]
-enum Entry<'a, T: Serialize> {
+enum Entry<'a, T> {
     Record(&'a Ordered<T>),
     Kept(&'a Value),
+}
+
+impl Serialize for Entry<'_, SessionRecord> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        match self {
+            Entry::Record(record) => record.serialize(serializer),
+            Entry::Kept(value) => value.serialize(serializer),
+        }
+    }
+}
+
+impl Serialize for Entry<'_, WorktreeRecord> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        match self {
+            Entry::Record(record) => StoredWorktree(record).serialize(serializer),
+            Entry::Kept(value) => value.serialize(serializer),
+        }
+    }
+}
+
+/// A worktree record as written: a field read off-type ([`worktree_record`]) is written back as read unless this
+/// version has set it since (then the value set wins, in its place), and a `createdAt` the file did not have is not
+/// written.
+struct StoredWorktree<'a>(&'a Ordered<WorktreeRecord>);
+
+impl Serialize for StoredWorktree<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        use serde::ser::Error as _;
+        let source = self.0;
+        let mut record = source.clone();
+        let extra = std::mem::take(&mut record.extra);
+        let typed = serde_json::to_value(&*record).map_err(S::Error::custom)?;
+        let missing_created_at = source.created_at.is_empty();
+        for (key, value) in extra {
+            let set = typed.get(&key).is_some() && !(key == "createdAt" && missing_created_at);
+            if !set {
+                record.extra.insert(key, value);
+            }
+        }
+        let mut value = record.to_value().map_err(S::Error::custom)?;
+        let read_without = match source.key_order() {
+            KeyOrder::Object(keys) => !keys.iter().any(|(key, _)| key == "createdAt"),
+            _ => false,
+        };
+        if missing_created_at
+            && read_without
+            && let Value::Object(map) = &mut value
+        {
+            map.shift_remove("createdAt");
+        }
+        value.serialize(serializer)
+    }
 }
 
 /// state.json with the unreadable entries put back.
@@ -463,9 +565,6 @@ fn newest_first<'a>(
 /// (the daemon's persist), worktree records at their place in the file.
 pub async fn save_state(state: &StateFile) -> Result<()> {
     let unreadable = unreadable_for(&paths::state_path());
-    if unreadable == Unreadable::default() {
-        return write_state(state).await;
-    }
     write_state(&WithUnreadable {
         sessions: newest_first(&state.sessions, &unreadable.sessions),
         worktrees: in_file_order(&state.worktrees, &unreadable.worktrees),
@@ -1585,8 +1684,40 @@ pub(crate) mod tests {
         }
     }
 
-    /// Tests that set DECKHAND_HOME run one at a time.
+    /// Every test in this crate that sets or reads a process-wide environment variable (DECKHAND_HOME,
+    /// DECKHAND_CHANNEL, ...) holds this, so tests in different modules never see each other's values under the
+    /// parallel test runner.
     static ENV: Mutex<()> = Mutex::new(());
+
+    /// Takes [`ENV`] (a test that panicked while holding it has already restored the environment in its guard's drop).
+    pub(crate) fn env_lock() -> MutexGuard<'static, ()> {
+        ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    #[test]
+    fn every_module_shares_the_one_environment_lock() {
+        let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut offenders = Vec::new();
+        for entry in std::fs::read_dir(&src).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            if name == "storage.rs" || path.extension().is_none_or(|ext| ext != "rs") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).unwrap();
+            if text.contains("Mutex<()>") {
+                offenders.push(format!("{name}: declares its own environment lock"));
+            }
+            let mutates = text.contains("std::env::set_var") || text.contains("std::env::remove_var");
+            if mutates && !text.contains("storage::tests::Home") && !text.contains("env_lock") {
+                offenders.push(format!(
+                    "{name}: changes the environment without storage::tests::env_lock"
+                ));
+            }
+        }
+        offenders.sort();
+        assert!(offenders.is_empty(), "{offenders:#?}");
+    }
 
     /// DECKHAND_HOME set to a directory while this lives.
     pub(crate) struct Home {
@@ -1596,7 +1727,7 @@ pub(crate) mod tests {
 
     impl Home {
         pub(crate) fn set(home: &Path) -> Home {
-            let guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let guard = env_lock();
             let previous = std::env::var_os(paths::HOME_ENV);
             // SAFETY: tests touching the environment hold ENV.
             unsafe { std::env::set_var(paths::HOME_ENV, home) };
@@ -2118,6 +2249,45 @@ pub(crate) mod tests {
             .collect();
         assert_eq!(ids, ["s1", "frac", "gem", "code", "paused", "nulltitle"]);
         assert_eq!(stored["sessions"][0]["archivedAt"], "2026-01-07T00:00:00.000Z");
+    }
+
+    /// TS migrateWorktreeRecords keeps every worktree record with a string `id` and `path` as it is, whatever its other
+    /// fields hold: one missing `createdAt` (or with an off-type one) stays deleted/merged, it is not rebuilt as a live
+    /// record from the sessions that reference it, and it is written back unchanged.
+    #[test]
+    fn worktree_records_with_off_type_fields_keep_their_markers() {
+        let home = temp_home();
+        let _home = Home::set(home.path());
+        let text = r#"{"sessions":[{"id":"s1","title":"one","program":"claude","command":"claude","cwd":"/r/wt","repoRoot":"/r","status":"exited","worktree":{"mode":"managed","path":"/r/wt","branch":"b","id":"w1"},"createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z"},{"id":"s2","title":"two","program":"claude","command":"claude","cwd":"/r/wt2","repoRoot":"/r","status":"exited","worktree":{"mode":"managed","path":"/r/wt2","branch":"c","id":"w2"},"createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z"}],"worktrees":[{"id":"w1","path":"/r/wt","mergedAt":"2026-01-02T00:00:00.000Z","mergeMode":"rebase","deletedAt":"2026-01-03T00:00:00.000Z"},{"id":"w2","createdAt":5,"path":"/r/wt2","baseSha":null,"mergedAt":"2026-01-04T00:00:00.000Z","future":true}]}"#;
+        std::fs::write(home.path().join("state.json"), text).unwrap();
+        let read = block_on(read_state()).expect("read");
+        assert!(!read.migrated);
+        let ids: Vec<&str> = read.state.worktrees.iter().map(|record| record.id.as_str()).collect();
+        assert_eq!(ids, ["w1", "w2"]);
+        assert_eq!(
+            read.state.worktrees[0].deleted_at.as_deref(),
+            Some("2026-01-03T00:00:00.000Z")
+        );
+        assert_eq!(
+            read.state.worktrees[0].merged_at.as_deref(),
+            Some("2026-01-02T00:00:00.000Z")
+        );
+        assert_eq!(
+            read.state.worktrees[1].merged_at.as_deref(),
+            Some("2026-01-04T00:00:00.000Z")
+        );
+        block_on(save_state(&read.state)).expect("saved");
+        assert_eq!(stored_state(home.path()), text);
+        // A marker the daemon sets later is written, in place of the off-type value it replaces.
+        let mut state = read.state;
+        state.worktrees[1].touch("baseSha");
+        state.worktrees[1].base_sha = Some("abc".into());
+        block_on(save_state(&state)).expect("saved");
+        let stored: Value = serde_json::from_str(&stored_state(home.path())).unwrap();
+        assert_eq!(
+            serde_json::to_string(&stored["worktrees"][1]).unwrap(),
+            r#"{"id":"w2","createdAt":5,"path":"/r/wt2","baseSha":"abc","mergedAt":"2026-01-04T00:00:00.000Z","future":true}"#
+        );
     }
 
     /// A rewrite of an empty or missing state.json forgets what an earlier read kept.

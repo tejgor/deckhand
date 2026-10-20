@@ -105,6 +105,18 @@ fn js_keys<V>(map: &IndexMap<String, V>) -> Vec<&String> {
     keys
 }
 
+/// The keys of a JSON object in JS enumeration order.
+fn js_map_keys(map: &Map<String, Value>) -> Vec<&String> {
+    let mut indices: Vec<(u32, &String)> = map
+        .keys()
+        .filter_map(|key| array_index(key).map(|index| (index, key)))
+        .collect();
+    indices.sort_by_key(|(index, _)| *index);
+    let mut keys: Vec<&String> = indices.into_iter().map(|(_, key)| key).collect();
+    keys.extend(map.keys().filter(|key| array_index(key).is_none()));
+    keys
+}
+
 /// A serialised settings object as a JSON map (in its recorded key order).
 fn to_map<T: Serialize>(value: &Ordered<T>) -> Result<Map<String, Value>> {
     match value.to_value()? {
@@ -167,12 +179,12 @@ pub fn validate_project_config(value: &Value, label: Option<&str>) -> Result<Ord
     if !value.is_object() {
         return Err(DhError::msg(format!("{label} must be an object")));
     }
-    // Checked in the order a JS object enumerates its keys.
-    let ordered = js_order(value.clone());
-    let Some(record) = ordered.as_object() else {
+    // Checked in the order a JS object enumerates its keys, on the value as given: an invalid one may be nested
+    // deeper than a recursive copy can go (JSON.parse accepts any depth). Only a valid one is copied in JS order.
+    let Some(record) = value.as_object() else {
         return Err(DhError::msg(format!("{label} must be an object")));
     };
-    for key in record.keys() {
+    for key in js_map_keys(record) {
         if !ALLOWED_KEYS.contains(&key.as_str()) {
             return Err(DhError::msg(format!("Unknown {label} setting: {key}")));
         }
@@ -199,16 +211,17 @@ pub fn validate_project_config(value: &Value, label: Option<&str>) -> Result<Ord
         if actions.len() > 30 {
             return Err(DhError::msg("At most 30 actions are supported"));
         }
-        for (name, command) in actions {
+        for name in js_map_keys(actions) {
             if !valid_action_name(name) || ["__proto__", "constructor", "prototype"].contains(&name.as_str()) {
                 return Err(DhError::msg(format!("Invalid action name: {name}")));
             }
-            check_command(command, name)?;
+            check_command(&actions[name], name)?;
         }
     }
     if let Some(worktree) = record.get("worktree") {
         validate_worktree_settings(worktree)?;
     }
+    let ordered = js_order(value.clone());
     let order = KeyOrder::of(&ordered);
     let config: ProjectConfig = serde_json::from_value(ordered)?;
     Ok(Ordered::with_order(config, order))
@@ -287,13 +300,143 @@ fn json_parse(text: &str) -> Result<Value> {
         return Ok(value);
     }
     let normalized = format_config_json(text)?;
-    serde_json::from_str(&replace_lone_surrogate_escapes(&normalized)).map_err(|_| DhError::json_parse(text))
+    parse_without_recursion(&replace_lone_surrogate_escapes(&normalized)).ok_or_else(|| DhError::json_parse(text))
+}
+
+/// The end (exclusive) of the JSON string starting at `start` (its opening quote).
+fn string_end(bytes: &[u8], start: usize) -> Option<usize> {
+    let mut pos = start + 1;
+    loop {
+        match *bytes.get(pos)? {
+            b'\\' => pos += 2,
+            b'"' => return Some(pos + 1),
+            _ => pos += 1,
+        }
+    }
+}
+
+/// The value of `text`, valid JSON whose strings serde_json can decode, built with an explicit stack: serde_json's
+/// own parser stops at 128 levels, where JSON.parse accepts any depth (format_config_json bounds it, as V8's stack
+/// does). Duplicate keys keep their first position with the last value, as in JS.
+fn parse_without_recursion(text: &str) -> Option<Value> {
+    enum Open {
+        Array(Vec<Value>),
+        Object(Map<String, Value>, String),
+    }
+    let bytes = text.as_bytes();
+    let skip_whitespace = |pos: &mut usize| {
+        while matches!(bytes.get(*pos), Some(b' ' | b'\t' | b'\n' | b'\r')) {
+            *pos += 1;
+        }
+    };
+    // An object key and its colon, from `pos`.
+    let key = |pos: &mut usize| -> Option<String> {
+        skip_whitespace(pos);
+        let end = string_end(bytes, *pos)?;
+        let key = serde_json::from_str(text.get(*pos..end)?).ok()?;
+        *pos = end;
+        skip_whitespace(pos);
+        (bytes.get(*pos) == Some(&b':')).then(|| *pos += 1)?;
+        Some(key)
+    };
+    let mut stack: Vec<Open> = Vec::new();
+    let mut pos = 0;
+    loop {
+        skip_whitespace(&mut pos);
+        let mut value = match *bytes.get(pos)? {
+            b'[' => {
+                pos += 1;
+                skip_whitespace(&mut pos);
+                if bytes.get(pos) != Some(&b']') {
+                    stack.push(Open::Array(Vec::new()));
+                    continue;
+                }
+                pos += 1;
+                Value::Array(Vec::new())
+            }
+            b'{' => {
+                pos += 1;
+                skip_whitespace(&mut pos);
+                if bytes.get(pos) != Some(&b'}') {
+                    let first = key(&mut pos)?;
+                    stack.push(Open::Object(Map::new(), first));
+                    continue;
+                }
+                pos += 1;
+                Value::Object(Map::new())
+            }
+            b'"' => {
+                let end = string_end(bytes, pos)?;
+                let value = Value::String(serde_json::from_str(text.get(pos..end)?).ok()?);
+                pos = end;
+                value
+            }
+            _ => {
+                let end = bytes[pos..]
+                    .iter()
+                    .position(|byte| matches!(byte, b',' | b']' | b'}' | b' ' | b'\t' | b'\n' | b'\r'))
+                    .map_or(bytes.len(), |length| pos + length);
+                let value = serde_json::from_str(text.get(pos..end)?).ok()?;
+                pos = end;
+                value
+            }
+        };
+        // Put the value in its container, closing every container it completes.
+        loop {
+            skip_whitespace(&mut pos);
+            let separator = bytes.get(pos).copied();
+            match stack.last_mut() {
+                None => return (pos == bytes.len()).then_some(value),
+                Some(Open::Array(items)) => {
+                    items.push(value);
+                    pos += 1;
+                    match separator? {
+                        b',' => break,
+                        b']' => {}
+                        _ => return None,
+                    }
+                }
+                Some(Open::Object(map, pending)) => {
+                    map.insert(std::mem::take(pending), value);
+                    pos += 1;
+                    match separator? {
+                        b',' => {
+                            *pending = key(&mut pos)?;
+                            break;
+                        }
+                        b'}' => {}
+                        _ => return None,
+                    }
+                }
+            }
+            value = match stack.pop()? {
+                Open::Array(items) => Value::Array(items),
+                Open::Object(map, _) => Value::Object(map),
+            };
+        }
+    }
 }
 
 /// TS: projectConfig.ts parseProjectConfig (a leading BOM is ignored; JSON errors are JSON.parse's messages).
 pub fn parse_project_config(raw: &str, label: Option<&str>) -> Result<Ordered<ProjectConfig>> {
     let text = raw.strip_prefix('\u{FEFF}').unwrap_or(raw);
-    validate_project_config(&json_parse(text)?, label)
+    let value = json_parse(text)?;
+    let config = validate_project_config(&value, label);
+    drop_without_recursion(value);
+    config
+}
+
+/// Drops `value` with an explicit stack: a value nested thousands of levels deep (which only fails validation)
+/// would overflow the stack in the recursive drop.
+fn drop_without_recursion(value: Value) {
+    let mut pending = vec![value];
+    while let Some(value) = pending.pop() {
+        match value {
+            Value::Array(items) => pending.extend(items),
+            Value::Object(map) => pending.extend(map.into_iter().map(|(_, child)| child)),
+            _ => {}
+        }
+    }
 }
 
 /// TS: projectConfig.ts hookSetting result: whether a detected creation hook is enabled, and which layer disabled it.
@@ -1091,6 +1234,29 @@ mod tests {
 
     /// The fixtures pin DECKHAND_HOME to this directory.
     const CONFIG_DIR: &str = "/deckhand-home";
+
+    /// JSON.parse accepts any nesting depth (serde_json stops at 128): a deeply nested value reaches validation and
+    /// fails there with its own message, as in TS.
+    #[test]
+    fn deeply_nested_json_is_parsed_like_json_parse() {
+        let nested = |depth: usize, inner: &str| format!("{}{inner}{}", "[".repeat(depth), "]".repeat(depth));
+        for depth in [127, 200, 5000] {
+            let deep = nested(depth, "\"\\ud800x\", 1e400, {\"a\": 1, \"a\": 2}");
+            let message = |text: String| parse_project_config(&text, None).unwrap_err().to_string();
+            assert_eq!(message(deep.clone()), "deckhand.json must be an object");
+            assert_eq!(message(format!("{{\"defaultAgent\": {deep}}}")), "Invalid defaultAgent");
+            assert_eq!(
+                message(format!("{{\"devCommand\": \"x\", \"extra\": {{\"k\": {deep}}}}}")),
+                "Unknown deckhand.json setting: extra"
+            );
+        }
+        let value = json_parse(&nested(300, "\"\\ud800x\", 1e400, -0, {\"a\": 1, \"b\": [], \"a\": 2}")).unwrap();
+        let mut inner = &value;
+        for _ in 0..299 {
+            inner = &inner[0];
+        }
+        assert_eq!(inner, &json!(["\u{FFFD}x", null, 0, {"a": 2, "b": []}]));
+    }
 
     /// Runs a port body whose harness steps may fail (argument decoding).
     fn port(body: impl FnOnce() -> std::result::Result<Outcome, String>) -> Outcome {
