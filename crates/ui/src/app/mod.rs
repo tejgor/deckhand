@@ -1410,14 +1410,14 @@ impl UiModel for App {
 /// exit (attach, `$EDITOR`).
 pub async fn run(props: AppProps) -> io::Result<Option<UiExitResult>> {
     use crate::app::event_loop::{
-        Dispatch, LoopEnd, RawMode, StdinReader, die_of_signal, spawn_resize_watcher, stdin_fd, terminal_size,
-        termination_signal,
+        Dispatch, LoopEnd, StdinReader, die_of_signal, enable_ink_raw_mode, spawn_resize_watcher, stdin_fd,
+        terminal_size, termination_signal,
     };
     use crate::app::state::TerminalSize;
 
     let fd = stdin_fd();
     let signalled = termination_signal()?;
-    let raw = RawMode::enable(fd)?;
+    let raw = enable_ink_raw_mode(fd)?;
     let (tx, mut events) = tokio::sync::mpsc::unbounded_channel();
     let mut reader = StdinReader::spawn(fd, tx.clone())?;
     let resize = spawn_resize_watcher(tx)?;

@@ -449,6 +449,21 @@ impl Drop for RawMode {
     }
 }
 
+/// TS: Ink 6 components/App.js handleSetRawMode's error when `process.stdin` is not a TTY (`isRawModeSupported` is
+/// `stdin.isTTY`).
+pub const RAW_MODE_UNSUPPORTED: &str = "Raw mode is not supported on the current process.stdin, which Ink uses as input \
+stream by default.\nRead about how to prevent this error on https://github.com/vadimdemedes/ink/#israwmodesupported";
+
+/// TS: Ink's `setRawMode(true)` from useInput: [`RAW_MODE_UNSUPPORTED`] unless `fd` is a TTY, else [`RawMode::enable`].
+/// The error reaches cli.ts `main().catch`, which prints its message and exits 1.
+pub fn enable_ink_raw_mode(fd: RawFd) -> io::Result<RawMode> {
+    // SAFETY: isatty only inspects the descriptor (a closed one is simply not a TTY).
+    if unsafe { libc::isatty(fd) } != 1 {
+        return Err(io::Error::other(RAW_MODE_UNSUPPORTED));
+    }
+    RawMode::enable(fd)
+}
+
 /// stdin's descriptor.
 pub fn stdin_fd() -> RawFd {
     io::stdin().as_raw_fd()
@@ -666,6 +681,26 @@ mod tests {
                 assert_eq!(rows(&terminal)[0], "count 41    ");
             })
             .await;
+    }
+
+    #[test]
+    fn raw_mode_on_a_non_tty_fails_with_inks_message() {
+        let (read, _write) = nix::unistd::pipe().expect("pipe");
+        let error = enable_ink_raw_mode(read.as_raw_fd())
+            .err()
+            .map(|error| error.to_string());
+        assert_eq!(
+            error.as_deref(),
+            Some(
+                "Raw mode is not supported on the current process.stdin, which Ink uses as input stream by default.\n\
+                 Read about how to prevent this error on https://github.com/vadimdemedes/ink/#israwmodesupported"
+            )
+        );
+        // A closed stdin is not a TTY either.
+        assert_eq!(
+            enable_ink_raw_mode(-1).err().map(|error| error.to_string()),
+            Some(RAW_MODE_UNSUPPORTED.to_owned())
+        );
     }
 
     #[test]
