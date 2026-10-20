@@ -132,7 +132,7 @@ Press `?`, then `/` and type `merge`. Expected: topics narrow to those mentionin
 ## 14. Relaunch persistence
 
 1. Press `q` in the UI. Expected: the UI exits; `$DH status` still says the daemon is running; `pgrep -f "deckhand.*--session-worker"` still lists the workers.
-2. Run `$DH` again. Expected: the same sessions, the same selected session and tab, sidebar width, sibling order, filter, collapsed state and notes; running agents are still live (their Preview shows current output).
+2. Run `$DH` again. Expected: the same sessions, the same selected session and tab, sibling order, filter, collapsed state and notes; running agents are still live (their Preview shows current output).
 
 ## 15. Recovery after `kill -9` of the daemon
 

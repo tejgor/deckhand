@@ -17,7 +17,7 @@ use regex::Regex;
 use deckhand_core::agent_versions::{installed_versions, update_hint};
 use deckhand_core::display::{HINT_SEPARATOR, HintPart, compact_path, fit_hint, truncate};
 use deckhand_core::session_features::{TaskTitleOf, session_filter_counts};
-use deckhand_core::sidebar_model::DetailTask;
+use deckhand_core::sidebar_model::{DetailTask, RowRole, SidebarRowsInput, sidebar_rows};
 use deckhand_core::tasks_board::{
     linked_task, linked_tasks, note_steps, other_open_tasks, step_count, task_count_label, work_key_of, work_note,
     worktree_open_items,
@@ -51,7 +51,7 @@ use crate::panes::sidebar::{FilterMenu, SidebarProps, render_sidebar};
 use crate::panes::tabs::render_tab_bar;
 use crate::panes::terminal::{TerminalPaneProps, action_status, has_action, render_terminal_pane};
 use crate::primitives::{
-    Border, Row, Seg, TextStyle, Wrap, bordered, draw_rows, row_width, space_between, truncate_row,
+    Border, Row, Seg, TextStyle, Wrap, bordered, draw_rows, row_width, space_between, string_width, truncate_row,
 };
 use crate::theme::{THEME, apply_dusk};
 
@@ -72,6 +72,65 @@ pub fn sidebar_width(total_width: i64) -> i64 {
     }
     let width = ((total_width as f64) * 0.24).floor() as i64;
     clamp_sidebar_width(width.clamp(24, 34), total_width)
+}
+
+/// Not in the TS: the share of the terminal a fitted sidebar takes at most, in percent.
+pub const SIDEBAR_PERCENT: f64 = 30.0;
+
+/// Not in the TS: the bounds of `sidebar_width_percent`, and the step `<`/`>` change it by.
+pub const SIDEBAR_PERCENT_MIN: f64 = 15.0;
+pub const SIDEBAR_PERCENT_MAX: f64 = 50.0;
+pub const SIDEBAR_PERCENT_STEP: f64 = 2.0;
+
+/// Not in the TS: the narrowest sidebar.
+pub const SIDEBAR_MIN: i64 = 24;
+
+/// Not in the TS: `sidebar_width_percent` as stored, within its bounds (the default when unset or not a number).
+pub fn normalize_sidebar_percent(value: Option<f64>) -> f64 {
+    match value {
+        Some(value) if value.is_finite() => value.round().clamp(SIDEBAR_PERCENT_MIN, SIDEBAR_PERCENT_MAX),
+        _ => SIDEBAR_PERCENT,
+    }
+}
+
+/// Not in the TS: the sidebar's width: the share you chose (`chosen`, exactly), else fitted to the sessions: at most
+/// [`SIDEBAR_PERCENT`], less when every row (`content`, the widest) fits in less.
+pub fn sidebar_columns(chosen: Option<f64>, content: Option<i64>, total_width: i64) -> i64 {
+    match chosen {
+        Some(percent) => proportional_sidebar_width(percent, None, total_width),
+        None => proportional_sidebar_width(SIDEBAR_PERCENT, content, total_width),
+    }
+}
+
+/// Not in the TS: `percent` of the terminal, or less when every row (`content`, the widest row's whole width) fits in
+/// less, never under [`SIDEBAR_MIN`]. It never cuts a title just to save room.
+pub fn proportional_sidebar_width(percent: f64, content: Option<i64>, total_width: i64) -> i64 {
+    let share = ((total_width as f64) * percent / 100.0).floor() as i64;
+    let width = content.map_or(share, |content| share.min(content));
+    clamp_sidebar_width(width.max(SIDEBAR_MIN), total_width)
+}
+
+/// Not in the TS: the whole width (border and padding included) the sidebar needs to show each of `rows` uncut.
+pub fn sidebar_row_widths(input: &SidebarRowsInput<'_>) -> Vec<i64> {
+    // Laid out wide: every title whole, then measured without the gap that pads it out.
+    let wide = SidebarRowsInput { width: 1000, ..*input };
+    sidebar_rows(&wide)
+        .iter()
+        .map(|row| {
+            let total: usize = row.parts.iter().map(|part| string_width(&part.text)).sum();
+            // The widest gap pads the title out to the markers; the one-column gaps between markers stay.
+            let padding = row
+                .parts
+                .iter()
+                .filter(|part| part.role == RowRole::Gap)
+                .map(|part| string_width(&part.text))
+                .max()
+                .unwrap_or(0);
+            let content = total.saturating_sub(padding);
+            // One column between the title and its markers, then the border and padding (row = width - 3).
+            i64::try_from(content).unwrap_or(i64::MAX).saturating_add(1 + 3)
+        })
+        .collect()
 }
 
 /// TS: app.tsx clampSidebarWidth.
@@ -443,6 +502,33 @@ pub fn header_rows(app: &App) -> [Row; 2] {
         header_space_between(&left, &right, cols),
         truncate_row(&[Seg::new(repo, muted)], cols, Wrap::TruncateEnd),
     ]
+}
+
+/// Not in the TS: measures the widest listed row as the sidebar draws it (its markers, `+N` counts and `↑` included),
+/// for the sidebar to shrink to when every row fits in less than its share.
+pub fn measure_sidebar(app: &mut App, derived: &Derived) {
+    let visible: Vec<&SessionRecord> = derived.visible.iter().collect();
+    let all: Vec<&SessionRecord> = derived.sessions.iter().collect();
+    let none = HashSet::new();
+    let applied = app.collapse_applied();
+    let collapsed: HashSet<String> = app.browse.collapsed_session_ids.iter().cloned().collect();
+    let hidden: HashSet<String> = app.browse.hidden_exited_session_ids.iter().cloned().collect();
+    let versions = installed_versions(app.data.agent_versions.as_ref());
+    let widths = sidebar_row_widths(&SidebarRowsInput {
+        rows: &visible,
+        all_sessions: &all,
+        first_number: 1,
+        number_width: visible.len().max(1).to_string().len(),
+        selected_id: None,
+        width: 0,
+        spinner_frame: app.spinner_frame(),
+        filter: app.browse.session_filter,
+        collapsed_session_ids: Some(if applied { &collapsed } else { &none }),
+        hidden_session_ids: Some(if applied { &hidden } else { &none }),
+        installed_versions: Some(&versions),
+        shared_dev: true,
+    });
+    app.browse.sidebar_content = widths.into_iter().max();
 }
 
 /// The sidebar: the visible sessions, the selection's details and the filter menu while it is open.
@@ -943,6 +1029,139 @@ mod tests {
         assert_eq!(clamp_sidebar_width(5, 130), 18);
         assert_eq!(clamp_sidebar_width(100, 130), 65);
         assert_eq!(clamp_sidebar_width(30, 20), 10);
+    }
+
+    // Not in the TS: the sidebar takes its share of the terminal, less when every row fits in less, at least 24.
+    #[test]
+    fn the_sidebar_takes_its_share_unless_every_row_fits_in_less() {
+        assert_eq!(proportional_sidebar_width(30.0, None, 200), 60);
+        assert_eq!(proportional_sidebar_width(30.0, Some(75), 200), 60);
+        assert_eq!(proportional_sidebar_width(30.0, Some(41), 200), 41);
+        assert_eq!(proportional_sidebar_width(30.0, Some(12), 200), 24);
+        assert_eq!(proportional_sidebar_width(40.0, None, 120), 48);
+        assert_eq!(proportional_sidebar_width(15.0, None, 80), 24);
+        assert_eq!(normalize_sidebar_percent(None), 30.0);
+        assert_eq!(normalize_sidebar_percent(Some(f64::NAN)), 30.0);
+        assert_eq!(normalize_sidebar_percent(Some(33.4)), 33.0);
+        assert_eq!(normalize_sidebar_percent(Some(90.0)), 50.0);
+        assert_eq!(normalize_sidebar_percent(Some(1.0)), 15.0);
+
+        // A row's width is its content whole, plus the gap before its markers and the border.
+        let short = session("a", "Short", SessionStatus::Running);
+        let long = session("b", "A title ten longer", SessionStatus::Running);
+        let rows = [&short, &long];
+        let widths = sidebar_row_widths(&SidebarRowsInput {
+            rows: &rows,
+            all_sessions: &rows,
+            first_number: 1,
+            number_width: 1,
+            selected_id: None,
+            width: 0,
+            spinner_frame: "⠋",
+            filter: deckhand_protocol::records::SessionFilter::All,
+            collapsed_session_ids: None,
+            hidden_session_ids: None,
+            installed_versions: None,
+            shared_dev: true,
+        });
+        assert_eq!(widths[1] - widths[0], 13);
+        let rendered = sidebar_rows(&SidebarRowsInput {
+            rows: &rows,
+            all_sessions: &rows,
+            first_number: 1,
+            number_width: 1,
+            selected_id: None,
+            width: usize::try_from(widths[1] - 3).unwrap(),
+            spinner_frame: "⠋",
+            filter: deckhand_protocol::records::SessionFilter::All,
+            collapsed_session_ids: None,
+            hidden_session_ids: None,
+            installed_versions: None,
+            shared_dev: true,
+        });
+        // At that width the longer title shows whole.
+        assert!(
+            rendered[1]
+                .parts
+                .iter()
+                .any(|part| part.text.contains("A title ten longer"))
+        );
+    }
+
+    // Not in the TS: fitted once the rows load and after a resize, never as sessions come and go.
+    #[test]
+    fn the_sidebar_is_measured_on_load_and_resize_only() {
+        crate::app::modes::workspace_info::fake_daemon::local(async {
+            let (mut app, _rx) = app(AppProps::default());
+            app.browse.sidebar_percent = None;
+            app.browse.sidebar_fit_pending = true;
+            app.browse.terminal_size = TerminalSize { cols: 200, rows: 40 };
+            crate::app::effects::run_effects(&mut app);
+            assert_eq!(app.browse.sidebar_content, None);
+            assert_eq!(app.layout().sidebar_width, 60);
+            let title = "x".repeat(20);
+            app.data.repo_sessions = vec![session("a", &title, SessionStatus::Running)];
+            app.data.sessions_loaded = true;
+            crate::app::effects::run_effects(&mut app);
+            // Every row fits in less than 30% of 200: the sidebar shrinks to them.
+            let content = app.browse.sidebar_content.expect("measured once loaded");
+            assert!(content < 60, "{content}");
+            assert_eq!(i64::from(app.layout().sidebar_width), content.max(SIDEBAR_MIN));
+            // A longer session later does not move it.
+            let longer = session("b", &"y".repeat(50), SessionStatus::Running);
+            app.data.repo_sessions.push(longer);
+            crate::app::effects::run_effects(&mut app);
+            assert_eq!(app.browse.sidebar_content, Some(content));
+            // A resize measures again: now the share is what limits it.
+            app.browse.sidebar_fit_pending = true;
+            crate::app::effects::run_effects(&mut app);
+            assert_eq!(app.layout().sidebar_width, 60);
+        });
+    }
+
+    // Not in the TS: the measure counts what the row draws, such as +N for hidden exited sub-sessions, so the
+    // sidebar never shrinks below a row it shows.
+    #[test]
+    fn the_sidebar_measures_rows_with_their_counts() {
+        let (mut app, _rx) = app(AppProps::default());
+        let parent = session("p", "conversation-testing-agent", SessionStatus::Running);
+        let mut child = session("c", "x", SessionStatus::Exited);
+        child.parent_session_id = Some("p".to_owned());
+        app.data.repo_sessions = vec![parent, child];
+        app.data.sessions_loaded = true;
+        let derived = app.derived();
+        measure_sidebar(&mut app, &derived);
+        let shown = app.browse.sidebar_content.expect("measured");
+        // Hiding the exited sub-session folds it into the parent's row as +1: that row is wider.
+        app.browse.hidden_exited_session_ids.insert("c".to_owned());
+        let derived = app.derived();
+        assert_eq!(derived.visible.len(), 1);
+        measure_sidebar(&mut app, &derived);
+        let folded = app.browse.sidebar_content.expect("measured");
+        assert!(folded > shown, "{folded} vs {shown}");
+        // At that width the whole row, +1 included, is drawn uncut.
+        let rows: Vec<&SessionRecord> = derived.visible.iter().collect();
+        let all: Vec<&SessionRecord> = derived.sessions.iter().collect();
+        let hidden: HashSet<String> = app.browse.hidden_exited_session_ids.iter().cloned().collect();
+        let drawn = sidebar_rows(&SidebarRowsInput {
+            rows: &rows,
+            all_sessions: &all,
+            first_number: 1,
+            number_width: 1,
+            selected_id: None,
+            width: usize::try_from(folded - 3).unwrap(),
+            spinner_frame: app.spinner_frame(),
+            filter: app.browse.session_filter,
+            collapsed_session_ids: None,
+            hidden_session_ids: Some(&hidden),
+            installed_versions: None,
+            shared_dev: true,
+        });
+        let text: String = drawn[0].parts.iter().map(|part| part.text.as_str()).collect();
+        assert!(
+            text.contains("conversation-testing-agent") && text.contains("+1"),
+            "{text}"
+        );
     }
 
     #[test]

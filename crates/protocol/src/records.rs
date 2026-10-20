@@ -102,6 +102,8 @@ pub struct AppConfig {
     pub notifications: Option<bool>,
     /// The UI theme: `"dusk"` for the brand palette; anything else or unset: the terminal's colors (see `theme_mode`).
     pub theme: Option<String>,
+    /// Not in the TS: the share of the terminal the sidebar takes, in percent (`<`/`>` save it).
+    pub sidebar_width_percent: Option<JsNumber>,
     /// Not in the TS: unless false, Claude is launched scrolling one line per wheel event without its own
     /// acceleration, so the wheel feels the same for everyone and Deckhand's scroll sensitivity alone sets the speed.
     pub claude_scroll_override: Option<bool>,
@@ -147,6 +149,7 @@ impl AppConfig {
             agent_hooks: raw.get("agent_hooks").and_then(Value::as_bool),
             notifications: Some(raw.get("notifications") == Some(&Value::Bool(true))),
             theme: raw.get("theme").and_then(Value::as_str).map(str::to_owned),
+            sidebar_width_percent: raw.get("sidebar_width_percent").and_then(Value::as_f64).map(JsNumber),
             claude_scroll_override: raw.get("claude_scroll_override").and_then(Value::as_bool),
             scroll_speed: raw.get("scroll_speed").and_then(Value::as_f64).map(JsNumber),
             // `defaults: parsed.defaults` keeps even null.

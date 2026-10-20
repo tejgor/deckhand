@@ -216,7 +216,7 @@ pub fn handle_notes_focus(app: &mut App, input: &Input) {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::sync::Mutex;
 
     use deckhand_core::key::Key;
@@ -227,7 +227,7 @@ mod tests {
     use crate::app::modes::browse::tests::{Daemon, apply, local, named, text, with_sessions};
 
     /// Tests that change `DECKHAND_HOME` hold this.
-    static ENV: Mutex<()> = Mutex::new(());
+    pub(crate) static ENV: Mutex<()> = Mutex::new(());
 
     #[test]
     fn esc_left_and_h_step_back_out() {

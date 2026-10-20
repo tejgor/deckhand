@@ -20,8 +20,9 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `J` | Move the selected session down among its siblings |
 | `K` | Move the selected session up among its siblings |
 | `c` | Cycle its sub-sessions: hide the exited ones, collapse, expand |
-| `<` | Narrow the sidebar |
-| `>` | Widen the sidebar |
+| `<` | Narrow the sidebar: 2% less of the terminal, saved as your width for every repository ([sidebar width](features.md#organizing-and-inspecting-sessions)) |
+| `>` | Widen the sidebar: 2% more of the terminal, saved |
+| `=` | Fit the sidebar to the sessions again (forgets your width) |
 | `tab`, `]` | Next tab: Preview, Terminal, Git, Dev, Notes |
 | `shift+tab`, `[` | Previous tab |
 | `p` | Show the Preview tab |

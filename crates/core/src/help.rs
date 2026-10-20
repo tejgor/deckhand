@@ -35,10 +35,19 @@ pub const PORT_LINES: &[&str] = &[
 
 /// Not in the TS: guide lines the port reworded, as (the port's text, the TS oracle's), which [`oracle_topics`]
 /// turns back.
-pub const PORT_REWORDED: &[(&str, &str)] = &[(
-    "Dev runs in this worktree (first row; muted below)",
-    "Dev runs in this worktree (on its first row)",
-)];
+pub const PORT_REWORDED: &[(&str, &str)] = &[
+    (
+        "Dev runs in this worktree (first row; muted below)",
+        "Dev runs in this worktree (on its first row)",
+    ),
+    (
+        "Narrow / widen the sidebar (saved) / fit it to the sessions again",
+        "Narrow / widen the sidebar",
+    ),
+];
+
+/// Not in the TS: key columns the port extended, as (the port's keys, the TS oracle's).
+pub const PORT_REKEYED: &[(&str, &str)] = &[("< > =", "< >")];
 
 /// The text of a guide line (its description, note or heading).
 pub fn line_text(line: &HelpLine) -> &'static str {
@@ -64,7 +73,10 @@ pub fn oracle_topics() -> &'static [HelpTopic] {
                     .filter(|line| !PORT_LINES.contains(&line_text(line)))
                     .map(|line| match line {
                         HelpLine::Key { keys, text } => HelpLine::Key {
-                            keys,
+                            keys: PORT_REKEYED
+                                .iter()
+                                .find(|(port, _)| *port == keys)
+                                .map_or(keys, |(_, oracle)| oracle),
                             text: PORT_REWORDED
                                 .iter()
                                 .find(|(port, _)| *port == text)
@@ -252,8 +264,8 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Hide exited children → collapse → expand",
             },
             HelpLine::Key {
-                keys: "< >",
-                text: "Narrow / widen the sidebar",
+                keys: "< > =",
+                text: "Narrow / widen the sidebar (saved) / fit it to the sessions again",
             },
             HelpLine::Key {
                 keys: "R",

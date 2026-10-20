@@ -939,7 +939,7 @@ fn json_of<T: Serialize>(value: &Option<T>) -> Option<Value> {
 }
 
 /// The AppConfig properties in normalizeAppConfig key order (all of them, as `Object.keys` lists them).
-fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 9] {
+fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 10] {
     [
         ("dev_command", json_of(&config.dev_command)),
         ("attach_scroll_sensitivity", json_of(&config.attach_scroll_sensitivity)),
@@ -947,6 +947,7 @@ fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 9] {
         ("agent_hooks", json_of(&config.agent_hooks)),
         ("notifications", json_of(&config.notifications)),
         ("theme", json_of(&config.theme)),
+        ("sidebar_width_percent", json_of(&config.sidebar_width_percent)),
         ("claude_scroll_override", json_of(&config.claude_scroll_override)),
         ("scroll_speed", json_of(&config.scroll_speed)),
         ("defaults", config.defaults.clone()),
@@ -1007,6 +1008,7 @@ pub fn patch_app_config(patch: AppConfig) -> Task<Result<AppConfig>> {
             agent_hooks: patch.agent_hooks.or(current.agent_hooks),
             notifications: patch.notifications.or(current.notifications),
             theme: patch.theme.or(current.theme),
+            sidebar_width_percent: patch.sidebar_width_percent.or(current.sidebar_width_percent),
             claude_scroll_override: patch.claude_scroll_override.or(current.claude_scroll_override),
             scroll_speed: patch.scroll_speed.or(current.scroll_speed),
             defaults: patch.defaults.or(current.defaults),

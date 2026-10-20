@@ -18,7 +18,7 @@ use deckhand_core::display::{ThemeMode, theme_mode};
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::date;
 use deckhand_protocol::UiState;
-use deckhand_protocol::data::{AttachTarget, EditorCommand, JsNumber, RightPaneTab, UiExitResult};
+use deckhand_protocol::data::{AttachTarget, EditorCommand, RightPaneTab, UiExitResult};
 use deckhand_sys::async_util::Timer;
 use deckhand_sys::desktop::{is_vim_family, terminal_editor_args};
 use deckhand_sys::git::ensure_git_repo;
@@ -116,7 +116,6 @@ fn app_props(
     let on_selected = saver.clone();
     let on_active = saver.clone();
     let on_session_tab = saver.clone();
-    let on_width = saver.clone();
     let on_collapsed = saver.clone();
     let on_hidden = saver.clone();
     let view = Rc::clone(terminal_view);
@@ -125,11 +124,6 @@ fn app_props(
         cwd: repo_root.to_owned(),
         initial_selected_id: state.selected_id.clone(),
         initial_active_tab: state.active_tab,
-        initial_sidebar_width: state
-            .sidebar_width
-            .map(|width| width.0)
-            .filter(|width| width.is_finite())
-            .map(|width| width.floor() as i64),
         initial_session_tabs: Some(state.session_tabs.clone()),
         initial_collapsed_session_ids: Some(state.collapsed_session_ids.clone()),
         initial_hidden_exited_session_ids: Some(state.hidden_exited_session_ids.clone()),
@@ -156,9 +150,6 @@ fn app_props(
                 on_session_tab.update(|state| {
                     state.session_tabs.insert(session_id.to_owned(), tab);
                 });
-            })),
-            on_sidebar_width_change: Some(Box::new(move |width| {
-                on_width.update(|state| state.sidebar_width = Some(JsNumber(width as f64)));
             })),
             on_collapsed_session_ids_change: Some(Box::new(move |session_ids| {
                 on_collapsed.update(|state| state.collapsed_session_ids = session_ids.to_vec());
@@ -449,6 +440,7 @@ pub fn run_terminal_editor(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use deckhand_protocol::data::JsNumber;
 
     /// Held by the tests that hold a [`UiTerminal`]: [`PANIC_RESTORE`] and the panic hook are process-wide, so under
     /// `cargo test` (tests in parallel threads) one test's drop took the termios the other's panic was to restore.
@@ -597,7 +589,6 @@ mod tests {
             };
             let props = app_props("/repo", &ui_state, &view, &saver);
             assert_eq!(props.initial_selected_id.as_deref(), Some("a"));
-            assert_eq!(props.initial_sidebar_width, Some(30));
             assert_eq!(props.initial_terminal_view, Some(TerminalView::Action));
             if let Some(listener) = &props.callbacks.on_active_tab_change {
                 listener(RightPaneTab::Dev);

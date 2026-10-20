@@ -49,7 +49,7 @@ Everything lives in `~/.deckhand/` unless `DECKHAND_HOME` names another director
 | --- | --- |
 | `~/.deckhand/state.json` | The session list (with done markers) and per-worktree merged and deleted markers |
 | `~/.deckhand/config.json` | User configuration: global `defaults`, agent signals, notifications, scroll sensitivity and repository trust fingerprints |
-| `~/.deckhand/ui-state.json` | Per-repository selection, tabs, sidebar width and tree, filter and search preferences |
+| `~/.deckhand/ui-state.json` | Per-repository selection, tabs, tree, filter and search preferences |
 | `~/.deckhand/notes/` | Notes as Markdown: `sessions/`, `worktrees/` and `repos/` (the main checkout's) |
 | `~/.deckhand/notes/tasks/` | Each repository's task list, one Markdown file per repository |
 | `~/.deckhand/notes/trash/` | Removed notes, named by date and what they belonged to |

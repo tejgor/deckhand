@@ -14,14 +14,16 @@ use deckhand_core::session_features::{filter_session_list, session_blocked, sess
 use deckhand_core::session_order::{session_descendants, session_has_children};
 use deckhand_core::tasks_board::work_key_of;
 use deckhand_core::workspace::{no_workspace_reason, workspace_key};
+use deckhand_protocol::data::JsNumber;
 use deckhand_protocol::data::{
     AttachTarget, MoveDirection, ProjectInfo, RestartMode, RightPaneTab, SessionRecord, SessionStatus,
     SessionWorktreeMode, SetupState, WorktreeMode,
 };
-use deckhand_protocol::records::SessionFilter;
+use deckhand_protocol::records::{AppConfig, SessionFilter};
 use deckhand_sys::desktop::open_in_editor;
+use deckhand_sys::storage::update_app_config;
 
-use crate::app::layout::{clamp_sidebar_width, sidebar_width};
+use crate::app::layout::{SIDEBAR_PERCENT_STEP, measure_sidebar, normalize_sidebar_percent};
 use crate::app::modes::{action_picker, confirm, create, filter, workspace_info};
 use crate::app::state::{App, AppCallback, Mode, ReviewLabels};
 use crate::app::{DEV_DOUBLE_TAP_MS, RIGHT_TABS, ReviewOptions, hint_short, sort_sessions, truthy, upsert_session};
@@ -173,8 +175,8 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Topic("Start here"),
     },
     Binding {
-        keys: &[KeySpec::Char("<"), KeySpec::Char(">")],
-        action: "resize the sidebar",
+        keys: &[KeySpec::Char("<"), KeySpec::Char(">"), KeySpec::Char("=")],
+        action: "resize the sidebar (saved); = fits it to the sessions again",
         help: HelpRef::Topic("Find & organize"),
     },
     Binding {
@@ -447,7 +449,11 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         return;
     }
     if text == "<" || text == ">" {
-        resize_sidebar(app, if text == "<" { -2 } else { 2 });
+        resize_sidebar(app, if text == "<" { -1 } else { 1 });
+        return;
+    }
+    if text == "=" {
+        fit_sidebar(app);
         return;
     }
     let Some(session) = selected else {
@@ -739,15 +745,42 @@ pub fn reorder_selected(app: &mut App, direction: MoveDirection) {
     }));
 }
 
-/// TS `resizeSidebar` (< / >).
-pub fn resize_sidebar(app: &mut App, delta: i64) {
-    let cols = i64::from(app.browse.terminal_size.cols);
-    let base = app.browse.sidebar_width_override.unwrap_or_else(|| sidebar_width(cols));
-    let next = clamp_sidebar_width(base + delta, cols);
-    if let Some(listener) = &app.props.callbacks.on_sidebar_width_change {
-        listener(next);
-    }
-    app.browse.sidebar_width_override = Some(next);
+/// TS `resizeSidebar` (< / >). Not in the TS: it moves the sidebar 2% of the terminal from its width on screen (a
+/// fitted one included) and saves that share as yours (`sidebar_width_percent`, for every repository), used exactly
+/// from then on; the TS saved a width per repository.
+pub fn resize_sidebar(app: &mut App, steps: i64) {
+    let cols = i64::from(app.browse.terminal_size.cols).max(1);
+    let shown = (f64::from(app.layout().sidebar_width) * 100.0 / (cols as f64)).round();
+    let next = normalize_sidebar_percent(Some(shown + (steps as f64) * SIDEBAR_PERCENT_STEP));
+    app.browse.sidebar_percent = Some(next);
+    app.set_status(Some(format!(
+        "Sidebar {next}% (saved) · = fits it to the sessions again"
+    )));
+    save_sidebar_percent(app, Some(next));
+}
+
+/// Not in the TS: `=` forgets your sidebar share: it is fitted to the sessions again.
+pub fn fit_sidebar(app: &mut App) {
+    app.browse.sidebar_percent = None;
+    let derived = app.derived();
+    measure_sidebar(app, &derived);
+    app.set_status(Some("Sidebar fitted to the sessions".to_owned()));
+    save_sidebar_percent(app, None);
+}
+
+/// `sidebar_width_percent` saved (`None`: removed).
+fn save_sidebar_percent(app: &mut App, percent: Option<f64>) {
+    let saved = update_app_config(move |config| {
+        Ok(AppConfig {
+            sidebar_width_percent: percent.map(JsNumber),
+            ..config
+        })
+    });
+    drop(app.dispatch().spawn(saved, |app: &mut App, result| {
+        if let Err(error) = result {
+            app.set_error(Some(error.to_string()));
+        }
+    }));
 }
 
 /// TS `stepIntoPane` (→ / l): scroll the preview, browse the changes, edit the notes.
@@ -1269,7 +1302,6 @@ pub fn archive_or_remove(app: &mut App) {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::cell::RefCell;
     use std::rc::Rc;
 
     use serde_json::{Value, json};
@@ -1287,7 +1319,7 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::app::event_loop::{UiModel, Update};
-    use crate::app::state::{AppCallbacks, AppProps};
+    use crate::app::state::AppProps;
     use crate::app::test_support::{app, session};
     use crate::keymap::{undocumented_in_guide, unknown_topics};
 
@@ -1587,30 +1619,60 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn the_sidebar_resizes_within_its_bounds_and_reports_it() {
-        let widths: Rc<RefCell<Vec<i64>>> = Rc::default();
-        let log = Rc::clone(&widths);
-        let (mut app, _rx) = app(AppProps {
-            callbacks: AppCallbacks {
-                on_sidebar_width_change: Some(Box::new(move |width| log.borrow_mut().push(width))),
-                ..AppCallbacks::default()
-            },
-            ..AppProps::default()
+    fn the_sidebar_share_steps_by_two_percent_and_is_saved() {
+        let _guard = crate::app::modes::preview_focus::tests::ENV
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let home = tempfile::Builder::new()
+            .prefix("deckhand-sidebar-")
+            .tempdir()
+            .unwrap_or_else(|error| panic!("{error}"));
+        let previous = std::env::var_os(deckhand_sys::paths::HOME_ENV);
+        // SAFETY: tests touching the environment hold ENV.
+        unsafe { std::env::set_var(deckhand_sys::paths::HOME_ENV, home.path()) };
+        local(async {
+            let (mut app, mut rx) = app(AppProps::default());
+            // Fitted (nothing chosen): 30% of 130 columns with nothing listed.
+            app.browse.sidebar_percent = None;
+            assert_eq!(app.layout().sidebar_width, 39);
+            // > moves it 2% from where it is and saves that share as yours.
+            handle_browse(&mut app, &text(">"));
+            assert_eq!(app.browse.sidebar_percent, Some(32.0));
+            assert_eq!(app.layout().sidebar_width, 41);
+            // A fitted sidebar narrower than 30% widens from its own width, not from 30%.
+            app.browse.sidebar_percent = None;
+            app.browse.sidebar_content = Some(26);
+            handle_browse(&mut app, &text(">"));
+            assert_eq!(app.browse.sidebar_percent, Some(22.0));
+            // Yours is used exactly, even below what the titles need.
+            handle_browse(&mut app, &text("<"));
+            handle_browse(&mut app, &text("<"));
+            assert_eq!(app.browse.sidebar_percent, Some(18.0));
+            assert_eq!(app.layout().sidebar_width, 24);
+            // One save per press.
+            for _ in 0..4 {
+                apply(&mut app, &mut rx).await;
+            }
+            let config = deckhand_sys::storage::load_app_config()
+                .await
+                .unwrap_or_else(|error| panic!("{error}"));
+            assert_eq!(config.sidebar_width_percent.map(|value| value.0), Some(18.0));
+            // = forgets it.
+            handle_browse(&mut app, &text("="));
+            assert_eq!(app.browse.sidebar_percent, None);
+            apply(&mut app, &mut rx).await;
+            let config = deckhand_sys::storage::load_app_config()
+                .await
+                .unwrap_or_else(|error| panic!("{error}"));
+            assert_eq!(config.sidebar_width_percent, None);
         });
-        // 130 columns: 31 by default.
-        handle_browse(&mut app, &text(">"));
-        handle_browse(&mut app, &text("<"));
-        handle_browse(&mut app, &text("<"));
-        assert_eq!(*widths.borrow(), vec![33, 31, 29]);
-        assert_eq!(app.browse.sidebar_width_override, Some(29));
-        for _ in 0..40 {
-            resize_sidebar(&mut app, 2);
+        // SAFETY: as above (ENV is still held).
+        unsafe {
+            match previous {
+                Some(value) => std::env::set_var(deckhand_sys::paths::HOME_ENV, value),
+                None => std::env::remove_var(deckhand_sys::paths::HOME_ENV),
+            }
         }
-        assert_eq!(app.browse.sidebar_width_override, Some(65));
-        for _ in 0..40 {
-            resize_sidebar(&mut app, -2);
-        }
-        assert_eq!(app.browse.sidebar_width_override, Some(18));
     }
 
     #[test]

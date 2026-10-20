@@ -130,7 +130,7 @@ pub struct SidebarRowsInput<'a> {
     /// Installed agent versions: a running session launched with an older one gets ↑.
     pub installed_versions: Option<&'a InstalledVersions>,
     /// Not in the TS: `▶` on every row whose workspace's Dev runs, muted after the first (the TS marks the first
-    /// only, which is easy to miss with many sessions in one checkout).
+    /// only, which is easy to miss with many sessions in one checkout), and next to the agent glyph.
     pub shared_dev: bool,
 }
 
@@ -270,7 +270,8 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
             RowRole::Status,
         ));
         let mut suffix = Vec::new();
-        if let Some(role) = dev {
+        // The TS puts ▶ first; the port (`shared_dev`) puts it last, beside the agent glyph.
+        if let Some(role) = dev.filter(|_| !input.shared_dev) {
             suffix.push(part("▶", role));
         }
         if truthy(session.archived_at.as_ref()) {
@@ -290,6 +291,9 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
         }
         if session_outdated(session, installed_for(input.installed_versions, session)) {
             suffix.push(part(OUTDATED_MARKER, RowRole::Outdated));
+        }
+        if let Some(role) = dev.filter(|_| input.shared_dev) {
+            suffix.push(part("▶", role));
         }
         suffix.push(part(program_glyph(session.program), RowRole::Agent));
         let suffix_width = |suffix: &[RowPart]| parts_width(suffix) + jnum(suffix.len()) - 1;

@@ -662,7 +662,10 @@ impl App {
 
     /// TS `layout` (the memo of the terminal size and the sidebar override).
     pub fn layout(&self) -> AppLayout {
-        app_layout(self.browse.terminal_size, self.browse.sidebar_width_override)
+        let cols = i64::from(self.browse.terminal_size.cols);
+        let sidebar =
+            crate::app::layout::sidebar_columns(self.browse.sidebar_percent, self.browse.sidebar_content, cols);
+        app_layout(self.browse.terminal_size, Some(sidebar))
     }
 
     /// TS `currentWorkspaceInfo`.
@@ -1448,6 +1451,7 @@ impl UiModel for App {
             cols: if cols == 0 { 80 } else { cols },
             rows: if rows == 0 { 24 } else { rows },
         };
+        self.browse.sidebar_fit_pending = true;
     }
 
     /// TS: every `useEffect` of App (crates/ui/src/app/effects.rs).
@@ -1512,7 +1516,8 @@ pub async fn run(props: AppProps) -> io::Result<Option<UiExitResult>> {
 
 #[cfg(test)]
 pub(crate) mod test_support {
-    //! An app for tests: no daemon (the connection and config effects marked as run), a 130×36 terminal.
+    //! An app for tests: no daemon (the connection and config effects marked as run), a 130×36 terminal, and the TS
+    //! oracle's sidebar (24% of the terminal, never shrunk to its rows), which the recorded goldens were laid out with.
 
     use super::*;
     use crate::app::event_loop::Dispatch;
@@ -1555,6 +1560,8 @@ pub(crate) mod test_support {
         let mut app = App::new(props, dispatch, TerminalSize { cols: 130, rows: 36 });
         app.effects.mounted = true;
         app.effects.connection = Some(0);
+        app.browse.sidebar_percent = Some(24.0);
+        app.browse.sidebar_fit_pending = false;
         (app, rx)
     }
 }

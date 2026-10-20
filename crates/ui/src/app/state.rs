@@ -170,7 +170,6 @@ pub struct AppCallbacks {
     pub on_selected_id_change: Option<SelectedIdListener>,
     pub on_active_tab_change: Option<Listener<RightPaneTab>>,
     pub on_session_tab_change: Option<SessionTabListener>,
-    pub on_sidebar_width_change: Option<Listener<i64>>,
     pub on_collapsed_session_ids_change: Option<IdsListener>,
     pub on_hidden_exited_session_ids_change: Option<IdsListener>,
     pub on_session_visibility_change: Option<VisibilityListener>,
@@ -189,7 +188,6 @@ pub struct AppProps {
     pub cwd: String,
     pub initial_selected_id: Option<String>,
     pub initial_active_tab: Option<RightPaneTab>,
-    pub initial_sidebar_width: Option<i64>,
     pub initial_session_tabs: Option<IndexMap<String, RightPaneTab>>,
     pub initial_collapsed_session_ids: Option<Vec<String>>,
     pub initial_hidden_exited_session_ids: Option<Vec<String>>,
@@ -238,7 +236,14 @@ pub struct BrowseState {
     /// Re-render tick when the selected session's shown age changes.
     pub clock_tick: u64,
     pub terminal_size: TerminalSize,
-    pub sidebar_width_override: Option<i64>,
+    /// Not in the TS: the share of the terminal you chose for the sidebar, in percent (`sidebar_width_percent`, which
+    /// `<`/`>` set and `=` clears; the TS saved a width per repository). `None`: fitted to the sessions.
+    pub sidebar_percent: Option<f64>,
+    /// Not in the TS: the widest listed row's whole width, measured once they load and after each resize: the
+    /// sidebar shrinks to it when every row fits in less than its share.
+    pub sidebar_content: Option<i64>,
+    /// Not in the TS: the rows are measured again on the next pass (set at launch and by a resize).
+    pub sidebar_fit_pending: bool,
 }
 
 /// What the right pane's tabs show (the daemon's watched records).
@@ -593,7 +598,9 @@ impl App {
                 spinner_index: 0,
                 clock_tick: 0,
                 terminal_size,
-                sidebar_width_override: props.initial_sidebar_width,
+                sidebar_percent: None,
+                sidebar_content: None,
+                sidebar_fit_pending: true,
             },
             panes: PaneRecords {
                 preview: empty_preview(),

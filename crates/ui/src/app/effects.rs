@@ -25,6 +25,7 @@ use deckhand_sys::async_util::{Task, spawn};
 use deckhand_sys::storage::load_app_config;
 
 use crate::app::event_loop::Dispatch;
+use crate::app::layout::{measure_sidebar, normalize_sidebar_percent};
 use crate::app::state::{App, AppTimers, Mode, empty_pane};
 use crate::app::{
     Derived, ERROR_MESSAGE_AUTO_HIDE_MS, SPINNER_FRAMES, STATUS_MESSAGE_AUTO_HIDE_MS, normalize_scroll_sensitivity,
@@ -208,6 +209,16 @@ fn settle(app: &mut App) {
     }
 }
 
+/// Not in the TS: measures the listed rows once they load (at launch) and after a resize, never while sessions come
+/// and go (the sidebar would jump): it shrinks to the widest when every row fits in less than its share.
+fn sidebar_fit_effect(app: &mut App, derived: &Derived) {
+    if !app.browse.sidebar_fit_pending || !app.data.sessions_loaded {
+        return;
+    }
+    app.browse.sidebar_fit_pending = false;
+    measure_sidebar(app, derived);
+}
+
 /// One React commit's effects, in app.tsx's declaration order.
 fn effect_pass(app: &mut App) {
     sync_tasks_memo(app);
@@ -227,6 +238,7 @@ fn effect_pass(app: &mut App) {
         sync_terminal_modes(app, &mut std::io::sink());
     }
     spinner_effect(app, &derived);
+    sidebar_fit_effect(app, &derived);
     connection_effect(app);
     selection_effect(app, &derived);
     numeric_selection_effect(app);
@@ -1127,13 +1139,15 @@ pub fn report_state(app: &mut App) {
 }
 
 /// TS: the mount effect: loads the wheel speed from the app config (`scroll_speed`; the TS read
-/// `attach_scroll_sensitivity`).
+/// `attach_scroll_sensitivity`) and, not in the TS, `sidebar_width_percent`.
 pub fn load_scroll_sensitivity(app: &mut App) {
     let task = app.dispatch().spawn(load_app_config(), |app: &mut App, result| {
-        app.preview_focus.scroll_sensitivity = match result {
+        app.preview_focus.scroll_sensitivity = match &result {
             Ok(config) => normalize_scroll_sensitivity(config.scroll_speed.map(|value| value.0)),
             Err(_) => crate::app::state::DEFAULT_SCROLL_SENSITIVITY,
         };
+        let percent = result.ok().and_then(|config| config.sidebar_width_percent);
+        app.browse.sidebar_percent = percent.map(|value| normalize_sidebar_percent(Some(value.0)));
     });
     drop(task);
 }
