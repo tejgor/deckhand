@@ -200,9 +200,26 @@ pub fn ui_state_path() -> PathBuf {
 }
 
 /// TS: paths.ts getCliEntryPath. The Rust binary is its own entry point: workers, hooks and the daemon are started
-/// as `<this executable> <mode>`, so this is the running executable.
+/// as `<this executable> <mode>`, so this is the running executable's install path.
 pub fn cli_entry_path() -> Result<PathBuf> {
-    std::env::current_exe().map_err(DhError::from)
+    std::env::current_exe().map(executable_path).map_err(DhError::from)
+}
+
+/// What Linux appends to `/proc/self/exe` once the running binary is unlinked or replaced.
+const DELETED_SUFFIX: &str = " (deleted)";
+
+/// `current_exe()` as the install path. After an in-place upgrade (`cargo install --force`, a new release archive)
+/// Linux reports the old inode as `<path> (deleted)`, which cannot be spawned; TS forks the dist/cli.js path, which
+/// names the new install, so the suffix is dropped (unless a file really has that name).
+fn executable_path(exe: PathBuf) -> PathBuf {
+    use std::os::unix::ffi::OsStrExt;
+    let Some(stripped) = exe.as_os_str().as_bytes().strip_suffix(DELETED_SUFFIX.as_bytes()) else {
+        return exe;
+    };
+    if exe.exists() {
+        return exe;
+    }
+    PathBuf::from(OsStr::from_bytes(stripped))
 }
 
 /// TS: paths.ts isDevRuntime (`DECKHAND_DEV=1`).
@@ -520,6 +537,28 @@ mod tests {
                 .message(),
             message
         );
+    }
+
+    // Linux reports a replaced or removed executable as `<path> (deleted)` (/proc/self/exe); TS forks the
+    // dist/cli.js path, which names the new install after an in-place upgrade.
+    #[test]
+    fn executable_path_drops_the_deleted_suffix_of_a_replaced_binary() {
+        let dir = temp();
+        let exe = dir.path().join("deckhand");
+        std::fs::write(&exe, "new").unwrap();
+        let mut reported = exe.as_os_str().to_owned();
+        reported.push(" (deleted)");
+        assert_eq!(executable_path(PathBuf::from(&reported)), exe);
+        // Removed and not reinstalled: still the install path (spawning it fails, as TS's fork would).
+        let gone = dir.path().join("gone");
+        let mut reported_gone = gone.as_os_str().to_owned();
+        reported_gone.push(" (deleted)");
+        assert_eq!(executable_path(PathBuf::from(reported_gone)), gone);
+        // A file really named so is kept.
+        let named = dir.path().join("odd (deleted)");
+        std::fs::write(&named, "x").unwrap();
+        assert_eq!(executable_path(named.clone()), named);
+        assert_eq!(executable_path(exe.clone()), exe);
     }
 
     #[test]
