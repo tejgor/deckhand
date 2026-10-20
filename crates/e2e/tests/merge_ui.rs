@@ -1,55 +1,17 @@
 //! Port of tests/mergeUi.test.ts.
 
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
 
-use deckhand_e2e::harness::{Sandbox, git, launcher, wait_for};
-use deckhand_e2e::ui::{UI_WAIT, Ui, UiOptions};
-
-/// A stand-in agent (never a real one): stays alive and prints a marker.
-fn fake_agent_script(ready: &str) -> String {
-    format!(
-        "#!/bin/sh\ncase \" $* \" in\n*\" --help \"*) echo 'PROMPT --settings --no-daemon resume'; exit 0;;\n*\" --version \"*) echo '1.0.0'; exit 0;;\nesac\n{ready}\nexec sleep 100000\n"
-    )
-}
-
-/// claude, pi and codex stand-ins in `<root>/agents`; returns that directory.
-fn install_fakes(sandbox: &Sandbox, ready: &str) -> PathBuf {
-    let bin = sandbox.root().join("agents");
-    fs::create_dir_all(&bin).expect("agents dir");
-    for agent in ["claude", "pi", "codex"] {
-        let file = bin.join(agent);
-        fs::write(&file, fake_agent_script(ready)).expect("write fake agent");
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).expect("chmod");
-    }
-    bin
-}
-
-/// The isolated dev launcher (`--sandbox`) in a PTY, with the fakes first on PATH.
-fn start_ui(sandbox: &Sandbox, bin: &Path) -> Ui {
-    let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default());
-    // The launcher is not marked executable: run it through sh, as dev_launcher.rs does.
-    let launcher = launcher();
-    let launcher = launcher.to_string_lossy();
-    Ui::spawn(
-        sandbox,
-        UiOptions {
-            program: Path::new("/bin/sh"),
-            args: &[&launcher, "--sandbox"],
-            cwd: &sandbox.dev_home(),
-            env: &[("PATH", &path)],
-            dev: true,
-        },
-    )
-}
+use deckhand_e2e::fakes::install_sandbox_agents;
+use deckhand_e2e::harness::{Sandbox, git, wait_for};
+use deckhand_e2e::ui::{UI_WAIT, launch_sandbox_ui};
 
 // ported from tests/mergeUi.test.ts: m in a real PTY: preview, space toggles commit-first, squash; space marks done (☑); a conflict is aborted with x, then kept with enter
 #[test]
 fn merge_in_a_pty_preview_squash_mark_done_and_conflict() {
     let sandbox = Sandbox::new("mrg");
-    let bin = install_fakes(&sandbox, "echo 'fake agent ready'");
-    let mut ui = start_ui(&sandbox, &bin);
+    let bin = install_sandbox_agents(&sandbox, "echo 'fake agent ready'");
+    let mut ui = launch_sandbox_ui(&sandbox, &bin, &[]);
     let home = sandbox.dev_home();
     ui.screen("DEV (isolated)");
     ui.screen("● ready");

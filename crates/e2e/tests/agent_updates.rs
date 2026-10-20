@@ -5,9 +5,10 @@
 
 use std::cmp::Ordering;
 use std::path::PathBuf;
-use std::process::Stdio;
+use std::time::Duration;
 
 use deckhand_e2e::client::{Client, request};
+use deckhand_e2e::daemon::{spawn_daemon, wait_ping};
 use deckhand_e2e::harness::{AgentOptions, Sandbox, install_agent, repo, stop, wait_for_default};
 use serde_json::{Value, json};
 
@@ -47,26 +48,20 @@ fn agent_versions_and_updates_with_fake_agents() {
     );
 
     // The latest releases are stubbed (never npm): Claude and Codex have newer ones, Pi's is unknown.
-    let mut command = sandbox.cli(&["--daemon"]);
-    command
-        .current_dir(root.path())
-        .env("HOME", sandbox.root())
-        .env(
-            "DECKHAND_AGENT_LATEST",
-            json!({"claude": "1.0.1", "codex": "1.0.5"}).to_string(),
-        )
-        .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    let mut daemon = sandbox.spawn(command);
+    let latest = json!({"claude": "1.0.1", "codex": "1.0.5"}).to_string();
+    let mut daemon = spawn_daemon(
+        &sandbox,
+        root.path(),
+        &format!("{}:/usr/bin:/bin", bin.display()),
+        &[
+            ("HOME", sandbox.root().as_os_str()),
+            ("DECKHAND_AGENT_LATEST", latest.as_ref()),
+        ],
+    );
 
     let socket = sandbox.socket();
     let call = |message: Value| request(&socket, message);
-    wait_for_default(
-        || call(json!({"type": "ping"})).map(|v| v["ok"] == true).unwrap_or(false),
-        |ok| *ok,
-    );
+    wait_ping(call, Duration::from_millis(8000));
     let state = |id: &str| -> Value {
         let list = call(json!({"type": "list"})).expect("list");
         list.as_array()

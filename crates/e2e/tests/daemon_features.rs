@@ -5,102 +5,21 @@
 //! local reimplementations over the JSON files and the wire records; this crate never links deckhand code.
 
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
-use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Stdio};
-use std::sync::{Arc, Mutex};
+use std::process::Child;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use deckhand_e2e::client::request;
-use deckhand_e2e::harness::{AgentOptions, Sandbox, git, install_agent, is_alive, repo, sidecar, stop, wait_for};
+use deckhand_e2e::client::{Raw, request};
+use deckhand_e2e::daemon::*;
+use deckhand_e2e::fakes::{MISSING_CONVERSATION_AGENT, SH_JSON_ARGS};
+use deckhand_e2e::harness::{AgentOptions, Sandbox, git, install_agent, is_alive, repo, stop, wait_for};
 use serde_json::{Value, json};
-
-const FAKE_AGENT: &str = env!("CARGO_BIN_EXE_fake_agent");
-
-fn wf<T: std::fmt::Debug>(read: impl FnMut() -> T, ok: impl Fn(&T) -> bool) -> T {
-    wait_for(read, ok, Duration::from_secs(15))
-}
-
-fn sleep_ms(ms: u64) {
-    std::thread::sleep(Duration::from_millis(ms));
-}
 
 fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
-}
-
-fn id_of(value: &Value) -> String {
-    value["id"].as_str().unwrap_or_default().to_string()
-}
-
-fn text(value: &Value) -> &str {
-    value.as_str().unwrap_or_default()
-}
-
-/// `assert.rejects(promise, /text/)`: the daemon's error must contain every needle, in order (`a.*b` is `[a, b]`).
-fn assert_rejects(result: Result<Value, String>, needles: &[&str]) {
-    let error = match result {
-        Err(error) => error,
-        Ok(value) => panic!("expected a rejection containing {needles:?}, got {value}"),
-    };
-    let mut rest = error.as_str();
-    for needle in needles {
-        match rest.find(needle) {
-            Some(at) => rest = &rest[at + needle.len()..],
-            None => panic!("error {error:?} does not match {needles:?}"),
-        }
-    }
-}
-
-fn strings(value: &Value) -> Vec<String> {
-    value
-        .as_array()
-        .map(|items| {
-            items
-                .iter()
-                .map(|v| v.as_str().unwrap_or_default().to_string())
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn write_atomic(path: &Path, bytes: &[u8]) {
-    let temporary = path.with_extension("tmp-write");
-    fs::write(&temporary, bytes).expect("write temp");
-    fs::rename(&temporary, path).expect("rename");
-}
-
-fn write_json(path: &Path, value: &Value) {
-    write_atomic(
-        path,
-        format!("{}\n", serde_json::to_string_pretty(value).expect("json")).as_bytes(),
-    );
-}
-
-/// Writes an executable script as a new file (rewriting a signed binary in place can get it killed on macOS).
-fn install_script(path: &Path, script: &str) {
-    let _ = fs::remove_file(path);
-    fs::write(path, script).expect("write script");
-    fs::set_permissions(path, fs::Permissions::from_mode(0o755)).expect("chmod");
-}
-
-/// Reinstalls the fake agent, dropping the sidecars of the variant it replaces.
-fn reinstall(bin: &Path, provider: &str, options: AgentOptions) {
-    let target = bin.join(provider);
-    for suffix in ["nohooks", "update-fails"] {
-        let _ = fs::remove_file(sidecar(&target, suffix));
-    }
-    let _ = fs::remove_file(&target);
-    install_agent(bin, provider, Path::new(FAKE_AGENT), options);
-}
-
-fn exists(path: impl AsRef<Path>) -> bool {
-    fs::symlink_metadata(path.as_ref()).is_ok()
 }
 
 fn digits_after(content: &str, prefix: &str) -> Option<i32> {
@@ -248,59 +167,6 @@ fn workspace_worker_id(workspace: &str) -> String {
     format!("workspace-{}", &sha256_hex(workspace.as_bytes())[..16])
 }
 
-/// A persistent connection that keeps every message it receives (src/client.ts `attachJsonParser`) and can send
-/// without a request id (`writeMessage`).
-struct Raw {
-    stream: UnixStream,
-    messages: Arc<Mutex<Vec<Value>>>,
-}
-
-impl Raw {
-    fn connect(socket: &Path) -> Raw {
-        let stream = UnixStream::connect(socket).expect("connect");
-        let reader = BufReader::new(stream.try_clone().expect("clone"));
-        let messages: Arc<Mutex<Vec<Value>>> = Arc::default();
-        let sink = Arc::clone(&messages);
-        std::thread::spawn(move || {
-            for line in reader.split(b'\n') {
-                let Ok(line) = line else { break };
-                if let Ok(message) = serde_json::from_slice::<Value>(&line) {
-                    sink.lock().unwrap_or_else(|e| e.into_inner()).push(message);
-                }
-            }
-        });
-        Raw { stream, messages }
-    }
-
-    fn send(&self, message: Value) {
-        let mut line = message.to_string();
-        line.push('\n');
-        (&self.stream).write_all(line.as_bytes()).expect("send");
-    }
-
-    fn events(&self) -> Vec<Value> {
-        self.messages.lock().unwrap_or_else(|e| e.into_inner()).clone()
-    }
-
-    fn clear(&self) {
-        self.messages.lock().unwrap_or_else(|e| e.into_inner()).clear();
-    }
-
-    fn has(&self, matches: impl Fn(&Value) -> bool) -> bool {
-        self.events().iter().any(matches)
-    }
-
-    fn find(&self, matches: impl Fn(&Value) -> bool) -> Option<Value> {
-        self.events().into_iter().find(matches)
-    }
-}
-
-impl Drop for Raw {
-    fn drop(&mut self) {
-        let _ = self.stream.shutdown(std::net::Shutdown::Both);
-    }
-}
-
 struct Ctx {
     sock: PathBuf,
     /// `DECKHAND_HOME`.
@@ -431,34 +297,19 @@ struct Daemon<'a> {
 
 impl<'a> Daemon<'a> {
     fn launch(sandbox: &'a Sandbox, ctx: &'a Ctx) -> Daemon<'a> {
-        let path = format!("{}:{}", ctx.bin.display(), std::env::var("PATH").unwrap_or_default());
-        let mut command = sandbox.cli(&["--daemon"]);
-        command
-            .current_dir(&ctx.root)
-            .env("PATH", path)
-            .env("CLAUDE_CONFIG_DIR", ctx.home.join(".claude"))
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        let daemon = Daemon {
+        let child = spawn_daemon(
             sandbox,
-            ctx,
-            child: sandbox.spawn(command),
-        };
+            &ctx.root,
+            &path_with(&ctx.bin),
+            &[("CLAUDE_CONFIG_DIR", ctx.home.join(".claude").as_os_str())],
+        );
+        let daemon = Daemon { sandbox, ctx, child };
         daemon.ready();
         daemon
     }
 
     fn ready(&self) {
-        wf(
-            || {
-                self.ctx
-                    .call(json!({"type": "ping"}))
-                    .map(|v| v["ok"] == true)
-                    .unwrap_or(false)
-            },
-            |ok| *ok,
-        );
+        wait_ping(|message| self.ctx.call(message), Duration::from_secs(15));
     }
 
     fn kill9(&mut self) {
@@ -483,7 +334,7 @@ fn daemon_features_operate_in_isolated_state_with_fake_agents() {
     let repo_dir = repo();
     let bin = sandbox.root().join("bin");
     for provider in ["claude", "pi", "codex"] {
-        install_agent(&bin, provider, Path::new(FAKE_AGENT), AgentOptions::default());
+        install_agent(&bin, provider, deckhand_e2e::fake_agent!(), AgentOptions::default());
     }
     let ctx = Ctx {
         sock: sandbox.socket(),
@@ -594,7 +445,7 @@ fn agent_signals_say_why_a_session_waits(c: &Ctx) {
     );
     let socket = Raw::connect(&c.sock);
     socket.send(json!({"type": "input", "sessionId": id, "data": "\x1b[B"}));
-    sleep_ms(300);
+    pause(300);
     assert_eq!(c.state(&id)["attention"]["state"], "needs-input");
     socket.send(json!({"type": "input", "sessionId": id, "data": "\r"}));
     let answered2 = c.wait(&id, |s| s["attention"]["event"] == "Answered");
@@ -656,7 +507,7 @@ fn untrusted_repository_commands_never_run(c: &Ctx) {
     // Global defaults are user-authored: they run without trust.
     c.set_defaults(Some(json!({"setupCommand": "touch global-setup", "devCommand": "printf global-dev", "actions": {"gtest": "printf global-action", "gsleep": "sleep 30"}})));
     // The repository override (uncommitted, live in the main checkout) and a creation hook that must not run untrusted.
-    let setup = r#"touch repo-setup; node -e "const fs=require('fs'); if(!fs.existsSync('.attempt')){fs.writeFileSync('.attempt','1');console.log('first attempt');process.exit(1)} console.log('setup complete')""#;
+    let setup = r#"touch repo-setup; if [ ! -e .attempt ]; then printf 1 > .attempt; echo 'first attempt'; exit 1; fi; echo 'setup complete'"#;
     fs::write(
         c.root.join("deckhand.json"),
         json!({"setupCommand": setup, "devCommand": "printf repo-dev", "actions": {"test": "printf action-output; exit 7"}}).to_string(),
@@ -789,6 +640,7 @@ fn unknown_codex_identity_never_silently_becomes_a_new_conversation(c: &Ctx) {
     reinstall(
         &c.bin,
         "codex",
+        deckhand_e2e::fake_agent!(),
         AgentOptions {
             without_hooks: true,
             ..AgentOptions::default()
@@ -808,7 +660,7 @@ fn unknown_codex_identity_never_silently_becomes_a_new_conversation(c: &Ctx) {
 fn cancelling_setup_kills_its_process(c: &Ctx) {
     fs::write(
         c.root.join("deckhand.json"),
-        json!({"setupCommand": r#"node -e "require('fs').writeFileSync('setup.pid', String(process.pid)); setTimeout(()=>{},300000)""#}).to_string(),
+        json!({"setupCommand": r#"printf %s $$ > setup.pid; exec sleep 300"#}).to_string(),
     )
     .unwrap();
     c.git(&["add", "deckhand.json"]);
@@ -926,7 +778,7 @@ fn global_worktree_settings_and_create_pr(c: &Ctx) {
     install_script(
         &c.bin.join("gh"),
         &format!(
-            "#!/usr/bin/env node\nrequire('fs').appendFileSync({}, JSON.stringify(process.argv.slice(2)) + '\\n');\nif (process.argv[3] === 'view' && process.argv.includes('--json')) {{ console.error('no pull requests found for branch'); process.exit(1); }}\n",
+            "#!/bin/sh\n{SH_JSON_ARGS}printf '[%s]\\n' \"$json\" >> {}\nif [ \"$2\" = view ]; then for a in \"$@\"; do if [ \"$a\" = --json ]; then echo 'no pull requests found for branch' >&2; exit 1; fi; done; fi\nexit 0\n",
             serde_json::to_string(calls.to_str().unwrap()).unwrap()
         ),
     );
@@ -1147,10 +999,7 @@ fn claude_and_pi_launch_with_exact_native_ids(c: &Ctx, daemon: &mut Daemon) {
     c.kill_and_wait(&claude_id);
     fs::remove_dir_all(c.home.join(".claude")).unwrap();
 
-    install_script(
-        &c.bin.join("claude"),
-        "#!/usr/bin/env node\nconsole.log('No conversation found with session ID: ' + process.argv[process.argv.indexOf('--resume') + 1]);\nsetTimeout(() => process.exit(1), 200);\n",
-    );
+    install_script(&c.bin.join("claude"), MISSING_CONVERSATION_AGENT);
     c.ok(json!({"type": "restart", "sessionId": claude_id, "cols": 80, "rows": 24}));
     let missing = c.wait(&claude_id, |s| {
         s["status"] == "exited" && text(&s["lastPreview"]).contains("Press S")
@@ -1164,7 +1013,7 @@ fn claude_and_pi_launch_with_exact_native_ids(c: &Ctx, daemon: &mut Daemon) {
         c.call(json!({"type": "restart", "sessionId": claude_id, "cols": 80, "rows": 24})),
         &["no saved conversation", "Use S"],
     );
-    reinstall(&c.bin, "claude", AgentOptions::default());
+    reinstall(&c.bin, "claude", deckhand_e2e::fake_agent!(), AgentOptions::default());
     let fresh = c.relaunch(&claude_id, "fresh");
     assert_eq!(fresh[0], "--session-id");
     assert_ne!(fresh[1], id);
@@ -1191,7 +1040,7 @@ fn claude_and_pi_launch_with_exact_native_ids(c: &Ctx, daemon: &mut Daemon) {
             fork_value.clone()
         ]
     );
-    sleep_ms(800); // Past the old /fork keystroke delay.
+    pause(800); // Past the old /fork keystroke delay.
     assert_eq!(
         fs::read_to_string(c.home.join(format!("input-{fork_id}"))).unwrap_or_default(),
         ""
@@ -1229,7 +1078,9 @@ fn claude_and_pi_launch_with_exact_native_ids(c: &Ctx, daemon: &mut Daemon) {
 
 // ported from tests/daemonFeatures.test.ts: sessions in one worktree share one Dev that outlives their agents; another worktree has its own
 fn sessions_in_one_worktree_share_one_dev(c: &Ctx) {
-    c.set_defaults(Some(json!({"devCommand": r#"node -e "console.log('dev-pid=' + process.pid + ' cwd=' + process.cwd()); setInterval(() => {}, 1000)""#})));
+    c.set_defaults(Some(
+        json!({"devCommand": r#"echo "dev-pid=$$ cwd=$(pwd -P)"; exec sleep 100000"#}),
+    ));
     let watch = |id: &str| c.ok(json!({"type": "watch-dev", "sessionId": id, "cols": 120, "rows": 24}));
     let start_dev = |id: &str| c.call(json!({"type": "start-dev", "sessionId": id, "cols": 120, "rows": 24}));
     let dev_pid = |id: &str| -> i32 {
@@ -1330,9 +1181,9 @@ fn sessions_in_one_worktree_share_one_terminal_and_lazygit(c: &Ctx) {
     let lazygit = c.bin.join("lazygit");
     install_script(
         &lazygit,
-        "#!/usr/bin/env node\nconsole.log('lazygit-pid=' + process.pid + ' cwd=' + process.cwd());\nsetInterval(() => {}, 1000);\n",
+        "#!/bin/sh\necho \"lazygit-pid=$$ cwd=$(pwd -P)\"\nexec sleep 100000\n",
     );
-    c.set_defaults(Some(json!({"devCommand": r#"node -e "setInterval(() => {}, 1000)""#})));
+    c.set_defaults(Some(json!({"devCommand": "sleep 100000"})));
     // One persistent connection: the fire-and-forget input path, and a UI-like watcher that receives fan-out.
     let socket = Raw::connect(&c.sock);
     // Wide enough that no echoed worktree path wraps.
@@ -1461,7 +1312,7 @@ fn sessions_in_one_worktree_share_one_terminal_and_lazygit(c: &Ctx) {
     // Stopping Dev keeps a worker whose Terminal/Git are in use.
     c.ok(json!({"type": "start-dev", "sessionId": second_id, "cols": 80, "rows": 24}));
     c.ok(json!({"type": "stop-dev", "sessionId": second_id}));
-    sleep_ms(300);
+    pause(300);
     assert!(is_alive(shell_pid));
     assert_eq!(shell(&first_id).0, shell_pid);
 
@@ -1610,10 +1461,10 @@ fn the_git_tabs_changes_are_per_worktree(c: &Ctx) {
 
     // Unwatching stops the pushes (and the polling).
     socket.send(json!({"type": "watch-changes", "requestId": uuid::Uuid::new_v4().to_string()}));
-    sleep_ms(100);
+    pause(100);
     socket.clear();
     fs::write(key_path.join("later.txt"), "later\n").unwrap();
-    sleep_ms(2600);
+    pause(2600);
     assert!(!socket.has(|e| e["type"] == "changes-updated"));
     for id in [&first_id, &second_id, &fresh_id] {
         c.kill_and_wait(id);

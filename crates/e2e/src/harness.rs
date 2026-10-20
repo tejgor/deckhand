@@ -213,6 +213,30 @@ pub fn sidecar(agent: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(name)
 }
 
+/// Prefix of every sandbox directory (short on purpose, see [`Sandbox::new`]).
+pub const SANDBOX_PREFIX: &str = "dh-";
+
+/// `sun_path` holds 104 bytes on macOS (108 on Linux) including the trailing NUL.
+const MAX_SOCKET_PATH: usize = 103;
+
+/// The longest socket path a sandbox hands out is its dev daemon's, `<root>/dev-home/daemon.sock`; the daemon may
+/// resolve symlinks (`/var` -> `/private/var`), so the canonical root counts too. Panics with the cure if one is too long.
+fn assert_socket_paths_fit(label: &str, root: &Path) {
+    let canonical = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    for base in [root, canonical.as_path()] {
+        for socket in ["home/daemon.sock", "dev-home/daemon.sock"] {
+            let path = base.join(socket);
+            let length = path.as_os_str().len();
+            assert!(
+                length <= MAX_SOCKET_PATH,
+                "sandbox {label:?}: socket path {} is {length} bytes, over the {MAX_SOCKET_PATH}-byte unix socket limit; \
+                 set TMPDIR to a shorter directory (e.g. TMPDIR=/tmp)",
+                path.display()
+            );
+        }
+    }
+}
+
 /// An isolated test world under `$TMPDIR`: its own `DECKHAND_HOME`, `HOME` and XDG dirs. Dropping it stops the daemon of
 /// `DECKHAND_HOME` and of the dev home, kills the process groups of every child spawned through it, and removes the lot.
 pub struct Sandbox {
@@ -221,12 +245,15 @@ pub struct Sandbox {
 }
 
 impl Sandbox {
-    pub fn new(prefix: &str) -> Sandbox {
+    /// `label` names the suite in panic messages only: the directory gets a short fixed prefix (`dh-`) so that the
+    /// daemon's socket paths stay under the macOS `sun_path` limit whatever `$TMPDIR` is.
+    pub fn new(label: &str) -> Sandbox {
         let root = tempfile::Builder::new()
-            .prefix(&format!("deckhand-{prefix}-"))
+            .prefix(SANDBOX_PREFIX)
             .tempdir()
             .expect("sandbox temp dir");
         assert_isolated(root.path());
+        assert_socket_paths_fit(label, root.path());
         for dir in [
             "home",
             "user",
@@ -434,5 +461,25 @@ impl Drop for Sandbox {
         for pid in &children {
             signal_group(*pid, nix::sys::signal::Signal::SIGKILL);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sandbox_dirs_use_the_short_prefix_and_socket_paths_fit() {
+        let sandbox = Sandbox::new("unit");
+        let name = sandbox.root().file_name().unwrap().to_string_lossy().into_owned();
+        assert!(name.starts_with(SANDBOX_PREFIX), "{name}");
+        assert!(sandbox.socket().as_os_str().len() <= MAX_SOCKET_PATH);
+    }
+
+    #[test]
+    #[should_panic(expected = "unix socket limit")]
+    fn too_long_socket_paths_panic_with_a_clear_message() {
+        let long = Path::new("/tmp").join("x".repeat(120));
+        assert_socket_paths_fit("unit", &long);
     }
 }

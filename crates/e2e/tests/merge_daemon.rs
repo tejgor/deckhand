@@ -1,152 +1,13 @@
 //! Port of tests/mergeDaemon.test.ts (black-box: drives DECKHAND_TEST_BIN).
-#![allow(dead_code)]
 
 use deckhand_e2e::harness::repo;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
-use std::time::Duration;
 
-use deckhand_e2e::client::Client;
-use deckhand_e2e::harness::{AgentOptions, Sandbox, install_agent, wait_for_default};
+use deckhand_e2e::daemon::*;
+use deckhand_e2e::harness::Sandbox;
 use serde_json::{Value, json};
-
-// ---- local plumbing shared by the daemon suites (the harness has no daemon-launch helper) ----
-
-/// helpers.ts `request(..., 60_000)`: one connection per call.
-fn call(socket: &Path, message: Value) -> Result<Value, String> {
-    Client::connect(socket)
-        .map_err(|e| e.to_string())?
-        .request_timeout(message, Duration::from_secs(60))
-}
-
-fn must(socket: &Path, message: Value) -> Value {
-    let shown = message.to_string();
-    call(socket, message).unwrap_or_else(|e| panic!("request {shown} failed: {e}"))
-}
-
-/// `assert.rejects(promise, /needle/)`.
-fn rejects(result: Result<Value, String>, needle: &str) {
-    match result {
-        Ok(value) => panic!("expected a rejection matching {needle:?}, got {value}"),
-        Err(error) => assert!(error.contains(needle), "{error:?} does not contain {needle:?}"),
-    }
-}
-
-/// The fake agents (claude, pi, codex) in `<sandbox>/bin`; returns that directory.
-fn install_agents(sandbox: &Sandbox) -> PathBuf {
-    let bin = sandbox.root().join("bin");
-    let fake = PathBuf::from(env!("CARGO_BIN_EXE_fake_agent"));
-    for provider in ["claude", "pi", "codex"] {
-        install_agent(&bin, provider, &fake, AgentOptions::default());
-    }
-    bin
-}
-
-/// `deckhand --daemon` in `root` with the fakes first on a PATH that holds nothing else but the system directories.
-fn launch(sandbox: &Sandbox, root: &Path, bin: &Path) -> Child {
-    let mut command = sandbox.cli(&["--daemon"]);
-    command
-        .current_dir(root)
-        .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    sandbox.spawn(command)
-}
-
-fn ready(socket: &Path) {
-    wait_for_default(
-        || {
-            call(socket, json!({"type": "ping"}))
-                .map(|v| v["ok"] == true)
-                .unwrap_or(false)
-        },
-        |ok| *ok,
-    );
-}
-
-/// A persistent connection subscribed to `root` (the TS tests' raw socket + `events`).
-fn subscribed(socket: &Path, root: &str) -> Client {
-    let mut live = Client::connect(socket).expect("live client");
-    live.subscribe(root).expect("subscribe");
-    live
-}
-
-/// `updated(id, matches)`: waits for a `session-updated` event after the first `from` events.
-fn updated(live: &Client, from: usize, id: &str, matches: impl Fn(&Value) -> bool) {
-    wait_for_default(
-        || {
-            live.events()
-                .iter()
-                .skip(from)
-                .any(|e| e["type"] == "session-updated" && e["session"]["id"] == id && matches(&e["session"]))
-        },
-        |found| *found,
-    );
-}
-
-fn state(socket: &Path, id: &str) -> Value {
-    must(socket, json!({"type": "list"}))
-        .as_array()
-        .and_then(|items| items.iter().find(|item| item["id"] == id).cloned())
-        .unwrap_or(Value::Null)
-}
-
-fn try_create(socket: &Path, root: &str, title: &str, mode: &str, extra: Value) -> Result<Value, String> {
-    let mut input = json!({"title": title, "program": "claude", "cwd": root, "repoRoot": root, "cols": 80, "rows": 24, "worktreeMode": mode});
-    for (key, value) in extra.as_object().into_iter().flatten() {
-        input[key] = value.clone();
-    }
-    call(socket, json!({"type": "create", "input": input}))
-}
-
-fn create(socket: &Path, root: &str, title: &str, mode: &str, extra: Value) -> Value {
-    try_create(socket, root, title, mode, extra).unwrap_or_else(|e| panic!("create {title}: {e}"))
-}
-
-fn running(socket: &Path, id: &str) -> Value {
-    wait_for_default(|| state(socket, id), |item| item["status"] == "running")
-}
-
-/// Git that may fail: (success, trimmed-end stdout).
-fn git_try(cwd: &Path, args: &[&str]) -> (bool, String) {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(cwd)
-        .args(args)
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
-        .env("GIT_CONFIG_NOSYSTEM", "1")
-        .output()
-        .expect("spawn git");
-    (
-        output.status.success(),
-        String::from_utf8_lossy(&output.stdout).trim_end().to_string(),
-    )
-}
-
-fn p(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
-}
-
-fn text_of(path: &Path) -> Option<String> {
-    fs::read_to_string(path).ok()
-}
-
-/// The persisted `state.json` (`loadState`).
-fn load_state(home: &Path) -> Value {
-    serde_json::from_str(&fs::read_to_string(home.join("state.json")).expect("state.json")).expect("state json")
-}
-
-fn pause(ms: u64) {
-    std::thread::sleep(Duration::from_millis(ms));
-}
-
-/// Falsy in the JS sense for the fields the tests check (`undefined`, `false`).
-fn falsy(value: &Value) -> bool {
-    value.is_null() || *value == json!(false)
-}
 
 // A fake `gh`: answers `gh pr view` from gh-pr.json in the state directory (or fails like an unknown branch), never the network.
 const FAKE_GH: &str = "#!/bin/sh\ncat \"$DECKHAND_HOME/gh-pr.json\" 2>/dev/null || { echo 'no pull requests found for branch' >&2; exit 1; }\n";
@@ -164,7 +25,7 @@ fn done_marker_worktree_only_m_merge_with_commit_first_conflict_keep_abort_and_m
     let root_s = p(&root_path);
     let root = root_s.as_str();
     let home = sandbox.home();
-    let bin = install_agents(&sandbox);
+    let bin = install_agents(&sandbox, deckhand_e2e::fake_agent!());
     fs::write(bin.join("gh"), FAKE_GH).expect("fake gh");
     fs::set_permissions(bin.join("gh"), fs::Permissions::from_mode(0o755)).expect("chmod gh");
     let mut daemon = launch(&sandbox, &root_path, &bin);

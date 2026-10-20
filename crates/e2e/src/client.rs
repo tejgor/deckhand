@@ -141,3 +141,58 @@ impl Drop for Client {
 pub fn request(socket: &Path, message: Value) -> Result<Value, String> {
     Client::connect(socket).map_err(|e| e.to_string())?.request(message)
 }
+
+/// A persistent connection that keeps every message it receives, responses included (src/client.ts
+/// `attachJsonParser`), and can send without a `requestId` (`writeMessage`). It can also drop what it has seen.
+pub struct Raw {
+    stream: UnixStream,
+    messages: Arc<Mutex<Vec<Value>>>,
+}
+
+impl Raw {
+    pub fn connect(socket: &Path) -> Raw {
+        let stream = UnixStream::connect(socket).expect("connect");
+        let reader = BufReader::new(stream.try_clone().expect("clone"));
+        let messages: Arc<Mutex<Vec<Value>>> = Arc::default();
+        let sink = Arc::clone(&messages);
+        std::thread::spawn(move || {
+            for line in reader.split(b'\n') {
+                let Ok(line) = line else { break };
+                if let Ok(message) = serde_json::from_slice::<Value>(&line) {
+                    sink.lock().unwrap_or_else(|e| e.into_inner()).push(message);
+                }
+            }
+        });
+        Raw { stream, messages }
+    }
+
+    /// Writes `message` as one NDJSON line, as is (no `requestId` added).
+    pub fn send(&self, message: Value) {
+        let mut line = message.to_string();
+        line.push('\n');
+        (&self.stream).write_all(line.as_bytes()).expect("send");
+    }
+
+    pub fn events(&self) -> Vec<Value> {
+        self.messages.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    /// Forgets every message received so far.
+    pub fn clear(&self) {
+        self.messages.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    }
+
+    pub fn has(&self, matches: impl Fn(&Value) -> bool) -> bool {
+        self.events().iter().any(matches)
+    }
+
+    pub fn find(&self, matches: impl Fn(&Value) -> bool) -> Option<Value> {
+        self.events().into_iter().find(matches)
+    }
+}
+
+impl Drop for Raw {
+    fn drop(&mut self) {
+        let _ = self.stream.shutdown(std::net::Shutdown::Both);
+    }
+}
