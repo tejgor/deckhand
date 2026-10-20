@@ -622,6 +622,25 @@ pub struct SessionSizeRequest {
     pub cols: Option<i64>,
     #[serde(default, deserialize_with = "lenient::size")]
     pub rows: Option<i64>,
+    /// Not in the TS (`start-dev`): only this Dev process (`devCommand` as a map); absent starts every one.
+    #[serde(default, deserialize_with = "lenient::opt_string")]
+    pub process: Option<String>,
+    /// Not in the TS (`start-dev` with `process`): stop the process first if it runs.
+    #[serde(default, deserialize_with = "lenient::truthy")]
+    pub restart: Option<bool>,
+}
+
+/// Not in the TS: `stop-dev`, for every Dev process or only `process`.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StopDevRequest {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    #[serde(default, deserialize_with = "lenient::string")]
+    pub session_id: String,
+    #[serde(default, deserialize_with = "lenient::opt_string")]
+    pub process: Option<String>,
 }
 
 #[skip_serializing_none]
@@ -878,6 +897,9 @@ pub struct Attach {
     pub cols: Option<i64>,
     #[serde(default, deserialize_with = "lenient::size")]
     pub rows: Option<i64>,
+    /// Not in the TS (`attach-dev`): the Dev process to attach to (`devCommand` as a map); absent is the first.
+    #[serde(default, deserialize_with = "lenient::opt_string")]
+    pub process: Option<String>,
 }
 
 /// Keys typed into an attached PTY (no response).
@@ -987,7 +1009,7 @@ pub enum Request {
     #[serde(rename = "start-dev")]
     StartDev(SessionSizeRequest),
     #[serde(rename = "stop-dev")]
-    StopDev(SessionRequest),
+    StopDev(StopDevRequest),
     #[serde(rename = "stop-action")]
     StopAction(SessionRequest),
     #[serde(rename = "save-note")]
@@ -1136,7 +1158,8 @@ impl Request {
             R::ArchiveSession(r) => &r.request_id,
             R::ExportHandoff(r) => &r.request_id,
             R::AgentHook(r) => &r.request_id,
-            R::CancelStart(r) | R::StopDev(r) | R::StopAction(r) => &r.request_id,
+            R::CancelStart(r) | R::StopAction(r) => &r.request_id,
+            R::StopDev(r) => &r.request_id,
             R::RunAction(r) => &r.request_id,
             R::AgentVersions(r) => &r.request_id,
             R::UpdateAgent(r) => &r.request_id,

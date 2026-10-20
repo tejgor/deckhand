@@ -22,6 +22,44 @@ pub struct HelpTopic {
     pub lines: &'static [HelpLine],
 }
 
+/// Not in the TS: the guide's lines about the port's own features (Dev processes, Dev one worktree at a time).
+/// [`oracle_topics`] leaves them out, so the TS oracle's recorded guide still replays line for line.
+pub const PORT_LINES: &[&str] = &[
+    "On Dev with several processes: select the next one (Enter opens it)",
+    "In the run list, with several Dev processes: a row for each after Dev; Enter starts or restarts it, x stops it",
+    "Dev can run several processes side by side, such as a backend and a frontend: in Settings (C), Enter on the Dev command lists them and + Add a process adds one. The Dev tab splits to show each one's output.",
+    "Dev runs in one worktree of a repository at a time, since they share its ports: starting it in one worktree stops it in the others.",
+];
+
+/// The text of a guide line (its description, note or heading).
+pub fn line_text(line: &HelpLine) -> &'static str {
+    match line {
+        HelpLine::Key { text, .. } => text,
+        HelpLine::Note { note } => note,
+        HelpLine::Heading { heading } => heading,
+    }
+}
+
+/// [`HELP_TOPICS`] as the TS oracle had them: without [`PORT_LINES`] (for replaying its fixtures in tests).
+pub fn oracle_topics() -> &'static [HelpTopic] {
+    let topics: Vec<HelpTopic> = HELP_TOPICS
+        .iter()
+        .map(|topic| HelpTopic {
+            title: topic.title,
+            lines: Box::leak(
+                topic
+                    .lines
+                    .iter()
+                    .copied()
+                    .filter(|line| !PORT_LINES.contains(&line_text(line)))
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            ),
+        })
+        .collect();
+    Box::leak(topics.into_boxed_slice())
+}
+
 /// TS: help.ts HELP_TOPICS.
 pub static HELP_TOPICS: &[HelpTopic] = &[
     HelpTopic {
@@ -223,6 +261,10 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "On Terminal: switch between the shell and the last action",
             },
             HelpLine::Key {
+                keys: "v",
+                text: "On Dev with several processes: select the next one (Enter opens it)",
+            },
+            HelpLine::Key {
                 keys: "E",
                 text: "Open in Cursor / VS Code: the note on Notes, otherwise the session's folder",
             },
@@ -422,11 +464,21 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "In the run list: stop the running action (or Dev)",
             },
             HelpLine::Key {
+                keys: "r",
+                text: "In the run list, with several Dev processes: a row for each after Dev; Enter starts or restarts it, x stops it",
+            },
+            HelpLine::Key {
                 keys: "d  d d",
                 text: "The Dev tab (Enter opens it while it runs) / twice quickly: start or stop Dev",
             },
             HelpLine::Note {
                 note: "Dev is shared by every session in the same worktree and keeps running after their agents exit, until stopped (or the worktree is deleted).",
+            },
+            HelpLine::Note {
+                note: "Dev can run several processes side by side, such as a backend and a frontend: in Settings (C), Enter on the Dev command lists them and + Add a process adds one. The Dev tab splits to show each one's output.",
+            },
+            HelpLine::Note {
+                note: "Dev runs in one worktree of a repository at a time, since they share its ports: starting it in one worktree stops it in the others.",
             },
             HelpLine::Note {
                 note: "An action runs in its own process beside the shell and Dev, one at a time per worktree, and shows on the Terminal tab (v: back to the shell); Enter opens it while it runs; its output and exit code stay until the next one.",
@@ -479,7 +531,7 @@ mod tests {
     fn help_topics_match_help_ts() {
         let expected: serde_json::Value =
             serde_json::from_str(include_str!("../tests/data/help_topics.json")).expect("fixture parses");
-        assert_eq!(serde_json::to_value(HELP_TOPICS).expect("serialises"), expected);
+        assert_eq!(serde_json::to_value(oracle_topics()).expect("serialises"), expected);
     }
 
     #[test]
@@ -487,7 +539,7 @@ mod tests {
         deckhand_parity::replay(
             "P12",
             "help/HELP_TOPICS",
-            |_case: &deckhand_parity::Case| -> Result<&[HelpTopic], String> { Ok(HELP_TOPICS) },
+            |_case: &deckhand_parity::Case| -> Result<&[HelpTopic], String> { Ok(oracle_topics()) },
         );
     }
 

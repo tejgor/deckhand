@@ -26,8 +26,8 @@ use crate::worktree_links::{
     worktree_location,
 };
 use deckhand_protocol::data::{
-    ConfigTargetKind, LoadedProject, PendingSetting, ProjectConfig, SettingRow, SettingSource, StringOrBool,
-    TemplateVars, WorktreeSettings,
+    ConfigTargetKind, DevCommand, LoadedProject, PendingSetting, ProjectConfig, SettingRow, SettingSource,
+    StringOrBool, TemplateVars, WorktreeSettings,
 };
 use deckhand_protocol::records::AppConfig;
 use deckhand_protocol::{KeyOrder, Ordered};
@@ -145,6 +145,9 @@ const ALLOWED_KEYS: [&str; 6] = [
     "worktree",
 ];
 
+/// Not in the TS: the most named Dev processes (`devCommand` as a map) one layer may define.
+pub const MAX_DEV_PROCESSES: usize = 8;
+
 /// `/^[a-zA-Z0-9][a-zA-Z0-9 _.-]{0,47}$/` (ASCII only, so characters and UTF-16 units agree).
 fn valid_action_name(name: &str) -> bool {
     let mut chars = name.chars();
@@ -199,10 +202,27 @@ pub fn validate_project_config(value: &Value, label: Option<&str>) -> Result<Ord
     {
         return Err(DhError::msg("Invalid defaultWorkspace"));
     }
-    for key in ["devCommand", "setupCommand"] {
-        if let Some(command) = record.get(key) {
-            check_command(command, key)?;
+    // Not in the TS: devCommand may also name several processes (name → command) that run side by side.
+    if let Some(processes) = record.get("devCommand").and_then(Value::as_object) {
+        if processes.is_empty() {
+            return Err(DhError::msg("devCommand needs at least one process"));
         }
+        if processes.len() > MAX_DEV_PROCESSES {
+            return Err(DhError::msg(format!(
+                "At most {MAX_DEV_PROCESSES} Dev processes are supported"
+            )));
+        }
+        for name in js_map_keys(processes) {
+            if !valid_action_name(name) || ["__proto__", "constructor", "prototype"].contains(&name.as_str()) {
+                return Err(DhError::msg(format!("Invalid Dev process name: {name}")));
+            }
+            check_command(&processes[name], name)?;
+        }
+    } else if let Some(command) = record.get("devCommand") {
+        check_command(command, "devCommand")?;
+    }
+    if let Some(command) = record.get("setupCommand") {
+        check_command(command, "setupCommand")?;
     }
     if let Some(actions) = record.get("actions") {
         let Some(actions) = actions.as_object() else {
@@ -698,12 +718,33 @@ pub fn resolve_settings(
 pub fn resolve_dev_command(project: Option<&LoadedProject>, user: &UserSettings, config_dir: &str) -> Result<String> {
     let settings = resolve_settings(project, user, config_dir)?;
     let command = settings
-        .dev_command
-        .as_deref()
+        .dev_command_text()
         .map(jsstr::js_trim)
         .filter(|command| !command.is_empty())
         .unwrap_or("dev");
     Ok(command.to_owned())
+}
+
+/// Not in the TS: what Dev runs, from the effective settings.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DevPlan {
+    /// One command (`devCommand`, the legacy `dev_command`, or `dev`).
+    Command(String),
+    /// Named commands side by side (`devCommand` as a map), in their configured order.
+    Processes(Vec<(String, String)>),
+}
+
+/// Not in the TS: [`resolve_dev_command`], or the effective `devCommand`'s named processes when it names them.
+pub fn resolve_dev_plan(project: Option<&LoadedProject>, user: &UserSettings, config_dir: &str) -> Result<DevPlan> {
+    let settings = resolve_settings(project, user, config_dir)?;
+    if let Some(processes) = settings.dev_processes().filter(|processes| !processes.is_empty()) {
+        let processes = js_keys(processes)
+            .into_iter()
+            .map(|name| (name.clone(), jsstr::js_trim(&processes[name]).to_owned()))
+            .collect();
+        return Ok(DevPlan::Processes(processes));
+    }
+    resolve_dev_command(project, user, config_dir).map(DevPlan::Command)
 }
 
 /// TS: projectConfig.ts resolveSetupCommand (an untrusted setupCommand that was not reviewed is an error).
@@ -778,9 +819,21 @@ fn scalar(config: &ProjectConfig, key: &str) -> Option<String> {
     match key {
         "defaultAgent" => config.default_agent.map(|agent| agent.as_str().to_owned()),
         "defaultWorkspace" => config.default_workspace.map(|mode| mode.as_str().to_owned()),
-        "devCommand" => config.dev_command.clone(),
+        "devCommand" => config.dev_command.as_ref().map(dev_command_summary),
         "setupCommand" => config.setup_command.clone(),
         _ => None,
+    }
+}
+
+/// Not in the TS: `devCommand` as one string: the command, or `name (command), …` for named processes.
+pub fn dev_command_summary(dev: &DevCommand) -> String {
+    match dev {
+        DevCommand::Command(command) => command.clone(),
+        DevCommand::Processes(processes) => js_keys(processes)
+            .into_iter()
+            .map(|name| format!("{name} ({})", processes[name]))
+            .collect::<Vec<_>>()
+            .join(", "),
     }
 }
 
@@ -1068,6 +1121,20 @@ pub fn explain_settings(
         },
         &|value: &str| value.to_owned(),
     );
+    // Not in the TS: a row per named Dev process, after the devCommand row, while one applies or is pending.
+    if effective.dev_processes().is_some() || pending_layer.dev_processes().is_some() {
+        entries(
+            &mut rows,
+            "devCommand",
+            effective.dev_processes(),
+            EntryLayers {
+                repo: repository.dev_processes(),
+                global: global.dev_processes(),
+                pending: pending_layer.dev_processes(),
+            },
+            &|value: &str| value.to_owned(),
+        );
+    }
 
     let empty = WorktreeSettings::default();
     let tree = effective.worktree.as_ref().unwrap_or(&empty);
@@ -1567,6 +1634,76 @@ mod tests {
         assert_eq!(
             json_of(&parse_project_config(r#"{"defaultAgent":"codex","actions":{"test":"npm test"}}"#, None).unwrap()),
             json!({"defaultAgent": "codex", "actions": {"test": "npm test"}})
+        );
+    }
+
+    // Not in the TS: named Dev processes, validated like actions, and one setting with devCommand across layers.
+    #[test]
+    fn dev_command_names_processes_validated_like_actions() {
+        for value in [
+            r#"{"devCommand":[]}"#,
+            r#"{"devCommand":{}}"#,
+            r#"{"devCommand":{"api/x":"run"}}"#,
+            r#"{"devCommand":{"api":""}}"#,
+            r#"{"devCommand":{"a":"1","b":"2","c":"3","d":"4","e":"5","f":"6","g":"7","h":"8","i":"9"}}"#,
+            r#"{"devProcesses":{"api":"run"}}"#,
+        ] {
+            assert!(parse_project_config(value, None).is_err(), "{value}");
+        }
+        let processes = json!({"api": "cd backend && python3 main.py", "web": "cd frontend && npm run dev"});
+        let plan = DevPlan::Processes(vec![
+            ("api".to_owned(), "cd backend && python3 main.py".to_owned()),
+            ("web".to_owned(), "cd frontend && npm run dev".to_owned()),
+        ]);
+        // Global processes, beside a legacy dev_command they replace.
+        let global = user(json!({"dev_command": "legacy", "defaults": {"devCommand": processes}}));
+        assert_eq!(resolve_dev_plan(None, &global, CONFIG_DIR).unwrap(), plan);
+        // A trusted repository's devCommand replaces global processes, and its processes a global command.
+        let command = project("/r", json!({"devCommand": "make dev"}));
+        assert_eq!(
+            resolve_dev_plan(Some(&command), &trust(&command, &global), CONFIG_DIR).unwrap(),
+            DevPlan::Command("make dev".to_owned())
+        );
+        let named = project("/r", json!({"devCommand": processes}));
+        let global_command = user(json!({"defaults": {"devCommand": "npm start"}}));
+        assert_eq!(
+            resolve_dev_plan(Some(&named), &trust(&named, &global_command), CONFIG_DIR).unwrap(),
+            plan
+        );
+        // Untrusted, the repository's processes never run.
+        assert_eq!(
+            resolve_dev_plan(Some(&named), &global_command, CONFIG_DIR).unwrap(),
+            DevPlan::Command("npm start".to_owned())
+        );
+        // Settings: the devCommand row sums the processes up, then a row per process.
+        let context = ExplainContext {
+            config_dir: CONFIG_DIR.to_owned(),
+            ..ExplainContext::default()
+        };
+        let rows = explain_settings(Some(&named), &trust(&named, &global_command), &context).rows;
+        let dev: Vec<(Option<&str>, &str, SettingSource)> = rows
+            .iter()
+            .filter(|row| row.key == "devCommand")
+            .map(|row| (row.entry.as_deref(), row.value.as_str(), row.source))
+            .collect();
+        assert_eq!(
+            dev,
+            [
+                (
+                    None,
+                    "api (cd backend && python3 main.py), web (cd frontend && npm run dev)",
+                    SettingSource::Repo
+                ),
+                (Some("api"), "cd backend && python3 main.py", SettingSource::Repo),
+                (Some("web"), "cd frontend && npm run dev", SettingSource::Repo),
+            ]
+        );
+        let untrusted = explain_settings(Some(&named), &global_command, &context).rows;
+        assert!(
+            untrusted
+                .iter()
+                .filter(|row| row.key == "devCommand" && row.entry.is_some())
+                .all(|row| row.pending.is_some() && row.source == SettingSource::NotSet)
         );
     }
 

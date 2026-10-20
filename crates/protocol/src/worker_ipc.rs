@@ -38,6 +38,8 @@ pub struct PaneAttach {
     pub target: AttachTarget,
     pub cols: i64,
     pub rows: i64,
+    /// Not in the TS: the Dev process to attach to (by name); absent is the first.
+    pub process: Option<String>,
     pub request_id: String,
 }
 
@@ -118,14 +120,35 @@ pub struct StartWorkspace {
     pub request_id: String,
 }
 
-/// Workspace worker `start-dev`.
+/// Workspace worker `start-dev`. With `processes` (not in the TS) Dev runs each named command in a PTY of its own
+/// and `command` is unused; `process` starts only that one (`restart`: stopping it first if it runs).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartDev {
     pub command: String,
+    pub processes: Option<Vec<DevProcessSpec>>,
+    pub process: Option<String>,
+    pub restart: Option<bool>,
     pub cols: i64,
     pub rows: i64,
+    pub request_id: String,
+}
+
+/// Not in the TS: one named Dev command of `start-dev`.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DevProcessSpec {
+    pub name: String,
+    pub command: String,
+}
+
+/// Workspace worker `stop-dev`: every Dev process, or only `process` (not in the TS).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StopDev {
+    pub process: Option<String>,
     pub request_id: String,
 }
 
@@ -168,7 +191,7 @@ pub enum WorkspaceWorkerCommand {
     #[serde(rename = "start-dev")]
     StartDev(StartDev),
     #[serde(rename = "stop-dev")]
-    StopDev(WorkerRequestOnly),
+    StopDev(StopDev),
     #[serde(rename = "start-action")]
     StartAction(StartAction),
     #[serde(rename = "stop-action")]
@@ -380,7 +403,7 @@ mod tests {
         let hello = WorkerMessage::Hello(Hello::default());
         assert_eq!(
             serde_json::to_string(&hello).unwrap(),
-            r#"{"type":"hello","version":46}"#
+            r#"{"type":"hello","version":47}"#
         );
     }
 

@@ -1155,7 +1155,7 @@ mod tests {
         let mut theirs = BufReader::new(theirs);
         theirs
             .get_mut()
-            .write_all(b"{\"type\":\"hello\",\"version\":46}\n")
+            .write_all(b"{\"type\":\"hello\",\"version\":47}\n")
             .await
             .unwrap();
         let fake = FakeWorker {
@@ -1505,6 +1505,7 @@ mod tests {
                 session_id: "s".into(),
                 cols: Some(0),
                 rows: None,
+                process: None,
             };
             let not_running = daemon.handle_attach(&conn, &attach).await.unwrap_err();
             assert_eq!(not_running.to_string(), "session is not running");
@@ -1833,7 +1834,7 @@ mod tests {
             "worker.sh",
             &format!(
                 r#"#!/bin/sh
-printf '{{"type":"hello","version":46}}\n' >&3
+printf '{{"type":"hello","version":47}}\n' >&3
 while IFS= read -r line <&3; do
   id=$(printf '%s' "$line" | sed -n 's/.*"requestId":"\([^"]*\)".*/\1/p')
   case "$line" in

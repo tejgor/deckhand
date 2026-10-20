@@ -641,7 +641,7 @@ pub(crate) mod tests {
             )
             .unwrap();
             let live = load_project_config(&worktree, None, None).await.unwrap();
-            assert_eq!(live.config.dev_command.as_deref(), Some("printf live"));
+            assert_eq!(live.config.dev_command_text(), Some("printf live"));
             assert!(project_needs_review(&live, config.trusted_projects.as_ref()));
             assert_eq!(dev(&live, &trusting(&live, &config)), "printf live");
             assert!(!exists(&Path::new(&cwd).join("DO_NOT_EXECUTE")));

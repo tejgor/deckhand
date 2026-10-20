@@ -207,11 +207,7 @@ impl Daemon {
             Request::ChangesDiff(r) => reply(client, &r.request_id, self.handle_changes_diff(&r).await),
             Request::ChangeStage(r) => reply(client, &r.request_id, self.handle_change_stage(&r).await),
             Request::StartDev(r) => reply(client, &r.request_id, self.handle_start_dev(&r).await),
-            Request::StopDev(r) => reply(
-                client,
-                &r.request_id,
-                self.handle_stop_pane(&r, WorkspacePane::Dev).await,
-            ),
+            Request::StopDev(r) => reply(client, &r.request_id, self.handle_stop_dev(&r).await),
             Request::StopAction(r) => reply(
                 client,
                 &r.request_id,
@@ -334,8 +330,17 @@ impl Daemon {
                     .await
             }
             Request::AttachDev(r) => {
-                self.attach_workspace_pane(client, &r.request_id, WorkspacePane::Dev, &r.session_id, r.cols, r.rows)
-                    .await
+                let process = r.process.as_deref().filter(|process| !process.is_empty());
+                self.attach_workspace_process(
+                    client,
+                    &r.request_id,
+                    WorkspacePane::Dev,
+                    &r.session_id,
+                    r.cols,
+                    r.rows,
+                    process,
+                )
+                .await
             }
             Request::AttachAction(r) => {
                 self.attach_workspace_pane(

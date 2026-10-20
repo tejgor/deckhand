@@ -1,6 +1,6 @@
-//! The attach status line (`deckhand_client::attach_status`) in a real PTY: for every agent the line goes on the top
-//! row with a rule under it, the agent gets two rows less, and its scrolling, screen clears, scroll-region resets and
-//! far cursor moves never reach either.
+//! The attach status line (`deckhand_client::attach_status`) in a real PTY: for every agent, the Terminal pane and
+//! lazygit, the rule and the line hold the bottom two rows. The program gets two rows less, and its scrolling, screen
+//! clears, scroll-region resets and far cursor moves never reach either.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -38,16 +38,34 @@ done
     }
 }
 
+/// A stand-in lazygit (never the real one): the alternate screen, then its PTY size on its first row, over and over.
+fn install_fake_lazygit(dir: &Path) {
+    let file = dir.join("lazygit");
+    let script = "#!/bin/sh\nprintf '\\033[?1049h\\033[2J'\nwhile :; do\n\tprintf '\\033[Hgit size %s' \"$(stty size)\"\n\tsleep 0.05\ndone\n";
+    fs::write(&file, script).expect("write lazygit");
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).expect("chmod lazygit");
+}
+
 fn first_row(frame: &str) -> &str {
     frame.split('\n').next().unwrap_or("")
 }
 
+/// The frame's rows from the bottom (`0`: the last row).
+fn row_from_bottom(frame: &str, index: usize) -> &str {
+    frame.trim_end_matches('\n').split('\n').rev().nth(index).unwrap_or("")
+}
+
+fn is_rule(row: &str) -> bool {
+    row.starts_with('─') && row.trim_end().chars().all(|c| c == '─')
+}
+
 #[test]
-fn the_status_line_stays_on_the_top_row_for_every_agent() {
+fn the_status_line_holds_its_rows_for_every_agent_and_pane() {
     let sandbox = Sandbox::new("attach-status");
     let home = sandbox.dev_home();
     let bin = home.join("bin");
     install_noisy_agents(&bin);
+    install_fake_lazygit(&bin);
     let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default());
     let launcher_script = launcher().display().to_string();
     let mut ui = Ui::spawn(
@@ -85,21 +103,17 @@ fn the_status_line_stays_on_the_top_row_for_every_agent() {
         );
         ui.press("\r");
 
-        // Attached (every agent attach is full screen, so the line goes on top): the agent sees 34 of the 36 rows,
-        // and the line and its rule hold the first two through clears and resets.
+        // Attached: the agent sees 34 of the 36 rows, and the rule and the line hold the last two through clears and
+        // resets (the agent's moves far down land on its own last row).
         ui.screen_within("size 34 130", Duration::from_secs(10));
         for _ in 0..12 {
             std::thread::sleep(Duration::from_millis(250));
             let frame = ui.screen_text();
-            let line = first_row(&frame);
-            let rule = frame.split('\n').nth(1).unwrap_or("");
-            assert!(
-                rule.starts_with('─') && rule.trim_end().chars().all(|c| c == '─'),
-                "{agent}: rule missing under the status line:\n{frame}"
-            );
+            let (rule, line) = (row_from_bottom(&frame, 1), row_from_bottom(&frame, 0));
+            assert!(is_rule(rule), "{agent}: rule missing over the status line:\n{frame}");
             assert!(
                 line.contains("deckhand") && line.contains(&name) && line.contains("Ctrl+] detach"),
-                "{agent}: status line missing from the top row:\n{frame}"
+                "{agent}: status line missing from the bottom row:\n{frame}"
             );
             assert!(
                 !line.contains("tick") && !line.contains("low"),
@@ -113,8 +127,54 @@ fn the_status_line_stays_on_the_top_row_for_every_agent() {
         ui.press("\x1d");
         let frame = ui.screen_within("q quit", Duration::from_secs(10));
         assert!(
-            !first_row(&frame).contains("Ctrl+] detach"),
+            !frame.contains("│ Ctrl+] detach"),
             "{agent}: status line left behind:\n{frame}"
         );
     }
+
+    // The Terminal pane (normal screen): the shell keeps the top rows (and its scrollback) and sees 34 of them;
+    // scrolling never reaches the rule or the line.
+    ui.press("t");
+    ui.screen("enter open");
+    ui.press("\r");
+    let frame = ui.screen_within("· terminal", Duration::from_secs(10));
+    assert!(
+        row_from_bottom(&frame, 0).contains("deckhand") && row_from_bottom(&frame, 0).contains("noisy-codex"),
+        "terminal: status line missing from the bottom row:\n{frame}"
+    );
+    ui.press("stty size\r");
+    ui.screen_within("34 130", Duration::from_secs(10));
+    ui.press("seq 1 200\r");
+    let frame = ui.screen_within("200", Duration::from_secs(10));
+    assert!(
+        is_rule(row_from_bottom(&frame, 1)),
+        "terminal: rule missing over the line:\n{frame}"
+    );
+    assert!(
+        row_from_bottom(&frame, 0).contains("· terminal") && !row_from_bottom(&frame, 0).contains("200"),
+        "terminal: shell output on the status row:\n{frame}"
+    );
+    ui.press("\x1d");
+    let frame = ui.screen_within("q quit", Duration::from_secs(10));
+    assert!(
+        !frame.contains("· terminal │"),
+        "terminal: status line left behind:\n{frame}"
+    );
+
+    // The Git pane (lazygit, full screen): the same two rows.
+    ui.press("g");
+    ui.screen("enter lazygit");
+    ui.press("\r");
+    let frame = ui.screen_within("git size 34 130", Duration::from_secs(10));
+    assert!(
+        first_row(&frame).starts_with("git size"),
+        "git: lazygit off its first row:\n{frame}"
+    );
+    assert!(
+        row_from_bottom(&frame, 0).contains("deckhand") && row_from_bottom(&frame, 0).contains("· git"),
+        "git: status line missing from the bottom row:\n{frame}"
+    );
+    assert!(is_rule(row_from_bottom(&frame, 1)), "git: rule missing:\n{frame}");
+    ui.press("\x1d");
+    ui.screen_within("q quit", Duration::from_secs(10));
 }

@@ -17,10 +17,11 @@ use deckhand_core::display::{DetailLine, HintPart, THEME, error_message};
 use deckhand_core::jsstr::{byte_to_utf16, js_len, js_slice, js_to_upper, js_trim, utf16_to_byte};
 use deckhand_core::key::Input;
 use deckhand_core::settings_model::{
-    ACTION_COMMAND_EXAMPLES, ACTION_COMMAND_HELP, ACTION_NAME_EXAMPLES, ACTION_NAME_RULES, SETTINGS,
+    ACTION_COMMAND_EXAMPLES, ACTION_COMMAND_HELP, ACTION_NAME_EXAMPLES, ACTION_NAME_RULES, DevEdit, SETTINGS,
     SavedMessageOptions, SettingChange, SettingControl, SettingDef, SettingId, action_name_check, action_name_problem,
     action_saved_message, apply_change, choice_change, choice_options, column_problem, command_problem, current_choice,
-    info_layer, inherited_hint, initial_column, initial_links, initial_text, is_app_flag, layer_actions, layer_sets,
+    derive_process_name, dev_command_change, dev_name_problem, dev_process_saved_message, dev_processes_of, entry_noun,
+    info_layer, inherited_hint, initial_column, initial_links, initial_text, is_app_flag, layer_entries, layer_sets,
     link_selection, other_target, own_value, preview_location, saved_message, setting_path, target_name, text_change,
     trust_note,
 };
@@ -39,7 +40,8 @@ use crate::keymap::Keymap;
 use crate::panes::config_editor::{ConfigEditorPaneProps, render_config_editor_pane};
 use crate::panes::details::{DetailsPaneProps, render_details_pane};
 use crate::panes::settings::{
-    ActionStep, LinksState, Notice, SettingsEdit, SettingsPaneProps, SettingsScroll, SettingsView, render_settings_pane,
+    ActionStep, LinksState, Notice, ProcessStep, SettingsEdit, SettingsPaneProps, SettingsScroll, SettingsView,
+    render_settings_pane,
 };
 
 /// TS: settingsFlow.tsx SettingsFlowMode.
@@ -132,6 +134,46 @@ pub fn capitalize(text: &str) -> String {
         None => String::new(),
         Some(first) if first.len_utf16() > 1 => text.to_owned(),
         Some(first) => format!("{}{}", js_to_upper(first.encode_utf8(&mut [0; 4])), chars.as_str()),
+    }
+}
+
+/// Not in the TS: a Dev process edit of `target` on `step`, its input starting at `text`.
+fn process_edit(
+    target: ConfigTargetKind,
+    step: ProcessStep,
+    name: Option<String>,
+    named: bool,
+    text: String,
+) -> SettingsEdit {
+    SettingsEdit::Process {
+        target,
+        step,
+        name,
+        command: None,
+        named,
+        state: state_at_end(text),
+        error: None,
+    }
+}
+
+/// The one-line input after `input` (no newlines; at most `limit` UTF-16 units, as in TS).
+fn edited_line(state: &EditorState, input: &Input, limit: usize) -> EditorState {
+    // One-line fields: Ctrl+A / Ctrl+E are line start / end, as in notes and tasks (select-all is the JSON editor's).
+    let options = EditOptions {
+        select_all: Some(false),
+        ..EditOptions::default()
+    };
+    let next = edit_text(state, &input.input, &input.key, &options);
+    // The limit and the cursor are UTF-16 units, as in TS; the cursor is not moved for the newlines dropped.
+    let cursor = byte_to_utf16(&next.text, next.cursor);
+    let stripped = next.text.replace('\n', "");
+    let text = js_slice(&stripped, 0, Some(i64::try_from(limit).unwrap_or(i64::MAX)));
+    let cursor = utf16_to_byte(&text, cursor.min(js_len(&stripped)).min(limit));
+    EditorState {
+        text,
+        cursor,
+        select_all: (next.select_all == Some(true)).then_some(true),
+        message: None,
     }
 }
 
@@ -334,6 +376,7 @@ impl SettingsFlow {
         cx.set_busy(true);
         // The column of the call (TS: the closure's), for the action row's bound.
         let column = self.column;
+        let list_id = self.list_id();
         let target_cwd = cwd.to_owned();
         // Each result releases busy in the same render that shows it, so keys typed right after it are not dropped.
         cx.spawn(client.settings_info(cwd), move |flow: &mut SettingsFlow, result, cx| {
@@ -351,7 +394,7 @@ impl SettingsFlow {
                     if fresh || column_problem(&next.targets, flow.column).is_some() {
                         flow.column = initial_column(&next.targets);
                     }
-                    flow.action_row = flow.action_row.min(layer_actions(&next, column).own.len());
+                    flow.action_row = flow.action_row.min(layer_entries(&next, list_id, column).own.len());
                     cx.emit(FlowEffect::SetMode(Mode::Settings));
                     if let Some(after) = after {
                         after(flow, &next, cx);
@@ -374,6 +417,21 @@ impl SettingsFlow {
     /// The setting under the cursor (TS `def`).
     fn def(&self) -> SettingDef {
         SETTINGS[self.row.min(SETTINGS.len() - 1)]
+    }
+
+    /// The named-command list the list view edits: Actions, or (not in the TS) the Dev command's processes.
+    pub fn list_id(&self) -> SettingId {
+        match self.def().id {
+            SettingId::DevCommand => SettingId::DevCommand,
+            _ => SettingId::Actions,
+        }
+    }
+
+    /// Not in the TS: Enter on the Dev command lists what Dev runs: its one command, or its processes, then
+    /// + Add a process.
+    fn open_dev_processes(&mut self) {
+        self.view = SettingsView::Actions;
+        self.action_row = 0;
     }
 
     /// The cell the cursor is on: a global-only row always selects Global (TS `cellColumn`).
@@ -709,9 +767,22 @@ impl SettingsFlow {
                 entry,
             } => {
                 if key.return_ {
-                    let change = SettingChange {
-                        path: setting_path(id, entry.as_deref()),
-                        value: None,
+                    let process = entry.as_deref().filter(|_| id == SettingId::DevCommand);
+                    let change = match (process, self.info.as_ref()) {
+                        (Some(name), Some(info)) => {
+                            match dev_command_change(&info.targets, target, &DevEdit::Remove { name: name.to_owned() })
+                            {
+                                Ok(change) => change,
+                                Err(error) => {
+                                    self.notice = notice(error, true);
+                                    return;
+                                }
+                            }
+                        }
+                        _ => SettingChange {
+                            path: setting_path(id, entry.as_deref()),
+                            value: None,
+                        },
                     };
                     let options = SaveOptions {
                         cleared: true,
@@ -729,6 +800,7 @@ impl SettingsFlow {
                 current: stored,
             } => self.handle_choice(id, &label, target, &options, index, stored, input, props, cx),
             SettingsEdit::Text { .. } => self.handle_text(current, input, props, cx),
+            SettingsEdit::Process { .. } => self.handle_process(current, input, props, cx),
         }
     }
 
@@ -849,12 +921,12 @@ impl SettingsFlow {
                     }
                     return;
                 }
-                let command = initial_text(&info.targets, SettingId::Actions, target, Some(&text));
-                let placeholder = inherited_hint(info, SettingId::Actions, target, Some(&text))
-                    .filter(|placeholder| !placeholder.is_empty());
+                let command = initial_text(&info.targets, id, target, Some(&text));
+                let placeholder =
+                    inherited_hint(info, id, target, Some(&text)).filter(|placeholder| !placeholder.is_empty());
                 self.edit = Some(SettingsEdit::Text {
-                    id: SettingId::Actions,
-                    label: format!("Action {text}"),
+                    id,
+                    label: format!("{} {text}", capitalize(entry_noun(id))),
                     target,
                     state: state_at_end(command),
                     error: None,
@@ -949,7 +1021,7 @@ impl SettingsFlow {
                 let shown = name.clone();
                 options.message = Some(Box::new(move |trust| action_saved_message(&shown, target, trust)));
                 options.after = Some(Box::new(move |flow, next| {
-                    flow.action_row = layer_actions(next, target)
+                    flow.action_row = layer_entries(next, id, target)
                         .own
                         .iter()
                         .position(|action| action.name == name)
@@ -963,37 +1035,211 @@ impl SettingsFlow {
         if key.tab || key.up_arrow || key.down_arrow {
             return;
         }
-        // One-line fields: Ctrl+A / Ctrl+E are line start / end, as in notes and tasks (select-all is the JSON editor's).
-        let options = EditOptions {
-            select_all: Some(false),
-            ..EditOptions::default()
-        };
-        let next = edit_text(state, &input.input, key, &options);
         let limit = if *step == Some(ActionStep::Name) {
             48
         } else {
             max_text(id)
         };
-        // The limit and the cursor are UTF-16 units, as in TS; the cursor is not moved for the newlines dropped.
-        let cursor = byte_to_utf16(&next.text, next.cursor);
-        let stripped = next.text.replace('\n', "");
-        let text = js_slice(&stripped, 0, Some(i64::try_from(limit).unwrap_or(i64::MAX)));
-        let cursor = utf16_to_byte(&text, cursor.min(js_len(&stripped)).min(limit));
         let mut edit = current.clone();
         if let SettingsEdit::Text { state, error, .. } = &mut edit {
-            *state = EditorState {
-                text,
-                cursor,
-                select_all: (next.select_all == Some(true)).then_some(true),
-                message: None,
-            };
+            *state = edited_line(state, input, limit);
             *error = None;
         }
         self.edit = Some(edit);
     }
 
+    /// Not in the TS: handleEdit for a Dev process: its command (then, for a new one beside others, its name,
+    /// suggested from the command), or a new name. Each edit saves the whole devCommand.
+    fn handle_process(
+        &mut self,
+        current: SettingsEdit,
+        input: &Input,
+        props: &SettingsFlowProps<'_>,
+        cx: &mut FlowCx<App, Self>,
+    ) {
+        let SettingsEdit::Process {
+            target,
+            step,
+            name,
+            command,
+            named,
+            state,
+            ..
+        } = &current
+        else {
+            return;
+        };
+        let Some(info) = self.info.as_ref() else { return };
+        let (target, step, named) = (*target, *step, *named);
+        let with_error = |error: String| {
+            let mut edit = current.clone();
+            if let SettingsEdit::Process { error: slot, .. } = &mut edit {
+                *slot = Some(error);
+            }
+            edit
+        };
+        let key = &input.key;
+        if key.return_ {
+            let text = state.text.clone();
+            let processes = dev_processes_of(&info.targets, target);
+            let edit = match (step, name) {
+                // A new process beside others: its name next, suggested from the command.
+                (ProcessStep::Command, None) if named => {
+                    if let Some(problem) = command_problem(&text) {
+                        self.edit = Some(with_error(problem));
+                        return;
+                    }
+                    let taken: Vec<&str> = processes.iter().map(|(name, _)| name.as_str()).collect();
+                    self.edit = Some(SettingsEdit::Process {
+                        target,
+                        step: ProcessStep::Name,
+                        name: None,
+                        command: Some(text.clone()),
+                        named,
+                        state: state_at_end(derive_process_name(&text, &taken)),
+                        error: None,
+                    });
+                    return;
+                }
+                (ProcessStep::Command, None) => DevEdit::Add {
+                    name: None,
+                    command: text,
+                },
+                (ProcessStep::Command, Some(name)) => {
+                    if processes.iter().any(|(entry, own)| entry == name && *own == text) {
+                        self.edit = None;
+                        self.notice = notice(format!("Dev process {name} unchanged"), false);
+                        return;
+                    }
+                    DevEdit::SetCommand {
+                        name: name.clone(),
+                        command: text,
+                    }
+                }
+                (ProcessStep::Name, _) => DevEdit::Add {
+                    name: Some(text),
+                    command: command.clone().unwrap_or_default(),
+                },
+                (ProcessStep::Rename, Some(from)) if *from == text => {
+                    self.edit = None;
+                    self.notice = notice(format!("Dev process {from} unchanged"), false);
+                    return;
+                }
+                (ProcessStep::Rename, Some(from)) => DevEdit::Rename {
+                    from: from.clone(),
+                    to: text,
+                },
+                (ProcessStep::Rename, None) => return,
+            };
+            let change = match dev_command_change(&info.targets, target, &edit) {
+                Ok(change) => change,
+                Err(error) => {
+                    self.edit = Some(with_error(error));
+                    return;
+                }
+            };
+            // The process the list shows selected afterwards, and how the status names it.
+            let (shown, label) = match &edit {
+                DevEdit::Add { name: None, .. } => (None, "Dev command".to_owned()),
+                DevEdit::Add { name: Some(name), .. } | DevEdit::SetCommand { name, .. } => {
+                    (Some(name.clone()), format!("Dev process {name}"))
+                }
+                DevEdit::Rename { to, .. } => (Some(to.clone()), format!("Dev process {to}")),
+                DevEdit::Remove { name } => (None, format!("Dev process {name}")),
+            };
+            let failed = current.clone();
+            let fail: SaveFail = Box::new(move |flow, message| {
+                let mut edit = failed;
+                if let SettingsEdit::Process { error, .. } = &mut edit {
+                    *error = Some(message);
+                }
+                flow.edit = Some(edit);
+            });
+            let message_name = shown.clone();
+            let options = SaveOptions {
+                fail: Some(fail),
+                message: Some(Box::new(move |trust| {
+                    dev_process_saved_message(message_name.as_deref(), target, trust)
+                })),
+                after: Some(Box::new(move |flow, next| {
+                    let processes = dev_processes_of(&next.targets, target);
+                    flow.action_row = shown
+                        .and_then(|shown| processes.iter().position(|(name, _)| *name == shown))
+                        .unwrap_or(0);
+                })),
+                ..SaveOptions::default()
+            };
+            self.save(target, change, &label, options, props, cx);
+            return;
+        }
+        if key.tab || key.up_arrow || key.down_arrow {
+            return;
+        }
+        let limit = if step == ProcessStep::Command {
+            max_text(SettingId::DevCommand)
+        } else {
+            48
+        };
+        let mut edit = current.clone();
+        if let SettingsEdit::Process { state, error, .. } = &mut edit {
+            *state = edited_line(state, input, limit);
+            *error = None;
+        }
+        self.edit = Some(edit);
+    }
+
+    /// Not in the TS: the help lines of a Dev process edit (the live check of a name, what a command runs as).
+    fn process_help(&self) -> Option<Vec<DetailLine>> {
+        let Some(SettingsEdit::Process {
+            target,
+            step,
+            name,
+            state,
+            error,
+            ..
+        }) = self.edit.as_ref()
+        else {
+            return None;
+        };
+        let info = self.info.as_ref()?;
+        let text = state.text.as_str();
+        if *step == ProcessStep::Command {
+            let problem = if js_trim(text).is_empty() {
+                None
+            } else {
+                command_problem(text)
+            };
+            return Some(
+                problem
+                    .map(|problem| colored(problem, THEME.error))
+                    .into_iter()
+                    .chain([
+                        line(
+                            "Runs in the Dev tab with your shell, in the session's worktree · && cd env vars all work",
+                        ),
+                        line("e.g. npm run dev · cd backend && .venv/bin/python main.py · cd frontend && npm run dev"),
+                    ])
+                    .collect(),
+            );
+        }
+        let mut lines = Vec::new();
+        let renaming = name.as_deref().filter(|_| *step == ProcessStep::Rename);
+        if !text.is_empty()
+            && let Some(problem) = dev_name_problem(&info.targets, *target, text, renaming)
+            && Some(&problem) != error.as_ref()
+        {
+            lines.push(colored(problem, THEME.error));
+        }
+        lines.push(line("Its label in the Dev tab and the run list (r)"));
+        lines.push(line(ACTION_NAME_RULES));
+        Some(lines)
+    }
+
     /// TS: useSettingsFlow editHelp: the edit control's help lines (live check, rules, examples, preview).
     pub fn edit_help(&self) -> Option<Vec<DetailLine>> {
+        if matches!(self.edit, Some(SettingsEdit::Process { .. })) {
+            return self.process_help();
+        }
         let Some(SettingsEdit::Text {
             id,
             target,
@@ -1273,7 +1519,13 @@ impl SettingsFlow {
         let Some(info) = self.info.as_ref() else { return };
         let key = &input.key;
         let column = self.column;
-        let actions = layer_actions(info, column).own;
+        let id = self.list_id();
+        if id == SettingId::DevCommand {
+            self.handle_dev_list(props, input, cx);
+            return;
+        }
+        let noun = entry_noun(id);
+        let actions = layer_entries(info, id, column).own;
         if let Some(moved) = move_cursor(input, self.action_row, actions.len()) {
             self.action_row = moved;
             self.notice = None;
@@ -1296,8 +1548,8 @@ impl SettingsFlow {
         let action = actions.get(self.action_row);
         if input.input == "a" || (key.return_ && action.is_none()) {
             self.edit = Some(SettingsEdit::Text {
-                id: SettingId::Actions,
-                label: "New action".to_owned(),
+                id,
+                label: format!("New {noun}"),
                 target: column,
                 state: EditorState::default(),
                 error: None,
@@ -1310,10 +1562,10 @@ impl SettingsFlow {
         if key.return_
             && let Some(action) = action
         {
-            let text = initial_text(&info.targets, SettingId::Actions, column, Some(&action.name));
+            let text = initial_text(&info.targets, id, column, Some(&action.name));
             self.edit = Some(SettingsEdit::Text {
-                id: SettingId::Actions,
-                label: format!("Action {}", action.name),
+                id,
+                label: format!("{} {}", capitalize(noun), action.name),
                 target: column,
                 state: state_at_end(text),
                 error: None,
@@ -1327,11 +1579,63 @@ impl SettingsFlow {
             && let Some(action) = action
         {
             self.edit = Some(SettingsEdit::Clear {
-                id: SettingId::Actions,
-                label: format!("action {}", action.name),
+                id,
+                label: format!("{noun} {}", action.name),
                 target: column,
                 entry: Some(action.name.clone()),
             });
+        }
+    }
+
+    /// Not in the TS: handleInput in a layer's Dev list: Enter edits a process's command (or, on + Add a process,
+    /// adds one), r renames, x removes.
+    fn handle_dev_list(&mut self, props: &SettingsFlowProps<'_>, input: &Input, cx: &mut FlowCx<App, Self>) {
+        let Some(info) = self.info.as_ref() else { return };
+        let key = &input.key;
+        let column = self.column;
+        let processes = dev_processes_of(&info.targets, column);
+        if let Some(moved) = move_cursor(input, self.action_row, processes.len()) {
+            self.action_row = moved;
+            self.notice = None;
+            return;
+        }
+        if key.escape {
+            self.view = SettingsView::Main;
+            self.notice = None;
+            return;
+        }
+        if input.input == "E" {
+            self.edit_json(column, props, cx);
+            return;
+        }
+        if input.input == "T" {
+            self.review(props, cx);
+            return;
+        }
+        self.notice = None;
+        let process = processes.get(self.action_row);
+        match process {
+            None if key.return_ || input.input == "a" => {
+                let named = !processes.is_empty();
+                self.edit = Some(process_edit(column, ProcessStep::Command, None, named, String::new()));
+            }
+            Some((name, command)) if key.return_ => {
+                let edit = process_edit(column, ProcessStep::Command, Some(name.clone()), true, command.clone());
+                self.edit = Some(edit);
+            }
+            Some((name, _)) if input.input == "r" => {
+                let edit = process_edit(column, ProcessStep::Rename, Some(name.clone()), true, name.clone());
+                self.edit = Some(edit);
+            }
+            Some((name, _)) if input.input == "x" => {
+                self.edit = Some(SettingsEdit::Clear {
+                    id: SettingId::DevCommand,
+                    label: format!("Dev process {name}"),
+                    target: column,
+                    entry: Some(name.clone()),
+                });
+            }
+            _ => {}
         }
     }
 
@@ -1377,11 +1681,11 @@ impl SettingsFlow {
             return;
         }
         self.notice = None;
+        let def = self.def();
         let clear = input.input == "x";
         if !clear && !key.return_ {
             return;
         }
-        let def = self.def();
         if is_app_flag(def.id) {
             if clear {
                 self.notice = notice(format!("{}: Enter switches it on or off", def.label), false);
@@ -1423,6 +1727,11 @@ impl SettingsFlow {
                 target: column,
                 entry: None,
             });
+            return;
+        }
+        // Not in the TS: the Dev command is edited in the list of what Dev runs (one command, or processes).
+        if def.id == SettingId::DevCommand {
+            self.open_dev_processes();
             return;
         }
         match def.control {
@@ -1546,6 +1855,7 @@ impl Flow<App> for SettingsFlow {
             view: self.view,
             row: self.row,
             action_row: self.action_row,
+            list: self.list_id(),
             column,
             edit: self.edit.as_ref(),
             edit_help: help.as_deref(),
@@ -1777,7 +2087,9 @@ mod tests {
 
     fn edit_text_of(flow: &SettingsFlow) -> Option<(String, Option<String>)> {
         match flow.edit.as_ref() {
-            Some(SettingsEdit::Text { state, error, .. }) => Some((state.text.clone(), error.clone())),
+            Some(SettingsEdit::Text { state, error, .. } | SettingsEdit::Process { state, error, .. }) => {
+                Some((state.text.clone(), error.clone()))
+            }
             _ => None,
         }
     }
@@ -1930,25 +2242,23 @@ mod tests {
             let mut h = Harness::new();
             h.open(info_json()).await;
             h.app.flows.settings.row = row_of(SettingId::DevCommand);
+            // The Dev command's list, then + Add a process.
+            h.special(ENTER);
             h.special(ENTER);
             assert!(matches!(
                 h.flow().edit.as_ref(),
-                Some(SettingsEdit::Text { placeholder: Some(placeholder), .. }) if placeholder == "built-in: dev"
+                Some(SettingsEdit::Process {
+                    step: ProcessStep::Command,
+                    name: None,
+                    named: false,
+                    ..
+                })
             ));
-            assert_eq!(
-                h.flow().edit_help(),
-                Some(vec![line(
-                    "Runs in the Dev pane (d d starts it), with your shell in the session's worktree"
-                )])
-            );
             // Blank commands are refused in place.
             h.special(ENTER);
             assert_eq!(
                 edit_text_of(h.flow()),
-                Some((
-                    String::new(),
-                    Some("Type a command (x clears the setting instead)".to_owned())
-                ))
+                Some((String::new(), Some("Type a command".to_owned())))
             );
             // Pasted newlines are dropped; typing clears the error.
             h.text("npm run\n dev");
@@ -2082,6 +2392,98 @@ mod tests {
             h.special(ESCAPE);
             h.special(ESCAPE);
             assert_eq!(h.flow().view, SettingsView::Main);
+        });
+    }
+
+    #[test]
+    fn the_dev_command_is_a_list_of_processes_named_from_their_commands() {
+        local(async {
+            let mut h = Harness::new();
+            h.open(info_with_repository(&json!({}))).await;
+            h.app.flows.settings.row = row_of(SettingId::DevCommand);
+            // Enter lists what Dev runs; with nothing yet, only + Add a process.
+            h.special(ENTER);
+            assert_eq!(h.flow().view, SettingsView::Actions);
+            assert_eq!(h.flow().list_id(), SettingId::DevCommand);
+            // The first process is just a command: the Dev command.
+            h.special(ENTER);
+            assert!(matches!(
+                h.flow().edit,
+                Some(SettingsEdit::Process {
+                    step: ProcessStep::Command,
+                    name: None,
+                    named: false,
+                    ..
+                })
+            ));
+            h.text("npm run dev");
+            h.special(ENTER);
+            let request = h.daemon.next().await;
+            assert_eq!(request["raw"], "{\n  \"devCommand\": \"npm run dev\"\n}\n");
+            let saved = |request: &Value, revision: &str| {
+                json!({"kind": "repository", "root": "/repo", "path": "/repo/deckhand.json",
+                    "raw": request["raw"], "revision": revision, "exists": true, "trust": "kept"})
+            };
+            h.daemon
+                .respond(&request, json!({"ok": true, "data": saved(&request, "r2")}))
+                .await;
+            h.pump().await;
+            h.daemon
+                .answer(
+                    "settings-info",
+                    info_with_repository(&json!({"devCommand": "npm run dev"})),
+                )
+                .await;
+            h.pump().await;
+            let expected = dev_process_saved_message(None, ConfigTargetKind::Repository, Some(SaveTrust::Kept));
+            assert_eq!(h.app.messages.status_message.as_deref(), Some(expected.as_str()));
+
+            // A second process: its command, then a name suggested from it; the command joins under its own.
+            h.text("j");
+            h.special(ENTER);
+            assert!(matches!(
+                h.flow().edit,
+                Some(SettingsEdit::Process {
+                    step: ProcessStep::Command,
+                    name: None,
+                    named: true,
+                    ..
+                })
+            ));
+            h.text("cd frontend && npm run dev");
+            h.special(ENTER);
+            assert_eq!(edit_text_of(h.flow()), Some(("frontend".to_owned(), None)));
+            h.special(ENTER);
+            let request = h.daemon.next().await;
+            assert_eq!(
+                request["raw"],
+                "{\n  \"devCommand\": {\n    \"dev\": \"npm run dev\",\n    \"frontend\": \"cd frontend && npm run dev\"\n  }\n}\n"
+            );
+            h.daemon
+                .respond(&request, json!({"ok": true, "data": saved(&request, "r3")}))
+                .await;
+            h.pump().await;
+            let named = json!({"devCommand": {"dev": "npm run dev", "frontend": "cd frontend && npm run dev"}});
+            h.daemon.answer("settings-info", info_with_repository(&named)).await;
+            h.pump().await;
+            assert_eq!(h.flow().action_row, 1);
+
+            // r renames in place; a taken name is refused.
+            h.text("k");
+            h.text("r");
+            assert_eq!(edit_text_of(h.flow()), Some(("dev".to_owned(), None)));
+            h.text("-api");
+            h.special(ENTER);
+            let request = h.daemon.next().await;
+            assert_eq!(
+                request["raw"],
+                "{\n  \"devCommand\": {\n    \"dev-api\": \"npm run dev\",\n    \"frontend\": \"cd frontend && npm run dev\"\n  }\n}\n"
+            );
+            let info: SettingsInfo = serde_json::from_value(info_with_repository(&named)).unwrap();
+            assert_eq!(
+                dev_name_problem(&info.targets, ConfigTargetKind::Repository, "frontend", Some("dev")),
+                Some("frontend is already a Dev process here".to_owned())
+            );
         });
     }
 

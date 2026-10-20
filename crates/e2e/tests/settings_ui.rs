@@ -108,9 +108,12 @@ fn settings_grid_global_and_repo_columns() {
     ui.screen("❯ Default workspace");
     ui.press("j");
     ui.screen("No Dev command is set, so d runs a shell command named `dev`.");
+    // Enter lists what Dev runs; + Add a process asks for the (first, so single) command.
+    ui.press("\r");
+    ui.screen("Settings › Dev command · Global");
+    ui.screen("+ Add a process");
     ui.press("\r");
     ui.screen("Dev command · Global");
-    ui.screen("built-in: dev");
     ui.press("printf global");
     ui.screen("printf global");
     ui.press("\r");
@@ -120,6 +123,8 @@ fn settings_grid_global_and_repo_columns() {
         json!({"actions": {"fmt": "npm run fmt"}, "devCommand": "printf global"})
     );
     assert_eq!(read_json(&file), with(&original, json!({"defaultAgent": "codex"})));
+    ui.press("\x1b");
+    ui.screen("❯ Dev command");
     ui.press("j");
     ui.screen("No setup command");
     ui.press("\r");
@@ -236,14 +241,18 @@ fn dev_command_saved_in_settings_keeps_the_file_trusted() {
     ui.press("\x1b[C");
     ui.screen("not set: inherits global");
     ui.press("\r");
+    ui.screen("Settings › Dev command · This repo");
+    ui.screen("echo fallback-$((40+2))");
+    ui.press("\r");
     ui.screen("Dev command · This repo");
-    ui.screen("global: echo fallback-$((40+2))");
     ui.press("echo repo-$((40+2))");
     ui.screen("› echo repo-$((40+2))");
     ui.press("\r");
     ui.screen("Saved Dev command to this repo · created and trusted");
-    ui.screen("deckhand.json: trusted ✓");
     assert_eq!(read_json(&file)["devCommand"], json!("echo repo-$((40+2))"));
+    ui.press("\x1b");
+    ui.screen("❯ Dev command");
+    ui.screen("deckhand.json: trusted ✓");
     let trusted = read_json(&config)
         .get("trustedProjects")
         .and_then(Value::as_object)

@@ -674,8 +674,25 @@ pub struct PaneRecord {
     pub exit_code: Option<Option<i64>>,
     #[serde(default, with = "::serde_with::rust::double_option")]
     pub exit_signal: Option<Option<i64>>,
+    /// Not in the TS: Dev's named processes (`devCommand` as a map), one PTY each, in the configured order. Absent for a
+    /// single Dev command, whose output is the record's own `content`.
+    pub processes: Option<Vec<DevProcessRecord>>,
     pub session_id: Option<String>,
     pub workspace: Option<String>,
+}
+
+/// Not in the TS: one named Dev process of a [`PaneRecord`]. A configured process that is not running has no
+/// output and `live: false`.
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevProcessRecord {
+    pub name: String,
+    pub content: String,
+    pub live: bool,
+    pub command: Option<String>,
+    pub exit_code: Option<i64>,
+    pub exit_signal: Option<i64>,
 }
 
 pub type TerminalRecord = PaneRecord;
@@ -781,10 +798,49 @@ pub struct WorktreeSettings {
 pub struct ProjectConfig {
     pub default_agent: Option<ProgramKey>,
     pub default_workspace: Option<WorktreeMode>,
-    pub dev_command: Option<String>,
+    /// A command, or (not in the TS) named commands that run side by side.
+    pub dev_command: Option<DevCommand>,
     pub setup_command: Option<String>,
     pub actions: Option<IndexMap<String, String>>,
     pub worktree: Option<WorktreeSettings>,
+}
+
+impl ProjectConfig {
+    /// `devCommand` when it is one command.
+    pub fn dev_command_text(&self) -> Option<&str> {
+        self.dev_command.as_ref().and_then(DevCommand::text)
+    }
+
+    /// `devCommand` when it names several processes (not in the TS).
+    pub fn dev_processes(&self) -> Option<&IndexMap<String, String>> {
+        self.dev_command.as_ref().and_then(DevCommand::processes)
+    }
+}
+
+/// `devCommand`: one command, or (not in the TS) a name → command map of processes that run side by side.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DevCommand {
+    Command(String),
+    Processes(IndexMap<String, String>),
+}
+
+impl DevCommand {
+    /// The one command.
+    pub fn text(&self) -> Option<&str> {
+        match self {
+            DevCommand::Command(command) => Some(command),
+            DevCommand::Processes(_) => None,
+        }
+    }
+
+    /// The named processes.
+    pub fn processes(&self) -> Option<&IndexMap<String, String>> {
+        match self {
+            DevCommand::Command(_) => None,
+            DevCommand::Processes(processes) => Some(processes),
+        }
+    }
 }
 
 /// git.ts CreationHook: the reviewed creation hook.
@@ -1210,6 +1266,8 @@ pub enum UiExitResult {
         title: Option<String>,
         cwd: Option<String>,
         program: Option<ProgramKey>,
+        /// Not in the TS: the Dev process to attach to (`devCommand` as a map).
+        process: Option<String>,
     },
     #[serde(rename = "edit-note")]
     EditNote {
@@ -1217,6 +1275,8 @@ pub enum UiExitResult {
         session_id: String,
         file: String,
         editor: EditorCommand,
+        /// Not in the TS: the session's title, for the status bar over the note.
+        title: Option<String>,
     },
 }
 

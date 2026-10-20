@@ -146,6 +146,8 @@ pub struct FooterHintInput<'a> {
     pub attach_ready: bool,
     pub notes_hint: Option<&'a str>,
     pub terminal_action: Option<&'a TerminalActionHint>,
+    /// Not in the TS: the Dev tab's process switch (`v next: <name>`), with named processes.
+    pub dev_switch: Option<&'a str>,
 }
 
 /// A hint part dropped at level `drop` (TS `{text, drop}`).
@@ -335,6 +337,7 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
         mode => {
             let action = &app.panes.action;
             let showing = app.showing_action();
+            let dev_switch = app.next_dev_process().map(|next| format!("v {next}"));
             let terminal_action = has_action(selected, action).then(|| TerminalActionHint {
                 switch_hint: if showing {
                     "v shell".to_owned()
@@ -361,6 +364,7 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
                 attach_ready: app.active_pane_ready_for_attach(),
                 notes_hint: notes_hint.as_deref(),
                 terminal_action: terminal_action.as_ref(),
+                dev_switch: dev_switch.as_deref(),
             });
             (text, THEME.hint)
         }
@@ -548,6 +552,7 @@ fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, ar
             let props = DevPaneProps {
                 session: selected,
                 dev: &app.panes.dev,
+                selected_process: app.panes.dev_process.as_deref(),
             };
             render_dev_pane(&props, buf, pane);
         }
@@ -676,10 +681,12 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                         || (app.panes.dev.session_id.as_deref() == Some(session.id.as_str()) && app.panes.dev.live)
                 }),
             });
+            let processes = app.run_list_processes();
             let props = ActionPickerPaneProps {
                 project: project.map(|project| &project.project),
                 running,
                 dev,
+                processes: &processes,
                 selected_index: app.action_picker.action_index,
             };
             render_action_picker_pane(&props, buf, right);
@@ -853,14 +860,17 @@ pub fn browse_hint_parts(input: &FooterHintInput<'_>) -> Vec<HintPart> {
     };
     let pane: Option<String> = match (tab, session) {
         (RightPaneTab::Notes, Some(_)) => Some("enter edit notes • o vim • E open in editor".to_owned()),
-        (RightPaneTab::Dev, Some(session)) if workspace_key(session).is_some_and(|key| !key.is_empty()) => Some(
-            if session.dev_running == Some(true) {
+        (RightPaneTab::Dev, Some(session)) if workspace_key(session).is_some_and(|key| !key.is_empty()) => {
+            let toggle = if session.dev_running == Some(true) {
                 "d d stop Dev"
             } else {
                 "d d start Dev"
-            }
-            .to_owned(),
-        ),
+            };
+            Some(match input.dev_switch {
+                Some(switch) => format!("{switch} • {toggle}"),
+                None => toggle.to_owned(),
+            })
+        }
         (RightPaneTab::Terminal, _) => input.terminal_action.map(|action| action.switch_hint.clone()),
         _ => None,
     };
@@ -966,6 +976,7 @@ mod tests {
             attach_ready: true,
             notes_hint: None,
             terminal_action: None,
+            dev_switch: None,
         })
     }
 
@@ -1011,6 +1022,7 @@ mod tests {
             attach_ready: false,
             notes_hint: None,
             terminal_action: None,
+            dev_switch: None,
         };
         assert_eq!(footer_hint(&input(Mode::Tasks)), "");
         assert_eq!(footer_hint(&input(Mode::NotesFocus)), "esc done");

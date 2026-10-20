@@ -12,15 +12,17 @@ use std::time::Duration;
 
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::path;
-use deckhand_core::project_config::{resolve_dev_command, resolve_settings};
+use deckhand_core::project_config::{DevPlan, resolve_dev_command, resolve_dev_plan, resolve_settings};
 use deckhand_core::session_scope::is_path_inside;
 use deckhand_core::workspace::{no_workspace_reason, workspace_key, workspace_worker_id};
 use deckhand_protocol::Ordered;
-use deckhand_protocol::data::{AttachTarget, OkResult, PaneRecord, SessionRecord};
+use deckhand_protocol::data::{AttachTarget, DevProcessRecord, OkResult, PaneRecord, SessionRecord};
 use deckhand_protocol::events::{
     ActionUpdated, DevUpdated, GitUpdated, ServerMessage, SessionOutput, SessionRef, TerminalUpdated,
 };
-use deckhand_protocol::wire::{Detach, Input, Resize, RunAction, SessionRequest, SessionSizeRequest, WatchPane};
+use deckhand_protocol::wire::{
+    Detach, Input, Resize, RunAction, SessionRequest, SessionSizeRequest, StopDevRequest, WatchPane,
+};
 use deckhand_protocol::worker_ipc::{IdleResult, WorkerMessage};
 use deckhand_sys::async_util::{SharedTask, spawn};
 use deckhand_sys::config::load_project_config;
@@ -229,16 +231,34 @@ fn stamped(record: &WorkspacePaneRecord, session_id: &str, key: &str) -> Workspa
     record
 }
 
-/// `{content, live: false, cwd, command, name}`: a pane's record once its worker is gone.
-fn stopped_record(content: String, cwd: &str, command: Option<String>, name: Option<String>) -> WorkspacePaneRecord {
+/// `{content, live: false, cwd, command, name}`: a pane's record once its worker is gone (Dev's named processes keep
+/// their output, marked stopped too).
+fn stopped_record(last: PaneRecord, cwd: &str) -> WorkspacePaneRecord {
+    let processes = last.processes.map(|processes| {
+        processes
+            .into_iter()
+            .map(|process| DevProcessRecord { live: false, ..process })
+            .collect()
+    });
     Ordered::new(PaneRecord {
-        content,
+        content: last.content,
         live: false,
         cwd: Some(cwd.to_owned()),
-        command,
-        name,
+        command: last.command,
+        name: last.name,
+        processes,
         ..PaneRecord::default()
     })
+}
+
+/// Not in the TS: what a `start-dev` starts.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DevStart {
+    pub plan: DevPlan,
+    /// Only this named process.
+    pub process: Option<String>,
+    /// Stop `process` first when it runs.
+    pub restart: bool,
 }
 
 /// Counts one pane request as in flight while it lives (TS `busy += 1` ... `finally { busy -= 1 }`).
@@ -589,8 +609,7 @@ impl Daemon {
             .map(|(pane, record)| (*pane, record.clone()))
             .collect();
         for (pane, last) in records {
-            let last = last.into_inner();
-            let record = stopped_record(last.content, &workspace.key, last.command, last.name);
+            let record = stopped_record(last.into_inner(), &workspace.key);
             self.publish_workspace_pane(&workspace.key, pane, &record);
         }
         self.sync_dev_running(&workspace.key).await
@@ -637,7 +656,7 @@ impl Daemon {
         }
         let panes: Vec<WorkspacePane> = workspace.records.borrow().keys().copied().collect();
         for pane in panes {
-            self.publish_workspace_pane(key, pane, &stopped_record(String::new(), key, None, None));
+            self.publish_workspace_pane(key, pane, &stopped_record(PaneRecord::default(), key));
         }
         self.sync_dev_running(key).await
     }
@@ -711,6 +730,23 @@ impl Daemon {
         cols: Option<i64>,
         rows: Option<i64>,
     ) -> Result<()> {
+        self.attach_workspace_process(client, request_id, pane, session_id, cols, rows, None)
+            .await
+    }
+
+    /// [`Daemon::attach_workspace_pane`] of one Dev process (`process`, by name; not in the TS). Dev stays one attach:
+    /// attaching another process from elsewhere is refused like attaching Dev twice.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn attach_workspace_process(
+        &self,
+        client: &ClientHandle,
+        request_id: &str,
+        pane: WorkspacePane,
+        session_id: &str,
+        cols: Option<i64>,
+        rows: Option<i64>,
+        process: Option<&str>,
+    ) -> Result<()> {
         let (session, key) = self.require_workspace(session_id, pane)?;
         let workspace = if starts_on_view(pane) {
             Some(self.open_workspace(&key).await?)
@@ -738,12 +774,11 @@ impl Daemon {
         // `clampSize(cols ?? DEFAULT, DEFAULT)`: absent and not a number alike are the default.
         let cols = clamp_size(cols, DEFAULT_PREVIEW_COLS);
         let rows = clamp_size(rows, DEFAULT_PREVIEW_ROWS);
-        let attach_data: Value = self
-            .request_pane(
-                &workspace,
-                payload(json!({"type": "attach", "target": pane.as_str(), "cols": cols, "rows": rows})),
-            )
-            .await?;
+        let mut attach = payload(json!({"type": "attach", "target": pane.as_str(), "cols": cols, "rows": rows}));
+        if let Some(process) = process {
+            attach.insert("process".to_owned(), Value::String(process.to_owned()));
+        }
+        let attach_data: Value = self.request_pane(&workspace, attach).await?;
         let attach_data = payload(attach_data);
         workspace.attached.borrow_mut().insert(
             pane,
@@ -778,18 +813,50 @@ impl Daemon {
         cols: Option<i64>,
         rows: Option<i64>,
     ) -> Result<WorkspacePaneRecord> {
+        let start = DevStart {
+            plan: DevPlan::Command(command.to_owned()),
+            process: None,
+            restart: false,
+        };
+        self.start_workspace_dev_plan(session_id, key, &start, cols, rows).await
+    }
+
+    /// [`Daemon::start_workspace_dev`] of a [`DevPlan`] (not in the TS): named processes run side by side, all of
+    /// them or only `process`.
+    pub async fn start_workspace_dev_plan(
+        &self,
+        session_id: &str,
+        key: &str,
+        start: &DevStart,
+        cols: Option<i64>,
+        rows: Option<i64>,
+    ) -> Result<WorkspacePaneRecord> {
         let workspace = self.open_workspace(key).await?;
-        let dev: WorkspacePaneRecord = self
-            .request_pane(
-                &workspace,
-                payload(json!({
-                    "type": "start-dev",
-                    "command": command,
-                    "cols": clamp_size(cols, DEFAULT_PREVIEW_COLS),
-                    "rows": clamp_size(rows, DEFAULT_PREVIEW_ROWS),
-                })),
-            )
-            .await?;
+        let mut request = payload(json!({
+            "type": "start-dev",
+            "command": "",
+            "cols": clamp_size(cols, DEFAULT_PREVIEW_COLS),
+            "rows": clamp_size(rows, DEFAULT_PREVIEW_ROWS),
+        }));
+        match &start.plan {
+            DevPlan::Command(command) => {
+                request.insert("command".to_owned(), Value::String(command.clone()));
+            }
+            DevPlan::Processes(processes) => {
+                let processes: Vec<Value> = processes
+                    .iter()
+                    .map(|(name, command)| json!({"name": name, "command": command}))
+                    .collect();
+                request.insert("processes".to_owned(), Value::Array(processes));
+                if let Some(process) = &start.process {
+                    request.insert("process".to_owned(), Value::String(process.clone()));
+                }
+                if start.restart {
+                    request.insert("restart".to_owned(), Value::Bool(true));
+                }
+            }
+        }
+        let dev: WorkspacePaneRecord = self.request_pane(&workspace, request).await?;
         if self.is_current_workspace(&workspace) {
             workspace.records.borrow_mut().insert(WorkspacePane::Dev, dev.clone());
             self.publish_workspace_pane(key, WorkspacePane::Dev, &dev);
@@ -833,11 +900,20 @@ impl Daemon {
 
     /// TS: InkDaemon.stopWorkspacePane (`dev` or `action`): stops it and retires the worker when nothing is left.
     pub async fn stop_workspace_pane(&self, key: &str, pane: WorkspacePane) -> Result<()> {
+        self.stop_workspace_process(key, pane, None).await
+    }
+
+    /// [`Daemon::stop_workspace_pane`] of one Dev process (`process`, by name; not in the TS).
+    pub async fn stop_workspace_process(&self, key: &str, pane: WorkspacePane, process: Option<&str>) -> Result<()> {
         let Some(workspace) = self.running_workspace(key) else {
             return Ok(());
         };
         let stop = format!("stop-{}", pane.as_str());
-        let IdleResult { idle } = workspace.channel.request(payload(json!({"type": stop}))).await?;
+        let mut request = payload(json!({"type": stop}));
+        if let Some(process) = process {
+            request.insert("process".to_owned(), Value::String(process.to_owned()));
+        }
+        let IdleResult { idle } = workspace.channel.request(request).await?;
         // Nothing else (Terminal, Git, Dev, an action) lives in the worker: retire it (its PTYs were already
         // signalled).
         let daemon = self.clone();
@@ -909,6 +985,13 @@ impl Daemon {
         let app_config = load_app_config().await?;
         let project = load_project_config(&session.cwd, Some(&app_config), None).await.ok();
         resolve_dev_command(project.as_ref(), &app_config, &self.config_dir_string())
+    }
+
+    /// Not in the TS: [`Daemon::resolve_session_dev_command`], or the session's named processes (`devCommand` as a map).
+    pub async fn resolve_session_dev_plan(&self, session: &SessionRecord) -> Result<DevPlan> {
+        let app_config = load_app_config().await?;
+        let project = load_project_config(&session.cwd, Some(&app_config), None).await.ok();
+        resolve_dev_plan(project.as_ref(), &app_config, &self.config_dir_string())
     }
 
     /// TS: handleRequest `run-action` (`Review and trust deckhand.json first (r, then the action, or T in
@@ -987,12 +1070,56 @@ impl Daemon {
             .await
     }
 
-    /// TS: handleRequest `start-dev`.
+    /// TS: handleRequest `start-dev` (`process`, not in the TS: only that one of the named processes, `Dev runs a
+    /// single command; there is no <process> process` when there are none).
     pub async fn handle_start_dev(&self, request: &SessionSizeRequest) -> Result<WorkspacePaneRecord> {
         let (session, key) = self.require_workspace(&request.session_id, WorkspacePane::Dev)?;
-        let command = self.resolve_session_dev_command(&session).await?;
-        self.start_workspace_dev(&session.id, &key, &command, request.cols, request.rows)
+        let plan = self.resolve_session_dev_plan(&session).await?;
+        let process = request.process.clone().filter(|process| !process.is_empty());
+        if let (DevPlan::Command(_), Some(process)) = (&plan, &process) {
+            return Err(DhError::msg(format!(
+                "Dev runs a single command; there is no {process} process"
+            )));
+        }
+        let start = DevStart {
+            plan,
+            process,
+            restart: request.restart == Some(true),
+        };
+        self.stop_dev_elsewhere(&session, &key).await?;
+        self.start_workspace_dev_plan(&session.id, &key, &start, request.cols, request.rows)
             .await
+    }
+
+    /// Not in the TS: Dev runs in one worktree of a repository at a time. Every worktree runs the same Dev config, so
+    /// its servers want the same ports: starting Dev in `key` first stops it in the repository's other worktrees.
+    pub async fn stop_dev_elsewhere(&self, session: &SessionRecord, key: &str) -> Result<()> {
+        let mut others: Vec<String> = Vec::new();
+        for other in self.repository_sessions(&session.repo_root).await {
+            if let Some(other) = self.workspace_key_of(&other)
+                && other != key
+                && !others.contains(&other)
+            {
+                others.push(other);
+            }
+        }
+        for other in others {
+            if self.workspace_dev_live(Some(&other)) {
+                self.log(&format!("stopping Dev in {other}: Dev starts in {key}")).await;
+                self.stop_workspace_pane(&other, WorkspacePane::Dev).await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Not in the TS: `stop-dev`, of every Dev process or only `process`.
+    pub async fn handle_stop_dev(&self, request: &StopDevRequest) -> Result<OkResult> {
+        let session = self.require_session(&request.session_id)?;
+        if let Some(key) = self.workspace_key_of(&session) {
+            let process = request.process.as_deref().filter(|process| !process.is_empty());
+            self.stop_workspace_process(&key, WorkspacePane::Dev, process).await?;
+        }
+        Ok(OkResult::default())
     }
 
     /// TS: handleRequest `stop-dev` / `stop-action` (`pane`: Dev or Action).
@@ -1166,7 +1293,7 @@ mod tests {
         let mut theirs = BufReader::new(theirs);
         theirs
             .get_mut()
-            .write_all(b"{\"type\":\"hello\",\"version\":46}\n")
+            .write_all(b"{\"type\":\"hello\",\"version\":47}\n")
             .await
             .unwrap();
         let workspace = Rc::new(WorkspaceRuntime::new(key.to_owned(), channel));
@@ -2051,7 +2178,7 @@ mod tests {
 
     /// A workspace worker in sh: says hello, answers `start` and `snapshot`, exits on `shutdown`.
     const SH_WORKSPACE_WORKER: &str = r#"#!/bin/sh
-printf '{"type":"hello","version":46}\n' >&3
+printf '{"type":"hello","version":47}\n' >&3
 echo "workspace $1"
 while IFS= read -r line <&3; do
   id=$(printf '%s' "$line" | sed -n 's/.*"requestId":"\([^"]*\)".*/\1/p')

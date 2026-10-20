@@ -16,7 +16,7 @@ use serde_with::skip_serializing_none;
 use crate::config_draft::format_config_json;
 use crate::error::{DhError, Result, json_parse_message};
 use crate::jsstr;
-use crate::project_config::validate_project_config;
+use crate::project_config::{MAX_DEV_PROCESSES, validate_project_config};
 use crate::worktree_links::worktree_location;
 use deckhand_protocol::data::{
     CandidateConfigured, CandidateSuggestion, CodexHookState, CodexHookStatus, ConfigTargetKind, ConfigTargets,
@@ -787,24 +787,41 @@ pub struct LayerActions {
 
 /// TS: settingsModel.ts layerActions.
 pub fn layer_actions(info: &SettingsInfo, kind: ConfigTargetKind) -> LayerActions {
+    layer_entries(info, SettingId::Actions, kind)
+}
+
+/// [`layer_actions`] of a named-command list: `actions`, or (not in the TS) the Dev processes of `devCommand` (see
+/// [`dev_processes_of`]). Dev does not merge across layers: the other layer's processes are context only while this
+/// one sets none.
+pub fn layer_entries(info: &SettingsInfo, id: SettingId, kind: ConfigTargetKind) -> LayerActions {
+    let dev = id == SettingId::DevCommand;
     let commands = |layer: ConfigTargetKind| -> Vec<(String, String)> {
         let layer = info_layer(&info.targets, layer);
-        match own_value(layer.as_ref(), SettingId::Actions, None) {
+        match own_value(layer.as_ref(), id, None) {
             Some(Value::Object(map)) => map
                 .iter()
                 .filter_map(|(name, command)| command.as_str().map(|command| (name.clone(), command.to_owned())))
                 .collect(),
+            Some(Value::String(command)) if dev => vec![(derive_process_name(command, &[]), command.clone())],
             _ => Vec::new(),
         }
     };
-    let pending: HashSet<&str> = info
+    let pending: Vec<String> = info
         .rows
         .iter()
-        .filter(|row| row.key == "actions" && row.pending.is_some())
-        .filter_map(|row| row.entry.as_deref())
+        .filter(|row| row.key == id.as_str() && row.pending.is_some())
+        .map(|row| match (&row.entry, &row.pending) {
+            (Some(entry), _) => entry.clone(),
+            (None, Some(pending)) => derive_process_name(&pending.value, &[]),
+            (None, None) => String::new(),
+        })
         .collect();
+    let pending: HashSet<&str> = pending.iter().map(String::as_str).collect();
     let mine = commands(kind);
-    let theirs = commands(other_target(kind));
+    let mut theirs = commands(other_target(kind));
+    if dev && !mine.is_empty() {
+        theirs.clear();
+    }
     let has = |list: &[(String, String)], name: &str| list.iter().any(|(entry, _)| entry == name);
     let repository = kind == ConfigTargetKind::Repository;
     let own = mine
@@ -825,6 +842,7 @@ pub fn layer_actions(info: &SettingsInfo, kind: ConfigTargetKind) -> LayerAction
                     "this repo overrides it"
                 })
             });
+            let status = status.filter(|_| !dev);
             ActionEntry {
                 name: name.clone(),
                 command: command.clone(),
@@ -1189,11 +1207,248 @@ pub fn action_name_problem(name: &str) -> Option<String> {
 
 /// TS: settingsModel.ts actionCount.
 pub fn action_count(targets: &ConfigTargets, kind: ConfigTargetKind) -> usize {
+    entry_count(targets, SettingId::Actions, kind)
+}
+
+/// [`action_count`] of a named-command list (`actions`, or the Dev processes: a single Dev command is one).
+pub fn entry_count(targets: &ConfigTargets, id: SettingId, kind: ConfigTargetKind) -> usize {
     let layer = info_layer(targets, kind);
-    match own_value(layer.as_ref(), SettingId::Actions, None) {
-        Some(Value::Object(actions)) => actions.len(),
+    match own_value(layer.as_ref(), id, None) {
+        Some(Value::Object(entries)) => entries.len(),
+        Some(Value::String(_)) if id == SettingId::DevCommand => 1,
         _ => 0,
     }
+}
+
+/// The most entries one layer's list may hold.
+pub fn max_entries(id: SettingId) -> usize {
+    if id == SettingId::DevCommand {
+        MAX_DEV_PROCESSES
+    } else {
+        MAX_ACTIONS
+    }
+}
+
+/// What one entry of a named-command list is called (`action`, `Dev process`).
+pub fn entry_noun(id: SettingId) -> &'static str {
+    if id == SettingId::DevCommand {
+        "Dev process"
+    } else {
+        "action"
+    }
+}
+
+/// Not in the TS: a name for the Dev process running `command`, unlike any of `taken`: the directory it `cd`s into
+/// (`cd frontend && npm run dev` → `frontend`), else what it runs (`python3 server.py` → `server`, `npm run dev` →
+/// `dev`, `make worker` → `worker`), else `dev`; `-2`, `-3`, … when taken.
+pub fn derive_process_name(command: &str, taken: &[&str]) -> String {
+    /// Commands that run what the next word names (`npm run dev`, `python3 server.py`).
+    const RUNNERS: &[&str] = &[
+        "npm", "pnpm", "yarn", "bun", "npx", "bunx", "deno", "node", "python", "python3", "uv", "poetry", "pipenv",
+        "make", "just", "cargo", "go", "ruby", "bundle", "rails", "php", "dotnet", "mix",
+    ];
+    /// Words between a runner and what it runs.
+    const VERBS: &[&str] = &["run", "exec", "start", "-m", "x"];
+    let words: Vec<&str> = command.split_whitespace().collect();
+    let base = |word: &str| -> String {
+        let last = word.trim_end_matches('/').rsplit('/').next().unwrap_or(word);
+        let stem = match last.rsplit_once('.') {
+            Some((stem, _)) if !stem.is_empty() => stem,
+            _ => last,
+        };
+        stem.to_owned()
+    };
+    let mut candidate = None;
+    if words.first() == Some(&"cd")
+        && let Some(dir) = words.get(1)
+    {
+        candidate = Some(base(dir.trim_end_matches(';')));
+    }
+    if candidate.is_none() {
+        let mut rest = words
+            .iter()
+            .copied()
+            .skip_while(|word| word.contains('=') || matches!(*word, "exec" | "sudo" | "env"));
+        if let Some(first) = rest.next() {
+            let program = base(first);
+            let runs = RUNNERS
+                .contains(&program.as_str())
+                .then(|| rest.find(|word| !word.starts_with('-') && !VERBS.contains(word)))
+                .flatten();
+            candidate = Some(runs.map_or(program, base));
+        }
+    }
+    let clean: String = candidate
+        .unwrap_or_default()
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.' | '-'))
+        .collect();
+    let clean = clean.trim_start_matches(|ch: char| !ch.is_ascii_alphanumeric());
+    let name: String = clean.chars().take(MAX_ACTION_NAME - 3).collect();
+    let name = if name.is_empty() { String::from("dev") } else { name };
+    if !taken.contains(&name.as_str()) {
+        return name;
+    }
+    (2..)
+        .map(|n| format!("{name}-{n}"))
+        .find(|candidate| !taken.contains(&candidate.as_str()))
+        .unwrap_or(name)
+}
+
+/// Not in the TS: `target`'s Dev processes as (name, command), in order. A single Dev command is one process, named
+/// by [`derive_process_name`] (the name it keeps once a second process joins it).
+pub fn dev_processes_of(targets: &ConfigTargets, target: ConfigTargetKind) -> Vec<(String, String)> {
+    let layer = info_layer(targets, target);
+    match own_value(layer.as_ref(), SettingId::DevCommand, None) {
+        Some(Value::Object(processes)) => processes
+            .iter()
+            .filter_map(|(name, command)| command.as_str().map(|command| (name.clone(), command.to_owned())))
+            .collect(),
+        Some(Value::String(command)) => vec![(derive_process_name(command, &[]), command.clone())],
+        _ => Vec::new(),
+    }
+}
+
+/// Not in the TS: what is wrong with `name` for a Dev process of `target` (`renaming`: the process being renamed,
+/// which may keep its own name).
+pub fn dev_name_problem(
+    targets: &ConfigTargets,
+    target: ConfigTargetKind,
+    name: &str,
+    renaming: Option<&str>,
+) -> Option<String> {
+    if let Some(problem) = action_name_problem(name) {
+        return Some(problem);
+    }
+    let taken = dev_processes_of(targets, target)
+        .iter()
+        .any(|(existing, _)| existing == name && Some(existing.as_str()) != renaming);
+    taken.then(|| format!("{name} is already a Dev process here"))
+}
+
+/// Not in the TS: one edit of a layer's Dev processes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DevEdit {
+    /// A new process: unnamed while it is the only one (a single Dev command).
+    Add {
+        name: Option<String>,
+        command: String,
+    },
+    /// The command of an existing process.
+    SetCommand {
+        name: String,
+        command: String,
+    },
+    Rename {
+        from: String,
+        to: String,
+    },
+    Remove {
+        name: String,
+    },
+}
+
+/// Not in the TS: the change `edit` makes to `target`'s `devCommand`, written whole. One process with the name it
+/// was given stays (or becomes) a plain command only when it was one and has not been renamed; two or more are a
+/// map, the single command joining it under its derived name.
+pub fn dev_command_change(
+    targets: &ConfigTargets,
+    target: ConfigTargetKind,
+    edit: &DevEdit,
+) -> std::result::Result<SettingChange, String> {
+    let layer = info_layer(targets, target);
+    let single = matches!(
+        own_value(layer.as_ref(), SettingId::DevCommand, None),
+        Some(Value::String(_))
+    );
+    let mut processes = dev_processes_of(targets, target);
+    let command_problem_of = |command: &str| {
+        if jsstr::js_trim(command).is_empty() {
+            Some(String::from("Type a command"))
+        } else {
+            command_problem(command)
+        }
+    };
+    let position = |processes: &[(String, String)], name: &str| processes.iter().position(|(entry, _)| entry == name);
+    let mut keep_single = single;
+    match edit {
+        DevEdit::Add { name, command } => {
+            if let Some(problem) = command_problem_of(command) {
+                return Err(problem);
+            }
+            if processes.len() >= MAX_DEV_PROCESSES {
+                return Err(format!(
+                    "{} already has {MAX_DEV_PROCESSES} Dev processes, the most allowed: remove one (x) first",
+                    layer_short(target)
+                ));
+            }
+            match name {
+                None if processes.is_empty() => {
+                    return Ok(SettingChange {
+                        path: setting_path(SettingId::DevCommand, None),
+                        value: Some(Value::String(command.clone())),
+                    });
+                }
+                None => return Err(String::from("Name the new process")),
+                Some(name) => {
+                    if let Some(problem) = dev_name_problem(targets, target, name, None) {
+                        return Err(problem);
+                    }
+                    processes.push((name.clone(), command.clone()));
+                    keep_single = false;
+                }
+            }
+        }
+        DevEdit::SetCommand { name, command } => {
+            if let Some(problem) = command_problem_of(command) {
+                return Err(problem);
+            }
+            let Some(at) = position(&processes, name) else {
+                return Err(format!("{name} is not a Dev process here"));
+            };
+            processes[at].1.clone_from(command);
+        }
+        DevEdit::Rename { from, to } => {
+            if let Some(problem) = dev_name_problem(targets, target, to, Some(from)) {
+                return Err(problem);
+            }
+            let Some(at) = position(&processes, from) else {
+                return Err(format!("{from} is not a Dev process here"));
+            };
+            processes[at].0.clone_from(to);
+            keep_single = false;
+        }
+        DevEdit::Remove { name } => {
+            let Some(at) = position(&processes, name) else {
+                return Err(format!("{name} is not a Dev process here"));
+            };
+            processes.remove(at);
+        }
+    }
+    let value = match processes.as_slice() {
+        [] => None,
+        [(_, command)] if keep_single => Some(Value::String(command.clone())),
+        _ => Some(Value::Object(
+            processes
+                .into_iter()
+                .map(|(name, command)| (name, Value::String(command)))
+                .collect(),
+        )),
+    };
+    Ok(SettingChange {
+        path: setting_path(SettingId::DevCommand, None),
+        value,
+    })
+}
+
+/// Not in the TS: [`action_saved_message`] of a Dev process (`None`: the single Dev command).
+pub fn dev_process_saved_message(name: Option<&str>, target: ConfigTargetKind, trust: Option<SaveTrust>) -> String {
+    let what = name.map_or_else(|| String::from("Dev command"), |name| format!("Dev process {name}"));
+    format!(
+        "Saved {what} to {}{} · d d starts Dev",
+        layer_short(target),
+        repository_trust(target, trust)
+    )
 }
 
 /// TS: settingsModel.ts actionNameCheck result.
@@ -1710,6 +1965,15 @@ fn show(info: &SettingsInfo, id: SettingId, value: &Value) -> GridCell {
             text: String::from(if *value == Value::Bool(false) { "off" } else { "on" }),
             ..GridCell::default()
         },
+        // Not in the TS: Dev's named processes, by name.
+        SettingId::DevCommand if value.is_object() => {
+            let names = record_keys(Some(value)).join(", ");
+            GridCell {
+                text: names.clone(),
+                full: Some(names),
+                ..GridCell::default()
+            }
+        }
         SettingId::WorktreeLocation => {
             let preview = preview_location(&text, info.vars.as_ref());
             GridCell {
@@ -2651,6 +2915,95 @@ mod tests {
                 .relation
                 .contains("exits (Agent signals adds")
         );
+    }
+
+    // Not in the TS: a Dev process is named from its command.
+    #[test]
+    fn dev_process_names_come_from_their_commands() {
+        let name = |command: &str| derive_process_name(command, &[]);
+        assert_eq!(name("cd frontend && npm run dev"), "frontend");
+        assert_eq!(name("cd ./apps/web/ && pnpm dev"), "web");
+        assert_eq!(name("python3 server.py"), "server");
+        assert_eq!(name("PORT=8000 exec python3 -m uvicorn app:main"), "uvicorn");
+        assert_eq!(name("npm run dev"), "dev");
+        assert_eq!(name("make worker"), "worker");
+        assert_eq!(name("docker compose up"), "docker");
+        assert_eq!(name("./bin/tunnel.sh --port 9000"), "tunnel");
+        assert_eq!(name("cargo run"), "cargo");
+        assert_eq!(name("$(echo hi)"), "echo");
+        assert_eq!(name("   "), "dev");
+        assert_eq!(derive_process_name("npm run dev", &["dev", "dev-2"]), "dev-3");
+    }
+
+    // Not in the TS: Dev edits write the whole devCommand; one unrenamed process stays a plain command.
+    #[test]
+    fn dev_edits_write_the_whole_dev_command() {
+        let info = |config: Value| settings_info(Some(&config.to_string()), None, true, None);
+        let apply = |config: Value, edit: DevEdit| -> std::result::Result<Option<Value>, String> {
+            dev_command_change(&info(config).targets, Repository, &edit).map(|change| change.value)
+        };
+        let add = |name: Option<&str>, command: &str| DevEdit::Add {
+            name: name.map(str::to_owned),
+            command: command.to_owned(),
+        };
+        assert_eq!(
+            apply(json!({}), add(None, "npm run dev")),
+            Ok(Some(json!("npm run dev")))
+        );
+        assert_eq!(
+            apply(
+                json!({"devCommand": "npm run dev"}),
+                add(Some("web"), "cd web && npm start")
+            ),
+            Ok(Some(json!({"dev": "npm run dev", "web": "cd web && npm start"})))
+        );
+        assert_eq!(
+            apply(json!({"devCommand": "npm run dev"}), add(Some("dev"), "x")),
+            Err(String::from("dev is already a Dev process here"))
+        );
+        assert_eq!(
+            apply(json!({"devCommand": "npm run dev"}), add(None, "x")),
+            Err(String::from("Name the new process"))
+        );
+        assert_eq!(
+            apply(
+                json!({"devCommand": "npm run dev"}),
+                DevEdit::SetCommand {
+                    name: String::from("dev"),
+                    command: String::from("npm start"),
+                }
+            ),
+            Ok(Some(json!("npm start")))
+        );
+        assert_eq!(
+            apply(
+                json!({"devCommand": "npm run dev"}),
+                DevEdit::Rename {
+                    from: String::from("dev"),
+                    to: String::from("api"),
+                }
+            ),
+            Ok(Some(json!({"api": "npm run dev"})))
+        );
+        assert_eq!(
+            apply(
+                json!({"devCommand": {"a": "1", "b": "2"}}),
+                DevEdit::Remove {
+                    name: String::from("a")
+                }
+            ),
+            Ok(Some(json!({"b": "2"})))
+        );
+        assert_eq!(
+            apply(
+                json!({"devCommand": "npm run dev"}),
+                DevEdit::Remove {
+                    name: String::from("dev")
+                }
+            ),
+            Ok(None)
+        );
+        assert_eq!(apply(json!({}), add(None, "  ")), Err(String::from("Type a command")));
     }
 
     // covers: B-P9-03 the grid opens on This repo when there is a repository layer, else Global; each layer's Actions list shows the other layer's as context

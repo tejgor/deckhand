@@ -42,14 +42,15 @@ use deckhand_core::tasks_board::{OwnedTaskLinkLookup, linked_tasks, task_link_lo
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::data::RightPaneTab;
 use deckhand_protocol::data::{
-    AttachTarget, BranchFrom, BranchList, ProgramKey, ProjectInfo, SessionCleanupInspection, SessionRecord,
-    SessionStatus, SessionWorktreeMode, SubSessionKind, TasksDoc, UiExitResult, WorktreeMode,
+    AttachTarget, BranchFrom, BranchList, DevProcessRecord, ProgramKey, ProjectInfo, SessionCleanupInspection,
+    SessionRecord, SessionStatus, SessionWorktreeMode, SubSessionKind, TasksDoc, UiExitResult, WorktreeMode,
 };
 use deckhand_protocol::records::SessionFilter;
 use deckhand_sys::desktop::resolve_terminal_editor;
 
 use crate::app::event_loop::UiModel;
 use crate::app::layout::{AppLayout, app_layout};
+use crate::app::modes::action_picker::DevProcessRow;
 use crate::app::state::{
     App, AppAction, AppCallback, AppProps, CleanupCheck, Mode, Review, ReviewLabels, ReviewSkip, WorkspaceInfo,
     empty_pane, empty_preview,
@@ -63,6 +64,7 @@ use crate::flows::tasks::{TasksFlow, TasksFlowProps};
 use crate::flows::worktrees::{WorktreesFlow, WorktreesFlowProps};
 use crate::input::{KeyEvent, terminal_input};
 use crate::panes::details::{details_viewport, scroll_details};
+use crate::panes::dev::{dev_processes, selected_process_index};
 use crate::panes::help::HelpOutcome;
 use crate::panes::terminal::{TerminalView, has_action};
 use crate::theme::THEME;
@@ -744,6 +746,37 @@ impl App {
                 .is_some_and(|key| !key.is_empty())
     }
 
+    /// Not in the TS: the run list's rows for Dev's named processes (after the Dev row): name, command and whether
+    /// it runs, from the picker's effective settings.
+    pub fn run_list_processes(&self) -> Vec<DevProcessRow> {
+        if !self.run_list_has_dev() {
+            return Vec::new();
+        }
+        let Some(project) = self.action_picker.action_project.as_ref() else {
+            return Vec::new();
+        };
+        let selected = self.selected_session();
+        let mine = selected
+            .as_ref()
+            .is_some_and(|session| self.panes.dev.session_id.as_deref() == Some(session.id.as_str()));
+        let running = |name: &str| {
+            mine && dev_processes(&self.panes.dev)
+                .is_some_and(|processes| processes.iter().any(|process| process.name == name && process.live))
+        };
+        project
+            .project
+            .effective
+            .dev_processes()
+            .into_iter()
+            .flatten()
+            .map(|(name, command)| DevProcessRow {
+                name: name.clone(),
+                command: command.clone(),
+                running: running(name),
+            })
+            .collect()
+    }
+
     /// TS `activePaneReadyForAttach`.
     pub fn active_pane_ready_for_attach(&self) -> bool {
         let Some(session) = self.selected_session() else {
@@ -755,7 +788,12 @@ impl App {
             AttachTarget::Terminal => mine(&self.panes.terminal.session_id) && self.panes.terminal.live,
             // lazygit starts on attach; the Changes record confirms the daemon sees the workspace.
             AttachTarget::Git => mine(&self.panes.changes.session_id) && truthy(self.panes.changes.workspace.as_ref()),
-            AttachTarget::Dev => mine(&self.panes.dev.session_id) && self.panes.dev.live,
+            AttachTarget::Dev => {
+                mine(&self.panes.dev.session_id)
+                    && self
+                        .selected_dev_process()
+                        .map_or(self.panes.dev.live, |process| process.live)
+            }
             AttachTarget::Action => self.panes.action.live,
         }
     }
@@ -875,13 +913,38 @@ impl App {
     /// TS `attachTo`: exit to the attach hand-off for `session`'s `target`.
     pub fn attach_to(&mut self, session: &SessionRecord, target: AttachTarget) {
         let title = display_session_title(session, &self.sessions());
+        let process = (target == AttachTarget::Dev)
+            .then(|| self.selected_dev_process().map(|process| process.name.clone()))
+            .flatten();
         self.exit_with(UiExitResult::Attach {
             session_id: session.id.clone(),
             target,
             title: Some(title),
             cwd: Some(session.cwd.clone()),
             program: Some(session.program),
+            process,
         });
+    }
+
+    /// Not in the TS: the Dev process selected in the split (`None` for a single Dev command).
+    pub fn selected_dev_process(&self) -> Option<&DevProcessRecord> {
+        let processes = dev_processes(&self.panes.dev)?;
+        processes.get(selected_process_index(
+            &self.panes.dev,
+            self.panes.dev_process.as_deref(),
+        ))
+    }
+
+    /// Not in the TS: the process v selects next on the Dev tab (with more than one).
+    pub fn next_dev_process(&self) -> Option<String> {
+        if self.browse.active_tab != RightPaneTab::Dev {
+            return None;
+        }
+        let processes = dev_processes(&self.panes.dev).filter(|processes| processes.len() > 1)?;
+        let current = selected_process_index(&self.panes.dev, self.panes.dev_process.as_deref());
+        processes
+            .get((current + 1) % processes.len())
+            .map(|process| process.name.clone())
     }
 
     /// TS `elsewhere`: a session of another checkout is in the sidebar of the Deckhand opened there (says so).
@@ -970,12 +1033,14 @@ impl App {
             return;
         };
         let session_id = session.id.clone();
+        let title = display_session_title(session, &self.sessions());
         let then: FileThen = Box::new(move |app: &mut App, file: Option<String>| {
             if let Some(file) = file {
                 app.exit_with(UiExitResult::EditNote {
                     session_id,
                     file,
                     editor,
+                    title: Some(title),
                 });
             }
         });
@@ -1723,6 +1788,7 @@ mod tests {
                 title: Some("Alpha".to_owned()),
                 cwd: Some("/repo".to_owned()),
                 program: Some(ProgramKey::Claude),
+                process: None,
             })
         );
         assert_eq!(UiModel::exit(&mut app), None);

@@ -26,6 +26,7 @@ use crate::app::modes::{action_picker, confirm, create, filter, workspace_info};
 use crate::app::state::{App, AppCallback, Mode, ReviewLabels};
 use crate::app::{DEV_DOUBLE_TAP_MS, RIGHT_TABS, ReviewOptions, hint_short, sort_sessions, truthy, upsert_session};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
+use crate::panes::dev::dev_processes;
 use crate::panes::terminal::{TerminalView, has_action};
 
 /// The browse view's keys (keysDocumented: every one in the ? guide).
@@ -148,7 +149,7 @@ pub static KEYMAP: Keymap = &[
     },
     Binding {
         keys: &[KeySpec::Char("v")],
-        action: "Terminal: the shell or the last action",
+        action: "Terminal: the shell or the last action; Dev: the next process",
         help: HelpRef::Topic("Panes"),
     },
     Binding {
@@ -399,6 +400,13 @@ pub fn handle_browse(app: &mut App, input: &Input) {
     // double-tap can arrive as one chunk ("dd").
     if text == "d" || text == "dd" {
         dev_tap(app, text);
+        return;
+    }
+    // The Dev tab selects the next of its named processes (enter attaches the selected one).
+    if text == "v" && app.browse.active_tab == RightPaneTab::Dev {
+        if let Some(next) = app.next_dev_process() {
+            app.panes.dev_process = Some(next);
+        }
         return;
     }
     // The Terminal tab switches between the shell and the worktree's last action.
@@ -804,12 +812,18 @@ pub fn run_dev(app: &mut App, back: Option<AppCallback>) {
     });
     // TS `project.effective.devCommand?.trim()`.
     fn fallback(project: &ProjectInfo) -> String {
-        js_trim(project.effective.dev_command.as_deref().unwrap_or("")).to_owned()
+        js_trim(project.effective.dev_command_text().unwrap_or("")).to_owned()
     }
     let options = ReviewOptions {
         back,
         gate: Some(Rc::new(|project: &ProjectInfo| {
-            project.needs_review && truthy(project.project.config.dev_command.as_ref())
+            project.needs_review
+                && project
+                    .project
+                    .config
+                    .dev_command
+                    .as_ref()
+                    .is_some_and(|dev| dev.text() != Some(""))
         })),
         // Skipping starts what applies until trusted: the global (or legacy) Dev command, else the built-in `dev`.
         labels: Some(Rc::new(|project: &ProjectInfo| {
@@ -827,9 +841,22 @@ pub fn run_dev(app: &mut App, back: Option<AppCallback>) {
         })),
         purpose: Some(Rc::new(|project: &ProjectInfo| {
             let fallback = fallback(project);
+            let what = match project.project.config.dev_processes() {
+                Some(processes) => format!(
+                    "Dev processes: {}",
+                    processes
+                        .iter()
+                        .map(|(name, command)| format!("{name} ({command})"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+                None => format!(
+                    "devCommand: {}",
+                    project.project.config.dev_command_text().unwrap_or("undefined")
+                ),
+            };
             format!(
-                "About to start Dev with the repository devCommand: {} (until trusted, Dev runs {})",
-                project.project.config.dev_command.as_deref().unwrap_or("undefined"),
+                "About to start Dev with the repository {what} (until trusted, Dev runs {})",
                 if fallback.is_empty() {
                     "the built-in fallback dev".to_owned()
                 } else {
@@ -872,6 +899,7 @@ pub fn toggle_dev_selected(app: &mut App) {
         return;
     }
     let layout = app.layout();
+    let elsewhere = dev_elsewhere(app, &session);
     let reply = client.start_dev(
         &session.id,
         i64::from(layout.preview_cols),
@@ -881,14 +909,24 @@ pub fn toggle_dev_selected(app: &mut App) {
         match result {
             Ok(next) => {
                 let live = next.live;
-                let command = next.command.clone().filter(|command| !command.is_empty());
+                let command = match dev_processes(&next) {
+                    Some(processes) => Some(
+                        processes
+                            .iter()
+                            .map(|process| process.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(" + "),
+                    ),
+                    None => next.command.clone().filter(|command| !command.is_empty()),
+                };
                 app.panes.dev = next;
                 upsert_dev_running(app, &session, live);
                 app.set_active_tab(RightPaneTab::Dev);
                 // d on the Dev tab starts it, so a quick second d says plainly what it did.
                 app.set_status(Some(format!(
-                    "Started Dev{} · d d stops it",
-                    command.map(|command| format!(": {command}")).unwrap_or_default()
+                    "Started Dev{}{} · d d stops it",
+                    command.map(|command| format!(": {command}")).unwrap_or_default(),
+                    stopped_elsewhere(&elsewhere)
                 )));
             }
             Err(error) => app.set_error(Some(error.to_string())),
@@ -897,8 +935,35 @@ pub fn toggle_dev_selected(app: &mut App) {
     }));
 }
 
+/// Not in the TS: the sessions (one per worktree) whose Dev the daemon stops when Dev starts for `session`: Dev runs
+/// in one worktree of a repository at a time.
+pub(crate) fn dev_elsewhere(app: &App, session: &SessionRecord) -> Vec<String> {
+    let here = workspace_of(session);
+    let mut seen: Vec<String> = Vec::new();
+    let mut titles = Vec::new();
+    for other in &app.data.repo_sessions {
+        let Some(key) = workspace_of(other).filter(|key| Some(key) != here.as_ref()) else {
+            continue;
+        };
+        if other.dev_running == Some(true) && !seen.contains(&key) {
+            seen.push(key);
+            titles.push(display_session_title(other, &app.data.repo_sessions));
+        }
+    }
+    titles
+}
+
+/// ` · stopped Dev in <titles>` (nothing when none was stopped).
+pub(crate) fn stopped_elsewhere(titles: &[String]) -> String {
+    if titles.is_empty() {
+        String::new()
+    } else {
+        format!(" · stopped it in {}", titles.join(", "))
+    }
+}
+
 /// TS: `setSessions(current => upsertSession(current, {...(current.find(...) ?? selectedSession), devRunning}))`.
-fn upsert_dev_running(app: &mut App, selected: &SessionRecord, running: bool) {
+pub(crate) fn upsert_dev_running(app: &mut App, selected: &SessionRecord, running: bool) {
     let mut record = app
         .data
         .repo_sessions
@@ -1859,6 +1924,7 @@ pub(crate) mod tests {
                 title: Some("Session 0".to_owned()),
                 cwd: Some("/repo".to_owned()),
                 program: Some(ProgramKey::Claude),
+                process: None,
             })
         );
     }

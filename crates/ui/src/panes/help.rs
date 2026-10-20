@@ -621,7 +621,7 @@ mod tests {
             |case: &Case| -> Result<Vec<FoundTopic>, String> {
                 let query = case.arg_str(0)?;
                 if case.arg_is_undefined(1) {
-                    return Ok(search_help(query, HELP_TOPICS));
+                    return Ok(search_help(query, deckhand_core::help::oracle_topics()));
                 }
                 let given = tags::untag(case.arg(1));
                 let topics: Vec<HelpTopic> = given

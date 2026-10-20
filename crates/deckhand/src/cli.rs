@@ -428,7 +428,7 @@ mod tests {
         let refused = "Refusing to control a daemon outside the isolated dev namespace";
         let ping = |home: Option<&str>, channel: Option<&str>| PingResult {
             ok: true,
-            version: Some(46),
+            version: Some(47),
             home: home.map(str::to_owned),
             channel: channel.map(str::to_owned),
         };
@@ -459,13 +459,13 @@ mod tests {
     fn status_line_prints_undefined_for_missing_fields() {
         let daemon = PingResult {
             ok: true,
-            version: Some(46),
+            version: Some(47),
             home: Some("/tmp/x".into()),
             channel: Some("dev".into()),
         };
         assert_eq!(
             status_line(&daemon),
-            "Isolated dev daemon running (protocol v46): /tmp/x"
+            "Isolated dev daemon running (protocol v47): /tmp/x"
         );
         let bare = PingResult {
             ok: true,

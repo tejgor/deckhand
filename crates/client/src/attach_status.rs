@@ -1,16 +1,16 @@
-//! Not in the TS: a Deckhand status line on the top row of an attached agent, with a rule under it.
+//! Not in the TS: a Deckhand status line on the bottom row of an attached agent or pane, with a rule over it that
+//! separates it from the program.
 //!
-//! The agent's PTY gets [`HEIGHT`] rows less than the outer terminal and a scroll region keeps its output below them,
-//! where Deckhand draws its own line (the session, how many other sessions wait on you, the detach key) and a rule that
-//! separates it from the agent. The top costs nothing: every agent attach uses Deckhand's alternate screen (Claude, Pi
-//! and Codex all draw fullscreen), which has no scrollback to lose (most terminals, xterm.js among them, only keep lines
-//! that scroll out of a region starting at the top row). The agent's output still goes straight to the terminal; on
-//! the way it is adjusted so it cannot reach those rows:
-//! - scroll regions are clamped to the agent's rows (a reset means all of them) and moved down by [`HEIGHT`];
-//! - absolute row moves (`CUP`, `HVP`, `VPA`) are clamped to the agent's rows and moved down by [`HEIGHT`] (and the
-//!   terminal's cursor position reports up by as much, on their way back to the agent);
+//! The program's PTY gets [`HEIGHT`] rows less than the outer terminal and a scroll region keeps its output off the
+//! bottom two, where Deckhand draws the rule and its own line (the session, how many other sessions wait on you, the
+//! detach key). It is at the bottom for every attach: on the normal screen (Terminal, Dev, actions) a scroll region
+//! starting at the top row still feeds the terminal's scrollback (most terminals, xterm.js among them, only keep lines
+//! that scroll out of such a region), and the full-screen attaches keep it in the same place. The program's output
+//! still goes straight to the terminal; on the way it is adjusted so it cannot reach those rows:
+//! - scroll regions are clamped to the program's rows (a reset means all of them);
+//! - absolute row moves (`CUP`, `HVP`, `VPA`) are clamped to the program's rows;
 //! - after anything that erases or replaces those rows (erasing the display, a full reset, switching screens) they are
-//!   drawn again, and a full reset also restores the scroll region.
+//!   drawn again, and a full reset or a screen switch also restores the scroll region (some terminals reset it there).
 //!
 //! Redrawing must leave the cursor and colours where the agent had them. The agent may be using the terminal's one
 //! saved-cursor slot itself, so instead of saving the cursor the agent's output is mirrored into a small emulator
@@ -26,7 +26,7 @@ use deckhand_core::agent_signals::needs_attention;
 use deckhand_core::display::{DUSK, Rgb, ThemeMode};
 use deckhand_protocol::data::{AttentionState, SessionRecord, SessionStatus};
 
-/// The rows Deckhand takes at the top: the line, and the rule under it.
+/// The rows Deckhand takes: the line, and the rule between it and the program.
 const HEIGHT: u16 = 2;
 
 /// Fewer outer rows than this leaves the agent too little room: no status line.
@@ -44,7 +44,7 @@ struct Colours {
     title: String,
     /// The other sessions waiting, bold.
     waiting: String,
-    /// The rule under the line (on the terminal's background).
+    /// The rule over the line (on the terminal's background).
     rule: String,
     working: String,
     needs_you: String,
@@ -128,7 +128,9 @@ impl SessionSummary {
 pub struct StatusLine {
     session_id: String,
     title: String,
-    /// The outer terminal's size; the agent gets `rows - HEIGHT`.
+    /// The pane's name, shown after the title instead of the agent's state (`None`: the agent).
+    pane: Option<String>,
+    /// The outer terminal's size; the program gets `rows - HEIGHT`.
     rows: u16,
     cols: u16,
     /// The agent's screen, in its own coordinates.
@@ -139,8 +141,6 @@ pub struct StatusLine {
     in_sync: bool,
     /// A redraw is due once the agent's synchronized update ends.
     redraw_due: bool,
-    /// Cursor position reports the agent asked for (`CSI 6 n`) whose answers have not come back yet.
-    pending_reports: u32,
     sessions: IndexMap<String, SessionSummary>,
     colours: Colours,
 }
@@ -156,19 +156,26 @@ impl StatusLine {
         Some(StatusLine {
             session_id: session_id.to_owned(),
             title: title.to_owned(),
+            pane: None,
             rows,
             cols,
             mirror: vt100::Parser::new(rows - HEIGHT, cols, 0),
             carry: String::new(),
             in_sync: false,
             redraw_due: false,
-            pending_reports: 0,
             sessions: IndexMap::new(),
             colours: Colours::of(theme),
         })
     }
 
-    /// The rows the agent's PTY gets.
+    /// The line of a pane attach: `pane` (its name) after the title instead of the agent's state.
+    #[must_use]
+    pub fn on_pane(mut self, pane: impl Into<String>) -> Self {
+        self.pane = Some(pane.into());
+        self
+    }
+
+    /// The rows the program's PTY gets.
     pub fn agent_rows(&self) -> i64 {
         i64::from(self.rows - HEIGHT)
     }
@@ -282,26 +289,18 @@ impl StatusLine {
         out
     }
 
-    /// Input on its way to the agent: SGR mouse reports on the line or the rule are dropped and the rest moved up by
-    /// [`HEIGHT`], as are the rows of the cursor position reports the agent asked for.
+    /// Input on its way to the program: SGR mouse reports on the rule or the line are dropped.
     pub fn filter_input(&mut self, data: &str) -> String {
+        let agent_rows = u32::from(self.rows - HEIGHT);
         let mut out = String::with_capacity(data.len());
         let mut rest = data;
         while let Some(at) = rest.find("\x1b[") {
             out.push_str(&rest[..at]);
             let sequence = &rest[at..];
             if let Some((len, row)) = sgr_mouse(sequence) {
-                if row > u32::from(HEIGHT) {
-                    out.push_str(&shift_mouse_row(&sequence[..len], row - u32::from(HEIGHT)));
+                if row <= agent_rows {
+                    out.push_str(&sequence[..len]);
                 }
-                rest = &sequence[len..];
-                continue;
-            }
-            if self.pending_reports > 0
-                && let Some((len, row, col)) = cursor_report(sequence)
-            {
-                self.pending_reports -= 1;
-                let _ = write!(out, "\x1b[{};{col}R", row.saturating_sub(u32::from(HEIGHT)).max(1));
                 rest = &sequence[len..];
                 continue;
             }
@@ -312,14 +311,15 @@ impl StatusLine {
         out
     }
 
-    /// Clears the line and the rule (written before handing the terminal back).
+    /// Clears the rule and the line (written before handing the terminal back).
     pub fn teardown(&self) -> String {
-        String::from("\x1b[r\x1b[0m\x1b[1;1H\x1b[2K\x1b[2;1H\x1b[2K\x1b[1;1H")
+        let (rule, line) = (self.rows - 1, self.rows);
+        format!("\x1b[r\x1b[0m\x1b[{rule};1H\x1b[2K\x1b[{line};1H\x1b[2K")
     }
 
-    /// The scroll region that keeps the agent below the line and the rule.
+    /// The scroll region that keeps the program off the rule and the line: every row above them.
     fn region(&self) -> String {
-        format!("\x1b[{};{}r", HEIGHT + 1, self.rows)
+        format!("\x1b[1;{}r", self.rows - HEIGHT)
     }
 
     fn redraw_soon(&mut self) -> String {
@@ -332,7 +332,6 @@ impl StatusLine {
 
     fn adjust(&mut self, escape: &str) -> Adjusted {
         let agent_rows = u32::from(self.rows - HEIGHT);
-        let offset = u32::from(HEIGHT);
         let bytes = escape.as_bytes();
         if bytes.len() == 2 && bytes[1] == b'c' {
             return Adjusted::Reset;
@@ -344,16 +343,16 @@ impl StatusLine {
         let last = bytes[bytes.len() - 1];
         if let Some(modes) = body.strip_prefix('?') {
             let modes = modes.split(';').filter_map(|mode| mode.parse::<u32>().ok());
-            let mut redraw = false;
+            let mut switched = false;
             for mode in modes {
                 match (mode, last) {
                     (2026, b'h') => self.in_sync = true,
                     (2026, b'l') => self.in_sync = false,
-                    (47 | 1047 | 1049, b'h' | b'l') => redraw = true,
+                    (47 | 1047 | 1049, b'h' | b'l') => switched = true,
                     _ => {}
                 }
             }
-            return if redraw { Adjusted::Redraw } else { Adjusted::Keep };
+            return if switched { Adjusted::Reset } else { Adjusted::Keep };
         }
         if body.bytes().any(|b| !(b.is_ascii_digit() || b == b';')) {
             return Adjusted::Keep;
@@ -365,55 +364,55 @@ impl StatusLine {
         let param = |index: usize| params.get(index).copied().flatten();
         // A row the agent names, as the terminal would take it on the agent's screen (0 means 1).
         let row = |index: usize| param(index).unwrap_or(1).clamp(1, agent_rows);
+        // Within the agent's rows already: nothing to clamp.
+        let in_rows = param(0).is_none_or(|first| first <= agent_rows);
         match last {
             // DECSTBM: never past the agent's rows (a reset means all of them).
             b'r' => {
-                let first = row(0);
-                let end = param(1).unwrap_or(agent_rows).clamp(1, agent_rows);
+                let region = format!(
+                    "\x1b[{};{}r",
+                    row(0),
+                    param(1).unwrap_or(agent_rows).clamp(1, agent_rows)
+                );
                 Adjusted::Replace {
-                    agent: format!("\x1b[{first};{end}r"),
-                    terminal: format!("\x1b[{};{}r", first + offset, end + offset),
+                    agent: region.clone(),
+                    terminal: region,
                 }
             }
-            // CUP / HVP: the row clamped (and moved), the column kept.
-            b'H' | b'f' => {
-                let first = row(0);
+            // CUP / HVP: the row clamped, the column kept.
+            b'H' | b'f' if !in_rows => {
                 let col = params
                     .get(1)
                     .copied()
                     .flatten()
                     .map(|col| col.to_string())
                     .unwrap_or_default();
-                let end = last as char;
+                let clamped = format!("\x1b[{};{col}{}", row(0), last as char);
                 Adjusted::Replace {
-                    agent: format!("\x1b[{first};{col}{end}"),
-                    terminal: format!("\x1b[{};{col}{end}", first + offset),
+                    agent: clamped.clone(),
+                    terminal: clamped,
                 }
             }
             // VPA.
-            b'd' => {
-                let first = row(0);
+            b'd' if !in_rows => {
+                let clamped = format!("\x1b[{}d", row(0));
                 Adjusted::Replace {
-                    agent: format!("\x1b[{first}d"),
-                    terminal: format!("\x1b[{}d", first + offset),
+                    agent: clamped.clone(),
+                    terminal: clamped,
                 }
             }
-            // ED: 1 (start to cursor), 2 (all) and 3 (all and scrollback) reach the line and the rule; 0 (cursor to
-            // end) never does.
+            // ED: 0 (cursor to end), 2 (all) and 3 (all and scrollback) reach the rule and the line; 1 (start to cursor)
+            // never does.
             b'J' => match param(0).unwrap_or(0) {
-                1..=3 => Adjusted::Redraw,
+                0 | 2 | 3 => Adjusted::Redraw,
                 _ => Adjusted::Keep,
             },
-            // DSR 6: the terminal answers with the cursor position, which the input side moves back.
-            b'n' if param(0) == Some(6) => {
-                self.pending_reports += 1;
-                Adjusted::Keep
-            }
             _ => Adjusted::Keep,
         }
     }
 
-    /// The line and the rule under it, drawn on their rows, then the agent's cursor and drawing attributes put back.
+    /// The rule and the line under it, drawn on the bottom two rows, then the agent's cursor and drawing attributes put
+    /// back.
     fn draw(&self) -> String {
         let waiting = self
             .sessions
@@ -426,13 +425,16 @@ impl StatusLine {
             .and_then(|summary| summary.attention);
         let mut out = String::from("\x1b[?2026h");
         let colours = &self.colours;
-        out.push_str("\x1b[1;1H\x1b[0m");
+        let _ = write!(out, "\x1b[{};1H\x1b[0m", self.rows);
         out.push_str(&colours.line);
         let mut line = Line::new(usize::from(self.cols));
         line.push(&colours.brand, " deckhand ");
         line.push(&colours.quiet, "│ ");
         line.push(&colours.title, &self.title);
-        if let Some(state) = own {
+        if let Some(pane) = &self.pane {
+            line.push(&colours.quiet, " · ");
+            line.push(&colours.title, pane);
+        } else if let Some(state) = own {
             line.push(&colours.quiet, " · ");
             line.push(colours.state(state), state_label(state));
         }
@@ -446,16 +448,15 @@ impl StatusLine {
         }
         line.push(&colours.quiet, " │ Ctrl+] detach");
         out.push_str(&line.finish());
-        out.push_str("\x1b[0m\x1b[2;1H");
+        let _ = write!(out, "\x1b[0m\x1b[{};1H", self.rows - 1);
         // Like the line, the rule leaves the last cell empty.
         let mut rule = Line::new(usize::from(self.cols));
         rule.push(&colours.rule, &"─".repeat(usize::from(self.cols - 1)));
         out.push_str(&rule.finish());
         out.push_str("\x1b[0m");
+        // The mirror's coordinates are the terminal's: its formatter also restores a pending wrap.
         let screen = self.mirror.screen();
-        let (row, col) = screen.cursor_position();
-        let col = col.min(self.cols.saturating_sub(1));
-        let _ = write!(out, "\x1b[{};{}H", u32::from(row + HEIGHT) + 1, u32::from(col) + 1);
+        out.push_str(&String::from_utf8_lossy(&screen.cursor_state_formatted()));
         out.push_str(&String::from_utf8_lossy(&screen.attributes_formatted()));
         out.push_str("\x1b[?2026l");
         out
@@ -470,9 +471,9 @@ enum Adjusted {
         agent: String,
         terminal: String,
     },
-    /// Keep it, then draw the line again (it was erased or the screen switched).
+    /// Keep it, then draw the line again (it was erased).
     Redraw,
-    /// A full reset: keep it, restore the scroll region, draw the line again.
+    /// A full reset or a screen switch: keep it, restore the scroll region, draw the line again.
     Reset,
 }
 
@@ -584,27 +585,11 @@ fn sgr_mouse(text: &str) -> Option<(usize, u32)> {
     Some((3 + end + 1, row.parse().ok()?))
 }
 
-/// `report` (an SGR mouse report) with its row replaced by `row`.
-fn shift_mouse_row(report: &str, row: u32) -> String {
-    let final_byte = &report[report.len() - 1..];
-    let body = &report[3..report.len() - 1];
-    let mut fields = body.split(';');
-    let (button, col) = (fields.next().unwrap_or("0"), fields.next().unwrap_or("1"));
-    format!("\x1b[<{button};{col};{row}{final_byte}")
-}
-
-/// A cursor position report at the start of `text` (`ESC [ row ; col R`): its length, row and column.
-fn cursor_report(text: &str) -> Option<(usize, u32, u32)> {
-    let body = text.strip_prefix("\x1b[")?;
-    let end = body.find('R')?;
-    let (row, col) = body[..end].split_once(';')?;
-    Some((2 + end + 1, row.parse().ok()?, col.parse().ok()?))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// A 6 × 40 terminal: the program's four rows, the rule, the line.
     fn line() -> StatusLine {
         StatusLine::new("s", "fix-login", 6, 40, ThemeMode::Terminal).unwrap()
     }
@@ -622,26 +607,31 @@ mod tests {
         parser.screen().contents_between(row, 0, row, 40)
     }
 
+    /// The rule and the line are in place on the bottom two rows.
+    fn holds_its_rows(parser: &vt100::Parser) -> bool {
+        row_text(parser, 4).starts_with('─') && row_text(parser, 5).starts_with(" deckhand │ fix-login")
+    }
+
     #[test]
     fn dusk_draws_the_line_in_the_design_colours() {
         let status = StatusLine::new("s", "fix-login", 6, 40, ThemeMode::Dusk).unwrap();
         let parser = outer(&[status.setup()]);
         let screen = parser.screen();
-        assert!(row_text(&parser, 0).starts_with(" deckhand │ fix-login"));
-        let brand = screen.cell(0, 1).unwrap();
+        assert!(holds_its_rows(&parser));
+        let brand = screen.cell(5, 1).unwrap();
         assert_eq!(brand.fgcolor(), vt100::Color::Rgb(0xf7, 0xa8, 0xf0));
         assert_eq!(brand.bgcolor(), vt100::Color::Rgb(0x42, 0x49, 0x55));
         assert!(brand.bold());
-        let title = screen.cell(0, 12).unwrap();
+        let title = screen.cell(5, 12).unwrap();
         assert_eq!(title.fgcolor(), vt100::Color::Rgb(0xf4, 0xf2, 0xec));
         assert!(!title.bold());
         assert_eq!(
-            screen.cell(1, 0).unwrap().fgcolor(),
+            screen.cell(4, 0).unwrap().fgcolor(),
             vt100::Color::Rgb(0x59, 0x61, 0x6e)
         );
         // The terminal theme keeps its 256-colour line.
         let terminal = outer(&[line().setup()]);
-        assert_eq!(terminal.screen().cell(0, 1).unwrap().fgcolor(), vt100::Color::Idx(212));
+        assert_eq!(terminal.screen().cell(5, 1).unwrap().fgcolor(), vt100::Color::Idx(212));
     }
 
     #[test]
@@ -651,12 +641,13 @@ mod tests {
     }
 
     #[test]
-    fn a_rule_separates_the_line_from_the_agent() {
+    fn a_rule_separates_the_program_from_the_line() {
         let mut status = line();
         let screen = outer(&[status.setup(), status.filter_output("agent")]);
-        assert!(row_text(&screen, 0).contains("deckhand"));
-        assert_eq!(row_text(&screen, 1).trim_end(), "─".repeat(39));
-        assert_eq!(row_text(&screen, 2), "agent");
+        assert_eq!(row_text(&screen, 0), "agent");
+        assert_eq!(row_text(&screen, 4).trim_end(), "─".repeat(39));
+        assert!(holds_its_rows(&screen));
+        assert!(status.setup().starts_with("\x1b[1;4r"));
     }
 
     #[test]
@@ -668,8 +659,7 @@ mod tests {
             writes.push(status.filter_output(&format!("line {n}\r\n")));
         }
         let screen = outer(&writes);
-        assert!(row_text(&screen, 0).contains("deckhand"));
-        assert!(row_text(&screen, 1).starts_with('─'));
+        assert!(holds_its_rows(&screen));
         assert!(screen.screen().contents().contains("line 19"));
     }
 
@@ -679,39 +669,34 @@ mod tests {
         let mut writes = vec![status.setup()];
         writes.push(status.filter_output("hello\x1b[2J\x1b[3;5Hx"));
         let screen = outer(&writes);
-        assert!(row_text(&screen, 0).contains("deckhand"));
-        assert!(row_text(&screen, 1).starts_with('─'));
-        // The agent's row 3 is the terminal's row 5.
-        assert_eq!(screen.screen().cursor_position(), (4, 5));
-        assert!(row_text(&screen, 4).starts_with("    x"));
+        assert!(holds_its_rows(&screen));
+        assert_eq!(screen.screen().cursor_position(), (2, 5));
+        assert!(row_text(&screen, 2).starts_with("    x"));
     }
 
     #[test]
     fn erasing_toward_the_line_draws_it_again() {
-        for erase in ["\x1b[1J", "\x1b[2J", "\x1b[3J"] {
+        for erase in ["\x1b[J", "\x1b[2J", "\x1b[3J"] {
             let mut status = line();
             let mut writes = vec![status.setup()];
             writes.push(status.filter_output(&format!("\x1b[2;1H{erase}")));
-            let screen = outer(&writes);
-            assert!(row_text(&screen, 0).contains("deckhand"), "{erase:?}");
-            assert!(row_text(&screen, 1).starts_with('─'), "{erase:?}");
+            assert!(holds_its_rows(&outer(&writes)), "{erase:?}");
         }
-        // Erasing below the cursor never reaches it.
-        assert!(!line().filter_output("\x1b[J").contains("deckhand"));
+        // Erasing above the cursor never reaches it.
+        assert!(!line().filter_output("\x1b[1J").contains("deckhand"));
     }
 
     #[test]
-    fn rows_are_clamped_and_moved_below_the_line() {
+    fn rows_are_clamped_to_the_program() {
         let mut status = line();
-        // Six rows: the line, the rule, then the agent's four.
-        assert_eq!(status.filter_output("\x1b[H"), "\x1b[3;H");
-        assert_eq!(status.filter_output("\x1b[999;3H"), "\x1b[6;3H");
-        assert_eq!(status.filter_output("\x1b[2;3f"), "\x1b[4;3f");
-        assert_eq!(status.filter_output("\x1b[4d"), "\x1b[6d");
-        assert_eq!(status.filter_output("\x1b[99d"), "\x1b[6d");
-        assert_eq!(status.filter_output("\x1b[r"), "\x1b[3;6r");
-        assert_eq!(status.filter_output("\x1b[2;3r"), "\x1b[4;5r");
-        assert_eq!(status.filter_output("\x1b[1;99r"), "\x1b[3;6r");
+        assert_eq!(status.filter_output("\x1b[H"), "\x1b[H");
+        assert_eq!(status.filter_output("\x1b[2;3H"), "\x1b[2;3H");
+        assert_eq!(status.filter_output("\x1b[999;3H"), "\x1b[4;3H");
+        assert_eq!(status.filter_output("\x1b[5;3f"), "\x1b[4;3f");
+        assert_eq!(status.filter_output("\x1b[99d"), "\x1b[4d");
+        assert_eq!(status.filter_output("\x1b[r"), "\x1b[1;4r");
+        assert_eq!(status.filter_output("\x1b[2;3r"), "\x1b[2;3r");
+        assert_eq!(status.filter_output("\x1b[1;99r"), "\x1b[1;4r");
     }
 
     #[test]
@@ -722,9 +707,17 @@ mod tests {
         for n in 0..10 {
             writes.push(status.filter_output(&format!("row {n}\r\n")));
         }
-        let screen = outer(&writes);
-        assert!(row_text(&screen, 0).contains("deckhand"));
-        assert!(row_text(&screen, 1).starts_with('─'));
+        assert!(holds_its_rows(&outer(&writes)));
+    }
+
+    #[test]
+    fn switching_screens_restores_the_region_and_the_line() {
+        let mut status = line();
+        for switch in ["\x1b[?1049h", "\x1b[?1049l", "\x1b[?47h"] {
+            let out = status.filter_output(switch);
+            assert!(out.starts_with(&format!("{switch}\x1b[1;4r")), "{switch:?}: {out:?}");
+            assert!(out.contains("deckhand"), "{switch:?}");
+        }
     }
 
     #[test]
@@ -740,7 +733,7 @@ mod tests {
     fn a_sequence_cut_between_chunks_is_carried_over() {
         let mut status = line();
         assert_eq!(status.filter_output("ab\x1b[99"), "ab");
-        assert_eq!(status.filter_output(";1H"), "\x1b[6;1H");
+        assert_eq!(status.filter_output(";1H"), "\x1b[4;1H");
     }
 
     #[test]
@@ -768,24 +761,28 @@ mod tests {
         assert!(unchanged.is_empty());
         let drawn = status.session_removed("a");
         assert!(drawn.contains("1 other session waiting"));
+        // A pane shows its name instead of the agent's state.
+        let mut pane = StatusLine::new("s", "fix-login", 6, 80, ThemeMode::Terminal)
+            .unwrap()
+            .on_pane("git");
+        let drawn = pane.set_sessions(&[session("s", Some(AttentionState::Working))]);
+        assert!(drawn.contains("fix-login") && drawn.contains("git"));
+        assert!(!drawn.contains("working"));
     }
 
     #[test]
-    fn mouse_reports_on_the_line_are_dropped_and_the_rest_moved_up() {
+    fn mouse_reports_on_the_rule_or_the_line_are_dropped() {
         let mut status = line();
-        assert_eq!(status.filter_input("\x1b[<0;3;1Mk"), "k");
-        assert_eq!(status.filter_input("\x1b[<0;3;2Mk"), "k");
-        assert_eq!(status.filter_input("\x1b[<64;3;4M"), "\x1b[<64;3;2M");
+        assert_eq!(status.filter_input("\x1b[<64;3;4Mk"), "\x1b[<64;3;4Mk");
+        assert_eq!(status.filter_input("\x1b[<0;3;5M\x1b[<0;3;6Mk"), "k");
         assert_eq!(status.filter_input("\x1b[A"), "\x1b[A");
+        // Cursor position reports are the program's own coordinates: left alone.
+        assert_eq!(status.filter_output("\x1b[6n"), "\x1b[6n");
+        assert_eq!(status.filter_input("\x1b[4;7R"), "\x1b[4;7R");
     }
 
     #[test]
-    fn cursor_reports_the_agent_asked_for_are_moved_up() {
-        let mut status = line();
-        // Not asked for: left alone (Shift+F3 is the same bytes as a report of row 1, column 2).
-        assert_eq!(status.filter_input("\x1b[1;2R"), "\x1b[1;2R");
-        assert_eq!(status.filter_output("\x1b[6n"), "\x1b[6n");
-        assert_eq!(status.filter_input("\x1b[4;7R"), "\x1b[2;7R");
-        assert_eq!(status.filter_input("\x1b[4;7R"), "\x1b[4;7R");
+    fn teardown_clears_the_rule_and_the_line() {
+        assert_eq!(line().teardown(), "\x1b[r\x1b[0m\x1b[5;1H\x1b[2K\x1b[6;1H\x1b[2K");
     }
 }

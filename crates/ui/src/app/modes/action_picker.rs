@@ -1,6 +1,9 @@
 //! Port of app.tsx's run list (r, pick-action): the worktree's Dev command first (when the session has a
 //! workspace), then the repository's actions; untrusted repository ones are reviewed when chosen. x stops the
 //! worktree's running action. ActionPickerPane renders it.
+//!
+//! Not in the TS: with named Dev processes (`devCommand` as a map), a row for each follows the Dev row. Enter starts that
+//! process alone, or restarts it while it runs; x stops it.
 
 use std::rc::Rc;
 
@@ -14,10 +17,11 @@ use deckhand_core::jsstr::js_trim;
 use deckhand_core::key::Input;
 use deckhand_protocol::data::{ActionRecord, ProjectInfo, RightPaneTab};
 
-use crate::app::modes::browse::run_dev;
+use crate::app::modes::browse::{dev_elsewhere, run_dev, stopped_elsewhere, upsert_dev_running};
 use crate::app::state::{ActionProject, App, AppAction, AppCallback, Mode, ReviewLabels, ReviewSkip};
 use crate::app::{ProjectFn, ReviewOptions, hint_short, truthy};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
+use crate::panes::dev::{dev_cell_size, dev_processes};
 use crate::panes::menu::{MenuPaneDetails, MenuPaneProps, render_menu_pane};
 use crate::panes::terminal::TerminalView;
 
@@ -79,6 +83,17 @@ pub fn open_run_list(app: &mut App) {
             }
         });
         drop(task);
+        // Which of Dev's named processes run, for their rows (Dev's own tab may not be watched).
+        let (cols, rows) = dev_size(app, dev_processes(&app.panes.dev).map_or(0, <[_]>::len));
+        let reply = client.watch_dev(Some(id), i64::from(cols), i64::from(rows));
+        let task = app.dispatch().spawn(reply, |app: &mut App, result| {
+            if let Ok(record) = result
+                && record.session_id == app.selected_id_ref()
+            {
+                app.panes.dev = record;
+            }
+        });
+        drop(task);
     }
     let cwd = action_cwd.clone();
     let resume: AppAction<Option<ProjectInfo>> = Rc::new(move |app: &mut App, project: Option<ProjectInfo>| {
@@ -99,6 +114,68 @@ pub fn open_run_list(app: &mut App) {
         ..ReviewOptions::default()
     };
     app.review_then(&action_cwd, Some(resume), options);
+}
+
+/// The size of each Dev PTY with `count` named processes (the preview's size for a single command).
+fn dev_size(app: &App, count: usize) -> (u16, u16) {
+    let layout = app.layout();
+    if count == 0 {
+        return (layout.preview_cols, layout.preview_rows);
+    }
+    dev_cell_size(layout.pane_inner_width, layout.pane_inner_height, count)
+}
+
+/// Not in the TS: Enter on a Dev process row: starts it alone, or restarts it while it runs, then shows the Dev tab.
+fn start_dev_process(app: &mut App, name: &str, running: bool, count: usize) {
+    let (Some(client), Some(session)) = (app.client(), app.selected_session()) else {
+        return;
+    };
+    app.set_busy(true);
+    app.set_error(None);
+    let (cols, rows) = dev_size(app, count);
+    let elsewhere = dev_elsewhere(app, &session);
+    let reply = client.start_dev_process(&session.id, Some(name), running, i64::from(cols), i64::from(rows));
+    let name = name.to_owned();
+    let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
+        match result {
+            Ok(next) => {
+                let live = next.live;
+                app.panes.dev = next;
+                app.panes.dev_process = Some(name.clone());
+                upsert_dev_running(app, &session, live);
+                app.set_active_tab(RightPaneTab::Dev);
+                if app.mode == Mode::PickAction {
+                    app.set_mode(Mode::Browse);
+                }
+                let verb = if running { "Restarted" } else { "Started" };
+                app.set_status(Some(format!(
+                    "{verb} {name}{} · d d stops Dev",
+                    stopped_elsewhere(&elsewhere)
+                )));
+            }
+            Err(error) => app.set_error(Some(error_message(&error))),
+        }
+        app.set_busy(false);
+    });
+    drop(task);
+}
+
+/// Not in the TS: x on a running Dev process row stops it (the other processes keep running).
+fn stop_dev_process(app: &mut App, name: &str) {
+    let (Some(client), Some(session)) = (app.client(), app.selected_session()) else {
+        return;
+    };
+    app.set_busy(true);
+    let reply = client.stop_dev_process(&session.id, Some(name));
+    let name = name.to_owned();
+    let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
+        match result {
+            Ok(()) => app.set_status(Some(format!("Stopped {name}"))),
+            Err(error) => app.set_error(Some(error_message(&error))),
+        }
+        app.set_busy(false);
+    });
+    drop(task);
 }
 
 /// TS: the `run` closure of a picked action: starts it on the daemon and shows it on the Terminal tab.
@@ -181,8 +258,10 @@ pub fn handle_pick_action(app: &mut App, input: &Input) {
     let action_project = app.action_picker.action_project.clone();
     let actions = project_actions(action_project.as_ref().map(|project| &project.project));
     let review_session_id = action_project.as_ref().and_then(|project| project.session_id.clone());
-    // Row 0 is the worktree's Dev command when the session has a workspace; the actions follow.
-    let dev_row = usize::from(app.run_list_has_dev());
+    // Row 0 is the worktree's Dev command when the session has a workspace; its named processes and the actions
+    // follow.
+    let processes = app.run_list_processes();
+    let dev_row = usize::from(app.run_list_has_dev()) + processes.len();
     let rows = dev_row + actions.len();
     let last = rows.saturating_sub(1);
     // The handlers below read the index as it was when the key arrived (React state).
@@ -223,7 +302,15 @@ pub fn handle_pick_action(app: &mut App, input: &Input) {
         drop(task);
         return;
     }
-    if dev_row == 1 && index == 0 {
+    if let Some(process) = index.checked_sub(1).and_then(|row| processes.get(row)) {
+        if key.return_ {
+            start_dev_process(app, &process.name, process.running, processes.len());
+        } else if text == "x" && process.running {
+            stop_dev_process(app, &process.name);
+        }
+        return;
+    }
+    if dev_row >= 1 && index == 0 {
         let selected = app.selected_session();
         let dev_runs = selected
             .as_ref()
@@ -250,6 +337,14 @@ pub struct DevRow {
     pub running: bool,
 }
 
+/// Not in the TS: the row of one named Dev process.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DevProcessRow {
+    pub name: String,
+    pub command: String,
+    pub running: bool,
+}
+
 /// TS: app.tsx ActionPickerPane props (width and height are the area's).
 #[derive(Clone, Copy, Debug)]
 pub struct ActionPickerPaneProps<'a> {
@@ -257,6 +352,8 @@ pub struct ActionPickerPaneProps<'a> {
     /// The worktree's last action, when it belongs to the picker's session.
     pub running: Option<&'a ActionRecord>,
     pub dev: Option<DevRow>,
+    /// Not in the TS: Dev's named processes, listed after the Dev row.
+    pub processes: &'a [DevProcessRow],
     pub selected_index: usize,
 }
 
@@ -281,20 +378,42 @@ fn command_line(text: String) -> DetailLine {
 pub fn render_action_picker_pane(props: &ActionPickerPaneProps<'_>, buf: &mut Buffer, area: Rect) {
     let project = props.project;
     let actions = project_actions(project);
-    let dev_command = project
-        .and_then(|project| project.effective.dev_command.as_deref())
-        .map(js_trim)
-        .filter(|command| !command.is_empty())
-        .unwrap_or("dev")
-        .to_owned();
-    let dev_offset = usize::from(props.dev.is_some());
+    let processes = if props.dev.is_some() { props.processes } else { &[] };
+    let dev_command = if processes.is_empty() {
+        project
+            .and_then(|project| project.effective.dev_command_text())
+            .map(js_trim)
+            .filter(|command| !command.is_empty())
+            .unwrap_or("dev")
+            .to_owned()
+    } else {
+        processes
+            .iter()
+            .map(|process| process.name.as_str())
+            .collect::<Vec<_>>()
+            .join(" + ")
+    };
+    let dev_offset = usize::from(props.dev.is_some()) + processes.len();
     let on_dev = props.dev.is_some() && props.selected_index == 0;
+    let on_process = props
+        .selected_index
+        .checked_sub(1)
+        .and_then(|row| processes.get(row))
+        .filter(|_| props.dev.is_some());
     let selected = props
         .selected_index
         .checked_sub(dev_offset)
         .and_then(|row| actions.get(row));
     let untrusted_dev = props.dev.is_some()
-        && project.is_some_and(|project| project.needs_review && truthy(project.project.config.dev_command.as_ref()));
+        && project.is_some_and(|project| {
+            project.needs_review
+                && project
+                    .project
+                    .config
+                    .dev_command
+                    .as_ref()
+                    .is_some_and(|dev| dev.text() != Some(""))
+        });
     let untrusted = actions.iter().any(|action| action.needs_trust) || untrusted_dev;
     // TS `running?.live ? running.name ?? 'action' : undefined`, used for its truthiness and text.
     let running_name = props
@@ -334,6 +453,23 @@ pub fn render_action_picker_pane(props: &ActionPickerPaneProps<'_>, buf: &mut Bu
             ..MenuItem::default()
         });
     }
+    items.extend(processes.iter().map(|process| MenuItem {
+        key: format!("__dev:{}", process.name),
+        label: format!("  {}", process.name),
+        description: Some(process.command.clone()),
+        status: Some(if process.running {
+            RowStatus {
+                text: "● running".to_owned(),
+                color: Some(THEME.success),
+            }
+        } else {
+            RowStatus {
+                text: "○ stopped".to_owned(),
+                color: Some(THEME.muted),
+            }
+        }),
+        ..MenuItem::default()
+    }));
     items.extend(actions.iter().map(|action| MenuItem {
         key: action.name.clone(),
         label: action.name.clone(),
@@ -345,7 +481,29 @@ pub fn render_action_picker_pane(props: &ActionPickerPaneProps<'_>, buf: &mut Bu
         ..MenuItem::default()
     }));
 
-    let details = if on_dev {
+    let details = if let Some(process) = on_process {
+        let mut lines = vec![
+            command_line(process.command.clone()),
+            DetailLine {
+                text: if process.running {
+                    "Running: Enter restarts it, x stops it; the other Dev processes keep running.".to_owned()
+                } else {
+                    "Enter starts it alone; Enter on Dev (or d d) starts every process.".to_owned()
+                },
+                ..DetailLine::default()
+            },
+        ];
+        if let Some(name) = &running_name {
+            lines.push(colored(
+                format!("{name} is still running in this worktree: x stops it."),
+                THEME.warn,
+            ));
+        }
+        Some(MenuPaneDetails {
+            title: format!("Dev · {}", process.name),
+            lines,
+        })
+    } else if on_dev {
         let running = props.dev.is_some_and(|dev| dev.running);
         let mut lines = vec![
             command_line(dev_command.clone()),
@@ -406,17 +564,28 @@ pub fn render_action_picker_pane(props: &ActionPickerPaneProps<'_>, buf: &mut Bu
         })
     };
 
-    let mut hint: Vec<HintPart> = vec![HintPart::from(if on_dev {
-        if props.dev.is_some_and(|dev| dev.running) {
-            "enter stop Dev"
+    let mut hint: Vec<HintPart> = vec![HintPart::from(
+        if let Some(process) = on_process {
+            format!(
+                "enter {} {}",
+                if process.running { "restart" } else { "start" },
+                process.name
+            )
+        } else if on_dev {
+            if props.dev.is_some_and(|dev| dev.running) {
+                "enter stop Dev".to_owned()
+            } else {
+                "enter start Dev".to_owned()
+            }
         } else {
-            "enter start Dev"
+            "enter run".to_owned()
         }
-    } else {
-        "enter run"
-    })];
+        .as_str(),
+    )];
     if let Some(name) = &running_name {
         hint.push(HintPart::from(format!("x stop {name}").as_str()));
+    } else if let Some(process) = on_process.filter(|process| process.running) {
+        hint.push(HintPart::from(format!("x stop {}", process.name).as_str()));
     }
     hint.push(HintPart::from("esc cancel"));
 
@@ -549,6 +718,7 @@ mod tests {
             project: Some(&project),
             running: None,
             dev: Some(DevRow { running: false }),
+            processes: &[],
             selected_index: 0,
         };
         let got = render(&props, 98, u16::try_from(want.len()).unwrap_or(0));
@@ -565,6 +735,7 @@ mod tests {
             project: Some(&project),
             running: None,
             dev: Some(DevRow { running: true }),
+            processes: &[],
             selected_index: 0,
         };
         let text = shown(&render(&props, 100, 24));
@@ -600,6 +771,7 @@ mod tests {
             project: Some(&project),
             running: Some(&record),
             dev: Some(DevRow { running: false }),
+            processes: &[],
             selected_index: 0,
         };
         let text = shown(&render(&on_dev, 100, 24));
@@ -646,6 +818,7 @@ mod tests {
             project: Some(&project),
             running: None,
             dev: None,
+            processes: &[],
             selected_index: 0,
         };
         let text = shown(&render(&props, 110, 24));
@@ -670,6 +843,7 @@ mod tests {
             project: Some(&project),
             running: None,
             dev: None,
+            processes: &[],
             selected_index: 0,
         };
         assert!(shown(&render(&props, 100, 12)).contains("No actions configured (C → Settings › Actions adds one)"));
@@ -830,6 +1004,88 @@ mod tests {
             );
             assert_eq!(seen[0]["cols"], i64::from(layout.preview_cols));
             assert_eq!(seen[0]["rows"], i64::from(layout.preview_rows));
+        });
+    }
+
+    /// Trusted, with named Dev processes (`api`, `web`) and one action.
+    fn with_processes() -> ProjectInfo {
+        let processes = json!({"api": "cd backend && python3 main.py", "web": "cd frontend && npm run dev"});
+        project(
+            json!({"devCommand": processes, "actions": {"build": "make build"}}),
+            json!({"devCommand": processes, "actions": {"build": "make build"}}),
+            true,
+            false,
+        )
+    }
+
+    #[test]
+    fn dev_processes_get_rows_that_start_restart_and_stop_each_one() {
+        local(async {
+            let (mut app, mut rx) = picker_app();
+            let seen = connect(&mut app, |message| match message["type"].as_str() {
+                Some("start-dev") => Ok(json!({
+                    "content": "", "live": true, "sessionId": "a", "workspace": "/repo",
+                    "processes": [{"name": "api", "content": "", "live": true}, {"name": "web", "content": "", "live": false}],
+                })),
+                _ => Ok(json!({})),
+            });
+            open_with(&mut app, with_processes(), Some("a"));
+            app.panes.dev = serde_json::from_value(json!({
+                "content": "", "live": true, "sessionId": "a",
+                "processes": [{"name": "api", "content": "", "live": true}, {"name": "web", "content": "", "live": false}],
+            }))
+            .unwrap();
+            let processes = app.run_list_processes();
+            assert_eq!(
+                processes
+                    .iter()
+                    .map(|row| (row.name.as_str(), row.running))
+                    .collect::<Vec<_>>(),
+                [("api", true), ("web", false)]
+            );
+            let text = shown(&render(
+                &ActionPickerPaneProps {
+                    project: Some(&with_processes()),
+                    running: None,
+                    dev: Some(DevRow { running: true }),
+                    processes: &processes,
+                    selected_index: 1,
+                },
+                100,
+                20,
+            ));
+            assert!(text.contains("Dev    api + web"), "{text}");
+            assert!(text.contains("enter restart api • x stop api • esc cancel"), "{text}");
+
+            // Rows: Dev, api, web, build. x on the running api stops it alone.
+            handle_pick_action(&mut app, &Input::text("j"));
+            handle_pick_action(&mut app, &Input::text("x"));
+            settle(&mut app, &mut rx).await;
+            // Enter on web (not running) starts it alone and shows the Dev tab.
+            handle_pick_action(&mut app, &Input::text("j"));
+            handle_pick_action(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            assert_eq!(app.browse.active_tab, RightPaneTab::Dev);
+            assert_eq!(app.panes.dev_process.as_deref(), Some("web"));
+            let seen = seen.borrow();
+            let sent: Vec<(Option<&str>, Option<&str>, Option<bool>)> = seen
+                .iter()
+                .filter(|message| matches!(message["type"].as_str(), Some("start-dev" | "stop-dev")))
+                .map(|message| {
+                    (
+                        message["type"].as_str(),
+                        message["process"].as_str(),
+                        message.get("restart").and_then(Value::as_bool),
+                    )
+                })
+                .collect();
+            assert_eq!(
+                sent,
+                [
+                    (Some("stop-dev"), Some("api"), None),
+                    (Some("start-dev"), Some("web"), None)
+                ]
+            );
         });
     }
 

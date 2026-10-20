@@ -523,7 +523,7 @@ mod tests {
             .await
             .unwrap();
             let project = load_project_config(&worktree, None, None).await.unwrap();
-            assert_eq!(project.config.dev_command.as_deref(), Some("printf shared"));
+            assert_eq!(project.config.dev_command_text(), Some("printf shared"));
         });
         assert_eq!(
             std::fs::read_to_string(deckhand_json(&worktree)).unwrap(),

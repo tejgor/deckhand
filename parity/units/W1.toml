@@ -21,7 +21,7 @@ allowlist = []
 # Wave 0 hand-off notes for this unit.
 notes = [
   "Workers must keep reading the PTY until the child exits (macOS: unread output blocks exit). node-pty delays onExit until the socket closes (<=200ms): reproduce exit-after-EOF ordering with read-to-EOF + timer.",
-  "First message on fd 3 is {\"type\":\"hello\",\"version\":46}.",
+  "First message on fd 3 is {\"type\":\"hello\",\"version\":47}.",
 ]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.

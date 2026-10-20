@@ -350,7 +350,7 @@ mod tests {
         let trusted = block_on(daemon.handle_trust_project(&trust_request(&root, &info.project.fingerprint))).unwrap();
         assert!(trusted.trusted);
         assert!(!trusted.needs_review);
-        assert_eq!(trusted.effective.dev_command.as_deref(), Some("npm run dev"));
+        assert_eq!(trusted.effective.dev_command_text(), Some("npm run dev"));
         assert_eq!(
             home.config()["trustedProjects"],
             json!({info.project.trust_root.clone(): [info.project.fingerprint.clone()]})
@@ -472,7 +472,7 @@ mod tests {
         // A new file (nothing trusted to replace) is trusted as saved.
         let info = block_on(daemon.handle_project_info(&cwd_request(&root))).unwrap();
         assert!(info.trusted);
-        assert_eq!(info.effective.dev_command.as_deref(), Some("make dev"));
+        assert_eq!(info.effective.dev_command_text(), Some("make dev"));
     }
 
     fn session(id: &str, repo_root: &str, updated_at: &str) -> Ordered<SessionRecord> {

@@ -13,7 +13,7 @@ pub mod wire;
 pub mod worker_ipc;
 
 /// types.ts PROTOCOL_VERSION: bump whenever the daemon/client request or response shape changes.
-pub const PROTOCOL_VERSION: u32 = 46;
+pub const PROTOCOL_VERSION: u32 = 47;
 
 pub use events::{ResponseData, ServerMessage, ServerResponse};
 pub use order::{KeyOrder, Ordered};

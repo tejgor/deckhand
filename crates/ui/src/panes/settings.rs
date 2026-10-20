@@ -16,9 +16,9 @@ use deckhand_core::display::{
 };
 use deckhand_core::jsstr::{js_len, js_pad_end, js_pad_start, js_slice};
 use deckhand_core::settings_model::{
-    ACTIONS_INTRO, COLUMNS, ChoiceOption, GridCell, GridRow, MAX_ACTIONS, NEEDS_TRUST_DETAIL, SETTINGS, SettingControl,
-    SettingId, SettingSection, action_count, cell_detail, column_titles, home_path, layer_actions, layer_name,
-    settings_grid,
+    ACTIONS_INTRO, COLUMNS, ChoiceOption, GridCell, GridRow, NEEDS_TRUST_DETAIL, SETTINGS, SettingControl, SettingId,
+    SettingSection, cell_detail, column_titles, entry_count, entry_noun, home_path, layer_entries, layer_name,
+    max_entries, settings_grid,
 };
 use deckhand_core::text_editor::EditorState;
 use deckhand_protocol::data::{
@@ -44,6 +44,17 @@ pub enum SettingsView {
 pub enum ActionStep {
     Name,
     Command,
+}
+
+/// Not in the TS: what a Dev process edit asks for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ProcessStep {
+    /// The command: of a new process (`name` none), or of the process `name`.
+    Command,
+    /// The name of a new process, after its command.
+    Name,
+    /// A new name for the process `name`.
+    Rename,
 }
 
 /// TS: settingsPane.tsx SettingsEdit: the inline edit control under the list.
@@ -76,6 +87,19 @@ pub enum SettingsEdit {
         entry: Option<String>,
     },
     DiscardLinks,
+    /// Not in the TS: a Dev process (Settings › Dev command): its command, then (beside others) its name.
+    Process {
+        target: ConfigTargetKind,
+        step: ProcessStep,
+        /// The process edited or renamed; none while adding one.
+        name: Option<String>,
+        /// The command typed for a new process, while its name is asked.
+        command: Option<String>,
+        /// A new process gets a name: others run beside it.
+        named: bool,
+        state: EditorState,
+        error: Option<String>,
+    },
 }
 
 /// TS: settingsPane.tsx LinksState: the link picker of one layer.
@@ -738,14 +762,20 @@ fn value_line(
     }
 }
 
-/// TS: settingsPane.tsx actionLines: the Actions view's lines and the value column's width.
+/// Not in the TS: what Dev processes are, above their list.
+pub const DEV_PROCESSES_INTRO: &str = "What Dev runs (d d): one command, or several processes side by side, each in its own split of the Dev tab. One layer's Dev replaces the other's whole.";
+
+/// TS: settingsPane.tsx actionLines: the Actions view's lines and the value column's width (`id`: Actions, or the
+/// Dev processes).
 pub fn action_lines(
     info: &SettingsInfo,
+    id: SettingId,
     column: ConfigTargetKind,
     selected: usize,
     inner: usize,
 ) -> (Vec<ListLine>, usize) {
-    let actions = layer_actions(info, column);
+    let actions = layer_entries(info, id, column);
+    let dev = id == SettingId::DevCommand;
     let (own, context) = (&actions.own, &actions.context);
     let all: Vec<_> = own.iter().chain(context.iter()).collect();
     let names: Vec<&str> = all.iter().map(|action| action.name.as_str()).collect();
@@ -755,7 +785,8 @@ pub fn action_lines(
         .collect();
     let layout = list_columns(inner, &names, &statuses);
     // What actions are, above the list (it scrolls away with a long list).
-    let mut lines: Vec<ListLine> = wrap_words(ACTIONS_INTRO, inner.saturating_sub(1).max(1))
+    let intro = if dev { DEV_PROCESSES_INTRO } else { ACTIONS_INTRO };
+    let mut lines: Vec<ListLine> = wrap_words(intro, inner.saturating_sub(1).max(1))
         .into_iter()
         .map(|text| ListLine {
             text: format!(" {text}"),
@@ -784,7 +815,7 @@ pub fn action_lines(
         ));
     }
     lines.push(ListLine {
-        text: " + Add action".to_owned(),
+        text: format!(" + Add {}", if dev { "a process" } else { "action" }),
         row: Some(own.len()),
         head: true,
         color: Some(THEME.active),
@@ -793,10 +824,13 @@ pub fn action_lines(
     });
     if !context.is_empty() {
         lines.push(ListLine {
-            text: if column == ConfigTargetKind::Repository {
-                " Also in effect here, from global defaults:"
-            } else {
-                " This repo also has:"
+            text: match (dev, column) {
+                (true, ConfigTargetKind::Repository) => {
+                    " In effect here until this repo sets its own Dev, from global defaults:"
+                }
+                (true, ConfigTargetKind::Global) => " This repo has its own Dev (it replaces these there):",
+                (false, ConfigTargetKind::Repository) => " Also in effect here, from global defaults:",
+                (false, ConfigTargetKind::Global) => " This repo also has:",
             }
             .to_owned(),
             color: Some(THEME.muted),
@@ -821,24 +855,39 @@ pub fn action_lines(
     (lines, layout.value_width)
 }
 
-/// TS: settingsPane.tsx actionDetails.
+/// TS: settingsPane.tsx actionDetails (`id`: Actions, or the Dev processes).
 pub fn action_details(
     info: &SettingsInfo,
+    id: SettingId,
     column: ConfigTargetKind,
     selected: usize,
     value_width: usize,
 ) -> Vec<DetailLine> {
-    let actions = layer_actions(info, column);
+    let actions = layer_entries(info, id, column);
+    let noun = entry_noun(id);
     let Some(action) = actions.own.get(selected) else {
+        let text = if id != SettingId::DevCommand {
+            format!("a (or Enter) adds an {noun}: first its name, then its command.")
+        } else if actions.own.is_empty() {
+            "Enter sets the Dev command. Add more processes later to run them side by side.".to_owned()
+        } else {
+            "Enter adds a process that runs beside the others: its command, then a name (suggested from it).".to_owned()
+        };
         let mut lines = vec![DetailLine {
-            text: "a (or Enter) adds an action: first its name, then its command.".to_owned(),
+            text,
             ..DetailLine::default()
         }];
-        if action_count(&info.targets, column) >= MAX_ACTIONS {
+        let max = max_entries(id);
+        if entry_count(&info.targets, id, column) >= max {
             lines.push(DetailLine {
                 text: format!(
-                    "{} has {MAX_ACTIONS} actions, the most allowed: remove one (x) to add another.",
-                    layer_short(column)
+                    "{} has {max} {}, the most allowed: remove one (x) to add another.",
+                    layer_short(column),
+                    if id == SettingId::DevCommand {
+                        "Dev processes"
+                    } else {
+                        "actions"
+                    }
                 ),
                 color: Some(INK.warn),
                 ..DetailLine::default()
@@ -850,6 +899,8 @@ pub fn action_details(
     let status = action.status.as_deref().filter(|status| !status.is_empty());
     let relation = if needs_trust {
         NEEDS_TRUST_DETAIL.to_owned()
+    } else if id == SettingId::DevCommand {
+        "d d starts it with the other Dev processes · r renames it".to_owned()
     } else if status == Some("overrides global") {
         format!("overrides the global {} action", action.name)
     } else if status.is_some() {
@@ -1321,6 +1372,36 @@ pub fn edit_title(edit: &SettingsEdit, width: usize) -> String {
         SettingsEdit::DiscardLinks => "Discard link changes?".to_owned(),
         SettingsEdit::Clear { label, target, .. } => format!("Clear {label} in {}?", layer_short(*target)),
         SettingsEdit::Choice { label, target, .. } => format!("{label} · {}", layer_name(*target)),
+        SettingsEdit::Process {
+            target,
+            step,
+            name,
+            named,
+            ..
+        } => {
+            let name = visible(name.as_deref().unwrap_or(""));
+            let titles = match (step, name.is_empty(), named) {
+                (ProcessStep::Command, true, false) => vec![format!("Dev command · {}", layer_name(*target))],
+                (ProcessStep::Command, true, true) => vec![
+                    "New Dev process · step 1 of 2: command".to_owned(),
+                    "Step 1 of 2: command".to_owned(),
+                ],
+                (ProcessStep::Name, ..) => vec![
+                    "New Dev process · step 2 of 2: name".to_owned(),
+                    "Step 2 of 2: name".to_owned(),
+                ],
+                (ProcessStep::Command, false, _) => {
+                    vec![format!("Dev process {name}: command"), format!("{name}: command")]
+                }
+                (ProcessStep::Rename, ..) => vec![format!("Rename Dev process {name}"), format!("Rename {name}")],
+            };
+            titles
+                .iter()
+                .find(|title| js_len(title) <= width)
+                .or(titles.last())
+                .cloned()
+                .unwrap_or_default()
+        }
         SettingsEdit::Text {
             id,
             label,
@@ -1329,18 +1410,24 @@ pub fn edit_title(edit: &SettingsEdit, width: usize) -> String {
             step,
             ..
         } => {
-            if *id != SettingId::Actions {
+            // The Dev command's processes (not in the TS) are titled like actions; the Dev command itself is not.
+            let process = *id == SettingId::DevCommand && (entry.is_some() || step.is_some());
+            if *id != SettingId::Actions && !process {
                 return format!("{label} · {}", layer_name(*target));
             }
+            let noun = entry_noun(*id);
             let name = visible(entry.as_deref().unwrap_or(""));
             let titles = match step {
-                Some(ActionStep::Name) => vec!["New action · step 1 of 2: name".to_owned()],
+                Some(ActionStep::Name) => vec![format!("New {noun} · step 1 of 2: name")],
                 Some(ActionStep::Command) => vec![
-                    format!("New action · step 2 of 2: command for {name}"),
+                    format!("New {noun} · step 2 of 2: command for {name}"),
                     format!("Step 2 of 2: command for {name}"),
                     format!("2/2: command for {name}"),
                 ],
-                None => vec![format!("Action {name}: command"), format!("{name}: command")],
+                None => vec![
+                    format!("{}{name}: command", if process { "Dev process " } else { "Action " }),
+                    format!("{name}: command"),
+                ],
             };
             titles
                 .iter()
@@ -1379,7 +1466,9 @@ pub fn edit_rows(edit: &SettingsEdit, help: Option<&[DetailLine]>, inner: usize)
             .iter()
             .map(|option| 1 + warning_lines(option, inner).len())
             .sum(),
-        SettingsEdit::Text { error, .. } => 1 + edit_message(error.as_deref(), help, inner).len(),
+        SettingsEdit::Text { error, .. } | SettingsEdit::Process { error, .. } => {
+            1 + edit_message(error.as_deref(), help, inner).len()
+        }
         _ => 1 + help.map_or(0, <[DetailLine]>::len),
     }
 }
@@ -1482,6 +1571,16 @@ pub fn edit_box(
                 ));
             }
         }
+        SettingsEdit::Process { state, error, .. } => {
+            content.push(input_line(state, inner, None));
+            for line in edit_message(error.as_deref(), help, inner) {
+                content.push(text_row(
+                    &line.text,
+                    ink_style(Some(line.color.unwrap_or(INK.muted))),
+                    inner,
+                ));
+            }
+        }
         SettingsEdit::Clear { target, .. } => {
             let text = if *target == ConfigTargetKind::Repository {
                 "Removes it from deckhand.json; global defaults (or the built-in default) apply instead."
@@ -1531,6 +1630,15 @@ pub fn edit_hint(edit: &SettingsEdit) -> Vec<HintPart> {
                 "enter next"
             } else {
                 "enter save"
+            }),
+            HintPart::from("esc cancel"),
+        ],
+        SettingsEdit::Process { step, name, named, .. } => vec![
+            hint_part("←→/home/end move", Some("←→ move"), Some(1)),
+            HintPart::from(match step {
+                ProcessStep::Command if name.is_none() && *named => "enter next",
+                ProcessStep::Rename => "enter rename",
+                _ => "enter save",
             }),
             HintPart::from("esc cancel"),
         ],
@@ -1596,6 +1704,8 @@ pub struct SettingsPaneProps<'a> {
     pub view: SettingsView,
     pub row: usize,
     pub action_row: usize,
+    /// Not in the TS: the list the Actions view shows (Actions, or the Dev command's processes).
+    pub list: SettingId,
     /// The selected column: the layer the cursor's cell (and the sub-editors) edit.
     pub column: ConfigTargetKind,
     pub edit: Option<&'a SettingsEdit>,
@@ -1689,6 +1799,9 @@ pub fn render_settings_pane(props: &SettingsPaneProps<'_>, scroll: &mut Settings
     let layer_title = layer_name(layer);
     let title = match props.view {
         SettingsView::Main => format!("Settings · {}", info.repo),
+        SettingsView::Actions if props.list == SettingId::DevCommand => {
+            format!("Settings › Dev command · {layer_title}")
+        }
         SettingsView::Actions => format!("Settings › Actions · {layer_title}"),
         SettingsView::Links => format!("Settings › Linked items · {layer_title}"),
     };
@@ -1725,17 +1838,28 @@ pub fn render_settings_pane(props: &SettingsPaneProps<'_>, scroll: &mut Settings
             scroll_slot = &mut scroll.links;
         }
         SettingsView::Actions => {
-            let (action_lines, value_width) = action_lines(info, props.column, props.action_row, inner);
+            let id = props.list;
+            let (action_lines, value_width) = action_lines(info, id, props.column, props.action_row, inner);
             lines = action_lines;
             selected = props.action_row;
-            details = action_details(info, props.column, props.action_row, value_width);
-            hint = vec![
-                HintPart::from("enter edit"),
-                HintPart::from("a add"),
-                hint_part("x remove", None, Some(1)),
-                hint_part("E raw JSON", Some("E JSON"), Some(2)),
-                hint_part("esc back", Some("esc"), None),
-            ];
+            details = action_details(info, id, props.column, props.action_row, value_width);
+            hint = if id == SettingId::DevCommand {
+                vec![
+                    HintPart::from("enter edit"),
+                    hint_part("r rename", None, Some(3)),
+                    hint_part("x remove", None, Some(1)),
+                    hint_part("E raw JSON", Some("E JSON"), Some(2)),
+                    hint_part("esc back", Some("esc"), None),
+                ]
+            } else {
+                vec![
+                    HintPart::from("enter edit"),
+                    HintPart::from("a add"),
+                    hint_part("x remove", None, Some(1)),
+                    hint_part("E raw JSON", Some("E JSON"), Some(2)),
+                    hint_part("esc back", Some("esc"), None),
+                ]
+            };
             scroll_slot = &mut scroll.actions;
         }
         _ => {
@@ -2109,6 +2233,7 @@ mod tests {
             view,
             row: input["row"].as_u64().map_or(0, |row| row as usize),
             action_row: input["actionRow"].as_u64().map_or(0, |row| row as usize),
+            list: SettingId::Actions,
             column: kind(&input["column"])?,
             edit: edit.as_ref(),
             edit_help: help.as_deref(),
@@ -2336,6 +2461,7 @@ mod ts_tests {
                 view: self.view,
                 row: self.row,
                 action_row: self.action_row,
+                list: SettingId::Actions,
                 column: self.column,
                 edit: self.edit.as_ref(),
                 edit_help: self.help.as_deref(),

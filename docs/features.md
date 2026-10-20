@@ -24,7 +24,7 @@ Settings come from two layers with the same schema. Every setting is optional. U
 | --- | --- |
 | `defaultAgent` | `claude`, `pi` or `codex`, preselected for new top-level sessions |
 | `defaultWorkspace` | `none`, `new` or `existing`, preselected for new top-level sessions |
-| `devCommand` | The Dev command (see [Terminal, Git and Dev panes](#terminal-git-and-dev-panes)); without one, Dev runs a command named `dev` |
+| `devCommand` | The Dev command (see [Terminal, Git and Dev panes](#terminal-git-and-dev-panes)), or a name → command map of processes that run side by side, such as a backend and a frontend (see [Several Dev processes](#several-dev-processes)); without one, Dev runs a command named `dev` |
 | `setupCommand` | Runs in a newly created worktree before the agent starts |
 | `actions` | Named commands offered by `r` (after Dev) |
 | `worktree` | Where new worktrees go, what their branch starts from and is called, whether the worktree creation hook is used and what is symlinked into them; see [Worktree settings](#worktree-settings) |
@@ -88,7 +88,7 @@ The [worktree creation hook](worktree-hooks.md) remains the escape hatch for any
 ```
 
 - **General**: Default agent, Default workspace.
-- **Commands**: Dev command, Setup command, Actions (the names).
+- **Commands**: Dev command (or the names of its processes), Setup command, Actions (the names).
 - **Worktrees**: Location, Branch from, Branch name, Linked items (`worktree.symlink` plus `worktree.files`, as a count), Creation hook (on/off).
 - **Agents**: Agent signals (`agent_hooks`) and Notifications (`notifications`). These are global only: they describe your machine and your agent CLIs, not a project. They are stored in `config.json` itself (not under `defaults`), and a repository can never switch them on. The This repo cell says *global only* and can't be selected. On these rows the cursor moves to Global, then returns to This repo when you leave the row. See [Lifecycle signals and notifications](#lifecycle-signals-and-notifications).
 
@@ -103,10 +103,11 @@ The box under the grid describes the selected cell in one line (two in narrow te
 **Edit controls**: the control opens under the grid, titled *<Setting> · <Layer>*; `esc` cancels it.
 
 - **Choices** (`↑`/`↓`, `enter` saves; `◉` marks the layer's own value): agent (`claude`, `pi`, `codex`), default workspace (no / new / existing worktree), branch from (current checkout, default branch, fetch `origin/<default>` first) and creation hook (on/off). Location offers four: inherit (the global location when editing This repo, else Deckhand's default; removes the layer's own `location`), next to the repository (`{repoParent}/worktrees/{name}`), inside it (`{repoRoot}/.worktrees/{name}`, with a warning when `.worktrees/` is not gitignored) or **custom…** (a template). Each location shows the path it resolves to.
-- **Text** (one line; `←`/`→` and `home`/`end` move, `ctrl+a`/`ctrl+e` go to line start/end): Dev command, Setup command, Branch name (with an example for `my-task`) and a custom location (with a preview). Invalid values show the error inline and keep the input open.
+- **Text** (one line; `←`/`→` and `home`/`end` move, `ctrl+a`/`ctrl+e` go to line start/end): Setup command, Branch name (with an example for `my-task`) and a custom location (with a preview). Invalid values show the error inline and keep the input open.
 - **Actions** (`enter` on the Actions cell): that column's actions only, name → command, with the other layer's actions dimmed underneath as context. Actions are named shell commands you run with `r` on a session. They run in that session's worktree and show on its Terminal tab. `enter` edits the command, `a` adds one in two titled steps and `x` removes it.
   - *Step 1 of 2: name*: letters, numbers, spaces and `_ . -`, starting with a letter or number, up to 48 characters (`test`, `lint frontend`, `db.migrate`). It is checked as you type (*can't start with a space*, *can't contain "/"*, …), and `enter` keeps the step open while it is invalid. It also says what saving does: *adds a new action to this repo*, *replaces the existing test action (this repo)* or *overrides the global test action in this repo*. A layer holds at most 30 actions; at the limit the step says so.
   - *Step 2 of 2: command for <name>*: runs with your shell (`$SHELL -ic`) in the session's worktree, like typing it in a terminal, so `&&`, pipes, `cd` and env vars work. For example `npm test`, `cd backend && .venv/bin/pytest -x` or `make lint`. It must not be empty (at most 8192 characters).
+- **Dev command** (`enter` on the Dev command cell): a list of what Dev runs in that column, the other layer's shown dimmed underneath while this one sets none. With nothing set it holds only **+ Add a process**. `enter` there asks for a command; the first one is the [Dev command](#terminal-git-and-dev-panes) itself. Adding another asks for its command, then a name suggested from it (`cd frontend && npm run dev` → `frontend`, `python3 server.py` → `server`), and the setting becomes [several Dev processes](#several-dev-processes), the first one keeping the name derived from its command. On a process, `enter` edits its command, `r` renames it and `x` removes it. A layer holds at most 8, and one layer's Dev replaces the other's whole.
 - **Linked items** (`enter` on the Linked items cell): the untracked and ignored entries of the main checkout (`git status --ignored=matching --untracked-files=normal`, so directories collapse; at most 200, then "+N more"). Sizes are computed in the background (`…` while pending, `?` when unknown or too slow), and symlink targets are shown. Configured entries are marked as link, with the layers that list them. Configured entries that no longer exist show as "missing in checkout". Everything else is suggested. Dependencies and env files (`node_modules`, `.venv`, `venv`, `vendor`, `.vercel`, `.env`, `.env.*`, `*.env`) are suggested as link. Build output, caches and clutter (`dist`, `build`, `out`, `coverage`, `.next`, `.turbo`, `.cache`, `__pycache__`, `.pytest_cache`, `.DS_Store`, `*.log`) and everything else are suggested as skip. `space` toggles link/skip, `a` adds a path that isn't listed, and `enter` saves the column's `worktree.symlink`. Its own entries keep their order, and entries the other layer links stay linked. `worktree.files` entries are listed read-only: edit them in the raw JSON.
 
 Each confirmed edit saves immediately through the same safe save as the JSON editor, preserving every other key. The status line says where it saved and what happened to trust: *Saved Dev command to this repo · still trusted*, *· created and trusted* or *· review required (the file had changes you haven't reviewed)*. Global saves never involve trust. A file that changed on disk since Settings read it rejects the edit; Settings reloads and says what was not saved.
@@ -121,7 +122,7 @@ A repository's `deckhand.json` and its optional `.claude/scripts/create-worktree
 
 - **New sessions** (`n` and `N`) open the picker at once, with the repository's `defaultAgent`/`defaultWorkspace` preselected even untrusted. Only confirming a new worktree that would use untrusted repository parts reviews first: its `setupCommand`, an enabled creation hook or `worktree` location, branch or link settings. `enter` trusts and creates, `s` creates with global settings only and `esc` returns to the form. No-worktree and existing-worktree sessions never ask.
 - **Actions** (`r`) lists the worktree's Dev command first, then global and all repository actions. Untrusted repository ones are marked *· needs trust*. Choosing one reviews first: `enter` trusts and runs it, `s` cancels that run (or runs the global action of the same name, if there is one) and `esc` returns to the list. Global and trusted actions run at once.
-- **Starting Dev** (`d` twice quickly, or `r` then `enter` on **Dev**), when the override defines a `devCommand`: `enter` trusts and starts it, and `s` starts the global (or built-in) Dev command instead.
+- **Starting Dev** (`d` twice quickly, or `r` then `enter` on **Dev**), when the override defines a `devCommand` (one command or several processes): `enter` trusts and starts it, and `s` starts the global (or built-in) Dev command instead.
 - **Retrying setup** (`s` on a session whose setup has not completed), when the override defines a `setupCommand`: `s` in the review retries without it.
 
 `esc` always backs out without running anything. In Settings (`C`), `T` opens the same review. Tabs are shown as spaces, and invisible or bidirectional characters as `<U+XXXX>`.
@@ -218,6 +219,30 @@ Terminal (your `$SHELL`), Git (the Changes view, plus `lazygit` on `o`) and Dev 
 
   With no Dev command set, Dev runs a literal `dev`. The older top-level `dev_command` still works, but only in the user `config.json` (never in `deckhand.json`): it is used when the global defaults set no `devCommand`.
 
+### Several Dev processes
+
+A project with a backend and a frontend (or a worker, a database, a tunnel) can run them all as Dev, each in its own process, with no tmux or wrapper script. Make `devCommand` a map of names to commands, in Settings (`C`, `enter` on the Dev command, then **+ Add a process**) or in `deckhand.json`:
+
+```json
+{
+  "devCommand": {
+    "backend": "cd backend && source .venv/bin/activate && exec python3 main.py",
+    "frontend": "cd frontend && exec npm run dev"
+  }
+}
+```
+
+Each command runs with your shell (`$SHELL -ic`) in the session's worktree, so `cd` into a subdirectory first. Names follow the action rules (letters, numbers, spaces, `_ . -`), and a layer holds at most 8.
+
+- **Starting and stopping**: `d` `d` (or **Dev** in the `r` list) starts every process and stops them all. Like a single Dev command, they belong to the worktree, are shared by its sessions and keep running after the agents exit. The sidebar's `▶` and the tab's dot show while any of them runs.
+- **The Dev tab** splits into one cell per process, each with its name, command and state (`● live`, `✓ exit 0`, `✗ exit 1`, `○ stopped`) over its live output. They sit side by side while each column is at least 40 wide, otherwise stacked. `v` selects the next process (`▸` marks it), and `enter` opens the selected one full screen; Deckhand selects it again when you come back.
+- **One at a time**: the `r` list shows a row per process after **Dev**. `enter` starts a stopped one alone, or restarts a running one (it waits for the old process to exit, so its port is free); `x` stops it and leaves the others running.
+- **One worktree at a time**: see below; it applies to processes as a whole.
+
+### Dev in one worktree at a time
+
+Every worktree of a repository runs the same Dev config, so its servers want the same ports. Dev therefore runs in one worktree of a repository at a time: starting it in one worktree (`d` `d`, or a process from the `r` list) first stops it in the repository's other worktrees, and the status line says where (*Started Dev · stopped it in fix-login*). Other repositories are not affected.
+
 ## Attach scroll sensitivity
 
 While attached, and while you scroll the preview, Deckhand damps trackpad and mouse-wheel scrolling. While scrolling a preview (`→` on Preview), press `+` / `-` to raise or lower the multiplier. It is saved immediately and also applies when attached. Or edit the user config directly:
@@ -242,7 +267,7 @@ It can also draw itself in the dusk palette of [the design system](brand/deckhan
 }
 ```
 
-Remove the key (or set `"terminal"`) to go back. Deckhand reads it when the UI starts and each time you come back from an attached session, so quit and reopen the UI after changing it. The status line above an attached agent follows the same setting. Only Deckhand's own UI changes colour; agents' output keeps its own colours.
+Remove the key (or set `"terminal"`) to go back. Deckhand reads it when the UI starts and each time you come back from an attached session, so quit and reopen the UI after changing it. The status line of an attached view (and under a note in Vim) follows the same setting. Only Deckhand's own UI changes colour; agents' output keeps its own colours.
 
 ## Git changes
 

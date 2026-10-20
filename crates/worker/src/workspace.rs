@@ -23,10 +23,10 @@ use tokio::sync::watch;
 
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::js_trim;
-use deckhand_protocol::data::{AttachSnapshot, AttachTarget, OkResult, PaneRecord};
+use deckhand_protocol::data::{AttachSnapshot, AttachTarget, DevProcessRecord, OkResult, PaneRecord};
 use deckhand_protocol::worker_ipc::{
-    IdleResult, PaneAttach, PaneDetach, PaneInput, PaneResize, Snapshot, WorkerActionUpdated, WorkerDevUpdated,
-    WorkerGitUpdated, WorkerOutput, WorkerTerminalUpdated,
+    DevProcessSpec, IdleResult, PaneAttach, PaneDetach, PaneInput, PaneResize, Snapshot, StartDev, WorkerActionUpdated,
+    WorkerDevUpdated, WorkerGitUpdated, WorkerOutput, WorkerTerminalUpdated,
 };
 use deckhand_protocol::{Ordered, WorkerMessage, WorkspaceWorkerCommand};
 use deckhand_sys::async_util::{KeyedSharedSlot, Task, Timer, spawn};
@@ -51,11 +51,14 @@ pub const ROOT_SESSION_ENV: &[&str] = &["DECKHAND_HOOK_TOKEN", "DECKHAND_LAUNCH_
 pub const LAZYGIT_MISSING: &str = "lazygit is not installed or not on PATH";
 
 /// TS: sessionWorker.ts PaneTarget (`Exclude<AttachTarget, 'agent'>`).
+///
+/// Not in the TS: Dev carries the index of its process. A single Dev command is `Dev(0)`; named processes (`devCommand` as a map)
+/// are `Dev(0)`, `Dev(1)`, ... in their configured order, all shown and attached as the one Dev pane.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PaneTarget {
     Terminal,
     Git,
-    Dev,
+    Dev(u8),
     Action,
 }
 
@@ -65,9 +68,14 @@ impl PaneTarget {
         match self {
             PaneTarget::Terminal => AttachTarget::Terminal,
             PaneTarget::Git => AttachTarget::Git,
-            PaneTarget::Dev => AttachTarget::Dev,
+            PaneTarget::Dev(_) => AttachTarget::Dev,
             PaneTarget::Action => AttachTarget::Action,
         }
+    }
+
+    /// Whether this is one of Dev's processes.
+    pub fn is_dev(self) -> bool {
+        matches!(self, PaneTarget::Dev(_))
     }
 
     /// The pane an attach target names (`None` for `agent`).
@@ -76,7 +84,7 @@ impl PaneTarget {
             AttachTarget::Agent => None,
             AttachTarget::Terminal => Some(PaneTarget::Terminal),
             AttachTarget::Git => Some(PaneTarget::Git),
-            AttachTarget::Dev => Some(PaneTarget::Dev),
+            AttachTarget::Dev => Some(PaneTarget::Dev(0)),
             AttachTarget::Action => Some(PaneTarget::Action),
         }
     }
@@ -92,9 +100,12 @@ impl PaneTarget {
 pub const WORKSPACE_PANES: &[PaneTarget] = &[
     PaneTarget::Terminal,
     PaneTarget::Git,
-    PaneTarget::Dev,
+    PaneTarget::Dev(0),
     PaneTarget::Action,
 ];
+
+/// Refused when Dev runs something else than what is asked for.
+const STOP_DEV_FIRST: &str = "Stop the current Dev command before starting another";
 
 /// TS: sessionWorker.ts PaneCommand: the pane commands shared by both worker kinds.
 #[derive(Clone, Debug, PartialEq)]
@@ -128,8 +139,8 @@ pub fn request_id(command: &WorkspaceWorkerCommand) -> Option<&str> {
         WorkspaceWorkerCommand::Start(start) => Some(&start.request_id),
         WorkspaceWorkerCommand::StartDev(start) => Some(&start.request_id),
         WorkspaceWorkerCommand::StartAction(start) => Some(&start.request_id),
-        WorkspaceWorkerCommand::StopDev(request)
-        | WorkspaceWorkerCommand::StopAction(request)
+        WorkspaceWorkerCommand::StopDev(request) => Some(&request.request_id),
+        WorkspaceWorkerCommand::StopAction(request)
         | WorkspaceWorkerCommand::Idle(request)
         | WorkspaceWorkerCommand::Shutdown(request) => Some(&request.request_id),
         WorkspaceWorkerCommand::Detach(_) | WorkspaceWorkerCommand::Input(_) | WorkspaceWorkerCommand::Resize(_) => {
@@ -160,7 +171,7 @@ pub fn pane_updated(target: PaneTarget, record: Ordered<PaneRecord>) -> WorkerMe
         PaneTarget::Terminal => WorkerMessage::TerminalUpdated(WorkerTerminalUpdated { terminal: record }),
         PaneTarget::Git => WorkerMessage::GitUpdated(WorkerGitUpdated { git: record }),
         PaneTarget::Action => WorkerMessage::ActionUpdated(WorkerActionUpdated { action: record }),
-        PaneTarget::Dev => WorkerMessage::DevUpdated(WorkerDevUpdated { dev: record }),
+        PaneTarget::Dev(_) => WorkerMessage::DevUpdated(WorkerDevUpdated { dev: record }),
     }
 }
 
@@ -194,6 +205,8 @@ struct PaneHostInner {
     /// when it settles (TS: `finally` deletes it if it is still the current one).
     start_promises: KeyedSharedSlot<PaneTarget, Result<SharedRuntime, DhError>>,
     attached: RefCell<HashSet<PaneTarget>>,
+    /// Not in the TS: the named Dev processes last started (`Dev(i)` runs the i-th); `None` for a single Dev command.
+    dev_processes: RefCell<Option<Vec<DevProcessSpec>>>,
 }
 
 impl PaneHost {
@@ -214,6 +227,7 @@ impl PaneHost {
                 panes: RefCell::new(HashMap::new()),
                 start_promises: KeyedSharedSlot::new(),
                 attached: RefCell::new(HashSet::new()),
+                dev_processes: RefCell::new(None),
             }),
         }
     }
@@ -312,41 +326,49 @@ impl PaneHost {
         requested_command: Option<&str>,
     ) -> Result<Ordered<PaneRecord>, DhError> {
         self.hosted(AttachTarget::Dev)?;
+        // Named processes still running were started from another configuration.
+        if self.inner.dev_processes.borrow().is_some() {
+            if self.dev_targets().into_iter().any(|target| self.live(target).is_some()) {
+                return Err(DhError::msg(STOP_DEV_FIRST));
+            }
+            drop(self.stop_dev_targets());
+            *self.inner.dev_processes.borrow_mut() = None;
+        }
         let requested = trimmed(requested_command);
         let reuse = |runtime: SharedRuntime| -> Result<Ordered<PaneRecord>, DhError> {
             if let Some(requested) = &requested
                 && runtime.borrow().command.as_deref() != Some(requested.as_str())
             {
-                return Err(DhError::msg("Stop the current Dev command before starting another"));
+                return Err(DhError::msg(STOP_DEV_FIRST));
             }
             let runtime = PaneHost::resize_runtime(&runtime, cols, rows);
-            Ok(self.record_of(PaneTarget::Dev, &runtime))
+            Ok(self.record_of(PaneTarget::Dev(0), &runtime))
         };
-        if let Some(existing) = self.live(PaneTarget::Dev) {
+        if let Some(existing) = self.live(PaneTarget::Dev(0)) {
             return reuse(existing);
         }
-        if let Some(pending) = self.inner.start_promises.get(&PaneTarget::Dev) {
+        if let Some(pending) = self.inner.start_promises.get(&PaneTarget::Dev(0)) {
             return reuse(pending.await?);
         }
 
-        drop(self.stop(PaneTarget::Dev));
+        drop(self.stop(PaneTarget::Dev(0)));
         let host = self.clone();
         let wanted = requested.clone();
         let start = self
             .inner
             .start_promises
-            .get_or_start(PaneTarget::Dev, move || async move {
+            .get_or_start(PaneTarget::Dev(0), move || async move {
                 let config = load_app_config().await?;
                 let command = wanted
                     .or_else(|| trimmed(config.dev_command.as_deref()))
                     .unwrap_or_else(|| "dev".to_owned());
-                if let Some(current) = host.live(PaneTarget::Dev) {
+                if let Some(current) = host.live(PaneTarget::Dev(0)) {
                     return Ok(current);
                 }
                 let cwd = host.cwd()?;
                 let args = ["-ic".to_owned(), command.clone()];
                 host.spawn_pane(
-                    PaneTarget::Dev,
+                    PaneTarget::Dev(0),
                     &shell_command(),
                     &args,
                     &cwd,
@@ -356,7 +378,201 @@ impl PaneHost {
                 )
             });
         let runtime = start.await?;
-        Ok(self.record_of(PaneTarget::Dev, &runtime))
+        Ok(self.record_of(PaneTarget::Dev(0), &runtime))
+    }
+
+    /// Not in the TS: starts Dev's named processes (`devCommand` as a map), each `$SHELL -ic <command>` in a PTY of its own,
+    /// or only `only` (stopped first with `restart`, waiting until it exited so it releases its port). Running ones
+    /// are kept; anything running that the list does not name the same way is refused ([`STOP_DEV_FIRST`]).
+    pub async fn start_dev_processes(
+        &self,
+        cols: i64,
+        rows: i64,
+        processes: Vec<DevProcessSpec>,
+        only: Option<&str>,
+        restart: bool,
+    ) -> Result<Ordered<PaneRecord>, DhError> {
+        self.hosted(AttachTarget::Dev)?;
+        if processes.is_empty() || processes.len() > usize::from(u8::MAX) {
+            return Err(DhError::msg("Invalid Dev processes"));
+        }
+        if self.inner.start_promises.contains(&PaneTarget::Dev(0)) {
+            return Err(DhError::msg(STOP_DEV_FIRST));
+        }
+        let current = self.inner.dev_processes.borrow().clone();
+        for target in self.dev_targets() {
+            let PaneTarget::Dev(index) = target else {
+                continue;
+            };
+            let index = usize::from(index);
+            let same = current
+                .as_ref()
+                .and_then(|current| current.get(index))
+                .is_some_and(|running| processes.get(index) == Some(running));
+            if !same && self.live(target).is_some() {
+                return Err(DhError::msg(STOP_DEV_FIRST));
+            }
+            if !same {
+                drop(self.stop(target));
+            }
+        }
+        let selected: Vec<usize> = match only {
+            None => (0..processes.len()).collect(),
+            Some(name) => match processes.iter().position(|process| process.name == name) {
+                Some(index) => vec![index],
+                None => return Err(DhError::msg(format!("Unknown Dev process: {name}"))),
+            },
+        };
+        *self.inner.dev_processes.borrow_mut() = Some(processes.clone());
+        let cwd = self.cwd()?;
+        for index in selected {
+            let target = PaneTarget::Dev(u8::try_from(index).unwrap_or(u8::MAX));
+            if let Some(live) = self.live(target) {
+                if !restart {
+                    PaneHost::resize_runtime(&live, cols, rows);
+                    continue;
+                }
+                self.stop(target).await;
+                // Started again meanwhile (another start-dev): that one stands.
+                if self.live(target).is_some() {
+                    continue;
+                }
+            } else {
+                drop(self.stop(target));
+            }
+            let Some(process) = processes.get(index) else {
+                continue;
+            };
+            let args = ["-ic".to_owned(), process.command.clone()];
+            let runtime = self.spawn_pane(
+                target,
+                &shell_command(),
+                &args,
+                &cwd,
+                cols,
+                rows,
+                Some(&process.command),
+            )?;
+            runtime.borrow_mut().name = Some(process.name.clone());
+        }
+        Ok(self.dev_record())
+    }
+
+    /// Not in the TS: the Dev targets that have a runtime, in process order.
+    fn dev_targets(&self) -> Vec<PaneTarget> {
+        let mut targets: Vec<PaneTarget> = self
+            .inner
+            .panes
+            .borrow()
+            .keys()
+            .copied()
+            .filter(|target| target.is_dev())
+            .collect();
+        targets.sort();
+        targets
+    }
+
+    /// Not in the TS: stops every Dev process (see [`PaneHost::stop`]).
+    fn stop_dev_targets(&self) -> Task<()> {
+        let stops: Vec<Task<()>> = self.dev_targets().into_iter().map(|target| self.stop(target)).collect();
+        spawn(async move {
+            for stop in stops {
+                stop.await;
+            }
+        })
+    }
+
+    /// Not in the TS: the Dev target a request names: the named process (`process`), else the attached one, else
+    /// the first. Fails with `Unknown Dev process: <name>`.
+    fn dev_target(&self, process: Option<&str>) -> Result<PaneTarget, DhError> {
+        if let Some(name) = process {
+            let index = self
+                .inner
+                .dev_processes
+                .borrow()
+                .as_ref()
+                .and_then(|processes| processes.iter().position(|process| process.name == name));
+            return match index.and_then(|index| u8::try_from(index).ok()) {
+                Some(index) => Ok(PaneTarget::Dev(index)),
+                None => Err(DhError::msg(format!("Unknown Dev process: {name}"))),
+            };
+        }
+        let attached = self
+            .inner
+            .attached
+            .borrow()
+            .iter()
+            .copied()
+            .find(|target| target.is_dev());
+        Ok(attached.unwrap_or(PaneTarget::Dev(0)))
+    }
+
+    /// Not in the TS: the pane a pane command acts on (Dev: the attached process, see [`PaneHost::dev_target`]).
+    fn routed(&self, target: AttachTarget) -> Result<PaneTarget, DhError> {
+        let pane = self.hosted(target)?;
+        if pane.is_dev() {
+            return self.dev_target(None);
+        }
+        Ok(pane)
+    }
+
+    /// Not in the TS: Dev's record. A single command's is its own; named processes give one record with every
+    /// configured process (`live` while any runs, so `devRunning` and the sidebar's `▶` mean "Dev runs").
+    pub fn dev_record(&self) -> Ordered<PaneRecord> {
+        let processes = self.inner.dev_processes.borrow().clone();
+        let Some(processes) = processes else {
+            let runtime = self.pane(PaneTarget::Dev(0));
+            let runtime = runtime.as_ref().map(|runtime| runtime.borrow());
+            return self.record(PaneTarget::Dev(0), runtime.as_deref());
+        };
+        let processes: Vec<DevProcessRecord> = processes
+            .into_iter()
+            .enumerate()
+            .map(|(index, process)| {
+                let runtime = u8::try_from(index)
+                    .ok()
+                    .and_then(|index| self.pane(PaneTarget::Dev(index)));
+                match runtime {
+                    Some(runtime) => {
+                        let runtime = runtime.borrow();
+                        DevProcessRecord {
+                            name: process.name,
+                            content: runtime.preview.get_cached_snapshot(),
+                            live: !runtime.exited,
+                            command: runtime.command.clone(),
+                            exit_code: runtime.exit_code.flatten(),
+                            exit_signal: runtime.exit_signal.flatten(),
+                        }
+                    }
+                    None => DevProcessRecord {
+                        name: process.name,
+                        command: Some(process.command),
+                        ..DevProcessRecord::default()
+                    },
+                }
+            })
+            .collect();
+        Ordered::new(PaneRecord {
+            live: processes.iter().any(|process| process.live),
+            cwd: (self.inner.owner)(),
+            processes: Some(processes),
+            ..PaneRecord::default()
+        })
+    }
+
+    /// Not in the TS: stops Dev (every process, forgetting them) or only the named process.
+    pub fn stop_dev(&self, process: Option<&str>) -> Result<(), DhError> {
+        match process {
+            None => {
+                drop(self.stop_dev_targets());
+                *self.inner.dev_processes.borrow_mut() = None;
+            }
+            Some(_) => {
+                let target = self.dev_target(process)?;
+                drop(self.stop(target));
+            }
+        }
+        Ok(())
     }
 
     /// TS: PaneHost.startAction: one action at a time per workspace; a finished one is replaced (its output and exit
@@ -501,7 +717,16 @@ impl PaneHost {
                 let runtime = self.ensure_git(cols, rows).await?;
                 Ok(self.record_of(pane, &runtime))
             }
-            PaneTarget::Dev | PaneTarget::Action => match self.pane(pane) {
+            // Every Dev process is sized alike: the Dev tab shows them side by side or stacked, in cells of one size.
+            PaneTarget::Dev(_) => {
+                for target in self.dev_targets() {
+                    if let Some(runtime) = self.pane(target) {
+                        PaneHost::resize_runtime(&runtime, cols, rows);
+                    }
+                }
+                Ok(self.dev_record())
+            }
+            PaneTarget::Action => match self.pane(pane) {
                 Some(runtime) => {
                     let runtime = PaneHost::resize_runtime(&runtime, cols, rows);
                     Ok(self.record_of(pane, &runtime))
@@ -513,10 +738,40 @@ impl PaneHost {
 
     /// TS: PaneHost.attach: marks the pane attached, then its snapshot plus `{terminalModes, initialFrame}` while a
     /// runtime exists.
-    pub async fn attach(&self, target: AttachTarget, cols: i64, rows: i64) -> Result<Ordered<AttachSnapshot>, DhError> {
-        let pane = self.hosted(target)?;
-        self.inner.attached.borrow_mut().insert(pane);
-        let record = self.snapshot(pane.attach_target(), cols, rows).await?.into_inner();
+    ///
+    /// Dev attaches one process (`process`, else the first): only that one is sized to the attaching terminal, and
+    /// its record is its own.
+    pub async fn attach(
+        &self,
+        target: AttachTarget,
+        cols: i64,
+        rows: i64,
+        process: Option<&str>,
+    ) -> Result<Ordered<AttachSnapshot>, DhError> {
+        let mut pane = self.hosted(target)?;
+        if pane.is_dev() {
+            pane = match process.filter(|name| !name.is_empty()) {
+                Some(name) => self.dev_target(Some(name))?,
+                None => PaneTarget::Dev(0),
+            };
+            let mut attached = self.inner.attached.borrow_mut();
+            attached.retain(|target| !target.is_dev());
+            attached.insert(pane);
+        } else {
+            self.inner.attached.borrow_mut().insert(pane);
+        }
+        let record = if pane.is_dev() {
+            match self.pane(pane) {
+                Some(runtime) => {
+                    let runtime = PaneHost::resize_runtime(&runtime, cols, rows);
+                    self.record_of(pane, &runtime)
+                }
+                None => self.record(pane, None),
+            }
+        } else {
+            self.snapshot(pane.attach_target(), cols, rows).await?
+        }
+        .into_inner();
         let extra = self.pane(pane).map(|runtime| {
             let mut runtime = runtime.borrow_mut();
             let modes = runtime.terminal_modes.clone();
@@ -548,13 +803,18 @@ impl PaneHost {
     /// TS: PaneHost.detach
     pub fn detach(&self, target: AttachTarget) -> Result<(), DhError> {
         let pane = self.hosted(target)?;
-        self.inner.attached.borrow_mut().remove(&pane);
+        let mut attached = self.inner.attached.borrow_mut();
+        if pane.is_dev() {
+            attached.retain(|target| !target.is_dev());
+        } else {
+            attached.remove(&pane);
+        }
         Ok(())
     }
 
     /// TS: PaneHost.input (`term.write(data)` on the pane, if it has a runtime).
     pub async fn input(&self, target: AttachTarget, data: &str) -> Result<(), DhError> {
-        let pane = self.hosted(target)?;
+        let pane = self.routed(target)?;
         let term = self.pane(pane).map(|runtime| Rc::clone(&runtime.borrow().term));
         if let Some(term) = term {
             // node-pty reports write failures on the socket, never to the caller.
@@ -565,7 +825,7 @@ impl PaneHost {
 
     /// TS: PaneHost.resize (a no-op without a live runtime), then a broadcast.
     pub fn resize(&self, target: AttachTarget, cols: i64, rows: i64) -> Result<(), DhError> {
-        let pane = self.hosted(target)?;
+        let pane = self.routed(target)?;
         let Some(runtime) = self.live(pane) else {
             return Ok(());
         };
@@ -643,7 +903,13 @@ impl PaneHost {
 
     /// TS: PaneHost.stopAll: [`PaneHost::stop`] for every hosted target, resolving when all did.
     pub fn stop_all(&self) -> Task<()> {
-        let stops: Vec<Task<()>> = self.inner.targets.iter().map(|target| self.stop(*target)).collect();
+        let mut targets = self.inner.targets.clone();
+        for target in self.dev_targets() {
+            if !targets.contains(&target) {
+                targets.push(target);
+            }
+        }
+        let stops: Vec<Task<()>> = targets.iter().map(|target| self.stop(*target)).collect();
         spawn(async move {
             for stop in stops {
                 stop.await;
@@ -655,7 +921,7 @@ impl PaneHost {
     /// action, `name` for action; `cwd` falls back to the workspace's).
     pub fn record(&self, target: PaneTarget, runtime: Option<&RuntimePty>) -> Ordered<PaneRecord> {
         let owner_cwd = (self.inner.owner)();
-        let with_command = matches!(target, PaneTarget::Dev | PaneTarget::Action);
+        let with_command = matches!(target, PaneTarget::Dev(_) | PaneTarget::Action);
         Ordered::new(PaneRecord {
             content: runtime
                 .map(|runtime| runtime.preview.get_cached_snapshot())
@@ -667,13 +933,14 @@ impl PaneHost {
             } else {
                 None
             },
-            name: if target == PaneTarget::Action {
+            name: if matches!(target, PaneTarget::Dev(_) | PaneTarget::Action) {
                 runtime.and_then(|runtime| runtime.name.clone())
             } else {
                 None
             },
             exit_code: runtime.and_then(|runtime| runtime.exit_code),
             exit_signal: runtime.and_then(|runtime| runtime.exit_signal),
+            processes: None,
             session_id: None,
             workspace: None,
         })
@@ -694,8 +961,10 @@ impl PaneHost {
                     timer.detach();
                 }
                 current.preview.get_snapshot(None);
-                host.record(target, Some(&current))
+                (!target.is_dev()).then(|| host.record(target, Some(&current)))
             };
+            // Dev's record covers every process, so it is built once this runtime's borrow is released.
+            let record = record.unwrap_or_else(|| host.dev_record());
             host.inner.channel.post(&pane_updated(target, record));
         });
         runtime.borrow_mut().broadcast_timer = Some(timer);
@@ -710,7 +979,9 @@ pub async fn handle_pane_command(host: &PaneHost, command: PaneCommand) -> Resul
             host.inner.channel.ok(&snapshot.request_id, &record);
         }
         PaneCommand::Attach(attach) => {
-            let record = host.attach(attach.target, attach.cols, attach.rows).await?;
+            let record = host
+                .attach(attach.target, attach.cols, attach.rows, attach.process.as_deref())
+                .await?;
             host.inner.channel.ok(&attach.request_id, &record);
         }
         PaneCommand::Detach(detach) => host.detach(detach.target)?,
@@ -815,11 +1086,28 @@ impl WorkspaceWorker {
                 channel.ok(&start.request_id, &OkResult { ok: true });
             }
             WorkspaceWorkerCommand::StartDev(start) => {
-                let record = panes.start_dev(start.cols, start.rows, Some(&start.command)).await?;
-                channel.ok(&start.request_id, &record);
+                let StartDev {
+                    command,
+                    processes,
+                    process,
+                    restart,
+                    cols,
+                    rows,
+                    request_id,
+                } = start;
+                let record = match processes {
+                    Some(processes) => {
+                        panes
+                            .start_dev_processes(cols, rows, processes, process.as_deref(), restart == Some(true))
+                            .await?
+                    }
+                    None => panes.start_dev(cols, rows, Some(&command)).await?,
+                };
+                channel.ok(&request_id, &record);
             }
             WorkspaceWorkerCommand::StopDev(request) => {
-                self.stop_pane(PaneTarget::Dev);
+                panes.stop_dev(request.process.as_deref())?;
+                channel.post(&pane_updated(PaneTarget::Dev(0), panes.dev_record()));
                 channel.ok(&request.request_id, &IdleResult { idle: panes.is_idle() });
             }
             WorkspaceWorkerCommand::StartAction(start) => {
@@ -963,7 +1251,7 @@ mod tests {
                 cwd,
                 _dir: dir,
             };
-            assert_eq!(daemon.next_text().await, r#"{"type":"hello","version":46}"#);
+            assert_eq!(daemon.next_text().await, r#"{"type":"hello","version":47}"#);
             daemon
         }
 
@@ -1113,7 +1401,7 @@ mod tests {
             r#"{"type":"git-updated","git":{"content":"x","live":false,"cwd":"/w"}}"#
         );
         assert_eq!(
-            text(PaneTarget::Dev),
+            text(PaneTarget::Dev(0)),
             r#"{"type":"dev-updated","dev":{"content":"x","live":false,"cwd":"/w"}}"#
         );
         assert_eq!(
@@ -1141,13 +1429,13 @@ mod tests {
             let cwd: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
             let owner = Rc::clone(&cwd);
             let host = PaneHost::new(
-                &[PaneTarget::Terminal, PaneTarget::Dev, PaneTarget::Dev],
+                &[PaneTarget::Terminal, PaneTarget::Dev(0), PaneTarget::Dev(0)],
                 move || owner.borrow().clone(),
                 channel,
             );
-            assert_eq!(host.inner.targets, [PaneTarget::Terminal, PaneTarget::Dev]);
+            assert_eq!(host.inner.targets, [PaneTarget::Terminal, PaneTarget::Dev(0)]);
             assert!(host.is_idle());
-            assert_eq!(host.hosted(AttachTarget::Dev), Ok(PaneTarget::Dev));
+            assert_eq!(host.hosted(AttachTarget::Dev), Ok(PaneTarget::Dev(0)));
             assert_eq!(
                 host.hosted(AttachTarget::Agent).unwrap_err().message(),
                 "agent pane is not hosted by this worker"
@@ -1160,7 +1448,7 @@ mod tests {
             *cwd.borrow_mut() = Some(String::new());
             assert_eq!(host.cwd().unwrap_err().message(), "workspace is not started");
             assert_eq!(
-                serde_json::to_string(&host.record(PaneTarget::Dev, None)).expect("json"),
+                serde_json::to_string(&host.record(PaneTarget::Dev(0), None)).expect("json"),
                 r#"{"content":"","live":false,"cwd":""}"#
             );
             *cwd.borrow_mut() = None;
@@ -1412,7 +1700,7 @@ mod tests {
             assert_eq!(started["ok"], true, "{started}");
             assert_eq!(keys(&started["data"]), ["content", "live", "cwd", "command"]);
             assert_eq!(started["data"]["command"], "printf dev-up; sleep 30");
-            let pid = daemon.pid(PaneTarget::Dev);
+            let pid = daemon.pid(PaneTarget::Dev(0));
 
             let same = daemon
                 .request(json!({"type": "start-dev", "command": "printf dev-up; sleep 30", "cols": 70, "rows": 20, "requestId": "d2"}))
@@ -1428,7 +1716,7 @@ mod tests {
                     .await,
                 json!({"type": "response", "requestId": "d4", "ok": false, "error": "Stop the current Dev command before starting another"})
             );
-            let runtime = daemon.worker.panes().pane(PaneTarget::Dev).expect("dev");
+            let runtime = daemon.worker.panes().pane(PaneTarget::Dev(0)).expect("dev");
             let term = Rc::clone(&runtime.borrow().term);
             assert_eq!((term.pid(), term.cols(), term.rows()), (pid, 70, 20));
 
@@ -1461,6 +1749,116 @@ mod tests {
     }
 
     #[test]
+    fn named_dev_processes_run_side_by_side_and_stop_one_at_a_time() {
+        run_local(async {
+            let mut daemon = Daemon::started().await;
+            let processes = json!([
+                {"name": "api", "command": "printf api-up; sleep 30"},
+                {"name": "web", "command": "printf web-up; sleep 30"},
+            ]);
+            let start = |extra: Value, id: &str| {
+                let mut command = json!({"type": "start-dev", "command": "", "processes": processes.clone(), "cols": 40, "rows": 10, "requestId": id});
+                if let (Some(command), Some(extra)) = (command.as_object_mut(), extra.as_object()) {
+                    command.extend(extra.clone());
+                }
+                command
+            };
+            let started = daemon.request(start(json!({}), "d1")).await;
+            assert_eq!(started["ok"], true, "{started}");
+            assert_eq!(keys(&started["data"]), ["content", "live", "cwd", "processes"]);
+            assert_eq!(started["data"]["live"], true);
+            let names: Vec<&str> = started["data"]["processes"]
+                .as_array()
+                .expect("processes")
+                .iter()
+                .map(|process| process["name"].as_str().expect("name"))
+                .collect();
+            assert_eq!(names, ["api", "web"]);
+            let (api, web) = (daemon.pid(PaneTarget::Dev(0)), daemon.pid(PaneTarget::Dev(1)));
+            assert_ne!(api, web);
+
+            // Starting them again keeps them; a single command is refused while they run.
+            assert_eq!(daemon.request(start(json!({}), "d2")).await["ok"], true);
+            assert_eq!(daemon.pid(PaneTarget::Dev(1)), web);
+            assert_eq!(
+                daemon
+                    .request(json!({"type": "start-dev", "command": "npm run dev", "cols": 40, "rows": 10, "requestId": "d3"}))
+                    .await["error"],
+                "Stop the current Dev command before starting another"
+            );
+
+            // One record carries both outputs.
+            let mut seen = Vec::new();
+            daemon
+                .until(
+                    |m| {
+                        m["type"] == "dev-updated"
+                            && m["dev"]["processes"][0]["content"] == "api-up"
+                            && m["dev"]["processes"][1]["content"] == "web-up"
+                    },
+                    &mut seen,
+                )
+                .await;
+
+            // Attaching web sizes only web; its input and resizes go to web.
+            let attached = daemon
+                .request(json!({"type": "attach", "target": "dev", "process": "web", "cols": 100, "rows": 30, "requestId": "a"}))
+                .await;
+            assert_eq!(attached["data"]["name"], "web", "{attached}");
+            let size = |daemon: &Daemon, target: PaneTarget| {
+                let runtime = daemon.worker.panes().pane(target).expect("pane");
+                let term = Rc::clone(&runtime.borrow().term);
+                (term.cols(), term.rows())
+            };
+            assert_eq!(size(&daemon, PaneTarget::Dev(0)), (40, 10));
+            assert_eq!(size(&daemon, PaneTarget::Dev(1)), (100, 30));
+            daemon
+                .send(json!({"type": "resize", "target": "dev", "cols": 90, "rows": 25}))
+                .await;
+            daemon.send(json!({"type": "detach", "target": "dev"})).await;
+            let snapshot = daemon
+                .request(json!({"type": "snapshot", "target": "dev", "cols": 40, "rows": 10, "requestId": "v"}))
+                .await;
+            assert_eq!(snapshot["ok"], true);
+            assert_eq!(size(&daemon, PaneTarget::Dev(0)), (40, 10));
+            assert_eq!(size(&daemon, PaneTarget::Dev(1)), (40, 10));
+
+            // Restarting web replaces only web, after it exited.
+            let restarted = daemon
+                .request(start(json!({"process": "web", "restart": true}), "r"))
+                .await;
+            assert_eq!(restarted["ok"], true, "{restarted}");
+            assert!(wait_dead(web).await, "web {web} survived its restart");
+            let web = daemon.pid(PaneTarget::Dev(1));
+            assert_eq!(daemon.pid(PaneTarget::Dev(0)), api);
+            assert_eq!(
+                daemon.request(start(json!({"process": "db"}), "u")).await["error"],
+                "Unknown Dev process: db"
+            );
+
+            // Stopping api leaves web running, and the worker in use.
+            let stopped = daemon
+                .request(json!({"type": "stop-dev", "process": "api", "requestId": "s1"}))
+                .await;
+            assert_eq!(stopped["data"]["idle"], false, "{stopped}");
+            assert!(wait_dead(api).await, "api {api} survived its stop");
+            let record = daemon.worker.panes().dev_record();
+            let processes = record.processes.as_ref().expect("processes");
+            assert_eq!(
+                processes.iter().map(|process| process.live).collect::<Vec<_>>(),
+                [false, true]
+            );
+            assert!(record.live);
+
+            // Stopping Dev stops the rest.
+            let stopped = daemon.request(json!({"type": "stop-dev", "requestId": "s2"})).await;
+            assert_eq!(stopped["data"]["idle"], true, "{stopped}");
+            assert!(wait_dead(web).await, "web {web} survived the stop");
+            assert_eq!(daemon.worker.panes().dev_record().processes, None);
+        });
+    }
+
+    #[test]
     fn concurrent_dev_starts_share_one_pane() {
         run_local(async {
             let mut daemon = Daemon::started().await;
@@ -1475,7 +1873,7 @@ mod tests {
                 "Stop the current Dev command before starting another"
             );
             assert_eq!(daemon.response("d3").await["data"]["command"], "sleep 30");
-            let pid = daemon.pid(PaneTarget::Dev);
+            let pid = daemon.pid(PaneTarget::Dev(0));
             daemon.request(json!({"type": "shutdown", "requestId": "bye"})).await;
             assert!(wait_dead(pid).await, "dev {pid} survived the shutdown");
         });
@@ -1523,7 +1921,7 @@ mod tests {
             // A pane that dies of SIGHUP ends the stop at once.
             let quick = host
                 .spawn_pane(
-                    PaneTarget::Dev,
+                    PaneTarget::Dev(0),
                     "/bin/sh",
                     &args("sleep 30"),
                     &cwd,
@@ -1535,14 +1933,14 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(100)).await;
             let quick_pid = quick.borrow().term.pid();
             let started = Instant::now();
-            host.stop(PaneTarget::Dev).await;
+            host.stop(PaneTarget::Dev(0)).await;
             assert!(
                 started.elapsed() < Duration::from_millis(1500),
                 "{:?}",
                 started.elapsed()
             );
             assert!(wait_dead(quick_pid).await);
-            assert!(host.pane(PaneTarget::Dev).is_none());
+            assert!(host.pane(PaneTarget::Dev(0)).is_none());
 
             // One that ignores SIGHUP (its child too) is killed after the grace period.
             let stubborn = host

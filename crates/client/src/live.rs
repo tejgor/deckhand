@@ -33,9 +33,9 @@ use deckhand_protocol::wire::{
     AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest, DeleteWorktree,
     ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose, MergeWorktree, OpenNote, PromoteNoteItem,
     Remove, ReorderSession, RequestOnly, ResolveMerge, Restart, ReturnTaskToNote, RunAction, SaveConfig, SaveNote,
-    SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetSessionDone, Subscribe, TaskOpRequest,
-    TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview, WorkspaceSummaryRequest,
-    WorktreeCandidateSizes,
+    SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetSessionDone, StopDevRequest, Subscribe,
+    TaskOpRequest, TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview,
+    WorkspaceSummaryRequest, WorktreeCandidateSizes,
 };
 
 use crate::client::{
@@ -505,17 +505,40 @@ impl LiveClient {
 
     /// TS: LiveClient.startDev.
     pub fn start_dev(&self, session_id: &str, cols: i64, rows: i64) -> Reply<DevRecord> {
+        self.start_dev_process(session_id, None, false, cols, rows)
+    }
+
+    /// Not in the TS: starts one of Dev's named processes (`restart`: stopping it first if it runs), or every one.
+    pub fn start_dev_process(
+        &self,
+        session_id: &str,
+        process: Option<&str>,
+        restart: bool,
+        cols: i64,
+        rows: i64,
+    ) -> Reply<DevRecord> {
         self.request(Request::StartDev(SessionSizeRequest {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
             cols: Some(cols),
             rows: Some(rows),
+            process: process.map(str::to_owned),
+            restart: restart.then_some(true),
         }))
     }
 
     /// TS: LiveClient.stopDev.
     pub fn stop_dev(&self, session_id: &str) -> Reply<()> {
-        self.request(Request::StopDev(session_request(session_id)))
+        self.stop_dev_process(session_id, None)
+    }
+
+    /// Not in the TS: stops one of Dev's named processes, or every one.
+    pub fn stop_dev_process(&self, session_id: &str, process: Option<&str>) -> Reply<()> {
+        self.request(Request::StopDev(StopDevRequest {
+            request_id: new_request_id(),
+            session_id: session_id.to_owned(),
+            process: process.map(str::to_owned),
+        }))
     }
 
     /// TS: LiveClient.listSessions.

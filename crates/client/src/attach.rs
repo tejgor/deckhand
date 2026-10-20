@@ -48,8 +48,10 @@ pub struct AttachSessionOptions {
     pub title: Option<String>,
     /// Fraction of vertical wheel events forwarded (0..=1, default 0.12).
     pub scroll_sensitivity: Option<f64>,
-    /// The colors of the status line above an attached agent.
+    /// The colors of the status line of an attach.
     pub theme: ThemeMode,
+    /// Not in the TS: the Dev process to attach to (`devCommand` as a map); `None` is the first.
+    pub dev_process: Option<String>,
 }
 
 /// TS: attach.ts targetRequestNames result: the message types of one attach target.
@@ -453,6 +455,17 @@ pub fn attach_target_title_label(target: AttachTarget) -> &'static str {
         AttachTarget::Dev => "dev",
         AttachTarget::Action => "action",
         AttachTarget::Agent => "agent",
+    }
+}
+
+/// The pane's name on the status line (`None`: the agent, which shows its state instead).
+fn status_pane_label(target: AttachTarget) -> Option<&'static str> {
+    match target {
+        AttachTarget::Agent => None,
+        AttachTarget::Terminal => Some("terminal"),
+        AttachTarget::Git => Some("git"),
+        AttachTarget::Dev => Some("dev"),
+        AttachTarget::Action => Some("action"),
     }
 }
 
@@ -957,7 +970,7 @@ struct Proxy<'a, C: Console> {
     title_set: bool,
     events: mpsc::UnboundedSender<ConsoleEvent>,
     input_listening: bool,
-    /// Deckhand's status line on the top row (agent attaches on a terminal only).
+    /// Deckhand's status line on the bottom row (attaches on a terminal only).
     status: Option<StatusLine>,
     /// The `list` and `subscribe` requests that feed the status line.
     status_list_id: String,
@@ -977,16 +990,23 @@ pub(crate) async fn run_attach<C: Console, S: AsyncRead + AsyncWrite + Unpin>(
     let mut reader = MessageReader::new(read_half);
     let (events, mut input) = mpsc::unbounded_channel();
     let original_process_title = console.process_title();
-    let status = (target == AttachTarget::Agent && console.stdout_is_tty())
+    let status = console
+        .stdout_is_tty()
         .then(|| {
             let title = options.title.as_deref().unwrap_or(session_id);
-            StatusLine::new(
+            let line = StatusLine::new(
                 session_id,
                 title,
                 attach_rows_on(console),
                 attach_cols_on(console),
                 options.theme,
-            )
+            )?;
+            Some(match (status_pane_label(target), options.dev_process.as_deref()) {
+                // Which of Dev's named processes this is.
+                (Some(pane), Some(process)) if target == AttachTarget::Dev => line.on_pane(format!("{pane} {process}")),
+                (Some(pane), _) => line.on_pane(pane),
+                (None, _) => line,
+            })
         })
         .flatten();
     let mut proxy = Proxy {
@@ -1035,6 +1055,9 @@ impl<C: Console> Proxy<'_, C> {
                 session_id: self.session_id.to_owned(),
                 cols: Some(attach_cols_on(self.console)),
                 rows: Some(self.pty_rows()),
+                process: (self.target == AttachTarget::Dev)
+                    .then(|| self.options.dev_process.clone())
+                    .flatten(),
             },
         );
         self.outgoing.push(&attach)?;
@@ -1351,6 +1374,7 @@ mod tests {
                     session_id: "s".into(),
                     cols: Some(80),
                     rows: Some(24),
+                    process: None,
                 },
             );
             assert_eq!(
@@ -1699,10 +1723,11 @@ mod tests {
             title: Some(String::from("Fix bug")),
             scroll_sensitivity: Some(1.0),
             theme: ThemeMode::Terminal,
+            dev_process: None,
         };
         let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
         let driver = async {
-            // The status line and its rule take the top two rows: the agent gets two less.
+            // The rule and the status line take the bottom two rows: the agent gets two less.
             assert_eq!(
                 daemon.recv().await,
                 json!({"type": "attach", "requestId": "req", "sessionId": "s1", "cols": 120, "rows": 38})
@@ -1727,10 +1752,10 @@ mod tests {
             {
                 let state = state.lock().unwrap();
                 // Alternate screen, mouse reporting, bracketed paste (agent), the title, then the line's scroll region
-                // (every row below the line and the rule) and the line.
+                // (every row above the rule and the line) and the line.
                 let attached = format!(
                     "{RESET_TERMINAL_STATE_SEQUENCE}{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049h\x1b[2J\x1b[H\
-                     \x1b[?1000h\x1b[?1006h\x1b[?2004h\x1b]0;dh/agent Fix bug\x07\x1b]2;dh/agent Fix bug\x07\x1b[3;40r"
+                     \x1b[?1000h\x1b[?1006h\x1b[?2004h\x1b]0;dh/agent Fix bug\x07\x1b]2;dh/agent Fix bug\x07\x1b[1;38r"
                 );
                 assert!(state.out.starts_with(&attached), "{:?}", state.out);
                 assert!(state.out.contains("Fix bug") && state.out.contains("Ctrl+] detach"));
@@ -1753,14 +1778,14 @@ mod tests {
             daemon
                 .send(json!({"type": "output", "sessionId": "s1", "data": "a\u{9b}1mb\u{1b}]0;child\u{7}c"}))
                 .await;
-            // The wheel reaches the agent two rows up (and not at all on the line or the rule).
+            // The wheel reaches the agent as it came (and not at all on the rule or the line).
             send_input(
                 &state,
-                ConsoleEvent::Data(b"hi\x1b[<64;1;1M\x1b[<64;1;2M\x1b[<64;1;5M".to_vec()),
+                ConsoleEvent::Data(b"hi\x1b[<64;1;5M\x1b[<64;1;39M\x1b[<64;1;40M".to_vec()),
             );
             assert_eq!(
                 daemon.recv().await,
-                json!({"type": "input", "sessionId": "s1", "data": "hi\x1b[<64;1;3M"})
+                json!({"type": "input", "sessionId": "s1", "data": "hi\x1b[<64;1;5M"})
             );
             send_input(&state, ConsoleEvent::Resize);
             assert_eq!(daemon.recv().await["type"], "resize");
@@ -1774,10 +1799,10 @@ mod tests {
         let state = state.lock().unwrap();
         assert!(state.out.contains("a\x1b[1mbc"), "{:?}", state.out);
         assert!(state.out.contains("1 other session waiting"), "{:?}", state.out);
-        // The line and the rule are cleared before the terminal is handed back.
+        // The rule and the line are cleared before the terminal is handed back.
         assert!(
             state.out.ends_with(&format!(
-                "\x1b[r\x1b[0m\x1b[1;1H\x1b[2K\x1b[2;1H\x1b[2K\x1b[1;1H{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049l\x1b]0;deckhand\x07\x1b]2;deckhand\x07"
+                "\x1b[r\x1b[0m\x1b[39;1H\x1b[2K\x1b[40;1H\x1b[2K{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049l\x1b]0;deckhand\x07\x1b]2;deckhand\x07"
             )),
             "{:?}",
             state.out
@@ -1820,9 +1845,9 @@ mod tests {
         };
         let (result, ()) = tokio::join!(attach, driver);
         result.unwrap();
-        // The session updates redraw the status line; the exit notice, then the line and the rule cleared.
+        // The session updates redraw the status line; the exit notice, then the rule and the line cleared.
         assert!(state.lock().unwrap().out.ends_with(&format!(
-            "\n\r[session exited: Fix bug]\n\x1b[r\x1b[0m\x1b[1;1H\x1b[2K\x1b[2;1H\x1b[2K\x1b[1;1H{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049l\
+            "\n\r[session exited: Fix bug]\n\x1b[r\x1b[0m\x1b[23;1H\x1b[2K\x1b[24;1H\x1b[2K{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049l\
              \x1b]0;deckhand\x07\x1b]2;deckhand\x07"
         )));
     }

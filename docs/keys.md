@@ -28,7 +28,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `t` | Show the Terminal tab |
 | `g` | Show the Git tab |
 | `d` | Show the Dev tab |
-| `d` `d` | Start or stop the worktree's Dev command (press `d` twice quickly) |
+| `d` `d` | Start or stop the worktree's Dev command (press `d` twice quickly); starting it stops Dev in the repository's other worktrees |
 | `a` | Show the Notes tab |
 | `→`, `l` | Step into the pane: scroll the preview, browse [Git changes](#git-changes) or [edit the notes](#notes-editor) |
 | `←`, `h`, `esc` | Step back out to the session list |
@@ -36,6 +36,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `enter` *(on Notes)* | Edit the note here |
 | `o` *(on Notes)* | Edit the note in your terminal editor ([in vim](features.md#notes)) |
 | `v` *(on Terminal)* | Switch between the shell and the worktree's last action |
+| `v` *(on Dev)* | Select the next [Dev process](features.md#several-dev-processes); `enter` opens the selected one |
 | `E` | Open the session's directory in Cursor or VS Code (on Notes: the note) |
 | `n` | New top-level session |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
@@ -46,7 +47,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `space` | Mark the selected session done or not done (`☑`) |
 | `m` | Merge the selected worktree into the current branch, uncommitted ([merging](features.md#merging-and-done)) |
 | `M` | Set or clear the worktree's merged marker without merging |
-| `r` | Open the run list: the Dev command first, then your actions ([actions](features.md#setup-actions-and-creation-hooks)) |
+| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes): `enter` starts or restarts it, `x` stops it), then your actions ([actions](features.md#setup-actions-and-creation-hooks)). Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
 | `A` | Archive or unarchive the selected session (it keeps running) |
 | `backspace` | Archive the selected exited session; on an archived one, remove it for good ([archiving](features.md#organizing-and-inspecting-sessions)) |
 | `H` | Export and open a handoff ([handoffs](features.md#resume-and-handoffs)) |
@@ -125,7 +126,7 @@ Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessio
 
 ## Attach
 
-`enter` or `o` attaches to the selected pane: the agent, the shell, lazygit, Dev or a running action. An attached agent gets a Deckhand status line on its top row: the session, how many other sessions need you and the detach key.
+`enter` or `o` attaches to the selected pane: the agent, the shell, lazygit, Dev or a running action. Every attached view gets a Deckhand status line, with a rule separating it from the pane: the session, the agent's state or the pane's name, how many other sessions need you and the detach key. It sits on the bottom row of every view, so the shell's and Dev's output still reaches your terminal's scrollback. A note opened in Vim or Neovim (`o` on Notes) shows the same bar in its status line, with the note keys (Ctrl+X toggles a checkbox, Ctrl+T adds an item) when there is room.
 
 | Key | Action |
 | --- | --- |

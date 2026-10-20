@@ -200,6 +200,8 @@ pub struct AppProps {
     pub initial_session_query: Option<String>,
     /// The Terminal tab's view, kept across attaches by the caller.
     pub initial_terminal_view: Option<TerminalView>,
+    /// Not in the TS: the selected Dev process (by name), kept across attaches by the caller.
+    pub initial_dev_process: Option<String>,
     pub callbacks: AppCallbacks,
 }
 
@@ -248,6 +250,8 @@ pub struct PaneRecords {
     /// TS `changesWatchedRef`: this UI asked the daemon to watch a workspace's changes.
     pub changes_watched: bool,
     pub dev: DevRecord,
+    /// Not in the TS: the Dev process selected in the split (v switches, enter attaches it), by name.
+    pub dev_process: Option<String>,
     /// The workspace's last action (Terminal tab, v).
     pub action: ActionRecord,
     pub terminal_view: TerminalView,
@@ -597,6 +601,7 @@ impl App {
                 changes: deckhand_core::changes_model::empty_changes(),
                 changes_watched: false,
                 dev: empty_pane(),
+                dev_process: props.initial_dev_process.clone(),
                 action: empty_pane(),
                 terminal_view: props.initial_terminal_view.unwrap_or_default(),
             },

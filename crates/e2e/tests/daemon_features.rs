@@ -356,6 +356,7 @@ fn daemon_features_operate_in_isolated_state_with_fake_agents() {
     settings_reads_sources_and_saves_single_keys(&ctx);
     claude_and_pi_launch_with_exact_native_ids(&ctx, &mut daemon);
     sessions_in_one_worktree_share_one_dev(&ctx);
+    named_dev_processes_run_side_by_side(&ctx);
     sessions_in_one_worktree_share_one_terminal_and_lazygit(&ctx);
     the_git_tabs_changes_are_per_worktree(&ctx);
     merge_and_deletion_markers_belong_to_the_worktree(&ctx);
@@ -1077,6 +1078,7 @@ fn claude_and_pi_launch_with_exact_native_ids(c: &Ctx, daemon: &mut Daemon) {
 }
 
 // ported from tests/daemonFeatures.test.ts: sessions in one worktree share one Dev that outlives their agents; another worktree has its own
+// (not in the TS: and starting it there stops it here, as the repository's worktrees share its ports)
 fn sessions_in_one_worktree_share_one_dev(c: &Ctx) {
     c.set_defaults(Some(
         json!({"devCommand": r#"echo "dev-pid=$$ cwd=$(pwd -P)"; exec sleep 100000"#}),
@@ -1145,7 +1147,13 @@ fn sessions_in_one_worktree_share_one_dev(c: &Ctx) {
         "{solo_content} vs {}",
         solo_state["cwd"]
     );
-    dev_running(&[&first_id, &second_id, &solo_id], &[true, true, true]);
+    // Dev runs in one worktree of a repository at a time: starting it in the solo worktree stopped the shared one.
+    wf(|| is_alive(pid), |alive| !alive);
+    dev_running(&[&first_id, &second_id, &solo_id], &[false, false, true]);
+    start_dev(&first_id).expect("start-dev");
+    wf(|| is_alive(solo_pid), |alive| !alive);
+    let pid = dev_pid(&second_id);
+    dev_running(&[&first_id, &second_id, &solo_id], &[true, true, false]);
 
     // Dev outlives an agent: still visible from, stoppable and startable by the exited session.
     c.kill_and_wait(&second_id);
@@ -1168,10 +1176,80 @@ fn sessions_in_one_worktree_share_one_dev(c: &Ctx) {
     assert_rejects(start_dev(&first_id), &["worktree was deleted"]);
 
     // Removing a workspace's last session stops its Dev.
+    start_dev(&solo_id).expect("start-dev");
+    let solo_pid = dev_pid(&solo_id);
     c.kill_and_wait(&solo_id);
     assert!(is_alive(solo_pid));
     c.ok(json!({"type": "remove", "sessionId": solo_id}));
     wf(|| is_alive(solo_pid), |alive| !alive);
+    c.set_defaults(None);
+}
+
+// Not in the TS: named Dev processes run side by side in the worktree; each restarts and stops alone
+fn named_dev_processes_run_side_by_side(c: &Ctx) {
+    c.set_defaults(Some(json!({"devCommand": {
+        "api": r#"echo "api-pid=$$"; exec sleep 100000"#,
+        "web": r#"echo "web-pid=$$"; exec sleep 100000"#,
+    }})));
+    let session = c.create_mode("dev-named", "claude", "new");
+    let id = id_of(&session);
+    c.wait(&id, |s| s["status"] == "running");
+    let watch = || c.ok(json!({"type": "watch-dev", "sessionId": id, "cols": 60, "rows": 12}));
+    let pid_in = |record: &Value, name: &str| -> Option<i32> {
+        let process = record["processes"]
+            .as_array()?
+            .iter()
+            .find(|process| process["name"] == name)?;
+        if process["live"] != true {
+            return None;
+        }
+        digits_after(text(&process["content"]), &format!("{name}-pid="))
+    };
+    let pid_of = |name: &str| -> i32 {
+        let record = wf(watch, |record| pid_in(record, name).is_some());
+        pid_in(&record, name).unwrap()
+    };
+    let start = |extra: Value| {
+        let mut request = json!({"type": "start-dev", "sessionId": id, "cols": 60, "rows": 12});
+        if let (Some(request), Some(extra)) = (request.as_object_mut(), extra.as_object()) {
+            request.extend(extra.clone());
+        }
+        c.call(request)
+    };
+
+    let started = start(json!({})).expect("start-dev");
+    assert_eq!(started["live"], true);
+    let names: Vec<&str> = started["processes"]
+        .as_array()
+        .expect("processes")
+        .iter()
+        .map(|process| text(&process["name"]))
+        .collect();
+    assert_eq!(names, ["api", "web"]);
+    let (api, web) = (pid_of("api"), pid_of("web"));
+    wf(|| c.state(&id), |s| s["devRunning"] == true);
+
+    // Restarting web replaces only web.
+    start(json!({"process": "web", "restart": true})).expect("restart web");
+    wf(|| is_alive(web), |alive| !alive);
+    let web = pid_of("web");
+    assert!(is_alive(api));
+    assert_rejects(start(json!({"process": "db"})), &["Unknown Dev process: db"]);
+
+    // Stopping api leaves web, and Dev, running.
+    c.ok(json!({"type": "stop-dev", "sessionId": id, "process": "api"}));
+    wf(|| is_alive(api), |alive| !alive);
+    assert!(is_alive(web));
+    assert_eq!(c.state(&id)["devRunning"], true);
+    let record = watch();
+    assert_eq!(record["processes"][0]["live"], false);
+
+    // Stopping Dev stops the rest.
+    c.ok(json!({"type": "stop-dev", "sessionId": id}));
+    wf(|| is_alive(web), |alive| !alive);
+    wf(|| c.state(&id), |s| s["devRunning"] != true);
+    c.ok(json!({"type": "kill", "sessionId": id, "deleteWorktree": true, "deleteBranch": true}));
+    wf(|| c.state(&id), |s| !s["worktree"]["deletedAt"].is_null());
     c.set_defaults(None);
 }
 

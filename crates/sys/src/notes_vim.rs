@@ -4,13 +4,19 @@
 //! and Ctrl+Space (Deckhand's detach keys) save and quit; Ctrl+X, Ctrl+T and Enter mirror toggleChecklist,
 //! insertChecklistItem and continueChecklist (deckhand_core::notes) in the note's buffer only. Ctrl+P (send to
 //! Tasks) is left to the Tasks view, so vim never needs the daemon.
+//!
+//! Not in the TS: a second script, [`notes_status_vim_script`], draws Deckhand's status bar under the note, the one an
+//! attach shows (deckhand_client::attach_status) plus the note keys, so the editor reads as a Deckhand view too. Vim
+//! draws it itself (its status line, just above its command line), since the editor owns the terminal and nothing sits
+//! between them.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tokio::io::AsyncWriteExt;
 
 use crate::notes_store::write_error;
 use crate::paths;
+use deckhand_core::display::{DUSK, Rgb, ThemeMode};
 use deckhand_core::error::{DhError, Result};
 
 /// TS: notesVim.ts NOTES_VIM_SCRIPT (byte-identical to the TS `String.raw` template).
@@ -95,6 +101,126 @@ inoremap <buffer> <silent> <expr> <CR> DeckhandNotesEnter()
 /// version; directory 0700, file 0600). Returns its path.
 pub async fn write_notes_vim_script() -> Result<PathBuf> {
     let file = paths::config_dir().join("notes.vim");
+    write_script(&file, NOTES_VIM_SCRIPT).await?;
+    Ok(file)
+}
+
+/// The environment variable that names the note's session on the status bar.
+pub const NOTE_TITLE_ENV: &str = "DECKHAND_NOTE_TITLE";
+
+/// A colour as vim takes it: a 256-colour index (`cterm…`) and the 24-bit colour (`gui…`, used with `termguicolors`).
+#[derive(Clone, Copy)]
+struct VimColour(u8, Rgb);
+
+/// The status bar's colours in one theme, the attach bar's: its background and plain text, ` deckhand `, quiet text
+/// (separators, the keys) and the title.
+struct StatusColours {
+    bar: VimColour,
+    text: VimColour,
+    brand: VimColour,
+    quiet: VimColour,
+    title: VimColour,
+}
+
+impl StatusColours {
+    fn of(theme: ThemeMode) -> Self {
+        match theme {
+            // The attach bar's 256-colour palette, and the same colours in 24 bits.
+            ThemeMode::Terminal => StatusColours {
+                bar: VimColour(236, Rgb(0x30, 0x30, 0x30)),
+                text: VimColour(250, Rgb(0xbc, 0xbc, 0xbc)),
+                brand: VimColour(212, Rgb(0xff, 0x87, 0xd7)),
+                quiet: VimColour(245, Rgb(0x8a, 0x8a, 0x8a)),
+                title: VimColour(252, Rgb(0xd0, 0xd0, 0xd0)),
+            },
+            // The dusk tokens, with the nearest 256-colour fallbacks.
+            ThemeMode::Dusk => StatusColours {
+                bar: VimColour(238, DUSK.chrome),
+                text: VimColour(251, DUSK.muted),
+                brand: VimColour(219, DUSK.magenta),
+                quiet: VimColour(245, DUSK.dim),
+                title: VimColour(255, DUSK.ink),
+            },
+        }
+    }
+}
+
+/// One `highlight` line of the status script: `fg` on the bar's background, with `attrs` (`NONE`, `bold`).
+fn bar_highlight(group: &str, attrs: &str, fg: VimColour, bar: VimColour) -> String {
+    let (VimColour(fg_index, fg_rgb), VimColour(bg_index, bg_rgb)) = (fg, bar);
+    format!(
+        "  highlight {group} cterm={attrs} gui={attrs} ctermfg={fg_index} ctermbg={bg_index} guifg={} guibg={}\n",
+        hex(fg_rgb),
+        hex(bg_rgb)
+    )
+}
+
+/// `#rrggbb`.
+fn hex(Rgb(r, g, b): Rgb) -> String {
+    format!("#{r:02x}{g:02x}{b:02x}")
+}
+
+/// The status script's opening, up to the colours.
+const STATUS_SCRIPT_HEAD: &str = r#"" Deckhand: the status bar under a note opened with o on the Notes tab, like the one under an attached view: the
+" session ($DECKHAND_NOTE_TITLE), the note keys and the key back to Deckhand, in the status line (Neovim's global one,
+" so splits share it), just above the command line. Written by Deckhand before each edit, in its theme's colours.
+
+" The colours, again after a colour scheme loads (it clears them).
+function! s:DeckhandStatusColours() abort
+"#;
+
+/// The status script after the colours: the bar in the status line.
+const STATUS_SCRIPT_TAIL: &str = r#"  highlight! link StatusLine DeckhandBar
+  highlight! link StatusLineNC DeckhandBar
+endfunction
+call s:DeckhandStatusColours()
+augroup DeckhandStatus
+  autocmd!
+  autocmd ColorScheme * call s:DeckhandStatusColours()
+augroup END
+
+" The bar: ` deckhand │ <session> · note │ Ctrl+X toggle ☐ · Ctrl+T new item │ Ctrl+] save & return` (a % in the
+" title is literal). The note keys show only where notes.vim maps them, and only when the whole bar fits; on a
+" window too narrow even without them, the title gives way (from its start) rather than the key back.
+let s:note_keys = has('nvim-0.5') || has('patch-8.2.1978') ? 'Ctrl+X toggle ☐ · Ctrl+T new item │ ' : ''
+function! DeckhandStatusLine() abort
+  let l:title = empty($DECKHAND_NOTE_TITLE) ? 'note' : $DECKHAND_NOTE_TITLE . ' · note'
+  let l:keys = s:note_keys
+  let l:width = &laststatus == 3 ? &columns : winwidth(get(g:, 'statusline_winid', 0))
+  if strdisplaywidth(' deckhand │ ' . l:title . ' │ ' . l:keys . 'Ctrl+] save & return') > l:width
+    let l:keys = ''
+  endif
+  return '%#DeckhandBrand# deckhand %#DeckhandQuiet#│ %<%#DeckhandTitle#' . substitute(l:title, '%', '%%', 'g')
+        \ . '%#DeckhandQuiet# │ ' . l:keys . 'Ctrl+] save & return%#DeckhandBar#'
+endfunction
+let &laststatus = has('nvim-0.7') ? 3 : 2
+let &statusline = '%!DeckhandStatusLine()'
+" The status line's empty cells stay blank (Vim fills them with ^ when StatusLine and StatusLineNC look the same).
+let &fillchars = (empty(&fillchars) ? '' : &fillchars . ',') . 'stl: ,stlnc: '
+"#;
+
+/// Not in the TS: the status bar script for `theme` (see the module docs).
+pub fn notes_status_vim_script(theme: ThemeMode) -> String {
+    let colours = StatusColours::of(theme);
+    let mut script = String::from(STATUS_SCRIPT_HEAD);
+    script.push_str(&bar_highlight("DeckhandBar", "NONE", colours.text, colours.bar));
+    script.push_str(&bar_highlight("DeckhandBrand", "bold", colours.brand, colours.bar));
+    script.push_str(&bar_highlight("DeckhandQuiet", "NONE", colours.quiet, colours.bar));
+    script.push_str(&bar_highlight("DeckhandTitle", "NONE", colours.title, colours.bar));
+    script.push_str(STATUS_SCRIPT_TAIL);
+    script
+}
+
+/// Not in the TS: writes [`notes_status_vim_script`] for `theme` to `<home>/notes-status.vim` (like
+/// [`write_notes_vim_script`]). Returns its path.
+pub async fn write_notes_status_vim_script(theme: ThemeMode) -> Result<PathBuf> {
+    let file = paths::config_dir().join("notes-status.vim");
+    write_script(&file, &notes_status_vim_script(theme)).await?;
+    Ok(file)
+}
+
+/// Writes `text` to `file` (directory 0700, file 0600).
+async fn write_script(file: &Path, text: &str) -> Result<()> {
     if let Some(directory) = file.parent() {
         tokio::fs::DirBuilder::new()
             .recursive(true)
@@ -109,15 +235,14 @@ pub async fn write_notes_vim_script() -> Result<PathBuf> {
         .create(true)
         .truncate(true)
         .mode(0o600)
-        .open(&file)
+        .open(file)
         .await
         .map_err(|error| DhError::io(&error, "open", &file.to_string_lossy()))?;
     handle
-        .write_all(NOTES_VIM_SCRIPT.as_bytes())
+        .write_all(text.as_bytes())
         .await
         .map_err(|error| write_error(&error))?;
-    handle.flush().await.map_err(|error| write_error(&error))?;
-    Ok(file)
+    handle.flush().await.map_err(|error| write_error(&error))
 }
 
 #[cfg(test)]
@@ -289,6 +414,126 @@ mod tests {
         assert_eq!(after_keys(&vim, "x\n", r"A\<CR>y\<Esc>"), "x\ny\n");
         // Inside the marker: a plain newline.
         assert_eq!(after_keys(&vim, "- [ ] a\n", r"0i\<CR>\<Esc>"), "\n- [ ] a\n");
+    }
+
+    /// `command -v nvim` (the nvim checks are skipped without one).
+    fn nvim() -> Option<String> {
+        let output = Command::new("sh").args(["-c", "command -v nvim"]).output().ok()?;
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        (!path.is_empty()).then_some(path)
+    }
+
+    /// What `editor` (vim or nvim, headless, no config) reports after sourcing the status script for `theme` with
+    /// `title` in the environment: one line per expression in `expressions`.
+    fn status_report(editor: &str, theme: ThemeMode, title: Option<&str>, expressions: &[&str]) -> Vec<String> {
+        let directory = tempfile::Builder::new()
+            .prefix("deckhand-vim-")
+            .tempdir()
+            .expect("tempdir");
+        let note = directory.path().join("note.md");
+        let script = directory.path().join("notes-status.vim");
+        let out = directory.path().join("out.txt");
+        std::fs::write(&note, "a\n").expect("write note");
+        std::fs::write(&script, notes_status_vim_script(theme)).expect("write script");
+        let mut command = Command::new(editor);
+        if editor.ends_with("nvim") {
+            command.args(["--headless", "-u", "NONE", "-i", "NONE", "-n"]);
+        } else {
+            command.args(["-N", "-u", "NONE", "-i", "NONE", "-n", "-es"]);
+        }
+        command.arg(&note).arg("-S").arg(&script);
+        command.env_remove(NOTE_TITLE_ENV);
+        if let Some(title) = title {
+            command.env(NOTE_TITLE_ENV, title);
+        }
+        let list = expressions.join(", ");
+        command
+            .arg("-c")
+            .arg(format!("call writefile([{list}], '{}')", out.display()))
+            .arg("-c")
+            .arg("qall!");
+        assert!(run(&mut command).is_some(), "{editor} timed out");
+        std::fs::read_to_string(&out)
+            .unwrap_or_else(|error| panic!("{editor} wrote no report: {error}"))
+            .lines()
+            .map(str::to_owned)
+            .collect()
+    }
+
+    // The status bar: in the status line, the session from the environment (a % in it literal), the note keys when the
+    // whole bar fits, the key back.
+    #[test]
+    fn the_status_bar_shows_the_session_and_the_keys() {
+        let Some(vim) = vim() else { return };
+        let report = status_report(
+            &vim,
+            ThemeMode::Terminal,
+            Some("fix 100% login"),
+            &[
+                "&laststatus",
+                "&statusline",
+                "DeckhandStatusLine()",
+                "synIDattr(hlID('DeckhandBar'), 'bg', 'cterm')",
+            ],
+        );
+        assert_eq!(report[0], "2");
+        assert_eq!(report[1], "%!DeckhandStatusLine()");
+        assert!(
+            report[2].contains(" deckhand ") && report[2].contains("Ctrl+] save & return"),
+            "{report:?}"
+        );
+        assert!(report[2].contains("fix 100%% login · note"), "{report:?}");
+        assert_eq!(report[3], "236");
+        // The note keys (this vim maps them) before the key back when the whole bar fits the window (80 columns here),
+        // as with a short title; otherwise (this title) only the key back.
+        let short = status_report(&vim, ThemeMode::Terminal, Some("s"), &["DeckhandStatusLine()"]);
+        assert!(
+            short[0].contains("s · note%#DeckhandQuiet# │ Ctrl+X toggle ☐ · Ctrl+T new item │ Ctrl+] save & return"),
+            "{short:?}"
+        );
+        assert!(
+            report[2].contains("note%#DeckhandQuiet# │ Ctrl+] save & return") && !report[2].contains("Ctrl+X"),
+            "{report:?}"
+        );
+        // Without a title: just "note".
+        let report = status_report(&vim, ThemeMode::Terminal, None, &["DeckhandStatusLine()"]);
+        assert!(
+            report[0].contains("│ %<%#DeckhandTitle#note%#DeckhandQuiet#"),
+            "{report:?}"
+        );
+    }
+
+    // A colour scheme loading does not take the colours away; the status line's empty cells stay blank.
+    #[test]
+    fn vim_keeps_the_bar_colours() {
+        let Some(vim) = vim() else { return };
+        let report = status_report(
+            &vim,
+            ThemeMode::Dusk,
+            Some("s"),
+            &[
+                "execute('colorscheme default') . synIDattr(hlID('DeckhandBar'), 'bg', 'cterm')",
+                "synIDattr(hlID('DeckhandBar'), 'bg', 'gui')",
+                "synIDattr(synIDtrans(hlID('StatusLine')), 'bg', 'cterm')",
+                "&fillchars =~# 'stl: ,stlnc: '",
+            ],
+        );
+        assert_eq!(report, ["238", "#424955", "238", "1"]);
+    }
+
+    // Neovim uses its global status line, so splits share one bar.
+    #[test]
+    fn nvim_shows_one_bar_for_every_window() {
+        let Some(nvim) = nvim() else { return };
+        let report = status_report(
+            &nvim,
+            ThemeMode::Terminal,
+            Some("s"),
+            &["&laststatus", "&statusline", "DeckhandStatusLine()"],
+        );
+        assert_eq!(report[0], "3");
+        assert_eq!(report[1], "%!DeckhandStatusLine()");
+        assert!(report[2].contains("s · note"), "{report:?}");
     }
 
     // covers: B-I2-04 Ctrl+], Ctrl+Space save and quit

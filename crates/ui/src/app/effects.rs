@@ -30,6 +30,7 @@ use crate::app::{
     Derived, ERROR_MESSAGE_AUTO_HIDE_MS, SPINNER_FRAMES, STATUS_MESSAGE_AUTO_HIDE_MS, normalize_scroll_sensitivity,
     sort_sessions,
 };
+use crate::panes::dev::{dev_cell_size, dev_processes};
 use crate::panes::terminal::TerminalView;
 use deckhand_protocol::data::PreviewRecord;
 
@@ -748,11 +749,18 @@ fn watch_effects(app: &mut App, derived: &Derived) {
             ..base.clone()
         },
     );
+    // Named Dev processes share the tab: each PTY is sized to its cell.
+    let (dev_cols, dev_rows) = match dev_processes(&app.panes.dev) {
+        Some(processes) => dev_cell_size(layout.pane_inner_width, layout.pane_inner_height, processes.len()),
+        None => (base.cols, base.rows),
+    };
     watch_dev(
         app,
         PaneWatchDeps {
             pane_scope: scope,
             active: tab == RightPaneTab::Dev,
+            cols: dev_cols,
+            rows: dev_rows,
             ..base
         },
     );

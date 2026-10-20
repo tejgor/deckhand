@@ -22,7 +22,7 @@ use deckhand_protocol::data::{AttachTarget, EditorCommand, JsNumber, RightPaneTa
 use deckhand_sys::async_util::Timer;
 use deckhand_sys::desktop::{is_vim_family, terminal_editor_args};
 use deckhand_sys::git::ensure_git_repo;
-use deckhand_sys::notes_vim::write_notes_vim_script;
+use deckhand_sys::notes_vim::{NOTE_TITLE_ENV, write_notes_status_vim_script, write_notes_vim_script};
 use deckhand_sys::storage::load_app_config;
 use deckhand_sys::ui_state::{load_ui_state, save_ui_state};
 use deckhand_ui::app::event_loop::{SavedTermios, capture_startup_termios, stdin_fd};
@@ -137,6 +137,7 @@ fn app_props(
         initial_session_filter: Some(state.session_filter),
         initial_session_query: Some(state.session_query.clone()),
         initial_terminal_view: Some(terminal_view.get()),
+        initial_dev_process: None,
         callbacks: AppCallbacks {
             on_terminal_view_change: Some(Box::new(move |next| view.set(next))),
             on_session_visibility_change: Some(Box::new(move |filter, query| {
@@ -177,13 +178,15 @@ pub async fn run_ui(
     repo_root: &str,
     ui_state: &Rc<RefCell<UiState>>,
     terminal_view: &Rc<Cell<TerminalView>>,
+    dev_process: Option<String>,
 ) -> Result<Option<UiExitResult>, DhError> {
     let saver = SaveScheduler {
         repo_root: Rc::from(repo_root),
         ui_state: Rc::clone(ui_state),
         timer: Rc::default(),
     };
-    let props = app_props(repo_root, ui_state, terminal_view, &saver);
+    let mut props = app_props(repo_root, ui_state, terminal_view, &saver);
+    props.initial_dev_process = dev_process;
     deckhand_ui::theme::set_mode(configured_theme_mode().await);
     enter_alternate_screen();
     let result = deckhand_ui::app::run(props).await;
@@ -263,23 +266,32 @@ pub async fn run_ui_loop() -> Result<(), DhError> {
     let repo_root = ensure_git_repo(None).await?;
     let ui_state = Rc::new(RefCell::new(load_ui_state(&repo_root).await));
     let terminal_view = Rc::new(Cell::new(TerminalView::Shell));
+    // The Dev process last attached, selected again when the UI comes back.
+    let mut dev_process: Option<String> = None;
     loop {
         // TS: runUi resolves the repository again on every round trip.
         let repo_root = ensure_git_repo(None).await?;
-        let result = run_ui(&repo_root, &ui_state, &terminal_view).await?;
+        let result = run_ui(&repo_root, &ui_state, &terminal_view, dev_process.clone()).await?;
         match result {
             None | Some(UiExitResult::Quit) => return Ok(()),
             Some(UiExitResult::Attach {
                 session_id,
                 target,
                 title,
+                process,
                 ..
-            }) => hand_off_attach(&ui_state, &session_id, target, title.as_deref()).await,
+            }) => {
+                if process.is_some() {
+                    dev_process.clone_from(&process);
+                }
+                hand_off_attach(&ui_state, &session_id, target, title.as_deref(), process).await;
+            }
             Some(UiExitResult::EditNote {
                 session_id,
                 file,
                 editor,
-            }) => hand_off_editor(&ui_state, &session_id, &file, &editor).await,
+                title,
+            }) => hand_off_editor(&ui_state, &session_id, &file, &editor, title.as_deref()).await,
         }
     }
 }
@@ -331,6 +343,7 @@ pub async fn hand_off_attach(
     session_id: &str,
     target: AttachTarget,
     title: Option<&str>,
+    process: Option<String>,
 ) {
     record_attach(&mut ui_state.borrow_mut(), session_id, target);
     clear_terminal_screen();
@@ -340,6 +353,7 @@ pub async fn hand_off_attach(
             title: title.map(str::to_owned),
             scroll_sensitivity: config.attach_scroll_sensitivity.map(|value| value.0),
             theme: theme_mode(config.theme.as_deref()),
+            dev_process: process,
         };
         attach_session(session_id, Some(target), options).await
     }
@@ -371,21 +385,32 @@ fn spawn_error_message(command: &str, error: &std::io::Error) -> String {
 /// TS: cli.ts the `edit-note` hand-off: records the selection, clears the screen, writes the notes vim script for a
 /// vim-family editor (best effort), runs the editor in the foreground (it owns the terminal and stdin until it
 /// quits). Only a failed launch is reported: `\n<command> failed: <message>; the note is <file>\n` on stderr and a
-/// [`HAND_OFF_ERROR_PAUSE`]. Clears the screen again on the way back.
-pub async fn hand_off_editor(ui_state: &Rc<RefCell<UiState>>, session_id: &str, file: &str, editor: &EditorCommand) {
+/// [`HAND_OFF_ERROR_PAUSE`]. Clears the screen again on the way back. Not in the TS: a vim-family editor also gets
+/// Deckhand's status bar, with `title` (the session's) on it.
+pub async fn hand_off_editor(
+    ui_state: &Rc<RefCell<UiState>>,
+    session_id: &str,
+    file: &str,
+    editor: &EditorCommand,
+    title: Option<&str>,
+) {
     record_edit_note(&mut ui_state.borrow_mut(), session_id);
     clear_terminal_screen();
-    // Without the script vim still edits the note; only the Deckhand keys are missing.
-    let vim_script = if is_vim_family(editor) {
-        write_notes_vim_script()
-            .await
-            .ok()
-            .map(|path| path.to_string_lossy().into_owned())
+    // Without the scripts vim still edits the note; only the Deckhand keys or the status bar are missing.
+    let (vim_script, status_script) = if is_vim_family(editor) {
+        let keys = write_notes_vim_script().await.ok();
+        let status = write_notes_status_vim_script(configured_theme_mode().await).await.ok();
+        let path = |path: std::path::PathBuf| path.to_string_lossy().into_owned();
+        (keys.map(path), status.map(path))
     } else {
-        None
+        (None, None)
     };
+    let status = status_script.as_deref().map(|script| EditorStatus {
+        script,
+        title: title.unwrap_or(session_id),
+    });
     // The daemon's watcher picks up the saved file, so the Notes tab shows it when the UI comes back.
-    if let Err(error) = run_terminal_editor(editor, file, vim_script.as_deref()) {
+    if let Err(error) = run_terminal_editor(editor, file, vim_script.as_deref(), status) {
         write_stderr(&format!(
             "\n{} failed: {}; the note is {file}\n",
             editor.command,
@@ -396,14 +421,29 @@ pub async fn hand_off_editor(ui_state: &Rc<RefCell<UiState>>, session_id: &str, 
     clear_terminal_screen();
 }
 
+/// Not in the TS: the status bar for a vim-family editor: the script sourced after the note keys' (`-S`), and the
+/// session title it shows (in [`NOTE_TITLE_ENV`]).
+#[derive(Clone, Copy, Debug)]
+pub struct EditorStatus<'a> {
+    pub script: &'a str,
+    pub title: &'a str,
+}
+
 /// TS: cli.ts `spawnSync(editor.command, terminalEditorArgs(...), {stdio: 'inherit'})`: blocks until the editor
 /// quits. Errors only when it cannot be launched; its exit status is ignored (vim exits non-zero after any error
 /// message seen while editing).
-pub fn run_terminal_editor(editor: &EditorCommand, file: &str, vim_script: Option<&str>) -> std::io::Result<()> {
-    std::process::Command::new(&editor.command)
-        .args(terminal_editor_args(editor, file, vim_script))
-        .status()
-        .map(|_| ())
+pub fn run_terminal_editor(
+    editor: &EditorCommand,
+    file: &str,
+    vim_script: Option<&str>,
+    status: Option<EditorStatus<'_>>,
+) -> std::io::Result<()> {
+    let mut command = std::process::Command::new(&editor.command);
+    command.args(terminal_editor_args(editor, file, vim_script));
+    if let Some(status) = status {
+        command.arg("-S").arg(status.script).env(NOTE_TITLE_ENV, status.title);
+    }
+    command.status().map(|_| ())
 }
 
 #[cfg(test)]
@@ -519,7 +559,7 @@ mod tests {
             args: Vec::new(),
             label: "deckhand-editor".to_owned(),
         };
-        let error = run_terminal_editor(&editor, "/tmp/note.md", None).err();
+        let error = run_terminal_editor(&editor, "/tmp/note.md", None, None).err();
         let message = error.map(|error| spawn_error_message(&editor.command, &error));
         assert_eq!(
             message.as_deref(),
@@ -530,7 +570,7 @@ mod tests {
             args: Vec::new(),
             label: "true".to_owned(),
         };
-        assert!(run_terminal_editor(&ok, "/tmp/note.md", None).is_ok());
+        assert!(run_terminal_editor(&ok, "/tmp/note.md", None, None).is_ok());
     }
 
     #[test]
