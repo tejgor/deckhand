@@ -1,6 +1,10 @@
 # Parity allowlist (gate G2 — for user review)
 
 > **Approved** by Tejas Gorla on 2026-10-20 (gate G2): all 31 entries and the known deviations below.
+>
+> 2026-10-21: the four U5 `settingsPane/render` entries (cases 165, 381, 537, 654) left with that fixture, which named
+> settings tests replaced. Their case, a control character in a link candidate's details line, now renders as `?` like
+> the rest of the pane (`untrusted_values_with_control_characters_render_harmlessly` in `crates/ui/src/panes/settings.rs`).
 
 Fixture cases where the Rust port deliberately differs from the TS oracle. verify-unit allows at most 2% of a fixture's cases, each with a reason. Every other recorded case matches exactly.
 
@@ -33,10 +37,6 @@ Fixture cases where the Rust port deliberately differs from the TS oracle. verif
 | P7 | changesModel/groupOffset | 309 | mutated group 'nstaged' is outside the ChangeGroup union; unrepresentable in the Rust enum |
 | P7 | changesModel/groupOffset | 311 | mutated group 'unsaged' is outside the ChangeGroup union; unrepresentable in the Rust enum |
 | P7 | changesModel/reselect | 326 | mutated group '' is outside the ChangeGroup union; unrepresentable in the Rust enum |
-| U5 | settingsPane/render | 165 | TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells |
-| U5 | settingsPane/render | 381 | TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells |
-| U5 | settingsPane/render | 537 | TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells |
-| U5 | settingsPane/render | 654 | TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells |
 
 ## Known deviations
 

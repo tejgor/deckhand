@@ -1719,13 +1719,15 @@ mod tests {
         assert!(PICK_WORKTREE_KEYMAP[2].matches(&Input::text("/")));
     }
 
-    /// Renders the whole app (130×36, repo `<TMP>/demo`) after `setup` and compares the right pane's columns with the
-    /// golden `fixtures/ui/<name>.txt`.
+    /// Renders the whole app (130×36, repo `<TMP>/demo`) after `setup` and compares the right pane with the snapshot
+    /// `fixtures/ui/panes/<name>.txt`.
     fn assert_right_pane(name: &str, setup: impl FnOnce(&mut App)) {
         let (mut app, _rx) = app(AppProps::default());
         app.props.repo_root = "<TMP>/demo".to_owned();
         app.props.cwd = "<TMP>/demo".to_owned();
         app.data.sessions_loaded = true;
+        // This snapshot covers a 98-column pane, with the sidebar explicitly sized to leave that space.
+        app.browse.sidebar_percent = Some(24.0);
         setup(&mut app);
         let size = app.browse.terminal_size;
         let mut terminal =
@@ -1736,27 +1738,23 @@ mod tests {
         let buffer = terminal.backend().buffer();
         let layout = app.layout();
         let left = layout.sidebar_width + 1;
-        let path = format!("{}/../../fixtures/ui/{name}.txt", env!("CARGO_MANIFEST_DIR"));
-        let golden = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{path}: {error}"));
-        let expected: Vec<&str> = golden.lines().collect();
-        for y in 2..2 + layout.content_height {
-            let mut line = String::new();
-            let mut x = left;
-            while x < buffer.area.width {
-                let symbol = buffer[(x, y)].symbol();
-                line.push_str(symbol);
-                x += u16::try_from(crate::primitives::string_width(symbol).max(1)).unwrap_or(1);
-            }
-            let want: String = expected
-                .get(usize::from(y))
-                .map(|line| line.chars().skip(usize::from(left)).collect())
-                .unwrap_or_default();
-            assert_eq!(line.trim_end(), want.trim_end(), "{name} row {y}");
-        }
+        let rows: Vec<String> = (2..2 + layout.content_height)
+            .map(|y| {
+                let mut line = String::new();
+                let mut x = left;
+                while x < buffer.area.width {
+                    let symbol = buffer[(x, y)].symbol();
+                    line.push_str(symbol);
+                    x += u16::try_from(crate::primitives::string_width(symbol).max(1)).unwrap_or(1);
+                }
+                line.trim_end().to_owned()
+            })
+            .collect();
+        deckhand_parity::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &rows.join("\n"));
     }
 
     #[test]
-    fn renders_the_new_session_form_like_the_goldens() {
+    fn renders_the_new_session_form_like_the_snapshots() {
         assert_right_pane("23-create-pick-agent", |app| app.set_mode(Mode::PickProgram));
         let named = |mode: WorktreeMode| {
             move |app: &mut App| {

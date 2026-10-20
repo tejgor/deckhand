@@ -1954,7 +1954,6 @@ impl Flow<App> for SettingsFlow {
             links: self.links.as_ref(),
             sizes: &self.sizes,
             notice: self.notice.as_ref(),
-            grid: deckhand_core::settings_model::settings_grid,
         };
         render_settings_pane(&pane, &mut self.scroll, buf, area);
     }

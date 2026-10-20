@@ -1516,8 +1516,8 @@ pub async fn run(props: AppProps) -> io::Result<Option<UiExitResult>> {
 
 #[cfg(test)]
 pub(crate) mod test_support {
-    //! An app for tests: no daemon (the connection and config effects marked as run), a 130×36 terminal, and the TS
-    //! oracle's sidebar (24% of the terminal, never shrunk to its rows), which the recorded goldens were laid out with.
+    //! An app for tests: no daemon (the connection and config effects marked as run), a 130×36 terminal, and the
+    //! production defaults for sidebar fitting. Tests of fixed pane geometry configure their own width.
 
     use super::*;
     use crate::app::event_loop::Dispatch;
@@ -1560,8 +1560,6 @@ pub(crate) mod test_support {
         let mut app = App::new(props, dispatch, TerminalSize { cols: 130, rows: 36 });
         app.effects.mounted = true;
         app.effects.connection = Some(0);
-        app.browse.sidebar_percent = Some(24.0);
-        app.browse.sidebar_fit_pending = false;
         (app, rx)
     }
 }

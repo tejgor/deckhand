@@ -11,7 +11,7 @@ import * as M from '../../src/settingsModel.ts';
 
 installDeterminism();
 const recorder = new Recorder('settingsModel');
-const FNS = ['isAppFlag', 'settingPath', 'infoLayer', 'layerSets', 'otherTarget', 'targetName', 'applyChange', 'ownValue', 'layerName', 'initialColumn', 'columnProblem', 'homePath', 'codexHookNote', 'settingsGrid', 'cellDetail', 'layerActions', 'previewLocation', 'choiceOptions', 'currentChoice', 'choiceChange', 'initialText', 'inheritedHint', 'actionNameProblem', 'actionCount', 'actionNameCheck', 'commandProblem', 'textChange', 'initialLinks', 'linkSelection', 'trustNote', 'savedMessage', 'actionSavedMessage'];
+const FNS = ['isAppFlag', 'settingPath', 'infoLayer', 'layerSets', 'otherTarget', 'targetName', 'applyChange', 'ownValue', 'layerName', 'initialColumn', 'columnProblem', 'homePath', 'codexHookNote', 'cellDetail', 'layerActions', 'previewLocation', 'choiceOptions', 'currentChoice', 'choiceChange', 'initialText', 'inheritedHint', 'actionNameProblem', 'actionCount', 'actionNameCheck', 'commandProblem', 'textChange', 'initialLinks', 'linkSelection', 'trustNote', 'savedMessage', 'actionSavedMessage'];
 recorder.addTap(await runTap({tests: ['tests/settingsModel.test.ts'], tap: FNS.map(fn => `settingsModel:${fn}`)}), {module: 'settingsModel'});
 
 const rec = (fn: string, impl: Function, args: unknown[]): void => { try { recorder.call(fn, impl, args); } catch {} };
@@ -110,7 +110,6 @@ for (const raw of docs) for (const exists of [true, false]) for (const kind of K
 for (const info of infos.slice(0, 80)) for (const kind of KINDS) for (const change of changes.slice(0, 14)) if (info.targets[kind]) rec('applyChange', M.applyChange, [info.targets[kind]!, change]);
 
 // Grid and details ---------------------------------------------------------------------------------------------
-for (const info of infos) rec('settingsGrid', M.settingsGrid, [info]);
 for (const info of infoSample(60, 21)) for (const row of M.settingsGrid(info)) for (const kind of KINDS) rec('cellDetail', M.cellDetail, [info, row, kind]);
 for (const info of infos) for (const kind of KINDS) { rec('layerActions', M.layerActions, [info, kind]); rec('actionCount', M.actionCount, [info, kind]); rec('columnProblem', M.columnProblem, [info, kind]); }
 for (const info of infos) rec('initialColumn', M.initialColumn, [info]);

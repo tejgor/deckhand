@@ -2328,12 +2328,11 @@ mod tests {
         });
     }
 
-    // ── Panes against the TS screens (fixtures/ui) ───────────────────────────────────────────────────────────
+    // ── Pane snapshots (fixtures/ui/panes) ─────────────────────────────────────────────────────────────────────
 
-    /// The rows of a pane drawn by `draw` into the 130x36 app's right pane area, right-trimmed.
-    fn drawn(app: &App, draw: impl FnOnce(&mut Buffer, Rect)) -> Vec<String> {
-        let layout = app.layout();
-        let area = Rect::new(0, 0, layout.preview_width, layout.content_height);
+    /// The rows of a pane drawn at an explicit 98×31 size, right-trimmed.
+    fn drawn(draw: impl FnOnce(&mut Buffer, Rect)) -> Vec<String> {
+        let area = Rect::new(0, 0, 98, 31);
         let mut buf = Buffer::empty(area);
         draw(&mut buf, area);
         (0..area.height)
@@ -2350,34 +2349,9 @@ mod tests {
             .collect()
     }
 
-    /// The right pane of the golden `fixtures/ui/<name>.txt`: its rows from the header on, right-trimmed.
-    fn golden_pane(app: &App, name: &str) -> Vec<String> {
-        let layout = app.layout();
-        let path = format!("{}/../../fixtures/ui/{name}.txt", env!("CARGO_MANIFEST_DIR"));
-        let golden = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{path}: {error}"));
-        golden
-            .lines()
-            .skip(2)
-            .take(usize::from(layout.content_height))
-            .map(|row| {
-                crate::primitives::slice_columns(
-                    row,
-                    usize::from(layout.sidebar_width) + 1,
-                    usize::from(layout.sidebar_width) + 1 + usize::from(layout.preview_width),
-                )
-                .trim_end()
-                .to_owned()
-            })
-            .collect()
-    }
-
-    fn assert_pane(app: &App, name: &str, draw: impl FnOnce(&mut Buffer, Rect)) {
-        let got = drawn(app, draw);
-        let want = golden_pane(app, name);
-        assert_eq!(got.len(), want.len(), "{name}");
-        for (index, (got, want)) in got.iter().zip(&want).enumerate() {
-            assert_eq!(got, want, "{name} row {index}");
-        }
+    /// The pane drawn by `draw` matches the snapshot `fixtures/ui/panes/<name>.txt`.
+    fn assert_pane(name: &str, draw: impl FnOnce(&mut Buffer, Rect)) {
+        deckhand_parity::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &drawn(draw).join("\n"));
     }
 
     fn refs(sessions: &[SessionRecord]) -> Vec<&SessionRecord> {
@@ -2392,8 +2366,7 @@ mod tests {
     }
 
     #[test]
-    fn the_kill_confirmation_looks_like_the_golden() {
-        let (app, _rx) = app(AppProps::default());
+    fn the_kill_confirmation_matches_the_snapshot() {
         let eps = in_worktree(
             session("s5", "eps", SessionStatus::Running),
             "w5",
@@ -2413,14 +2386,13 @@ mod tests {
             open_items: &[],
             keep_open_items: false,
         };
-        assert_pane(&app, "47-confirm-kill", |buf, area| {
+        assert_pane("47-confirm-kill", |buf, area| {
             render_kill_confirm_pane(&props, buf, area);
         });
     }
 
     #[test]
-    fn the_blocked_kill_confirmation_looks_like_the_golden() {
-        let (app, _rx) = app(AppProps::default());
+    fn the_blocked_kill_confirmation_matches_the_snapshot() {
         let beta = in_worktree(
             session("s2", "beta", SessionStatus::Running),
             "w2",
@@ -2440,14 +2412,13 @@ mod tests {
             open_items: &[],
             keep_open_items: false,
         };
-        assert_pane(&app, "46-confirm-kill-blocked", |buf, area| {
+        assert_pane("46-confirm-kill-blocked", |buf, area| {
             render_kill_confirm_pane(&props, buf, area);
         });
     }
 
     #[test]
     fn the_kill_confirmation_lists_the_open_items_and_the_force() {
-        let (app, _rx) = app(AppProps::default());
         let beta = in_worktree(session("s2", "beta", SessionStatus::Running), "w2", "/wt/beta", "beta");
         let sessions = [beta];
         let options = kill_options(true, false, None, None);
@@ -2462,7 +2433,7 @@ mod tests {
             open_items: &items,
             keep_open_items: false,
         };
-        let rows = drawn(&app, |buf, area| render_kill_confirm_pane(&props, buf, area));
+        let rows = drawn(|buf, area| render_kill_confirm_pane(&props, buf, area));
         let text: Vec<&str> = rows
             .iter()
             .skip(1)
@@ -2483,7 +2454,7 @@ mod tests {
         );
         assert_eq!(text[9], "enter choose • space note items • esc cancel");
         props.keep_open_items = true;
-        let rows = drawn(&app, |buf, area| render_kill_confirm_pane(&props, buf, area));
+        let rows = drawn(|buf, area| render_kill_confirm_pane(&props, buf, area));
         assert!(rows[8].contains("☐ If deleted: 2 open note items stay in its (read-only) note: write docs, fix bug"));
         // Without a session or a deletion choice: the plain question, no open-items row.
         let only_kill = kill_options(false, false, None, None);
@@ -2497,7 +2468,7 @@ mod tests {
             open_items: &items,
             keep_open_items: false,
         };
-        let rows = drawn(&app, |buf, area| render_kill_confirm_pane(&bare, buf, area));
+        let rows = drawn(|buf, area| render_kill_confirm_pane(&bare, buf, area));
         assert!(rows[1].contains("Kill session?"));
         assert!(!rows.iter().any(|row| row.contains("If deleted")));
     }
@@ -2513,8 +2484,7 @@ mod tests {
     }
 
     #[test]
-    fn the_merge_confirmation_looks_like_the_goldens() {
-        let (app, _rx) = app(AppProps::default());
+    fn the_merge_confirmation_matches_the_snapshots() {
         let mut beta = in_worktree(
             session("s2", "beta", SessionStatus::Running),
             "w2",
@@ -2541,7 +2511,7 @@ mod tests {
             selected_index: 0,
             tasks: &[],
         };
-        assert_pane(&app, "45-confirm-merge", |buf, area| {
+        assert_pane("45-confirm-merge", |buf, area| {
             render_merge_confirm_pane(&props, buf, area);
         });
 
@@ -2565,14 +2535,13 @@ mod tests {
             selected_index: 0,
             tasks: &[],
         };
-        assert_pane(&app, "58-confirm-merge-commits", |buf, area| {
+        assert_pane("58-confirm-merge-commits", |buf, area| {
             render_merge_confirm_pane(&props, buf, area);
         });
     }
 
     #[test]
     fn the_merge_confirmation_marks_the_selected_row_and_the_waiting_state() {
-        let (app, _rx) = app(AppProps::default());
         let feat = in_worktree(session("s1", "feat", SessionStatus::Running), "w1", "/wt/feat", "feat");
         let sessions = [feat];
         let waiting = MergeConfirmPaneProps {
@@ -2582,7 +2551,7 @@ mod tests {
             selected_index: 2,
             tasks: &[],
         };
-        let rows = drawn(&app, |buf, area| render_merge_confirm_pane(&waiting, buf, area));
+        let rows = drawn(|buf, area| render_merge_confirm_pane(&waiting, buf, area));
         assert!(rows[1].contains("Merge \"feat\"?"));
         assert!(rows[2].contains("Checking what will be merged…"));
         assert!(rows.iter().any(|row| row.contains("❯ Cancel")));
@@ -2599,44 +2568,41 @@ mod tests {
             selected_index: 0,
             ..waiting
         };
-        let rows = drawn(&app, |buf, area| render_merge_confirm_pane(&failed, buf, area));
+        let rows = drawn(|buf, area| render_merge_confirm_pane(&failed, buf, area));
         assert!(rows.iter().any(|row| row.contains("hook failed")));
     }
 
     #[test]
-    fn the_conflict_screen_looks_like_the_golden() {
-        let (app, _rx) = app(AppProps::default());
+    fn the_conflict_screen_matches_the_snapshot() {
         let result: WorktreeMergeResult = serde_json::from_value(merge_result(
             json!({"conflicted": true, "conflicts": ["file.txt"], "conflictCount": 1}),
         ))
         .unwrap();
-        assert_pane(&app, "59-merge-conflicts", |buf, area| {
+        assert_pane("59-merge-conflicts", |buf, area| {
             render_merge_conflict_pane(&result, buf, area);
         });
     }
 
     #[test]
-    fn the_remove_confirmation_looks_like_the_golden() {
-        let (app, _rx) = app(AppProps::default());
+    fn the_remove_confirmation_matches_the_snapshot() {
         let alpha = session("s1", "alpha", SessionStatus::Exited);
         let props = RemoveConfirmPaneProps {
             session: Some(&alpha),
             items: &[],
         };
-        assert_pane(&app, "55-confirm-remove", |buf, area| {
+        assert_pane("55-confirm-remove", |buf, area| {
             render_remove_confirm_pane(&props, buf, area);
         });
     }
 
     #[test]
     fn the_remove_confirmation_lists_up_to_eight_open_items() {
-        let (app, _rx) = app(AppProps::default());
         let items: Vec<String> = (1..=10).map(|n| format!("item {n}")).collect();
         let props = RemoveConfirmPaneProps {
             session: None,
             items: &items,
         };
-        let rows = drawn(&app, |buf, area| render_remove_confirm_pane(&props, buf, area));
+        let rows = drawn(|buf, area| render_remove_confirm_pane(&props, buf, area));
         let text: Vec<&str> = rows
             .iter()
             .skip(1)
@@ -2657,7 +2623,7 @@ mod tests {
             session: None,
             items: &one,
         };
-        let rows = drawn(&app, |buf, area| render_remove_confirm_pane(&props, buf, area));
+        let rows = drawn(|buf, area| render_remove_confirm_pane(&props, buf, area));
         assert!(rows[4].contains("1 unchecked item:"));
     }
 

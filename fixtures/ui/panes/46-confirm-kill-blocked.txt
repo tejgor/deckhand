@@ -1,0 +1,31 @@
+╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Worktree deletion is blocked:                                                                  │
+│   worktree is in use by session "beta / gamma"                                                 │
+│ Kill "beta"?                                                                                   │
+│ <TMP>/home/worktrees/beta                                                                      │
+│                                                                                                │
+│ ❯ Kill only, keep worktree (restartable)                                                       │
+│   Cancel                                                                                       │
+│                                                                                                │
+│ enter choose • esc cancel                                                                      │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────╯

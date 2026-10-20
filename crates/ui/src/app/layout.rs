@@ -1093,8 +1093,8 @@ mod tests {
     fn the_sidebar_is_measured_on_load_and_resize_only() {
         crate::app::modes::workspace_info::fake_daemon::local(async {
             let (mut app, _rx) = app(AppProps::default());
-            app.browse.sidebar_percent = None;
-            app.browse.sidebar_fit_pending = true;
+            assert_eq!(app.browse.sidebar_percent, None);
+            assert!(app.browse.sidebar_fit_pending);
             app.browse.terminal_size = TerminalSize { cols: 200, rows: 40 };
             crate::app::effects::run_effects(&mut app);
             assert_eq!(app.browse.sidebar_content, None);
@@ -1292,8 +1292,8 @@ mod tests {
     }
 
     /// Renders `app` (connected over a socket pair, sessions loaded, `<TMP>/demo` the repo) after `setup` and compares
-    /// the screen with the golden `fixtures/ui/<name>.txt` (rows right-trimmed).
-    fn assert_golden(name: &str, setup: impl FnOnce(&mut App)) {
+    /// the screen with `fixtures/ui/<name>.txt` (rows right-trimmed), using the default fitted sidebar.
+    fn assert_screen(name: &str, setup: impl FnOnce(&mut App)) {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -1309,6 +1309,8 @@ mod tests {
                 deckhand_client::live::LiveClientHandlers::default(),
             )));
             setup(&mut app);
+            let derived = app.derived();
+            measure_sidebar(&mut app, &derived);
             let size = app.browse.terminal_size;
             let mut terminal =
                 Terminal::new(TestBackend::new(size.cols, size.rows)).unwrap_or_else(|error| panic!("{error}"));
@@ -1328,28 +1330,22 @@ mod tests {
                     line.trim_end().to_owned()
                 })
                 .collect();
-            let path = format!("{}/../../fixtures/ui/{name}.txt", env!("CARGO_MANIFEST_DIR"));
-            let golden = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{path}: {error}"));
-            let expected: Vec<&str> = golden.lines().collect();
-            assert_eq!(rows.len(), expected.len(), "{name}");
-            for (index, (got, want)) in rows.iter().zip(&expected).enumerate() {
-                assert_eq!(got, want, "{name} row {index}");
-            }
+            deckhand_parity::assert_snapshot(format!("fixtures/ui/{name}.txt"), &rows.join("\n"));
         });
     }
 
     #[test]
-    fn renders_the_empty_dashboard_like_the_golden() {
-        assert_golden("01-empty-dashboard", |_| {});
+    fn renders_the_empty_dashboard_snapshot() {
+        assert_screen("01-empty-dashboard", |_| {});
     }
 
     #[test]
-    fn renders_the_help_guide_full_width_like_the_goldens() {
-        assert_golden("02-help", |app| {
+    fn renders_the_help_guide_full_width_snapshots() {
+        assert_screen("02-help", |app| {
             app.flows.help.open(None);
             app.set_mode(Mode::Help);
         });
-        assert_golden("03-help-topic", |app| {
+        assert_screen("03-help-topic", |app| {
             app.flows.help.open(None);
             app.flows.help.pick(1);
             app.set_mode(Mode::Help);
@@ -1357,12 +1353,12 @@ mod tests {
     }
 
     #[test]
-    fn renders_search_and_the_filter_menu_like_the_goldens() {
-        assert_golden("05-search", |app| {
+    fn renders_search_and_the_filter_menu_snapshots() {
+        assert_screen("05-search", |app| {
             app.set_mode(Mode::Search);
             app.browse.session_query = "zz".to_owned();
         });
-        assert_golden("06-filter-menu", |app| {
+        assert_screen("06-filter-menu", |app| {
             app.set_mode(Mode::PickFilter);
         });
     }

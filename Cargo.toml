@@ -43,6 +43,7 @@ crossterm = "0.28"
 alacritty_terminal = "0.25"
 vt100 = "0.15"
 tempfile = "3"
+proptest = { version = "1", default-features = false, features = ["std"] }
 # macOS notifications from Deckhand.app (crates/deckhand/src/notifier.rs).
 objc2 = "0.6"
 objc2-foundation = "0.3"

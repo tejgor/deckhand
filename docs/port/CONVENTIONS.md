@@ -1,8 +1,15 @@
 # Rust port conventions
 
-Read this before touching anything under `crates/`, `parity/` or `fixtures/`. The TypeScript tree (`src/`, `tests/`) is the
-**oracle**: behaviour, error text, timing and on-disk formats must match it. Do not change TS behaviour (Wave 0 test
-plumbing excepted).
+The rules the port was written under. During the port the TypeScript tree (`src/`, `tests/`) was the **oracle**:
+behaviour, error text, timing and on-disk formats had to match it. The port is done, and Deckhand's own behaviour is
+now the reference: the fixtures and snapshots record it, and an intended change updates them with
+`DECKHAND_BLESS=1` (see `parity/README.md`, "Changing behaviour"). What still holds from the TS: a state directory it
+wrote must keep loading (`fixtures/state` is frozen input, never blessed). The isolation rules below still apply; the
+ownership and unit rules were for the port's parallel units.
+
+Current development and testing policy lives in [`docs/testing.md`](../testing.md). New Rust tests need neither TS
+test-title markers nor a port-unit manifest. The remaining sections document the port's implementation constraints;
+they do not impose blanket TS output equivalence on new behavior.
 
 ## Isolation (hard rules)
 - Never read, write, or run anything against `~/.deckhand`, `~/.deckhand-dev`, `~/.codex`, `~/.claude`, or shell rc files.
@@ -38,18 +45,18 @@ plumbing excepted).
 - `localeCompare` → `jsstr::locale_compare` (never plain `cmp` where TS used `localeCompare`).
 
 ## Errors
-- `deckhand_core::error::DhError` (thiserror). `Display` text must equal the TS `Error.message` **verbatim** — tests
-  assert on it. Prefer `DhError::msg(format!(..))` with the exact TS template.
+- `deckhand_core::error::DhError` (thiserror). During the port its `Display` matched TS errors verbatim. Current
+  tests should assert the useful error and context; preserve exact wording where an explicit contract requires it.
 
 ## Serde / wire / persisted formats
-- `serde_json` with `preserve_order`; struct field order == TS object literal key order at the point TS serialises it
-  (JSON key order on disk must be byte-identical to TS output).
+- `serde_json` with `preserve_order`. Existing formats retain their ordering, especially where bytes affect a hash
+  or revision; the port's general byte-equivalence rule is not a requirement for new formats.
 - `#[serde_with::skip_serializing_none]` on every struct; `Option<Option<T>>` with `serde_with::rust::double_option`
   where TS has `?: T | null`.
 - Persisted records carry `#[serde(flatten)] extra: IndexMap<String, Value>` so unknown keys round-trip.
 - String unions: enums with explicit `#[serde(rename = "...")]` on every variant.
 - Files written with `deckhand_sys::storage` atomic write (temp + rename), modes 0600 files / 0700 dirs as TS does.
-- `PROTOCOL_VERSION = 46`.
+- The current `PROTOCOL_VERSION` is defined in `crates/protocol`; bump it on any request/response shape change.
 
 ## Tests
 - Port each TS `test('title', ...)` from the unit's `ts_tests` to a Rust `#[test]` (or `#[tokio::test(flavor =

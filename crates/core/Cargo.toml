@@ -27,3 +27,4 @@ url = { workspace = true }
 [dev-dependencies]
 deckhand-parity = { workspace = true }
 tempfile = { workspace = true }
+proptest = { workspace = true }

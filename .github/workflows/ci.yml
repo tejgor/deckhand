@@ -21,12 +21,7 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      # The e2e crate drives the built binary, so build it first.
-      - run: cargo build --workspace
-      - run: cargo nextest run --workspace --no-fail-fast
-      # crates/e2e is already part of --workspace; run it again on its own against the freshly built binary so a
-      # regression there shows up as a separate step.
-      - name: e2e
-        run: cargo nextest run -p deckhand-e2e --no-fail-fast
+      - name: tests
+        run: scripts/test.sh --no-fail-fast
         env:
           DECKHAND_TEST_BIN: ${{ github.workspace }}/target/debug/deckhand

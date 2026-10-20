@@ -1,0 +1,31 @@
+╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Merge "beta"?                                                                                  │
+│ Into main · <TMP>/demo                                                                         │
+│ No new commits · +2 uncommitted files                                                          │
+│ 2 uncommitted files                                                                            │
+│ ☑ commit them first ("beta")                                                                   │
+│                                                                                                │
+│ ❯ Merge into main without committing                                                           │
+│   Squash merge into main without committing                                                    │
+│   Cancel                                                                                       │
+│                                                                                                │
+│ enter choose • space commit first • esc cancel                                                 │
+│                                                                                                │
+│ Notes                                                                                          │
+│ Worktree notes · beta                                                                          │
+│   Remember the tests                                                                           │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────╯

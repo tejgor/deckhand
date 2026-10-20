@@ -3,7 +3,8 @@
 //! keep) and `op.json` (`{"fn", "args", "ret"|"throws"}`). Absolute paths under the temp root are written as `$ROOT`.
 //!
 //! The replay materializes `before` in a fresh temp dir (umask 022), gives the port the op with `$ROOT` replaced by
-//! that dir, then compares the outcome and the resulting tree (every file byte-exact, modes, symlink targets).
+//! that dir, then compares the outcome and the resulting tree (every file byte-exact, modes, symlink targets). With
+//! `DECKHAND_BLESS` set a difference rewrites the case's `ret`/`throws`, `after/` and `tree.json` instead.
 
 use std::collections::BTreeMap;
 use std::ops::Deref;
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::fixture::Case;
-use crate::replay::{Failure, Outcome, Replay, Report, check};
+use crate::replay::{Failure, Outcome, Replay, Report, blessed_case, check, panic_text};
 
 pub const ROOT_PLACEHOLDER: &str = "$ROOT";
 
@@ -298,7 +299,18 @@ impl Replay {
         let (_, mut problems) = self.manifest_problems();
         let case_dir = self.fixture_path("");
         match self.run_dir_case(&case_dir, &mut |root, op| port(root, op).into()) {
-            Ok(failure) => self.finish(&case_dir, 1, failure.into_iter().collect(), problems),
+            Ok(Settled::Blessed) => {
+                eprintln!("parity: blessed {}", case_dir.display());
+                let mut report = self.finish(&case_dir, 1, Vec::new(), problems);
+                report.blessed = 1;
+                report
+            }
+            Ok(Settled::Compared(failure)) => self.finish(
+                &case_dir,
+                1,
+                failure.into_iter().map(|failure| *failure).collect(),
+                problems,
+            ),
             Err(error) => {
                 problems.push(error);
                 self.finish(&case_dir, 0, Vec::new(), problems)
@@ -306,11 +318,7 @@ impl Replay {
         }
     }
 
-    fn run_dir_case(
-        &self,
-        case_dir: &Path,
-        port: &mut dyn FnMut(&Path, &DirOp) -> Outcome,
-    ) -> Result<Option<Failure>, String> {
+    fn run_dir_case(&self, case_dir: &Path, port: &mut dyn FnMut(&Path, &DirOp) -> Outcome) -> Result<Settled, String> {
         let op_path = case_dir.join("op.json");
         let op: Value = serde_json::from_str(&std::fs::read_to_string(&op_path).map_err(io(&op_path))?)
             .map_err(|error| format!("{}: {error}", op_path.display()))?;
@@ -338,16 +346,12 @@ impl Replay {
         if let Some(error) = &recorded.conversion_error {
             return Err(format!("utf16_fields: {error}"));
         }
-        let outcome = match catch_unwind(AssertUnwindSafe(|| port(&root, &dir_op))) {
-            Ok(outcome) => outcome,
-            Err(payload) => {
-                let message = payload
-                    .downcast_ref::<&str>()
-                    .map(|text| text.to_string())
-                    .or_else(|| payload.downcast_ref::<String>().cloned())
-                    .unwrap_or_default();
-                Outcome::throws(format!("port panicked: {message}"))
-            }
+        let (outcome, panicked) = match catch_unwind(AssertUnwindSafe(|| port(&root, &dir_op))) {
+            Ok(outcome) => (outcome, false),
+            Err(payload) => (
+                Outcome::throws(format!("port panicked: {}", panic_text(payload.as_ref()))),
+                true,
+            ),
         };
         let scrub = |text: &str| text.replace(&root_text, ROOT_PLACEHOLDER);
         let outcome = Outcome {
@@ -360,7 +364,17 @@ impl Replay {
                 .map(|args| args.iter().map(|value| map_strings(value, &scrub)).collect()),
         };
         let mut failure = check(&recorded, &outcome, false);
-        let tree_diff = diff_tree(&trees.after, &case_dir.join("after"), &serialize_tree(&root)?);
+        let actual_tree = serialize_tree(&root)?;
+        let tree_diff = diff_tree(&trees.after, &case_dir.join("after"), &actual_tree);
+        if self.blessing()
+            && !panicked
+            && !self.allowed().contains_key(&0)
+            && (failure.is_some() || !tree_diff.is_empty())
+        {
+            let op = blessed_case(&recorded, &outcome, self.utf16_fields())?;
+            bless_dir_case(case_dir, op, &actual_tree)?;
+            return Ok(Settled::Blessed);
+        }
         if !tree_diff.is_empty() {
             let diff = tree_diff.join("\n");
             match &mut failure {
@@ -382,8 +396,40 @@ impl Replay {
                 }
             }
         }
-        Ok(failure)
+        Ok(Settled::Compared(failure.map(Box::new)))
     }
+}
+
+enum Settled {
+    Compared(Option<Box<Failure>>),
+    Blessed,
+}
+
+fn write_json(path: &Path, value: &impl Serialize) -> Result<(), String> {
+    let text = serde_json::to_string_pretty(value).map_err(|error| error.to_string())?;
+    std::fs::write(path, text + "\n").map_err(io(path))
+}
+
+/// Rewrites a directory case's expectation: `op.json`'s `ret`/`throws`, `after/` and `tree.json`'s `after`.
+fn bless_dir_case(case_dir: &Path, op: Value, actual: &Tree) -> Result<(), String> {
+    write_json(&case_dir.join("op.json"), &op)?;
+    let tree_path = case_dir.join("tree.json");
+    let mut trees: Value = serde_json::from_str(&std::fs::read_to_string(&tree_path).map_err(io(&tree_path))?)
+        .map_err(|error| format!("{}: {error}", tree_path.display()))?;
+    trees["after"] = serde_json::to_value(&actual.entries).map_err(|error| error.to_string())?;
+    write_json(&tree_path, &trees)?;
+    let after = case_dir.join("after");
+    if after.exists() {
+        std::fs::remove_dir_all(&after).map_err(io(&after))?;
+    }
+    for (path, data) in &actual.files {
+        let target = after.join(path);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).map_err(io(parent))?;
+        }
+        std::fs::write(&target, data).map_err(io(&target))?;
+    }
+    Ok(())
 }
 
 /// Replays directory case `fixture` (`<module>/<case>`) of `unit`, writes the result file, panics unless it passed.
@@ -456,5 +502,51 @@ mod tests {
         let diff = diff_tree(&tree.entries, files.path(), &serialize_tree(&target_root).unwrap()).join("\n");
         assert!(diff.contains("tree: a/config.json content differs: line 1"), "{diff}");
         assert!(diff.contains("tree: unexpected extra (file)"), "{diff}");
+    }
+
+    #[test]
+    fn blessing_rewrites_the_result_and_the_after_tree() {
+        let fixtures = tempfile::tempdir().unwrap();
+        let case_dir = fixtures.path().join("m/write");
+        std::fs::create_dir_all(case_dir.join("after")).unwrap();
+        std::fs::write(case_dir.join("after/old.txt"), "old\n").unwrap();
+        std::fs::write(
+            case_dir.join("op.json"),
+            r#"{"fn": "write", "args": ["$ROOT"], "ret": "old"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            case_dir.join("tree.json"),
+            r#"{"before": [], "after": [{"path": "old.txt", "type": "file", "mode": "0644"}]}"#,
+        )
+        .unwrap();
+        let replay = |bless: bool| {
+            Replay::with_manifest(
+                crate::Manifest::parse("id = \"X1\"\nfixtures = [\"m/write\"]").unwrap(),
+                "m/write",
+            )
+            .fixtures_root(fixtures.path())
+            .results_dir(None)
+            .bless(bless)
+            .run_dir(|root, _op| {
+                std::fs::write(root.join("new.txt"), format!("{}\n", root.display())).unwrap();
+                Ok::<_, String>("new")
+            })
+        };
+        let failed = replay(false);
+        assert!(!failed.ok);
+        assert!(failed.summary().contains("DECKHAND_BLESS=1"), "{}", failed.summary());
+
+        let blessed = replay(true);
+        assert!(blessed.ok && blessed.blessed == 1, "{}", blessed.summary());
+        let op: Value = serde_json::from_str(&std::fs::read_to_string(case_dir.join("op.json")).unwrap()).unwrap();
+        assert_eq!(op, serde_json::json!({"fn": "write", "args": ["$ROOT"], "ret": "new"}));
+        assert!(!case_dir.join("after/old.txt").exists());
+        assert_eq!(
+            std::fs::read_to_string(case_dir.join("after/new.txt")).unwrap(),
+            "$ROOT\n"
+        );
+        let after = replay(false);
+        assert!(after.ok && after.blessed == 0, "{}", after.summary());
     }
 }

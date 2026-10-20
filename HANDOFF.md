@@ -4,7 +4,7 @@ Continuity notes for future Deckhand development. Keep this file focused on impl
 
 ## Snapshot
 
-Deckhand is a native Rust program: one binary, `deckhand`, backed by a long-lived local daemon (the same binary re-launched with `--daemon`). It is a port of the original TypeScript/Ink app, which was the behavioural oracle: error text, timing and persisted formats are unchanged, and a state directory written by the TypeScript version loads as is. It is inspired by `claude-squad`, but owns its own state, IPC protocol, worker model, and session lifecycle.
+Deckhand is a native Rust program: one binary, `deckhand`, backed by a long-lived local daemon (the same binary re-launched with `--daemon`). It was ported from the original TypeScript/Ink app. The port is complete: Rust behavior can evolve, while a state directory written by the TypeScript version must keep loading. It is inspired by `claude-squad`, but owns its own state, IPC protocol, worker model, and session lifecycle.
 
 Package facts:
 
@@ -44,7 +44,7 @@ Implemented behavior:
 | `crates/client` (`deckhand-client`) | Daemon client (autostart, ping, stale socket handling, protocol-mismatch refusal), live subscriptions, attach streaming and terminal state | `client.ts`, `attach.ts` |
 | `crates/ui` (`deckhand-ui`) | The ratatui app: state and effects (`app`), flows (create, merge, settings, notes, tasks, worktrees, agents, help), panes, keymap/input, theme | `app.tsx`, `*Flow.tsx`, `*Pane.tsx`, `ui.ts` |
 | `crates/deckhand` (`deckhand`) | The binary: argv dispatch (`cli`), the UI loop and attach/`$EDITOR` hand-off (`ui_loop`), `hook`, `hooks`, `setup`, `doctor`, the production-home `guard` | `cli.ts`, `setup.ts` |
-| `crates/parity` (`deckhand-parity`) | Test-only: replays fixtures recorded from the TS oracle | `parity/` |
+| `crates/parity` (`deckhand-parity`) | Test-only: replays the fixtures (first recorded from the TS) and checks text snapshots; `DECKHAND_BLESS=1` updates both | `parity/` |
 | `crates/e2e` (`deckhand-e2e`) | Test-only: drives the built binary with a real daemon, fake agents and the dev launcher | `tests/*.test.ts` |
 
 Dependency direction: `protocol` and `core` at the bottom, `sys` and `term` above them, then `worker`, `daemon`, `client`, `ui`, and the binary on top. `core` does no I/O: anything that touches the disk, Git or a process belongs in `sys`.
@@ -56,7 +56,7 @@ Dependency direction: `protocol` and `core` at the bottom, `sys` and `term` abov
 - Every process (UI, daemon, session worker, workspace worker) runs one tokio `current_thread` runtime with a `LocalSet`. Shared state is `Rc<RefCell<..>>`; futures need not be `Send`. Never hold a `Ref`/`RefMut` across `.await` (`clippy::await_holding_refcell_ref` is denied): borrow, copy what you need, drop, then await.
 - The JS promise-chain idioms are `deckhand_sys::async_util`: `KeyedQueue` (serial per key, e.g. per file or workspace), `Coalescer` (run once more after the current run, for `persist()`), `SharedSlot` (all callers await one in-flight result), `Timer` (cancel on drop).
 - Child processes go through `deckhand_sys::proc` (timeout, own process group via `setsid`, `killpg` on timeout or drop).
-- No `unwrap`/`expect`/indexing panics on untrusted input (files, sockets, PTY output, git output, argv, env). `DhError` messages equal the TS `Error.message` verbatim because tests assert on them.
+- No `unwrap`/`expect`/indexing panics on untrusted input (files, sockets, PTY output, git output, argv, env). `DhError` preserves useful error text and context; exact TS wording is retained where an explicit contract requires it.
 - TS strings are UTF-16: lengths that users see or that are persisted use `deckhand_core::jsstr`; `localeCompare` is `jsstr::locale_compare`. Editor cursors are byte offsets on char boundaries.
 
 ### Processes, workers and the fd-3 channel
@@ -122,7 +122,7 @@ Semantics (`InkDaemon` `requireWorkspace`/`openWorkspace`/`watchWorkspacePane`/`
 - *One worktree at a time*: every worktree runs the same Dev config, so the same ports. `handle_start_dev` calls `stop_dev_elsewhere` first: it stops Dev in every other workspace of the repository's sessions (`repository_sessions`). Asked for in place of a wrapper script that killed whatever held the ports; deliberately not a setting. The UI names the stopped worktrees in its status (`dev_elsewhere`).
 - *Worker*: `PaneTarget::Dev(u8)`: a single command is `Dev(0)`, named processes `Dev(0..n)` in configured order, each its own PTY and pump. `PaneHost.dev_processes` holds the started list (`None` for a single command). There is still one Dev pane on the wire: `dev_record()` builds one record with `processes` (`live` = any live, so `devRunning`/`▶`/`d d` need no change), and every process's broadcast posts that whole record. `snapshot` sizes every process alike (the UI sends the cell size from `dev_cell_size`); `attach` with `process` sizes only that one and marks it the attached Dev target, so `input`/`resize`/`detach` (which carry no process) route to it and only its output is forwarded. `start-dev` with `processes` keeps running processes whose name and command are unchanged and refuses any other running one (*Stop the current Dev command before starting another*); `process` starts one alone, `restart` stops it first and awaits its exit (port release). `stop-dev` with `process` stops one and keeps the list; without, it stops all and forgets the list.
 - *Daemon*: one Dev attach per workspace still (attaching another process elsewhere is *already attached elsewhere*); `stopped_record` keeps the processes' last output, marked not live, after a worker crash.
-- *UI*: `panes::dev` splits the tab (`dev_split`: side by side while each column is ≥ `MIN_DEV_COLUMN` (40), else stacked); `v` selects (`PaneRecords.dev_process`, by name, carried across the attach round trip by `ui_loop` as `initial_dev_process`); `enter` attaches the selected process (`UiExitResult::Attach.process` → `AttachSessionOptions.dev_process` → `Attach.process`). The run list adds a row per process after Dev (`App::run_list_processes`, from the effective settings; opening the list watches Dev so their state is fresh). Settings keeps one Dev command row, and `enter` on it always opens the list of what Dev runs (`SettingsFlow::list_id`, `SettingsPaneProps.list`, `handle_dev_list`), even with one command or none: the user preferred one consistent screen to a text input that turns into a list. Its edits are `SettingsEdit::Process`, two steps every time (`ProcessStep`): the command, then the name, pre-filled by `derive_process_name` when adding and with the process's own name when editing, so Enter twice accepts both (the user wanted the suggestion editable in place rather than a separate rename). `dev_command_change` (`DevEdit::Add`/`Update`/`Remove`) writes the whole `devCommand` as a map; a hand-written plain command is listed under its derived name and stays plain only while edits keep that name. The TS oracle's fixtures predate all this: the `?` guide's new lines are listed in `help::PORT_LINES`, which `oracle_topics()` (the guide replays) leaves out.
+- *UI*: `panes::dev` splits the tab (`dev_split`: side by side while each column is ≥ `MIN_DEV_COLUMN` (40), else stacked); `v` selects (`PaneRecords.dev_process`, by name, carried across the attach round trip by `ui_loop` as `initial_dev_process`); `enter` attaches the selected process (`UiExitResult::Attach.process` → `AttachSessionOptions.dev_process` → `Attach.process`). The run list adds a row per process after Dev (`App::run_list_processes`, from the effective settings; opening the list watches Dev so their state is fresh). Settings keeps one Dev command row, and `enter` on it always opens the list of what Dev runs (`SettingsFlow::list_id`, `SettingsPaneProps.list`, `handle_dev_list`), even with one command or none: the user preferred one consistent screen to a text input that turns into a list. Its edits are `SettingsEdit::Process`, two steps every time (`ProcessStep`): the command, then the name, pre-filled by `derive_process_name` when adding and with the process's own name when editing, so Enter twice accepts both (the user wanted the suggestion editable in place rather than a separate rename). `dev_command_change` (`DevEdit::Add`/`Update`/`Remove`) writes the whole `devCommand` as a map; a hand-written plain command is listed under its derived name and stays plain only while edits keep that name. Named Rust settings and help tests cover these features directly; no test-only version of the guide or grid is maintained.
 
 Adding another workspace pane: a PTY pane is a `PaneTarget` in `WORKSPACE_PANES` (worker) plus `WorkspacePane`/`WorkspaceEvent`/`paneUpdatedMessage` and the request cases in the daemon. A non-PTY workspace view does not need the worker: compute it in the daemon from the workspace key (like `workspace-summary`, `src/workspaceGit.ts`) or, if it must push updates, keep a per-workspace watcher and fan out like `publishWorkspacePane` — the Git tab's Changes view (below) is that pattern.
 
@@ -590,12 +590,29 @@ Event types:
 
 ## Testing
 
-- **Unit tests** live next to the code in every crate. Each port of a TS test carries `// covers: B-<unit>-NN <exact TS title>` directly above it. Repository tests use a `repo()` helper equivalent to `tests/helpers.ts` (`GIT_CONFIG_GLOBAL=/dev/null`, `GIT_CONFIG_NOSYSTEM=1`, `-b main`, fixed user, no gpg signing). Every test uses a temp `DECKHAND_HOME` and temp `HOME`; none touches `~/.deckhand*`, `~/.codex` or `~/.claude`, or starts a real agent.
-- **Parity fixtures**: `fixtures/parity/<module>/<fn>.jsonl` were recorded from the TypeScript oracle and are replayed with `deckhand_parity::replay` (see `parity/README.md`); `fixtures/ui`, `fixtures/term`, `fixtures/wire` and `fixtures/state` hold screen goldens, terminal streams, wire samples and persisted-state samples. Fixtures are the record of TS behaviour once `src/` is deleted: do not regenerate them from the Rust code.
-- **`crates/e2e`**: black-box tests of the built binary (`DECKHAND_TEST_BIN`, default the workspace debug build) against a real daemon with the fake agent: the dev launcher's isolation, daemon features, recovery. Build first (`cargo build --workspace`), then `cargo nextest run --workspace` (CI also runs `-p deckhand-e2e` as its own step).
-- **Gates** (CI, `.github/workflows/ci.yml`, ubuntu and macOS): `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`.
-- **Manual**: [docs/port-smoke.md](docs/port-smoke.md) is the end-to-end checklist with real agents in the dev sandbox; [docs/dev-build.md](docs/dev-build.md) is the dev loop with `scripts/deckhand-dev.sh`.
-- `DECKHAND_AGENT_LATEST` replaces the npm version lookup so tests never reach the network; tests that need Codex's or Claude's directories point `CODEX_HOME` / `CLAUDE_CONFIG_DIR` at a temp directory.
+Current policy and focused-run examples: [docs/testing.md](docs/testing.md). New tests describe Rust behavior; they
+need no TS test-title marker, export mapping or port-unit ID.
+
+- **Behavior tests** live next to the code. Settings grid/render and help use named scenarios and direct assertions;
+  settings also has three representative styled snapshots under `fixtures/ui/settings`. Other low-churn replay
+  corpora remain useful regression coverage and can migrate incrementally as modules change.
+- **Properties** supplement the Unicode and offset examples with generated strings, independent standard-library
+  expectations, boundary/bounds checks and movement progress. Keep meaningful examples and minimized regressions.
+- **Snapshots** update through `DECKHAND_BLESS=1` on a filtered test run. Review every changed expectation and rerun
+  without the variable. Correctness rules remain ordinary assertions; see `parity/README.md` for replay encoding.
+- **Compatibility**: `fixtures/state` is frozen historical data and never blessed. Preserve loading and migration
+  guarantees. `fixtures/term`, `fixtures/wire` and the Ink/Node vectors under `crates/*/tests/data` retain their
+  documented conformance contracts; their TS origin does not require blanket equivalence for new behavior.
+- **E2E**: `crates/e2e` drives the built executable with a real daemon, private homes and fake agents. `scripts/test.sh`
+  builds the workspace, then runs all suites once with nextest if installed, otherwise `cargo test`. Arguments pass
+  through to the selected runner.
+- **CI** (ubuntu and macOS): `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, then
+  `scripts/test.sh --no-fail-fast`. Port-era `scripts/verify-unit` is historical, not a current development gate.
+- **Isolation**: tests touching disk or processes use temp `DECKHAND_HOME` and temp `HOME`, hermetic Git config and
+  fake agents. `DECKHAND_AGENT_LATEST` overrides network lookups. Provider directories point at temp paths. Never
+  use real Deckhand/provider state or start a real agent in tests.
+- **Manual**: [docs/port-smoke.md](docs/port-smoke.md) covers real agents in the dev sandbox;
+  [docs/dev-build.md](docs/dev-build.md) describes the dev loop.
 
 ## Codex hooks
 

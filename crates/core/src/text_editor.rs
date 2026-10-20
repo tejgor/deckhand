@@ -517,11 +517,58 @@ pub fn scroll_top_for(previous_top: usize, cursor_row: usize, rows: usize, line_
 
 #[cfg(test)]
 mod tests {
+    use deckhand_parity::strategies::unicode_text;
     use deckhand_parity::{Case, replay};
+    use proptest::prelude::*;
     use serde_json::{Value, json};
 
     use super::*;
     use crate::terminal_keys::normalize_terminal_key;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(128))]
+
+        #[test]
+        fn character_steps_visit_each_unicode_scalar_boundary(text in unicode_text()) {
+            let boundaries: Vec<_> = text.char_indices().map(|(byte, _)| byte)
+                .chain(std::iter::once(text.len())).collect();
+            for (index, &cursor) in boundaries.iter().enumerate() {
+                prop_assert_eq!(previous(&text, cursor), boundaries[index.saturating_sub(1)]);
+                prop_assert_eq!(next(&text, cursor), boundaries[(index + 1).min(boundaries.len() - 1)]);
+            }
+        }
+
+        #[test]
+        fn word_jumps_preserve_boundaries_and_progress_toward_endpoints(text in unicode_text()) {
+            for cursor in text.char_indices().map(|(byte, _)| byte).chain(std::iter::once(text.len())) {
+                let left = word_left(&text, cursor);
+                let right = word_right(&text, cursor);
+                prop_assert!(text.is_char_boundary(left));
+                prop_assert!(text.is_char_boundary(right));
+                prop_assert!(left <= cursor);
+                prop_assert_eq!(left == cursor, cursor == 0);
+                prop_assert!(right >= cursor && right <= text.len());
+                prop_assert_eq!(right == cursor, cursor == text.len());
+            }
+        }
+
+        #[test]
+        fn line_and_visual_navigation_keep_unicode_cursors_valid(
+            text in unicode_text(), width in 1usize..24, rows in 1usize..8,
+        ) {
+            for cursor in text.char_indices().map(|(byte, _)| byte).chain(std::iter::once(text.len())) {
+                for moved in [
+                    line_start(&text, cursor), line_end(&text, cursor),
+                    vertical(&text, cursor, -1), vertical(&text, cursor, 1),
+                    move_visual(&text, cursor, width, -1, rows),
+                    move_visual(&text, cursor, width, 1, rows),
+                ] {
+                    prop_assert!(moved <= text.len());
+                    prop_assert!(text.is_char_boundary(moved));
+                }
+            }
+        }
+    }
 
     fn key(value: Value) -> Key {
         serde_json::from_value(value).expect("a Key")

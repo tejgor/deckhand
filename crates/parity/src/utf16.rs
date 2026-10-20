@@ -176,7 +176,48 @@ pub fn convert_case(case: &mut Value, fields: &IndexMap<String, String>, directi
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::strategies::unicode_text;
+    use proptest::prelude::*;
     use serde_json::json;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(128))]
+
+        #[test]
+        fn valid_boundaries_match_standard_utf16_prefix_lengths(text in unicode_text()) {
+            prop_assert_eq!(utf16_len(&text), text.encode_utf16().count());
+            for byte in text.char_indices().map(|(byte, _)| byte).chain(std::iter::once(text.len())) {
+                let units = text[..byte].encode_utf16().count() as i64;
+                prop_assert_eq!(utf16_to_byte(&text, units), Ok(byte as i64));
+                prop_assert_eq!(byte_to_utf16(&text, byte as i64), Ok(units));
+            }
+        }
+
+        #[test]
+        fn interior_offsets_are_rejected_instead_of_rounded(text in unicode_text()) {
+            for (byte, character) in text.char_indices() {
+                for interior in byte + 1..byte + character.len_utf8() {
+                    prop_assert!(byte_to_utf16(&text, interior as i64).is_err());
+                }
+                if character.len_utf16() == 2 {
+                    let interior = text[..byte].encode_utf16().count() as i64 + 1;
+                    prop_assert!(utf16_to_byte(&text, interior).is_err());
+                }
+            }
+        }
+
+        #[test]
+        fn out_of_range_offsets_pass_through_or_extend_linearly(
+            text in unicode_text(), negative in i64::MIN..0, extra in 1i64..1024,
+        ) {
+            prop_assert_eq!(utf16_to_byte(&text, negative), Ok(negative));
+            prop_assert_eq!(byte_to_utf16(&text, negative), Ok(negative));
+            let bytes = text.len() as i64;
+            let units = text.encode_utf16().count() as i64;
+            prop_assert_eq!(utf16_to_byte(&text, units + extra), Ok(bytes + extra));
+            prop_assert_eq!(byte_to_utf16(&text, bytes + extra), Ok(units + extra));
+        }
+    }
 
     #[test]
     fn utf16_and_byte_offsets_convert_both_ways() {

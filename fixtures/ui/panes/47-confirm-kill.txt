@@ -1,0 +1,31 @@
+╭────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Deleting the worktree would lose (typing DELETE overrides):                                    │
+│ · 1 untracked file(s)                                                                          │
+│   Files (M changed · ? untracked · ! ignored):                                                 │
+│     ? draft.txt                                                                                │
+│ Kill "eps"?                                                                                    │
+│ <TMP>/home/worktrees/eps                                                                       │
+│                                                                                                │
+│ ❯ Kill only, keep worktree (restartable)                                                       │
+│   Kill and delete worktree (not restartable)                                                   │
+│   Kill, delete worktree and branch (not restartable)                                           │
+│   Cancel                                                                                       │
+│                                                                                                │
+│ enter choose • esc cancel                                                                      │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+│                                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────╯

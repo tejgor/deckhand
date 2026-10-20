@@ -702,17 +702,7 @@ mod tests {
     }
 
     #[test]
-    fn the_run_list_renders_like_the_golden() {
-        let path = format!("{}/../../fixtures/ui/43-run-list.txt", env!("CARGO_MANIFEST_DIR"));
-        let golden = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{path}: {error}"));
-        // The right pane starts at column 32 and runs from row 2 to the row with its bottom border.
-        let lines: Vec<Vec<char>> = golden.lines().map(|line| line.chars().collect()).collect();
-        let right = |line: &Vec<char>| line.iter().skip(32).collect::<String>().trim_end().to_owned();
-        let end = lines
-            .iter()
-            .position(|line| line.get(32) == Some(&'╰'))
-            .unwrap_or_else(|| panic!("no pane bottom in the golden"));
-        let want: Vec<String> = lines[2..=end].iter().map(right).collect();
+    fn the_run_list_renders_like_the_snapshot() {
         let project = untrusted();
         let props = ActionPickerPaneProps {
             project: Some(&project),
@@ -721,11 +711,9 @@ mod tests {
             processes: &[],
             selected_index: 0,
         };
-        let got = render(&props, 98, u16::try_from(want.len()).unwrap_or(0));
-        assert_eq!(got.len(), want.len());
-        for (index, (got, want)) in got.iter().zip(&want).enumerate() {
-            assert_eq!(got, want, "row {index}");
-        }
+        // The right pane of the 130x36 app: 98 columns, 31 rows.
+        let got = render(&props, 98, 31);
+        deckhand_parity::assert_snapshot("fixtures/ui/panes/43-run-list.txt", &got.join("\n"));
     }
 
     #[test]

@@ -18,7 +18,7 @@ use deckhand_core::jsstr::{js_len, js_pad_end, js_pad_start, js_slice};
 use deckhand_core::settings_model::{
     ACTIONS_INTRO, COLUMNS, ChoiceOption, GridCell, GridRow, NEEDS_TRUST_DETAIL, SETTINGS, SettingControl, SettingId,
     SettingSection, cell_detail, column_titles, entry_count, entry_noun, home_path, layer_entries, layer_name,
-    max_entries,
+    max_entries, settings_grid,
 };
 use deckhand_core::text_editor::EditorState;
 use deckhand_protocol::data::{
@@ -1652,15 +1652,21 @@ pub fn info_rows(lines: &[DetailLine], width: usize) -> usize {
 }
 
 /// TS: settingsPane.tsx InfoBox's content rows: wrapped prose, cut values, at most `rows` rows (border included).
+/// Lines can carry untrusted names and paths (a link candidate, its source), so their text is made `visible`.
 fn info_box(lines: &[DetailLine], width: usize, rows: usize) -> Vec<Row> {
     let inner = width.saturating_sub(4).max(1);
     let wrapped: Vec<DetailLine> = lines
         .iter()
         .flat_map(|line| {
-            if line.parts.is_some() || line.nowrap == Some(true) {
+            if line.parts.is_some() {
                 vec![line.clone()]
+            } else if line.nowrap == Some(true) {
+                vec![DetailLine {
+                    text: visible(&line.text),
+                    ..line.clone()
+                }]
             } else {
-                wrap_words(&line.text, inner)
+                wrap_words(&visible(&line.text), inner)
                     .into_iter()
                     .map(|text| DetailLine {
                         text,
@@ -1703,8 +1709,6 @@ pub struct SettingsPaneProps<'a> {
     pub links: Option<&'a LinksState>,
     pub sizes: &'a IndexMap<String, Option<i64>>,
     pub notice: Option<&'a Notice>,
-    /// Not in the TS: the grid of `info` (`settings_grid`; the fixture replays pass the TS's, `oracle_settings_grid`).
-    pub grid: fn(&SettingsInfo) -> Vec<GridRow>,
 }
 
 /// Global: which of your repositories a link would reach.
@@ -1853,7 +1857,7 @@ pub fn render_settings_pane(props: &SettingsPaneProps<'_>, scroll: &mut Settings
             scroll_slot = &mut scroll.actions;
         }
         _ => {
-            let grid = (props.grid)(info);
+            let grid = settings_grid(info);
             let current = props.row.min(grid.len().saturating_sub(1));
             lines = grid_lines(&grid, current, props.column, layout);
             selected = current;
@@ -2020,7 +2024,7 @@ pub fn render_settings_pane(props: &SettingsPaneProps<'_>, scroll: &mut Settings
 
 #[cfg(test)]
 pub(crate) mod test_support {
-    //! Shared by the pane replays: a buffer as the styled lines parity/gen/*.gen.ts record.
+    //! Styled terminal buffers for pane snapshots and rendering assertions.
 
     use ratatui::buffer::Buffer;
     use ratatui::style::Modifier;
@@ -2097,157 +2101,8 @@ pub(crate) mod test_support {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::test_support::styled_lines;
-    use super::*;
-    use deckhand_parity::{Case, replay};
-    use serde_json::Value;
-
-    /// An Ink color name as the static name the detail lines carry.
-    fn static_color(name: &str) -> Option<&'static str> {
-        [
-            INK.accent,
-            INK.accent_soft,
-            INK.active,
-            INK.muted,
-            INK.success,
-            INK.warn,
-            INK.error,
-        ]
-        .into_iter()
-        .find(|candidate| *candidate == name)
-    }
-
-    fn detail_lines(value: &Value) -> Vec<DetailLine> {
-        value
-            .as_array()
-            .map(|lines| {
-                lines
-                    .iter()
-                    .map(|line| DetailLine {
-                        text: line["text"].as_str().unwrap_or_default().to_owned(),
-                        color: line["color"].as_str().and_then(static_color),
-                        nowrap: line["nowrap"].as_bool().filter(|nowrap| *nowrap),
-                        parts: None,
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    fn kind(value: &Value) -> Result<ConfigTargetKind, String> {
-        serde_json::from_value(value.clone()).map_err(|error| format!("target: {error}"))
-    }
-
-    fn edit(value: &Value) -> Result<Option<SettingsEdit>, String> {
-        if value.is_null() {
-            return Ok(None);
-        }
-        let id = || serde_json::from_value::<SettingId>(value["id"].clone()).map_err(|error| error.to_string());
-        let label = || value["label"].as_str().unwrap_or_default().to_owned();
-        let text = |key: &str| value[key].as_str().map(str::to_owned);
-        Ok(Some(match value["kind"].as_str() {
-            Some("choice") => SettingsEdit::Choice {
-                id: id()?,
-                label: label(),
-                target: kind(&value["target"])?,
-                options: serde_json::from_value(value["options"].clone()).map_err(|error| error.to_string())?,
-                index: value["index"].as_u64().map_or(0, |index| index as usize),
-                current: value["current"]
-                    .as_i64()
-                    .and_then(|current| usize::try_from(current).ok()),
-            },
-            Some("text") => SettingsEdit::Text {
-                id: id()?,
-                label: label(),
-                target: kind(&value["target"])?,
-                state: serde_json::from_value(value["state"].clone()).map_err(|error| error.to_string())?,
-                error: text("error"),
-                entry: text("entry"),
-                step: match value["step"].as_str() {
-                    Some("name") => Some(ActionStep::Name),
-                    Some("command") => Some(ActionStep::Command),
-                    _ => None,
-                },
-                placeholder: text("placeholder"),
-            },
-            Some("clear") => SettingsEdit::Clear {
-                id: id()?,
-                label: label(),
-                target: kind(&value["target"])?,
-                entry: text("entry"),
-            },
-            Some("discard-links") => SettingsEdit::DiscardLinks,
-            other => return Err(format!("unknown edit kind {other:?}")),
-        }))
-    }
-
-    fn links(value: &Value) -> Result<Option<LinksState>, String> {
-        if value.is_null() {
-            return Ok(None);
-        }
-        fn field<T: serde::de::DeserializeOwned>(value: &Value, key: &str) -> Result<T, String> {
-            serde_json::from_value(value[key].clone()).map_err(|error| format!("{key}: {error}"))
-        }
-        Ok(Some(LinksState {
-            data: field(value, "data")?,
-            links: field(value, "links")?,
-            initial: field(value, "initial")?,
-            target: kind(&value["target"])?,
-            row: value["row"].as_u64().map_or(0, |row| row as usize),
-        }))
-    }
-
-    fn render(case: &Case) -> Result<Vec<String>, String> {
-        let input: Value = case.arg_as(0)?;
-        let info: SettingsInfo =
-            serde_json::from_value(input["info"].clone()).map_err(|error| format!("info: {error}"))?;
-        let width = input["width"].as_u64().map_or(80, |width| width as u16);
-        let height = input["height"].as_u64().map_or(24, |height| height as u16);
-        let view = match input["view"].as_str() {
-            Some("actions") => SettingsView::Actions,
-            Some("links") => SettingsView::Links,
-            _ => SettingsView::Main,
-        };
-        let edit = edit(&input["edit"])?;
-        let help = input.get("editHelp").map(detail_lines);
-        let links = links(&input["links"])?;
-        let sizes: IndexMap<String, Option<i64>> =
-            serde_json::from_value(input["sizes"].clone()).map_err(|error| format!("sizes: {error}"))?;
-        let notice = input["notice"].as_object().map(|notice| Notice {
-            text: notice["text"].as_str().unwrap_or_default().to_owned(),
-            error: notice.get("error").and_then(Value::as_bool).unwrap_or(false),
-        });
-        let props = SettingsPaneProps {
-            info: &info,
-            view,
-            row: input["row"].as_u64().map_or(0, |row| row as usize),
-            action_row: input["actionRow"].as_u64().map_or(0, |row| row as usize),
-            list: SettingId::Actions,
-            column: kind(&input["column"])?,
-            edit: edit.as_ref(),
-            edit_help: help.as_deref(),
-            links: links.as_ref(),
-            sizes: &sizes,
-            notice: notice.as_ref(),
-            grid: deckhand_core::settings_model::oracle_settings_grid,
-        };
-        let area = Rect::new(0, 0, width, height);
-        let mut buf = Buffer::empty(area);
-        render_settings_pane(&props, &mut SettingsScroll::default(), &mut buf, area);
-        Ok(styled_lines(&buf))
-    }
-
-    #[test]
-    fn settings_pane_render_parity() {
-        replay("U5", "settingsPane/render", render);
-    }
-}
-
-#[cfg(test)]
 mod helper_tests {
-    //! The renders are replayed against Ink (fixtures); these cover what a fresh render cannot: the scroll position kept
-    //! between renders, and the pure helpers' edges.
+    //! Scroll position across renders and the pure helpers' edge cases.
 
     use super::*;
 
@@ -2361,6 +2216,8 @@ mod helper_tests {
     fn grid_layout_follows_the_inner_width() {
         let wide = grid_layout(100);
         assert!(wide.two);
+        assert!(grid_layout(64).two);
+        assert!(!grid_layout(63).two);
         assert_eq!(wide.label, label_width());
         assert_eq!(wide.cell, (100 - wide.label - 4 - 1) / 2);
         let narrow = grid_layout(40);
@@ -2398,24 +2255,121 @@ mod helper_tests {
 }
 
 #[cfg(test)]
-mod ts_tests {
-    //! Ports of the Settings pane tests in tests/settingsModel.test.ts (the settingsModel ones are P9's).
+mod scenario_tests {
+    //! Named settings scenarios built from current Rust configuration rules.
 
     use super::test_support::styled_lines;
     use super::*;
-    use deckhand_core::settings_model::{choice_options, initial_links};
+    use deckhand_core::project_config::{
+        ExplainContext, UserSettings, explain_settings, parse_project_config, trust_project_config,
+    };
+    use deckhand_core::settings_model::{choice_options, current_choice, initial_links};
+    use deckhand_parity::assert_snapshot;
+    use deckhand_protocol::data::{
+        ConfigTargets, LoadedProject, ProjectConfig, ProjectConfigDocument, RepositoryInfo, TemplateVars,
+    };
     use deckhand_protocol::order::Ordered;
     use regex::Regex;
+    use serde_json::{Value, json};
 
-    /// settingsInfo(REPO, GLOBAL) and settingsInfo(undefined, GLOBAL) as the TS test helper builds them.
-    const INFOS: &str = r##"{"repo":{"cwd":"/dev/mono","repo":"mono","repository":{"state":"untrusted","path":"/dev/mono/deckhand.json"},"needsReview":true,"rows":[{"key":"defaultAgent","value":"pi","source":"global","raw":"pi"},{"key":"defaultWorkspace","value":"none","source":"built-in default"},{"key":"devCommand","value":"dev","source":"built-in default","pending":{"value":"npm run dev","raw":"npm run dev"}},{"key":"setupCommand","value":"—","source":"not set"},{"key":"actions","entry":"test","value":"—","source":"not set","pending":{"value":"npm test","raw":"npm test"}},{"key":"worktree.location","value":"/state/worktrees/<name>","source":"built-in default","pending":{"value":"/dev/worktrees/<name>","raw":"{repoParent}/worktrees/{name}"}},{"key":"worktree.branchFrom","value":"origin","source":"global","raw":"origin"},{"key":"worktree.branchName","value":"<name>","source":"built-in default"},{"key":"worktree.hook","value":"on","source":"built-in default","note":"no .claude/scripts/create-worktree.sh detected"},{"key":"worktree.symlink","entry":"shared","value":"shared","source":"global","raw":"shared"},{"key":"worktree.files","entry":"backend/.env","value":"—","source":"not set","pending":{"value":"/dev/b.env","raw":"{repoParent}/b.env"}}],"targets":{"global":{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"pi\",\"worktree\":{\"symlink\":[\"shared\"],\"branchFrom\":\"origin\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},"repository":{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{\"devCommand\":\"npm run dev\",\"actions\":{\"test\":\"npm test\"},\"worktree\":{\"location\":\"{repoParent}/worktrees/{name}\",\"files\":{\"backend/.env\":\"{repoParent}/b.env\"}}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true}},"vars":{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"},"defaultLocation":"/state/worktrees/<name>","insideIgnored":false,"user":"me","notifications":false},"global":{"cwd":"/dev/mono","repo":"mono","repository":{"state":"absent","path":"/dev/mono/deckhand.json"},"needsReview":false,"rows":[{"key":"defaultAgent","value":"pi","source":"global","raw":"pi"},{"key":"defaultWorkspace","value":"none","source":"built-in default"},{"key":"devCommand","value":"dev","source":"built-in default"},{"key":"setupCommand","value":"—","source":"not set"},{"key":"actions","value":"—","source":"not set"},{"key":"worktree.location","value":"/state/worktrees/<name>","source":"built-in default"},{"key":"worktree.branchFrom","value":"origin","source":"global","raw":"origin"},{"key":"worktree.branchName","value":"<name>","source":"built-in default"},{"key":"worktree.hook","value":"on","source":"built-in default","note":"no .claude/scripts/create-worktree.sh detected"},{"key":"worktree.symlink","entry":"shared","value":"shared","source":"global","raw":"shared"},{"key":"worktree.files","value":"—","source":"not set"}],"targets":{"global":{"kind":"global","root":"/r","path":"/home/me/.deckhand/config.json","raw":"{\"defaultAgent\":\"pi\",\"worktree\":{\"symlink\":[\"shared\"],\"branchFrom\":\"origin\"}}","revision":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","exists":true},"repository":{"kind":"repository","root":"/r","path":"/dev/mono/deckhand.json","raw":"{}","revision":null,"exists":false}},"vars":{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"},"defaultLocation":"/state/worktrees/<name>","insideIgnored":false,"user":"me","notifications":false}}"##;
+    const REPOSITORY_CONFIG: &str = r#"{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}}"#;
 
-    fn info(which: &str) -> SettingsInfo {
-        let all: serde_json::Value = serde_json::from_str(INFOS).expect("the infos are valid JSON");
-        serde_json::from_value(all[which].clone()).expect("the info is a SettingsInfo")
+    fn global_defaults() -> Value {
+        json!({"defaultAgent": "pi", "worktree": {"symlink": ["shared"], "branchFrom": "origin"}})
     }
 
-    /// `renderToString(createElement(SettingsPane, props), {columns: width}).split('\n')`.
+    // Pure data only: the same explain_settings path as the daemon, with fixed synthetic paths and no I/O.
+    fn settings_info(repo_raw: Option<&str>, defaults: Value, trusted: bool) -> SettingsInfo {
+        let vars = TemplateVars {
+            name: "<name>".to_owned(),
+            repo: "mono".to_owned(),
+            repo_parent: "/dev".to_owned(),
+            repo_root: "/dev/mono".to_owned(),
+            home: "/home/me".to_owned(),
+        };
+        let project = LoadedProject {
+            root: "/dev/mono".to_owned(),
+            trust_root: "/dev/mono".to_owned(),
+            path: Some("/dev/mono/deckhand.json".to_owned()),
+            config: repo_raw.map_or_else(
+                || Ordered::new(ProjectConfig::default()),
+                |raw| parse_project_config(raw, None).expect("valid scenario config"),
+            ),
+            exists: repo_raw.is_some(),
+            fingerprint: "scenario".to_owned(),
+            creation_hook: None,
+            disabled_hook: None,
+        };
+        let mut user = UserSettings {
+            defaults: Some(defaults.clone()),
+            ..UserSettings::default()
+        };
+        if trusted {
+            user.trusted_projects = Some(trust_project_config("/dev/mono", "scenario", None));
+        }
+        let rows = explain_settings(
+            Some(&project),
+            &user,
+            &ExplainContext {
+                vars: Some(vars.clone()),
+                user: Some("me".to_owned()),
+                config_dir: "/state".to_owned(),
+                location_config_dir: Some("/state".to_owned()),
+                ..ExplainContext::default()
+            },
+        )
+        .rows;
+        let document = |kind, raw: Option<String>| ProjectConfigDocument {
+            kind,
+            root: "/dev/mono".to_owned(),
+            path: if kind == ConfigTargetKind::Global {
+                "/home/me/.deckhand/config.json".to_owned()
+            } else {
+                "/dev/mono/deckhand.json".to_owned()
+            },
+            revision: raw.as_ref().map(|_| "scenario revision".to_owned()),
+            exists: raw.is_some(),
+            raw: raw.unwrap_or_else(|| "{}".to_owned()),
+        };
+        SettingsInfo {
+            cwd: "/dev/mono".to_owned(),
+            repo: "mono".to_owned(),
+            repository: RepositoryInfo {
+                state: match (repo_raw.is_some(), trusted) {
+                    (false, _) => RepositoryState::Absent,
+                    (true, false) => RepositoryState::Untrusted,
+                    (true, true) => RepositoryState::Trusted,
+                },
+                path: Some("/dev/mono/deckhand.json".to_owned()),
+                error: None,
+            },
+            needs_review: repo_raw.is_some() && !trusted,
+            global_error: None,
+            rows,
+            targets: ConfigTargets {
+                global: Some(document(ConfigTargetKind::Global, Some(defaults.to_string()))),
+                repository: Some(document(ConfigTargetKind::Repository, repo_raw.map(str::to_owned))),
+                ..ConfigTargets::default()
+            },
+            hook_file: None,
+            vars: Some(vars),
+            default_location: "/state/worktrees/<name>".to_owned(),
+            inside_ignored: false,
+            default_branch: None,
+            origin_branch: None,
+            user: "me".to_owned(),
+            agent_hooks: None,
+            notifications: false,
+            codex_hooks: None,
+            notification_permission: None,
+            scroll_speed: None,
+        }
+    }
+
+    fn pending_info() -> SettingsInfo {
+        settings_info(Some(REPOSITORY_CONFIG), global_defaults(), false)
+    }
+
     struct Pane<'a> {
         info: &'a SettingsInfo,
         view: SettingsView,
@@ -2425,6 +2379,8 @@ mod ts_tests {
         edit: Option<SettingsEdit>,
         help: Option<Vec<DetailLine>>,
         links: Option<LinksState>,
+        sizes: IndexMap<String, Option<i64>>,
+        notice: Option<Notice>,
         width: u16,
         height: u16,
     }
@@ -2440,13 +2396,14 @@ mod ts_tests {
                 edit: None,
                 help: None,
                 links: None,
+                sizes: IndexMap::new(),
+                notice: None,
                 width: 100,
                 height: 30,
             }
         }
 
-        fn lines(&self) -> Vec<String> {
-            let sizes = IndexMap::new();
+        fn buffer(&self) -> Buffer {
             let props = SettingsPaneProps {
                 info: self.info,
                 view: self.view,
@@ -2457,15 +2414,18 @@ mod ts_tests {
                 edit: self.edit.as_ref(),
                 edit_help: self.help.as_deref(),
                 links: self.links.as_ref(),
-                sizes: &sizes,
-                notice: None,
-                grid: deckhand_core::settings_model::settings_grid,
+                sizes: &self.sizes,
+                notice: self.notice.as_ref(),
             };
             let area = Rect::new(0, 0, self.width, self.height);
             let mut buf = Buffer::empty(area);
             render_settings_pane(&props, &mut SettingsScroll::default(), &mut buf, area);
+            buf
+        }
+
+        fn lines(&self) -> Vec<String> {
             let marker = Regex::new("⟦[^⟧]*⟧").expect("valid regex");
-            styled_lines(&buf)
+            styled_lines(&self.buffer())
                 .iter()
                 .map(|line| marker.replace_all(line, "").into_owned())
                 .collect()
@@ -2492,6 +2452,15 @@ mod ts_tests {
         Regex::new(pattern).expect("valid regex").is_match(line)
     }
 
+    fn text_cell<'a>(buffer: &'a Buffer, text: &str) -> &'a ratatui::buffer::Cell {
+        let symbols: Vec<String> = text.chars().map(|ch| ch.to_string()).collect();
+        &buffer
+            .content
+            .windows(symbols.len())
+            .find(|cells| cells.iter().zip(&symbols).all(|(cell, symbol)| cell.symbol() == symbol))
+            .unwrap_or_else(|| panic!("no buffer cell starts {text:?}"))[0]
+    }
+
     fn text_edit(id: SettingId, label: &str, target: ConfigTargetKind) -> SettingsEdit {
         SettingsEdit::Text {
             id,
@@ -2505,10 +2474,9 @@ mod ts_tests {
         }
     }
 
-    // covers: B-U5-01 Settings pane: two value columns from 64 columns (one, with ◂ ▸, below); an option's warning is on its own line under its full path; edits are titled "<Setting> · <Layer>"
     #[test]
-    fn settings_pane_two_value_columns_from_64_columns() {
-        let info = info("repo");
+    fn wide_grid_shows_both_layers_and_marks_pending_repository_values() {
+        let info = pending_info();
         let wide = Pane::new(&info).lines();
         assert!(any_matches(&wide, r"Global \(all repos\) +This repo"));
         assert!(matches(
@@ -2520,6 +2488,15 @@ mod ts_tests {
             "This repo · Applies once trusted — you'll be asked the first time it runs (or press T)"
         ));
         assert!(!matches(&wide.join("\n"), r"Saves to|until trusted|pending"));
+        assert_snapshot(
+            "fixtures/ui/settings/pending-grid.txt",
+            &styled_lines(&Pane::new(&info).buffer()).join("\n"),
+        );
+    }
+
+    #[test]
+    fn narrow_grid_shows_the_selected_column_and_its_details() {
+        let info = pending_info();
         // Narrow: only the selected column, with the indicator; ←→ (the flow) switches it.
         let narrow = Pane {
             width: 55,
@@ -2543,6 +2520,43 @@ mod ts_tests {
             r"Dev command +● dev \(built-in\)"
         ));
         assert!(any_contains(&global, "Built-in · No Dev command is set, so d runs"));
+        assert_snapshot(
+            "fixtures/ui/settings/narrow-global-column.txt",
+            &styled_lines(
+                &Pane {
+                    width: 55,
+                    height: 22,
+                    column: ConfigTargetKind::Global,
+                    ..Pane::new(&info)
+                }
+                .buffer(),
+            )
+            .join("\n"),
+        );
+    }
+
+    #[test]
+    fn selection_highlights_only_the_selected_layers_cell() {
+        use ratatui::style::Modifier;
+
+        let info = pending_info();
+        for (column, selected, other) in [
+            (ConfigTargetKind::Repository, "npm run dev", "dev (built-in)"),
+            (ConfigTargetKind::Global, "dev (built-in)", "npm run dev"),
+        ] {
+            let buffer = Pane {
+                column,
+                ..Pane::new(&info)
+            }
+            .buffer();
+            assert!(text_cell(&buffer, selected).modifier.contains(Modifier::REVERSED));
+            assert!(!text_cell(&buffer, other).modifier.contains(Modifier::REVERSED));
+        }
+    }
+
+    #[test]
+    fn location_choices_show_warnings_below_the_full_path() {
+        let info = pending_info();
         let options = choice_options(&info, SettingId::WorktreeLocation, ConfigTargetKind::Repository);
         for index in [0, 2] {
             let lines = Pane {
@@ -2570,6 +2584,11 @@ mod ts_tests {
                 r"^\W+⚠ \.worktrees/ is not gitignored — worktrees would show up as untracked files"
             ));
         }
+    }
+
+    #[test]
+    fn empty_text_editor_shows_its_layer_and_inherited_placeholder() {
+        let info = pending_info();
         // An empty text input shows what applies without a value here.
         let empty = |edit| {
             Pane {
@@ -2585,6 +2604,11 @@ mod ts_tests {
         }
         assert!(any_matches(&empty(devcommand.clone()), r"Dev command · Global"));
         assert!(any_matches(&empty(devcommand), r"› +built-in: dev"));
+    }
+
+    #[test]
+    fn new_action_editor_shows_name_and_command_steps_with_live_validation() {
+        let info = pending_info();
         // Adding an action: numbered steps, the rules and examples, a live error; the Actions list is one layer's.
         let mut name = text_edit(SettingId::Actions, "New action", ConfigTargetKind::Repository);
         if let SettingsEdit::Text { step, state, .. } = &mut name {
@@ -2646,6 +2670,236 @@ mod ts_tests {
         );
     }
 
+    #[test]
+    fn scroll_speed_editor_shows_presets_and_the_stored_global_value() {
+        let mut info = pending_info();
+        info.scroll_speed = Some(2.0);
+        let options = choice_options(&info, SettingId::ScrollSpeed, ConfigTargetKind::Global);
+        let selected = current_choice(&info, SettingId::ScrollSpeed, ConfigTargetKind::Global, &options);
+        let pane = Pane {
+            width: 80,
+            height: 24,
+            row: SETTINGS
+                .iter()
+                .position(|setting| setting.id == SettingId::ScrollSpeed)
+                .unwrap(),
+            column: ConfigTargetKind::Global,
+            edit: Some(SettingsEdit::Choice {
+                id: SettingId::ScrollSpeed,
+                label: "Scroll speed".to_owned(),
+                target: ConfigTargetKind::Global,
+                options,
+                index: selected.index.unwrap(),
+                current: selected.current,
+            }),
+            ..Pane::new(&info)
+        };
+        let text = pane.lines().join("\n");
+        for expected in [
+            "Scroll speed · Global",
+            "0.5",
+            "◉ 2",
+            "custom…",
+            "enter save",
+            "esc cancel",
+        ] {
+            assert!(text.contains(expected), "missing {expected:?} in\n{text}");
+        }
+        assert_snapshot(
+            "fixtures/ui/settings/scroll-speed-editor.txt",
+            &styled_lines(&pane.buffer()).join("\n"),
+        );
+    }
+
+    #[test]
+    fn trusted_repository_command_is_effective_without_a_trust_warning() {
+        let info = settings_info(
+            Some(r#"{"devCommand":"npm run dev"}"#),
+            json!({"devCommand": "make dev"}),
+            true,
+        );
+        let text = Pane::new(&info).lines();
+        assert!(any_contains(&text, "deckhand.json: trusted ✓"));
+        assert!(matches(
+            line_with(&text, "Dev command"),
+            r"Dev command +make dev +● npm run dev"
+        ));
+        assert!(any_matches(&text, r"This repo .*overrides global"));
+        assert!(!any_contains(&text, "needs trust"));
+    }
+
+    /// No cell of `buffer` holds a control character (an escape sequence or a bell would reach the terminal).
+    fn assert_no_control_characters(buffer: &Buffer) {
+        for cell in &buffer.content {
+            assert!(
+                !cell.symbol().chars().any(char::is_control),
+                "control character in cell {:?}",
+                cell.symbol()
+            );
+        }
+    }
+
+    #[test]
+    fn untrusted_values_with_control_characters_render_harmlessly() {
+        // A repository's deckhand.json is untrusted input: an escape sequence or a bell in it must show as `?`.
+        let info = settings_info(Some(r#"{"devCommand":"a\u001b[2Jb\u0007c"}"#), global_defaults(), false);
+        let pane = Pane::new(&info);
+        assert_no_control_characters(&pane.buffer());
+        let text = pane.lines();
+        assert!(matches(line_with(&text, "Dev command"), r"a\?\[2Jb\?c"));
+
+        // The link picker: a candidate's own path and the source named on its details line.
+        let candidates = vec![WorktreeCandidate {
+            configured: Some(CandidateConfigured::Files),
+            source: Some("/dev/sh\u{7}ared.env".to_owned()),
+            ..candidate(".e\u{1b}nv", CandidateKind::File, CandidateSuggestion::Skip, "")
+        }];
+        let links = initial_links(&candidates, false);
+        let picker = Pane {
+            view: SettingsView::Links,
+            links: Some(LinksState {
+                data: WorktreeCandidates {
+                    checkout: "/dev/mono".to_owned(),
+                    candidates: candidates.into_iter().map(Ordered::new).collect(),
+                    more_candidates: 0,
+                    repos: None,
+                    candidates_error: None,
+                },
+                initial: links.clone(),
+                links,
+                target: ConfigTargetKind::Repository,
+                row: 0,
+            }),
+            ..Pane::new(&info)
+        };
+        assert_no_control_characters(&picker.buffer());
+        let text = picker.lines();
+        assert!(any_contains(&text, "[link] .e?nv"));
+        // Its details line: shown as `?` like everywhere else, not silently dropped by the terminal buffer.
+        assert!(any_contains(&text, ".e?nv: copied from /dev/sh?ared.env"));
+    }
+
+    #[test]
+    fn invalid_documents_show_layer_specific_repair_messages() {
+        let mut info = pending_info();
+        info.repository.state = RepositoryState::Invalid;
+        info.repository.error = Some("expected a JSON object".to_owned());
+        info.global_error = Some("defaults.devCommand must be a string".to_owned());
+        let text = Pane::new(&info).lines().join("\n");
+        for expected in [
+            "deckhand.json: invalid",
+            "deckhand.json invalid: expected a JSON object (→ This repo, then e repairs it)",
+            "Global defaults invalid: defaults.devCommand must be a string (← Global, then e repairs it)",
+        ] {
+            assert!(text.contains(expected), "missing {expected:?} in\n{text}");
+        }
+    }
+
+    #[test]
+    fn save_failure_stays_visible_with_selection_and_hints_in_a_short_pane() {
+        use ratatui::style::Modifier;
+
+        let info = pending_info();
+        let pane = Pane {
+            height: 12,
+            notice: Some(Notice {
+                text: "Could not save settings: configuration changed on disk".to_owned(),
+                error: true,
+            }),
+            ..Pane::new(&info)
+        };
+        let text = pane.lines().join("\n");
+        for expected in [
+            "Could not save settings: configuration changed on disk",
+            "❯ Dev command",
+            "enter edit",
+            "esc",
+        ] {
+            assert!(text.contains(expected), "missing {expected:?} in\n{text}");
+        }
+        let buffer = pane.buffer();
+        assert_eq!(text_cell(&buffer, "Could not save settings").fg, THEME.error);
+        assert!(text_cell(&buffer, "npm run dev").modifier.contains(Modifier::REVERSED));
+    }
+
+    #[test]
+    fn empty_actions_still_offer_adding_an_action_in_the_selected_layer() {
+        let info = settings_info(None, json!({}), false);
+        let text = Pane {
+            view: SettingsView::Actions,
+            column: ConfigTargetKind::Global,
+            ..Pane::new(&info)
+        }
+        .lines()
+        .join("\n");
+        for expected in ["Settings › Actions · Global", "+ Add action", "a add", "enter edit"] {
+            assert!(text.contains(expected), "missing {expected:?} in\n{text}");
+        }
+    }
+
+    #[test]
+    fn clearing_a_setting_explains_which_layer_will_apply_instead() {
+        let info = pending_info();
+        for (column, explanation) in [
+            (
+                ConfigTargetKind::Repository,
+                "Removes it from deckhand.json; global defaults (or the built-in default) apply instead.",
+            ),
+            (
+                ConfigTargetKind::Global,
+                "Removes it from global defaults; the built-in default applies",
+            ),
+        ] {
+            let text = Pane {
+                column,
+                edit: Some(SettingsEdit::Clear {
+                    id: SettingId::DevCommand,
+                    label: "Dev command".to_owned(),
+                    target: column,
+                    entry: None,
+                }),
+                ..Pane::new(&info)
+            }
+            .lines()
+            .join("\n");
+            for expected in [explanation, "enter clear", "esc keep"] {
+                assert!(text.contains(expected), "missing {expected:?} in\n{text}");
+            }
+        }
+    }
+
+    #[test]
+    fn discarding_link_changes_explains_that_they_have_not_been_saved() {
+        let info = pending_info();
+        let text = Pane {
+            view: SettingsView::Links,
+            links: Some(LinksState {
+                data: WorktreeCandidates {
+                    checkout: "/dev/mono".to_owned(),
+                    candidates: Vec::new(),
+                    more_candidates: 0,
+                    repos: None,
+                    candidates_error: None,
+                },
+                links: IndexMap::from([("local.env".to_owned(), true)]),
+                initial: IndexMap::new(),
+                target: ConfigTargetKind::Repository,
+                row: 0,
+            }),
+            edit: Some(SettingsEdit::DiscardLinks),
+            ..Pane::new(&info)
+        }
+        .lines()
+        .join("\n");
+        for expected in [
+            "Nothing has been saved. Enter discards your link changes.",
+            "enter discard",
+            "esc keep editing",
+        ] {
+            assert!(text.contains(expected), "missing {expected:?} in\n{text}");
+        }
+    }
+
     fn candidate(path: &str, kind: CandidateKind, suggestion: CandidateSuggestion, reason: &str) -> WorktreeCandidate {
         WorktreeCandidate {
             path: path.to_owned(),
@@ -2667,10 +2921,83 @@ mod ts_tests {
         Some(names.iter().map(|name| (*name).to_owned()).collect())
     }
 
+    #[test]
+    fn repository_link_picker_keeps_copies_linked_and_shows_sizes_and_missing_entries() {
+        let info = pending_info();
+        let candidates = vec![
+            WorktreeCandidate {
+                configured: Some(CandidateConfigured::Files),
+                source: Some("/dev/shared.env".to_owned()),
+                ..candidate(".env", CandidateKind::File, CandidateSuggestion::Skip, "")
+            },
+            candidate(
+                "node_modules",
+                CandidateKind::Dir,
+                CandidateSuggestion::Link,
+                "dependencies",
+            ),
+            WorktreeCandidate {
+                configured: Some(CandidateConfigured::Symlink),
+                missing: Some(true),
+                ..candidate("missing.cfg", CandidateKind::File, CandidateSuggestion::Skip, "")
+            },
+            WorktreeCandidate {
+                configured: Some(CandidateConfigured::Symlink),
+                ..candidate("broken-link", CandidateKind::Symlink, CandidateSuggestion::Skip, "")
+            },
+        ];
+        let mut links = initial_links(&candidates, false);
+        // Copied files stay linked even if the selection map says otherwise; this picker cannot remove a copy.
+        links.insert(".env".to_owned(), false);
+        let text = Pane {
+            view: SettingsView::Links,
+            links: Some(LinksState {
+                data: WorktreeCandidates {
+                    checkout: "/dev/mono".to_owned(),
+                    candidates: candidates.into_iter().map(Ordered::new).collect(),
+                    more_candidates: 0,
+                    repos: None,
+                    candidates_error: None,
+                },
+                initial: links.clone(),
+                links,
+                target: ConfigTargetKind::Repository,
+                row: 0,
+            }),
+            sizes: IndexMap::from([
+                (".env".to_owned(), Some(4)),
+                ("node_modules".to_owned(), Some(1280)),
+                ("missing.cfg".to_owned(), None),
+            ]),
+            ..Pane::new(&info)
+        }
+        .lines();
+        assert!(any_contains(&text, "Settings › Linked items · This repo"));
+        assert!(matches(
+            line_with(&text, "[link] .env"),
+            r"\[link\] \.env +4 KB +files → /dev/shared.env"
+        ));
+        assert!(matches(
+            line_with(&text, "[skip] node_modules/"),
+            r"\[skip\] node_modules/ +1\.3 MB +suggested: dependencies"
+        ));
+        assert!(matches(
+            line_with(&text, "missing.cfg"),
+            r"\[link\] missing\.cfg +\? +missing in checkout"
+        ));
+        assert!(any_contains(&text, "[link] broken-link → (broken link)"));
+        assert!(any_contains(
+            &text,
+            ".env: copied from /dev/shared.env by worktree.files (edit in raw JSON: E)"
+        ));
+        assert!(any_contains(&text, "space link/skip"));
+        assert!(any_contains(&text, "enter save"));
+    }
+
     // covers: B-U5-02 Settings pane, Linked items · Global: the global entries and what your repos share, counted per repo; nothing suggested is preselected
     #[test]
     fn settings_pane_linked_items_global() {
-        let info = info("global");
+        let info = settings_info(None, global_defaults(), false);
         let candidates = vec![
             WorktreeCandidate {
                 configured: Some(CandidateConfigured::Symlink),

@@ -1,8 +1,35 @@
 # Parity fixtures
 
-The TypeScript tree is the oracle. Fixtures record what TS functions actually do; the Rust port replays them and
-must produce the same values and the same error text. Rules of the port: `docs/port/CONVENTIONS.md`. Manifest
-format: `parity/units/README.md`.
+The fixtures were recorded from the TypeScript app the Rust port started from, which was the oracle until the port
+was done. They are now a record of what Deckhand itself does: the tests replay them, and an intended change of
+behaviour updates them (below). Current testing policy: [`docs/testing.md`](../docs/testing.md). Manifest format:
+`parity/units/README.md`.
+
+## Changing behaviour: blessing
+
+A replay fails when the code no longer returns what a fixture records. When that change is intended:
+
+```bash
+DECKHAND_BLESS=1 cargo nextest run -p deckhand-ui -E 'test(panes::settings::)'
+git diff -- fixtures/                     # review every changed expectation
+cargo nextest run -p deckhand-ui -E 'test(panes::settings::)'
+```
+
+Blessing rewrites only the cases that failed, in the fixture's own encoding (tags, UTF-16 offsets, key order): a
+`.jsonl` line gets the new `ret`/`throws`/`argsAfter`, a directory case its `op.json` result, `after/` and
+`tree.json`. It never blesses a case whose port panicked or an allowlisted case (an input the Rust types cannot hold,
+so there is no result to record). Screen and pane snapshots (`deckhand_parity::assert_snapshot`, `fixtures/ui`) bless
+the same way. A test that wants a fixture to keep failing (the parity crate's own tests) sets `Replay::bless(false)`.
+
+Blessing only records what the code does. A snapshot cannot tell a fix from a regression, so read the diff, and keep
+rules that must hold (every glyph is explained in the guide, an error names the file) as ordinary assertions.
+
+New tests should state the behavior with named inputs and ordinary assertions; they do not need TypeScript or port
+manifests. Existing low-churn logic corpora remain useful coverage and can migrate incrementally. Settings grid,
+settings rendering and help output have moved to named Rust tests, with focused settings snapshots in
+`fixtures/ui/settings`. To extend a remaining replay, add a line `{"args":[...],"ret":null}` (or a directory case
+with `before/`, `op.json` and an empty `after` in `tree.json`) and bless only that test. Sections 1 and 3 describe
+the historical TS recording and port gates; they are not part of the current development workflow.
 
 ```
 parity/lib.ts             recorder, tagged encoding, determinism, fast-check helpers, tap driver, directory cases
@@ -133,8 +160,9 @@ fn word_left_parity() {
   `deckhand_parity::dir_cases(module)` lists a module's cases.
 - Need different control (custom manifest, fixtures root, results dir, collecting reports): `Replay::new` /
   `Replay::with_manifest` with `.run`, `.run_async`, `.run_dir`, then `report.assert_ok()`.
-- Allowlist a failing case only with a reason the TS behaviour cannot or should not be reproduced
-  (`allowlist = [{ fixture = "...", case = N, reason = "..." }]`); the report lists stale entries.
+- Allowlist a failing case only when the port cannot be judged on it (an input its types cannot represent), with a
+  reason (`allowlist = [{ fixture = "...", case = N, reason = "..." }]`); the report lists stale entries. A case
+  whose behaviour changed on purpose is blessed instead (see "Changing behaviour").
 
 `crates/parity/tests/example_replay.rs` replays `fixtures/parity/_example` end to end (utf16 offsets, exact error
 text, mutation, Map/Set/Date/undefined, `$fn`, directory cases). Its manifest is `crates/parity/tests/example.toml`.

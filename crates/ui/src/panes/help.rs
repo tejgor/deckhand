@@ -573,92 +573,126 @@ mod tests {
     use super::*;
     use crate::primitives::string_width;
     use deckhand_core::key::Key;
-    use deckhand_parity::{Case, replay, tags};
     use regex::Regex;
-    use serde_json::Value;
 
-    const UNIT: &str = "U2";
+    const SEARCH_TOPICS: &[HelpTopic] = &[
+        HelpTopic {
+            title: "Sessions",
+            lines: &[
+                HelpLine::Heading { heading: "Navigation" },
+                HelpLine::Key {
+                    keys: "n",
+                    text: "Start a workspace",
+                },
+                HelpLine::Key {
+                    keys: "Ctrl+]",
+                    text: "Return to Deckhand",
+                },
+                HelpLine::Note {
+                    note: "Saved conversations remain available.",
+                },
+            ],
+        },
+        HelpTopic {
+            title: "Workspaces",
+            lines: &[
+                HelpLine::Heading { heading: "Start" },
+                HelpLine::Key {
+                    keys: "Space",
+                    text: "Toggle a task",
+                },
+                HelpLine::Note {
+                    note: "Start from an existing branch.",
+                },
+            ],
+        },
+    ];
 
-    /// A fixture line (`{keys, text}`, `{note}` or `{heading}`) as a HelpLine; strings are leaked to 'static.
-    fn line_of(value: &Value) -> Result<HelpLine, String> {
-        let leak = |key: &str| -> Option<&'static str> {
-            value
-                .get(key)
-                .and_then(Value::as_str)
-                .map(|text| &*Box::leak(text.to_owned().into_boxed_str()))
-        };
-        if let (Some(keys), Some(text)) = (leak("keys"), leak("text")) {
-            Ok(HelpLine::Key { keys, text })
-        } else if let Some(note) = leak("note") {
-            Ok(HelpLine::Note { note })
-        } else if let Some(heading) = leak("heading") {
-            Ok(HelpLine::Heading { heading })
-        } else {
-            Err(format!("not a help line: {value}"))
+    #[test]
+    fn search_matches_keys_descriptions_and_notes_case_insensitively() {
+        for (query, line) in [("CTRL+]", 2), (" deckHAND ", 2), ("\tSaVeD\n", 3)] {
+            assert_eq!(
+                search_help(query, SEARCH_TOPICS),
+                [FoundTopic {
+                    title: "Sessions",
+                    lines: vec![SEARCH_TOPICS[0].lines[line]],
+                }],
+                "query {query:?}"
+            );
         }
     }
 
-    fn lines_of(value: &Value) -> Result<Vec<HelpLine>, String> {
-        value
-            .as_array()
-            .ok_or("lines is not an array")?
-            .iter()
-            .map(line_of)
-            .collect()
-    }
-
-    /// Every width at or below zero lays out the same in TS (nothing fits), so negatives are 0.
-    fn width_of(case: &Case, index: usize) -> Result<usize, String> {
-        let number = case.arg_f64(index)?;
-        Ok(if number <= 0.0 { 0 } else { number as usize })
-    }
-
     #[test]
-    fn search_help_parity() {
-        replay(
-            UNIT,
-            "helpPane/searchHelp",
-            |case: &Case| -> Result<Vec<FoundTopic>, String> {
-                let query = case.arg_str(0)?;
-                if case.arg_is_undefined(1) {
-                    return Ok(search_help(query, deckhand_core::help::oracle_topics()));
-                }
-                let given = tags::untag(case.arg(1));
-                let topics: Vec<HelpTopic> = given
-                    .as_array()
-                    .ok_or("topics is not an array")?
-                    .iter()
-                    .map(|topic| -> Result<HelpTopic, String> {
-                        let title: &'static str = Box::leak(
-                            topic
-                                .get("title")
-                                .and_then(Value::as_str)
-                                .ok_or("topic title")?
-                                .to_owned()
-                                .into_boxed_str(),
-                        );
-                        let lines = lines_of(topic.get("lines").ok_or("topic lines")?)?;
-                        Ok(HelpTopic {
-                            title,
-                            lines: Box::leak(lines.into_boxed_slice()),
-                        })
-                    })
-                    .collect::<Result<_, _>>()?;
-                Ok(search_help(query, &topics))
-            },
+    fn title_match_includes_the_topics_content_in_order_without_headings() {
+        assert_eq!(
+            search_help("\u{a0}SESSIONs\u{a0}", SEARCH_TOPICS),
+            [FoundTopic {
+                title: "Sessions",
+                lines: SEARCH_TOPICS[0].lines[1..].to_vec(),
+            }]
         );
     }
 
     #[test]
-    fn help_rows_parity() {
-        replay(
-            UNIT,
-            "helpPane/helpRows",
-            |case: &Case| -> Result<Vec<HelpRow>, String> {
-                let lines = lines_of(&tags::untag(case.arg(0)))?;
-                Ok(help_rows(&lines, width_of(case, 1)?))
-            },
+    fn search_preserves_topic_and_line_order_and_omits_unmatched_lines() {
+        assert_eq!(
+            search_help("start", SEARCH_TOPICS),
+            [
+                FoundTopic {
+                    title: "Sessions",
+                    lines: vec![SEARCH_TOPICS[0].lines[1]],
+                },
+                FoundTopic {
+                    title: "Workspaces",
+                    lines: vec![SEARCH_TOPICS[1].lines[2]],
+                },
+            ]
         );
+    }
+
+    #[test]
+    fn search_omits_blank_queries_unmatched_topics_and_heading_only_matches() {
+        for query in ["", " \t\n", "missing", "Navigation"] {
+            assert!(search_help(query, SEARCH_TOPICS).is_empty(), "query {query:?}");
+        }
+        assert!(search_help("anything", &[]).is_empty());
+        assert!(
+            search_help(
+                "match",
+                &[
+                    HelpTopic {
+                        title: "Match with no lines",
+                        lines: &[],
+                    },
+                    HelpTopic {
+                        title: "Match with only a heading",
+                        lines: &[HelpLine::Heading { heading: "Match" }],
+                    },
+                ]
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn search_matches_unicode_text_and_keys() {
+        let topics = [HelpTopic {
+            title: "Änderungen",
+            lines: &[
+                HelpLine::Key {
+                    keys: "←",
+                    text: "Zurück zur Übersicht 😀",
+                },
+                HelpLine::Note {
+                    note: "日本語のガイド"
+                },
+            ],
+        }];
+        for query in ["←", "ÜBERSICHT", "😀"] {
+            assert_eq!(search_help(query, &topics)[0].lines, [topics[0].lines[0]]);
+        }
+        assert_eq!(search_help("日本語", &topics)[0].lines, [topics[0].lines[1]]);
+        assert_eq!(search_help("änderungen", &topics)[0].lines, topics[0].lines);
     }
 
     /// The pane drawn at `width` × `height`, as lines of text (wide characters take their continuation cells).
@@ -731,11 +765,129 @@ mod tests {
                 "        x"
             ]
         );
+        assert_eq!(rows[0][0].color, Some(INK_THEME.muted));
+        assert_eq!(
+            (rows[2][0].color, rows[2][0].bold),
+            (Some(INK_THEME.active), Some(true))
+        );
+        assert_eq!((rows[2][1].color, rows[2][1].bold), (None, None));
+        assert_eq!(
+            (rows[6][0].color, rows[6][0].bold),
+            (Some(INK_THEME.accent_soft), Some(true))
+        );
         // Every topic fits in a short title list and has content.
         for topic in HELP_TOPICS {
             assert!(js_len(topic.title) <= 15, "{}", topic.title);
             assert!(!topic.lines.is_empty(), "{}", topic.title);
         }
+    }
+
+    #[test]
+    fn notes_wrap_at_the_full_width_and_headings_start_a_group() {
+        let rows = help_rows(
+            &[
+                HelpLine::Note {
+                    note: "one two three four",
+                },
+                HelpLine::Note { note: "another note" },
+                HelpLine::Heading { heading: "Next steps" },
+                HelpLine::Note { note: "read this" },
+                HelpLine::Key {
+                    keys: "n",
+                    text: "start",
+                },
+                HelpLine::Note { note: "then continue" },
+            ],
+            14,
+        );
+        assert_eq!(
+            texts(&rows),
+            [
+                "one two three",
+                "four",
+                "another note",
+                "",
+                "Next steps",
+                "read this",
+                "",
+                "n  start",
+                "",
+                "then continue",
+            ]
+        );
+    }
+
+    #[test]
+    fn keys_longer_than_the_column_limit_get_their_own_row() {
+        let rows = help_rows(
+            &[
+                HelpLine::Key {
+                    keys: "Ctrl+Shift+PgUp",
+                    text: "scroll up",
+                },
+                HelpLine::Key {
+                    keys: "Ctrl+Shift+Right",
+                    text: "scroll right",
+                },
+            ],
+            40,
+        );
+        assert_eq!(
+            texts(&rows),
+            [
+                "Ctrl+Shift+PgUp  scroll up",
+                "Ctrl+Shift+Right",
+                "                 scroll right",
+            ]
+        );
+        assert_eq!(
+            (rows[1][0].color, rows[1][0].bold),
+            (Some(INK_THEME.active), Some(true))
+        );
+    }
+
+    #[test]
+    fn narrow_key_rows_keep_a_readable_hanging_indent() {
+        let lines = [HelpLine::Key {
+            keys: "n",
+            text: "one two three",
+        }];
+        for width in [0, 1, 10, 13] {
+            assert_eq!(
+                texts(&help_rows(&lines, width)),
+                ["n  one two", "   three"],
+                "width {width}"
+            );
+        }
+        assert!(help_rows(&[], 20).is_empty());
+    }
+
+    #[test]
+    fn unicode_notes_wrap_without_losing_characters() {
+        let rows = help_rows(
+            &[HelpLine::Note {
+                note: "café 😀 next"
+            }],
+            7,
+        );
+        assert_eq!(texts(&rows), ["café 😀", "next"]);
+        let rows = help_rows(
+            &[HelpLine::Key {
+                keys: "←",
+                text: "日本語 café 😀",
+            }],
+            40,
+        );
+        assert_eq!(texts(&rows), ["←  日本語 café 😀"]);
+    }
+
+    #[test]
+    fn search_rows_prompt_for_a_query_and_report_trimmed_unmatched_text() {
+        assert_eq!(texts(&search_rows(" \t", 60)), ["Type to search every topic."]);
+        assert_eq!(
+            texts(&search_rows("  no-such-help-term  ", 60)),
+            ["Nothing matches \"no-such-help-term\"."]
+        );
     }
 
     // covers: B-U2-07 help search matches keys, descriptions and notes across topics; the pane shows a topic list when wide and ◂ topic ▸ when narrow

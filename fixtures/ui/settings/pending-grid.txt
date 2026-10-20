@@ -1,0 +1,30 @@
+⟦magenta⟧╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+⟦magenta⟧│ ⟦magenta bold⟧Settings · mono                                                       ⟦yellow⟧deckhand.json: needs trust ⟦magenta⟧│
+⟦magenta⟧│                        ⟦gray⟧Global (all repos)                    ⟦magenta bold⟧This repo                           ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧General                                                                                         ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Default agent      ⟦cyan bold⟧● ⟦bold⟧pi                                    ⟦gray⟧—                                   ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Default workspace  ⟦cyan bold⟧● ⟦gray italic⟧no worktree (built-in)                ⟦gray⟧—                                   ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧Commands                                                                                        ⟦magenta⟧│
+⟦magenta⟧│ ⟦cyan bold⟧❯ ⟦bold⟧Dev command        ⟦cyan bold⟧● ⟦gray italic⟧dev (built-in)                      ⟦inverse⟧  ⟦cyan bold inverse⟧npm⟦inverse⟧ ⟦cyan bold inverse⟧run⟦inverse⟧ ⟦cyan bold inverse⟧dev⟦inverse⟧ ⟦cyan bold inverse⟧⚠⟦inverse⟧ ⟦cyan bold inverse⟧needs⟦inverse⟧ ⟦cyan bold inverse⟧trust⟦inverse⟧          ⟦⟧ ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Setup command        ⟦gray⟧—                                     —                                   ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Actions              ⟦gray⟧—                                     ⟦yellow⟧test ⚠ needs trust                  ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧Worktrees                                                                                       ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Location           ⟦cyan bold⟧● ⟦gray italic⟧/state/worktrees/<name> (built-in)    ⟦yellow⟧/dev/worktrees/<name> ⚠ needs trust ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Branch from        ⟦cyan bold⟧● ⟦bold⟧origin (no remote found)              ⟦gray⟧—                                   ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Branch name        ⟦cyan bold⟧● ⟦gray italic⟧{name} (built-in)                     ⟦gray⟧—                                   ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Linked items       ⟦cyan bold⟧● ⟦bold⟧1 item                                ⟦yellow⟧1 item ⚠ needs trust                ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Creation hook      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)                         ⟦gray⟧—                                   ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧Agents                                                                                          ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Agent signals      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)                                                             ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Notifications      ⟦cyan bold⟧● ⟦gray italic⟧off (built-in)                                                            ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Scroll speed       ⟦cyan bold⟧● ⟦gray italic⟧1 (built-in)                                                              ⟦magenta⟧│
+⟦magenta⟧│ ⟦gray⟧╭──────────────────────────────────────────────────────────────────────────────────────────────╮ ⟦magenta⟧│
+⟦magenta⟧│ ⟦gray⟧│ ⟦green bold⟧This repo ⟦gray⟧· ⟦yellow⟧Applies once trusted — you'll be asked the first time it runs (or press T)       ⟦gray⟧│ ⟦magenta⟧│
+⟦magenta⟧│ ⟦gray⟧╰──────────────────────────────────────────────────────────────────────────────────────────────╯ ⟦magenta⟧│
+⟦magenta⟧│                                                                                                  │
+⟦magenta⟧│                                                                                                  │
+⟦magenta⟧│                                                                                                  │
+⟦magenta⟧│                                                                                                  │
+⟦magenta⟧│                                                                                                  │
+⟦magenta⟧│ ⟦gray⟧←→ global/repo • enter edit • x clear • E JSON • T trust • esc                                   ⟦magenta⟧│
+⟦magenta⟧╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

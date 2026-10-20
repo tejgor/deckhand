@@ -1,8 +1,5 @@
-//! Port of help.ts.
-//!
 //! The ? guide as data: short topics of key → what it does, with a few notes. Rendered by the help pane (topic list,
-//! aligned key column, search). HELP_TOPICS was generated from src/help.ts (Node strips its types); U6 checks the
-//! keymap against it.
+//! aligned key column, search). The UI keymap tests check that documented shortcuts match their bindings.
 
 use serde::Serialize;
 
@@ -20,76 +17,6 @@ pub enum HelpLine {
 pub struct HelpTopic {
     pub title: &'static str,
     pub lines: &'static [HelpLine],
-}
-
-/// Not in the TS: the guide's lines about the port's own features (Dev processes, Dev one worktree at a time, the
-/// wheel speed).
-/// [`oracle_topics`] leaves them out, so the TS oracle's recorded guide still replays line for line.
-pub const PORT_LINES: &[&str] = &[
-    "On Dev with several processes: select the next one (Enter opens it)",
-    "In the run list, with several Dev processes: a row for each after Dev; Enter starts or restarts it, x stops it",
-    "Dev can run several processes side by side, such as a backend and a frontend: in Settings (C), Enter on the Dev command lists them and + Add a process adds one. The Dev tab splits to show each one's output.",
-    "Dev runs in one worktree of a repository at a time, since they share its ports: starting it in one worktree stops it in the others.",
-    "Mouse wheel: Scroll speed in Settings (C); \"claude_scroll_override\": false in config.json keeps your own Claude scroll settings.",
-];
-
-/// Not in the TS: guide lines the port reworded, as (the port's text, the TS oracle's), which [`oracle_topics`]
-/// turns back.
-pub const PORT_REWORDED: &[(&str, &str)] = &[
-    (
-        "Dev runs in this worktree (first row; muted below)",
-        "Dev runs in this worktree (on its first row)",
-    ),
-    (
-        "Narrow / widen the sidebar (saved) / fit it to the sessions again",
-        "Narrow / widen the sidebar",
-    ),
-];
-
-/// Not in the TS: key columns the port extended, as (the port's keys, the TS oracle's).
-pub const PORT_REKEYED: &[(&str, &str)] = &[("< > =", "< >")];
-
-/// The text of a guide line (its description, note or heading).
-pub fn line_text(line: &HelpLine) -> &'static str {
-    match line {
-        HelpLine::Key { text, .. } => text,
-        HelpLine::Note { note } => note,
-        HelpLine::Heading { heading } => heading,
-    }
-}
-
-/// [`HELP_TOPICS`] as the TS oracle had them: without [`PORT_LINES`], [`PORT_REWORDED`] lines as they were (for
-/// replaying its fixtures in tests).
-pub fn oracle_topics() -> &'static [HelpTopic] {
-    let topics: Vec<HelpTopic> = HELP_TOPICS
-        .iter()
-        .map(|topic| HelpTopic {
-            title: topic.title,
-            lines: Box::leak(
-                topic
-                    .lines
-                    .iter()
-                    .copied()
-                    .filter(|line| !PORT_LINES.contains(&line_text(line)))
-                    .map(|line| match line {
-                        HelpLine::Key { keys, text } => HelpLine::Key {
-                            keys: PORT_REKEYED
-                                .iter()
-                                .find(|(port, _)| *port == keys)
-                                .map_or(keys, |(_, oracle)| oracle),
-                            text: PORT_REWORDED
-                                .iter()
-                                .find(|(port, _)| *port == text)
-                                .map_or(text, |(_, oracle)| oracle),
-                        },
-                        other => other,
-                    })
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-            ),
-        })
-        .collect();
-    Box::leak(topics.into_boxed_slice())
 }
 
 /// TS: help.ts HELP_TOPICS.
@@ -562,30 +489,15 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
 mod tests {
     use super::*;
 
-    #[test]
-    fn help_topics_match_help_ts() {
-        let expected: serde_json::Value =
-            serde_json::from_str(include_str!("../tests/data/help_topics.json")).expect("fixture parses");
-        assert_eq!(serde_json::to_value(oracle_topics()).expect("serialises"), expected);
-    }
-
-    #[test]
-    fn help_topics_parity() {
-        deckhand_parity::replay(
-            "P12",
-            "help/HELP_TOPICS",
-            |_case: &deckhand_parity::Case| -> Result<&[HelpTopic], String> { Ok(oracle_topics()) },
-        );
-    }
-
-    // covers: B-P12-01 help: the Sidebar topic explains every row glyph, the gutter marker, the header and the details
-    #[test]
-    fn sidebar_topic_explains_every_glyph() {
-        let topic = HELP_TOPICS
+    fn topic(title: &str) -> &'static HelpTopic {
+        HELP_TOPICS
             .iter()
-            .find(|entry| entry.title == "Sidebar")
-            .expect("a Sidebar topic");
-        let text = topic
+            .find(|entry| entry.title == title)
+            .expect("guide topic")
+    }
+
+    fn topic_text(title: &str) -> String {
+        topic(title)
             .lines
             .iter()
             .map(|line| match line {
@@ -594,7 +506,88 @@ mod tests {
                 HelpLine::Heading { heading } => (*heading).to_owned(),
             })
             .collect::<Vec<_>>()
-            .join("\n");
+            .join("\n")
+    }
+
+    #[test]
+    fn guide_covers_the_main_workflows_in_topic_order() {
+        assert_eq!(
+            HELP_TOPICS.iter().map(|entry| entry.title).collect::<Vec<_>>(),
+            [
+                "Start here",
+                "Sessions",
+                "Sidebar",
+                "Find & organize",
+                "Panes",
+                "Notes",
+                "Tasks",
+                "Worktrees",
+                "Git & PRs",
+                "Dev & actions",
+                "Settings",
+            ]
+        );
+        for topic in HELP_TOPICS {
+            assert!(!topic.lines.is_empty(), "{} has no guide content", topic.title);
+            for line in topic.lines {
+                let text = match line {
+                    HelpLine::Key { keys, text } => {
+                        assert!(!keys.trim().is_empty(), "{} has an unlabeled shortcut", topic.title);
+                        text
+                    }
+                    HelpLine::Note { note } => note,
+                    HelpLine::Heading { heading } => heading,
+                };
+                assert!(!text.trim().is_empty(), "{} has an empty guide line", topic.title);
+            }
+        }
+    }
+
+    #[test]
+    fn guide_explains_fitting_the_sidebar_and_the_dev_marker() {
+        let fit = topic("Find & organize")
+            .lines
+            .iter()
+            .find_map(|line| match line {
+                HelpLine::Key { keys: "< > =", text } => Some(*text),
+                _ => None,
+            })
+            .expect("sidebar resize and fit shortcuts");
+        assert!(fit.contains("saved"));
+        assert!(fit.contains("fit it to the sessions"));
+        assert!(topic_text("Sidebar").contains("Dev runs in this worktree (first row; muted below)"));
+    }
+
+    #[test]
+    fn guide_explains_multiple_dev_processes_and_worktree_exclusivity() {
+        let dev = topic_text("Dev & actions");
+        for instruction in [
+            "a row for each after Dev",
+            "Enter starts or restarts it, x stops it",
+            "+ Add a process",
+            "splits to show each one's output",
+            "starting it in one worktree stops it in the others",
+        ] {
+            assert!(dev.contains(instruction), "missing Dev instruction: {instruction}");
+        }
+        assert!(topic("Panes").lines.iter().any(|line| matches!(
+            line,
+            HelpLine::Key { keys: "v", text } if text.contains("select the next one (Enter opens it)")
+        )));
+    }
+
+    #[test]
+    fn guide_explains_scroll_speed_and_preserving_claude_scroll_settings() {
+        let panes = topic_text("Panes");
+        assert!(panes.contains("+ − change wheel speed"));
+        assert!(panes.contains("Scroll speed in Settings (C)"));
+        assert!(panes.contains("\"claude_scroll_override\": false"));
+    }
+
+    // covers: B-P12-01 help: the Sidebar topic explains every row glyph, the gutter marker, the header and the details
+    #[test]
+    fn sidebar_topic_explains_every_glyph() {
+        let text = topic_text("Sidebar");
         for glyph in [
             "⠋",
             "●",

@@ -2241,20 +2241,10 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------------------------------------------
-    // Goldens: the right pane of fixtures/ui (130x36: the pane is columns 32.., rows 2..33).
+    // Snapshots: the right pane of the 130x36 app, its footer hint and its styles (fixtures/ui/panes).
 
-    const PANE_X: usize = 32;
-    const PANE_Y: usize = 2;
     const PANE_W: u16 = 98;
     const PANE_H: u16 = 31;
-
-    fn golden(name: &str) -> (Vec<String>, Value) {
-        let base = format!("{}/../../fixtures/ui/{name}", env!("CARGO_MANIFEST_DIR"));
-        let text = std::fs::read_to_string(format!("{base}.txt")).unwrap_or_else(|error| panic!("{name}: {error}"));
-        let json = std::fs::read_to_string(format!("{base}.json")).unwrap_or_else(|error| panic!("{name}: {error}"));
-        let json: Value = serde_json::from_str(&json).unwrap_or_else(|error| panic!("{name}: {error}"));
-        (text.lines().map(str::to_owned).collect(), json)
-    }
 
     fn render(flow: &mut TasksFlow, props: &TasksFlowProps<'_>) -> Buffer {
         let area = Rect::new(0, 0, PANE_W, PANE_H);
@@ -2273,39 +2263,9 @@ mod tests {
                     line.push_str(symbol);
                     x += u16::try_from(string_width(symbol).max(1)).unwrap_or(1);
                 }
-                // The goldens' date normalisation keeps the width: `<DATE>` and four more spaces.
-                line.replace(DATE, "<DATE>    ").trim_end().to_owned()
+                line.trim_end().to_owned()
             })
             .collect()
-    }
-
-    /// A golden cell's style: fg palette index, bold, dim, italic, underline, inverse.
-    type CellStyle = (Option<u64>, bool, bool, bool, bool, bool);
-
-    fn golden_style(json: &Value, row: usize, column: usize) -> CellStyle {
-        let mut style = (None, false, false, false, false, false);
-        let Some(entry) = json["styles"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .find(|entry| entry["row"].as_u64() == u64::try_from(row).ok())
-        else {
-            return style;
-        };
-        for run in entry["runs"].as_array().into_iter().flatten() {
-            let bound = |name: &str| usize::try_from(run[name].as_u64().unwrap_or(0)).unwrap_or(0);
-            if (bound("start")..bound("end")).contains(&column) {
-                style = (
-                    run["fg"].as_u64(),
-                    run["bold"].as_bool().unwrap_or(false),
-                    run["dim"].as_bool().unwrap_or(false),
-                    run["italic"].as_bool().unwrap_or(false),
-                    run["underline"].as_bool().unwrap_or(false),
-                    run["inverse"].as_bool().unwrap_or(false),
-                );
-            }
-        }
-        style
     }
 
     fn palette(color: Color) -> Option<u64> {
@@ -2331,50 +2291,66 @@ mod tests {
         })
     }
 
-    fn cell_style(buf: &Buffer, x: u16, y: u16) -> CellStyle {
+    /// A cell's style as snapshot text (`fg=8 bold`), empty for the default style.
+    fn cell_style(buf: &Buffer, x: u16, y: u16) -> String {
         use ratatui::style::Modifier;
         let cell = &buf[(x, y)];
-        let modifier = cell.modifier;
-        (
-            palette(cell.fg),
-            modifier.contains(Modifier::BOLD),
-            modifier.contains(Modifier::DIM),
-            modifier.contains(Modifier::ITALIC),
-            modifier.contains(Modifier::UNDERLINED),
-            modifier.contains(Modifier::REVERSED),
-        )
+        let color = |name: &str, color: Color| match (color, palette(color)) {
+            (Color::Reset, _) => None,
+            (_, Some(index)) => Some(format!("{name}={index}")),
+            (other, None) => Some(format!("{name}={other:?}")),
+        };
+        let modifiers = [
+            (Modifier::BOLD, "bold"),
+            (Modifier::DIM, "dim"),
+            (Modifier::ITALIC, "italic"),
+            (Modifier::UNDERLINED, "underline"),
+            (Modifier::REVERSED, "inverse"),
+        ];
+        [color("fg", cell.fg), color("bg", cell.bg)]
+            .into_iter()
+            .flatten()
+            .chain(
+                modifiers
+                    .into_iter()
+                    .filter(|(modifier, _)| cell.modifier.contains(*modifier))
+                    .map(|(_, name)| name.to_owned()),
+            )
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
-    /// The pane rendered by `flow` matches the golden's pane, text and styles.
-    fn assert_pane(name: &str, flow: &mut TasksFlow, props: &TasksFlowProps<'_>) {
-        let (rows, json) = golden(name);
-        let buf = render(flow, props);
-        let got = buffer_rows(&buf);
-        for (index, got) in got.iter().enumerate() {
-            let want: String = rows[PANE_Y + index].chars().skip(PANE_X).collect();
-            assert_eq!(got, want.trim_end(), "{name} pane row {index}");
-        }
-        for y in 0..PANE_H {
-            // The four columns a normalised date gives back to the row lost its style in the golden.
-            let pane_row: Vec<char> = rows[PANE_Y + usize::from(y)].chars().skip(PANE_X).collect();
-            let date_pad = pane_row
-                .windows(6)
-                .position(|window| window.iter().collect::<String>() == "<DATE>")
-                .map(|at| at + 6..at + 10);
-            for x in 0..PANE_W {
-                if date_pad.as_ref().is_some_and(|pad| pad.contains(&usize::from(x))) {
-                    continue;
+    /// Per row, the runs of cells whose style is not the default: `row 3: 0..12 fg=8 dim, 14..20 bold`.
+    fn style_rows(buf: &Buffer) -> Vec<String> {
+        (0..buf.area.height)
+            .filter_map(|y| {
+                let mut runs: Vec<(u16, u16, String)> = Vec::new();
+                for x in 0..buf.area.width {
+                    let style = cell_style(buf, x, y);
+                    match runs.last_mut() {
+                        Some((_, end, last)) if *end == x && *last == style => *end = x + 1,
+                        _ if style.is_empty() => {}
+                        _ => runs.push((x, x + 1, style)),
+                    }
                 }
-                let want = golden_style(&json, PANE_Y + usize::from(y), PANE_X + usize::from(x));
-                assert_eq!(cell_style(&buf, x, y), want, "{name} style at pane ({x}, {y})");
-            }
-        }
+                let runs: Vec<String> = runs
+                    .into_iter()
+                    .map(|(start, end, style)| format!("{start}..{end} {style}"))
+                    .collect();
+                (!runs.is_empty()).then(|| format!("row {y}: {}", runs.join(", ")))
+            })
+            .collect()
     }
 
-    /// The footer hint matches the golden's hint row (row 33).
-    fn assert_hint(name: &str, flow: &TasksFlow, props: &TasksFlowProps<'_>) {
-        let (rows, _) = golden(name);
-        assert_eq!(flow.hint(props, 130), rows[33].trim_end(), "{name} hint");
+    /// The pane rendered by `flow`, its hint and its styles match the snapshot `fixtures/ui/panes/<name>.txt`.
+    fn assert_pane(name: &str, flow: &mut TasksFlow, props: &TasksFlowProps<'_>) {
+        let buf = render(flow, props);
+        let mut text = buffer_rows(&buf);
+        text.push("── hint".to_owned());
+        text.push(flow.hint(props, 130));
+        text.push("── styles".to_owned());
+        text.extend(style_rows(&buf));
+        deckhand_parity::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &text.join("\n"));
     }
 
     fn editor(kind: TaskEditorKind, field: TaskEditorField, title: &str, body: &str) -> TaskEditor {
@@ -2397,16 +2373,15 @@ mod tests {
     }
 
     #[test]
-    fn the_empty_board_matches_the_golden() {
+    fn the_empty_board_matches_the_snapshot() {
         let mut flow = TasksFlow::default();
         let props = props(&[], &[]);
         flow.open(None, &props);
         assert_pane("15-tasks-empty", &mut flow, &props);
-        assert_hint("15-tasks-empty", &flow, &props);
     }
 
     #[test]
-    fn the_new_task_editor_matches_the_goldens() {
+    fn the_new_task_editor_matches_the_snapshots() {
         let mut flow = TasksFlow::default();
         let props = props(&[], &[]);
         flow.editor = Some(editor(
@@ -2416,7 +2391,6 @@ mod tests {
             "",
         ));
         assert_pane("16-task-new", &mut flow, &props);
-        assert_hint("16-task-new", &flow, &props);
         flow.editor = Some(editor(
             TaskEditorKind::Add,
             TaskEditorField::Body,
@@ -2424,11 +2398,10 @@ mod tests {
             "why: people ask",
         ));
         assert_pane("17-task-new-details", &mut flow, &props);
-        assert_hint("17-task-new-details", &flow, &props);
     }
 
     #[test]
-    fn the_board_with_a_task_matches_the_goldens() {
+    fn the_board_with_a_task_matches_the_snapshots() {
         let tasks = [task(TASK_ID, "Write the docs", "why: people ask")];
         let props = props(&tasks, &[]);
         let mut flow = TasksFlow {
@@ -2436,7 +2409,6 @@ mod tests {
             ..TasksFlow::default()
         };
         assert_pane("18-tasks-board", &mut flow, &props);
-        assert_hint("18-tasks-board", &flow, &props);
         // Enter: the edit form, filled in.
         let mut cx = cx();
         press(&mut flow, &props, &mut cx, key(|key| key.return_ = true));
@@ -2450,7 +2422,6 @@ mod tests {
             ))
         );
         assert_pane("19-task-edit", &mut flow, &props);
-        assert_hint("19-task-edit", &flow, &props);
         // Esc, then w: the move picker, on the backlog where it is.
         press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
         assert_eq!(flow.editor, None);
@@ -2469,14 +2440,12 @@ mod tests {
             })
         );
         assert_pane("20-task-move", &mut flow, &props);
-        assert_hint("20-task-move", &flow, &props);
         // Esc, then tab: the notes view (no notes yet).
         press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
         assert_eq!(flow.picker, None);
         press(&mut flow, &props, &mut cx, key(|key| key.tab = true));
         assert_eq!(flow.view, TasksView::Notes);
         assert_pane("21-tasks-notes", &mut flow, &props);
-        assert_hint("21-tasks-notes", &flow, &props);
         assert!(effects(&mut cx).is_empty());
     }
 

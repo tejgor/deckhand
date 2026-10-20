@@ -10,19 +10,14 @@ ts_tests = []
 ts_suites = []
 
 # Filled by the fixtures stage (parity/gen/<module>.gen.ts).
-fixtures = ["settingsPane/render", "configEditorPane/render"]
+fixtures = ["configEditorPane/render"]
 # UTF-16 offset fields per fixture, converted on the Rust side.
-utf16_fields = { "settingsPane/render" = { "args.0.edit.state.cursor" = "args.0.edit.state.text" }, "configEditorPane/render" = { "args.0.state.cursor" = "args.0.state.text" } }
+utf16_fields = { "configEditorPane/render" = { "args.0.state.cursor" = "args.0.state.text" } }
 
 # TS test titles covered by another unit or dropped: { title = "...", to = "<unit>|drop", reason = "..." }
 deferred_tests = []
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
-allowlist = [
-  { fixture = "settingsPane/render", case = 165, reason = "TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells" },
-  { fixture = "settingsPane/render", case = 381, reason = "TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells" },
-  { fixture = "settingsPane/render", case = 537, reason = "TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells" },
-  { fixture = "settingsPane/render", case = 654, reason = "TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells" },
-]
+allowlist = []
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

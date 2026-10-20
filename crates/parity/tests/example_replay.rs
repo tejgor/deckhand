@@ -11,7 +11,8 @@ use serde_json::{Value, json};
 
 fn replay(fixture: &str) -> Replay {
     let manifest = Manifest::load_path(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/example.toml")).unwrap();
-    Replay::with_manifest(manifest, fixture)
+    // Some cases here fail on purpose; DECKHAND_BLESS must not rewrite them.
+    Replay::with_manifest(manifest, fixture).bless(false)
 }
 
 // Stand-ins for src/textEditor.ts wordLeft/wordRight, on byte offsets (the fixtures' UTF-16 offsets are converted).

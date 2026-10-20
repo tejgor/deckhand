@@ -259,14 +259,6 @@ mod tests {
     const UNIT: &str = "I2";
 
     #[test]
-    fn script_matches_the_ts_source() {
-        let source = include_str!("../../../src/notesVim.ts");
-        let start = source.find("String.raw`").map(|at| at + "String.raw`".len()).unwrap();
-        let end = start + source[start..].find("`;").unwrap();
-        assert_eq!(NOTES_VIM_SCRIPT, &source[start..end]);
-    }
-
-    #[test]
     fn notes_vim_script_parity() {
         replay(UNIT, "notesVim/NOTES_VIM_SCRIPT", |_: &Case| {
             Ok::<_, String>(NOTES_VIM_SCRIPT)

@@ -1017,7 +1017,53 @@ pub mod date {
 
 #[cfg(test)]
 mod tests {
+    use deckhand_parity::strategies::unicode_text;
+    use proptest::prelude::*;
+
     use super::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(128))]
+
+        #[test]
+        fn utf16_length_and_code_units_match_standard_encoding(text in unicode_text()) {
+            let units: Vec<_> = text.encode_utf16().collect();
+            prop_assert_eq!(js_len(&text), units.len());
+            for (index, unit) in units.iter().copied().enumerate() {
+                prop_assert_eq!(js_code_unit_at(&text, index), Some(unit));
+            }
+            prop_assert_eq!(js_code_unit_at(&text, units.len()), None);
+        }
+
+        #[test]
+        fn offsets_round_down_to_independent_character_boundaries(text in unicode_text()) {
+            // Prefix encoding supplies an independent reference, rather than accumulating len_utf16 like the
+            // conversion functions. Include the end so it also describes clamping beyond the text.
+            let boundaries: Vec<_> = text.char_indices()
+                .map(|(byte, _)| (byte, text[..byte].encode_utf16().count()))
+                .chain(std::iter::once((text.len(), text.encode_utf16().count())))
+                .collect();
+
+            for &(byte, units) in &boundaries {
+                prop_assert_eq!(byte_to_utf16(&text, byte), units);
+                prop_assert_eq!(utf16_to_byte(&text, units), byte);
+                prop_assert_eq!(utf16_to_byte(&text, byte_to_utf16(&text, byte)), byte);
+                prop_assert_eq!(byte_to_utf16(&text, utf16_to_byte(&text, units)), units);
+            }
+            // Every byte position, including the middle of a UTF-8 character, floors to the previous boundary.
+            for offset in (0..=text.len() + 2).chain(std::iter::once(usize::MAX)) {
+                let &(_, expected) = boundaries.iter().rev().find(|(byte, _)| *byte <= offset).unwrap();
+                prop_assert_eq!(byte_to_utf16(&text, offset), expected);
+            }
+            // Every code-unit position, including the low half of a surrogate pair, floors the same way.
+            let units_len = text.encode_utf16().count();
+            for offset in (0..=units_len + 2).chain(std::iter::once(usize::MAX)) {
+                let &(expected, _) = boundaries.iter().rev().find(|(_, units)| *units <= offset).unwrap();
+                prop_assert_eq!(utf16_to_byte(&text, offset), expected);
+                prop_assert!(text.is_char_boundary(expected));
+            }
+        }
+    }
 
     #[test]
     fn date_parse_non_ascii_offset_is_nan_not_panic() {

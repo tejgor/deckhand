@@ -62,9 +62,11 @@ cd /path/to/a/disposable-repository
 ## Automated checks
 
 ```sh
-cargo nextest run --workspace      # or: cargo test --workspace
+scripts/test.sh                   # builds first, then runs all suites once
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
 ```
 
 Tests build on temporary Git repositories, private `DECKHAND_HOME` and `HOME` directories and fake agent binaries; they never touch `~/.deckhand` or `~/.deckhand-dev`. They cover config parsing, effective-settings merging, editing and trust; setup, actions and cleanup safeguards in a real daemon; lifecycle callbacks and resume; storage; and the dev launcher's isolation (`crates/e2e`). They do not run real agent conversations, so provider hook behaviour in your installed CLI still needs the manual check above.
+
+See [Testing](testing.md) for targeted runs, snapshot updates and the compatibility policy. The script uses nextest when installed and otherwise falls back to `cargo test`.

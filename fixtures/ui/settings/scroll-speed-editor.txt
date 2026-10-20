@@ -1,0 +1,24 @@
+⟦magenta⟧╭──────────────────────────────────────────────────────────────────────────────╮
+⟦magenta⟧│ ⟦magenta bold⟧Settings · mono                                   ⟦yellow⟧deckhand.json: needs trust ⟦magenta⟧│
+⟦magenta⟧│                        ⟦magenta bold⟧Global (all repos)          ⟦gray⟧This repo                 ⟦magenta⟧│
+⟦magenta⟧│   ⟦gray⟧↑ 7 more                                                                   ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧Worktrees                                                                   ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Location           ⟦cyan bold⟧● ⟦gray italic⟧/state/worktrees/<name>     ⟦yellow⟧/dev/worktrees/<name> ⚠   ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Branch from        ⟦cyan bold⟧● ⟦bold⟧origin (no remote found)    ⟦gray⟧—                         ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Branch name        ⟦cyan bold⟧● ⟦gray italic⟧{name} (built-in)           ⟦gray⟧—                         ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Linked items       ⟦cyan bold⟧● ⟦bold⟧1 item                      ⟦yellow⟧1 item ⚠ needs trust      ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Creation hook      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)               ⟦gray⟧—                         ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧Agents                                                                      ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Agent signals      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)                                         ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Notifications      ⟦cyan bold⟧● ⟦gray italic⟧off (built-in)                                        ⟦magenta⟧│
+⟦magenta⟧│ ⟦cyan bold⟧❯ ⟦bold⟧Scroll speed       ⟦cyan bold inverse⟧●⟦inverse⟧ ⟦cyan bold inverse⟧2⟦inverse⟧                        ⟦⟧                             ⟦magenta⟧│
+⟦magenta⟧│ ╭──────────────────────────────────────────────────────────────────────────╮ │
+⟦magenta⟧│ │ ⟦magenta bold⟧Scroll speed · Global                                                    ⟦magenta⟧│ │
+⟦magenta⟧│ │   ⟦⟧○ 0.5      every other wheel event: slower                             ⟦magenta⟧│ │
+⟦magenta⟧│ │   ⟦⟧○ 1        each wheel event as your terminal sends it                  ⟦magenta⟧│ │
+⟦magenta⟧│ │ ⟦cyan bold inverse⟧❯⟦inverse⟧ ⟦cyan bold inverse⟧◉⟦inverse⟧ ⟦cyan bold inverse⟧2⟦inverse⟧        ⟦cyan bold inverse⟧each⟦inverse⟧ ⟦cyan bold inverse⟧wheel⟦inverse⟧ ⟦cyan bold inverse⟧event⟦inverse⟧ ⟦cyan bold inverse⟧twice:⟦inverse⟧ ⟦cyan bold inverse⟧faster⟦inverse⟧                             ⟦⟧ ⟦magenta⟧│ │
+⟦magenta⟧│ │   ⟦⟧○ 3        each wheel event three times: fastest                       ⟦magenta⟧│ │
+⟦magenta⟧│ │   ⟦⟧○ custom…  type a number from 0 to 3 · whole numbers scroll most even… ⟦magenta⟧│ │
+⟦magenta⟧│ ╰──────────────────────────────────────────────────────────────────────────╯ │
+⟦magenta⟧│ ⟦gray⟧enter save • esc cancel                                                      ⟦magenta⟧│
+⟦magenta⟧╰──────────────────────────────────────────────────────────────────────────────╯

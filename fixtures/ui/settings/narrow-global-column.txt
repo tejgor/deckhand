@@ -1,0 +1,22 @@
+⟦magenta⟧╭─────────────────────────────────────────────────────╮
+⟦magenta⟧│ ⟦magenta bold⟧Settings · mono          ⟦yellow⟧deckhand.json: needs trust ⟦magenta⟧│
+⟦magenta⟧│                      ⟦gray⟧◂ ⟦magenta bold⟧Global ⟦gray⟧| This repo ▸         ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧General                                            ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Default agent      ⟦cyan bold⟧● ⟦bold⟧pi                           ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Default workspace  ⟦cyan bold⟧● ⟦gray italic⟧no worktree (built-in)       ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧Commands                                           ⟦magenta⟧│
+⟦magenta⟧│ ⟦cyan bold⟧❯ ⟦bold⟧Dev command        ⟦cyan bold inverse⟧●⟦inverse⟧ ⟦cyan bold italic inverse⟧dev⟦inverse⟧ ⟦cyan bold italic inverse⟧(built-in)⟦inverse⟧              ⟦⟧ ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Setup command        ⟦gray⟧—                            ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Actions              ⟦gray⟧—                            ⟦magenta⟧│
+⟦magenta⟧│  ⟦magentaBright bold⟧Worktrees                                          ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Location           ⟦cyan bold⟧● ⟦gray italic⟧/state/worktrees/<name>      ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Branch from        ⟦cyan bold⟧● ⟦bold⟧origin (no remote found)     ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Branch name        ⟦cyan bold⟧● ⟦gray italic⟧{name} (built-in)            ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Linked items       ⟦cyan bold⟧● ⟦bold⟧1 item                       ⟦magenta⟧│
+⟦magenta⟧│   ⟦gray⟧↓ 5 more                                          ⟦magenta⟧│
+⟦magenta⟧│ ⟦gray⟧╭─────────────────────────────────────────────────╮ ⟦magenta⟧│
+⟦magenta⟧│ ⟦gray⟧│ Built-in · No Dev command is set, so d runs a   │ ⟦magenta⟧│
+⟦magenta⟧│ ⟦gray⟧│ shell command named `dev`.                      │ ⟦magenta⟧│
+⟦magenta⟧│ ⟦gray⟧╰─────────────────────────────────────────────────╯ ⟦magenta⟧│
+⟦magenta⟧│ ⟦gray⟧←→ column • enter edit • E JSON • T trust • esc     ⟦magenta⟧│
+⟦magenta⟧╰─────────────────────────────────────────────────────╯

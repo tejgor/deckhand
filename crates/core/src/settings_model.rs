@@ -738,21 +738,6 @@ pub fn settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
         .collect()
 }
 
-/// [`settings_grid`] as the TS oracle had it (for replaying its fixtures in tests): without the port's Scroll speed
-/// row, and `global only` in the This repo cell of a global-only row, which the port leaves empty.
-pub fn oracle_settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
-    settings_grid(info)
-        .into_iter()
-        .filter(|row| row.def.id != SettingId::ScrollSpeed)
-        .map(|mut row| {
-            if row.cells.repository.global_only == Some(true) {
-                row.cells.repository.text = String::from("global only");
-            }
-            row
-        })
-        .collect()
-}
-
 /// The This repo cell of a global-only row: empty (the TS said `global only`; the cursor never stops there, Global is
 /// selected instead).
 fn global_only_cell() -> GridCell {
@@ -2416,13 +2401,6 @@ mod tests {
     fn grid_parity() {
         replay(
             "P9",
-            "settingsModel/settingsGrid",
-            |case: &Case| -> std::result::Result<Vec<GridRow>, String> {
-                Ok(oracle_settings_grid(&info_arg(case, 0)?))
-            },
-        );
-        replay(
-            "P9",
             "settingsModel/cellDetail",
             |case: &Case| -> std::result::Result<CellDetail, String> {
                 Ok(cell_detail(&info_arg(case, 0)?, &row_arg(case, 1)?, kind_arg(case, 2)?))
@@ -2771,9 +2749,8 @@ mod tests {
         Some(StringOrBool::String(value.to_owned()))
     }
 
-    // covers: B-P9-01 settings grid: each cell is that layer's own value; the one in effect (explainSettings ≡ resolveSettings) is marked, an untrusted repository value needs trust, built-ins show in the global column
     #[test]
-    fn grid_cells_and_effect() {
+    fn grid_lists_settings_in_screen_order() {
         let info = settings_info(Some(REPO), Some(global()), false, None);
         let labels: Vec<String> = settings_grid(&info)
             .iter()
@@ -2803,7 +2780,12 @@ mod tests {
                 "Agents/Scroll speed",
             ]
         );
+    }
+
+    #[test]
+    fn untrusted_repository_values_stay_visible_while_global_or_built_in_values_apply() {
         use SettingId::*;
+        let info = settings_info(Some(REPO), Some(global()), false, None);
         // Untrusted: the repository's Dev command sits in its cell (needs trust) while the built-in dev applies.
         assert_eq!(
             cell(&info, DevCommand, Repository),
@@ -2878,8 +2860,11 @@ mod tests {
             "not set: inherits global"
         );
         assert_eq!(detail(&info, DevCommand, Global).head, "Built-in default");
+    }
 
-        // Trusted: the repository values apply; a global value they replace is overridden (dimmed), lists merge.
+    #[test]
+    fn trusted_repository_scalars_override_global_values_and_lists_merge() {
+        use SettingId::*;
         let trusted_global = with(global(), "devCommand", json!("printf global"));
         let trusted = settings_info(Some(REPO), Some(trusted_global.clone()), true, None);
         assert_eq!(
@@ -2906,7 +2891,11 @@ mod tests {
             ],
             [json!(true), json!(true)]
         );
-        // Suggestions (and hook: false) apply untrusted; the legacy dev_command shows in the global column.
+    }
+
+    #[test]
+    fn repository_suggestions_and_disabling_hooks_do_not_require_trust() {
+        use SettingId::*;
         let suggestion = settings_info(
             Some(r#"{"defaultAgent":"codex","worktree":{"hook":false}}"#),
             Some(global()),
@@ -2931,13 +2920,23 @@ mod tests {
             [hook["text"].clone(), hook["effective"].clone()],
             [json!("off"), json!(true)]
         );
+    }
+
+    #[test]
+    fn legacy_dev_command_stays_visible_in_the_global_cell() {
+        use SettingId::*;
         let legacy = settings_info(Some("{}"), None, false, Some("make dev"));
         assert_eq!(
             cell(&legacy, DevCommand, Global),
             json!({"text": "make dev", "full": "make dev", "set": false, "effective": true, "legacy": true})
         );
+    }
 
-        // Clearing a repository value: the global one takes over.
+    #[test]
+    fn clearing_a_repository_value_restores_the_global_value() {
+        use SettingId::*;
+        let trusted_global = with(global(), "devCommand", json!("printf global"));
+        let trusted = settings_info(Some(REPO), Some(trusted_global.clone()), true, None);
         let raw = apply_change(
             trusted.targets.repository.as_ref().unwrap(),
             &SettingChange {
@@ -2954,6 +2953,25 @@ mod tests {
             ],
             [json!("—"), json!(true)]
         );
+    }
+
+    #[test]
+    fn global_only_settings_leave_the_repository_cells_empty() {
+        let info = settings_info(Some(REPO), Some(global()), false, None);
+        for id in [SettingId::AgentHooks, SettingId::Notifications, SettingId::ScrollSpeed] {
+            let row = row(&info, id);
+            assert!(row.def.global_only, "{id:?}");
+            assert_eq!(row.def.control, SettingControl::Choice, "{id:?}");
+            assert_eq!(
+                row.cells.repository,
+                GridCell {
+                    global_only: Some(true),
+                    ..GridCell::default()
+                },
+                "{id:?}"
+            );
+            assert!(row.cells.global.effective, "{id:?}");
+        }
     }
 
     // Not in the TS: Scroll speed is a global-only number with a few choices, plus one set with + / −.

@@ -208,12 +208,12 @@ Inside WSL2, with the Linux binary.
 git clone https://github.com/tejgor/deckhand.git
 cd deckhand
 cargo build -p deckhand                  # target/debug/deckhand
-cargo nextest run --workspace            # unit, parity and e2e tests (cargo test works too)
+scripts/test.sh                         # build, then run all Rust tests (uses nextest when installed)
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
 ```
 
-`scripts/deckhand-dev.sh --sandbox` runs this checkout's build against its own state in `~/.deckhand-dev`, beside your real Deckhand. See [docs/dev-build.md](docs/dev-build.md). Tests use temporary homes and fake agents; they never touch `~/.deckhand` or start a real agent.
+`scripts/deckhand-dev.sh --sandbox` runs this checkout's build against its own state in `~/.deckhand-dev`, beside your real Deckhand. See [docs/dev-build.md](docs/dev-build.md). Tests use temporary homes and fake agents; they never touch `~/.deckhand` or start a real agent. [Testing](docs/testing.md) describes behavior tests, snapshots, compatibility fixtures and focused runs.
 
 Issues and pull requests are welcome. For larger changes, please open an issue first. Before sending a pull request, run the checks above and confirm the sandbox build launches.
 
