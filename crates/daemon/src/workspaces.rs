@@ -451,18 +451,25 @@ impl Daemon {
         Ok(workspace)
     }
 
-    /// TS: child.on('message') / child.on('exit') of a workspace worker: handles its events in order until it exits.
+    /// TS: child.on('message') / child.on('exit') of a workspace worker: starts a handler per event in order until it
+    /// exits. As TS's `void this.handleWorkspaceMessage(...)`, each handler runs inline up to its first await and
+    /// then goes on beside the pump: a Dev update waiting on its persist holds up neither later output nor the exit.
     pub async fn pump_workspace_events(&self, workspace: Rc<WorkspaceRuntime>, mut events: ChannelEvents) {
         while let Some(event) = events.recv().await {
             match event {
                 ChannelEvent::Message(message) => {
-                    // A failure handling one event is logged: it must never stop the daemon.
-                    if let Err(error) = self.handle_workspace_message(&workspace, *message).await {
-                        self.log_soon(format!(
-                            "handling a workspace event of {} failed: {error}",
-                            workspace.key
-                        ));
-                    }
+                    let daemon = self.clone();
+                    let workspace = Rc::clone(&workspace);
+                    start_detached(async move {
+                        // A failure handling one event is logged: it must never stop the daemon.
+                        if let Err(error) = daemon.handle_workspace_message(&workspace, *message).await {
+                            daemon.log_soon(format!(
+                                "handling a workspace event of {} failed: {error}",
+                                workspace.key
+                            ));
+                        }
+                    })
+                    .await;
                 }
                 ChannelEvent::Exit(_) => {
                     if let Err(error) = self.handle_workspace_exit(&workspace).await {
@@ -1038,6 +1045,16 @@ impl Daemon {
     }
 }
 
+/// A JS `void promise()` call: polls `future` once right here (its synchronous part runs in call order) and, if it
+/// is still waiting, lets it finish as its own task. Never waits on it.
+async fn start_detached(future: impl std::future::Future<Output = ()> + 'static) {
+    let mut future = Box::pin(future);
+    let pending = std::future::poll_fn(|cx| std::task::Poll::Ready(future.as_mut().poll(cx).is_pending())).await;
+    if pending {
+        drop(spawn(future));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1577,6 +1594,58 @@ mod tests {
             until(|| running("s1") == Some(false)).await;
             assert_eq!((running("s1"), running("s2")), (Some(false), Some(false)));
             assert!(!daemon.workspace_dev_live(Some(&root)));
+        });
+    }
+
+    /// TS handles each worker message with `void this.handleWorkspaceMessage(...)`: a Dev update waiting on its
+    /// persist holds up neither the output after it nor the worker's exit.
+    #[test]
+    fn a_dev_update_waiting_on_persist_holds_up_neither_output_nor_the_exit() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let daemon = daemon(dir.path());
+        let root = dir.path().join("w");
+        std::fs::create_dir_all(&root).unwrap();
+        let root = root.to_str().unwrap().to_owned();
+        put(&daemon, session("s1", &root, &root));
+        let gate = Rc::new(tokio::sync::Notify::new());
+        {
+            let gate = Rc::clone(&gate);
+            daemon.lifecycle.borrow_mut().persist = Some(deckhand_sys::async_util::Coalescer::new(move || {
+                let gate = Rc::clone(&gate);
+                async move {
+                    gate.notified().await;
+                    Ok(())
+                }
+            }));
+        }
+        let (attached, mut attached_rx) = test_client(5);
+        local(async {
+            let (workspace, mut fake) = fake_workspace(&daemon, &root).await;
+            workspace.attached.borrow_mut().insert(
+                WorkspacePane::Dev,
+                PaneViewer {
+                    client: attached.clone(),
+                    session_id: "s1".into(),
+                },
+            );
+            fake.send(json!({"type": "dev-updated", "dev": {"content": "", "live": true, "cwd": root, "command": "npm run dev"}}))
+                .await;
+            until(|| daemon.get_session("s1").unwrap().dev_running == Some(true)).await;
+            fake.send(json!({"type": "output", "target": "dev", "data": "after"}))
+                .await;
+            let mut got = Vec::new();
+            until(|| {
+                got.extend(lines(&mut attached_rx));
+                !got.is_empty()
+            })
+            .await;
+            assert_eq!(got, [r#"{"type":"dev-output","sessionId":"s1","data":"after"}"#]);
+            fake.exit();
+            until(|| !daemon.workspaces.borrow().workspaces.contains_key(&root)).await;
+            assert!(!daemon.workspaces.borrow().workspaces.contains_key(&root));
+            gate.notify_one();
+            settle().await;
         });
     }
 
