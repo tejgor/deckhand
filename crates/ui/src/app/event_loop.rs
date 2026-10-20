@@ -367,6 +367,35 @@ pub fn spawn_resize_watcher(tx: mpsc::UnboundedSender<TermEvent>) -> io::Result<
     }))
 }
 
+/// TS: Ink's `signalExit(this.unmount)`. Registers SIGINT, SIGTERM and SIGHUP; the future resolves with the number
+/// of the first one delivered, so the caller can unwind the terminal state before dying of it.
+pub fn termination_signal() -> io::Result<impl std::future::Future<Output = i32>> {
+    use tokio::signal::unix::{SignalKind, signal};
+    let mut set = Vec::new();
+    for kind in [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()] {
+        set.push((kind.as_raw_value(), signal(kind)?));
+    }
+    Ok(async move {
+        let waits = set.iter_mut().map(|(number, stream)| {
+            let number = *number;
+            Box::pin(async move {
+                stream.recv().await;
+                number
+            })
+        });
+        futures::future::select_all(waits).await.0
+    })
+}
+
+/// Dies of `signal` with its default action (what signal-exit does after the cleanups ran).
+pub fn die_of_signal(signal: i32) {
+    use nix::sys::signal::{SigHandler, Signal, raise, signal as install};
+    let Ok(signal) = Signal::try_from(signal) else { return };
+    // SAFETY: restoring the default disposition installs no Rust handler.
+    let _ = unsafe { install(signal, SigHandler::SigDfl) };
+    let _ = raise(signal);
+}
+
 /// TS app.tsx getTerminalSize: `process.stdout.columns || 80`, `rows || 24`.
 pub fn terminal_size() -> (u16, u16) {
     match crossterm::terminal::size() {
@@ -429,6 +458,17 @@ pub fn stdin_fd() -> RawFd {
 mod tests {
     use super::*;
     use ratatui::backend::TestBackend;
+
+    #[tokio::test]
+    async fn termination_signals_are_caught_instead_of_killing_the_process() {
+        for signal in [libc::SIGHUP, libc::SIGTERM, libc::SIGINT] {
+            let wait = termination_signal().unwrap_or_else(|error| panic!("{error}"));
+            // SAFETY: raises a signal the registered handler now owns.
+            assert_eq!(unsafe { libc::raise(signal) }, 0);
+            let got = tokio::time::timeout(std::time::Duration::from_secs(5), wait).await;
+            assert_eq!(got.ok(), Some(signal));
+        }
+    }
     use ratatui::text::Line;
 
     /// Records what the loop delivered and renders a counter.

@@ -500,9 +500,6 @@ mod tests {
     use std::rc::Rc;
     use std::sync::MutexGuard;
 
-    /// Tests that set environment variables run one at a time.
-    static ENV: Mutex<()> = Mutex::new(());
-
     /// Environment variables set (or removed) while this lives.
     struct EnvVar {
         _guard: MutexGuard<'static, ()>,
@@ -511,11 +508,11 @@ mod tests {
 
     impl EnvVar {
         fn set(vars: &[(&'static str, Option<&std::ffi::OsStr>)]) -> EnvVar {
-            let guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let guard = crate::server::tests::env_lock();
             let mut restore = Vec::new();
             for &(name, value) in vars {
                 restore.push((name, std::env::var_os(name)));
-                // SAFETY: tests touching the environment hold ENV.
+                // SAFETY: tests touching the environment hold server::tests::env_lock.
                 unsafe {
                     match value {
                         Some(value) => std::env::set_var(name, value),
@@ -535,7 +532,7 @@ mod tests {
     impl Drop for EnvVar {
         fn drop(&mut self) {
             for (name, value) in self.restore.drain(..).rev() {
-                // SAFETY: as in EnvVar::set (ENV is still held).
+                // SAFETY: as in EnvVar::set (the environment lock is still held).
                 unsafe {
                     match value {
                         Some(value) => std::env::set_var(name, value),

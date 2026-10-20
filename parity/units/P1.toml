@@ -24,7 +24,9 @@ deferred_tests = [
   { title = "Agents screen: one row per agent with versions and status, details of the selected one, confirmation, results", to = "F1", reason = "renders the AgentsPane (agentsFlow)" },
 ]
 # Allowlisted fixture failures (<=2% of cases): { fixture = "...", case = N, reason = "..." }
-allowlist = []
+allowlist = [
+  { fixture = "agents/exitRef", case = 27, reason = "security fix (argv injection): a Claude resume hint whose value starts with '-' is skipped (TS returned it as a Name ref that launch_args turned into a --resume flag)" },
+]
 
 # Every TS export: mapped to a Rust path, or dropped with a reason.
 [exports]

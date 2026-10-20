@@ -2,51 +2,16 @@
 //! PTY driving the isolated dev launcher.
 
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::path::PathBuf;
 
-use deckhand_e2e::harness::{Sandbox, launcher, wait_for};
-use deckhand_e2e::ui::{Ui, UiOptions};
+use deckhand_e2e::fakes::{READY, install_sh_agents};
+use deckhand_e2e::harness::{Sandbox, wait_for};
+use deckhand_e2e::ui::{UI_WAIT, Ui, launch_sandbox_ui};
 
-const UI_WAIT: Duration = Duration::from_secs(30);
-
-/// A stand-in agent (never a real one): stays alive and prints a marker. Installs claude, pi and codex in `dir`.
-fn install_fake_agents(dir: &Path) {
-    fs::create_dir_all(dir).expect("agent bin dir");
-    let script = "#!/bin/sh\n\
-        for arg in \"$@\"; do\n\
-        \tcase \"$arg\" in\n\
-        \t--help) echo 'PROMPT --settings --no-daemon resume'; exit 0;;\n\
-        \t--version) echo '1.0.0'; exit 0;;\n\
-        \tesac\n\
-        done\n\
-        echo 'fake agent ready'\n\
-        exec sleep 100000\n";
-    for agent in ["claude", "pi", "codex"] {
-        let file = dir.join(agent);
-        fs::write(&file, script).expect("write agent");
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).expect("chmod agent");
-    }
-}
-
-/// The dev launcher in a PTY with the fake agents first on PATH.
+/// The dev launcher in a PTY with the fake agents (in `<dev home>/bin`) first on PATH.
 fn launch_with_agents(sandbox: &Sandbox) -> Ui {
-    let home = sandbox.dev_home();
-    let bin = home.join("bin");
-    install_fake_agents(&bin);
-    let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default());
-    let script = launcher().display().to_string();
-    Ui::spawn(
-        sandbox,
-        UiOptions {
-            program: Path::new("/bin/sh"),
-            args: &[script.as_str(), "--sandbox"],
-            cwd: &home,
-            env: &[("PATH", path.as_str())],
-            dev: true,
-        },
-    )
+    let bin = install_sh_agents(&sandbox.dev_home().join("bin"), READY);
+    launch_sandbox_ui(sandbox, &bin, &[])
 }
 
 /// The only `.md` file in `directory` (empty text unless there is exactly one).

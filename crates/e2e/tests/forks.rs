@@ -1,79 +1,15 @@
 //! Port of tests/forks.test.ts (black-box: drives DECKHAND_TEST_BIN against a real daemon with fake agents).
 
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
-use std::process::{Child, Stdio};
+use std::path::PathBuf;
+use std::process::Child;
 use std::time::Duration;
 
 use deckhand_e2e::client::request;
-use deckhand_e2e::harness::{AgentOptions, Sandbox, install_agent, repo, sidecar, stop, wait_for};
+use deckhand_e2e::daemon::*;
+use deckhand_e2e::fakes::{MISSING_CONVERSATION_BODY, SH_JSON_ARGS};
+use deckhand_e2e::harness::{AgentOptions, Sandbox, install_agent, repo, stop};
 use serde_json::{Value, json};
-
-const FAKE_AGENT: &str = env!("CARGO_BIN_EXE_fake_agent");
-
-fn wf<T: std::fmt::Debug>(read: impl FnMut() -> T, ok: impl Fn(&T) -> bool) -> T {
-    wait_for(read, ok, Duration::from_secs(15))
-}
-
-fn sleep_ms(ms: u64) {
-    std::thread::sleep(Duration::from_millis(ms));
-}
-
-fn id_of(value: &Value) -> String {
-    value["id"].as_str().unwrap_or_default().to_string()
-}
-
-/// `assert.rejects(promise, /text/)`: the daemon's error must contain every needle, in order.
-fn assert_rejects(result: Result<Value, String>, needles: &[&str]) {
-    let error = match result {
-        Err(error) => error,
-        Ok(value) => panic!("expected a rejection containing {needles:?}, got {value}"),
-    };
-    let mut rest = error.as_str();
-    for needle in needles {
-        match rest.find(needle) {
-            Some(at) => rest = &rest[at + needle.len()..],
-            None => panic!("error {error:?} does not match {needles:?}"),
-        }
-    }
-}
-
-fn strings(value: &Value) -> Vec<String> {
-    value
-        .as_array()
-        .map(|items| {
-            items
-                .iter()
-                .map(|v| v.as_str().unwrap_or_default().to_string())
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn write_atomic(path: &Path, bytes: &[u8]) {
-    let temporary = path.with_extension("tmp-write");
-    fs::write(&temporary, bytes).expect("write temp");
-    fs::rename(&temporary, path).expect("rename");
-}
-
-/// Replaces an agent with a script (a new file: rewriting a signed binary in place can get it killed on macOS).
-fn install_script(bin: &Path, provider: &str, script: &str) {
-    let target = bin.join(provider);
-    let _ = fs::remove_file(&target);
-    fs::write(&target, script).expect("write script");
-    fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).expect("chmod");
-}
-
-/// Reinstalls the fake agent, dropping the sidecars of the variant it replaces.
-fn reinstall(bin: &Path, provider: &str, options: AgentOptions) {
-    let target = bin.join(provider);
-    for suffix in ["nohooks", "update-fails"] {
-        let _ = fs::remove_file(sidecar(&target, suffix));
-    }
-    let _ = fs::remove_file(&target);
-    install_agent(bin, provider, Path::new(FAKE_AGENT), options);
-}
 
 struct Ctx {
     sock: PathBuf,
@@ -148,33 +84,14 @@ struct Daemon<'a> {
 
 impl<'a> Daemon<'a> {
     fn launch(sandbox: &'a Sandbox, ctx: &'a Ctx) -> Daemon<'a> {
-        let path = format!("{}:{}", ctx.bin.display(), std::env::var("PATH").unwrap_or_default());
-        let mut command = sandbox.cli(&["--daemon"]);
-        command
-            .current_dir(&ctx.root)
-            .env("PATH", path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        let daemon = Daemon {
-            sandbox,
-            ctx,
-            child: sandbox.spawn(command),
-        };
+        let child = spawn_daemon(sandbox, &ctx.root, &path_with(&ctx.bin), &[]);
+        let daemon = Daemon { sandbox, ctx, child };
         daemon.ready();
         daemon
     }
 
     fn ready(&self) {
-        wf(
-            || {
-                self.ctx
-                    .call(json!({"type": "ping"}))
-                    .map(|v| v["ok"] == true)
-                    .unwrap_or(false)
-            },
-            |ok| *ok,
-        );
+        wait_ping(|message| self.ctx.call(message), Duration::from_secs(15));
     }
 
     fn restart_with(&mut self, edit: impl FnOnce(&mut Vec<Value>)) {
@@ -200,7 +117,7 @@ fn forked_sub_sessions_with_fake_agents() {
     let root = repo_dir.path().to_path_buf();
     let bin = sandbox.root().join("bin");
     for provider in ["claude", "pi", "codex"] {
-        install_agent(&bin, provider, Path::new(FAKE_AGENT), AgentOptions::default());
+        install_agent(&bin, provider, deckhand_e2e::fake_agent!(), AgentOptions::default());
     }
     let ctx = Ctx {
         sock: sandbox.socket(),
@@ -247,7 +164,7 @@ fn claude_forks(c: &Ctx, daemon: &mut Daemon) {
         !args.iter().any(|a| a == "--"),
         "a fork in the parent's worktree sends no first message"
     );
-    sleep_ms(800); // Past the old /branch keystroke delay.
+    pause(800); // Past the old /branch keystroke delay.
     assert_eq!(
         fs::read_to_string(c.home.join(format!("input-{child_id}"))).unwrap_or_default(),
         ""
@@ -259,8 +176,10 @@ fn claude_forks(c: &Ctx, daemon: &mut Daemon) {
     c.kill_and_wait(&child_id);
 
     // The parent has no saved conversation yet: the fork fails, says so, and s forks again with a new child ID.
-    let script = "#!/usr/bin/env node\nconst fs = require('fs'), path = require('path');\nconst e = process['env'];\nfs.writeFileSync(path.join(e.DECKHAND_HOME, 'trace-' + e.DECKHAND_SESSION_ID + '.json'), JSON.stringify({args: process.argv.slice(2), launchId: e.DECKHAND_LAUNCH_ID}));\nconsole.log('No conversation found with session ID: ' + process.argv[process.argv.indexOf('--resume') + 1]);\nsetTimeout(() => process.exit(1), 200);\n";
-    install_script(&c.bin, "claude", script);
+    let script = format!(
+        "#!/bin/sh\nif [ -n \"$DECKHAND_HOME\" ]; then\n{SH_JSON_ARGS}printf '{{\"args\":[%s],\"launchId\":\"%s\"}}' \"$json\" \"$DECKHAND_LAUNCH_ID\" > \"$DECKHAND_HOME/trace-$DECKHAND_SESSION_ID.json\"\nfi\n{MISSING_CONVERSATION_BODY}"
+    );
+    install_script(&c.bin.join("claude"), &script);
     let unsaved = c.fork_of(&parent, "unsaved", "none").expect("fork");
     let unsaved_id = id_of(&unsaved);
     let failed = c.wait(&unsaved_id, |s| s["status"] == "exited");
@@ -274,7 +193,7 @@ fn claude_forks(c: &Ctx, daemon: &mut Daemon) {
         "{failed}"
     );
     assert_eq!(failed["agentSessionRef"], parent_ref);
-    reinstall(&c.bin, "claude", AgentOptions::default());
+    reinstall(&c.bin, "claude", deckhand_e2e::fake_agent!(), AgentOptions::default());
     let retried = c.relaunch(&unsaved_id);
     assert_eq!(
         retried[..4],
@@ -370,7 +289,7 @@ fn claude_forks(c: &Ctx, daemon: &mut Daemon) {
 
 // ported from tests/forks.test.ts: Codex forks run codex fork <parent id>, capture their own ID without adopting the parent's, and stay in the parent's worktree
 fn codex_forks(c: &Ctx) {
-    reinstall(&c.bin, "codex", AgentOptions::default());
+    reinstall(&c.bin, "codex", deckhand_e2e::fake_agent!(), AgentOptions::default());
     let parent = c.create("codex-parent", "codex");
     let parent_id = id_of(&parent);
     let parent_native = c.wait(&parent_id, |s| {
@@ -402,6 +321,7 @@ fn codex_forks(c: &Ctx) {
     reinstall(
         &c.bin,
         "codex",
+        deckhand_e2e::fake_agent!(),
         AgentOptions {
             without_hooks: true,
             ..AgentOptions::default()

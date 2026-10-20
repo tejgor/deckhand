@@ -205,6 +205,11 @@ impl Drop for Ui {
 
 /// Convenience for the commonest case: the isolated dev launcher in a PTY (`scripts/deckhand-dev.sh <args>`).
 pub fn spawn_launcher(sandbox: &Sandbox, args: &[&str], cwd: &Path) -> Ui {
+    spawn_launcher_env(sandbox, args, cwd, &[])
+}
+
+/// [`spawn_launcher`] with extra environment variables. The launcher is executed directly (it is executable).
+pub fn spawn_launcher_env(sandbox: &Sandbox, args: &[&str], cwd: &Path, env: &[(&str, &str)]) -> Ui {
     let launcher = crate::harness::launcher();
     Ui::spawn(
         sandbox,
@@ -212,8 +217,17 @@ pub fn spawn_launcher(sandbox: &Sandbox, args: &[&str], cwd: &Path) -> Ui {
             program: &launcher,
             args,
             cwd,
-            env: &[],
+            env,
             dev: true,
         },
     )
+}
+
+/// The disposable dev sandbox UI (`scripts/deckhand-dev.sh --sandbox`) started in the dev home, with the fake agents in
+/// `bin` first on PATH. `env` adds variables (a `PATH` entry here replaces the one built from `bin`).
+pub fn launch_sandbox_ui(sandbox: &Sandbox, bin: &Path, env: &[(&str, &str)]) -> Ui {
+    let path = crate::daemon::path_with(bin);
+    let mut vars: Vec<(&str, &str)> = vec![("PATH", path.as_str())];
+    vars.extend_from_slice(env);
+    spawn_launcher_env(sandbox, &["--sandbox"], &sandbox.dev_home(), &vars)
 }

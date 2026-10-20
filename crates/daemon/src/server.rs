@@ -641,6 +641,41 @@ pub(crate) mod tests {
     use std::future::Future;
     use tokio::io::{AsyncBufReadExt, BufReader};
 
+    /// Every test in this crate that sets or reads a process-wide environment variable (DECKHAND_HOME, PATH,
+    /// DECKHAND_CHANNEL, ...) holds this, so tests in different modules never see each other's values under the
+    /// parallel test runner.
+    static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Takes [`ENV`] (a test that panicked while holding it has already restored the environment in its guard's drop).
+    pub(crate) fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    #[test]
+    fn every_module_shares_the_one_environment_lock() {
+        let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut offenders = Vec::new();
+        for entry in std::fs::read_dir(&src).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            if name == "server.rs" || path.extension().is_none_or(|ext| ext != "rs") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).unwrap();
+            if text.contains("Mutex<()> = Mutex::new(())") {
+                offenders.push(format!("{name}: declares its own environment lock"));
+            }
+            let mutates = text.contains("std::env::set_var") || text.contains("std::env::remove_var");
+            if mutates && !text.contains("env_lock") {
+                offenders.push(format!(
+                    "{name}: changes the environment without server::tests::env_lock"
+                ));
+            }
+        }
+        offenders.sort();
+        assert!(offenders.is_empty(), "{offenders:#?}");
+    }
+
     pub(crate) fn local<F: Future>(future: F) -> F::Output {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -917,6 +952,8 @@ pub(crate) mod tests {
 
     #[test]
     fn ping_names_the_protocol_home_and_channel() {
+        // The ping reads DECKHAND_CHANNEL, which lifecycle's tests change.
+        let _env = env_lock();
         let dir = tempfile::tempdir().unwrap();
         let daemon = test_daemon(dir.path());
         let ping = daemon.handle_ping().unwrap();

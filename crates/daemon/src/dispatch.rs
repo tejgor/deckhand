@@ -388,6 +388,8 @@ mod tests {
 
     #[test]
     fn requests_are_answered_on_their_connection() {
+        // The ping reads DECKHAND_CHANNEL, which lifecycle's tests change.
+        let _env = crate::server::tests::env_lock();
         let dir = tempfile::tempdir().unwrap();
         let daemon = crate::server::tests::test_daemon(dir.path());
         let (client, mut rx) = crate::server::tests::test_client(1);

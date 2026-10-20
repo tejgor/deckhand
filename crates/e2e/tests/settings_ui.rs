@@ -2,51 +2,17 @@
 //! isolated dev launcher.
 
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use deckhand_e2e::harness::{Sandbox, launcher};
-use deckhand_e2e::ui::{Ui, UiOptions};
+use deckhand_e2e::daemon::path_with;
+use deckhand_e2e::fakes::{READY, install_sh_agents};
+use deckhand_e2e::harness::Sandbox;
+use deckhand_e2e::ui::{Ui, spawn_launcher_env};
 use serde_json::{Value, json};
-
-/// A stand-in agent (never a real one): stays alive and prints a marker. Installs claude, pi and codex in `dir`.
-fn install_fake_agents(dir: &Path) {
-    fs::create_dir_all(dir).expect("agent bin dir");
-    let script = "#!/bin/sh\n\
-        for arg in \"$@\"; do\n\
-        \tcase \"$arg\" in\n\
-        \t--help) echo 'PROMPT --settings --no-daemon resume'; exit 0;;\n\
-        \t--version) echo '1.0.0'; exit 0;;\n\
-        \tesac\n\
-        done\n\
-        echo 'fake agent ready'\n\
-        exec sleep 100000\n";
-    for agent in ["claude", "pi", "codex"] {
-        let file = dir.join(agent);
-        fs::write(&file, script).expect("write agent");
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).expect("chmod agent");
-    }
-}
-
-fn path_with(bin: &Path) -> String {
-    let existing = std::env::var("PATH").unwrap_or_default();
-    format!("{}:{existing}", bin.display())
-}
 
 /// `terminalUi({args: [launcher, '--sandbox'], cwd: home, home, env})`.
 fn launch(sandbox: &Sandbox, env: &[(&str, &str)]) -> Ui {
-    let home = sandbox.dev_home();
-    let script = launcher().display().to_string();
-    Ui::spawn(
-        sandbox,
-        UiOptions {
-            program: Path::new("/bin/sh"),
-            args: &[script.as_str(), "--sandbox"],
-            cwd: &home,
-            env,
-            dev: true,
-        },
-    )
+    spawn_launcher_env(sandbox, &["--sandbox"], &sandbox.dev_home(), env)
 }
 
 fn read_json(file: &Path) -> Value {
@@ -235,7 +201,7 @@ fn dev_command_saved_in_settings_keeps_the_file_trusted() {
     let sandbox = Sandbox::new("ui");
     let home = sandbox.dev_home();
     let bin = home.join("bin");
-    install_fake_agents(&bin);
+    install_sh_agents(&bin, READY);
     let path = path_with(&bin);
     let mut ui = launch(&sandbox, &[("PATH", path.as_str())]);
     ui.screen("DEV (isolated)");

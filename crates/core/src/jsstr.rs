@@ -969,7 +969,7 @@ pub mod date {
             let zone = &zone[1..];
             let (hours, minutes) = match zone.split_once(':') {
                 Some((hours, minutes)) => (digits(hours, 2)?, digits(minutes, 2)?),
-                None if zone.len() == 4 => (digits(&zone[..2], 2)?, digits(&zone[2..], 2)?),
+                None if zone.len() == 4 && zone.is_ascii() => (digits(&zone[..2], 2)?, digits(&zone[2..], 2)?),
                 None => return None,
             };
             if hours > 23 || minutes > 59 {
@@ -1018,6 +1018,11 @@ pub mod date {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn date_parse_non_ascii_offset_is_nan_not_panic() {
+        assert!(date::parse("2026-01-01T10:00+1\u{e9}1").is_none());
+    }
 
     #[test]
     fn lengths_count_utf16_units() {

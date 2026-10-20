@@ -1410,11 +1410,13 @@ impl UiModel for App {
 /// exit (attach, `$EDITOR`).
 pub async fn run(props: AppProps) -> io::Result<Option<UiExitResult>> {
     use crate::app::event_loop::{
-        Dispatch, LoopEnd, RawMode, StdinReader, spawn_resize_watcher, stdin_fd, terminal_size,
+        Dispatch, LoopEnd, RawMode, StdinReader, die_of_signal, spawn_resize_watcher, stdin_fd, terminal_size,
+        termination_signal,
     };
     use crate::app::state::TerminalSize;
 
     let fd = stdin_fd();
+    let signalled = termination_signal()?;
     let raw = RawMode::enable(fd)?;
     let (tx, mut events) = tokio::sync::mpsc::unbounded_channel();
     let mut reader = StdinReader::spawn(fd, tx.clone())?;
@@ -1425,14 +1427,21 @@ pub async fn run(props: AppProps) -> io::Result<Option<UiExitResult>> {
     let (dispatch, mut updates) = Dispatch::channel();
     let mut app = App::new(props, dispatch, TerminalSize { cols, rows });
     app.effects.stdout_modes = true;
-    let end = event_loop::run(&mut app, &mut terminal, &mut events, &mut updates).await;
+    // TS: Ink's signalExit unmounts the tree on SIGINT/SIGTERM/SIGHUP, then the process dies of the signal.
+    let (end, signal) = tokio::select! {
+        end = event_loop::run(&mut app, &mut terminal, &mut events, &mut updates) => (Some(end), None),
+        signal = signalled => (None, Some(signal)),
+    };
     // TS: the effects' cleanups on unmount (connection closed, terminal modes undone), then Ink's cleanup.
     effects::unmount(&mut app);
     resize.abort();
     reader.stop();
     drop(raw);
     let _ = terminal.show_cursor();
-    Ok(match end? {
+    if let Some(signal) = signal {
+        die_of_signal(signal);
+    }
+    Ok(match end.unwrap_or(Ok(LoopEnd::InputClosed))? {
         LoopEnd::Exit(result) => Some(result),
         LoopEnd::InputClosed => None,
     })

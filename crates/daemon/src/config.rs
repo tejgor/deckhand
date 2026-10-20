@@ -191,7 +191,7 @@ impl Daemon {
 mod tests {
     use std::path::Path;
     use std::process::Command;
-    use std::sync::{Mutex, MutexGuard};
+    use std::sync::MutexGuard;
 
     use deckhand_protocol::Ordered;
     use deckhand_protocol::data::SessionRecord;
@@ -199,9 +199,6 @@ mod tests {
 
     use super::*;
     use crate::daemon::{DaemonOptions, DaemonPaths};
-
-    /// Tests that set DECKHAND_HOME run one at a time.
-    static ENV: Mutex<()> = Mutex::new(());
 
     /// A scratch DECKHAND_HOME (and the daemon's paths in it) while this lives.
     struct Home {
@@ -212,10 +209,10 @@ mod tests {
 
     impl Home {
         fn new() -> Home {
-            let guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let guard = crate::server::tests::env_lock();
             let dir = tempfile::Builder::new().prefix("deckhand-home-").tempdir().unwrap();
             let previous = std::env::var_os(paths::HOME_ENV);
-            // SAFETY: tests touching the environment hold ENV.
+            // SAFETY: tests touching the environment hold server::tests::env_lock.
             unsafe { std::env::set_var(paths::HOME_ENV, dir.path()) };
             Home {
                 _guard: guard,
@@ -246,7 +243,7 @@ mod tests {
 
     impl Drop for Home {
         fn drop(&mut self) {
-            // SAFETY: as in Home::new (ENV is still held).
+            // SAFETY: as in Home::new (the environment lock is still held).
             unsafe {
                 match self.previous.take() {
                     Some(value) => std::env::set_var(paths::HOME_ENV, value),

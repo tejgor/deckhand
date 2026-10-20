@@ -8,6 +8,7 @@ Fixture cases where the Rust port deliberately differs from the TS oracle. verif
 | I7 | settingsInfo/codexHookCommands | 78 | JSON escape \ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD) |
 | I7 | settingsInfo/codexHookCommands | 79 | JSON escape \ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD) |
 | I7 | settingsInfo/codexHookCommands | 80 | JSON escape \ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD) |
+| P1 | agents/exitRef | 27 | security fix (argv injection): a Claude resume hint whose value starts with '-' is skipped (TS returned it as a Name ref that launch_args turned into a --resume flag) |
 | P10 | projectConfig-P10/parseProjectConfig | 36 | a lone surrogate escape (\ud83d) cannot live in a Rust String; it becomes U+FFFD, what Node writes for it as UTF-8 |
 | P10 | projectConfig-P10/parseProjectConfig | 37 | a lone surrogate escape (\ud83d) cannot live in a Rust String; it becomes U+FFFD, what Node writes for it as UTF-8 |
 | P11 | textEditor/wordLeft | 95 | mutated cursor -1: a negative UTF-16 offset has no byte-offset (usize) form in the Rust API |

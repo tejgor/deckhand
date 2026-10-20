@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::time::{Duration, Instant};
 
+use deckhand_e2e::harness::{bin, launcher};
+
 const HOOK_KEYS: [&str; 5] = [
     "DECKHAND_HOME",
     "DECKHAND_CHANNEL",
@@ -19,24 +21,6 @@ const HOOK_KEYS: [&str; 5] = [
     "DECKHAND_LAUNCH_ID",
     "DECKHAND_HOOK_TOKEN",
 ];
-
-fn launcher() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/deckhand-dev.sh")
-}
-
-/// The deckhand executable under test (`DECKHAND_TEST_BIN`, else this workspace's debug build).
-fn deckhand_bin() -> PathBuf {
-    let bin = match std::env::var_os("DECKHAND_TEST_BIN") {
-        Some(value) if !value.is_empty() => PathBuf::from(value),
-        _ => Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/debug/deckhand"),
-    };
-    assert!(
-        bin.exists(),
-        "build the deckhand binary first (cargo build): {}",
-        bin.display()
-    );
-    bin
-}
 
 fn text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
@@ -72,9 +56,8 @@ fn call(function: &str, argument: &Path, home: &Path, env: &[(&str, &str)]) -> O
 }
 
 fn launcher_run(args: &[&str], cwd: &Path, home: &Path, env: &[(&str, &Path)]) -> Output {
-    let mut command = hermetic(Command::new("sh"), home);
+    let mut command = hermetic(Command::new(launcher()), home);
     command
-        .arg(launcher())
         .args(args)
         .current_dir(cwd)
         .env("DECKHAND_DEV", "0")
@@ -247,7 +230,7 @@ fn dev_status_stop_control_only_the_isolated_dev_daemon() {
     let fake = fake_home.path();
     let dev_home = fake.join("dev");
     let stable_home = fake.join(".deckhand");
-    let bin = deckhand_bin();
+    let bin = bin();
     let start = |extra: &[(&str, &Path)]| -> Daemon {
         let mut command = hermetic(Command::new(&bin), fake);
         command

@@ -1103,10 +1103,7 @@ mod tests {
     use std::cell::Cell;
     use std::path::{Path, PathBuf};
     use std::rc::Rc;
-    use std::sync::{Mutex, MutexGuard};
-
-    /// Tests that set DECKHAND_HOME run one at a time.
-    static ENV: Mutex<()> = Mutex::new(());
+    use std::sync::MutexGuard;
 
     /// DECKHAND_HOME = `dir` while this lives.
     struct Home {
@@ -1116,9 +1113,9 @@ mod tests {
 
     impl Home {
         fn set(dir: &Path) -> Home {
-            let guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let guard = crate::server::tests::env_lock();
             let previous = std::env::var_os(deckhand_sys::paths::HOME_ENV);
-            // SAFETY: tests touching the environment hold ENV.
+            // SAFETY: tests touching the environment hold server::tests::env_lock.
             unsafe { std::env::set_var(deckhand_sys::paths::HOME_ENV, dir) };
             Home {
                 _guard: guard,
@@ -1129,7 +1126,7 @@ mod tests {
 
     impl Drop for Home {
         fn drop(&mut self) {
-            // SAFETY: as in Home::set (ENV is still held).
+            // SAFETY: as in Home::set (the environment lock is still held).
             unsafe {
                 match self.previous.take() {
                     Some(value) => std::env::set_var(deckhand_sys::paths::HOME_ENV, value),
