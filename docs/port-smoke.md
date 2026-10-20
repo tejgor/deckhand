@@ -192,7 +192,11 @@ Before you start:
    # or download the release archive, check SHA256SUMS, and install the binary on your PATH
    ```
 
-   Remove the old install so the shell cannot find it first: `npm uninstall -g @tejgor/deckhand`. Check `which deckhand` and `deckhand --version`.
+   Remove the old install so the shell cannot find it first (nvm's `bin` usually comes before `~/.cargo/bin` on PATH):
+   - **registry install:** `npm uninstall -g @tejgor/deckhand`
+   - **`npm link` of a checkout:** check with `ls -l "$(npm root -g)" | grep deckhand`, then run `npm rm -g deckhand`. This removes only the symlinks; the checkout is untouched.
+
+   Then run `hash -r` and check `which deckhand` (expect `~/.cargo/bin/deckhand`) and `deckhand --version` (expect `deckhand 3.0.0`).
 
 4. **Run it** from a repository: `deckhand`. Expected: a new (v46) daemon starts, your previous sessions appear as exited with their notes, tasks and ordering, and `s` resumes them.
 
@@ -205,7 +209,8 @@ Before you start:
    cd ~/.deckhand.pre-rust
    cp -a state.json config.json ui-state.json ~/.deckhand/
    cp -a notes/. ~/.deckhand/notes/          # likewise handoffs/ and notes-backups/ if you changed them
-   npm i -g @tejgor/deckhand@2.0.0           # reinstall the TypeScript version
+   npm i -g @tejgor/deckhand@2.0.0           # reinstall the TypeScript version (registry install), or:
+   # cd <TS checkout> && npm run build && npm link      (if it was linked)
    ```
 
    Then report which step failed.
