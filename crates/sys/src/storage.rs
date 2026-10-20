@@ -8,6 +8,7 @@
 //! The record types are deckhand-protocol's: `InkState` is [`StateFile`], `AppConfig` is [`AppConfig`] (its
 //! normalisation, `normalizeAppConfig`, is [`AppConfig::from_raw`]).
 
+use std::collections::{HashMap, HashSet};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -254,33 +255,71 @@ pub struct ReadState {
     pub migrated: bool,
 }
 
-/// `Array.isArray(parsed[key]) ? parsed[key] : []`, as records. An entry this version cannot read as a record (TS
-/// keeps any value) is left out.
-fn records<T: serde::de::DeserializeOwned>(parsed: &Value, key: &str) -> Vec<Ordered<T>> {
-    match parsed.get(key) {
-        Some(Value::Array(items)) => items
-            .iter()
-            .filter_map(|item| serde_json::from_value(item.clone()).ok())
-            .collect(),
-        _ => Vec::new(),
+/// Entries of state.json's arrays this version cannot read as records, each with its index in the file. TS keeps any
+/// value: a newer version's record (a new agent or status), a hand edit or an off-type field. Rust's typed records
+/// cannot hold them, so they are not loaded (the daemon does not show them) but are kept as they are and written back
+/// by every save ([`save_state`]), recovered on daemon start like any session; they are never erased.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct Unreadable {
+    sessions: Vec<(usize, Value)>,
+    worktrees: Vec<(usize, Value)>,
+}
+
+/// The unreadable entries of the state.json last read, and its path.
+static UNREADABLE: Mutex<Option<(PathBuf, Unreadable)>> = Mutex::new(None);
+
+/// The unreadable entries kept for the state.json at `path`.
+fn unreadable_for(path: &Path) -> Unreadable {
+    let kept = UNREADABLE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    match kept.as_ref() {
+        Some((kept_path, unreadable)) if kept_path == path => unreadable.clone(),
+        _ => Unreadable::default(),
     }
+}
+
+/// Keeps `unreadable` as the unreadable entries of the state.json at `path`.
+fn keep_unreadable(path: PathBuf, unreadable: Unreadable) {
+    *UNREADABLE.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some((path, unreadable));
+}
+
+/// `Array.isArray(parsed[key]) ? parsed[key] : []`, as records, and the entries this version cannot read as one
+/// (with their index).
+fn records<T: serde::de::DeserializeOwned>(parsed: &Value, key: &str) -> (Vec<Ordered<T>>, Vec<(usize, Value)>) {
+    let mut records = Vec::new();
+    let mut unreadable = Vec::new();
+    if let Some(Value::Array(items)) = parsed.get(key) {
+        for (index, item) in items.iter().enumerate() {
+            match serde_json::from_value(item.clone()) {
+                Ok(record) => records.push(record),
+                Err(_) => unreadable.push((index, item.clone())),
+            }
+        }
+    }
+    (records, unreadable)
+}
+
+/// `session.worktree?.id` of a raw session entry (the worktree record it references).
+fn raw_worktree_id(session: &Value) -> Option<&str> {
+    session.get("worktree")?.get("id")?.as_str().filter(|id| !id.is_empty())
 }
 
 /// TS: storage.ts readState (empty or missing file: an empty state is written; unparseable JSON is moved aside to
 /// `state.json.corrupt-<ms>` and replaced by an empty state; otherwise worktree records and done markers are
-/// migrated).
+/// migrated). Entries this version cannot read are kept aside (see [`Unreadable`]).
 pub async fn read_state() -> Result<ReadState> {
     ensure_config_dir().await?;
     let state_path = paths::state_path();
     let raw = match read_text(&state_path).await {
         Ok(raw) => raw,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            keep_unreadable(state_path, Unreadable::default());
             save_state(&StateFile::default()).await?;
             return Ok(ReadState::default());
         }
         Err(error) => return Err(read_error(&error, &state_path)),
     };
     if js_trim(&raw).is_empty() {
+        keep_unreadable(state_path, Unreadable::default());
         save_state(&StateFile::default()).await?;
         return Ok(ReadState::default());
     }
@@ -288,15 +327,64 @@ pub async fn read_state() -> Result<ReadState> {
         let mut backup = state_path.as_os_str().to_owned();
         backup.push(format!(".corrupt-{}", now_ms()));
         let _ = tokio::fs::rename(&state_path, PathBuf::from(backup)).await;
+        keep_unreadable(state_path, Unreadable::default());
         save_state(&StateFile::default()).await?;
         return Ok(ReadState::default());
     };
     if parsed.is_null() {
         return Err(DhError::msg("Cannot read properties of null (reading 'sessions')"));
     }
-    let sessions: Vec<Ordered<SessionRecord>> = records(&parsed, "sessions");
-    let worktrees: Vec<Ordered<WorktreeRecord>> = records(&parsed, "worktrees");
-    let lifted = migrate_worktree_records(sessions, worktrees, &mut random_uuid);
+    let (sessions, unreadable_sessions) = records::<SessionRecord>(&parsed, "sessions");
+    let (worktrees, unreadable_worktrees) = records::<WorktreeRecord>(&parsed, "worktrees");
+    // Worktree records an unreadable session references: TS sees that session, so they are not unreferenced.
+    let used: HashSet<String> = unreadable_sessions
+        .iter()
+        .filter_map(|(_, session)| raw_worktree_id(session).map(str::to_owned))
+        .collect();
+    let original: HashMap<String, usize> = worktrees
+        .iter()
+        .enumerate()
+        .map(|(index, record)| (record.id.clone(), index))
+        .collect();
+    let used_records: Vec<(usize, Ordered<WorktreeRecord>)> = worktrees
+        .iter()
+        .enumerate()
+        .filter(|(_, record)| used.contains(&record.id))
+        .map(|(index, record)| (index, record.clone()))
+        .collect();
+    let mut lifted = migrate_worktree_records(sessions, worktrees, &mut random_uuid);
+    for (index, record) in used_records {
+        if lifted.worktrees.iter().any(|kept| kept.id == record.id) {
+            continue;
+        }
+        // Back in its place among the file's records (the migration appends the records it creates after them).
+        let at = lifted
+            .worktrees
+            .iter()
+            .take_while(|kept| original.get(&kept.id).is_some_and(|&before| before < index))
+            .count();
+        lifted.worktrees.insert(at, record);
+    }
+    // An unreadable worktree record is kept while unreadable sessions reference it. TS drops unreferenced records,
+    // and a readable session's reference to one has been rebuilt as a record by the migration.
+    let given = unreadable_worktrees.len();
+    let unreadable_worktrees: Vec<(usize, Value)> = unreadable_worktrees
+        .into_iter()
+        .filter(|(_, record)| {
+            record
+                .get("id")
+                .and_then(Value::as_str)
+                .is_some_and(|id| used.contains(id) && !lifted.worktrees.iter().any(|kept| kept.id == id))
+        })
+        .collect();
+    let dropped_unreadable = unreadable_worktrees.len() != given;
+    keep_unreadable(
+        state_path,
+        Unreadable {
+            sessions: unreadable_sessions,
+            worktrees: unreadable_worktrees,
+        },
+    );
     // Main-checkout sessions' old `M` markers become done markers (after the linked worktrees' moved to their records).
     let done = migrate_done_markers(lifted.sessions);
     Ok(ReadState {
@@ -304,7 +392,7 @@ pub async fn read_state() -> Result<ReadState> {
             sessions: done.sessions,
             worktrees: lifted.worktrees,
         },
-        migrated: lifted.changed || done.changed,
+        migrated: lifted.changed || done.changed || dropped_unreadable,
     })
 }
 
@@ -315,9 +403,84 @@ async fn write_state<T: Serialize + ?Sized>(state: &T) -> Result<()> {
     write_atomic(&paths::state_path(), text.as_bytes(), FILE_MODE).await
 }
 
-/// TS: storage.ts saveState (`JSON.stringify(state, null, 2)` plus a newline, atomically, 0600).
+/// One element of a written `sessions`/`worktrees` array: a record, or an entry kept as read.
+#[derive(Serialize)]
+#[serde(untagged)]
+enum Entry<'a, T: Serialize> {
+    Record(&'a Ordered<T>),
+    Kept(&'a Value),
+}
+
+/// state.json with the unreadable entries put back.
+#[derive(Serialize)]
+struct WithUnreadable<'a> {
+    sessions: Vec<Entry<'a, SessionRecord>>,
+    worktrees: Vec<Entry<'a, WorktreeRecord>>,
+}
+
+/// `records` with each kept entry back at its index in the file (records in file order give the file's order).
+fn in_file_order<'a, T: Serialize>(records: &'a [Ordered<T>], kept: &'a [(usize, Value)]) -> Vec<Entry<'a, T>> {
+    let mut entries: Vec<Entry<'a, T>> = records.iter().map(Entry::Record).collect();
+    for (index, value) in kept {
+        let at = (*index).min(entries.len());
+        entries.insert(at, Entry::Kept(value));
+    }
+    entries
+}
+
+/// A session's status and `createdAt`, for the sortSessionsNewestFirst comparator.
+fn order_key<'a>(entry: &Entry<'a, SessionRecord>) -> (&'a str, &'a str) {
+    match entry {
+        Entry::Record(session) => (session.status.as_str(), session.created_at.as_str()),
+        Entry::Kept(session) => (
+            session.get("status").and_then(Value::as_str).unwrap_or(""),
+            session.get("createdAt").and_then(Value::as_str).unwrap_or(""),
+        ),
+    }
+}
+
+/// `sessions` (newest first, as persist writes them) with each kept session inserted before the first one it sorts
+/// before.
+fn newest_first<'a>(
+    sessions: &'a [Ordered<SessionRecord>],
+    kept: &'a [(usize, Value)],
+) -> Vec<Entry<'a, SessionRecord>> {
+    let mut entries: Vec<Entry<'a, SessionRecord>> = sessions.iter().map(Entry::Record).collect();
+    for (_, value) in kept {
+        let entry = Entry::Kept(value);
+        let key = order_key(&entry);
+        let at = entries
+            .iter()
+            .position(|other| newest_first_order(key, order_key(other)) < 0)
+            .unwrap_or(entries.len());
+        entries.insert(at, entry);
+    }
+    entries
+}
+
+/// TS: storage.ts saveState (`JSON.stringify(state, null, 2)` plus a newline, atomically, 0600). The entries the
+/// last read could not load are written back (see [`Unreadable`]): sessions where the newest-first order puts them
+/// (the daemon's persist), worktree records at their place in the file.
 pub async fn save_state(state: &StateFile) -> Result<()> {
-    write_state(state).await
+    let unreadable = unreadable_for(&paths::state_path());
+    if unreadable == Unreadable::default() {
+        return write_state(state).await;
+    }
+    write_state(&WithUnreadable {
+        sessions: newest_first(&state.sessions, &unreadable.sessions),
+        worktrees: in_file_order(&state.worktrees, &unreadable.worktrees),
+    })
+    .await
+}
+
+/// [`save_state`] with every kept entry at its place in the file (markAllNonExitedSessionsExited keeps the file's
+/// order).
+async fn save_state_in_file_order(state: &StateFile, unreadable: &Unreadable) -> Result<()> {
+    write_state(&WithUnreadable {
+        sessions: in_file_order(&state.sessions, &unreadable.sessions),
+        worktrees: in_file_order(&state.worktrees, &unreadable.worktrees),
+    })
+    .await
 }
 
 /// Forgets the recorded key order of `key`'s value (TS replaced it with a fresh object literal).
@@ -408,10 +571,85 @@ pub async fn mark_all_non_exited_sessions_exited() -> Result<StateFile> {
         sessions,
         worktrees: state.worktrees,
     };
+    // The sessions this version cannot read are recovered the same way, on the entries as read.
+    let state_path = paths::state_path();
+    let mut unreadable = unreadable_for(&state_path);
+    for (_, session) in &mut unreadable.sessions {
+        changed |= interrupted_entry(session, &now);
+    }
+    keep_unreadable(state_path, unreadable.clone());
     if changed {
-        save_state(&recovered).await?;
+        save_state_in_file_order(&recovered, &unreadable).await?;
     }
     Ok(recovered)
+}
+
+/// JS truthiness of a JSON value.
+fn js_truthy(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Bool(value) => *value,
+        Value::Number(number) => number.as_f64().is_some_and(|number| number != 0.0 && !number.is_nan()),
+        Value::String(text) => !text.is_empty(),
+        Value::Array(_) | Value::Object(_) => true,
+    }
+}
+
+/// `${value}` of a JSON value (`None`: undefined).
+fn js_template(value: Option<&Value>) -> String {
+    match value {
+        None => "undefined".to_owned(),
+        Some(Value::String(text)) => text.clone(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .map(|item| match item {
+                Value::Null => String::new(),
+                item => js_template(Some(item)),
+            })
+            .collect::<Vec<_>>()
+            .join(","),
+        Some(Value::Object(_)) => "[object Object]".to_owned(),
+        Some(other) => other.to_string(),
+    }
+}
+
+/// markAllNonExitedSessionsExited on a session entry this version cannot read: `{...session, status, ...}` on the
+/// object as read (keys it has keep their place, new ones are appended). Returns whether it changed. Anything but an
+/// object is left as it is.
+fn interrupted_entry(entry: &mut Value, now: &str) -> bool {
+    let Value::Object(session) = entry else {
+        return false;
+    };
+    if session.get("status").and_then(Value::as_str) == Some("exited") {
+        if session.get("devRunning").is_some_and(js_truthy) {
+            session.insert("devRunning".into(), Value::Bool(false));
+            return true;
+        }
+        return false;
+    }
+    session.insert("status".into(), "exited".into());
+    session.insert("updatedAt".into(), now.into());
+    // `pid: undefined`: JSON.stringify leaves it out.
+    session.shift_remove("pid");
+    for key in ["exitCode", "exitSignal"] {
+        // `session[key] ?? null`.
+        let value = session.get(key).filter(|value| !value.is_null()).cloned();
+        session.insert(key.into(), value.unwrap_or(Value::Null));
+    }
+    session.insert("devRunning".into(), Value::Bool(false));
+    session.insert("exitReason".into(), "interrupted".into());
+    session.insert(
+        "attention".into(),
+        serde_json::json!({"state": "unknown", "event": "DaemonRestart", "at": now}),
+    );
+    if let Some(Value::Object(setup)) = session.get_mut("setup")
+        && setup.get("state").and_then(Value::as_str) == Some("running")
+    {
+        let output = format!("{}\nInterrupted by daemon restart", js_template(setup.get("output")));
+        setup.insert("state".into(), "failed".into());
+        setup.insert("output".into(), output.into());
+    }
+    true
 }
 
 /// The sortSessionsNewestFirst comparator on a session's status and `createdAt` (running first, else `localeCompare`;
@@ -1809,6 +2047,90 @@ pub(crate) mod tests {
         );
         assert_eq!(recovered.archived_at.as_deref(), Some("yesterday"));
         assert_eq!(recovered.notes.as_deref(), Some("keep"));
+    }
+
+    /// A state.json whose records this version cannot all read: an unknown program and status, a fractional pid, a
+    /// string exit code, a null title, an unknown merge mode; `w1` is referenced only by an unreadable session, `w3`
+    /// by no session.
+    const UNREADABLE_STATE: &str = r#"{"sessions": [
+        {"id": "s1", "title": "one", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r", "status": "exited", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z"},
+        {"id": "gem", "title": "g", "program": "gemini", "command": "gemini", "cwd": "/r", "repoRoot": "/r", "status": "running", "pid": 5, "devRunning": true, "attention": {"state": "needs-input", "event": "Notification", "at": "x", "future": 1}, "setup": {"command": "make", "state": "running", "output": "half"}, "createdAt": "2026-01-03T00:00:00.000Z", "updatedAt": "2026-01-03T00:00:00.000Z", "futureKey": [1]},
+        {"id": "frac", "title": "f", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r", "status": "running", "pid": 12.5, "createdAt": "2026-01-02T00:00:00.000Z", "updatedAt": "2026-01-02T00:00:00.000Z"},
+        {"id": "code", "title": "c", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r", "status": "exited", "exitCode": "1", "devRunning": true, "createdAt": "2026-01-04T00:00:00.000Z", "updatedAt": "2026-01-04T00:00:00.000Z"},
+        {"id": "paused", "title": "p", "program": "claude", "command": "claude", "cwd": "/r/wt", "repoRoot": "/r", "status": "paused", "exitCode": 0, "worktree": {"mode": "managed", "path": "/r/wt", "branch": "b", "id": "w1"}, "createdAt": "2026-01-05T00:00:00.000Z", "updatedAt": "2026-01-05T00:00:00.000Z"},
+        {"id": "nulltitle", "title": null, "program": "claude", "command": "claude", "cwd": "/r/wt2", "repoRoot": "/r", "status": "exited", "worktree": {"mode": "managed", "path": "/r/wt2", "branch": "c", "id": "w2"}, "createdAt": "2026-01-06T00:00:00.000Z", "updatedAt": "2026-01-06T00:00:00.000Z"}
+    ], "worktrees": [
+        {"id": "w1", "path": "/r/wt", "createdAt": "2026-01-05T00:00:00.000Z"},
+        {"id": "w2", "path": "/r/wt2", "createdAt": "2026-01-06T00:00:00.000Z", "mergeMode": "octopus"},
+        {"id": "w3", "path": "/r/wt3", "createdAt": "2026-01-06T00:00:00.000Z", "mergeMode": "octopus"}
+    ]}"#;
+
+    /// state.json, compact (key order kept).
+    fn stored_state(home: &Path) -> String {
+        let text = std::fs::read_to_string(home.join("state.json")).expect("state.json");
+        serde_json::to_string(&serde_json::from_str::<Value>(&text).expect("json")).expect("compact")
+    }
+
+    /// TS readState keeps every element of `sessions`/`worktrees` as it is: a record this version cannot read is
+    /// recovered and written back like any other (expected texts recorded from src/storage.ts
+    /// markAllNonExitedSessionsExited, then saveState of sortSessionsNewestFirst as InkDaemon.persist does), never
+    /// erased from state.json.
+    #[test]
+    fn unreadable_records_are_kept_through_recovery_and_saves() {
+        let home = temp_home();
+        let _home = Home::set(home.path());
+        let _determinism = Determinism::install();
+        std::fs::write(home.path().join("state.json"), UNREADABLE_STATE).unwrap();
+        let recovered = block_on(mark_all_non_exited_sessions_exited()).expect("recovered");
+        let ids: Vec<&str> = recovered.sessions.iter().map(|session| session.id.as_str()).collect();
+        assert_eq!(ids, ["s1"]);
+        assert_eq!(
+            stored_state(home.path()),
+            r#"{"sessions":[{"id":"s1","title":"one","program":"claude","command":"claude","cwd":"/r","repoRoot":"/r","status":"exited","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z"},{"id":"gem","title":"g","program":"gemini","command":"gemini","cwd":"/r","repoRoot":"/r","status":"exited","devRunning":false,"attention":{"state":"unknown","event":"DaemonRestart","at":"2026-01-01T00:00:00.000Z"},"setup":{"command":"make","state":"failed","output":"half\nInterrupted by daemon restart"},"createdAt":"2026-01-03T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","futureKey":[1],"exitCode":null,"exitSignal":null,"exitReason":"interrupted"},{"id":"frac","title":"f","program":"claude","command":"claude","cwd":"/r","repoRoot":"/r","status":"exited","createdAt":"2026-01-02T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","exitCode":null,"exitSignal":null,"devRunning":false,"exitReason":"interrupted","attention":{"state":"unknown","event":"DaemonRestart","at":"2026-01-01T00:00:00.000Z"}},{"id":"code","title":"c","program":"claude","command":"claude","cwd":"/r","repoRoot":"/r","status":"exited","exitCode":"1","devRunning":false,"createdAt":"2026-01-04T00:00:00.000Z","updatedAt":"2026-01-04T00:00:00.000Z"},{"id":"paused","title":"p","program":"claude","command":"claude","cwd":"/r/wt","repoRoot":"/r","status":"exited","exitCode":0,"worktree":{"mode":"managed","path":"/r/wt","branch":"b","id":"w1"},"createdAt":"2026-01-05T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","exitSignal":null,"devRunning":false,"exitReason":"interrupted","attention":{"state":"unknown","event":"DaemonRestart","at":"2026-01-01T00:00:00.000Z"}},{"id":"nulltitle","title":null,"program":"claude","command":"claude","cwd":"/r/wt2","repoRoot":"/r","status":"exited","worktree":{"mode":"managed","path":"/r/wt2","branch":"c","id":"w2"},"createdAt":"2026-01-06T00:00:00.000Z","updatedAt":"2026-01-06T00:00:00.000Z"}],"worktrees":[{"id":"w1","path":"/r/wt","createdAt":"2026-01-05T00:00:00.000Z"},{"id":"w2","path":"/r/wt2","createdAt":"2026-01-06T00:00:00.000Z","mergeMode":"octopus"}]}"#
+        );
+        // The daemon's persist (sessions newest first) writes them back too.
+        block_on(save_state(&StateFile {
+            sessions: sort_sessions_newest_first(&recovered.sessions),
+            worktrees: recovered.worktrees.clone(),
+        }))
+        .expect("saved");
+        let persisted = r#"{"sessions":[{"id":"s1","title":"one","program":"claude","command":"claude","cwd":"/r","repoRoot":"/r","status":"exited","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z"},{"id":"frac","title":"f","program":"claude","command":"claude","cwd":"/r","repoRoot":"/r","status":"exited","createdAt":"2026-01-02T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","exitCode":null,"exitSignal":null,"devRunning":false,"exitReason":"interrupted","attention":{"state":"unknown","event":"DaemonRestart","at":"2026-01-01T00:00:00.000Z"}},{"id":"gem","title":"g","program":"gemini","command":"gemini","cwd":"/r","repoRoot":"/r","status":"exited","devRunning":false,"attention":{"state":"unknown","event":"DaemonRestart","at":"2026-01-01T00:00:00.000Z"},"setup":{"command":"make","state":"failed","output":"half\nInterrupted by daemon restart"},"createdAt":"2026-01-03T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","futureKey":[1],"exitCode":null,"exitSignal":null,"exitReason":"interrupted"},{"id":"code","title":"c","program":"claude","command":"claude","cwd":"/r","repoRoot":"/r","status":"exited","exitCode":"1","devRunning":false,"createdAt":"2026-01-04T00:00:00.000Z","updatedAt":"2026-01-04T00:00:00.000Z"},{"id":"paused","title":"p","program":"claude","command":"claude","cwd":"/r/wt","repoRoot":"/r","status":"exited","exitCode":0,"worktree":{"mode":"managed","path":"/r/wt","branch":"b","id":"w1"},"createdAt":"2026-01-05T00:00:00.000Z","updatedAt":"2026-01-01T00:00:00.000Z","exitSignal":null,"devRunning":false,"exitReason":"interrupted","attention":{"state":"unknown","event":"DaemonRestart","at":"2026-01-01T00:00:00.000Z"}},{"id":"nulltitle","title":null,"program":"claude","command":"claude","cwd":"/r/wt2","repoRoot":"/r","status":"exited","worktree":{"mode":"managed","path":"/r/wt2","branch":"c","id":"w2"},"createdAt":"2026-01-06T00:00:00.000Z","updatedAt":"2026-01-06T00:00:00.000Z"}],"worktrees":[{"id":"w1","path":"/r/wt","createdAt":"2026-01-05T00:00:00.000Z"},{"id":"w2","path":"/r/wt2","createdAt":"2026-01-06T00:00:00.000Z","mergeMode":"octopus"}]}"#;
+        assert_eq!(stored_state(home.path()), persisted);
+        // A later daemon start reads them again (the recovery made two readable): nothing changes, nothing is lost.
+        let again = block_on(mark_all_non_exited_sessions_exited()).expect("recovered again");
+        let ids: Vec<&str> = again.sessions.iter().map(|session| session.id.as_str()).collect();
+        assert_eq!(ids, ["s1", "frac", "paused"]);
+        assert_eq!(stored_state(home.path()), persisted);
+        // A change to a readable session (archiving it) keeps the others.
+        let mut sessions = again.sessions.clone();
+        sessions[0].archived_at = Some("2026-01-07T00:00:00.000Z".into());
+        block_on(save_state(&StateFile {
+            sessions,
+            worktrees: again.worktrees,
+        }))
+        .expect("saved");
+        let stored: Value = serde_json::from_str(&stored_state(home.path())).unwrap();
+        let ids: Vec<&str> = stored["sessions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|session| session["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, ["s1", "frac", "gem", "code", "paused", "nulltitle"]);
+        assert_eq!(stored["sessions"][0]["archivedAt"], "2026-01-07T00:00:00.000Z");
+    }
+
+    /// A rewrite of an empty or missing state.json forgets what an earlier read kept.
+    #[test]
+    fn a_reset_state_forgets_unreadable_records() {
+        let home = temp_home();
+        let _home = Home::set(home.path());
+        std::fs::write(home.path().join("state.json"), UNREADABLE_STATE).unwrap();
+        block_on(load_state()).expect("loaded");
+        std::fs::write(home.path().join("state.json"), "  \n").unwrap();
+        let state = block_on(load_state()).expect("loaded");
+        block_on(save_state(&state)).expect("saved");
+        assert_eq!(stored_state(home.path()), r#"{"sessions":[],"worktrees":[]}"#);
     }
 
     // covers: B-I1-02 config is private, keeps unknown keys without writing absent defaults, and reads legacy single-fingerprint trust
