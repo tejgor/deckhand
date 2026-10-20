@@ -4,104 +4,103 @@ Continuity notes for future Deckhand development. Keep this file focused on impl
 
 ## Snapshot
 
-Deckhand is a standalone TypeScript/Ink app backed by a long-lived local Node daemon. It is inspired by `claude-squad`, but owns its own state, IPC protocol, worker model, and session lifecycle.
+Deckhand is a native Rust program: one binary, `deckhand`, backed by a long-lived local daemon (the same binary re-launched with `--daemon`). It is a port of the original TypeScript/Ink app, which was the behavioural oracle: error text, timing and persisted formats are unchanged, and a state directory written by the TypeScript version loads as is. It is inspired by `claude-squad`, but owns its own state, IPC protocol, worker model, and session lifecycle.
 
-Package/runtime facts:
+Package facts:
 
-- npm package: `@tejgor/deckhand`
-- binary: `deckhand`
-- supported Node: `>=20`
-- supported OS in package metadata: `darwin`, `linux`
-- package is ESM (`"type": "module"`)
-- build output lives in `dist/`; dev mode uses `tsx`
+- Cargo workspace (`crates/*`), edition 2024, Rust 1.88+, version in `[workspace.package]`; the binary crate is `crates/deckhand` (package `deckhand`, `publish = false`)
+- install: `cargo install --git https://github.com/tejgor/deckhand deckhand`, `cargo install --path crates/deckhand`, or a GitHub release archive (`.github/workflows/release.yml`, on `v*` tags: aarch64/x86_64 macOS and Linux, stripped, `SHA256SUMS`). No npm or crates.io publishing
+- supported OS: macOS and Linux (Unix PTYs, `setsid`, Unix sockets)
+- `[profile.release]`: thin LTO, one codegen unit, stripped
+- debug builds refuse `~/.deckhand` unless `DECKHAND_ALLOW_PROD_HOME=1` (`crates/deckhand/src/guard.rs`); use the dev launcher
 
 Implemented behavior:
 
-- Ink dashboard with sidebar plus Preview, Terminal, Git, Dev, and Notes tabs.
+- ratatui dashboard with sidebar plus Preview, Terminal, Git, Dev, and Notes tabs.
 - Local daemon IPC over `~/.deckhand/daemon.sock`.
 - One worker process per running session (the agent PTY), plus one workspace worker per worktree whose shared Terminal/Git/Dev panes (or an action) are in use; workers own the live PTYs.
 - Supported agents: `claude`, `pi`, `codex`.
 - Session create/restart/kill/remove flows, including resume/fresh restart where supported.
 - Sub-sessions under parent sessions, with clean and forked variants (Claude `--fork-session`, Pi `--fork`, `codex fork`).
 - Repo-scoped session list with persisted manual ordering among siblings and collapsible subtrees.
-- Worker-side terminal preview rendering with `@xterm/headless`.
+- Worker-side terminal preview rendering with a headless terminal emulator (`alacritty_terminal`).
 - Read-only Preview focus mode with scrollback; Claude gets synthetic wheel input because its TUI behaves differently.
-- External attach/detach for agent, terminal, git, dev, and action PTYs.
-- Worktree modes: no worktree, new managed worktree, existing/attached worktree.
-- Safe worktree deletion, optional branch deletion, and cleanup of leftover directories/remnants.
-- Worktree manager (`W`): every worktree of the repository (Git's list plus Deckhand records Git no longer lists) grouped by what to do with it (merged and safe to delete, merged with leftovers, in progress, idle, missing, main checkout), and deletion from there, one or the whole safe group, stopping the sessions still running in it first (see *Worktree manager*).
-- Merge/squash-merge of a session worktree into the Deckhand launch/current branch without committing: a preview (target, commits, diff stat, uncommitted files with a commit-first toggle, target checks), a two-key conflict view (keep / abort), and a merged marker (`✓`) per worktree, shared by every session in it, also set automatically when the branch was merged elsewhere (see *Merge behavior*).
-- A per-session done marker (Space, `☑`), independent of merged; `M` is worktree-only.
-- Terminal (shell) tab, shared by every session in the same workspace (worktree), started on first view and usable after the agents exit. It also shows the worktree's last action (`e`), which runs in a PTY of its own; `v` switches between the shell and the action (see *Actions*).
-- Git tab: a native **Changes** view of the workspace (VS Code-style groups, line counts, diff preview, stage/unstage, open in editor at the first change), polled by the daemon while watched; `o` attaches the workspace's shared `lazygit` (when installed) for everything else.
-- Dev tab, shared by every session in the same workspace (worktree) and independent of their agents, powered by `devCommand` from effective settings (global defaults, overlaid by a trusted repository `deckhand.json`; legacy `dev_command` fallback).
-- Two-layer configuration: global `defaults` in the user config plus one repository `deckhand.json` in the main checkout (worktree copies ignored) that applies only when trusted (its defaultAgent/defaultWorkspace preselect the picker regardless), with an inline content-fingerprint review shown only right before repository config would run (lists show everything, untrusted actions marked), one editable Settings grid (C: a Global and a This repo column, the cursor a cell) for both layers, self-edits that keep a trusted file trusted, archive/search/filter, handoffs, lifecycle hooks (on for Claude by default) and optional notifications, and conservative cleanup inspection. User-facing behaviour: `docs/no-brainers.md`.
-- `DECKHAND_HOME` state namespaces and an isolated dev launcher (`scripts/deckhand-dev.mjs`, `docs/dev-build.md`).
-- Notes tab: Markdown files per session plus one per worktree (and one for the main checkout) shared by its sessions, a cursor editor with checklists (`☐`/`☑`, Ctrl+X), autosave that never overwrites edits made in an editor, and live pickup of those edits (see *Notes*).
-- Tasks (`b`): one task list per repository (a Markdown file beside the notes), linked to the worktree or session doing each task; `n` on a task starts a session for it (with a chosen base branch), merging/marking done (Space) ticks it, work dropped unmerged returns it to the backlog; note checklist items are sent to it explicitly (Ctrl+P) and otherwise stay notes (see *Tasks*).
-- Preview-change-based active/idle detection for every agent, plus agent-hook signals (on for Claude unless `agent_hooks: false`; Codex with `agent_hooks: true` and its own hooks; none for Pi) that say what a session waits on.
-- Frozen last preview frame for exited sessions.
-- Stale-session cleanup after daemon restart.
-- Daemon PID/log files and protocol-version safeguards.
-- `deckhand setup` / `deckhand doctor` helper for checking/installing supported agents.
-- Agent versions and updates (U): installed vs latest (npm) per agent, the agent's own updater run by the daemon, the version each session launched with, and a dim `↑` on running sessions older than the installed agent. No restarts.
+- External attach/detach for agent, terminal, git, dev, and action PTYs (Ctrl+] or Ctrl+Space detaches).
+- Worktree modes: no worktree, new managed worktree, existing/attached worktree; safe deletion, optional branch deletion, cleanup of remnants.
+- Notes, tasks, the worktree manager, the Changes view, merge helpers, agent versions/updates, lifecycle hooks (`deckhand hook` / `deckhand hooks [codex]`), `deckhand setup` / `doctor`.
 
-## Architecture
+## Rust architecture
+
+### Crates and their roles
+
+| Crate | Role | Original TS modules |
+| --- | --- | --- |
+| `crates/protocol` (`deckhand-protocol`) | Wire and on-disk shapes shared by everyone: `data` (session/pane/worktree records), `wire` (client requests and responses), `events`, `worker_ipc` (daemon to worker messages, `Hello`), `ndjson` framing, `records` (persisted files), `order` (keeps JSON key order identical to TS), `PROTOCOL_VERSION = 46`. Serialisation is byte-compatible with the TS output | `types.ts`, message shapes in `daemon.ts`/`sessionWorker.ts`/`client.ts`, `storage.ts`, `uiState.ts` |
+| `crates/core` (`deckhand-core`) | Pure logic, no I/O: agents table and launch argv, agent signals/hook settings, settings and config-draft models, sidebar/session-order/scope models, notes, tasks and the tasks board, worktree records/links/models, merge and changes models, text editor, key decoding, help text, `jsstr` (UTF-16 string semantics), `DhError` | `agents.ts`, `agentSignals.ts`, `settingsModel.ts`, `sidebarModel.ts`, `notes.ts`, `tasks*.ts`, `worktree*.ts`, `mergeModel.ts`, `textEditor.ts`, `help.ts` |
+| `crates/sys` (`deckhand-sys`) | I/O and OS: paths and `DECKHAND_HOME`, atomic storage (temp + rename, 0600/0700), config files under a lock, Git and workspace Git, the Changes Git calls, notes store, UI state, Claude transcript lookup, agent PATH lookup and version check, desktop notifications, process helpers (`proc`: timeouts, `setsid`, `killpg`), `async_util` (`KeyedQueue`, `Coalescer`, `SharedSlot`, `Timer`) | `git.ts`, `storage.ts`, `config.ts`, `notesStore.ts`, `workspaceGit.ts`, `changesGit.ts`, `claudeTranscripts.ts`, `agentVersionCheck.ts` |
+| `crates/term` (`deckhand-term`) | PTYs (`pty`), UTF-8 stream handling, the headless emulator and its preview rendering (`headless`, `alacritty`, `preview`) | `terminalPreview.ts`, `nodePty.ts` |
+| `crates/worker` (`deckhand-worker`) | Session worker (agent PTY, preview, attach) and workspace worker (Terminal, lazygit, Dev, actions), plus the worker side of the fd-3 channel | `sessionWorker.ts`, `workspace.ts` (worker half) |
+| `crates/daemon` (`deckhand-daemon`) | The supervisor: socket server and request dispatch, session lifecycle, launches and agent integration args, hooks, worktrees, merge, notes/tasks, changes, config/trust, and the daemon side of the worker channel (`worker_channel`) | `daemon.ts` |
+| `crates/client` (`deckhand-client`) | Daemon client (autostart, ping, stale socket handling, protocol-mismatch refusal), live subscriptions, attach streaming and terminal state | `client.ts`, `attach.ts` |
+| `crates/ui` (`deckhand-ui`) | The ratatui app: state and effects (`app`), flows (create, merge, settings, notes, tasks, worktrees, agents, help), panes, keymap/input, theme | `app.tsx`, `*Flow.tsx`, `*Pane.tsx`, `ui.ts` |
+| `crates/deckhand` (`deckhand`) | The binary: argv dispatch (`cli`), the UI loop and attach/`$EDITOR` hand-off (`ui_loop`), `hook`, `hooks`, `setup`, `doctor`, the production-home `guard` | `cli.ts`, `setup.ts` |
+| `crates/parity` (`deckhand-parity`) | Test-only: replays fixtures recorded from the TS oracle | `parity/` |
+| `crates/e2e` (`deckhand-e2e`) | Test-only: drives the built binary with a real daemon, fake agents and the dev launcher | `tests/*.test.ts` |
+
+Dependency direction: `protocol` and `core` at the bottom, `sys` and `term` above them, then `worker`, `daemon`, `client`, `ui`, and the binary on top. `core` does no I/O: anything that touches the disk, Git or a process belongs in `sys`.
+
+`docs/port/CONVENTIONS.md` records the rules the port was written under (errors, strings, serde, tests); `parity/units/*.toml` maps every TS export to its Rust path. The sections further down still name the original TypeScript modules (`src/daemon.ts`, `src/agents.ts`, ...) because the behaviour notes were written against them: use the table above and `parity/units/*.toml` to find the Rust equivalent. After `src/` is deleted, the history before the switch-over holds the originals.
+
+### Runtime model
+
+- Every process (UI, daemon, session worker, workspace worker) runs one tokio `current_thread` runtime with a `LocalSet`. Shared state is `Rc<RefCell<..>>`; futures need not be `Send`. Never hold a `Ref`/`RefMut` across `.await` (`clippy::await_holding_refcell_ref` is denied): borrow, copy what you need, drop, then await.
+- The JS promise-chain idioms are `deckhand_sys::async_util`: `KeyedQueue` (serial per key, e.g. per file or workspace), `Coalescer` (run once more after the current run, for `persist()`), `SharedSlot` (all callers await one in-flight result), `Timer` (cancel on drop).
+- Child processes go through `deckhand_sys::proc` (timeout, own process group via `setsid`, `killpg` on timeout or drop).
+- No `unwrap`/`expect`/indexing panics on untrusted input (files, sockets, PTY output, git output, argv, env). `DhError` messages equal the TS `Error.message` verbatim because tests assert on them.
+- TS strings are UTF-16: lengths that users see or that are persisted use `deckhand_core::jsstr`; `localeCompare` is `jsstr::locale_compare`. Editor cursors are byte offsets on char boundaries.
+
+### Processes, workers and the fd-3 channel
+
+One executable, several roles chosen by argv (`crates/deckhand/src/cli.rs` `parse_args`, in this order): `status`/`stop` (dev channel only), `hook`, `hooks [codex]`, `--session-worker`, `--workspace-worker`, `--daemon`, `setup`, `doctor`, `--version`, otherwise the UI.
+
+- The client auto-starts the daemon by re-executing itself with `--daemon` (output appended to `daemon.log`).
+- The daemon starts each worker by re-executing the binary with `--session-worker` or `--workspace-worker` and handing it one end of a `socketpair` as **fd 3**. The TS version used Node's `fork` IPC channel; this replaces it.
+- The channel carries NDJSON (one JSON object per line, `deckhand_protocol::ndjson`). The worker's first message is `hello` with `{version: PROTOCOL_VERSION}`; a worker speaking another version is closed and its requests fail (the launch is reported failed). Requests are `{...payload, requestId}` (ID last), answered by a `response` with the same ID; every other message (`running`, `exit`, previews, output, ...) is an event delivered in order, followed by one exit event when the channel closes.
+- A worker's stdout/stderr go to `workers/<id>.log`; PIDs to `workers/<id>.pid`.
+- A worker crash exits only that session (or stops only that workspace's panes), not the daemon. Daemon crash/restart does **not** preserve live PTYs; persisted non-exited sessions are marked exited on next daemon start.
 
 ### Core model
 
 - Frontend is disposable UI/controller.
 - Daemon is the source of truth for persisted session metadata and live control routing.
 - Workers own PTY runtime: session workers for one session's agent, workspace workers for the companion panes (Terminal, Git, Dev) shared by every session in one worktree.
-- A worker crash exits only that session (or stops only that workspace's panes), not the daemon.
 - Frontend quit does not kill running sessions.
-- Daemon crash/restart does **not** preserve live PTYs; persisted non-exited sessions are marked exited on next daemon start.
 
-### Frontend (`src/app.tsx`, `src/cli.ts`)
+### Runtime lifecycle
 
-`src/cli.ts` chooses between UI, daemon, session-worker, and setup/doctor modes. Normal UI flow enters an alternate screen, renders `App`, exits Ink for attach mode, then re-enters Ink after detach while preserving in-process UI state such as selected session, selected tab, sidebar width, per-session tab selection, and collapsed/hidden sidebar state.
+Typical flow:
 
-`src/app.tsx`:
+1. The binary ensures Deckhand is running inside a git repository.
+2. The UI starts in the alternate screen.
+3. Client pings daemon.
+4. Daemon auto-starts if missing/stale.
+5. Daemon loads persisted state (lifting legacy per-session worktree markers into worktree records, and legacy `notes` into `notes/` files), reads every note file, starts watching the notes directories, and marks previously running sessions exited if this is a daemon restart.
+6. The UI subscribes to repo sessions.
+7. The UI watches preview/pane for selected session.
+8. User creates a session and chooses worktree mode.
+9. Daemon resolves final cwd/worktree.
+10. Daemon starts a worker.
+11. Worker spawns agent PTY and maintains preview state.
+12. Daemon broadcasts session/preview/pane updates.
+13. User can attach/detach without killing PTY.
+14. User can quit/reopen frontend while daemon keeps sessions alive.
+15. If a worker exits, only that session exits and last preview is frozen.
 
-- filters sessions to the current repo: the sidebar shows the checkout it was opened in (`sessionMatchesScope`), but the daemon sends every session of the same repository (`inClientScope`: same tasks key, from `repoKeys`, a sync cache filled by `learnRepoKey`; unresolvable checkouts such as deleted worktrees go to `repoKeyMisses` so broadcasts never spawn Git). The UI keeps them all in `repoSessions` and derives `sessions` for the sidebar; the Tasks board, its note items, the w menu, the task banner and the removal prompt use `repoSessions`. Before, each UI (main checkout, a linked worktree) saw only its checkout's sessions, so the shared board showed a different slice in each (the user noticed in the note list); `o`/Enter on another checkout's session says which Deckhand shows it.
-- subscribes to daemon updates
-- watches preview/pane updates for the selected session
-- owns create, merge, kill, restart, remove, attach, editor-open, Notes, and Dev-command actions
-- reconnects if the daemon connection drops
-- uses pane replacements for create/worktree picker/kill/merge/help rather than true overlays/modals
+### Subsystem notes (carried over from the TS handoff)
 
-### Daemon (`src/daemon.ts`)
+Behaviour of the shared subsystems; module names are the original TypeScript ones (see the crate table).
 
-Responsibilities:
-
-- load/save persisted session metadata
-- own the IPC socket
-- start/stop session workers and workspace workers
-- route attach/input/resize/snapshot requests to workers
-- receive worker snapshots, output, and lifecycle messages
-- broadcast session, preview, terminal, git, dev, action, and changes events
-- read Git status/diffs and stage/unstage for the Git tab's Changes view (`src/changesGit.ts`), polling watched workspaces
-- manage worktree creation/deletion/merge safety and the per-worktree merge/deleted records
-- own the notes files (`notes/`): load, migrate, project into sessions, revision-checked saves, watch for outside edits
-- own each repository's task list (`notes/tasks/`): apply task ops, link tasks to the work started from them, tick/reopen/return them as that work is merged, done or dropped
-- manage daemon PID, socket lifecycle, and logging
-
-The daemon owns no PTYs. The agent PTY lives in the session worker; Terminal, Git (lazygit) and Dev live in the session's workspace worker, which does not depend on the session's worker, so they work the same for starting (once the worktree is prepared, e.g. during setup), running and exited sessions. A session whose worktree is still being prepared has no workspace, and its Terminal/Git/Dev panes say *unavailable: its worktree is not ready yet* until it has one.
-
-### Workers (`src/sessionWorker.ts`)
-
-Each session worker (`--session-worker`) owns the agent PTY of one session and its `@xterm/headless` preview model; it refuses pane commands for any other target. Workers spawn agents with persisted `session.args`, not just the bare command, so restarts can resume supported agents.
-
-Each workspace worker (`--workspace-worker`, `WorkspaceWorker`) owns the companion panes of one workspace in a `PaneHost` (same file): PTY spawn in the workspace root, previews, throttled `<pane>-updated` records, attach/input/resize, and stop (`PaneHost.stop`: SIGHUP to the PTY's process group, then after a grace period SIGKILL to it and to every descendant snapshotted before the signal that is still alive (`processTree.ts`, PID plus start time), which catches jobs an interactive shell moved to their own process group; the stop waits out the grace period while any survive, so a worker exiting right after `stopAll` still kills them). It hosts `WORKSPACE_PANES` (Terminal, Git, Dev, and `action`, which has no tab of its own):
-
-- Terminal: `$SHELL` (no args). Git: `lazygit`, resolved per spawn with `$SHELL -ic 'command -v lazygit'` (if missing, the watch/attach fails with *lazygit is not installed or not on PATH*). Both spawn lazily on the first `snapshot`/`attach`; a shell or lazygit that exited is respawned by the next snapshot or attach (restart on view: switching tabs, a resize or a lifecycle change re-watches). The UI does not send `watch-git` (the Git tab shows the daemon's Changes view), so in practice lazygit starts on the first `attach-git` (`o` on the Git tab); `watch-git`/`git-updated` remain in the protocol (the daemon test uses them).
-- Dev: only `start-dev` spawns it; snapshots never restart it, so its output and exit code stay visible.
-- Action: only `start-action` spawns it (`PaneHost.startAction`, `$SHELL -ic <command>`, the action's name kept on the runtime); it refuses while the previous action is live or starting, and otherwise replaces a finished one. Snapshots never restart it.
-- `idle` (no pane runtime, live or exited, and none starting) is reported after `stop-dev`/`stop-action` and on the `idle` command; once `shutdown` arrives, the worker refuses every other command (nothing may start in a worktree about to be removed).
-
-Worker stdout/stderr are appended to per-worker files under `~/.deckhand/workers/`.
-
-### Workspaces and workspace workers (`src/workspace.ts`)
+#### Workspaces and workspace workers (`src/workspace.ts`)
 
 A **workspace** is the git worktree a session runs in. It is derived, never persisted: `workspaceKey(session)` is the resolved worktree path for managed/attached sessions (including a session attached to the main checkout), otherwise the launch checkout root (`launchWorktreeRoot`, falling back to `cwd` for old records). It is undefined, so the session has no workspace and no Terminal/Git/Dev, when the worktree was deleted (`worktree.deletedAt`, projected from the worktree record onto every session of it — see the next section — so no session of a deleted worktree shares a workspace with a new worktree later created at the same path) or while a requested new/existing worktree is not prepared yet (it would otherwise resolve to the launch checkout). The daemon also treats sessions in `preparingSessions` as having none, until `launchWorktreeRoot` is resolved by Git; it reports that as a pane record for the session without `workspace`, which `workspacePaneUnavailable` (UI) turns into the *not ready yet* message. Keys are lexical; every input path comes from Git (`rev-parse --show-toplevel`, `worktree list`), so they agree.
 
@@ -119,7 +118,7 @@ Semantics (`InkDaemon` `requireWorkspace`/`openWorkspace`/`watchWorkspacePane`/`
 
 Adding another workspace pane: a PTY pane is a `PaneTarget` in `WORKSPACE_PANES` (worker) plus `WorkspacePane`/`WorkspaceEvent`/`paneUpdatedMessage` and the request cases in the daemon. A non-PTY workspace view does not need the worker: compute it in the daemon from the workspace key (like `workspace-summary`, `src/workspaceGit.ts`) or, if it must push updates, keep a per-workspace watcher and fan out like `publishWorkspacePane` — the Git tab's Changes view (below) is that pattern.
 
-### Worktree records: shared merge/deleted markers (`src/worktreeRecords.ts`)
+#### Worktree records: shared merge/deleted markers (`src/worktreeRecords.ts`)
 
 Merge and deletion markers describe a worktree, not a session, so every session in a linked worktree shares them. State: one `WorktreeRecord` per worktree **incarnation** (`{id, path, createdAt}` plus the markers `mergedAt`/`mergeMode`/`mergeTargetBranch`/`mergeSourceRef`/`mergeSourceSha`/`mergeMarkedManually`/`mergeDetected`/`deletedAt`, and two unprojected fields `baseSha`/`mergeDismissedTip`), persisted in `state.json` `worktrees`; sessions store only its ID as `worktree.id`.
 
@@ -136,7 +135,7 @@ Merge and deletion markers describe a worktree, not a session, so every session 
 - **Migration** (`migrateWorktreeRecords`, run by `loadState`; `markAllNonExitedSessionsExited` writes a migrated state back at daemon start): sessions without `worktree.id` are grouped by worktree root (their own linked worktree; for mode `none`, the launch root when some session owns a linked worktree there). Each recorded `deletedAt` ends one incarnation: the session that deleted it belongs to it, any other session to the first deletion at or after its last launch (`agentStartedAt`, else `createdAt`), and the rest to the live incarnation (joining an existing live record at that path). Each incarnation takes the most recent merge marker of its sessions (a mode-`none` sub-session's top-level `M` marker included, then removed from the session). It also repairs stored state: stray markers on sessions with an ID are dropped, a missing referenced record is rebuilt from the session. Idempotent; unit-tested (`tests/worktreeRecords.test.ts`).
 - **Done migration** (`migrateDoneMarkers`, run by `loadState` right after `migrateWorktreeRecords`, written back at daemon start the same way): before `D`, `M` doubled as "done" in the main checkout. Every session without a worktree record that still has its own merge marker (top-level `mergedAt`/`mergeTargetBranch`/`mergeSourceRef`/`mergeMarkedManually`, or the merge markers under `worktree` of a main-worktree attach) gets `doneAt = mergedAt` (an existing `doneAt` wins) and loses those fields. Worktree records and sessions with a record are untouched. Idempotent; unit-tested beside the record migration (nine production-like `mergeMarkedManually` main-checkout sessions through `loadState` and the daemon-start write-back).
 
-### Worktree manager (`src/worktreesModel.ts`, `src/worktreesFlow.tsx`; daemon `worktreeOverview`/`inspectWorktree`/`deleteWorktree`)
+#### Worktree manager (`src/worktreesModel.ts`, `src/worktreesFlow.tsx`; daemon `worktreeOverview`/`inspectWorktree`/`deleteWorktree`)
 
 Asked for because nothing showed all worktrees and which were merged, and deleting one meant `x` on a running session of it (exited sessions' worktrees could not be deleted from Deckhand at all; worktrees made with `git worktree add` were invisible). The user wanted deletion to stop the worktree's sessions itself rather than having to stop each first.
 
@@ -146,7 +145,7 @@ Asked for because nothing showed all worktrees and which were merged, and deleti
 - **Deletion** (`delete-worktree`): check (data reasons need `allowDataLoss`); refused while sessions run unless `stopSessions`; adds the path to `cleanupWorktrees` (new panes refused, merge detection skips it); stops each running session (`stopForDeletion`: `killSession` without delete, then waits up to 10 s for `exited`); checks again if it stopped any (they may have written files); `stopChangesWatch` + `retireWorkspace`; `removeWorktree`; `deleteLocalBranch` when asked. A `prunable` one runs `git worktree prune` (every stale entry of the repository; the branch stays); an `unlisted` one only has its record marked. Then `saveWorktreeRecord({deletedAt})` (tasks: abandoned unmerged work goes back to the backlog as with kill-with-delete) and every exited session of it is archived (`stopped`/`archived` counts in the result). The kill-with-delete path in `handleWorkerSessionExit` is unchanged and does not archive.
 - **UI** (`useWorktreesFlow`, mode `worktrees`, `W` in browse): rows like the Tasks board (headings, `› glyph name … tags`, details below: state, path, sessions with their status glyphs, what deletion would lose). The ready heading is selectable: `x` there deletes `bulkTargets` (ready, not `inUse`, not locked) sequentially, branches too unless protected, stopping sessions, after one confirmation listing them; failures are collected into one error. `x` on a row asks (`ConfirmPane`): options keep-branch / with-branch (with-branch first for merged work), labels prefixed *Stop N sessions,* when some run; both inspections are requested when it opens; a data reason opens the typed-DELETE override. `enter`/`o` selects its lead session (`leadSession`, via the same `goToSession` the Tasks board uses), `M` toggles the record's marker through one of its sessions, `E` opens the path, `R` reloads.
 
-### Notes (`src/notes.ts`, `src/notesStore.ts`, `src/notesFlow.tsx`, `src/notesPane.tsx`)
+#### Notes (`src/notes.ts`, `src/notesStore.ts`, `src/notesFlow.tsx`, `src/notesPane.tsx`)
 
 One note per place you work, plain Markdown files under `notes/` in the state directory, the single source of truth. A session in a worktree has one note, the worktree's (`showsOwnNote` false); a main-checkout session has its own and the repository's. Decided with the user after their data showed 8 session notes and 0 worktree notes, and a removed parent session took a worktree's to-dos with it while its ~14 sub-sessions lived on: a worktree's notes belong to the worktree, not to its most short-lived session; main-checkout sessions are separate jobs, so they keep their own.
 
@@ -162,7 +161,7 @@ One note per place you work, plain Markdown files under `notes/` in the state di
 - **Editor** (`src/textEditor.ts`, shared with the JSON editor): `editText` gained word jumps (Alt/Ctrl+←→, Alt+B/F), word deletion (Alt+Backspace via `normalizeTerminalKey`'s ESC DEL, Ctrl+Backspace, Ctrl+W, Alt+Delete) and, through `EditOptions`, a character limit, Ctrl+A/Ctrl+E as line start/end instead of select-all, Tab left to the caller, and Up/Down/PageUp/PageDown by soft-wrapped rows (`wrapRows`: word wrap at the last fitting space, mid-word otherwise, one column per code point; `moveVisual`, `wrappedEditorLines`, `scrollTopFor`). Checklists (`src/notes.ts`): `- [ ]`/`* [x]`/`+ [X]`, indented or not (`parseChecklistLine`); Ctrl+X `toggleChecklist` (adds `- [ ] `, or `[ ] ` after a plain bullet), Ctrl+T `insertChecklistItem` (not Ctrl+N: editors commonly bind it in their integrated terminal, e.g. new terminal), Enter `continueChecklist` (an empty item ends the list).
 - **Layout** (`notesLayout`, pure): the shared section (header `Worktree · <branch | main checkout> (shared by N sessions)` with `☐ N open`/`☑ N done`, then `deleted, read-only`/`too large` flags), a rule, `This session · <title>`. `budgetSections` gives each body its need when both fit (the session section the rest), else at least 3 rows each and the rest in proportion to what is missing, the focused section's share counting double; tiny panes favour the focused one. An empty section not being edited is one muted line (`No worktree notes · tab to add`). Read mode renders `☐`/`☑` items (checked muted, hanging indent) and bold headings, cut with a muted `+N more lines`; the edited section shows the raw text with an inverse cursor, scrolled to keep it visible. Sidebar details add `☐ 3 open (2 worktree)` (`openChecklistText`; shortened to `(2 wt)`, then without the split) as the first line to go.
 
-### Tasks (`src/tasks.ts`, `src/tasksBoard.ts`, `src/tasksFlow.tsx`)
+#### Tasks (`src/tasks.ts`, `src/tasksBoard.ts`, `src/tasksFlow.tsx`)
 
 One task list per repository, beside the notes and deliberately separate from them: notes stay free-form scratch space (their checklists included) and only become tasks when the user sends an item (Ctrl+P in notes focus, `p` in the board's note list, `m` when removing a session whose notes have open items). A single combined "every checklist is a task" model was rejected so that lightweight notes keep working as they did.
 
@@ -183,7 +182,7 @@ One task list per repository, beside the notes and deliberately separate from th
   - `↗` lines (`taskLinkLookup`, `taskLinkSuffix`, `noteReadRows(…, links)`, `noteLine(…, links)`): `· in Tasks`, `· done`, `· not in Tasks` from the task list (nothing claimed before it loads).
   - Tests: `tests/noteSteps.test.ts` (pure), `tests/noteItemsDaemon.test.ts` (A, merge, W deletion with and without, x with deletion), `tests/stepsUi.test.ts` (steps on the board, Space, banner, A, `· done`), W's confirmation line in `tests/worktreesUi.test.ts`; the one-task model and its migration in `tests/tasks.test.ts`, `tests/tasksDaemon.test.ts` and the end of `tests/noteItemsDaemon.test.ts` (a restarted daemon over a legacy file). Protocol v45.
 
-### Git tab: the Changes view (`src/changesModel.ts`, `src/changesGit.ts`, `src/changesFlow.tsx`, `src/changesPane.tsx`)
+#### Git tab: the Changes view (`src/changesModel.ts`, `src/changesGit.ts`, `src/changesFlow.tsx`, `src/changesPane.tsx`)
 
 The Git tab shows the workspace's changes like VS Code's Source Control panel; lazygit is only attached (`o`). No worker or PTY: the daemon runs Git in the workspace root.
 
@@ -191,6 +190,7 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
 - **Git I/O** (`changesGit.ts`): `readChanges` = `git --no-optional-locks status --porcelain=v2 -z --branch --untracked-files=all` + `diff --cached --numstat -z -M` + `diff --numstat -z` in parallel; untracked line counts from the files themselves (lstat, regular files ≤ 1 MB, first 500, NUL sniff for binary, cached by size+mtime per workspace). Throws *Worktree directory is missing* for a gone directory. `readChangeDiff`: bounded spawn (256 KB, then cut at the last newline; 8 s timeout): staged → `diff --cached -M -- <orig> <path>`, unstaged/conflicts → `diff -- <path>` (combined for conflicts), untracked → file read (symlink: its target; directory: nothing; binary sniff), all with `--literal-pathspecs --no-color --no-ext-diff`. `applyStage(cwd, snapshot, mode, target?)` validates against a fresh snapshot (a target must be listed on the matching side, else *not among the staged/unstaged changes*), then: stage = `git --literal-pathspecs add -A --pathspec-from-file=- --pathspec-file-nul` (paths NUL-separated on stdin; deletions and conflict resolution included); unstage = `restore --staged` the same way (both paths of a rename), or `rm --cached -r -q --ignore-unmatch` without HEAD; stage all = `git add -A`, except with conflicts present: the unstaged/untracked paths only (`skippedConflicts` reported; mirrors VS Code's confirm-before-staging-conflicts); unstage all = every staged path (never `git reset`, which would also drop MERGE_HEAD). Pathspec-from-file needs Git ≥ 2.26.
 - **Daemon** (`changeWatches: Map<key, ChangesWatch>`): `watch-changes` stores `watchedChangesSessionId` on the client, `syncChangeWatches` polls exactly the workspaces some client watches (interval `CHANGES_POLL_MS` 2 s, unref'd, skipped while a read is queued or running) and forgets the rest; it runs on watch, client disconnect, `saveSession` (sessions joining/leaving a workspace) and session removal. Every Git run of a workspace (status, diff, stage) goes through its `queue` (no overlap); `refreshChanges` shares a read that is queued but not started, stores `last`, and `publishChanges` sends `changes-updated` (stamped with each watcher's session ID and `workspace`) to every client watching any session of the workspace, only when the record's JSON changed. A failed read (cleanup in progress, directory gone, not a repo) becomes a record with `error`. `changes-diff` reuses a status read younger than 2.5 s to validate (group, path). `change-stage` re-reads status inside the exclusive section, applies, refreshes (pushing to every watcher) and responds `{changed, skippedConflicts, changes}`. Kill-with-delete stops the workspace's watch before removing the worktree; daemon cleanup stops all. Errors for sessions without a workspace use the Git pane label (*Git is unavailable: …*); the watch itself answers like the other panes (no `workspace` → `workspacePaneUnavailable`).
 - **UI**: `app.tsx` owns the record (`watch-changes` while the Git tab is shown, `watch-changes` without a session when leaving it, `changes-updated` filtered by the selected session) and mode `changes-focus`; `changesFlow.tsx` owns selection, the debounced (60 ms) diff fetch (refetched when the record changes) and the focus keys; `changesPane.tsx` renders: a header (workspace path · branch, counts), the list (browse: from the top with "↓ N more"; focus: windowed around the selection with its group header), and in focus the diff (side by side from 100 columns of pane width, else stacked under the list). `o` on the Git tab is ready once the Changes record confirms the workspace (lazygit starts on attach). Enter/e: `openInEditor(file, onError, line)` (`src/desktop.ts`: `-g <abs>:<line>` for the cursor/code CLIs; the macOS `open -a` fallback ignores the line); a file missing on disk (deleted) gets a status message instead.
+
 
 ## Design rules
 
@@ -213,6 +213,7 @@ The Git tab shows the workspace's changes like VS Code's Source Control panel; l
   - Terminal/Dev/action size their shared workspace PTYs to the pane viewport of the last viewer (last watch/resize wins); lazygit is sized by its attach.
   - Attach mode sizes the active PTY to the full terminal.
   - Returning from attach reapplies pane sizing.
+
 
 ## UI behavior and controls
 
@@ -292,6 +293,7 @@ Exited sessions show only the frozen `lastPreview` frame.
 - Attach cleanup resets scroll regions, mouse/focus tracking, bracketed paste, alternate-screen state, enhanced-keyboard modes, and other child-owned terminal modes.
 - Attach mode mirrors bracketed-paste state across the PTY boundary: agent attaches enable bracketed paste on the outer terminal, while Terminal/Git/Dev attaches enable it only when the workspace worker observed the child PTY request `?2004h` (`terminalModes` in the attach response, passed through by `attachWorkspacePane`). This prevents multi-line paste from being delivered as separate Enter presses without forcing paste markers into arbitrary programs.
 - A Terminal/Git/Dev attach ends only on detach or `<pane>-detached` (workspace retired); the agent exiting does not end it. A shell or lazygit that exits while attached does not detach automatically (unchanged; press the detach key).
+
 
 ## Worktree behavior
 
@@ -379,6 +381,7 @@ Git in `src/git.ts` (`mergeWorktreeIntoCurrent`, `operationInProgress`, `commitW
 - `M` (`mark-session-merged`) toggles the worktree's marker after external/manual resolution; it records no `mergeSourceSha` (deletion safety is not relaxed by an unverified claim). Main-checkout sessions: refused (*Use Space to mark it done*)
 - Space (`set-session-done`): `doneAt` per session, kept when set again; independent of merge markers
 
+
 ## Agent identity, forks, and restarts
 
 Claude and Pi get an exact native conversation ID (a UUID Deckhand generates) at launch, stored as an `id` ref, so resume never depends on name lookup or Pi's private file layout. The display label is `dh-{sanitized-title}-{short-id}`. Sessions persisted before this keep their `name` (Claude) or `path` (Pi) refs and resume exactly as before.
@@ -453,6 +456,7 @@ Cross-directory forks (why Codex forks stay in the parent's worktree):
 - resume uses `codex resume <id>`; an unknown ID refuses resume (use `S`) rather than guessing `--last`
 - forked sub-session: `codex fork <parent id>` in the parent's worktree; the child's ID is captured the same way (never the parent's); without one, `s` forks the parent again
 
+
 ## Persistence, socket, PID, and logs
 
 Deckhand writes under `~/.deckhand`:
@@ -472,7 +476,7 @@ Deckhand writes under `~/.deckhand`:
 
 Pi session files are intentionally under Pi's own `~/.pi/agent/sessions/` tree, not under `~/.deckhand`.
 
-`DECKHAND_HOME` replaces `~/.deckhand` for every path above. `scripts/deckhand-dev.mjs` uses it to run a dev-channel daemon (`DECKHAND_CHANNEL=dev`) in `~/.deckhand-dev` (or `DECKHAND_DEV_HOME`); only that channel accepts the `shutdown` request used by `npm stop`.
+`DECKHAND_HOME` replaces `~/.deckhand` for every path above. `scripts/deckhand-dev.sh` uses it to run a dev-channel daemon (`DECKHAND_CHANNEL=dev`) in `~/.deckhand-dev` (or `DECKHAND_DEV_HOME`); only that channel accepts the `shutdown` request used by `scripts/deckhand-dev.sh stop`.
 
 Config currently includes:
 
@@ -485,7 +489,7 @@ Config currently includes:
 Protocol:
 
 - line-delimited JSON
-- current protocol version: **v43** (v43: `agent-hook` `sentAt`; `SessionRecord.attention.reason` (in memory, never persisted); v42: the worktree manager: `worktree-overview`, `inspect-worktree`, `delete-worktree`; v41: tasks: `watch-tasks`, `task-op`, `open-tasks`, `promote-note-item`, `list-branches`, `tasks-updated` (`TasksDoc`, `BranchList`); `remove` `moveOpenItems`; `CreateSessionInput.baseBranch`/`taskId`; `SessionRecord.startPrompt`; v40: actions get their own workspace pane: `watch-action`, `stop-action`, `attach-action`/`action-input`/`action-resize`/`action-detach`, `action-updated`, `action-output`, `action-attached`/`action-detached`, `ActionRecord`; `run-action` returns an `ActionRecord` and no longer uses Dev; v39: `merge-preview` (`MergePreview`), `merge-worktree` `commitFirst`, `resolve-merge` (`keep`/`abort`), `set-session-done`; `WorktreeMergeResult.sourceSha`/`conflicts`/`conflictCount`/`committed`; `SessionRecord.doneAt`; `SessionWorktreeRecord.mergeSourceSha`/`mergeDetected`; `WorkspaceSummary.pr.headSha`/`baseBranch`; v38: notes in files: `save-note` (revision-checked, `{saved, session}`) and `open-note` replace `update-session-notes`; `SessionRecord.notesFile` and `sharedNotes` are projected beside `notes`; v37: `agent-versions`, `update-agent`, `agent-versions-updated`, `SessionRecord.agentVersion`; v36: Terminal, Git and Dev are shared per workspace; `TerminalRecord`/`GitRecord`/`DevRecord.workspace`; the Git tab's Changes view: `watch-changes`, `changes-diff`, `change-stage`, `changes-updated`; `SessionWorktreeRecord.id`, with merge/deleted markers shared per worktree) (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
+- current protocol version: **v46** (`PROTOCOL_VERSION` in `crates/protocol/src/lib.rs`, also sent by every worker in its `Hello`; earlier bumps follow, v44 to v46 are the port's own, see the history of `crates/protocol`) (v43: `agent-hook` `sentAt`; `SessionRecord.attention.reason` (in memory, never persisted); v42: the worktree manager: `worktree-overview`, `inspect-worktree`, `delete-worktree`; v41: tasks: `watch-tasks`, `task-op`, `open-tasks`, `promote-note-item`, `list-branches`, `tasks-updated` (`TasksDoc`, `BranchList`); `remove` `moveOpenItems`; `CreateSessionInput.baseBranch`/`taskId`; `SessionRecord.startPrompt`; v40: actions get their own workspace pane: `watch-action`, `stop-action`, `attach-action`/`action-input`/`action-resize`/`action-detach`, `action-updated`, `action-output`, `action-attached`/`action-detached`, `ActionRecord`; `run-action` returns an `ActionRecord` and no longer uses Dev; v39: `merge-preview` (`MergePreview`), `merge-worktree` `commitFirst`, `resolve-merge` (`keep`/`abort`), `set-session-done`; `WorktreeMergeResult.sourceSha`/`conflicts`/`conflictCount`/`committed`; `SessionRecord.doneAt`; `SessionWorktreeRecord.mergeSourceSha`/`mergeDetected`; `WorkspaceSummary.pr.headSha`/`baseBranch`; v38: notes in files: `save-note` (revision-checked, `{saved, session}`) and `open-note` replace `update-session-notes`; `SessionRecord.notesFile` and `sharedNotes` are projected beside `notes`; v37: `agent-versions`, `update-agent`, `agent-versions-updated`, `SessionRecord.agentVersion`; v36: Terminal, Git and Dev are shared per workspace; `TerminalRecord`/`GitRecord`/`DevRecord.workspace`; the Git tab's Changes view: `watch-changes`, `changes-diff`, `change-stage`, `changes-updated`; `SessionWorktreeRecord.id`, with merge/deleted markers shared per worktree) (`PROTOCOL_VERSION` in `src/types.ts`; bump it on any request/response shape change)
 
 If an older live daemon has a protocol mismatch, Deckhand refuses to auto-replace it. Stop it manually:
 
@@ -568,293 +572,30 @@ Event types:
 - `dev-attached`, `dev-detached`
 - `action-attached`, `action-detached`
 
-## File map
 
-- `package.json` — package scripts, dependency, bin, engine, OS, and publish metadata.
-- `tsconfig.json` — TypeScript config.
-- `README.md` — user-facing overview.
-- `HANDOFF.md` — this continuity document.
-- `src/cli.ts` — entry point; runs UI, daemon, session worker, setup/doctor; loops around attach/detach.
-- `src/setup.ts` — setup/doctor tool detection and optional agent install prompts.
-- `src/app.tsx` — main Ink UI and interaction state.
-- `src/client.ts` — daemon client, autostart, protocol version checks, persistent live client.
-- `src/daemon.ts` — supervisor daemon and IPC handling.
-- `src/sessionWorker.ts` — PTY owners: per-session worker (agent only) and per-workspace worker (Terminal, Git, Dev in a `PaneHost`).
-- `src/workspace.ts` — `workspaceKey` (which worktree a session runs in; unit-tested), `noWorkspaceReason`, `workspacePaneUnavailable` (UI gating of the workspace panes), `workspaceWorkerId`.
-- `src/worktreesModel.ts` — W's groups, merge labels, row tags and bulk targets (pure, unit-tested). `src/worktreesFlow.tsx` — W's keys, confirmation and rendering.
-- `src/worktreeRecords.ts` — per-worktree merge/deleted records: scope (`ownWorktreePath`), `liveWorktreeRecord`, projection into sessions (`projectWorktree`/`storedSession`) and the legacy-state migration (`migrateWorktreeRecords`; unit-tested).
-- `src/sessionOrder.ts` — sidebar hierarchy sorting, depth, child detection, and collapse filtering.
-- `src/attach.ts` — external attach/detach mode.
-- `src/storage.ts` — state/config loading and persistence (`loadState` migrates legacy worktree markers).
-- `src/git.ts` — git repo, worktree, deletion, branch, and merge helpers (merge with commit-first, target operation checks, conflict listing and abort, branch creation/own-commit reflog reads).
-- `src/mergeModel.ts` — the merge confirmation and conflict view as pure data (`mergeConfirmLayout` with its height budget, `mergeOptions`, `surprisingTarget`, `overlappingFiles`, `conflictView`; unit-tested in `tests/mergeModel.test.ts`).
-- `src/paths.ts` — config/socket/PID/log/runtime path helpers.
-- `src/types.ts` — shared session/protocol/UI types.
-- `src/nodePty.ts` — macOS `node-pty` helper repair logic.
-- `src/terminalState.ts` — terminal escape reset helpers used before/after UI and attach transitions.
-- `src/sidebarModel.ts` — the sidebar as pure data (unit-tested): rows (prefix/suffix layout and truncation, `▶` once per workspace, shared-workspace marker, archived dimming, the done marker and done rows), header text, the selected session's details block (`statusWords`, `statusSince`, `formatAge`, `locationText`). `src/sidebar.tsx` — its rendering.
-- `src/preview.tsx` — Preview pane rendering.
-- `src/terminalPane.tsx`, `src/devPane.tsx` — rendering of the workspace's shared Terminal (shell or last action, `TerminalView`) and Dev panes (unavailable/exited messages).
-- `src/changesModel.ts` — the Git tab's Changes view as pure data (groups, rows, selection, first changed line, diff classification; unit-tested). `src/changesGit.ts` — its Git I/O (status + numstat read, bounded diff, validated stage/unstage). `src/changesFlow.tsx` — selection, diff fetch and focus keys. `src/changesPane.tsx` — rendering (list, diff, layout).
-- `src/notes.ts` — notes as pure data (unit-tested): limits, revisions, shared-note identity (`sharedNoteIdentity`, `repoNoteId`), checklist parsing/toggling/insertion/continuation and counts, read-mode rows (`noteReadRows`, `fitReadRows`), the two-section height budget (`budgetSections`), header/sidebar texts (`checklistLabel`, `openChecklistText`). `src/notesStore.ts` — the daemon's note files (load, legacy migration, revision-checked atomic saves, `ensureFile`, removal, directory watchers). `src/notesFlow.tsx` — the Notes tab's drafts, debounced saves, conflict reloads and notes-focus keys. `src/notesPane.tsx` — its layout (`notesLayout`, pure) and rendering.
-- `src/tabs.tsx` — tab UI.
-- `src/terminalPreview.ts` — headless xterm preview model.
-- `src/ui.ts` — shared theme, glyph, path, truncation, and display helpers.
-- `src/menu.tsx` — the one picker selection style (`SelectableRow`: ❯ marker + full-width inverse bold bar; `SelectableCell`: the same bar limited to one grid cell, for the Settings grid), `MenuList` (aligned label column, truncated rows, windowed around the selection), `MenuPane` (menu + details box + one hint line, budgeted to the pane height) and `fitHint` (one hint line that fits the width: full texts, then short forms, then dropping the highest `drop` first; separator ` • `, offering `A archive`/`A unarchive` only for exited/archived sessions). Hint rules (an audit with the user found the main, Tasks and notes-edit lines bloated): every hint goes through `fitHint`, never a fixed string (those were cut at the end, losing `esc`); `esc` comes last; no `j/k move` (universal, in ? Start here) except `↑↓ move` while typing a search, where j/k are text; no mode-name labels (`notes edit`, `changes`); keys shown elsewhere stay out (`b`: the header's task count; `i`, `f`, `J/K` reorder: ? help). The ? guide's topics are ordered by daily use (Settings last: `C` opens it, and digits reach only 1-9 and 0). Used by Settings (C), the action/program/worktree pickers and the kill/merge confirmations. Screens that replace the right pane show their own single hint line; the app footer hint row stays empty for them.
-- `src/projectConfig.ts` — schema validation, loading the main checkout's `deckhand.json` + hook, fingerprints, trust lookup/update, the self-edit trust rule (`savedProjectTrust`), and `resolveSettings` (the single source of effective settings: setup, Dev, actions, new-session defaults); `explainSettings` breaks them down per row with sources for C → Settings (tested to equal `resolveSettings`).
-- `src/projectConfigDocument.ts` — editor documents: global defaults (inside config.json) and repository targets, revision-checked saves, starter config.
-- `src/configDraft.ts` — pure editor helpers (size limit, JSON formatting).
-- `src/settingsModel.ts` — the Settings screen as pure data (unit-tested): `settingsGrid` (per setting, each layer's own value as written and which one applies, from `explainSettings`; built-in/legacy values in the Global column; `needsTrust` for untrusted repository values), `cellDetail` (the one-line details), `initialColumn`/`columnProblem`, per-layer `layerActions`, choice options, text validation, link selection → `worktree.symlink`, save/trust status wording, and `applyChange` (one key set/removed in one layer's JSON, other keys kept in place, validated).
-- `src/settingsInfo.ts` — daemon readers for Settings: `readSettingsInfo`, link candidates via porcelain v2 `--ignored=matching --untracked-files=normal` with `classifyCandidate`, bounded sizes.
-- `src/settingsFlow.tsx` (state/keys: the selected row and sticky column; saves through `save-config` with the column's revision, reloads after every save or rejection; e/T return here) and `src/settingsPane.tsx` (rendering, full terminal width: the grid — two columns from 64 inner columns, else the selected one with ◂ ▸ — edit controls, one layer's Actions list, link picker, height-budgeted with one hint line).
-- `src/configEditorPane.tsx` — the raw JSON editor (reached with e from Settings).
-- `src/textEditor.ts` — pure multiline text editing and rendering model: `editText` (with `EditOptions` for notes), word jumps, soft-wrapped rows (`wrapRows`, `moveVisual`, `wrappedEditorLines`) and `scrollTopFor`; used by the JSON editor and Notes.
-- `src/terminalKeys.ts`, `src/useTerminalInput.ts` — raw key normalization (DEL/Kitty Backspace vs forward Delete, key releases) and the Ink input hook (one stable listener calling the latest handler, so no key reaches a stale render's handler).
-- `src/workspaceGit.ts` — porcelain-v2 status (`parseStatus`, including the `entries` the Changes view groups), workspace summary, optional `gh` PR lookup (`ghPullRequest`, injectable as `getWorkspaceSummary`'s `lookupPr`), `createPullRequest`, handoff Git context (`getHandoffGitContext`: commits/changes/numstat, never diff content), cleanup inspection (with the `integrated` merge SHA), the merge preview (`getMergePreview`) and merge detection by ancestry (`mergedIntoDefault`).
-- `src/worktreeLinks.ts` — worktree settings schema/merge, location template expansion, and link application.
-- `src/sessionFeatures.ts` — filters/search and handoff Markdown/export (pure; the daemon passes the Git context in).
-- `src/sessionScope.ts` — which sessions belong to the current checkout's sidebar (the daemon sends the whole repository's).
-- `src/tasks.ts` — the task list file as pure data (unit-tested): parsing, `applyTaskOp`, groups, the first-message text, note links (`promoteNoteLine`, `parseNoteTaskLink`, `openNoteItems`). `src/tasksBoard.ts` — the board's rows, linked sessions and states, note items (pure). `src/tasksFlow.tsx` — the board's keys, editor and rendering, `TaskBanner`.
-- `src/processTree.ts` — snapshot a PTY's descendants (PID + start time) before signalling, SIGKILL the survivors after the grace period (`PaneHost.stop`).
-- `src/agents.ts` — the per-agent table: capabilities (ID at launch, forks, forks across directories), create/resume/fork/fresh argv (`LaunchPlan`, `launchArgs`), exit-screen readers, `relaunchPlan` (unit-tested in `tests/agents.test.ts`).
-- `src/agentSignals.ts` — hook normalization, Claude/Codex integration args, Codex resume parsing.
-- `src/agentVersions.ts` — agent versions as pure data (parse/compare, status, `sessionOutdated`, header hint; unit-tested in `tests/agentVersions.test.ts`). `src/agentVersionCheck.ts` — the daemon's version I/O (`findOnPath`, bounded runs, `--version` cache, npm lookup with the `DECKHAND_AGENT_LATEST` override, the updater). `src/agentsFlow.tsx` — the Agents screen (U): `AgentsPane` rendering and `useAgentsFlow` keys/requests.
-- `src/uiState.ts` — `ui-state.json` normalization and persistence.
-- `src/detailTexts.ts`, `src/detailsPane.tsx` — text for review/inspection panes and their scrolling renderer.
-- `src/desktop.ts` — editor/URL opening helpers (`openInEditor` takes an optional line: `-g file:line`).
-- `src/help.ts` — in-app `?` guide content (topics of key → description rows and notes); `src/helpPane.tsx` renders it (topic list, aligned key column, `/` search).
-- `scripts/deckhand-dev.mjs` — isolated dev launcher and sandbox.
-- `tests/` — `node:test` suite (`npm test`); `tests/helpers.ts` holds fixture repos, env/temp helpers, the fake agent (`fakeAgent`: records argv/input, reports SessionStart; `codex fork` reports the parent's ID around its own; `withoutHooks` reports nothing; `--version` prints its `FAKE_VERSION` in each agent's format and its update command rewrites the file with the next patch version, logging to `updates.log`) and the PTY harness (`terminalUi`: condition-based screen waits with a generous ceiling, `UI_WAIT_MS`, since the suite runs files in parallel).
-- `scripts/fix-node-pty.js` — install-time macOS `node-pty` fixup.
+## Testing
 
-## File-specific notes
+- **Unit tests** live next to the code in every crate. Each port of a TS test carries `// covers: B-<unit>-NN <exact TS title>` directly above it. Repository tests use a `repo()` helper equivalent to `tests/helpers.ts` (`GIT_CONFIG_GLOBAL=/dev/null`, `GIT_CONFIG_NOSYSTEM=1`, `-b main`, fixed user, no gpg signing). Every test uses a temp `DECKHAND_HOME` and temp `HOME`; none touches `~/.deckhand*`, `~/.codex` or `~/.claude`, or starts a real agent.
+- **Parity fixtures**: `fixtures/parity/<module>/<fn>.jsonl` were recorded from the TypeScript oracle and are replayed with `deckhand_parity::replay` (see `parity/README.md`); `fixtures/ui`, `fixtures/term`, `fixtures/wire` and `fixtures/state` hold screen goldens, terminal streams, wire samples and persisted-state samples. Fixtures are the record of TS behaviour once `src/` is deleted: do not regenerate them from the Rust code.
+- **`crates/e2e`**: black-box tests of the built binary (`DECKHAND_TEST_BIN`, default the workspace debug build) against a real daemon with the fake agent: the dev launcher's isolation, daemon features, recovery. Build first (`cargo build --workspace`), then `cargo nextest run --workspace` (CI also runs `-p deckhand-e2e` as its own step).
+- **Gates** (CI, `.github/workflows/ci.yml`, ubuntu and macOS): `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo nextest run --workspace`.
+- **Manual**: [docs/port-smoke.md](docs/port-smoke.md) is the end-to-end checklist with real agents in the dev sandbox; [docs/dev-build.md](docs/dev-build.md) is the dev loop with `scripts/deckhand-dev.sh`.
+- `DECKHAND_AGENT_LATEST` replaces the npm version lookup so tests never reach the network; tests that need Codex's or Claude's directories point `CODEX_HOME` / `CLAUDE_CONFIG_DIR` at a temp directory.
 
-### `src/cli.ts`
+## Codex hooks
 
-- Runs UI normally.
-- Runs daemon with `--daemon`.
-- Runs session worker with `--session-worker`, workspace worker with `--workspace-worker`.
-- Runs setup/doctor with `setup` or `doctor`.
-- Loops so the app can render Ink, exit for attach, then return to Ink after detach.
+`deckhand hooks codex` prints the hooks JSON for `~/.codex/hooks.json` (Codex lacks `Notification` and `StopFailure`; `deckhand hooks` without an argument prints the Claude-style settings minus `Interrupt`). Each entry runs `'<deckhand>' 'hook'`, where `<deckhand>` is the `deckhand` found on `$PATH` when it is this very executable, else the running executable. Deckhand never writes into the Codex home. Settings (`C`) and `deckhand doctor` (read-only, honours `CODEX_HOME`) warn when Codex's hooks are missing, belong to another install, or still call the old TS bridge (`node ... cli.js hook`), which does not exist after the switch-over; the fix is always to regenerate with `deckhand hooks codex` and review with `/hooks` in Codex.
 
-### `src/setup.ts`
+## Release
 
-- `deckhand setup` checks `claude`, `pi`, `codex`, and optional `lazygit`.
-- `--check` is read-only.
-- `--yes` / `-y` accepts agent install prompts.
-- Installs only missing supported agents; `lazygit` remains optional and is not installed by setup.
-
-### `src/app.tsx`
-
-- Owns UI modes, selected session, active tab, pane subscriptions, and user input handling.
-- Create/worktree picker/kill confirmation currently replace the right pane rather than using true overlays.
-- Kill confirmation uses a red border for destructive actions.
-- Sidebar width and collapsed/hidden session state are preserved across attach/detach in the same frontend process, but not across full frontend restarts.
-
-### `src/attach.ts`
-
-- Clears Ink UI and resets inherited terminal modes.
-- Opens persistent daemon connection.
-- Attaches to agent/terminal/git/dev/action based on active pane; only an agent attach ends when the session exits (Terminal/Git/Dev/action belong to the workspace).
-- Sets/reasserts terminal/window title with OSC 0/2 and best-effort `process.title`.
-- Puts stdin in raw mode.
-- Dampens matched vertical mouse wheel events using `attach_scroll_sensitivity`.
-- Re-enables bracketed paste on the outer terminal for agent attaches, and for Terminal/Git/Dev attaches when the worker reports the child PTY had requested bracketed paste.
-- Detaches on `Ctrl+Space` or `Ctrl+]`.
-- On cleanup, resets terminal modes such as scroll regions, mouse/focus tracking, bracketed paste, enhanced-keyboard modes, and child-owned alternate screens.
-
-### `src/nodePty.ts` and `scripts/fix-node-pty.js`
-
-On macOS, `node-pty` can fail with `posix_spawnp failed` if the helper is not executable:
-
-- `node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper`
-
-The install-time script best-effort:
-
-- fixes executable bit
-- removes quarantine attributes
-- applies ad-hoc codesigning to helper/native module
-
-If `node-pty` fails on macOS, check helper permissions first.
-
-### `src/terminalPreview.ts`
-
-- Owns an `@xterm/headless` terminal instance.
-- Consumes PTY output.
-- Resizes with preview/pane viewport.
-- Produces plain-text snapshots of the rendered terminal screen.
-- Can produce an ANSI frame for attach handoff.
-- PTY writes mark preview dirty but do not immediately serialize the screen.
-- Snapshot serialization happens only when a broadcast/request needs it.
-- Broadcasts are coalesced/throttled.
-
-### `src/ui.ts`
-
-- Uses ANSI named colors so terminal themes remain respected.
-- Identity accent: `magenta`.
-- Focus/selection accent: `cyan`.
-- Includes shared helpers for compact paths, truncation, line fitting, glyphs, status colors, and labels.
-
-## Runtime lifecycle
-
-Typical flow:
-
-1. CLI ensures Deckhand is running inside a git repository.
-2. Ink UI starts in alternate screen.
-3. Client pings daemon.
-4. Daemon auto-starts if missing/stale.
-5. Daemon loads persisted state (lifting legacy per-session worktree markers into worktree records, and legacy `notes` into `notes/` files), reads every note file, starts watching the notes directories, and marks previously running sessions exited if this is a daemon restart.
-6. Ink subscribes to repo sessions.
-7. Ink watches preview/pane for selected session.
-8. User creates a session and chooses worktree mode.
-9. Daemon resolves final cwd/worktree.
-10. Daemon starts a worker.
-11. Worker spawns agent PTY and maintains preview state.
-12. Daemon broadcasts session/preview/pane updates.
-13. User can attach/detach without killing PTY.
-14. User can quit/reopen frontend while daemon keeps sessions alive.
-15. If a worker exits, only that session exits and last preview is frozen.
-16. If daemon restarts, stale running sessions are marked exited.
-
-## Validation status
-
-Automated: `npm test` (build, then `node --test` over `tests/`) covers config/trust, editor and key handling, storage, cleanup inspection, a real daemon with fake agents (setup/actions/cleanup/hooks/resume; one Dev shared per worktree, its lifetime and stop on worktree deletion/last-session removal; one shell and one (fake) lazygit shared per worktree, fan-out to watchers, attach with bracketed-paste mirroring and one attacher, use from an exited session, lazygit restart on view, Dev stop not retiring a worker in use, teardown on kill-with-delete and last-session removal; the Changes view: watch delivers groups, polling pushes to a second session of the worktree, stage/unstage/stage-all/unstage-all, refused unlisted paths, unstaging without HEAD, unwatching stops pushes; worktree records: merge from one session marks its attached sibling and sub-session with `session-updated` broadcasts, `M` from either toggles all, main-checkout sessions keep their own markers, kill-with-delete makes every session of the worktree non-restartable/non-mergeable without a workspace, a new worktree at the same path is a new incarnation (also after an outside removal), the last referencing session's removal drops the record), the worktree-record migration of legacy state (incarnations split at deletions, sub-sessions, restarted sessions, main checkout untouched, repair, idempotence, write-back at daemon start), the Changes model and its Git I/O against fixture repos (spaces, glob-like names, renames, binary, untracked, conflicts, no HEAD), the workspace key, the sidebar model (row layout and truncation at 24 and 48 columns, `▶` once per workspace, the shared-workspace marker, archived dimming in both views, header text, the details block and its shrinking, ages) plus one rendered sidebar, the dev launcher, a real-PTY Git tab run (browse list, `v` focus, diff preview, `space` stages, `esc`), and two more real-PTY UI runs (inline review on n, raw-key JSON editing via C → e, persistence; the Settings grid: columns, repo/global cell edits, Linked items, x, T, e; self-edits keep trust so d runs without asking until an outside edit).
-
-Notes (`tests/notesDaemon.test.ts`, its own daemon and state directory; `tests/notes.test.ts`, `tests/textEditor.test.ts`, `tests/notesUi.test.ts`): legacy `session.notes` migrated into its file and dropped from state.json, a re-run with a stale copy in state.json keeping the (edited) file; a save broadcast and written; an in-place write and a rename-save made outside picked up and broadcast; a stale-revision save refused without writing; the 50 000-character cap, a too-large file shown cut and refused; three sessions of one worktree (new, attached, mode-none child) sharing its note, a save naming another note refused; handoff `## Worktree notes`; `open-note` creating the file; main-checkout sessions sharing the repository note, which outlives them, while a session's note goes with it; a deleted worktree's note read-only, a new worktree at the path starting empty, the note deleted with the record. Unit: cursor moves, word jumps and deletion, insert/delete mid-text, the character limit, soft wrap and visual Up/Down/PageDown, scroll-to-cursor, checklist parsing (indented, `*`, `+`, `[X]`), toggling/inserting/continuing and counts, read rows with `+N more lines`, the section budget, the rendered layout in read and edit mode, the sidebar `☐` line and its drop order, shared-note identity, search and handoff. Real PTY: `o`, typing, ← and Alt+← (ESC b) then typing mid-line, Ctrl+X, `tab` to the worktree note, a bracketed paste with a Tab, `esc`, the rendered `☐` item and sidebar count, the files, an outside edit appearing. Not exercised: opening the editor (E / Ctrl+O would launch a real Cursor/VS Code); the `CSI 1;3D`/`CSI 1;5D` Alt/Ctrl+arrow sequences only as Ink's parsed key flags (ESC b went through the real PTY).
-
-Merging and done (`tests/merge.test.ts` against fixture repositories with the user's Git config ignored, `tests/mergeDaemon.test.ts` with its own daemon and a fake `gh` that answers from a file, `tests/mergeModel.test.ts`, `tests/mergeUi.test.ts` in a real PTY, plus additions to the sidebar, records and handoff tests): preview counts, subjects, diff stat, target/main/default, uncommitted count; commit-first commits with the title then merges (and a worktree with only uncommitted work merges through it; off, it is skipped and the files stay), a failing pre-commit hook returns its output and merges nothing; a merge/rebase/cherry-pick/conflicts in progress refuse (a linked worktree's own state counts), overlapping target edits listed by cause; after a squash, cleanup with the recorded SHA no longer needs DELETE for those commits but does for a later one, an unknown or non-SHA value is ignored; conflicts in normal and squash merges: kept (markers, UU/A status), aborted (`merge --abort`; `reset --merge` only for Deckhand's own squash on the same HEAD and a clean index), unrelated unstaged edits and untracked files preserved, staged unrelated changes refused by Git; ancestry detection true for a merged branch (also only on origin/main), false for a fresh one, a fast-forwarded one, one with later commits, one reset behind its start, without a start or default refs; the PR lookup injected (MERGED with head/base, ENOENT → prError, not run without includePr). Over IPC: the done marker persisted, broadcast, kept on repeat, cleared; `M` refused on the main checkout; preview, a commit-first squash (marker with `mergeSourceSha` on every session of the worktree, the sub-session's done untouched, cleanup without DELETE for it); conflict abort then keep (marker, merge left in progress, preview reports it, another merge refused, an abort Deckhand cannot vouch for refused); detection by ancestry on `workspace-summary`, not for a fresh branch, staying cleared after `M`; by PR through the fake `gh` (`pr`, the head as SHA, cleanup integrated). Unit: the done migration (idempotent, records untouched, through `loadState` and the daemon-start write-back), sidebar `☑` placement/drop order/done styles/details `done …`, the confirmation layout (texts, toggle, warn target, in-progress and overlap warnings, the budget at every height) and the conflict view, rendered panes. PTY: `m`, `space` twice, squash with commit-first, Space (`✓ ☑`), a conflict aborted with `x` and kept with `enter`. Not exercised: a real `gh` (only the fake), a real GitHub squash merge, the 5-minute timer (the start and summary triggers are the same code).
-
-Agent versions (`tests/agentUpdates.test.ts`, its own daemon whose PATH holds only the fakes, node and the system directories, so no real agent can run; plus `tests/agentVersions.test.ts`): `agent-versions` reads the fakes' `--version` and the stubbed latest (one unknown), a session records `agentVersion` at launch, `update-agent` runs `claude update` with stdin closed, reports before/after/output, broadcasts `updating` then the new version, leaves the running session alone and makes it outdated; a later launch and a restart are current, exited sessions never outdated, `agentVersion` persisted; concurrent updates share one run; a failing `pi update --self` returns its exit code and output; not installed and unknown agents are refused. Unit: parsing of each agent's format, numeric comparison, statuses, `sessionOutdated`, header hint, sidebar `↑` placement and drop order, the details line's version forms, a rendered sidebar and the Agents screen (rows, details, confirmation, working, success, failure). The real updaters were never run.
-
-Forks (`tests/forks.test.ts`, its own daemon with the shared fake agent from `tests/helpers.ts`, beside `tests/daemonFeatures.test.ts`; plus `tests/agents.test.ts`): Claude fork argv `--resume <parent> --fork-session --session-id <child> --name …` with the child ID stored at launch and nothing typed; `s` resumes the child; a fork whose parent has no saved conversation fails with a note and `s` forks again with a new ID; a Claude fork into a new worktree; legacy `/branch` name-ref children resume by name, parent-ref children fork again, name-ref parents fork by name; Pi fork argv unchanged; `codex fork <parent id>`, the child's ID from a hook while the parent's ID (reported before and after it) is never adopted, `codex resume <child>` on `s`, re-fork when no child ID was reported, refusal of other worktrees/directories and of a parent without an ID; the per-agent argv table and `relaunchPlan`. Not run against the real agents through Deckhand: Claude `--fork-session` was verified directly (see *Forks*), Pi and Codex forks only from their help and package contents.
-
-Actions in their own pane (protocol v40, merged to local `main`): `tests/daemonFeatures.test.ts` passes (a global action's name and exit code via `watch-action`, Dev untouched, a second action refused while one runs, Dev starting meanwhile, `stop-action`). The UI (`v`, header, picker `x`, `o` on an action) has only been run by hand.
-
-Tasks (protocol v41, merged to `main`): `tests/tasks.test.ts` (format round trip keeping prose, provisional IDs, every op, linked-work ops, groups, note links); `tests/tasksDaemon.test.ts` (its own daemon: ops and `tasks-updated`, an editor's append picked up and addressed by provisional ID, daemon-only ops refused, a linked worktree sharing the list, `list-branches`, a session started from a task with `baseBranch: release` — linked `wt`, nothing passed as a first message, the task arriving in the fake agent's input as one bracketed paste after it settles, `startPrompt` then cleared, a draft dropped when letters are typed into the agent first, the worktree without main's later file — and refusals, merge tick/unmark reopen, D ticking only when both sessions of the worktree are done and un-D reopening, removal of the last session returning the task with `tried`, a main-checkout session's `s` link, `promote-note-item` refusals and success, `remove` with `moveOpenItems`); `tests/tasksUi.test.ts` (real PTY: `b`, add with details, header count, `n` with Task/Base lines and ↑↓, the linked file, the Notes banner, `IN PROGRESS`, Ctrl+T + Ctrl+P in notes, the `↗` line, the backlog). Not exercised: kill-with-delete returning a task (the `deletedAt` branch of `syncWorktreeTasks`; the test covers removal, a different path), merge detection ticking (the same `saveWorktreeRecord` path as `M`), `J/K`, `x`, `g`, `E`, editing a task, the board's note list and `p`, `confirm-remove` in the UI, an `origin/<name>` base, a creation-hook repository's refusal.
-
-Worktree manager (protocol v42): `tests/worktreesModel.test.ts` (groups, labels, rows, bulk targets, tags); `tests/worktreesDaemon.test.ts` (its own daemon: a worktree merged by hand found merged and clean with its running session; one made with git with an untracked file; refusals for the main checkout, the asking checkout, a checkout another subscribed client has open, a changed branch, running sessions without `stopSessions`; stop-and-delete with the branch, the session exited/stopped/archived and the record deleted; DELETE override; prune of a removed directory with the branch kept; forget of a worktree removed outside Deckhand); `tests/worktreesUi.test.ts` in a real PTY (W, the ready group, x on its heading deleting it and stopping its session, a not-merged worktree deleted through the typed DELETE, the archived session under f A); `tests/keysDocumented.test.ts` checks W's keys against the Worktrees help topic. Not exercised by hand yet against a real repository with many worktrees (timing of the overview) or a hook-created worktree layout.
-
-Daemon crash found while testing tasks (pre-existing, fixed on `feat/tasks`): `handleWorkerSessionExit` sets the session `exited` and then awaits; a `remove` arriving in that window deleted it, and the final `requireSession` threw out of a `void` message handler, an unhandled rejection that shuts the daemon down (and every agent with it). It now skips the save for a removed session, and worker-event handling errors are logged instead (`child.on('message')` catches). `tests/tasksDaemon.test.ts` prints the daemon log's tail if its daemon exits unexpectedly (the crash handlers write the cause there, not to stderr).
-
-Validated during the workbench refactor (shared workspace panes, the Changes view, worktree records):
-
-- `npm run build`; `npm test` repeatedly, also two suites at once. The real-PTY UI tests had flaked under load: a key typed right after a screen change reached Ink's previous-render listener (Ink re-subscribes `useInput` in a passive effect) and was lost; `useTerminalInput` now keeps one stable listener calling the latest handler, and UI waits are condition-based with a 30 s ceiling (`UI_WAIT_MS`).
-- the Git tab in the isolated sandbox, rendered through a real PTY at 130 and 190 columns: browse list, focus with stacked and side-by-side diff, `j`, `J`, `space` (opening in an editor and `o` → lazygit were not exercised there)
-- worktree records only through the daemon protocol (tests above); the UI reads the same projected fields as before and was not re-run by hand
-
-Historically validated during development, but not exhaustively rechecked recently:
-
-- daemon autostart, PID/log/socket handling, and protocol mismatch refusal
-- Pi and Claude session creation/resume paths; Codex launch compiles cleanly
-- Claude exit resume-handle parsing (exact `--session-id`/`--fork`/`--fork-session`/`codex fork` launch argv and forked restart paths are covered by the fake-agent daemon test)
-- fresh restart/no-resume mode and parent-inherited child titles
-- leftover directory cleanup after worktree deletion
-- worktree sanitizer and `git worktree list --porcelain` parsing
-- preview subscriptions, xterm rendering, frozen `lastPreview`, and activity transitions
-- attach request/output/detach/return-to-Ink flow
-- sidebar hierarchy, numbering, resize, and persisted in-process width across attach/detach
-- resize suppression for agent activity detection
-- stale-session cleanup after daemon restart
-
-Not fully manually validated recently:
-
-- Codex session creation, and `codex fork` (argv and the Codex cwd prompt were read from help/binary, never run)
-- setup/doctor install flows beyond build-level coverage
-- real hook-script worktree creation from main worktree
-- real hook-script worktree creation from linked worktree
-- fallback worktree creation under `~/.deckhand/worktrees`
-- existing-worktree picker in a repo with many worktrees
-- worktree delete paths in disposable repos
-- branch deletion path for existing-worktree sessions
-- attempted deletion of current/main worktree remains blocked
-- multiple sessions pointing at one worktree block deletion
-- force-kill behavior against stubborn child process groups
-
-## Caveats
-
-- node-pty's `spawn-helper` was found corrupted (first byte `0xaa` instead of the Mach-O `0xcf`, signature block rewritten; the code itself intact) after heavy parallel daemon test runs, and then nothing could spawn (`posix_spawnp failed`) — for every Deckhand sharing that `node_modules`, the installed one included. The only writer is the ad-hoc re-sign `ensureNodePtyReady` ran in place (`codesign --force`) at every daemon, session-worker and workspace-worker start. Neither 8-way concurrent nor killed `codesign` reproduced it, so the exact trigger is unproven; `signIfNeeded` (`src/nodePty.ts`) now signs only when `codesign --verify` fails, and then a copy that is renamed over the file, so the file is never modified in place (`tests/nodePty.test.ts`). Repair if it happens again: extract `prebuilds/darwin-arm64/spawn-helper` from `npm pack node-pty@<version>`, sign a copy, rename it over. `scripts/fix-node-pty.js` (postinstall, one process) still signs in place.
-- Rare, unexplained flake in `tests/notesDaemon.test.ts` (once in about a dozen loaded runs): kill-with-delete refused with *worktree is in use by session "notes-b"* right after `killAndWait` saw notes-b exited. Not reproduced in 9 targeted runs; `saveSession` and the hook handler set records synchronously, so the stale-running source is unknown.
-- `src/cli.ts` `runUi` sets `NODE_ENV=production` (when unset and not `DECKHAND_DEV=1`) only around the `react`/`ink`/`app` imports, where React picks its production build, and deletes it right after. Leaving it set (the first version, commit `119d6fe`) leaked it into the daemon the UI starts (`spawnDaemon` passes the UI's environment) and from there into every agent, shell, Dev command and action, where npm then omitted devDependencies. Ink never reads `NODE_ENV` at runtime. `tests/nodeEnvUi.test.ts` checks an agent and an action see no `NODE_ENV` (it fails with `[production]` without the delete). A daemon started by an affected UI keeps the leaked value until it restarts.
-- Restarting re-resolves the agent on PATH (`resolveProgramCommand` in `restartSession`, stored as the session's new `command`; the daemon's cache drops a path that no longer exists) and refuses with *<Agent> is not installed or not on PATH* when it is not found. Found in production: a Pi session stored its first launch's npm-global path, Pi then moved to its managed installer (`~/.local/bin/pi`), and every `s`/`S` died at once with exit 1 and an empty pane. An agent that exits without printing anything now leaves `silentExitNote` (code or signal, the command, *s or S tries again*) as its preview. `tests/agentPath.test.ts` covers moved, missing and silent agents with a PATH of only fakes, node and the system directories (a test PATH including the user's must never be used: it found the real `claude`).
-
-- Deckhand is still experimental; state shape and IPC protocol may change.
-- Frontend restarts are supported; daemon crash/restart does not preserve running PTYs.
-- Preview and panes are read-only snapshots; attach is required for direct interaction.
-- Preview text is not equivalent to full styled terminal rendering.
-- Attach mode temporarily exits Ink by design.
-- Create/worktree picker/kill confirmation are pane replacements, not true modals.
-- Worktree support exists but still needs more real-world exercise.
-- Codex resume and fork depend on capturing its native ID; Codex forks stay in the parent's worktree (see *Forks*).
-- Terminal/Dev scrollback controls are still future work.
-- Only the last action per worktree is kept; stopping one is only in the `e` picker (`x`), not on the Terminal tab, because `x` there kills the session.
-- The Changes diff preview refetches when the record changes (status or line counts); an edit that keeps a file's `+/−` counts identical is shown after the next change or reselecting the file. Untracked line counts stop after 500 files (or files over 1 MB).
-- The Changes view does no hunk staging, commits, discards or branch operations by design: lazygit (`o`) covers them.
-- A workspace worker (and its shell) lives as long as the workspace has sessions, even exited/archived ones, unless nothing is left in it; remove sessions to free it. There is no idle timeout (a shell may run a long job).
-- While a session's new worktree is being prepared its Terminal/Git/Dev are unavailable; they become available as soon as the worktree exists, e.g. during setup.
-- Worktree records cover worktrees Deckhand knows: a linked worktree removed outside Deckhand keeps a live record (its sessions resolve to the missing path and their panes report *Worktree directory is missing*) until Deckhand creates a worktree at that path again, which marks it deleted. Migration cannot ask Git: a legacy mode-`none` session launched in a linked worktree that no session owns keeps per-session markers.
-- Records are keyed by Git's path strings (lexical, like workspace keys); a worktree reached through two different path spellings would get two records.
-
-## Recommended next steps
-
-Near term:
-
-0. Agent signals (v43, uncommitted on `main`): restart the daemon after building (protocol bump). Try a real Claude session asking a question, a permission prompt and a plan approval, and check the reason lines. The planned follow-ups (waiting queue, live activity, plans → notes/tasks, turn summaries, answering without attaching, Pi/Codex coverage) are tracked in `docs/future/agent-signals-roadmap.md` (future-work docs: `docs/future/`).
-0. Worktree manager (v42, committed on `main`): try `W` in a real repository with many worktrees: overview time (status with ignored files per worktree), and whether the groups match expectations. Possible next steps: a key to look up PRs for every listed worktree (`gh`, bounded) so GitHub squash merges show as merged without `i` → `P` per session; archiving on kill-with-delete too, for consistency.
-0. Production: the installed `deckhand` is `npm link`ed to the main checkout's `dist`, so `npm run build` updates it. After a protocol bump, when no work is running: `npm run build` in the main checkout, then stop the old daemon (`kill $(cat ~/.deckhand/daemon.pid)`; running agents end and are resumable with `s`), then run `deckhand`. Build and stop back to back: the old daemon forks workers from `dist/cli.js`.
-0. Tasks: try it in the isolated sandbox (`npm start`): the unexercised keys listed under *Validation status*, a long list (scrolling), a narrow terminal, and the Notes banner with several sessions in one worktree.
-1. Manually exercise worktree flows in disposable repos:
-   - hook creation from main worktree
-   - hook creation from linked worktree
-   - fallback creation
-   - existing picker
-   - keep/delete/cancel kill behavior
-   - delete-branch behavior
-   - merge success/skipped/conflicted cases against a real repository with hooks (fixtures cover them, see *Validation status*)
-2. Add tests around:
-   - worktree parsing
-   - sanitizer behavior
-   - preview serialization
-   - activity transitions
-   - resize suppression
-   - setup/doctor detection behavior
-3. Polish create/worktree UX:
-   - true overlays/modals
-   - better validation and error feedback
-   - better truncation/filtering for long paths
-4. Clean up attach/detach transition visuals.
-5. Add structured daemon logging.
-6. Add stronger daemon health/protocol compatibility handling.
-
-Later:
-
-- Run a real `codex fork` from another worktree: if `-C <cwd>` or `tui.resume_cwd` reliably keeps the child in the current directory without the cwd prompt, set Codex `forksAcrossDirectories` (`src/agents.ts`) and pass it.
-
-- Add terminal/git/dev scrollback controls.
-- Add dev stop confirmation or persisted dev state if useful.
-- Monitor long-running macOS `node-pty` behavior under repeated spawn/exit churn.
-- Consider embedded terminal rendering only if single-screen interaction becomes important.
+Tag `vX.Y.Z` equal to the workspace version: `.github/workflows/release.yml` builds `deckhand` for `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu`, strips it, packs `deckhand-<tag>-<target>.tar.gz` (binary, README, LICENSE), writes `SHA256SUMS` and creates the GitHub release. Nothing goes to npm.
 
 ## How to run locally
 
 ```bash
-npm install
-npm run build
-npm link
-deckhand
+cargo build -p deckhand
+scripts/deckhand-dev.sh --sandbox    # isolated state in ~/.deckhand-dev, disposable repository
+scripts/deckhand-dev.sh stop         # stop only the dev daemon
 ```
 
-Useful development commands:
-
-```bash
-npm run dev       # run UI from source via tsx
-npm run daemon    # run only daemon in dev mode
-deckhand setup    # check/install supported agents
-deckhand doctor   # alias for setup behavior
-npm start              # build + isolated dev daemon in a disposable sandbox (see docs/dev-build.md)
-npm stop / npm restart # stop / rebuild-and-reopen only the dev daemon; npm run status checks it
-npm test
-```
-
-## Final takeaway
-
-Deckhand's foundation is established: daemon-owned long-lived sessions, worker-owned PTYs, explicit attach/detach, split-view Ink frontend, worker-side rendered Preview pipeline, exact Claude/Pi conversation IDs assigned at launch, sub-session hierarchy, and agent-agnostic worktree support.
+Never run the plain debug binary against your real home, and never `cargo install` while testing a branch.

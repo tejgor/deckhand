@@ -1,40 +1,38 @@
 # Test the isolated dev build
 
-The feature branch can run beside your installed Deckhand without replacing its binary or reconnecting to its daemon. **Do not use `npm link`, reinstall globally, or stop the production daemon.**
+The feature branch can run beside your installed Deckhand without replacing its binary or reconnecting to its daemon. **Do not `cargo install`, copy the binary onto your `PATH`, or stop the production daemon.** Everything runs from `target/` through `scripts/deckhand-dev.sh`.
 
-## Start in a disposable repository
-
-From the feature checkout:
+## The dev loop
 
 ```sh
-cd /path/to/deckhand-no-brainers
-npm start
+cargo build -p deckhand                 # target/debug/deckhand (use --release for target/release/deckhand)
+scripts/deckhand-dev.sh --sandbox       # open the UI in a disposable repository
 ```
 
-This builds this checkout's `dist/` and opens a dependency-free Git sandbox at `~/.deckhand-dev/sandbox`. The UI displays **deckhand · DEV (isolated)**. With a fresh dev namespace there are no existing sessions.
+`scripts/deckhand-dev.sh` is a POSIX shell script, so it needs nothing but a Rust build. It picks `target/release/deckhand` when it exists, else `target/debug/deckhand`; `DECKHAND_TEST_BIN=<path>` runs another executable (relative paths resolve against the checkout). Without `--sandbox` it runs in the directory you start it from, so only do that in a disposable repository. The script `exec`s the binary, so Ctrl+C and the exit status belong to Deckhand itself.
+
+`--sandbox` creates (once) a dependency-free Git repository at `~/.deckhand-dev/sandbox` (a `deckhand.json` with a Dev command and a `test` action, committed on `main`). The UI displays **deckhand · DEV (isolated)**. With a fresh dev namespace there are no existing sessions. The sandbox's Dev command and `test` action run `npm`/`node`, so those two need Node installed (Deckhand itself does not). `--source` additionally marks the run as a development build (`DECKHAND_DEV=1`).
 
 | Production | Dev build |
 | --- | --- |
-| Installed `deckhand` | This checkout's `dist/cli.js` |
+| Installed `deckhand` | This checkout's `target/{release,debug}/deckhand` |
 | `~/.deckhand/` | `~/.deckhand-dev/` |
 | Production socket/PID/logs/state/trust/UI preferences | Separate socket/PID/logs/state/trust/UI preferences |
 | `~/.deckhand/worktrees/` | `~/.deckhand-dev/worktrees/` (Git fallback) |
 
-The wrapper sets `DECKHAND_HOME` to the dev namespace for the processes it starts. An optional **`DECKHAND_DEV_HOME`** selects another dev namespace. It must be separate from `~/.deckhand` and from any `DECKHAND_HOME` your shell already sets for stable Deckhand: the same path, an ancestor or descendant, or a symlink alias of either is rejected.
-
-To run directly from TypeScript instead, use `node scripts/deckhand-dev.mjs --source --sandbox`.
-
-`npm run dev` and `npm run daemon` are **not isolated**; use the commands here for this preview.
+The script sets `DECKHAND_HOME` to the dev namespace and `DECKHAND_CHANNEL=dev` for the processes it starts. An optional **`DECKHAND_DEV_HOME`** selects another dev namespace. It must be separate from `~/.deckhand` and from any `DECKHAND_HOME` your shell already sets for stable Deckhand: the same path, an ancestor or descendant, or a symlink alias of either is rejected. `setup` and `doctor` are refused unless you pass `--check` (read-only); the launcher never installs agent tools.
 
 ## Status, stop, and rebuild
 
 ```sh
-npm run status   # is the dev daemon running?
-npm stop         # stops ONLY the dev daemon and its agents/auxiliary PTYs
-npm restart      # stop, rebuild and reopen (use after daemon/worker code changes)
+scripts/deckhand-dev.sh status   # is the dev daemon running (and which protocol)?
+scripts/deckhand-dev.sh stop     # stops ONLY the dev daemon and its agents/auxiliary PTYs
+cargo build -p deckhand && scripts/deckhand-dev.sh stop && scripts/deckhand-dev.sh --sandbox   # after daemon/worker changes
 ```
 
-`q` closes only the UI. Reopening reconnects to the dev daemon. Source/build changes do not hot-reload an already-running daemon: stop the **dev** daemon before testing updated daemon/worker code. Dev status/stop never start a daemon, and refuse to control a daemon that is not a dev-channel daemon for this exact namespace (compared by real path).
+`q` closes only the UI. Reopening reconnects to the dev daemon. A rebuild does not replace an already-running daemon or its workers: stop the **dev** daemon before testing updated daemon/worker code (a daemon speaking another protocol version is refused, not replaced). Dev status/stop never start a daemon, and refuse to control a daemon that is not a dev-channel daemon for this exact namespace (compared by real path).
+
+The full end-to-end checklist, including crash recovery and the switch-over procedure, is [port-smoke.md](port-smoke.md).
 
 ## Manual smoke checklist
 
@@ -48,15 +46,15 @@ npm restart      # stop, rebuild and reopen (use after daemon/worker code change
 8. On a worktree session, press **x** and choose deletion. Modified, untracked or valuable ignored files, commits that deleting the branch would lose, or Git state that cannot be checked should require a **DELETE** confirmation. The main checkout and worktrees in use by another session never offer deletion. Escape cancels. Force kill (**X**) alone never authorizes data loss. Use the sandbox for destructive tests.
 9. To test setup, add a `setupCommand` to the sandbox config and create another new worktree; **n** asks you to review the changed bytes first. Setup output appears while starting. **x** cancels setup without deleting the worktree; **s** retries it. A Git/custom-hook preparation already in flight can finish after cancellation, but the agent must not launch; its resulting worktree is retained in the session record.
 10. Test lifecycle hooks/notifications using the instructions in [the feature guide](no-brainers.md#lifecycle-signals-and-notifications): signals are on for Claude unless switched off, Codex needs them switched on plus its own hooks, notifications are opt-in. Without supported/configured hooks, attention remains unknown/activity-based—not a claim that the task succeeded.
-11. Exit a native agent normally, then **s** to resume its known identity or **S** for a fresh conversation. Codex without a captured native ID must ask for S, not silently open a blank conversation. `npm stop` ends only the test daemon.
+11. Exit a native agent normally, then **s** to resume its known identity or **S** for a fresh conversation. Codex without a captured native ID must ask for S, not silently open a blank conversation. `scripts/deckhand-dev.sh stop` ends only the test daemon.
 
 ## Open another repository deliberately
 
-After building, run the wrapper by absolute path from that repository:
+From that repository, run the script by absolute path:
 
 ```sh
 cd /path/to/a/disposable-repository
-node /path/to/deckhand-no-brainers/scripts/deckhand-dev.mjs
+/path/to/deckhand/scripts/deckhand-dev.sh
 ```
 
 **Isolation is not a filesystem or provider sandbox.** Choosing a real repository/no-worktree workspace can modify real files. Trusted custom scripts can write outside the dev directory; ensure custom creation hooks respect `DECKHAND_HOME`. Agents still use their normal credentials, native conversation stores, and subscriptions. Dev Codex launches require the advertised `--no-daemon` capability (even with lifecycle hooks disabled) rather than reusing a production native Codex daemon; unsupported versions are refused. Deckhand generates separate session identities; it does not copy or resume production Deckhand sessions. Prefer the default sandbox, avoid `deckhand setup` (which installs real global agent tools), and do not delete registered worktrees with `rm -rf`.
@@ -64,7 +62,9 @@ node /path/to/deckhand-no-brainers/scripts/deckhand-dev.mjs
 ## Automated checks
 
 ```sh
-npm test
+cargo nextest run --workspace      # or: cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all --check
 ```
 
-Tests build this checkout and use temporary Git repositories, private state directories and fake agent binaries; they never touch `~/.deckhand` or `~/.deckhand-dev`. They cover config parsing, effective-settings merging, editing and trust; setup, actions and cleanup safeguards in a real daemon; lifecycle callbacks and resume; storage; a real-terminal run of the UI (inline review, raw key handling, persistence); and the dev launcher's isolation. They do not run real agent conversations, so provider hook behaviour in your installed CLI still needs the manual check above.
+Tests build on temporary Git repositories, private `DECKHAND_HOME` and `HOME` directories and fake agent binaries; they never touch `~/.deckhand` or `~/.deckhand-dev`. They cover config parsing, effective-settings merging, editing and trust; setup, actions and cleanup safeguards in a real daemon; lifecycle callbacks and resume; storage; and the dev launcher's isolation (`crates/e2e`). They do not run real agent conversations, so provider hook behaviour in your installed CLI still needs the manual check above.
