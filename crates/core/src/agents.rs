@@ -169,13 +169,16 @@ impl AgentSpec {
         match self.program {
             ProgramKey::Claude => {
                 let plain = plain(output);
-                let captures = CLAUDE_RESUME.captures(&plain)?;
-                let value = captures
-                    .get(1)
-                    .or_else(|| captures.get(2))
-                    .or_else(|| captures.get(3))
-                    .map(|found| jsstr::js_trim(found.as_str()))
-                    .filter(|value| !value.is_empty())?;
+                // Security: a ref becomes `--resume <value>` argv on restart, so a value that looks like a flag
+                // (screen text from an untrusted repo) is skipped; the first safe hint wins.
+                let value = CLAUDE_RESUME.captures_iter(&plain).find_map(|captures| {
+                    captures
+                        .get(1)
+                        .or_else(|| captures.get(2))
+                        .or_else(|| captures.get(3))
+                        .map(|found| jsstr::js_trim(found.as_str()))
+                        .filter(|value| !value.is_empty() && !value.starts_with('-'))
+                })?;
                 let kind = if UUID_PATTERN.is_match(value) {
                     AgentSessionRefKind::Id
                 } else {
@@ -610,6 +613,20 @@ pub(crate) mod tests {
                 ],
             ))
         });
+    }
+
+    #[test]
+    fn exit_ref_rejects_flag_like_values() {
+        let spec = agent_spec(ProgramKey::Claude);
+        let uuid = "0b6c3c1e-1111-4222-8333-944445555666";
+        let hostile = format!("Read x\n  claude --resume --settings=/tmp/evil.json\nclaude --resume {uuid}\n");
+        let found = spec.exit_ref(&hostile).expect("the real hint");
+        assert_eq!(found.value, uuid);
+        assert!(
+            spec.exit_ref("claude --resume --dangerously-skip-permissions\n")
+                .is_none()
+        );
+        assert!(spec.exit_ref("claude --resume \" -x\"\n").is_none());
     }
 
     #[test]
