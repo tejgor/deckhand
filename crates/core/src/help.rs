@@ -31,6 +31,13 @@ pub const PORT_LINES: &[&str] = &[
     "Dev runs in one worktree of a repository at a time, since they share its ports: starting it in one worktree stops it in the others.",
 ];
 
+/// Not in the TS: guide lines the port reworded, as (the port's text, the TS oracle's), which [`oracle_topics`]
+/// turns back.
+pub const PORT_REWORDED: &[(&str, &str)] = &[(
+    "Dev runs in this worktree (first row; muted below)",
+    "Dev runs in this worktree (on its first row)",
+)];
+
 /// The text of a guide line (its description, note or heading).
 pub fn line_text(line: &HelpLine) -> &'static str {
     match line {
@@ -40,7 +47,8 @@ pub fn line_text(line: &HelpLine) -> &'static str {
     }
 }
 
-/// [`HELP_TOPICS`] as the TS oracle had them: without [`PORT_LINES`] (for replaying its fixtures in tests).
+/// [`HELP_TOPICS`] as the TS oracle had them: without [`PORT_LINES`], [`PORT_REWORDED`] lines as they were (for
+/// replaying its fixtures in tests).
 pub fn oracle_topics() -> &'static [HelpTopic] {
     let topics: Vec<HelpTopic> = HELP_TOPICS
         .iter()
@@ -52,6 +60,16 @@ pub fn oracle_topics() -> &'static [HelpTopic] {
                     .iter()
                     .copied()
                     .filter(|line| !PORT_LINES.contains(&line_text(line)))
+                    .map(|line| match line {
+                        HelpLine::Key { keys, text } => HelpLine::Key {
+                            keys,
+                            text: PORT_REWORDED
+                                .iter()
+                                .find(|(port, _)| *port == text)
+                                .map_or(text, |(_, oracle)| oracle),
+                        },
+                        other => other,
+                    })
                     .collect::<Vec<_>>()
                     .into_boxed_slice(),
             ),
@@ -173,7 +191,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "▶",
-                text: "Dev runs in this worktree (on its first row)",
+                text: "Dev runs in this worktree (first row; muted below)",
             },
             HelpLine::Key {
                 keys: "▣ ✓ ☑",

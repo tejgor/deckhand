@@ -46,6 +46,9 @@ pub enum RowRole {
     Gap,
     #[serde(rename = "dev")]
     Dev,
+    /// Not in the TS: `▶` on the other rows that share the workspace whose Dev runs (muted).
+    #[serde(rename = "dev-shared")]
+    DevShared,
     #[serde(rename = "archived")]
     Archived,
     #[serde(rename = "cleanup")]
@@ -96,7 +99,8 @@ pub const OUTDATED_MARKER: &str = "↑";
 pub const MIN_TITLE: usize = 4;
 
 /// TS: sidebarModel.ts DROP_ORDER (suffix markers dropped first to last; the agent stays).
-pub const DROP_ORDER: [RowRole; 7] = [
+pub const DROP_ORDER: [RowRole; 8] = [
+    RowRole::DevShared,
     RowRole::Outdated,
     RowRole::Count,
     RowRole::Merged,
@@ -125,6 +129,9 @@ pub struct SidebarRowsInput<'a> {
     pub hidden_session_ids: Option<&'a HashSet<String>>,
     /// Installed agent versions: a running session launched with an older one gets ↑.
     pub installed_versions: Option<&'a InstalledVersions>,
+    /// Not in the TS: `▶` on every row whose workspace's Dev runs, muted after the first (the TS marks the first
+    /// only, which is easy to miss with many sessions in one checkout).
+    pub shared_dev: bool,
 }
 
 /// UTF-16 length as a JS number (widths here go negative).
@@ -194,7 +201,7 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
         .selected_id
         .filter(|selected| input.rows.iter().any(|session| session.id == *selected))
         .and_then(key_of);
-    // Dev belongs to the workspace: ▶ once, on its first row on screen.
+    // Dev belongs to the workspace: ▶ on its first row on screen (and, with `shared_dev`, muted on the others).
     let mut dev_shown: HashSet<String> = HashSet::new();
     // ▾ ▸ and +N count the sub-sessions this view lists (an archived one is gone from the active view); depth and
     // titles still follow every ancestor.
@@ -213,12 +220,17 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
         } else {
             count_hidden_session_descendants(&session.id, &listed, hidden_ids)
         };
-        let mut dev = false;
+        let mut dev = None;
         if session.dev_running == Some(true) {
-            dev = key.as_ref().is_none_or(|key| !dev_shown.contains(key));
+            let first = key.as_ref().is_none_or(|key| !dev_shown.contains(key));
             if let Some(key) = &key {
                 dev_shown.insert(key.clone());
             }
+            dev = if first {
+                Some(RowRole::Dev)
+            } else {
+                input.shared_dev.then_some(RowRole::DevShared)
+            };
         }
         let tree = format!(
             "{}{}{}",
@@ -258,8 +270,8 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
             RowRole::Status,
         ));
         let mut suffix = Vec::new();
-        if dev {
-            suffix.push(part("▶", RowRole::Dev));
+        if let Some(role) = dev {
+            suffix.push(part("▶", role));
         }
         if truthy(session.archived_at.as_ref()) {
             suffix.push(part("▣", RowRole::Archived));
@@ -1086,6 +1098,7 @@ mod tests {
                     collapsed_session_ids: collapsed.as_ref(),
                     hidden_session_ids: hidden.as_ref(),
                     installed_versions: installed.as_ref(),
+                    shared_dev: false,
                 }))
             },
         );
@@ -1255,6 +1268,7 @@ mod tests {
         number_width: Option<usize>,
         filter: Option<SessionFilter>,
         collapsed: Option<HashSet<String>>,
+        shared_dev: bool,
     }
 
     fn rows_of(rows: &[&SessionRecord], opts: Opts<'_>) -> Vec<SidebarRow> {
@@ -1270,6 +1284,7 @@ mod tests {
             collapsed_session_ids: opts.collapsed.as_ref(),
             hidden_session_ids: None,
             installed_versions: None,
+            shared_dev: opts.shared_dev,
         })
     }
 
@@ -1442,6 +1457,28 @@ mod tests {
         // No marker without a selection on screen, and none for an unshared workspace.
         assert_eq!(marks("none", &all), [" ▶", " ", " ", " ", " ", " ", " "]);
         assert_eq!(marks("e", &all), [" ▶", " ", " ", " ", "›", " ", " "]);
+    }
+
+    // Not in the TS: with shared_dev, every row sharing a running Dev shows ▶, muted after the first.
+    #[test]
+    fn shared_dev_marks_every_row_of_the_workspace() {
+        let main_a = sess("m1", json!({"devRunning": true}));
+        let main_b = sess("m2", json!({"devRunning": true}));
+        let main_c = sess("m3", json!({"devRunning": false}));
+        let rows = [&main_a, &main_b, &main_c];
+        let roles: Vec<Option<RowRole>> = rows_of(
+            &rows,
+            Opts {
+                shared_dev: true,
+                ..Opts::default()
+            },
+        )
+        .iter()
+        .map(|row| row.parts.iter().find(|part| part.text == "▶").map(|part| part.role))
+        .collect();
+        assert_eq!(roles, [Some(RowRole::Dev), Some(RowRole::DevShared), None]);
+        // The muted ones go first when the row is too narrow.
+        assert_eq!(DROP_ORDER[0], RowRole::DevShared);
     }
 
     // covers: B-P8-03 sidebar rows: archived rows dimmed, except in the archived view, which lists only archived ones (a sub-session of a live session at top level)

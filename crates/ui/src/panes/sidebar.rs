@@ -114,7 +114,7 @@ pub fn part_style_spec(part: &RowPart, row: &SidebarRow) -> PartStyleSpec {
         RowRole::Number | RowRole::Archived | RowRole::Merged | RowRole::Count | RowRole::Outdated => {
             spec(INK_THEME.muted, true)
         }
-        RowRole::Done | RowRole::Agent => spec(INK_THEME.muted, false),
+        RowRole::Done | RowRole::Agent | RowRole::DevShared => spec(INK_THEME.muted, false),
         RowRole::Dev => spec(INK_THEME.success, false),
         RowRole::Cleanup => spec(INK_THEME.error, false),
         RowRole::Tree | RowRole::Status | RowRole::Title => spec(row.color, false),
@@ -277,6 +277,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         collapsed_session_ids: Some(props.collapsed_session_ids.unwrap_or(&no_ids)),
         hidden_session_ids: Some(props.hidden_session_ids.unwrap_or(&no_ids)),
         installed_versions: props.installed_versions,
+        shared_dev: true,
     });
     // The details take the rows the list leaves free (the ones kept for them when it scrolls).
     let details = if sessions.is_empty() {
@@ -754,8 +755,9 @@ mod tests {
                 "╭────────────────────────────────╮",
                 "│ Sessions         all 7/7 · ! 2 │",
                 "│  1 ▾ ⠋ auth refactor       ▶ ✶ │",
-                "│  2   ↳ ● write tests         π │",
-                "│  3   ⑂ ○ try alt approach    ✶ │",
+                // Not in the TS: its sub-sessions share the worktree's running Dev (a muted ▶).
+                "│  2   ↳ ● write tests       ▶ π │",
+                "│  3   ⑂ ○ try alt approach  ▶ ✶ │",
                 "│› 4 ? fix flaky checkout e2e… ◇ │",
                 "│  5 ! migrate billing webhoo… ✶ │",
                 "│  6 ○ docs cleanup        ▣ ✓ ✶ │",
@@ -925,6 +927,7 @@ mod tests {
                 collapsed_session_ids: collapsed,
                 hidden_session_ids: None,
                 installed_versions: versions,
+                shared_dev: false,
             })
         };
         let texts = |rows: Vec<SidebarRow>| -> Vec<String> {

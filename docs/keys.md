@@ -106,7 +106,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `▾` / `▸` | Parent with sub-sessions, expanded / collapsed (`c`) |
 | `↳` | Clean sub-session |
 | `⑂` | Forked sub-session |
-| `▶` | After the title: the worktree's Dev command runs (on its first row) |
+| `▶` | After the title: the worktree's Dev command runs (on its first row; muted on the worktree's other rows, which share it) |
 | `▣` | After the title: archived |
 | `!` | After the title: cleanup error |
 | `✓` | After the title: merged (by `m`, `M` or found merged elsewhere) |
