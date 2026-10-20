@@ -12,7 +12,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::sync::{Mutex, Once};
 use std::time::Duration;
 
 use futures::FutureExt;
@@ -108,14 +108,30 @@ pub struct RunOptions {
 }
 
 /// TS `runningGroups`: runs are detached (their own process group), so they would outlive a daemon that exits
-/// mid-run; [`kill_running_groups`] stops them on exit.
+/// mid-run; [`kill_running_groups`] stops them when the process exits.
 static RUNNING_GROUPS: Mutex<Option<HashSet<u32>>> = Mutex::new(None);
 
 /// Keeps a run's process group in [`RUNNING_GROUPS`] while it runs.
 struct RunningGroup(u32);
 
+/// Installs the exit handler once (TS registers `process.on('exit')` at module load).
+static EXIT_HANDLER: Once = Once::new();
+
+/// Runs on `exit()`: the daemon leaves through `std::process::exit` (signals, a panic, a dev shutdown), which runs no
+/// destructors, so the runs' guards never fire; C `atexit` handlers do run.
+extern "C" fn kill_running_groups_at_exit() {
+    kill_running_groups();
+}
+
 impl RunningGroup {
     fn register(pid: u32) -> Self {
+        EXIT_HANDLER.call_once(|| {
+            // SAFETY: registers a plain `extern "C"` function with no arguments; it never unwinds (it only locks,
+            // copies the pids and sends signals, ignoring every error).
+            unsafe {
+                libc::atexit(kill_running_groups_at_exit);
+            }
+        });
         if let Ok(mut groups) = RUNNING_GROUPS.lock() {
             groups.get_or_insert_with(HashSet::new).insert(pid);
         }
@@ -236,13 +252,17 @@ pub async fn run_bounded(file: &Path, args: &[&str], options: &RunOptions) -> Ru
     }
 }
 
-/// TS: agentVersionCheck.ts `process.on('exit')` handler: SIGKILLs the process groups of runs still going (the daemon
-/// calls it on its way out; dropped runs are already killed).
+/// TS: agentVersionCheck.ts `process.on('exit')` handler: SIGKILLs the process groups of runs still going. It runs
+/// on its own when the process exits (an `atexit` handler installed by the first run); dropped runs are already
+/// killed.
 pub fn kill_running_groups() {
-    let pids: Vec<u32> = match RUNNING_GROUPS.lock() {
-        Ok(groups) => groups.iter().flatten().copied().collect(),
-        Err(_) => return,
-    };
+    let pids: Vec<u32> = RUNNING_GROUPS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .iter()
+        .flatten()
+        .copied()
+        .collect();
     kill_groups(pids);
 }
 
@@ -1010,6 +1030,64 @@ mod tests {
             latest_from_override("{\"pi\":\"v1.2.3\"}", ProgramKey::Pi).ok(),
             Some(Some("1.2.3".to_owned()))
         );
+    }
+
+    /// Set in the re-executed test process: the file the run writes its pid to.
+    const EXIT_DURING_RUN_VAR: &str = "DECKHAND_TEST_EXIT_DURING_RUN";
+
+    /// TS `process.on('exit')`: a process that exits (`std::process::exit`, as the daemon always does) while a run is
+    /// going SIGKILLs the run's group; nothing else would stop it (it is detached into its own session).
+    #[test]
+    fn exiting_mid_run_kills_the_running_groups() {
+        if let Some(pid_file) = std::env::var_os(EXIT_DURING_RUN_VAR) {
+            let pid_file = PathBuf::from(pid_file);
+            local(async move {
+                let script = format!(
+                    "echo $$ > '{0}.tmp' && mv '{0}.tmp' '{0}' && exec sleep 30",
+                    pid_file.display()
+                );
+                tokio::task::spawn_local(async move {
+                    let options = RunOptions {
+                        timeout: Duration::from_secs(60),
+                        limit: 100,
+                        cwd: None,
+                    };
+                    run_bounded(Path::new("/bin/sh"), &["-c", &script], &options).await
+                });
+                while !pid_file.exists() {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+                std::process::exit(0);
+            });
+            return;
+        }
+        let dir = tempfile::tempdir().expect("tempdir");
+        let pid_file = dir.path().join("run.pid");
+        let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
+            .args([
+                "agent_version_check::tests::exiting_mid_run_kills_the_running_groups",
+                "--exact",
+                "--nocapture",
+            ])
+            .env(EXIT_DURING_RUN_VAR, &pid_file)
+            .output()
+            .expect("re-run this test");
+        assert!(output.status.success(), "{output:?}");
+        let pid: u32 = std::fs::read_to_string(&pid_file)
+            .expect("the run started")
+            .trim()
+            .parse()
+            .expect("a pid");
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut alive = true;
+        while alive && std::time::Instant::now() < deadline {
+            alive = proc::kill_pid(pid, Signal::SIGCONT).is_ok();
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        if alive {
+            let _ = proc::kill_group(pid, Signal::SIGKILL);
+        }
+        assert!(!alive, "the run (pid {pid}) outlived the process that started it");
     }
 
     /// The exit handler's kill, on a group this test owns: `kill_running_groups` itself SIGKILLs every run in the
