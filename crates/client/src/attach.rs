@@ -32,10 +32,11 @@ use deckhand_core::error::DhError;
 use deckhand_core::jsstr::{js_collapse_whitespace, js_len, js_slice, js_trim};
 use deckhand_protocol::Request;
 use deckhand_protocol::ServerMessage;
-use deckhand_protocol::data::{AttachTarget, ProgramKey, SessionStatus, TerminalModes};
+use deckhand_protocol::data::{AttachTarget, SessionRecord, SessionStatus, TerminalModes};
 use deckhand_protocol::events::SessionOutput;
-use deckhand_protocol::wire::{Attach, Detach, Input, Resize};
+use deckhand_protocol::wire::{Attach, Detach, Input, RequestOnly, Resize, Subscribe};
 
+use crate::attach_status::StatusLine;
 use crate::client::{MessageReader, frame_message, open_persistent_connection, socket_error};
 use crate::term_state::RESET_TERMINAL_STATE_SEQUENCE;
 
@@ -44,8 +45,6 @@ use crate::term_state::RESET_TERMINAL_STATE_SEQUENCE;
 pub struct AttachSessionOptions {
     /// The session title shown in the terminal title (default: the session ID).
     pub title: Option<String>,
-    /// The agent program (decides alternate screen, mouse reporting and wheel translation).
-    pub program: Option<ProgramKey>,
     /// Fraction of vertical wheel events forwarded (0..=1, default 0.12).
     pub scroll_sensitivity: Option<f64>,
 }
@@ -356,19 +355,18 @@ pub fn normalize_scroll_sensitivity(value: Option<f64>) -> f64 {
 
 /// TS: attach.ts createAttachInputNormalizer: throttles SGR vertical wheel events (`ESC [ < 64|65 ; x ; y M|m`) by
 /// accumulating `scroll_sensitivity` per event and forwarding one per whole unit; horizontal wheel events (66/67) pass
-/// through; for Pi a forwarded wheel up/down becomes PageUp (`ESC [5~`) / PageDown (`ESC [6~`).
+/// through. Every agent's fullscreen TUI scrolls its own view on the wheel (TS turned it into PageUp/PageDown for Pi,
+/// which predates Pi's fullscreen mode).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AttachInputNormalizer {
-    program: Option<ProgramKey>,
     scroll_sensitivity: f64,
     vertical_wheel_accumulator: f64,
 }
 
 impl AttachInputNormalizer {
     /// TS: createAttachInputNormalizer.
-    pub fn new(program: Option<ProgramKey>, scroll_sensitivity: f64) -> Self {
+    pub fn new(scroll_sensitivity: f64) -> Self {
         AttachInputNormalizer {
-            program,
             scroll_sensitivity,
             vertical_wheel_accumulator: 0.0,
         }
@@ -405,12 +403,6 @@ impl AttachInputNormalizer {
             return "";
         }
         self.vertical_wheel_accumulator -= 1.0;
-
-        // Claude's TUI handles mouse wheel events directly. Pi's documented scroll actions are PageUp/PageDown, and
-        // it does not currently consume wheel events in attach mode, so translate vertical wheel input for Pi.
-        if self.program == Some(ProgramKey::Pi) {
-            return if code == 64 { "\x1b[5~" } else { "\x1b[6~" };
-        }
         matched
     }
 }
@@ -521,13 +513,13 @@ fn js_truthy(value: &Value) -> bool {
     }
 }
 
-/// TS: attach.ts `useAttachScreen`: only an agent attach (Claude, or an unknown program) or Git gets deckhand's
-/// alternate screen; Terminal, Dev and action panes and Pi/Codex agents keep the normal screen.
-pub fn use_attach_screen(target: AttachTarget, program: Option<ProgramKey>) -> bool {
+/// TS: attach.ts `useAttachScreen`: an agent attach or Git gets deckhand's alternate screen (Claude, Pi and Codex all
+/// draw fullscreen; TS kept the normal screen for Pi and Codex); Terminal, Dev and action panes keep the normal screen.
+pub fn use_attach_screen(target: AttachTarget) -> bool {
     !matches!(
         target,
         AttachTarget::Terminal | AttachTarget::Dev | AttachTarget::Action
-    ) && (target != AttachTarget::Agent || matches!(program, Some(ProgramKey::Claude) | None))
+    )
 }
 
 /// TS: attach.ts attachRows: the outer terminal's rows (24 when unknown), at least 1.
@@ -648,10 +640,10 @@ fn enable_attach_mouse_reporting_on(console: &mut impl Console) {
     if !console.stdout_is_tty() {
         return;
     }
-    // Deckhand's attach view owns the outer terminal while proxying input to the child PTY. Some agent TUIs (Claude)
-    // enable mouse reporting themselves, but Pi currently does not; in an alternate screen most terminals then turn
-    // the wheel into Up/Down arrow keys. Enabling basic SGR mouse reporting here keeps wheel input as mouse events so
-    // the attach input normalizer can throttle and forward them to the agent instead of sending arrows.
+    // Deckhand's attach view owns the outer terminal while proxying input to the child PTY. The agent enabled mouse
+    // reporting in its PTY before we attached, so the outer terminal never saw that request; in an alternate screen
+    // most terminals then turn the wheel into Up/Down arrow keys. Enabling basic SGR mouse reporting here keeps wheel
+    // input as mouse events so the attach input normalizer can throttle and forward them to the agent.
     console.write("\x1b[?1000h\x1b[?1006h");
 }
 
@@ -962,6 +954,11 @@ struct Proxy<'a, C: Console> {
     title_set: bool,
     events: mpsc::UnboundedSender<ConsoleEvent>,
     input_listening: bool,
+    /// Deckhand's status line on the top row (agent attaches on a terminal only).
+    status: Option<StatusLine>,
+    /// The `list` and `subscribe` requests that feed the status line.
+    status_list_id: String,
+    status_subscribe_id: String,
 }
 
 /// TS attachSession after the connection is open: runs the attach on `socket` against `console`.
@@ -977,6 +974,12 @@ pub(crate) async fn run_attach<C: Console, S: AsyncRead + AsyncWrite + Unpin>(
     let mut reader = MessageReader::new(read_half);
     let (events, mut input) = mpsc::unbounded_channel();
     let original_process_title = console.process_title();
+    let status = (target == AttachTarget::Agent && console.stdout_is_tty())
+        .then(|| {
+            let title = options.title.as_deref().unwrap_or(session_id);
+            StatusLine::new(session_id, title, attach_rows_on(console), attach_cols_on(console))
+        })
+        .flatten();
     let mut proxy = Proxy {
         console,
         outgoing: WriteQueue::default(),
@@ -984,18 +987,18 @@ pub(crate) async fn run_attach<C: Console, S: AsyncRead + AsyncWrite + Unpin>(
         target,
         options,
         request_id,
-        normalize_attach_input: AttachInputNormalizer::new(
-            options.program,
-            normalize_scroll_sensitivity(options.scroll_sensitivity),
-        ),
+        normalize_attach_input: AttachInputNormalizer::new(normalize_scroll_sensitivity(options.scroll_sensitivity)),
         filter_terminal_title_output: TerminalTitleOutputFilter::new(),
-        use_attach_screen: use_attach_screen(target, options.program),
+        use_attach_screen: use_attach_screen(target),
         original_process_title,
         attached: false,
         attach_screen_entered: false,
         title_set: false,
         events,
         input_listening: false,
+        status,
+        status_list_id: uuid::Uuid::new_v4().to_string(),
+        status_subscribe_id: uuid::Uuid::new_v4().to_string(),
     };
 
     let outcome = proxy.run(&mut reader, &mut writer, &mut input).await;
@@ -1022,7 +1025,7 @@ impl<C: Console> Proxy<'_, C> {
                 request_id: self.request_id.clone(),
                 session_id: self.session_id.to_owned(),
                 cols: Some(attach_cols_on(self.console)),
-                rows: Some(attach_rows_on(self.console)),
+                rows: Some(self.pty_rows()),
             },
         );
         self.outgoing.push(&attach)?;
@@ -1071,6 +1074,9 @@ impl<C: Console> Proxy<'_, C> {
 
     /// The attachJsonParser callback: `Some` when the message finishes the attach.
     fn on_message(&mut self, message: ServerMessage) -> Option<Result<(), DhError>> {
+        if let Some(done) = self.on_status_message(&message) {
+            return done;
+        }
         if let ServerMessage::Response(response) = &message
             && response.request_id == self.request_id
         {
@@ -1092,8 +1098,7 @@ impl<C: Console> Proxy<'_, C> {
                 enter_attach_screen_on(self.console);
                 self.attach_screen_entered = true;
             }
-            let claude_or_unknown = matches!(self.options.program, Some(ProgramKey::Claude) | None);
-            if self.target == AttachTarget::Agent && claude_or_unknown {
+            if self.target == AttachTarget::Agent {
                 enable_attach_mouse_reporting_on(self.console);
             }
             if self.target == AttachTarget::Agent || terminal_modes.is_some_and(|modes| modes.bracketed_paste) {
@@ -1103,6 +1108,15 @@ impl<C: Console> Proxy<'_, C> {
             set_terminal_title_on(self.console, &next_title);
             self.console.set_process_title(&sanitize_terminal_title(&next_title));
             self.title_set = true;
+            if let Some(status) = &self.status {
+                self.console.write(&status.setup());
+                let list = Request::List(RequestOnly {
+                    request_id: self.status_list_id.clone(),
+                });
+                if let Err(error) = self.outgoing.push(&list) {
+                    return Some(Err(error));
+                }
+            }
             if self.console.stdin_is_tty() {
                 self.console.set_raw_mode(true);
             }
@@ -1116,9 +1130,12 @@ impl<C: Console> Proxy<'_, C> {
         if let Some(output) = target_output(self.target, &message)
             && output.session_id == self.session_id
         {
-            let output = self
+            let mut output = self
                 .filter_terminal_title_output
                 .filter(&normalize_terminal_output(&output.data));
+            if let Some(status) = &mut self.status {
+                output = status.filter_output(&output);
+            }
             self.console.write(&output);
             return None;
         }
@@ -1157,7 +1174,10 @@ impl<C: Console> Proxy<'_, C> {
             let _ = self.outgoing.push(&detach);
             return Some(Ok(()));
         }
-        let normalized = self.normalize_attach_input.normalize(&String::from_utf8_lossy(chunk));
+        let mut normalized = self.normalize_attach_input.normalize(&String::from_utf8_lossy(chunk));
+        if let Some(status) = &mut self.status {
+            normalized = status.filter_input(&normalized);
+        }
         if normalized.is_empty() {
             return None;
         }
@@ -1173,19 +1193,84 @@ impl<C: Console> Proxy<'_, C> {
 
     /// The stdout 'resize' listener (also called once on attach).
     fn on_resize(&mut self) -> Result<(), DhError> {
+        if let Some(status) = &mut self.status {
+            let setup = status.resize(attach_rows_on(self.console), attach_cols_on(self.console));
+            self.console.write(&setup);
+        }
         let message = resize_request(
             self.target,
             Resize {
                 session_id: self.session_id.to_owned(),
                 cols: Some(attach_cols_on(self.console)),
-                rows: Some(attach_rows_on(self.console)),
+                rows: Some(self.pty_rows()),
             },
         );
         self.outgoing.push(&message)
     }
 
+    /// The PTY's rows: the outer terminal's, less the status line's row.
+    fn pty_rows(&self) -> i64 {
+        match &self.status {
+            Some(status) => status.agent_rows(),
+            None => attach_rows_on(self.console),
+        }
+    }
+
+    /// The status line's own traffic: the `list` answer (to learn the repository), the `subscribe` answer, and other
+    /// sessions' updates. `Some` when the message was one of its answers (the attach goes on either way).
+    fn on_status_message(&mut self, message: &ServerMessage) -> Option<Option<Result<(), DhError>>> {
+        let status = self.status.as_mut()?;
+        match message {
+            ServerMessage::Response(response) if response.request_id == self.status_list_id => {
+                let sessions: Vec<SessionRecord> = response
+                    .data
+                    .clone()
+                    .and_then(|data| serde_json::from_value(data).ok())
+                    .unwrap_or_default();
+                let Some(repo_root) = sessions
+                    .iter()
+                    .find(|session| session.id == self.session_id)
+                    .map(|session| session.repo_root.clone())
+                else {
+                    return Some(None);
+                };
+                let subscribe = Request::Subscribe(Subscribe {
+                    request_id: self.status_subscribe_id.clone(),
+                    repo_root: repo_root.into(),
+                });
+                Some(self.outgoing.push(&subscribe).err().map(Err))
+            }
+            ServerMessage::Response(response) if response.request_id == self.status_subscribe_id => {
+                let sessions: Vec<SessionRecord> = response
+                    .data
+                    .clone()
+                    .and_then(|data| serde_json::from_value(data).ok())
+                    .unwrap_or_default();
+                let drawn = status.set_sessions(&sessions);
+                self.console.write(&drawn);
+                Some(None)
+            }
+            ServerMessage::SessionUpdated(update) => {
+                let drawn = status.session_updated(&update.session);
+                self.console.write(&drawn);
+                None
+            }
+            ServerMessage::SessionRemoved(removed) => {
+                let drawn = status.session_removed(&removed.session_id);
+                self.console.write(&drawn);
+                None
+            }
+            _ => None,
+        }
+    }
+
     /// TS cleanup (runs once, before the promise settles); `socket.end()` is in [`run_attach`].
     fn cleanup(&mut self) {
+        if let Some(status) = &self.status
+            && self.attached
+        {
+            self.console.write(&status.teardown());
+        }
         if self.console.stdin_is_tty() {
             self.console.set_raw_mode(false);
         }
@@ -1358,7 +1443,7 @@ mod tests {
 
     #[test]
     fn wheel_events_are_throttled() {
-        let mut normalizer = AttachInputNormalizer::new(Some(ProgramKey::Claude), 0.5);
+        let mut normalizer = AttachInputNormalizer::new(0.5);
         assert_eq!(normalizer.normalize("a\x1b[<64;10;5Mb"), "ab");
         assert_eq!(normalizer.normalize("\x1b[<65;10;5m"), "\x1b[<65;10;5m");
         // Horizontal wheel and ordinary mouse events pass through untouched.
@@ -1382,7 +1467,7 @@ mod tests {
 
     #[test]
     fn default_sensitivity_forwards_one_in_nine() {
-        let mut normalizer = AttachInputNormalizer::new(None, normalize_scroll_sensitivity(None));
+        let mut normalizer = AttachInputNormalizer::new(normalize_scroll_sensitivity(None));
         let forwarded: Vec<usize> = (0..20)
             .filter(|_| !normalizer.normalize("\x1b[<65;3;4M").is_empty())
             .collect();
@@ -1401,9 +1486,12 @@ mod tests {
     }
 
     #[test]
-    fn pi_gets_page_keys() {
-        let mut normalizer = AttachInputNormalizer::new(Some(ProgramKey::Pi), 1.0);
-        assert_eq!(normalizer.normalize("\x1b[<64;1;1M\x1b[<65;1;1m"), "\x1b[5~\x1b[6~");
+    fn forwarded_wheel_events_stay_mouse_events() {
+        let mut normalizer = AttachInputNormalizer::new(1.0);
+        assert_eq!(
+            normalizer.normalize("\x1b[<64;1;1M\x1b[<65;1;1m"),
+            "\x1b[<64;1;1M\x1b[<65;1;1m"
+        );
         assert_eq!(normalizer.normalize("\x1b[<67;1;1M"), "\x1b[<67;1;1M");
     }
 
@@ -1475,14 +1563,11 @@ mod tests {
 
     #[test]
     fn attach_screen_choice() {
-        assert!(use_attach_screen(AttachTarget::Agent, None));
-        assert!(use_attach_screen(AttachTarget::Agent, Some(ProgramKey::Claude)));
-        assert!(!use_attach_screen(AttachTarget::Agent, Some(ProgramKey::Pi)));
-        assert!(!use_attach_screen(AttachTarget::Agent, Some(ProgramKey::Codex)));
-        assert!(use_attach_screen(AttachTarget::Git, Some(ProgramKey::Pi)));
-        assert!(!use_attach_screen(AttachTarget::Terminal, None));
-        assert!(!use_attach_screen(AttachTarget::Dev, None));
-        assert!(!use_attach_screen(AttachTarget::Action, None));
+        assert!(use_attach_screen(AttachTarget::Agent));
+        assert!(use_attach_screen(AttachTarget::Git));
+        assert!(!use_attach_screen(AttachTarget::Terminal));
+        assert!(!use_attach_screen(AttachTarget::Dev));
+        assert!(!use_attach_screen(AttachTarget::Action));
     }
 
     #[test]
@@ -1603,14 +1688,14 @@ mod tests {
         let (mut console, state, client, mut daemon) = setup(true, Some((120, 40)));
         let options = AttachSessionOptions {
             title: Some(String::from("Fix bug")),
-            program: Some(ProgramKey::Pi),
             scroll_sensitivity: Some(1.0),
         };
         let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
         let driver = async {
+            // The status line and its rule take the top two rows: the agent gets two less.
             assert_eq!(
                 daemon.recv().await,
-                json!({"type": "attach", "requestId": "req", "sessionId": "s1", "cols": 120, "rows": 40})
+                json!({"type": "attach", "requestId": "req", "sessionId": "s1", "cols": 120, "rows": 38})
             );
             // Unrelated responses and other sessions' output are ignored.
             daemon
@@ -1622,30 +1707,50 @@ mod tests {
             daemon
                 .send(json!({"type": "response", "requestId": "req", "ok": true, "data": {"content": ""}}))
                 .await;
+            // The status line lists the sessions to learn the repository, then subscribes to it.
+            let list = daemon.recv().await;
+            assert_eq!(list["type"], "list");
             assert_eq!(
                 daemon.recv().await,
-                json!({"type": "resize", "sessionId": "s1", "cols": 120, "rows": 40})
+                json!({"type": "resize", "sessionId": "s1", "cols": 120, "rows": 38})
             );
             {
                 let state = state.lock().unwrap();
-                // Pi: no alternate screen and no mouse reporting, but bracketed paste (agent) and the title.
-                assert_eq!(
-                    state.out,
-                    format!(
-                        "{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?2004h\x1b]0;dh/agent Fix bug\x07\x1b]2;dh/agent Fix bug\x07"
-                    )
+                // Alternate screen, mouse reporting, bracketed paste (agent), the title, then the line's scroll region
+                // (every row below the line and the rule) and the line.
+                let attached = format!(
+                    "{RESET_TERMINAL_STATE_SEQUENCE}{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049h\x1b[2J\x1b[H\
+                     \x1b[?1000h\x1b[?1006h\x1b[?2004h\x1b]0;dh/agent Fix bug\x07\x1b]2;dh/agent Fix bug\x07\x1b[3;40r"
                 );
+                assert!(state.out.starts_with(&attached), "{:?}", state.out);
+                assert!(state.out.contains("Fix bug") && state.out.contains("Ctrl+] detach"));
                 assert_eq!(state.raw, vec![true]);
                 assert_eq!(state.titles, vec![String::from("dh/agent Fix bug")]);
             }
             state.lock().unwrap().out.clear();
+            let mut waiting = session_json("s2", "running");
+            waiting["attention"] = json!({"state": "needs-input", "event": "Notification", "at": "x"});
+            let sessions = json!([session_json("s1", "running"), waiting]);
+            daemon
+                .send(json!({"type": "response", "requestId": list["requestId"], "ok": true, "data": sessions}))
+                .await;
+            let subscribe = daemon.recv().await;
+            assert_eq!(subscribe["type"], "subscribe");
+            assert_eq!(subscribe["repoRoot"], "/r");
+            daemon
+                .send(json!({"type": "response", "requestId": subscribe["requestId"], "ok": true, "data": sessions}))
+                .await;
             daemon
                 .send(json!({"type": "output", "sessionId": "s1", "data": "a\u{9b}1mb\u{1b}]0;child\u{7}c"}))
                 .await;
-            send_input(&state, ConsoleEvent::Data(b"hi\x1b[<64;1;1M".to_vec()));
+            // The wheel reaches the agent two rows up (and not at all on the line or the rule).
+            send_input(
+                &state,
+                ConsoleEvent::Data(b"hi\x1b[<64;1;1M\x1b[<64;1;2M\x1b[<64;1;5M".to_vec()),
+            );
             assert_eq!(
                 daemon.recv().await,
-                json!({"type": "input", "sessionId": "s1", "data": "hi\x1b[5~"})
+                json!({"type": "input", "sessionId": "s1", "data": "hi\x1b[<64;1;3M"})
             );
             send_input(&state, ConsoleEvent::Resize);
             assert_eq!(daemon.recv().await["type"], "resize");
@@ -1657,9 +1762,15 @@ mod tests {
         let (result, ()) = tokio::join!(attach, driver);
         result.unwrap();
         let state = state.lock().unwrap();
-        assert_eq!(
-            state.out,
-            format!("a\x1b[1mbc{RESET_TERMINAL_STATE_SEQUENCE}\x1b]0;deckhand\x07\x1b]2;deckhand\x07")
+        assert!(state.out.contains("a\x1b[1mbc"), "{:?}", state.out);
+        assert!(state.out.contains("1 other session waiting"), "{:?}", state.out);
+        // The line and the rule are cleared before the terminal is handed back.
+        assert!(
+            state.out.ends_with(&format!(
+                "\x1b[r\x1b[0m\x1b[1;1H\x1b[2K\x1b[2;1H\x1b[2K\x1b[1;1H{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049l\x1b]0;deckhand\x07\x1b]2;deckhand\x07"
+            )),
+            "{:?}",
+            state.out
         );
         assert_eq!(state.raw, vec![true, false]);
         assert_eq!(state.titles.last().map(String::as_str), Some("deckhand"));
@@ -1674,19 +1785,17 @@ mod tests {
         let driver = async {
             assert_eq!(
                 daemon.recv().await,
-                json!({"type": "attach", "requestId": "req", "sessionId": "s1", "cols": 80, "rows": 24})
+                json!({"type": "attach", "requestId": "req", "sessionId": "s1", "cols": 80, "rows": 22})
             );
             daemon
                 .send(json!({"type": "response", "requestId": "req", "ok": true}))
                 .await;
+            assert_eq!(daemon.recv().await["type"], "list");
             daemon.recv().await;
-            assert_eq!(
-                state.lock().unwrap().out,
-                format!(
-                    "{RESET_TERMINAL_STATE_SEQUENCE}{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049h\x1b[2J\x1b[H\
-                     \x1b[?1000h\x1b[?1006h\x1b[?2004h\x1b]0;dh/agent s1\x07\x1b]2;dh/agent s1\x07"
-                )
-            );
+            assert!(state.lock().unwrap().out.starts_with(&format!(
+                "{RESET_TERMINAL_STATE_SEQUENCE}{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049h\x1b[2J\x1b[H\
+                 \x1b[?1000h\x1b[?1006h\x1b[?2004h\x1b]0;dh/agent s1\x07\x1b]2;dh/agent s1\x07"
+            )));
             state.lock().unwrap().out.clear();
             // Another session exiting does nothing; this one ends the attach.
             daemon
@@ -1701,13 +1810,11 @@ mod tests {
         };
         let (result, ()) = tokio::join!(attach, driver);
         result.unwrap();
-        assert_eq!(
-            state.lock().unwrap().out,
-            format!(
-                "\n\r[session exited: Fix bug]\n{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049l\
-                 \x1b]0;deckhand\x07\x1b]2;deckhand\x07"
-            )
-        );
+        // The session updates redraw the status line; the exit notice, then the line and the rule cleared.
+        assert!(state.lock().unwrap().out.ends_with(&format!(
+            "\n\r[session exited: Fix bug]\n\x1b[r\x1b[0m\x1b[1;1H\x1b[2K\x1b[2;1H\x1b[2K\x1b[1;1H{RESET_TERMINAL_STATE_SEQUENCE}\x1b[?1049l\
+             \x1b]0;deckhand\x07\x1b]2;deckhand\x07"
+        )));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -1810,10 +1917,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     async fn detach_works_when_the_daemon_stops_reading() {
         let (mut console, state, client, mut daemon) = setup(true, Some((80, 24)));
-        let options = AttachSessionOptions {
-            program: Some(ProgramKey::Pi),
-            ..AttachSessionOptions::default()
-        };
+        let options = AttachSessionOptions::default();
         let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
         let attach = async { tokio::time::timeout(std::time::Duration::from_secs(3), attach).await };
         let driver = async {
@@ -1821,6 +1925,7 @@ mod tests {
             daemon
                 .send(json!({"type": "response", "requestId": "req", "ok": true}))
                 .await;
+            assert_eq!(daemon.recv().await["type"], "list");
             assert_eq!(daemon.recv().await["type"], "resize");
             // The daemon reads nothing more. A large paste arrives as 64 KiB stdin reads, then Ctrl+Space.
             for _ in 0..4 {
@@ -1842,10 +1947,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread")]
     async fn queued_input_is_delivered_in_order() {
         let (mut console, state, client, mut daemon) = setup(false, None);
-        let options = AttachSessionOptions {
-            program: Some(ProgramKey::Pi),
-            ..AttachSessionOptions::default()
-        };
+        let options = AttachSessionOptions::default();
         let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
         let driver = async {
             daemon.recv().await;

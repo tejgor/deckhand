@@ -27,8 +27,8 @@ use deckhand_core::jsstr::date;
 use deckhand_protocol::Ordered;
 use deckhand_protocol::WorkerCommand;
 use deckhand_protocol::data::{
-    AgentActivityStatus, AttachSnapshot, AttachTarget, OkResult, PreviewRecord, SessionRecord, SessionStatus,
-    TerminalModes,
+    AgentActivityStatus, AttachSnapshot, AttachTarget, OkResult, PreviewRecord, ProgramKey, SessionRecord,
+    SessionStatus, TerminalModes,
 };
 use deckhand_protocol::worker_ipc::{
     AgentExit, AgentStatusChanged, Running, WorkerMessage, WorkerOutput, WorkerPreviewUpdated,
@@ -155,6 +155,18 @@ pub fn shell_command() -> String {
         Some(shell) if !shell.is_empty() => shell.to_string_lossy().into_owned(),
         _ => "/bin/sh".to_owned(),
     }
+}
+
+/// The agent's environment: this process's, plus `CLAUDE_CODE_NO_FLICKER=1` for Claude (replacing any value). Every
+/// scroll path sends the wheel to the agent's own TUI, and only Claude's fullscreen renderer consumes it; the classic
+/// one ignores mouse input, which leaves nothing to scroll in Preview focus or attach.
+pub fn agent_env(program: ProgramKey) -> Vec<(OsString, OsString)> {
+    let mut env: Vec<(OsString, OsString)> = std::env::vars_os().collect();
+    if program == ProgramKey::Claude {
+        env.retain(|(key, _)| key != "CLAUDE_CODE_NO_FLICKER");
+        env.push(("CLAUDE_CODE_NO_FLICKER".into(), "1".into()));
+    }
+    env
 }
 
 /// TS: sessionWorker.ts changedCharacterCount: the length difference plus the differing positions of the shared
@@ -451,7 +463,7 @@ impl SessionWorker {
         Ok(())
     }
 
-    /// TS: SessionWorker.startAgent: spawns `session.command`/`args` in `session.cwd` (inheriting the environment),
+    /// TS: SessionWorker.startAgent: spawns `session.command`/`args` in `session.cwd` (with [`agent_env`]),
     /// posts `running {pid}`, arms the initial idle timer ([`IDLE_AFTER`]) and starts the output pump. Answers
     /// `{...session, status: 'running', pid}`.
     pub fn start_agent(
@@ -462,7 +474,15 @@ impl SessionWorker {
     ) -> Result<Ordered<SessionRecord>, DhError> {
         self.inner.state.borrow_mut().session = Some(session.clone());
         let args = session.args.clone().unwrap_or_default();
-        let term = spawn_pty(&session.command, &args, &session.cwd, None, cols as f64, rows as f64)?;
+        let env = agent_env(session.program);
+        let term = spawn_pty(
+            &session.command,
+            &args,
+            &session.cwd,
+            Some(env),
+            cols as f64,
+            rows as f64,
+        )?;
         let pid = term.pid();
         let agent: SharedAgent = Rc::new(RefCell::new(AgentRuntime {
             pty: RuntimePty::new(term, cols as f64, rows as f64, session.cwd.clone(), None),
@@ -1083,6 +1103,21 @@ mod tests {
             )),
             None
         );
+    }
+
+    #[test]
+    fn agent_env_forces_claudes_fullscreen_renderer() {
+        let flag = |env: &[(OsString, OsString)]| -> Vec<OsString> {
+            env.iter()
+                .filter(|(key, _)| key == "CLAUDE_CODE_NO_FLICKER")
+                .map(|(_, value)| value.clone())
+                .collect()
+        };
+        assert_eq!(flag(&agent_env(ProgramKey::Claude)), [OsString::from("1")]);
+        // Pi and Codex inherit the environment unchanged.
+        let inherited: Vec<_> = std::env::vars_os().collect();
+        assert_eq!(agent_env(ProgramKey::Pi), inherited);
+        assert_eq!(agent_env(ProgramKey::Codex), inherited);
     }
 
     #[test]

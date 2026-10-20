@@ -122,6 +122,9 @@ fn main() {
     if let Some(launch) = env("DECKHAND_LAUNCH_ID") {
         trace.insert("launchId".into(), json!(launch));
     }
+    if let Some(no_flicker) = env("CLAUDE_CODE_NO_FLICKER") {
+        trace.insert("noFlicker".into(), json!(no_flicker));
+    }
     trace.insert("pid".into(), json!(std::process::id()));
     let _ = fs::write(
         home_file(&format!("trace-{}.json", or_undefined("DECKHAND_SESSION_ID"))),

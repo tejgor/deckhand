@@ -17,7 +17,7 @@ use deckhand_client::term_state::reset_terminal_state;
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::date;
 use deckhand_protocol::UiState;
-use deckhand_protocol::data::{AttachTarget, EditorCommand, JsNumber, ProgramKey, RightPaneTab, UiExitResult};
+use deckhand_protocol::data::{AttachTarget, EditorCommand, JsNumber, RightPaneTab, UiExitResult};
 use deckhand_sys::async_util::Timer;
 use deckhand_sys::desktop::{is_vim_family, terminal_editor_args};
 use deckhand_sys::git::ensure_git_repo;
@@ -264,9 +264,8 @@ pub async fn run_ui_loop() -> Result<(), DhError> {
                 session_id,
                 target,
                 title,
-                program,
                 ..
-            }) => hand_off_attach(&ui_state, &session_id, target, title.as_deref(), program).await,
+            }) => hand_off_attach(&ui_state, &session_id, target, title.as_deref()).await,
             Some(UiExitResult::EditNote {
                 session_id,
                 file,
@@ -323,7 +322,6 @@ pub async fn hand_off_attach(
     session_id: &str,
     target: AttachTarget,
     title: Option<&str>,
-    program: Option<ProgramKey>,
 ) {
     record_attach(&mut ui_state.borrow_mut(), session_id, target);
     clear_terminal_screen();
@@ -331,7 +329,6 @@ pub async fn hand_off_attach(
         let config = load_app_config().await?;
         let options = AttachSessionOptions {
             title: title.map(str::to_owned),
-            program,
             scroll_sensitivity: config.attach_scroll_sensitivity.map(|value| value.0),
         };
         attach_session(session_id, Some(target), options).await

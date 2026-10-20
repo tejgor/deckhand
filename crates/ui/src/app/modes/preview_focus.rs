@@ -1,8 +1,8 @@
 //! Port of app.tsx's preview-focus keys and mouse wheel (→ on a running session's Preview: scroll it, or send the
-//! wheel to Claude, which scrolls its own view), and the changes-/notes-focus hand-off to their flows.
+//! wheel to a fullscreen agent, which scrolls its own view), and the changes-/notes-focus hand-off to their flows.
 
 use deckhand_core::key::Input;
-use deckhand_protocol::data::{JsNumber, ProgramKey, SessionStatus};
+use deckhand_protocol::data::{JsNumber, SessionStatus};
 use deckhand_protocol::records::AppConfig;
 use deckhand_sys::storage::patch_app_config;
 
@@ -96,14 +96,14 @@ pub fn handle_preview_focus(app: &mut App, input: &Input) {
         return;
     }
     if text == "g" {
-        // Claude scrolls its own view, so only the wheel fallback applies there.
-        if !send_claude_wheel(app, WheelDirection::Up, 12) {
+        // A fullscreen agent scrolls its own view, so only the wheel fallback applies there.
+        if !send_agent_wheel(app, WheelDirection::Up, 12) {
             let offset = app.preview_focus.scroll_offset;
             app.preview_focus.scroll_offset = app.panes.preview.max_scroll_offset.unwrap_or(offset + rows);
         }
         return;
     }
-    if text == "G" && !send_claude_wheel(app, WheelDirection::Down, 12) {
+    if text == "G" && !send_agent_wheel(app, WheelDirection::Down, 12) {
         app.preview_focus.scroll_offset = 0;
     }
 }
@@ -154,14 +154,19 @@ pub fn adjust_scroll_sensitivity(app: &mut App, delta: f64) {
     }));
 }
 
-/// TS `sendClaudeWheel`: Claude scrolls its own view; true when sent.
-pub fn send_claude_wheel(app: &mut App, direction: WheelDirection, count: usize) -> bool {
+/// TS `sendClaudeWheel`, for every agent: a running agent whose preview has no scrollback (Claude, Pi and Codex all
+/// draw fullscreen in the alternate screen, which keeps none) scrolls its own view; true when sent. An agent printing
+/// inline (Pi `tuiMode: "regular"`, Codex `--no-alt-screen`) leaves its history in the preview's scrollback instead.
+pub fn send_agent_wheel(app: &mut App, direction: WheelDirection, count: usize) -> bool {
     let Some(client) = app.client() else {
         return false;
     };
+    if app.panes.preview.max_scroll_offset.is_some_and(|max| max > 0) {
+        return false;
+    }
     let Some(session) = app
         .selected_session()
-        .filter(|session| session.program == ProgramKey::Claude && session.status == SessionStatus::Running)
+        .filter(|session| session.status == SessionStatus::Running)
     else {
         return false;
     };
@@ -174,9 +179,9 @@ pub fn send_claude_wheel(app: &mut App, direction: WheelDirection, count: usize)
     true
 }
 
-/// TS `scrollPreview`: the wheel to Claude, else the preview's scroll offset.
+/// TS `scrollPreview`: the wheel to a fullscreen agent, else the preview's scroll offset.
 pub fn scroll_preview(app: &mut App, direction: WheelDirection, count: usize) {
-    if send_claude_wheel(app, direction, count) {
+    if send_agent_wheel(app, direction, count) {
         return;
     }
     let count = i64::try_from(count).unwrap_or(i64::MAX);
@@ -237,8 +242,6 @@ mod tests {
     #[test]
     fn keys_scroll_the_preview_within_its_bounds() {
         let (mut app, _rx) = with_sessions(1);
-        // Not Claude: the preview's own scroll offset.
-        app.data.repo_sessions[0].program = ProgramKey::Codex;
         app.set_mode(Mode::PreviewFocus);
         app.panes.preview.max_scroll_offset = Some(3);
         for _ in 0..5 {
@@ -291,7 +294,6 @@ mod tests {
     #[test]
     fn the_wheel_is_scaled_by_the_sensitivity() {
         let (mut app, _rx) = with_sessions(1);
-        app.data.repo_sessions[0].program = ProgramKey::Codex;
         app.preview_focus.scroll_sensitivity = 0.5;
         let up = mouse_wheel_sequence(WheelDirection::Up, 10, 10, 1);
         on_mouse_data(&mut app, &up);
@@ -307,10 +309,11 @@ mod tests {
     }
 
     #[test]
-    fn a_running_claude_gets_the_wheel_itself() {
+    fn a_running_fullscreen_agent_gets_the_wheel_itself() {
         local(async {
             let (mut app, _rx) = with_sessions(1);
             let mut daemon = Daemon::connect(&mut app);
+            app.panes.preview.max_scroll_offset = Some(0);
             app.preview_focus.scroll_offset = 2;
             app.preview_focus.scroll_sensitivity = 1.0;
             let layout = app.layout();
@@ -329,9 +332,25 @@ mod tests {
                 message["data"],
                 mouse_wheel_sequence(WheelDirection::Down, layout.preview_cols, layout.preview_rows, 12)
             );
+            // Pi and Codex too.
+            for program in [ProgramKey::Pi, ProgramKey::Codex] {
+                app.data.repo_sessions[0].program = program;
+                handle_preview_focus(&mut app, &text("k"));
+                assert_eq!(
+                    daemon.next().await["data"],
+                    mouse_wheel_sequence(WheelDirection::Up, layout.preview_cols, layout.preview_rows, 1)
+                );
+            }
+            // An agent printing inline left scrollback in the preview: that scrolls instead.
+            app.panes.preview.max_scroll_offset = Some(3);
+            assert!(!send_agent_wheel(&mut app, WheelDirection::Up, 1));
+            handle_preview_focus(&mut app, &text("g"));
+            assert_eq!(app.preview_focus.scroll_offset, 3);
+            app.preview_focus.scroll_offset = 0;
+            app.panes.preview.max_scroll_offset = None;
             // An exited session scrolls the preview instead.
             app.data.repo_sessions[0].status = SessionStatus::Exited;
-            assert!(!send_claude_wheel(&mut app, WheelDirection::Up, 1));
+            assert!(!send_agent_wheel(&mut app, WheelDirection::Up, 1));
             scroll_preview(&mut app, WheelDirection::Up, 1);
             assert_eq!(app.preview_focus.scroll_offset, 1);
         });

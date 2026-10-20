@@ -24,7 +24,7 @@ Implemented behavior:
 - Sub-sessions under parent sessions, with clean and forked variants (Claude `--fork-session`, Pi `--fork`, `codex fork`).
 - Repo-scoped session list with persisted manual ordering among siblings and collapsible subtrees.
 - Worker-side terminal preview rendering with a headless terminal emulator (`alacritty_terminal`).
-- Read-only Preview focus mode with scrollback; Claude gets synthetic wheel input because its TUI behaves differently.
+- Read-only Preview focus mode with scrollback; a fullscreen agent gets synthetic wheel input and scrolls its own view.
 - External attach/detach for agent, terminal, git, dev, and action PTYs (Ctrl+] or Ctrl+Space detaches).
 - Worktree modes: no worktree, new managed worktree, existing/attached worktree; safe deletion, optional branch deletion, cleanup of remnants.
 - Notes, tasks, the worktree manager, the Changes view, merge helpers, agent versions/updates, lifecycle hooks (`deckhand hook` / `deckhand hooks [codex]`), `deckhand setup` / `doctor`.
@@ -269,7 +269,9 @@ The keymap follows the rules under *Design rules* (the session list and the pane
 
 ### Preview focus and scrolling
 
-Preview focus is read-only for most agents and scrolls Deckhand's worker-side xterm scrollback snapshot. Claude Code behaves more like a TUI, so Preview focus sends synthetic SGR mouse-wheel events to the Claude PTY instead of only scrolling Deckhand state.
+Claude, Pi and Codex all draw fullscreen in the alternate screen and scroll their own transcript on the mouse wheel. The worker launches Claude with `CLAUDE_CODE_NO_FLICKER=1` (over any inherited value; `agent_env` in `crates/worker/src/session.rs`) because Claude's classic renderer prints inline and ignores mouse input, which left nothing to scroll; Pi (fullscreen by default since 1.0) and Codex (`--no-alt-screen` is opt-out) need nothing.
+
+Preview focus sends synthetic SGR mouse-wheel events to a running agent's PTY while its preview has no scrollback (the alternate screen keeps none). An agent printing inline (Pi `tuiMode: "regular"`, Codex `--no-alt-screen`) leaves its history in Deckhand's worker-side scrollback, and Preview focus scrolls that instead. Attaching to any agent enters Deckhand's alternate screen and enables mouse reporting, and wheel events reach the agent as mouse events (throttled, below).
 
 Preview focus controls:
 
@@ -293,6 +295,7 @@ Exited sessions show only the frozen `lastPreview` frame.
 - Attach cleanup resets scroll regions, mouse/focus tracking, bracketed paste, alternate-screen state, enhanced-keyboard modes, and other child-owned terminal modes.
 - Attach mode mirrors bracketed-paste state across the PTY boundary: agent attaches enable bracketed paste on the outer terminal, while Terminal/Git/Dev attaches enable it only when the workspace worker observed the child PTY request `?2004h` (`terminalModes` in the attach response, passed through by `attachWorkspacePane`). This prevents multi-line paste from being delivered as separate Enter presses without forcing paste markers into arbitrary programs.
 - A Terminal/Git/Dev attach ends only on detach or `<pane>-detached` (workspace retired); the agent exiting does not end it. A shell or lazygit that exits while attached does not detach automatically (unchanged; press the detach key).
+- An agent attach on a terminal (5 rows or more) shows Deckhand's status line on the top row, with a rule under it to separate it from the agent: the session, its state, how many other sessions in the repository wait on you (from a `list` then `subscribe` on the attach connection), and the detach key. The agent's PTY gets two rows less; its output is adjusted on the way so it never reaches them, and mouse reports come back two rows up (`crates/client/src/attach_status.rs`, `HEIGHT`).
 
 
 ## Worktree behavior

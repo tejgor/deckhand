@@ -22,6 +22,9 @@ uuid = { workspace = true }
 nix = { workspace = true }
 libc = { workspace = true }
 thiserror = { workspace = true }
+indexmap = { workspace = true }
+unicode-width = { workspace = true }
+vt100 = { workspace = true }
 
 [dev-dependencies]
 deckhand-parity = { workspace = true }

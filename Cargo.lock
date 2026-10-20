@@ -342,6 +342,7 @@ dependencies = [
  "deckhand-sys",
  "deckhand-term",
  "futures",
+ "indexmap 2.14.2",
  "libc",
  "nix",
  "serde",
@@ -349,7 +350,9 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "unicode-width 0.2.0",
  "uuid",
+ "vt100",
 ]
 
 [[package]]
