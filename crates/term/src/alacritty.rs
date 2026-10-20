@@ -3623,14 +3623,56 @@ impl Core {
         let line = self.current_line().ok_or(Abort)?;
         let text = line.borrow().get_string(x);
         let unit: Vec<u32> = text.chars().map(u32::from).collect();
+        if unit.is_empty() {
+            // xterm prints an empty array (after `length` no-op copies); untrusted output must not make us spin.
+            return Ok(());
+        }
         if to_i64(unit.len()).saturating_mul(length) > MAX_REPEAT_CODEPOINTS {
             return Err(Abort);
         }
+        let length = self.equivalent_repeat_count(&unit, length);
         let mut data = Vec::with_capacity(unit.len() * to_usize(length));
         for _ in 0..length {
             data.extend_from_slice(&unit);
         }
         self.print(&data, 0, data.len())
+    }
+
+    /// A repeat count no larger than `count` that leaves exactly the state `count` repeats of `unit` would, so REP's
+    /// work is bounded by the buffer size rather than by the (untrusted) count.
+    ///
+    /// Only a single code point of width 1 or 2 is shortened (multi-code-point cells can grow their combined string
+    /// without bound when no cell takes them). Such a print never joins the previous cell, so the screen settles into a
+    /// cycle: without wraparound the cursor sticks at the right margin after `cols` repeats and each further one
+    /// rewrites the same cell; with it, every line takes `cols / width` repeats and after the cursor has reached the
+    /// bottom and every line the list can hold has been rewritten (or recycled) the state repeats once per line.
+    fn equivalent_repeat_count(&self, unit: &[u32], count: i64) -> i64 {
+        let [code] = unit else {
+            return count;
+        };
+        let mut code = *code;
+        if code < 127
+            && let Some(flag) = self.charset
+            && let Some(mapped) = charset_map(flag, code)
+        {
+            code = u32::from(mapped);
+        }
+        let width = i64::from(wcwidth(code));
+        if !(1..=2).contains(&width) {
+            return count;
+        }
+        let cols = self.cols;
+        let (period, settled) = if self.dec.wraparound {
+            let per_line = (cols / width).max(1);
+            let lines = self.rows + to_i64(self.active().lines.max_length) + 2;
+            (per_line, per_line.saturating_mul(lines))
+        } else {
+            (1, cols + 2)
+        };
+        if count <= settled {
+            return count;
+        }
+        settled + (count - settled) % period
     }
 
     /// TS: setMode / resetMode (IRM, LNM)
@@ -4115,5 +4157,94 @@ mod tests {
         t.write_str(&"\x1b[".repeat(100));
         t.write_str("\x1b]0;".repeat(10).as_str());
         assert_eq!(t.rows(), 3);
+    }
+
+    #[test]
+    fn rep_with_nothing_to_repeat_returns_at_once() {
+        // Without wraparound a wide character at the right margin is dropped, so REP finds an empty cell to repeat.
+        let mut t = AlacrittyTerminal::new(TerminalOptions {
+            cols: 80,
+            rows: 24,
+            scrollback: 1000,
+        });
+        let start = std::time::Instant::now();
+        t.write_str("\x1b[?7l\x1b[1;80H日\x1b[2147483647bz");
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(2),
+            "{:?}",
+            start.elapsed()
+        );
+        assert_eq!(t.cursor(), CursorPos { x: 80, y: 0 });
+        assert_eq!(
+            t.line_text(0, true).as_deref(),
+            Some(format!("{}z", " ".repeat(79)).as_str())
+        );
+        // A huge count of a printable character costs one pass over the buffer, not one print per repeat.
+        let start = std::time::Instant::now();
+        t.write_str("\x1b[?7h\x1b[H\x1b[2Ja\x1b[4194304b");
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(2),
+            "{:?}",
+            start.elapsed()
+        );
+        assert_eq!(t.cursor(), CursorPos { x: 65, y: 23 });
+    }
+
+    /// Everything the goldens can observe: every buffer line with its cells and wrap flag, cursor and scroll state.
+    fn dump(t: &AlacrittyTerminal) -> String {
+        let mut out = format!(
+            "{:?} base {} viewport {} length {}\n",
+            t.cursor(),
+            t.base_y(),
+            t.viewport_y(),
+            t.length()
+        );
+        for y in 0..t.length() {
+            out.push_str(&format!("{} {:?}", t.line_is_wrapped(y), t.line_text(y, false)));
+            for x in 0..t.cols() {
+                out.push_str(&format!(" {:?}", t.cell(y, x)));
+            }
+            out.push('\n');
+        }
+        out
+    }
+
+    #[test]
+    fn rep_matches_printing_the_character_that_many_times() {
+        let setups = [
+            "",
+            "\x1b[?7l",
+            "\x1b[4h",
+            "\x1b[?7l\x1b[4h",
+            "\x1b[2;3r\x1b[2;1H",
+            "\x1b[1;2r\x1b[1;1H",
+            "\x1b[2;3r\x1b[4;1H",
+            "\x1b[?1049h",
+            "\x1b[?1049h\x1b[2;3r\x1b[2;1H",
+            "\x1b[4h\x1b[1;3r\x1b[1;1H",
+            "\x1b(0",
+        ];
+        for setup in setups {
+            for ch in ["a", "日", "q"] {
+                for count in (1..=160).chain([400, 401, 402, 403, 404, 1000, 1001]) {
+                    let fresh = || {
+                        let mut t = AlacrittyTerminal::new(TerminalOptions {
+                            cols: 5,
+                            rows: 4,
+                            scrollback: 3,
+                        });
+                        t.write_str("\x1b[31mabcde\r\nfghij\r\nklmno\r\npqrst\x1b[H");
+                        t.write_str(setup);
+                        t.write_str(ch);
+                        t
+                    };
+                    let mut repeated = fresh();
+                    repeated.write_str(&format!("\x1b[{count}b"));
+                    let mut printed = fresh();
+                    printed.write_str(&ch.repeat(count));
+                    assert_eq!(dump(&repeated), dump(&printed), "{setup:?} {ch:?} x{count}");
+                }
+            }
+        }
     }
 }
