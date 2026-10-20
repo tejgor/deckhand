@@ -410,11 +410,22 @@ pub async fn read_settings_info(cwd: &str) -> Result<SettingsInfo> {
         default_branch,
         remotes
     );
-    let codex_hooks = if user.agent_hooks == Some(true) {
-        read_codex_hooks().await
-    } else {
-        None
+    let codex_hooks = async {
+        if user.agent_hooks == Some(true) {
+            read_codex_hooks().await
+        } else {
+            None
+        }
     };
+    // Not in the TS: Settings says when macOS blocks Deckhand's notifications or never got an answer.
+    let notification_permission = async {
+        if user.notifications == Some(true) {
+            crate::notify::permission(true).await
+        } else {
+            None
+        }
+    };
+    let (codex_hooks, notification_permission) = tokio::join!(codex_hooks, notification_permission);
     let has_origin = remotes
         .as_deref()
         .is_some_and(|remotes| remotes.split('\n').any(|remote| remote == "origin"));
@@ -475,6 +486,7 @@ pub async fn read_settings_info(cwd: &str) -> Result<SettingsInfo> {
         agent_hooks: user.agent_hooks,
         notifications: user.notifications == Some(true),
         codex_hooks,
+        notification_permission,
     })
 }
 

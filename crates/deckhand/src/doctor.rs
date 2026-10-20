@@ -14,7 +14,8 @@
 use std::path::{Path, PathBuf};
 
 use deckhand_core::error::DhError;
-use deckhand_protocol::data::CodexHookState;
+use deckhand_core::settings_model::notification_permission_note;
+use deckhand_protocol::data::{CodexHookState, NotificationPermission};
 use deckhand_sys::settings_info::{codex_hook_commands, codex_hook_state};
 
 /// The environment variable naming Codex's home (TS: settingsInfo.ts readCodexHooks).
@@ -269,9 +270,57 @@ async fn agent_hooks_enabled() -> bool {
         .is_ok_and(|config| config.agent_hooks == Some(true))
 }
 
-/// `deckhand doctor [--check] [--yes|-y]`: `crate::setup::run_setup(args)`, then the Codex hooks check.
+/// Not in the TS: with Notifications on, what macOS says about Deckhand.app (`None` from
+/// `deckhand_sys::notify::permission`: no app yet, or one from an older build, so macOS's answer is unknown).
+pub fn format_notification_report(permission: Option<NotificationPermission>) -> (DoctorStatus, String) {
+    match permission {
+        Some(NotificationPermission::Allowed) => (DoctorStatus::Healthy, "✓ Notifications: macOS allows them\n".to_owned()),
+        Some(answer) => {
+            let note = notification_permission_note(answer).unwrap_or_default();
+            (DoctorStatus::Problems, format!("• Notifications: {note}\n"))
+        }
+        None => (
+            DoctorStatus::Healthy,
+            "Notifications: macOS's answer isn't known yet. Open Settings (C) to check it, or switch Notifications off and on there to send a test.\n"
+                .to_owned(),
+        ),
+    }
+}
+
+/// With Notifications on (macOS only): their report. Read-only: only an app the daemon already built is asked.
+async fn notification_check() -> Option<(DoctorStatus, String)> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    let enabled = deckhand_sys::storage::load_app_config()
+        .await
+        .is_ok_and(|config| config.notifications == Some(true));
+    if !enabled {
+        return None;
+    }
+    Some(format_notification_report(
+        deckhand_sys::notify::permission(false).await,
+    ))
+}
+
+/// `deckhand doctor [--check] [--yes|-y]`: `crate::setup::run_setup(args)`, then the notifications and Codex hooks
+/// checks.
 pub async fn run_doctor(args: &[String]) -> Result<DoctorStatus, DhError> {
     crate::setup::run_setup(args).await?;
+    let notifications = notification_check().await.map(|(status, text)| {
+        crate::setup::write_stdout(&text);
+        status
+    });
+    let codex = run_codex_hooks_check().await?;
+    Ok(if notifications == Some(DoctorStatus::Problems) {
+        DoctorStatus::Problems
+    } else {
+        codex
+    })
+}
+
+/// The Codex hooks check, printed.
+async fn run_codex_hooks_check() -> Result<DoctorStatus, DhError> {
     let home = codex_home();
     // Only look up this executable's hook command when there is a Codex config to compare it with.
     if !tokio::fs::metadata(&home).await.is_ok_and(|meta| meta.is_dir()) {
@@ -293,6 +342,25 @@ mod tests {
 
     const EXPECTED: &str = "'/opt/bin/deckhand' 'hook'";
     const STALE: &str = "'/usr/local/bin/node' '/Users/me/deckhand/dist/cli.js' 'hook'";
+
+    // Not in the TS: doctor says when macOS blocks Deckhand's notifications or never got an answer.
+    #[test]
+    fn notifications_report_what_macos_says() {
+        let (status, text) = format_notification_report(Some(NotificationPermission::Allowed));
+        assert_eq!(
+            (status, text.as_str()),
+            (DoctorStatus::Healthy, "✓ Notifications: macOS allows them\n")
+        );
+        let (status, text) = format_notification_report(Some(NotificationPermission::Blocked));
+        assert_eq!(status, DoctorStatus::Problems);
+        assert!(text.contains("System Settings › Notifications › Deckhand › Allow Notifications"));
+        let (status, text) = format_notification_report(Some(NotificationPermission::NotAsked));
+        assert_eq!(status, DoctorStatus::Problems);
+        assert!(text.contains("waiting for an answer"));
+        let (status, text) = format_notification_report(None);
+        assert_eq!(status, DoctorStatus::Healthy);
+        assert!(text.contains("isn't known yet"));
+    }
 
     fn runtime() -> tokio::runtime::Runtime {
         tokio::runtime::Builder::new_current_thread()

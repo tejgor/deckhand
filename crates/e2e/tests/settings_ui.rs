@@ -113,14 +113,18 @@ fn settings_grid_global_and_repo_columns() {
     ui.screen("Settings › Dev command · Global");
     ui.screen("+ Add a process");
     ui.press("\r");
-    ui.screen("Dev command · Global");
+    ui.screen("New Dev process · step 1 of 2: command");
     ui.press("printf global");
     ui.screen("printf global");
+    // Step 2: the name, suggested from the command; Enter keeps it.
     ui.press("\r");
-    ui.screen("Saved Dev command to global defaults");
+    ui.screen("New Dev process · step 2 of 2: name");
+    ui.screen("› printf");
+    ui.press("\r");
+    ui.screen("Saved Dev process printf to global defaults");
     assert_eq!(
         read_json(&config)["defaults"],
-        json!({"actions": {"fmt": "npm run fmt"}, "devCommand": "printf global"})
+        json!({"actions": {"fmt": "npm run fmt"}, "devCommand": {"printf": "printf global"}})
     );
     assert_eq!(read_json(&file), with(&original, json!({"defaultAgent": "codex"})));
     ui.press("\x1b");
@@ -244,12 +248,14 @@ fn dev_command_saved_in_settings_keeps_the_file_trusted() {
     ui.screen("Settings › Dev command · This repo");
     ui.screen("echo fallback-$((40+2))");
     ui.press("\r");
-    ui.screen("Dev command · This repo");
+    ui.screen("New Dev process · step 1 of 2: command");
     ui.press("echo repo-$((40+2))");
     ui.screen("› echo repo-$((40+2))");
     ui.press("\r");
-    ui.screen("Saved Dev command to this repo · created and trusted");
-    assert_eq!(read_json(&file)["devCommand"], json!("echo repo-$((40+2))"));
+    ui.screen("› echo");
+    ui.press("\r");
+    ui.screen("Saved Dev process echo to this repo · created and trusted");
+    assert_eq!(read_json(&file)["devCommand"], json!({"echo": "echo repo-$((40+2))"}));
     ui.press("\x1b");
     ui.screen("❯ Dev command");
     ui.screen("deckhand.json: trusted ✓");

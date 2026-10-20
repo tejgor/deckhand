@@ -20,8 +20,8 @@ use crate::project_config::{MAX_DEV_PROCESSES, validate_project_config};
 use crate::worktree_links::worktree_location;
 use deckhand_protocol::data::{
     CandidateConfigured, CandidateSuggestion, CodexHookState, CodexHookStatus, ConfigTargetKind, ConfigTargets,
-    JsNumber, ProjectConfigDocument, RepositoryState, SaveTrust, SettingRow, SettingSource, SettingsInfo, StringOrBool,
-    TemplateVars, WorktreeCandidate,
+    JsNumber, NotificationPermission, ProjectConfigDocument, RepositoryState, SaveTrust, SettingRow, SettingSource,
+    SettingsInfo, StringOrBool, TemplateVars, WorktreeCandidate,
 };
 
 /// TS: settingsModel.ts SettingId.
@@ -481,6 +481,19 @@ pub fn codex_hook_note(status: &CodexHookStatus, home: Option<&str>) -> String {
     )
 }
 
+/// Not in the TS: how to let macOS show Deckhand's notifications, when it doesn't (Settings and `deckhand doctor`).
+pub fn notification_permission_note(permission: NotificationPermission) -> Option<&'static str> {
+    match permission {
+        NotificationPermission::Allowed => None,
+        NotificationPermission::Blocked => Some(
+            "macOS blocks Deckhand's notifications: System Settings › Notifications › Deckhand › Allow Notifications",
+        ),
+        NotificationPermission::NotAsked => Some(
+            "macOS is waiting for an answer: allow Deckhand in its prompt, or in System Settings › Notifications › Deckhand",
+        ),
+    }
+}
+
 /// TS: settingsModel.ts settingsGrid.
 pub fn settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
     let home = info.vars.as_ref().map(|vars| vars.home.as_str());
@@ -502,12 +515,20 @@ pub fn settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
                 } else {
                     None
                 };
+                let (warning, note) = match codex {
+                    Some(codex) => (Some("Codex"), Some(codex_hook_note(codex, home))),
+                    None if def.id == SettingId::Notifications && on => {
+                        let note = info.notification_permission.and_then(notification_permission_note);
+                        (note.map(|_| "macOS"), note.map(str::to_owned))
+                    }
+                    None => (None, None),
+                };
                 let global = GridCell {
                     text: String::from(if on { "on" } else { "off" }),
                     set,
                     effective: true,
                     built_in: (!set).then_some(true),
-                    warning: codex.map(|_| String::from("Codex")),
+                    warning: warning.map(String::from),
                     ..GridCell::default()
                 };
                 let repository = GridCell {
@@ -520,8 +541,8 @@ pub fn settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
                 return GridRow {
                     def: *def,
                     cells: GridCells { global, repository },
-                    note: codex.map(|codex| codex_hook_note(codex, home)),
-                    warn: codex.map(|_| true),
+                    warn: note.as_ref().map(|_| true),
+                    note,
                 };
             }
             if matches!(def.control, SettingControl::Actions | SettingControl::Links) {
@@ -1329,28 +1350,25 @@ pub fn dev_name_problem(
 /// Not in the TS: one edit of a layer's Dev processes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DevEdit {
-    /// A new process: unnamed while it is the only one (a single Dev command).
+    /// A new process.
     Add {
-        name: Option<String>,
-        command: String,
-    },
-    /// The command of an existing process.
-    SetCommand {
         name: String,
         command: String,
     },
-    Rename {
-        from: String,
-        to: String,
+    /// An existing process (`name`), with its new name and command.
+    Update {
+        name: String,
+        new_name: String,
+        command: String,
     },
     Remove {
         name: String,
     },
 }
 
-/// Not in the TS: the change `edit` makes to `target`'s `devCommand`, written whole. One process with the name it
-/// was given stays (or becomes) a plain command only when it was one and has not been renamed; two or more are a
-/// map, the single command joining it under its derived name.
+/// Not in the TS: the change `edit` makes to `target`'s `devCommand`, written whole as a name → command map. A plain
+/// command (written by hand) is the one process named by [`derive_process_name`]; it stays plain only while edits
+/// keep that name and add nothing.
 pub fn dev_command_change(
     targets: &ConfigTargets,
     target: ConfigTargetKind,
@@ -1362,66 +1380,48 @@ pub fn dev_command_change(
         Some(Value::String(_))
     );
     let mut processes = dev_processes_of(targets, target);
-    let command_problem_of = |command: &str| {
-        if jsstr::js_trim(command).is_empty() {
-            Some(String::from("Type a command"))
-        } else {
-            command_problem(command)
-        }
+    let check_command = |command: &str| match command_problem(command) {
+        Some(_) if jsstr::js_trim(command).is_empty() => Err(String::from("Type a command")),
+        Some(problem) => Err(problem),
+        None => Ok(()),
     };
-    let position = |processes: &[(String, String)], name: &str| processes.iter().position(|(entry, _)| entry == name);
+    let position = |processes: &[(String, String)], name: &str| {
+        processes
+            .iter()
+            .position(|(entry, _)| entry == name)
+            .ok_or_else(|| format!("{name} is not a Dev process here"))
+    };
     let mut keep_single = single;
     match edit {
         DevEdit::Add { name, command } => {
-            if let Some(problem) = command_problem_of(command) {
-                return Err(problem);
-            }
+            check_command(command)?;
             if processes.len() >= MAX_DEV_PROCESSES {
                 return Err(format!(
                     "{} already has {MAX_DEV_PROCESSES} Dev processes, the most allowed: remove one (x) first",
                     layer_short(target)
                 ));
             }
-            match name {
-                None if processes.is_empty() => {
-                    return Ok(SettingChange {
-                        path: setting_path(SettingId::DevCommand, None),
-                        value: Some(Value::String(command.clone())),
-                    });
-                }
-                None => return Err(String::from("Name the new process")),
-                Some(name) => {
-                    if let Some(problem) = dev_name_problem(targets, target, name, None) {
-                        return Err(problem);
-                    }
-                    processes.push((name.clone(), command.clone()));
-                    keep_single = false;
-                }
-            }
-        }
-        DevEdit::SetCommand { name, command } => {
-            if let Some(problem) = command_problem_of(command) {
+            if let Some(problem) = dev_name_problem(targets, target, name, None) {
                 return Err(problem);
             }
-            let Some(at) = position(&processes, name) else {
-                return Err(format!("{name} is not a Dev process here"));
-            };
-            processes[at].1.clone_from(command);
-        }
-        DevEdit::Rename { from, to } => {
-            if let Some(problem) = dev_name_problem(targets, target, to, Some(from)) {
-                return Err(problem);
-            }
-            let Some(at) = position(&processes, from) else {
-                return Err(format!("{from} is not a Dev process here"));
-            };
-            processes[at].0.clone_from(to);
+            processes.push((name.clone(), command.clone()));
             keep_single = false;
         }
+        DevEdit::Update {
+            name,
+            new_name,
+            command,
+        } => {
+            check_command(command)?;
+            if let Some(problem) = dev_name_problem(targets, target, new_name, Some(name)) {
+                return Err(problem);
+            }
+            let at = position(&processes, name)?;
+            processes[at] = (new_name.clone(), command.clone());
+            keep_single = keep_single && new_name == name;
+        }
         DevEdit::Remove { name } => {
-            let Some(at) = position(&processes, name) else {
-                return Err(format!("{name} is not a Dev process here"));
-            };
+            let at = position(&processes, name)?;
             processes.remove(at);
         }
     }
@@ -1441,11 +1441,10 @@ pub fn dev_command_change(
     })
 }
 
-/// Not in the TS: [`action_saved_message`] of a Dev process (`None`: the single Dev command).
-pub fn dev_process_saved_message(name: Option<&str>, target: ConfigTargetKind, trust: Option<SaveTrust>) -> String {
-    let what = name.map_or_else(|| String::from("Dev command"), |name| format!("Dev process {name}"));
+/// Not in the TS: [`action_saved_message`] of a Dev process.
+pub fn dev_process_saved_message(name: &str, target: ConfigTargetKind, trust: Option<SaveTrust>) -> String {
     format!(
-        "Saved {what} to {}{} · d d starts Dev",
+        "Saved Dev process {name} to {}{} · d d starts Dev",
         layer_short(target),
         repository_trust(target, trust)
     )
@@ -2566,6 +2565,7 @@ mod tests {
             agent_hooks: None,
             notifications: false,
             codex_hooks: None,
+            notification_permission: None,
         }
     }
 
@@ -2917,6 +2917,49 @@ mod tests {
         );
     }
 
+    // Not in the TS: the Notifications row says when macOS blocks them or never got an answer.
+    #[test]
+    fn notifications_say_when_macos_does_not_allow_them() {
+        let base = SettingsInfo {
+            notifications: true,
+            ..settings_info(None, None, true, None)
+        };
+        let with = |permission: Option<NotificationPermission>| {
+            row(
+                &SettingsInfo {
+                    notification_permission: permission,
+                    ..base.clone()
+                },
+                SettingId::Notifications,
+            )
+        };
+        for quiet in [None, Some(NotificationPermission::Allowed)] {
+            let row = with(quiet);
+            assert_eq!((row.note, row.warn, row.cells.global.warning), (None, None, None));
+        }
+        let blocked = with(Some(NotificationPermission::Blocked));
+        assert_eq!(blocked.cells.global.warning.as_deref(), Some("macOS"));
+        assert_eq!(blocked.warn, Some(true));
+        assert!(
+            blocked
+                .note
+                .unwrap()
+                .contains("System Settings › Notifications › Deckhand › Allow Notifications")
+        );
+        let waiting = with(Some(NotificationPermission::NotAsked));
+        assert!(waiting.note.unwrap().starts_with("macOS is waiting for an answer"));
+        // Off: whatever macOS says, there is nothing to fix.
+        let off = row(
+            &SettingsInfo {
+                notifications: false,
+                notification_permission: Some(NotificationPermission::Blocked),
+                ..base.clone()
+            },
+            SettingId::Notifications,
+        );
+        assert_eq!((off.note, off.warn), (None, None));
+    }
+
     // Not in the TS: a Dev process is named from its command.
     #[test]
     fn dev_process_names_come_from_their_commands() {
@@ -2935,55 +2978,49 @@ mod tests {
         assert_eq!(derive_process_name("npm run dev", &["dev", "dev-2"]), "dev-3");
     }
 
-    // Not in the TS: Dev edits write the whole devCommand; one unrenamed process stays a plain command.
+    // Not in the TS: Dev edits write the whole devCommand as a map; a hand-written plain command stays plain while
+    // an edit keeps its name.
     #[test]
     fn dev_edits_write_the_whole_dev_command() {
         let info = |config: Value| settings_info(Some(&config.to_string()), None, true, None);
         let apply = |config: Value, edit: DevEdit| -> std::result::Result<Option<Value>, String> {
             dev_command_change(&info(config).targets, Repository, &edit).map(|change| change.value)
         };
-        let add = |name: Option<&str>, command: &str| DevEdit::Add {
-            name: name.map(str::to_owned),
+        let add = |name: &str, command: &str| DevEdit::Add {
+            name: name.to_owned(),
+            command: command.to_owned(),
+        };
+        let update = |name: &str, new_name: &str, command: &str| DevEdit::Update {
+            name: name.to_owned(),
+            new_name: new_name.to_owned(),
             command: command.to_owned(),
         };
         assert_eq!(
-            apply(json!({}), add(None, "npm run dev")),
-            Ok(Some(json!("npm run dev")))
+            apply(json!({}), add("web", "npm run dev")),
+            Ok(Some(json!({"web": "npm run dev"})))
         );
         assert_eq!(
-            apply(
-                json!({"devCommand": "npm run dev"}),
-                add(Some("web"), "cd web && npm start")
-            ),
+            apply(json!({"devCommand": "npm run dev"}), add("web", "cd web && npm start")),
             Ok(Some(json!({"dev": "npm run dev", "web": "cd web && npm start"})))
         );
         assert_eq!(
-            apply(json!({"devCommand": "npm run dev"}), add(Some("dev"), "x")),
+            apply(json!({"devCommand": "npm run dev"}), add("dev", "x")),
             Err(String::from("dev is already a Dev process here"))
         );
         assert_eq!(
-            apply(json!({"devCommand": "npm run dev"}), add(None, "x")),
-            Err(String::from("Name the new process"))
-        );
-        assert_eq!(
-            apply(
-                json!({"devCommand": "npm run dev"}),
-                DevEdit::SetCommand {
-                    name: String::from("dev"),
-                    command: String::from("npm start"),
-                }
-            ),
+            apply(json!({"devCommand": "npm run dev"}), update("dev", "dev", "npm start")),
             Ok(Some(json!("npm start")))
         );
         assert_eq!(
             apply(
                 json!({"devCommand": "npm run dev"}),
-                DevEdit::Rename {
-                    from: String::from("dev"),
-                    to: String::from("api"),
-                }
+                update("dev", "api", "npm run dev")
             ),
             Ok(Some(json!({"api": "npm run dev"})))
+        );
+        assert_eq!(
+            apply(json!({"devCommand": {"a": "1", "b": "2"}}), update("a", "b", "1")),
+            Err(String::from("b is already a Dev process here"))
         );
         assert_eq!(
             apply(
@@ -3003,7 +3040,7 @@ mod tests {
             ),
             Ok(None)
         );
-        assert_eq!(apply(json!({}), add(None, "  ")), Err(String::from("Type a command")));
+        assert_eq!(apply(json!({}), add("web", "  ")), Err(String::from("Type a command")));
     }
 
     // covers: B-P9-03 the grid opens on This repo when there is a repository layer, else Global; each layer's Actions list shows the other layer's as context

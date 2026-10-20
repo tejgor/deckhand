@@ -13,6 +13,7 @@ pub mod notes_store;
 pub mod notes_vim;
 #[cfg(target_os = "macos")]
 pub mod notifier_app;
+pub mod notify;
 pub mod paths;
 pub mod proc;
 pub mod process_tree;

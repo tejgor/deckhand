@@ -32,6 +32,7 @@ use deckhand_protocol::data::{
     SaveTrust, SettingsInfo, StringOrBool, WorktreeCandidate, WorktreeCandidates,
 };
 use deckhand_protocol::{AppConfig, Ordered};
+use deckhand_sys::notify;
 use deckhand_sys::storage::patch_app_config;
 
 use crate::app::state::{App, Mode};
@@ -137,22 +138,24 @@ pub fn capitalize(text: &str) -> String {
     }
 }
 
-/// Not in the TS: a Dev process edit of `target` on `step`, its input starting at `text`.
-fn process_edit(
-    target: ConfigTargetKind,
-    step: ProcessStep,
-    name: Option<String>,
-    named: bool,
-    text: String,
-) -> SettingsEdit {
+/// Not in the TS: step 1 of adding (`name` none) or editing a Dev process of `target`: its command, starting at
+/// `command`.
+fn process_edit(target: ConfigTargetKind, name: Option<String>, command: String) -> SettingsEdit {
     SettingsEdit::Process {
         target,
-        step,
+        step: ProcessStep::Command,
         name,
         command: None,
-        named,
-        state: state_at_end(text),
+        state: state_at_end(command),
         error: None,
+    }
+}
+
+/// The command a Dev edit saves (for what a failed save says it wanted).
+fn command_text(edit: &DevEdit) -> String {
+    match edit {
+        DevEdit::Add { command, .. } | DevEdit::Update { command, .. } => command.clone(),
+        DevEdit::Remove { name } => name.clone(),
     }
 }
 
@@ -195,6 +198,9 @@ pub struct SaveOptions {
     pub fail: Option<SaveFail>,
     /// Runs with the reloaded info.
     pub after: Option<SaveAfter>,
+    /// Not in the TS: what a failure says was wanted, instead of the value saved (a Dev process's command rather
+    /// than the whole devCommand).
+    pub wanted: Option<String>,
 }
 
 /// TS: settingsFlow.tsx SettingsFlowOptions (values; `setMode`, `setBusy`, `setError`, `setStatusMessage` and
@@ -463,6 +469,7 @@ impl SettingsFlow {
             message,
             fail,
             after,
+            wanted,
         } = options;
         let report = |flow: &mut SettingsFlow, text: String| match fail {
             Some(fail) => fail(flow, text),
@@ -510,7 +517,7 @@ impl SettingsFlow {
                 let attempt = if cleared {
                     "clearing it".to_owned()
                 } else {
-                    format!("wanted {}", display(change.value.as_ref()))
+                    format!("wanted {}", wanted.unwrap_or_else(|| display(change.value.as_ref())))
                 };
                 let text = if message.contains("changed on disk") {
                     format!(
@@ -555,10 +562,13 @@ impl SettingsFlow {
                 Ok(_) => {
                     cx.set_busy(false);
                     flow.notice = None;
+                    let test_notification = id == SettingId::Notifications && value;
                     // The Codex hint (if any) shows under the row, which stays selected.
                     let after: LoadAfter = Box::new(move |_flow, _next, cx| {
                         let state = if value { "on" } else { "off" };
-                        let applies = if value {
+                        let applies = if test_notification {
+                            " · sent a test notification: if macOS asks, allow Deckhand"
+                        } else if value {
                             " · applies to new and restarted sessions"
                         } else {
                             ""
@@ -566,6 +576,20 @@ impl SettingsFlow {
                         cx.set_status(Some(format!("{label} {state} (global){applies}")));
                     });
                     flow.load_with(client.as_ref(), &cwd, Some(after), false, cx);
+                    if test_notification {
+                        // Not in the TS: one notification now, so macOS's permission prompt comes up while you are
+                        // looking rather than when a session first needs you. Settings reloads once it is answered,
+                        // and its row then says if macOS blocks Deckhand.
+                        cx.spawn(
+                            notify::send(
+                                "Deckhand",
+                                "Notifications are on. You'll get one when a session needs you or exits.",
+                            ),
+                            move |flow: &mut SettingsFlow, _delivery, cx| {
+                                flow.load_with(client.as_ref(), &cwd, None, false, cx);
+                            },
+                        );
+                    }
                 }
                 Err(error) => {
                     cx.set_busy(false);
@@ -1048,8 +1072,8 @@ impl SettingsFlow {
         self.edit = Some(edit);
     }
 
-    /// Not in the TS: handleEdit for a Dev process: its command (then, for a new one beside others, its name,
-    /// suggested from the command), or a new name. Each edit saves the whole devCommand.
+    /// Not in the TS: handleEdit for a Dev process, added or edited in two steps: its command, then its name
+    /// (suggested from the command for a new one, its own when editing). Each save writes the whole devCommand.
     fn handle_process(
         &mut self,
         current: SettingsEdit,
@@ -1062,7 +1086,6 @@ impl SettingsFlow {
             step,
             name,
             command,
-            named,
             state,
             ..
         } = &current
@@ -1070,7 +1093,7 @@ impl SettingsFlow {
             return;
         };
         let Some(info) = self.info.as_ref() else { return };
-        let (target, step, named) = (*target, *step, *named);
+        let (target, step) = (*target, *step);
         let with_error = |error: String| {
             let mut edit = current.clone();
             if let SettingsEdit::Process { error: slot, .. } = &mut edit {
@@ -1082,54 +1105,52 @@ impl SettingsFlow {
         if key.return_ {
             let text = state.text.clone();
             let processes = dev_processes_of(&info.targets, target);
-            let edit = match (step, name) {
-                // A new process beside others: its name next, suggested from the command.
-                (ProcessStep::Command, None) if named => {
-                    if let Some(problem) = command_problem(&text) {
-                        self.edit = Some(with_error(problem));
-                        return;
-                    }
-                    let taken: Vec<&str> = processes.iter().map(|(name, _)| name.as_str()).collect();
-                    self.edit = Some(SettingsEdit::Process {
-                        target,
-                        step: ProcessStep::Name,
-                        name: None,
-                        command: Some(text.clone()),
-                        named,
-                        state: state_at_end(derive_process_name(&text, &taken)),
-                        error: None,
-                    });
+            if step == ProcessStep::Command {
+                if let Some(problem) = command_problem(&text) {
+                    let problem = if js_trim(&text).is_empty() {
+                        String::from("Type a command")
+                    } else {
+                        problem
+                    };
+                    self.edit = Some(with_error(problem));
                     return;
                 }
-                (ProcessStep::Command, None) => DevEdit::Add {
-                    name: None,
-                    command: text,
-                },
-                (ProcessStep::Command, Some(name)) => {
-                    if processes.iter().any(|(entry, own)| entry == name && *own == text) {
+                // Step 2: the name, its own when editing, else suggested from the command.
+                let suggested = name.clone().unwrap_or_else(|| {
+                    let taken: Vec<&str> = processes.iter().map(|(name, _)| name.as_str()).collect();
+                    derive_process_name(&text, &taken)
+                });
+                self.edit = Some(SettingsEdit::Process {
+                    target,
+                    step: ProcessStep::Name,
+                    name: name.clone(),
+                    command: Some(text),
+                    state: state_at_end(suggested),
+                    error: None,
+                });
+                return;
+            }
+            let command = command.clone().unwrap_or_default();
+            let edit = match name {
+                Some(name) => {
+                    let unchanged = processes
+                        .iter()
+                        .any(|(entry, own)| entry == name && *entry == text && *own == command);
+                    if unchanged {
                         self.edit = None;
                         self.notice = notice(format!("Dev process {name} unchanged"), false);
                         return;
                     }
-                    DevEdit::SetCommand {
+                    DevEdit::Update {
                         name: name.clone(),
-                        command: text,
+                        new_name: text.clone(),
+                        command,
                     }
                 }
-                (ProcessStep::Name, _) => DevEdit::Add {
-                    name: Some(text),
-                    command: command.clone().unwrap_or_default(),
+                None => DevEdit::Add {
+                    name: text.clone(),
+                    command,
                 },
-                (ProcessStep::Rename, Some(from)) if *from == text => {
-                    self.edit = None;
-                    self.notice = notice(format!("Dev process {from} unchanged"), false);
-                    return;
-                }
-                (ProcessStep::Rename, Some(from)) => DevEdit::Rename {
-                    from: from.clone(),
-                    to: text,
-                },
-                (ProcessStep::Rename, None) => return,
             };
             let change = match dev_command_change(&info.targets, target, &edit) {
                 Ok(change) => change,
@@ -1137,15 +1158,6 @@ impl SettingsFlow {
                     self.edit = Some(with_error(error));
                     return;
                 }
-            };
-            // The process the list shows selected afterwards, and how the status names it.
-            let (shown, label) = match &edit {
-                DevEdit::Add { name: None, .. } => (None, "Dev command".to_owned()),
-                DevEdit::Add { name: Some(name), .. } | DevEdit::SetCommand { name, .. } => {
-                    (Some(name.clone()), format!("Dev process {name}"))
-                }
-                DevEdit::Rename { to, .. } => (Some(to.clone()), format!("Dev process {to}")),
-                DevEdit::Remove { name } => (None, format!("Dev process {name}")),
             };
             let failed = current.clone();
             let fail: SaveFail = Box::new(move |flow, message| {
@@ -1155,20 +1167,18 @@ impl SettingsFlow {
                 }
                 flow.edit = Some(edit);
             });
-            let message_name = shown.clone();
+            let shown = text.clone();
             let options = SaveOptions {
+                wanted: Some(command_text(&edit)),
                 fail: Some(fail),
-                message: Some(Box::new(move |trust| {
-                    dev_process_saved_message(message_name.as_deref(), target, trust)
-                })),
+                message: Some(Box::new(move |trust| dev_process_saved_message(&shown, target, trust))),
                 after: Some(Box::new(move |flow, next| {
                     let processes = dev_processes_of(&next.targets, target);
-                    flow.action_row = shown
-                        .and_then(|shown| processes.iter().position(|(name, _)| *name == shown))
-                        .unwrap_or(0);
+                    flow.action_row = processes.iter().position(|(name, _)| *name == text).unwrap_or(0);
                 })),
                 ..SaveOptions::default()
             };
+            let label = format!("Dev process {}", state.text);
             self.save(target, change, &label, options, props, cx);
             return;
         }
@@ -1188,7 +1198,7 @@ impl SettingsFlow {
         self.edit = Some(edit);
     }
 
-    /// Not in the TS: the help lines of a Dev process edit (the live check of a name, what a command runs as).
+    /// Not in the TS: the help lines of a Dev process edit (what a command runs as; the live check of a name).
     fn process_help(&self) -> Option<Vec<DetailLine>> {
         let Some(SettingsEdit::Process {
             target,
@@ -1223,14 +1233,15 @@ impl SettingsFlow {
             );
         }
         let mut lines = Vec::new();
-        let renaming = name.as_deref().filter(|_| *step == ProcessStep::Rename);
         if !text.is_empty()
-            && let Some(problem) = dev_name_problem(&info.targets, *target, text, renaming)
+            && let Some(problem) = dev_name_problem(&info.targets, *target, text, name.as_deref())
             && Some(&problem) != error.as_ref()
         {
             lines.push(colored(problem, THEME.error));
         }
-        lines.push(line("Its label in the Dev tab and the run list (r)"));
+        lines.push(line(
+            "Its label in the Dev tab and the run list (r) · Enter keeps the suggestion",
+        ));
         lines.push(line(ACTION_NAME_RULES));
         Some(lines)
     }
@@ -1587,8 +1598,8 @@ impl SettingsFlow {
         }
     }
 
-    /// Not in the TS: handleInput in a layer's Dev list: Enter edits a process's command (or, on + Add a process,
-    /// adds one), r renames, x removes.
+    /// Not in the TS: handleInput in a layer's Dev list: Enter edits a process (or, on + Add a process, adds one),
+    /// x removes it.
     fn handle_dev_list(&mut self, props: &SettingsFlowProps<'_>, input: &Input, cx: &mut FlowCx<App, Self>) {
         let Some(info) = self.info.as_ref() else { return };
         let key = &input.key;
@@ -1613,19 +1624,12 @@ impl SettingsFlow {
             return;
         }
         self.notice = None;
-        let process = processes.get(self.action_row);
-        match process {
+        match processes.get(self.action_row) {
             None if key.return_ || input.input == "a" => {
-                let named = !processes.is_empty();
-                self.edit = Some(process_edit(column, ProcessStep::Command, None, named, String::new()));
+                self.edit = Some(process_edit(column, None, String::new()));
             }
             Some((name, command)) if key.return_ => {
-                let edit = process_edit(column, ProcessStep::Command, Some(name.clone()), true, command.clone());
-                self.edit = Some(edit);
-            }
-            Some((name, _)) if input.input == "r" => {
-                let edit = process_edit(column, ProcessStep::Rename, Some(name.clone()), true, name.clone());
-                self.edit = Some(edit);
+                self.edit = Some(process_edit(column, Some(name.clone()), command.clone()));
             }
             Some((name, _)) if input.input == "x" => {
                 self.edit = Some(SettingsEdit::Clear {
@@ -2250,7 +2254,6 @@ mod tests {
                 Some(SettingsEdit::Process {
                     step: ProcessStep::Command,
                     name: None,
-                    named: false,
                     ..
                 })
             ));
@@ -2264,8 +2267,13 @@ mod tests {
             h.text("npm run\n dev");
             assert_eq!(edit_text_of(h.flow()), Some(("npm run dev".to_owned(), None)));
             h.special(ENTER);
+            assert_eq!(edit_text_of(h.flow()), Some(("dev".to_owned(), None)));
+            h.special(ENTER);
             let request = h.daemon.next().await;
-            assert_eq!(request["raw"], "{\n  \"devCommand\": \"npm run dev\"\n}\n");
+            assert_eq!(
+                request["raw"],
+                "{\n  \"devCommand\": {\n    \"dev\": \"npm run dev\"\n  }\n}\n"
+            );
             h.daemon
                 .respond(
                     &request,
@@ -2278,7 +2286,7 @@ mod tests {
             assert_eq!(
                 h.flow().notice,
                 notice(
-                    "This repo's deckhand.json changed on disk, so Dev command was not saved (wanted npm run dev). Reloaded; try again.",
+                    "This repo's deckhand.json changed on disk, so Dev process dev was not saved (wanted npm run dev). Reloaded; try again.",
                     true
                 )
             );
@@ -2396,7 +2404,7 @@ mod tests {
     }
 
     #[test]
-    fn the_dev_command_is_a_list_of_processes_named_from_their_commands() {
+    fn dev_processes_are_added_and_edited_in_two_steps() {
         local(async {
             let mut h = Harness::new();
             h.open(info_with_repository(&json!({}))).await;
@@ -2405,84 +2413,82 @@ mod tests {
             h.special(ENTER);
             assert_eq!(h.flow().view, SettingsView::Actions);
             assert_eq!(h.flow().list_id(), SettingId::DevCommand);
-            // The first process is just a command: the Dev command.
-            h.special(ENTER);
-            assert!(matches!(
-                h.flow().edit,
-                Some(SettingsEdit::Process {
-                    step: ProcessStep::Command,
-                    name: None,
-                    named: false,
-                    ..
-                })
-            ));
-            h.text("npm run dev");
-            h.special(ENTER);
-            let request = h.daemon.next().await;
-            assert_eq!(request["raw"], "{\n  \"devCommand\": \"npm run dev\"\n}\n");
             let saved = |request: &Value, revision: &str| {
                 json!({"kind": "repository", "root": "/repo", "path": "/repo/deckhand.json",
                     "raw": request["raw"], "revision": revision, "exists": true, "trust": "kept"})
             };
-            h.daemon
-                .respond(&request, json!({"ok": true, "data": saved(&request, "r2")}))
-                .await;
-            h.pump().await;
-            h.daemon
-                .answer(
-                    "settings-info",
-                    info_with_repository(&json!({"devCommand": "npm run dev"})),
-                )
-                .await;
-            h.pump().await;
-            let expected = dev_process_saved_message(None, ConfigTargetKind::Repository, Some(SaveTrust::Kept));
-            assert_eq!(h.app.messages.status_message.as_deref(), Some(expected.as_str()));
-
-            // A second process: its command, then a name suggested from it; the command joins under its own.
-            h.text("j");
+            // Step 1 the command, step 2 the name suggested from it: Enter, Enter.
+            h.special(ENTER);
+            h.text("cd backend && python3 main.py");
             h.special(ENTER);
             assert!(matches!(
                 h.flow().edit,
                 Some(SettingsEdit::Process {
-                    step: ProcessStep::Command,
+                    step: ProcessStep::Name,
                     name: None,
-                    named: true,
                     ..
                 })
             ));
-            h.text("cd frontend && npm run dev");
-            h.special(ENTER);
-            assert_eq!(edit_text_of(h.flow()), Some(("frontend".to_owned(), None)));
+            assert_eq!(edit_text_of(h.flow()), Some(("backend".to_owned(), None)));
             h.special(ENTER);
             let request = h.daemon.next().await;
             assert_eq!(
                 request["raw"],
-                "{\n  \"devCommand\": {\n    \"dev\": \"npm run dev\",\n    \"frontend\": \"cd frontend && npm run dev\"\n  }\n}\n"
+                "{\n  \"devCommand\": {\n    \"backend\": \"cd backend && python3 main.py\"\n  }\n}\n"
+            );
+            h.daemon
+                .respond(&request, json!({"ok": true, "data": saved(&request, "r2")}))
+                .await;
+            h.pump().await;
+            let one = json!({"devCommand": {"backend": "cd backend && python3 main.py"}});
+            h.daemon.answer("settings-info", info_with_repository(&one)).await;
+            h.pump().await;
+            let expected = dev_process_saved_message("backend", ConfigTargetKind::Repository, Some(SaveTrust::Kept));
+            assert_eq!(h.app.messages.status_message.as_deref(), Some(expected.as_str()));
+
+            // A second one; its suggested name can be changed before Enter.
+            h.text("j");
+            h.special(ENTER);
+            h.text("cd frontend && npm run dev");
+            h.special(ENTER);
+            assert_eq!(edit_text_of(h.flow()), Some(("frontend".to_owned(), None)));
+            h.text("-app");
+            h.special(ENTER);
+            let request = h.daemon.next().await;
+            assert_eq!(
+                request["raw"],
+                "{\n  \"devCommand\": {\n    \"backend\": \"cd backend && python3 main.py\",\n    \"frontend-app\": \"cd frontend && npm run dev\"\n  }\n}\n"
             );
             h.daemon
                 .respond(&request, json!({"ok": true, "data": saved(&request, "r3")}))
                 .await;
             h.pump().await;
-            let named = json!({"devCommand": {"dev": "npm run dev", "frontend": "cd frontend && npm run dev"}});
-            h.daemon.answer("settings-info", info_with_repository(&named)).await;
+            let two = json!({"devCommand": {"backend": "cd backend && python3 main.py", "frontend-app": "cd frontend && npm run dev"}});
+            h.daemon.answer("settings-info", info_with_repository(&two)).await;
             h.pump().await;
             assert_eq!(h.flow().action_row, 1);
 
-            // r renames in place; a taken name is refused.
+            // Editing walks the same two steps from what is saved: Enter, Enter changes nothing.
             h.text("k");
-            h.text("r");
-            assert_eq!(edit_text_of(h.flow()), Some(("dev".to_owned(), None)));
-            h.text("-api");
             h.special(ENTER);
-            let request = h.daemon.next().await;
             assert_eq!(
-                request["raw"],
-                "{\n  \"devCommand\": {\n    \"dev-api\": \"npm run dev\",\n    \"frontend\": \"cd frontend && npm run dev\"\n  }\n}\n"
+                edit_text_of(h.flow()),
+                Some(("cd backend && python3 main.py".to_owned(), None))
             );
-            let info: SettingsInfo = serde_json::from_value(info_with_repository(&named)).unwrap();
+            h.special(ENTER);
+            assert_eq!(edit_text_of(h.flow()), Some(("backend".to_owned(), None)));
+            h.special(ENTER);
+            assert_eq!(h.flow().notice, notice("Dev process backend unchanged", false));
+            // A taken name is refused in place.
+            let info: SettingsInfo = serde_json::from_value(info_with_repository(&two)).unwrap();
             assert_eq!(
-                dev_name_problem(&info.targets, ConfigTargetKind::Repository, "frontend", Some("dev")),
-                Some("frontend is already a Dev process here".to_owned())
+                dev_name_problem(
+                    &info.targets,
+                    ConfigTargetKind::Repository,
+                    "frontend-app",
+                    Some("backend")
+                ),
+                Some("frontend-app is already a Dev process here".to_owned())
             );
         });
     }

@@ -29,9 +29,21 @@ pub const EXECUTABLE: &str = "deckhand";
 /// Run as `<bundle executable> --notify <title> <body>`, the copy posts one notification and exits.
 pub const POST_FLAG: &str = "--notify";
 
+/// Run as `<bundle executable> --notify-status`, the copy prints macOS's answer for Deckhand: [`STATUS_ALLOWED`],
+/// [`STATUS_DENIED`] or [`STATUS_NOT_ASKED`]. A bundle built from an older binary prints nothing (it ignores the flag),
+/// which reads as "unknown", never as allowed.
+pub const STATUS_FLAG: &str = "--notify-status";
+pub const STATUS_ALLOWED: &str = "allowed";
+pub const STATUS_DENIED: &str = "denied";
+pub const STATUS_NOT_ASKED: &str = "not-asked";
+
 /// The exit status of a post the user has turned off for Deckhand (System Settings › Notifications): nothing was shown
 /// and nothing should be shown in its place.
 pub const EXIT_DENIED: u8 = 3;
+
+/// The exit status while the permission prompt is unanswered: nothing was shown, and nothing should be shown in its
+/// place (osascript would ask again, as Script Editor).
+pub const EXIT_NOT_ASKED: u8 = 4;
 
 /// The brand mark as an icon set (built by `scripts/make-icns.swift` from `assets/deckhand.png`).
 const ICON: &[u8] = include_bytes!("../../../assets/Deckhand.icns");
@@ -62,6 +74,12 @@ pub async fn notifier_executable() -> Result<PathBuf, String> {
         })
         .await
         .clone()
+}
+
+/// The bundled executable when the bundle is already there, without building it (for read-only checks).
+pub fn existing_executable() -> Option<PathBuf> {
+    let executable = executable_path(&paths::config_dir().join(APP_DIR));
+    executable.is_file().then_some(executable)
 }
 
 /// `<app>/Contents/MacOS/deckhand`.

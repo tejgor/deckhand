@@ -7,6 +7,7 @@
 
 use std::rc::Rc;
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use deckhand_core::agent_signals::{attention_message, needs_attention, normalize_hook};
@@ -20,7 +21,7 @@ use deckhand_protocol::data::{
 };
 use deckhand_protocol::wire::AgentHook;
 use deckhand_sys::async_util::spawn;
-use deckhand_sys::proc::{self, ExecOptions};
+use deckhand_sys::notify::{self, Delivery};
 use deckhand_sys::storage::load_app_config;
 use indexmap::IndexMap;
 use regex::Regex;
@@ -52,16 +53,9 @@ pub const AGENT_PROMPT_PATTERN: &str = concat!(
     r"[\t\n\x0B\x0C\r \u{A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]",
 );
 
-/// The osascript program behind a notification (title and text passed as arguments, never interpolated).
-const OSASCRIPT_NOTIFY: &str =
-    "on run argv\ndisplay notification (item 2 of argv) with title (item 1 of argv)\nend run";
-
-/// TS: notify's execFile `timeout`.
-const NOTIFY_TIMEOUT: Duration = Duration::from_millis(2000);
-
-/// Posting through Deckhand.app can wait on the user answering the first permission prompt.
-#[cfg(target_os = "macos")]
-const NOTIFIER_TIMEOUT: Duration = Duration::from_secs(30);
+/// A blocked or unanswered permission is logged once per daemon, not on every notification.
+static BLOCKED_LOGGED: AtomicBool = AtomicBool::new(false);
+static NOT_ASKED_LOGGED: AtomicBool = AtomicBool::new(false);
 
 static AGENT_PROMPT: LazyLock<Regex> = LazyLock::new(|| Regex::new(AGENT_PROMPT_PATTERN).expect("valid regex"));
 
@@ -289,7 +283,8 @@ impl Daemon {
 
     /// TS: InkDaemon.notify: a desktop notification `Deckhand: <title>` when enabled (osascript on macOS,
     /// notify-send elsewhere, 2 s timeout); failures are ignored. The port posts from Deckhand.app on macOS so the
-    /// notification shows Deckhand's icon, and uses osascript only when that app cannot post.
+    /// notification shows Deckhand's icon (see `deckhand_sys::notify`), and logs, once per daemon, when macOS blocks
+    /// it or still waits for an answer, which Settings and `deckhand doctor` then explain.
     pub async fn notify(&self, session: &SessionRecord, message: &str) {
         // Headless machines and denied notification permissions are normal.
         let enabled = load_app_config()
@@ -299,42 +294,16 @@ impl Daemon {
             return;
         }
         let title = format!("Deckhand: {}", session.title);
-        let options = ExecOptions::default().timeout(NOTIFY_TIMEOUT);
-        #[cfg(target_os = "macos")]
-        {
-            if self.notify_from_app(&title, message).await {
-                return;
-            }
-            let _ = proc::exec("osascript", &["-e", OSASCRIPT_NOTIFY, &title, message], &options).await;
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            let _ = proc::exec("notify-send", &["--", &title, message], &options).await;
-        }
-    }
-
-    /// Posts through Deckhand.app (see `deckhand_sys::notifier_app`): true when it was posted, or when the user has
-    /// turned Deckhand's notifications off (then nothing is shown in its place either).
-    #[cfg(target_os = "macos")]
-    async fn notify_from_app(&self, title: &str, message: &str) -> bool {
-        use deckhand_sys::notifier_app::{EXIT_DENIED, POST_FLAG, notifier_executable};
-        let executable = match notifier_executable().await {
-            Ok(executable) => executable,
-            Err(error) => {
-                self.log(&format!("notifications fall back to osascript: {error}"))
-                    .await;
-                return false;
-            }
+        let note = match notify::send(&title, message).await {
+            Delivery::Sent => None,
+            Delivery::Blocked => (!BLOCKED_LOGGED.swap(true, Ordering::Relaxed))
+                .then(|| "notifications are blocked for Deckhand in System Settings › Notifications".to_owned()),
+            Delivery::NotAsked => (!NOT_ASKED_LOGGED.swap(true, Ordering::Relaxed))
+                .then(|| "notifications wait for an answer to macOS's permission prompt".to_owned()),
+            Delivery::Fallback(reason) => Some(reason),
         };
-        let options = ExecOptions::default().timeout(NOTIFIER_TIMEOUT);
-        match proc::exec(&executable.to_string_lossy(), &[POST_FLAG, title, message], &options).await {
-            Ok(_) => true,
-            Err(error) if error.exit_code() == Some(i32::from(EXIT_DENIED)) => true,
-            Err(error) => {
-                self.log(&format!("Deckhand.app could not post a notification: {error}"))
-                    .await;
-                false
-            }
+        if let Some(note) = note {
+            self.log(&note).await;
         }
     }
 

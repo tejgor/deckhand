@@ -410,7 +410,9 @@ mod tests {
 
     #[test]
     fn file_paths_live_under_the_config_dir() {
-        // Reads the real environment: only checks the shape, never touches the files.
+        // Reads the real environment: only checks the shape, never touches the files. Held so a test setting
+        // DECKHAND_HOME meanwhile can't change the answer between two reads.
+        let _env = crate::storage::tests::env_lock();
         let dir = config_dir();
         assert_eq!(socket_path(), dir.join("daemon.sock"));
         assert_eq!(daemon_pid_path(), dir.join("daemon.pid"));

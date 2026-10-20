@@ -173,7 +173,7 @@ Press `C` for Settings: one column for your global settings and one for this rep
 - **On**: Claude Code and Codex. Codex needs its hooks: run `deckhand hooks codex` and merge the output into `$CODEX_HOME/hooks.json` (default `~/.codex`). Deckhand never writes to the Codex home.
 - **Off**: neither.
 
-**Notifications** send the same as desktop alerts and are off by default. On macOS, allow "Deckhand" in System Settings › Notifications.
+**Notifications** send the same as desktop alerts and are off by default. On macOS, switching them on sends a test notification so you can allow Deckhand straight away; if you missed it, see [allowing notifications on macOS](docs/features.md#allowing-notifications-on-macos).
 
 ## FAQ
 
@@ -200,6 +200,7 @@ Inside WSL2, with the Linux binary.
 - **Codex hooks warning about `cli.js hook`**: Codex still calls the old Node version. Run `deckhand hooks codex` and replace the stale entries in `$CODEX_HOME/hooks.json` (check `config.toml` too). `deckhand doctor --check` lists what is left.
 - **`o` on the Git tab fails**: install [`lazygit`](https://github.com/jesseduffield/lazygit). The rest of the Git tab only needs `git`.
 - **The Dev tab is empty**: press `d` twice quickly to start the Dev command, and set one in Settings (`C`). A single `d` only shows the tab.
+- **No notifications on macOS**: allow Deckhand in System Settings › Notifications › Deckhand. If it isn't listed there, switch Notifications off and on in Settings (`C`) to send a test. [More](docs/features.md#allowing-notifications-on-macos)
 
 ## Development
 

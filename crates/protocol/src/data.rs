@@ -984,6 +984,17 @@ pub struct CodexHookStatus {
     pub command: String,
 }
 
+/// Not in the TS: whether macOS lets Deckhand.app show notifications.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NotificationPermission {
+    Allowed,
+    /// Turned off in System Settings › Notifications.
+    Blocked,
+    /// The permission prompt was never answered (or has not been shown yet).
+    NotAsked,
+}
+
 /// settingsInfo.ts SettingsInfo (readSettingsInfo literal order).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1006,6 +1017,8 @@ pub struct SettingsInfo {
     pub agent_hooks: Option<bool>,
     pub notifications: bool,
     pub codex_hooks: Option<CodexHookStatus>,
+    /// Not in the TS: macOS's answer for Deckhand.app, read while Notifications are on (`None` elsewhere).
+    pub notification_permission: Option<NotificationPermission>,
 }
 
 /// settingsInfo.ts WorktreeCandidate. Its literals differ in where `source`, `layers`, `repos` and `missing` go, so

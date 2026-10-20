@@ -46,15 +46,13 @@ pub enum ActionStep {
     Command,
 }
 
-/// Not in the TS: what a Dev process edit asks for.
+/// Not in the TS: the two steps of adding or editing a Dev process.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ProcessStep {
-    /// The command: of a new process (`name` none), or of the process `name`.
+    /// Its command.
     Command,
-    /// The name of a new process, after its command.
+    /// Its name, suggested from the command (or kept, when editing).
     Name,
-    /// A new name for the process `name`.
-    Rename,
 }
 
 /// TS: settingsPane.tsx SettingsEdit: the inline edit control under the list.
@@ -87,16 +85,14 @@ pub enum SettingsEdit {
         entry: Option<String>,
     },
     DiscardLinks,
-    /// Not in the TS: a Dev process (Settings › Dev command): its command, then (beside others) its name.
+    /// Not in the TS: a Dev process (Settings › Dev command): its command, then its name.
     Process {
         target: ConfigTargetKind,
         step: ProcessStep,
-        /// The process edited or renamed; none while adding one.
+        /// The process edited; none while adding one.
         name: Option<String>,
-        /// The command typed for a new process, while its name is asked.
+        /// The command from step 1, while the name is asked.
         command: Option<String>,
-        /// A new process gets a name: others run beside it.
-        named: bool,
         state: EditorState,
         error: Option<String>,
     },
@@ -868,10 +864,8 @@ pub fn action_details(
     let Some(action) = actions.own.get(selected) else {
         let text = if id != SettingId::DevCommand {
             format!("a (or Enter) adds an {noun}: first its name, then its command.")
-        } else if actions.own.is_empty() {
-            "Enter sets the Dev command. Add more processes later to run them side by side.".to_owned()
         } else {
-            "Enter adds a process that runs beside the others: its command, then a name (suggested from it).".to_owned()
+            "Enter adds a process: its command, then a name (suggested from the command).".to_owned()
         };
         let mut lines = vec![DetailLine {
             text,
@@ -900,7 +894,7 @@ pub fn action_details(
     let relation = if needs_trust {
         NEEDS_TRUST_DETAIL.to_owned()
     } else if id == SettingId::DevCommand {
-        "d d starts it with the other Dev processes · r renames it".to_owned()
+        "d d starts it with the other Dev processes · Enter edits its command and name".to_owned()
     } else if status == Some("overrides global") {
         format!("overrides the global {} action", action.name)
     } else if status.is_some() {
@@ -1372,29 +1366,16 @@ pub fn edit_title(edit: &SettingsEdit, width: usize) -> String {
         SettingsEdit::DiscardLinks => "Discard link changes?".to_owned(),
         SettingsEdit::Clear { label, target, .. } => format!("Clear {label} in {}?", layer_short(*target)),
         SettingsEdit::Choice { label, target, .. } => format!("{label} · {}", layer_name(*target)),
-        SettingsEdit::Process {
-            target,
-            step,
-            name,
-            named,
-            ..
-        } => {
-            let name = visible(name.as_deref().unwrap_or(""));
-            let titles = match (step, name.is_empty(), named) {
-                (ProcessStep::Command, true, false) => vec![format!("Dev command · {}", layer_name(*target))],
-                (ProcessStep::Command, true, true) => vec![
-                    "New Dev process · step 1 of 2: command".to_owned(),
-                    "Step 1 of 2: command".to_owned(),
-                ],
-                (ProcessStep::Name, ..) => vec![
-                    "New Dev process · step 2 of 2: name".to_owned(),
-                    "Step 2 of 2: name".to_owned(),
-                ],
-                (ProcessStep::Command, false, _) => {
-                    vec![format!("Dev process {name}: command"), format!("{name}: command")]
-                }
-                (ProcessStep::Rename, ..) => vec![format!("Rename Dev process {name}"), format!("Rename {name}")],
+        SettingsEdit::Process { step, name, .. } => {
+            let what = match name {
+                Some(name) => format!("Dev process {}", visible(name)),
+                None => "New Dev process".to_owned(),
             };
+            let step = match step {
+                ProcessStep::Command => "step 1 of 2: command",
+                ProcessStep::Name => "step 2 of 2: name",
+            };
+            let titles = [format!("{what} · {step}"), capitalize_first(step)];
             titles
                 .iter()
                 .find(|title| js_len(title) <= width)
@@ -1437,6 +1418,15 @@ pub fn edit_title(edit: &SettingsEdit, width: usize) -> String {
                 .unwrap_or_default()
         }
     }
+}
+
+/// `text` with its first character upper-cased.
+fn capitalize_first(text: &str) -> String {
+    let mut chars = text.chars();
+    chars
+        .next()
+        .map(|first| first.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
 }
 
 /// TS: settingsPane.tsx WARNING_INDENT: an option's warning sits on its own lines under it (aligned with the label,
@@ -1633,12 +1623,11 @@ pub fn edit_hint(edit: &SettingsEdit) -> Vec<HintPart> {
             }),
             HintPart::from("esc cancel"),
         ],
-        SettingsEdit::Process { step, name, named, .. } => vec![
+        SettingsEdit::Process { step, .. } => vec![
             hint_part("←→/home/end move", Some("←→ move"), Some(1)),
             HintPart::from(match step {
-                ProcessStep::Command if name.is_none() && *named => "enter next",
-                ProcessStep::Rename => "enter rename",
-                _ => "enter save",
+                ProcessStep::Command => "enter next",
+                ProcessStep::Name => "enter save",
             }),
             HintPart::from("esc cancel"),
         ],
@@ -1846,7 +1835,6 @@ pub fn render_settings_pane(props: &SettingsPaneProps<'_>, scroll: &mut Settings
             hint = if id == SettingId::DevCommand {
                 vec![
                     HintPart::from("enter edit"),
-                    hint_part("r rename", None, Some(3)),
                     hint_part("x remove", None, Some(1)),
                     hint_part("E raw JSON", Some("E JSON"), Some(2)),
                     hint_part("esc back", Some("esc"), None),
