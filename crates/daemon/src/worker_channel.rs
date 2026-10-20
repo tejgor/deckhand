@@ -128,11 +128,41 @@ pub fn channel_kind(worker: &WorkerChannel) -> WorkerKind {
 }
 
 /// TS: paths.ts getCliEntryPath as the daemon uses it: the binary to run as a worker (`configured`, else the running
-/// executable).
+/// executable, see [`running_exe`]).
 pub fn worker_exe(configured: Option<&Path>) -> Result<PathBuf> {
     match configured {
         Some(path) => Ok(path.to_path_buf()),
-        None => deckhand_sys::paths::cli_entry_path(),
+        None => {
+            let self_exe = cfg!(target_os = "linux").then_some(Path::new("/proc/self/exe"));
+            Ok(running_exe(deckhand_sys::paths::cli_entry_path()?, self_exe))
+        }
+    }
+}
+
+/// What Linux appends to readlink(/proc/self/exe) once the running binary's file is unlinked or renamed over.
+const DELETED_SUFFIX: &str = " (deleted)";
+
+/// A spawnable path for the running executable `path` (as `current_exe` reported it). TS forks `dist/cli.js`, a plain
+/// path that stays valid across an upgrade; on Linux `current_exe` instead reads `/proc/self/exe`, which becomes
+/// `<path> (deleted)` once the long-lived daemon's binary is replaced (package upgrade, `install`, a rebuild), and
+/// spawning that fails with ENOENT. So a missing `<path> (deleted)` is `<path>` again (the upgraded binary, as TS
+/// would run), or, when nothing is there any more, `self_exe` (`/proc/self/exe`, which stays executable after
+/// unlink). Without `self_exe` (no procfs), or when `path` exists, it is returned unchanged.
+fn running_exe(path: PathBuf, self_exe: Option<&Path>) -> PathBuf {
+    if path.exists() {
+        return path;
+    }
+    use std::os::unix::ffi::OsStrExt as _;
+    let Some(stripped) = path.as_os_str().as_bytes().strip_suffix(DELETED_SUFFIX.as_bytes()) else {
+        return path;
+    };
+    let stripped = PathBuf::from(std::ffi::OsStr::from_bytes(stripped));
+    if stripped.is_file() {
+        return stripped;
+    }
+    match self_exe {
+        Some(self_exe) => self_exe.to_path_buf(),
+        None => path,
     }
 }
 
@@ -660,6 +690,27 @@ done
             worker_exe(Some(Path::new("/x/deckhand"))).unwrap(),
             PathBuf::from("/x/deckhand")
         );
+    }
+
+    #[test]
+    fn a_replaced_running_binary_is_spawned_from_its_path_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("deckhand");
+        std::fs::write(&path, "").unwrap();
+        // readlink(/proc/self/exe) once the running binary was renamed over (an upgrade or a rebuild).
+        let deleted = dir.path().join("deckhand (deleted)");
+        let self_exe = Path::new("/proc/self/exe");
+        assert_eq!(running_exe(deleted.clone(), Some(self_exe)), path);
+        // Still in place: as is.
+        assert_eq!(running_exe(path.clone(), Some(self_exe)), path);
+        // Unlinked with nothing at its path: the running image itself, which stays executable.
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(running_exe(deleted.clone(), Some(self_exe)), self_exe);
+        // Without /proc (macOS keeps the original path anyway): unchanged.
+        assert_eq!(running_exe(deleted.clone(), None), deleted);
+        // The running test binary resolves to itself.
+        let exe = worker_exe(None).unwrap();
+        assert!(exe.is_file(), "{}", exe.display());
     }
 
     #[test]
