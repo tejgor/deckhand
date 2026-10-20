@@ -131,8 +131,9 @@ pub const WORKTREE_MODES: [WorktreeModeOption; 3] = [
     },
 ];
 
-/// TS: app.tsx SCROLL_SENSITIVITY_STEP (+ / − in preview focus).
-pub const SCROLL_SENSITIVITY_STEP: f64 = 0.04;
+/// TS: app.tsx SCROLL_SENSITIVITY_STEP (+ / − in preview focus); 0.1, not 0.04, for the wider range up to
+/// [`deckhand_core::wheel::MAX_SCROLL_SENSITIVITY`].
+pub const SCROLL_SENSITIVITY_STEP: f64 = 0.1;
 
 /// TS: app.tsx DEV_DOUBLE_TAP_MS: two d presses within this long start or stop Dev.
 pub const DEV_DOUBLE_TAP_MS: i64 = 500;
@@ -148,13 +149,8 @@ pub(crate) fn truthy(value: Option<&String>) -> bool {
     value.is_some_and(|text| !text.is_empty())
 }
 
-/// TS: app.tsx normalizeScrollSensitivity (0..1, the default when unset or not finite).
-pub fn normalize_scroll_sensitivity(value: Option<f64>) -> f64 {
-    match value {
-        Some(value) if value.is_finite() => value.clamp(0.0, 1.0),
-        _ => crate::app::state::DEFAULT_SCROLL_SENSITIVITY,
-    }
-}
+/// TS: app.tsx normalizeScrollSensitivity (now 0..=3, default 1).
+pub use deckhand_core::wheel::normalize_scroll_sensitivity;
 
 /// JS `Number.prototype.toFixed(2)`: the exact decimal value rounded half up (on the magnitude) to two places.
 fn js_to_fixed_2(value: f64) -> String {
@@ -189,12 +185,7 @@ pub fn format_scroll_sensitivity(value: f64) -> String {
     trimmed.strip_suffix('.').unwrap_or(trimmed).to_owned()
 }
 
-/// Mouse wheel direction.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum WheelDirection {
-    Up,
-    Down,
-}
+pub use deckhand_core::wheel::WheelDirection;
 
 /// TS: app.tsx mouseWheelSequence: `count` SGR wheel reports at the pane's center (sent to Claude to scroll it).
 pub fn mouse_wheel_sequence(direction: WheelDirection, cols: u16, rows: u16, count: usize) -> String {
@@ -1571,9 +1562,9 @@ mod tests {
 
     #[test]
     fn scroll_sensitivity_is_clamped_and_printed_like_to_fixed() {
-        assert_eq!(normalize_scroll_sensitivity(None), 0.12);
-        assert_eq!(normalize_scroll_sensitivity(Some(f64::NAN)), 0.12);
-        assert_eq!(normalize_scroll_sensitivity(Some(2.0)), 1.0);
+        assert_eq!(normalize_scroll_sensitivity(None), 1.0);
+        assert_eq!(normalize_scroll_sensitivity(Some(f64::NAN)), 1.0);
+        assert_eq!(normalize_scroll_sensitivity(Some(5.0)), 3.0);
         assert_eq!(normalize_scroll_sensitivity(Some(-1.0)), 0.0);
         assert_eq!(format_scroll_sensitivity(0.12), "0.12");
         assert_eq!(format_scroll_sensitivity(0.1), "0.1");

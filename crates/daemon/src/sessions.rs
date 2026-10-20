@@ -1348,6 +1348,7 @@ impl Daemon {
                 prepared_session.program,
                 &prepared_session.command,
                 hooks_enabled(app_config.agent_hooks, prepared_session.program),
+                app_config.claude_scroll_override != Some(false),
             )
             .await?,
         );
@@ -1360,7 +1361,12 @@ impl Daemon {
         launch_session.handoff_path.clone_from(&prepared_session.handoff_path);
         self.set_session(launch_session.clone());
         let running_session = self
-            .start_worker(launch_session.clone(), input.cols, input.rows)
+            .start_worker(
+                launch_session.clone(),
+                input.cols,
+                input.rows,
+                app_config.claude_scroll_override != Some(false),
+            )
             .await?;
         // Started from a task: its text waits to be typed into the agent's input (typeDraft), never sent. Registered
         // before the session is announced as running, so input typed right away always drops it.
@@ -1610,6 +1616,7 @@ impl Daemon {
                     starting.program,
                     &starting.command,
                     hooks_enabled(config.agent_hooks, starting.program),
+                    config.claude_scroll_override != Some(false),
                 )
                 .await?,
             );
@@ -1619,7 +1626,9 @@ impl Daemon {
             let mut launch = self.require_session(session_id)?;
             assign(&mut launch, "args");
             launch.args = Some(args);
-            let running_session = self.start_worker(launch, cols, rows).await?;
+            let running_session = self
+                .start_worker(launch, cols, rows, config.claude_scroll_override != Some(false))
+                .await?;
             let mut running = spread(&running_session, &self.require_session(session_id)?)?;
             assign(&mut running, "status");
             running.status = SessionStatus::Running;

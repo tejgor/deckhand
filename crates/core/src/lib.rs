@@ -24,6 +24,7 @@ pub mod tasks;
 pub mod tasks_board;
 pub mod terminal_keys;
 pub mod text_editor;
+pub mod wheel;
 pub mod workspace;
 pub mod worktree_links;
 pub mod worktree_records;

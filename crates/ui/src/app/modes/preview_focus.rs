@@ -1,7 +1,10 @@
 //! Port of app.tsx's preview-focus keys and mouse wheel (→ on a running session's Preview: scroll it, or send the
 //! wheel to a fullscreen agent, which scrolls its own view), and the changes-/notes-focus hand-off to their flows.
 
+use std::time::Instant;
+
 use deckhand_core::key::Input;
+use deckhand_core::wheel::WheelScaler;
 use deckhand_protocol::data::{JsNumber, SessionStatus};
 use deckhand_protocol::records::AppConfig;
 use deckhand_sys::storage::patch_app_config;
@@ -96,31 +99,35 @@ pub fn handle_preview_focus(app: &mut App, input: &Input) {
         return;
     }
     if text == "g" {
-        // A fullscreen agent scrolls its own view, so only the wheel fallback applies there.
-        if !send_agent_wheel(app, WheelDirection::Up, 12) {
+        // A fullscreen agent scrolls its own view: Ctrl+Home is its transcript's start (not in the TS, which sent 12
+        // wheel events).
+        if !send_agent_scroll_input(app, CTRL_HOME) {
             let offset = app.preview_focus.scroll_offset;
             app.preview_focus.scroll_offset = app.panes.preview.max_scroll_offset.unwrap_or(offset + rows);
         }
         return;
     }
-    if text == "G" && !send_agent_wheel(app, WheelDirection::Down, 12) {
+    if text == "G" && !send_agent_scroll_input(app, CTRL_END) {
         app.preview_focus.scroll_offset = 0;
     }
 }
 
-/// TS: the preview-focus `stdin.on('data')` listener: wheel reports scaled by the sensitivity (accumulated).
+/// Ctrl+Home / Ctrl+End (xterm): the start of the transcript / the latest output (following it again) in Claude's,
+/// Codex's and Pi's fullscreen views.
+const CTRL_HOME: &str = "\x1b[1;5H";
+const CTRL_END: &str = "\x1b[1;5F";
+
+/// TS: the preview-focus `stdin.on('data')` listener: wheel reports scaled by the sensitivity ([`WheelScaler`], as
+/// when attached).
 pub fn on_mouse_data(app: &mut App, text: &str) {
     let Some(wheel) = parse_mouse_wheel(text) else {
         return;
     };
-    let mut scaled = 0usize;
-    for _ in 0..wheel.count {
-        app.preview_focus.wheel_accumulator += app.preview_focus.scroll_sensitivity;
-        if app.preview_focus.wheel_accumulator >= 1.0 {
-            scaled += 1;
-            app.preview_focus.wheel_accumulator -= 1.0;
-        }
-    }
+    let now = Instant::now();
+    let sensitivity = app.preview_focus.scroll_sensitivity;
+    let scaled: usize = (0..wheel.count)
+        .map(|_| app.preview_focus.wheel.scale(sensitivity, wheel.direction, now))
+        .sum();
     if scaled == 0 {
         return;
     }
@@ -138,7 +145,7 @@ pub fn adjust_scroll_sensitivity(app: &mut App, delta: f64) {
     let current = app.preview_focus.scroll_sensitivity;
     let next = normalize_scroll_sensitivity(Some(js_round((current + delta) * 100.0) / 100.0));
     app.preview_focus.scroll_sensitivity = next;
-    app.preview_focus.wheel_accumulator = 0.0;
+    app.preview_focus.wheel = WheelScaler::default();
     app.set_status(Some(format!(
         "Scroll multiplier {} (saved)",
         format_scroll_sensitivity(next)
@@ -158,6 +165,13 @@ pub fn adjust_scroll_sensitivity(app: &mut App, delta: f64) {
 /// draw fullscreen in the alternate screen, which keeps none) scrolls its own view; true when sent. An agent printing
 /// inline (Pi `tuiMode: "regular"`, Codex `--no-alt-screen`) leaves its history in the preview's scrollback instead.
 pub fn send_agent_wheel(app: &mut App, direction: WheelDirection, count: usize) -> bool {
+    let layout = app.layout();
+    let wheel = mouse_wheel_sequence(direction, layout.preview_cols, layout.preview_rows, count);
+    send_agent_scroll_input(app, &wheel)
+}
+
+/// [`send_agent_wheel`] with any input that scrolls the agent's view.
+fn send_agent_scroll_input(app: &mut App, data: &str) -> bool {
     let Some(client) = app.client() else {
         return false;
     };
@@ -170,11 +184,7 @@ pub fn send_agent_wheel(app: &mut App, direction: WheelDirection, count: usize) 
     else {
         return false;
     };
-    let layout = app.layout();
-    client.send_agent_input(
-        &session.id,
-        &mouse_wheel_sequence(direction, layout.preview_cols, layout.preview_rows, count),
-    );
+    client.send_agent_input(&session.id, data);
     app.preview_focus.scroll_offset = 0;
     true
 }
@@ -294,15 +304,21 @@ mod tests {
     #[test]
     fn the_wheel_is_scaled_by_the_sensitivity() {
         let (mut app, _rx) = with_sessions(1);
-        app.preview_focus.scroll_sensitivity = 0.5;
+        // The default: every event.
         let up = mouse_wheel_sequence(WheelDirection::Up, 10, 10, 1);
+        on_mouse_data(&mut app, &mouse_wheel_sequence(WheelDirection::Up, 10, 10, 3));
+        assert_eq!(app.preview_focus.scroll_offset, 3);
+        app.preview_focus.scroll_offset = 0;
+        app.preview_focus.scroll_sensitivity = 0.5;
+        app.preview_focus.wheel = WheelScaler::default();
+        // The first event of a gesture moves, then every other one.
         on_mouse_data(&mut app, &up);
-        assert_eq!(app.preview_focus.scroll_offset, 0);
+        assert_eq!(app.preview_focus.scroll_offset, 1);
         on_mouse_data(&mut app, &up);
         assert_eq!(app.preview_focus.scroll_offset, 1);
         on_mouse_data(&mut app, &mouse_wheel_sequence(WheelDirection::Up, 10, 10, 4));
         assert_eq!(app.preview_focus.scroll_offset, 3);
-        on_mouse_data(&mut app, &mouse_wheel_sequence(WheelDirection::Down, 10, 10, 8));
+        on_mouse_data(&mut app, &mouse_wheel_sequence(WheelDirection::Down, 10, 10, 6));
         assert_eq!(app.preview_focus.scroll_offset, 0);
         on_mouse_data(&mut app, "plain text");
         assert_eq!(app.preview_focus.scroll_offset, 0);
@@ -326,12 +342,11 @@ mod tests {
                 mouse_wheel_sequence(WheelDirection::Up, layout.preview_cols, layout.preview_rows, 2)
             );
             assert_eq!(app.preview_focus.scroll_offset, 0);
+            // g / G: the agent's own top and bottom keys.
+            handle_preview_focus(&mut app, &text("g"));
+            assert_eq!(daemon.next().await["data"], CTRL_HOME);
             handle_preview_focus(&mut app, &text("G"));
-            let message = daemon.next().await;
-            assert_eq!(
-                message["data"],
-                mouse_wheel_sequence(WheelDirection::Down, layout.preview_cols, layout.preview_rows, 12)
-            );
+            assert_eq!(daemon.next().await["data"], CTRL_END);
             // Pi and Codex too.
             for program in [ProgramKey::Pi, ProgramKey::Codex] {
                 app.data.repo_sessions[0].program = program;
@@ -368,26 +383,32 @@ mod tests {
         unsafe { std::env::set_var(deckhand_sys::paths::HOME_ENV, home.path()) };
         local(async {
             let (mut app, mut rx) = with_sessions(1);
-            app.preview_focus.wheel_accumulator = 0.7;
+            app.preview_focus
+                .wheel
+                .scale(0.5, WheelDirection::Up, std::time::Instant::now());
             handle_preview_focus(&mut app, &text("+"));
-            assert_eq!(app.preview_focus.scroll_sensitivity, 0.16);
-            assert_eq!(app.preview_focus.wheel_accumulator, 0.0);
+            assert_eq!(app.preview_focus.scroll_sensitivity, 1.1);
+            assert_eq!(app.preview_focus.wheel, WheelScaler::default());
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("Scroll multiplier 0.16 (saved)")
+                Some("Scroll multiplier 1.1 (saved)")
             );
             apply(&mut app, &mut rx).await;
             handle_preview_focus(&mut app, &text("="));
             handle_preview_focus(&mut app, &text("-"));
             handle_preview_focus(&mut app, &text("-"));
-            assert_eq!(app.preview_focus.scroll_sensitivity, 0.12);
+            assert_eq!(app.preview_focus.scroll_sensitivity, 1.0);
             for _ in 0..3 {
                 apply(&mut app, &mut rx).await;
             }
             assert_eq!(app.messages.error, None);
             let config = load_app_config().await.unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(config.attach_scroll_sensitivity.map(|value| value.0), Some(0.12));
-            for _ in 0..10 {
+            assert_eq!(config.attach_scroll_sensitivity.map(|value| value.0), Some(1.0));
+            for _ in 0..40 {
+                adjust_scroll_sensitivity(&mut app, SCROLL_SENSITIVITY_STEP);
+            }
+            assert_eq!(app.preview_focus.scroll_sensitivity, 3.0);
+            for _ in 0..40 {
                 adjust_scroll_sensitivity(&mut app, -SCROLL_SENSITIVITY_STEP);
             }
             assert_eq!(app.preview_focus.scroll_sensitivity, 0.0);

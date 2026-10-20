@@ -483,6 +483,7 @@ impl Daemon {
         session: Ordered<SessionRecord>,
         cols: i64,
         rows: i64,
+        scroll_override: bool,
     ) -> Result<Ordered<SessionRecord>> {
         let Some(launch_id) = session.launch_id.clone().filter(|launch_id| !launch_id.is_empty()) else {
             return Err(DhError::msg("Session has no launch identity"));
@@ -537,6 +538,7 @@ impl Daemon {
             payload.insert("session".to_owned(), serde_json::to_value(&session)?);
             payload.insert("cols".to_owned(), Value::from(cols));
             payload.insert("rows".to_owned(), Value::from(rows));
+            payload.insert("scrollOverride".to_owned(), Value::Bool(scroll_override));
             self.send_worker_request(&session.id, payload).await
         }
         .await;
@@ -1861,7 +1863,7 @@ done
         daemon.notes_tasks.borrow_mut().notes = None;
         put(&daemon, starting.clone());
         local(async {
-            let result = daemon.start_worker(starting, 80, 24).await;
+            let result = daemon.start_worker(starting, 80, 24, true).await;
             assert_eq!(result.unwrap_err().to_string(), "Startup cancelled");
             let held = daemon.get_session("s").unwrap();
             assert_eq!(held.status, SessionStatus::Exited);

@@ -76,6 +76,8 @@ pub struct StartAgent {
     pub cols: i64,
     pub rows: i64,
     pub request_id: String,
+    /// Not in the TS: `claude_scroll_override` (absent: on), for the agent's environment.
+    pub scroll_override: Option<bool>,
 }
 
 /// Session worker `kill`: SIGTERM the agent's process group (`force`: SIGKILL after a second).

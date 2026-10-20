@@ -160,11 +160,25 @@ pub fn shell_command() -> String {
 /// The agent's environment: this process's, plus `CLAUDE_CODE_NO_FLICKER=1` for Claude (replacing any value). Every
 /// scroll path sends the wheel to the agent's own TUI, and only Claude's fullscreen renderer consumes it; the classic
 /// one ignores mouse input, which leaves nothing to scroll in Preview focus or attach.
-pub fn agent_env(program: ProgramKey) -> Vec<(OsString, OsString)> {
+///
+/// With `scroll_override` (`claude_scroll_override`, on unless false) Claude also gets `CLAUDE_CODE_SCROLL_SPEED=1`:
+/// with its acceleration off (`integration_args`) each wheel event then scrolls one line, so Deckhand's scroll
+/// sensitivity alone sets the speed. Otherwise Claude guesses a speed from the terminal it inherits from the daemon's
+/// environment (`TERM_PROGRAM`, `CURSOR_TRACE_ID`), which need not be the one attached. Claude applies its settings
+/// files' `env` over this, so `integration_args` repeats it in `--settings`, which wins over them; this copy is for
+/// a Claude without `--settings`.
+pub fn agent_env(program: ProgramKey, scroll_override: bool) -> Vec<(OsString, OsString)> {
     let mut env: Vec<(OsString, OsString)> = std::env::vars_os().collect();
     if program == ProgramKey::Claude {
-        env.retain(|(key, _)| key != "CLAUDE_CODE_NO_FLICKER");
-        env.push(("CLAUDE_CODE_NO_FLICKER".into(), "1".into()));
+        let mut forced = vec![("CLAUDE_CODE_NO_FLICKER", "1")];
+        if scroll_override {
+            forced.push((
+                "CLAUDE_CODE_SCROLL_SPEED",
+                deckhand_sys::agent_path::CLAUDE_SCROLL_SPEED,
+            ));
+        }
+        env.retain(|(key, _)| !forced.iter().any(|(name, _)| key == name));
+        env.extend(forced.into_iter().map(|(key, value)| (key.into(), value.into())));
     }
     env
 }
@@ -429,7 +443,8 @@ impl SessionWorker {
         match command {
             WorkerCommand::Start(start) => {
                 let start = *start;
-                let session = self.start_agent(start.session, start.cols, start.rows)?;
+                let scroll_override = start.scroll_override != Some(false);
+                let session = self.start_agent(start.session, start.cols, start.rows, scroll_override)?;
                 channel.ok(&start.request_id, &session);
             }
             WorkerCommand::Kill(kill) => {
@@ -471,10 +486,11 @@ impl SessionWorker {
         session: Ordered<SessionRecord>,
         cols: i64,
         rows: i64,
+        scroll_override: bool,
     ) -> Result<Ordered<SessionRecord>, DhError> {
         self.inner.state.borrow_mut().session = Some(session.clone());
         let args = session.args.clone().unwrap_or_default();
-        let env = agent_env(session.program);
+        let env = agent_env(session.program, scroll_override);
         let term = spawn_pty(
             &session.command,
             &args,
@@ -1113,11 +1129,26 @@ mod tests {
                 .map(|(_, value)| value.clone())
                 .collect()
         };
-        assert_eq!(flag(&agent_env(ProgramKey::Claude)), [OsString::from("1")]);
+        assert_eq!(flag(&agent_env(ProgramKey::Claude, false)), [OsString::from("1")]);
         // Pi and Codex inherit the environment unchanged.
         let inherited: Vec<_> = std::env::vars_os().collect();
-        assert_eq!(agent_env(ProgramKey::Pi), inherited);
-        assert_eq!(agent_env(ProgramKey::Codex), inherited);
+        assert_eq!(agent_env(ProgramKey::Pi, true), inherited);
+        assert_eq!(agent_env(ProgramKey::Codex, true), inherited);
+    }
+
+    #[test]
+    fn agent_env_fixes_claudes_scroll_speed_unless_opted_out() {
+        let speed = |env: &[(OsString, OsString)]| -> Vec<OsString> {
+            env.iter()
+                .filter(|(key, _)| key == "CLAUDE_CODE_SCROLL_SPEED")
+                .map(|(_, value)| value.clone())
+                .collect()
+        };
+        assert_eq!(speed(&agent_env(ProgramKey::Claude, true)), [OsString::from("1")]);
+        let inherited: Vec<_> = std::env::vars_os()
+            .filter(|(key, _)| key == "CLAUDE_CODE_SCROLL_SPEED")
+            .collect();
+        assert_eq!(speed(&agent_env(ProgramKey::Claude, false)), speed(&inherited));
     }
 
     #[test]

@@ -18,6 +18,7 @@ use futures::future::{LocalBoxFuture, Shared};
 use deckhand_core::agent_signals::{HookSettings, hook_settings_for, shell_quote};
 use deckhand_core::error::{DhError, Result};
 use deckhand_protocol::data::ProgramKey;
+use serde_json::Value;
 
 use crate::paths;
 use crate::proc::{self, ExecOptions};
@@ -135,20 +136,44 @@ pub async fn program_help(command: &str) -> String {
 /// TS: agentSignals.ts integrationArgs: Claude with `--settings` gets the hook settings (without StopFailure and
 /// Interrupt); Codex gets `--no-daemon` when it has it, which the isolated dev channel requires (`This Codex version
 /// cannot verify isolated native-daemon operation (--no-daemon missing). Upgrade Codex or test with Claude/Pi.`).
-pub async fn integration_args(program: ProgramKey, command: &str, enabled: bool) -> Result<Vec<String>> {
-    integration_args_with(program, command, enabled, paths::is_dev_channel(), hook_command).await
+/// Not in the TS: with `scroll_override` (`claude_scroll_override`, hooks on or off), Claude's settings also fix its
+/// scroll speed at one line per wheel event (`env` `CLAUDE_CODE_SCROLL_SPEED`) and turn its wheel acceleration off,
+/// so each wheel event Deckhand forwards scrolls it the same distance. The speed goes in `--settings` because Claude
+/// applies its settings files' `env` over its environment, and `/scroll-speed` saves to `~/.claude/settings.json`'s;
+/// `--settings` comes after those (only managed policy overrides it). The worker's `agent_env` sets it too, for a
+/// Claude without `--settings`.
+pub async fn integration_args(
+    program: ProgramKey,
+    command: &str,
+    enabled: bool,
+    scroll_override: bool,
+) -> Result<Vec<String>> {
+    integration_args_with(
+        program,
+        command,
+        enabled,
+        scroll_override,
+        paths::is_dev_channel(),
+        hook_command,
+    )
+    .await
 }
+
+/// Claude's scroll speed with `claude_scroll_override`: one line per wheel event.
+pub const CLAUDE_SCROLL_SPEED: &str = "1";
 
 /// [`integration_args`] with the channel and the hook command given.
 async fn integration_args_with(
     program: ProgramKey,
     command: &str,
     enabled: bool,
+    scroll_override: bool,
     dev_channel: bool,
     hook_command: impl FnOnce() -> Result<String>,
 ) -> Result<Vec<String>> {
     let isolated_codex = program == ProgramKey::Codex && dev_channel;
-    if !enabled && !isolated_codex {
+    let claude_scroll = program == ProgramKey::Claude && scroll_override;
+    if !enabled && !isolated_codex && !claude_scroll {
         return Ok(Vec::new());
     }
     let help = program_help(command).await;
@@ -167,9 +192,20 @@ async fn integration_args_with(
         return Ok(Vec::new());
     }
     // Additional settings only; never alter permissions or replace the native TUI.
-    let mut settings = hook_settings_for(&hook_command()?, true);
-    settings.hooks.shift_remove("StopFailure"); // Opt-in manual configuration for version-specific failure events.
-    settings.hooks.shift_remove("Interrupt"); // Claude doesn't expose Codex's Interrupt event.
+    let mut settings = serde_json::Map::new();
+    if enabled {
+        let mut hooks = hook_settings_for(&hook_command()?, true);
+        hooks.hooks.shift_remove("StopFailure"); // Opt-in manual configuration for version-specific failure events.
+        hooks.hooks.shift_remove("Interrupt"); // Claude doesn't expose Codex's Interrupt event.
+        settings.insert("hooks".to_owned(), serde_json::to_value(&hooks.hooks)?);
+    }
+    if claude_scroll {
+        settings.insert(
+            "env".to_owned(),
+            serde_json::json!({ "CLAUDE_CODE_SCROLL_SPEED": CLAUDE_SCROLL_SPEED }),
+        );
+        settings.insert("wheelScrollAccelerationEnabled".to_owned(), Value::Bool(false));
+    }
     Ok(vec!["--settings".to_owned(), serde_json::to_string(&settings)?])
 }
 
@@ -234,9 +270,14 @@ mod tests {
             .build()
             .map_err(|error| error.to_string())?;
         runtime
-            .block_on(integration_args_with(program, &command, enabled, dev_channel, || {
-                Ok(hook_command_from(&PROD_PARTS))
-            }))
+            .block_on(integration_args_with(
+                program,
+                &command,
+                enabled,
+                false,
+                dev_channel,
+                || Ok(hook_command_from(&PROD_PARTS)),
+            ))
             .map_err(|error| error.to_string())
     }
 
@@ -298,8 +339,8 @@ mod tests {
             .unwrap();
         let (ok, err) = runtime.block_on(async {
             (
-                integration_args(ProgramKey::Codex, &supported.to_string_lossy(), false).await,
-                integration_args(ProgramKey::Codex, &unsupported.to_string_lossy(), false).await,
+                integration_args(ProgramKey::Codex, &supported.to_string_lossy(), false, true).await,
+                integration_args(ProgramKey::Codex, &unsupported.to_string_lossy(), false, true).await,
             )
         });
         // SAFETY: as above.
@@ -311,6 +352,46 @@ mod tests {
         }
         assert_eq!(ok.unwrap(), vec!["--no-daemon".to_owned()]);
         assert!(err.unwrap_err().to_string().contains("--no-daemon missing"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn claude_scroll_override_turns_acceleration_off_with_or_without_hooks() {
+        let temp = tempfile::tempdir().unwrap();
+        let claude = temp.path().join("claude");
+        std::fs::write(&claude, "#!/bin/sh\nprintf -- '--settings <file-or-json>\\n'\n").unwrap();
+        std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let command = claude.to_string_lossy().into_owned();
+        let args = |program, hooks, scroll| {
+            integration_args_with(program, &command, hooks, scroll, false, || Ok("hook".to_owned()))
+        };
+        let settings = |args: Vec<String>| -> Value {
+            assert_eq!(args.len(), 2, "{args:?}");
+            assert_eq!(args[0], "--settings");
+            serde_json::from_str(&args[1]).unwrap()
+        };
+        // Hooks off: the scroll settings alone.
+        assert_eq!(
+            settings(args(ProgramKey::Claude, false, true).await.unwrap()),
+            serde_json::json!({
+                "env": {"CLAUDE_CODE_SCROLL_SPEED": "1"},
+                "wheelScrollAccelerationEnabled": false
+            })
+        );
+        // Hooks on: the hooks first, then the scroll settings.
+        let both = settings(args(ProgramKey::Claude, true, true).await.unwrap());
+        let keys: Vec<&String> = both.as_object().unwrap().keys().collect();
+        assert_eq!(keys, ["hooks", "env", "wheelScrollAccelerationEnabled"]);
+        assert!(both["hooks"]["Stop"].is_array());
+        // Opted out: as before.
+        assert!(args(ProgramKey::Claude, false, false).await.unwrap().is_empty());
+        assert!(
+            settings(args(ProgramKey::Claude, true, false).await.unwrap())
+                .get("wheelScrollAccelerationEnabled")
+                .is_none()
+        );
+        // Other agents never get it.
+        assert!(args(ProgramKey::Pi, false, true).await.unwrap().is_empty());
+        assert!(args(ProgramKey::Codex, false, true).await.unwrap().is_empty());
     }
 
     #[tokio::test(flavor = "current_thread")]

@@ -4,8 +4,7 @@
 //! stdin goes up as `<pane>-input`, `<pane>-output` comes down to stdout, resizes follow the outer terminal. Ctrl+Space
 //! (NUL, or its CSI-u / modifyOtherKeys encodings) or Ctrl+] (0x1d) detaches. Output is cleaned on the way down (8-bit
 //! C1 controls become 7-bit ESC sequences; the child's OSC 0/1/2 title changes are dropped so deckhand's own title
-//! stays), and input on the way up (vertical wheel events are throttled by the scroll sensitivity; Pi gets PageUp /
-//! PageDown instead of wheel events).
+//! stays), and input on the way up (vertical wheel events are scaled by the scroll sensitivity).
 //!
 //! Offsets: the TS works on UTF-16 strings, but every sequence it looks for is ASCII, so byte offsets on `&str` give
 //! the same results. The one length check that counts code units (an OSC prefix cut off at the end of a chunk) counts
@@ -20,6 +19,7 @@ use std::pin::Pin;
 use std::sync::{Mutex, PoisonError};
 use std::task::Poll;
 use std::thread::JoinHandle;
+use std::time::Instant;
 
 use nix::errno::Errno;
 use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
@@ -31,6 +31,7 @@ use tokio::sync::mpsc;
 use deckhand_core::display::ThemeMode;
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::{js_collapse_whitespace, js_len, js_slice, js_trim};
+use deckhand_core::wheel::{WheelDirection, WheelScaler};
 use deckhand_protocol::Request;
 use deckhand_protocol::ServerMessage;
 use deckhand_protocol::data::{AttachTarget, SessionRecord, SessionStatus, TerminalModes};
@@ -350,22 +351,16 @@ fn find_from(text: &str, search: &str, from: usize) -> Option<usize> {
     text.get(from..)?.find(search).map(|offset| from + offset)
 }
 
-/// TS: attach.ts normalizeScrollSensitivity: missing or non-finite is 0.12; otherwise clamped to 0..=1.
-pub fn normalize_scroll_sensitivity(value: Option<f64>) -> f64 {
-    match value {
-        Some(value) if value.is_finite() => value.clamp(0.0, 1.0),
-        _ => 0.12,
-    }
-}
+pub use deckhand_core::wheel::normalize_scroll_sensitivity;
 
-/// TS: attach.ts createAttachInputNormalizer: throttles SGR vertical wheel events (`ESC [ < 64|65 ; x ; y M|m`) by
-/// accumulating `scroll_sensitivity` per event and forwarding one per whole unit; horizontal wheel events (66/67) pass
-/// through. Every agent's fullscreen TUI scrolls its own view on the wheel (TS turned it into PageUp/PageDown for Pi,
-/// which predates Pi's fullscreen mode).
+/// TS: attach.ts createAttachInputNormalizer: scales SGR vertical wheel events (`ESC [ < 64|65 ; x ; y M|m`) by
+/// `scroll_sensitivity` ([`WheelScaler`]: by default each one as it came, unlike the TS's never-reset 0.12
+/// accumulator); horizontal wheel events (66/67) pass through. Every agent's fullscreen TUI scrolls its own view on
+/// the wheel (TS turned it into PageUp/PageDown for Pi, which predates Pi's fullscreen mode).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AttachInputNormalizer {
     scroll_sensitivity: f64,
-    vertical_wheel_accumulator: f64,
+    wheel: WheelScaler,
 }
 
 impl AttachInputNormalizer {
@@ -373,12 +368,17 @@ impl AttachInputNormalizer {
     pub fn new(scroll_sensitivity: f64) -> Self {
         AttachInputNormalizer {
             scroll_sensitivity,
-            vertical_wheel_accumulator: 0.0,
+            wheel: WheelScaler::default(),
         }
     }
 
     /// The returned normalizer function.
     pub fn normalize(&mut self, data: &str) -> String {
+        self.normalize_at(data, Instant::now())
+    }
+
+    /// [`Self::normalize`] with the events' arrival time given.
+    fn normalize_at(&mut self, data: &str, now: Instant) -> String {
         // `data.replace(/\x1b\[<(6[4-7]);\d+;\d+(?:;\d+;\d+)?[mM]/g, ...)`: every match starts at an ESC.
         let mut out = String::with_capacity(data.len());
         let mut copied = 0;
@@ -390,7 +390,7 @@ impl AttachInputNormalizer {
             };
             out.push_str(data.get(copied..at).unwrap_or_default());
             let matched = data.get(at..end).unwrap_or_default();
-            out.push_str(self.replace_wheel_event(matched, code));
+            self.replace_wheel_event(&mut out, matched, code, now);
             copied = end;
             search = end;
         }
@@ -398,17 +398,18 @@ impl AttachInputNormalizer {
         out
     }
 
-    /// The regex callback for one wheel event (`code` 64..=67).
-    fn replace_wheel_event<'a>(&mut self, matched: &'a str, code: u8) -> &'a str {
-        if code != 64 && code != 65 {
-            return matched;
-        }
-        self.vertical_wheel_accumulator += self.scroll_sensitivity;
-        if self.vertical_wheel_accumulator < 1.0 {
-            return "";
-        }
-        self.vertical_wheel_accumulator -= 1.0;
-        matched
+    /// The regex callback for one wheel event (`code` 64..=67): the event as many times as it is scaled to.
+    fn replace_wheel_event(&mut self, out: &mut String, matched: &str, code: u8, now: Instant) {
+        let direction = match code {
+            64 => WheelDirection::Up,
+            65 => WheelDirection::Down,
+            _ => {
+                out.push_str(matched);
+                return;
+            }
+        };
+        let count = self.wheel.scale(self.scroll_sensitivity, direction, now);
+        out.push_str(&matched.repeat(count));
     }
 }
 
@@ -1465,57 +1466,47 @@ mod tests {
     }
 
     #[test]
-    fn scroll_sensitivity_defaults_and_clamps() {
-        assert_eq!(normalize_scroll_sensitivity(None), 0.12);
-        assert_eq!(normalize_scroll_sensitivity(Some(f64::NAN)), 0.12);
-        assert_eq!(normalize_scroll_sensitivity(Some(f64::INFINITY)), 0.12);
-        assert_eq!(normalize_scroll_sensitivity(Some(2.0)), 1.0);
-        assert_eq!(normalize_scroll_sensitivity(Some(-1.0)), 0.0);
-        assert_eq!(normalize_scroll_sensitivity(Some(0.5)), 0.5);
-    }
-
-    #[test]
-    fn wheel_events_are_throttled() {
+    fn wheel_events_are_scaled() {
+        let now = Instant::now();
         let mut normalizer = AttachInputNormalizer::new(0.5);
-        assert_eq!(normalizer.normalize("a\x1b[<64;10;5Mb"), "ab");
-        assert_eq!(normalizer.normalize("\x1b[<65;10;5m"), "\x1b[<65;10;5m");
+        // The first event of a gesture always goes through, then every other one.
+        assert_eq!(normalizer.normalize_at("a\x1b[<64;10;5Mb", now), "a\x1b[<64;10;5Mb");
+        assert_eq!(normalizer.normalize_at("\x1b[<64;10;5M", now), "");
+        // A reversal starts a new gesture.
+        assert_eq!(normalizer.normalize_at("\x1b[<65;10;5m", now), "\x1b[<65;10;5m");
         // Horizontal wheel and ordinary mouse events pass through untouched.
         assert_eq!(
-            normalizer.normalize("\x1b[<66;1;1M\x1b[<0;1;1M"),
+            normalizer.normalize_at("\x1b[<66;1;1M\x1b[<0;1;1M", now),
             "\x1b[<66;1;1M\x1b[<0;1;1M"
         );
         // The optional extra pair is part of the match.
         assert_eq!(
-            normalizer.normalize("\x1b[<64;1;2;3;4M\x1b[<64;1;2;3;4M"),
+            normalizer.normalize_at("\x1b[<64;1;2;3;4M\x1b[<64;1;2;3;4M", now),
             "\x1b[<64;1;2;3;4M"
         );
-        // Not a complete event: left alone and the accumulator untouched.
+        // Not a complete event: left alone and the gesture untouched.
         assert_eq!(
-            normalizer.normalize("\x1b[<64;1;2;3M\x1b[<64;1M\x1b[<68;1;1M"),
+            normalizer.normalize_at("\x1b[<64;1;2;3M\x1b[<64;1M\x1b[<68;1;1M", now),
             "\x1b[<64;1;2;3M\x1b[<64;1M\x1b[<68;1;1M"
         );
-        assert_eq!(normalizer.normalize("\x1b\x1b[<64;1;1M"), "\x1b");
-        assert_eq!(normalizer.normalize("\x1b[<64;1;1M"), "\x1b[<64;1;1M");
+        assert_eq!(normalizer.normalize_at("\x1b\x1b[<64;1;1M", now), "\x1b\x1b[<64;1;1M");
+        assert_eq!(normalizer.normalize_at("\x1b[<64;1;1M", now), "");
+        // After a pause the next notch moves again.
+        let later = now + deckhand_core::wheel::WHEEL_GESTURE_GAP;
+        assert_eq!(normalizer.normalize_at("\x1b[<64;1;1M", later), "\x1b[<64;1;1M");
+        // Above 1, an event is repeated.
+        let mut fast = AttachInputNormalizer::new(2.0);
+        assert_eq!(fast.normalize_at("\x1b[<65;1;1M", now), "\x1b[<65;1;1M\x1b[<65;1;1M");
     }
 
     #[test]
-    fn default_sensitivity_forwards_one_in_nine() {
+    fn the_default_sensitivity_forwards_every_event() {
         let mut normalizer = AttachInputNormalizer::new(normalize_scroll_sensitivity(None));
-        let forwarded: Vec<usize> = (0..20)
-            .filter(|_| !normalizer.normalize("\x1b[<65;3;4M").is_empty())
-            .collect();
-        // The same IEEE-754 accumulation as JS: past 1 on the 9th event, then every 8 or 9 events.
-        let mut acc = 0.0_f64;
-        let mut expected = Vec::new();
-        for index in 0..20 {
-            acc += 0.12;
-            if acc >= 1.0 {
-                acc -= 1.0;
-                expected.push(index);
-            }
+        for _ in 0..20 {
+            assert_eq!(normalizer.normalize("\x1b[<65;3;4M"), "\x1b[<65;3;4M");
         }
-        assert_eq!(forwarded.first(), Some(&8));
-        assert_eq!(forwarded, expected);
+        let mut off = AttachInputNormalizer::new(0.0);
+        assert_eq!(off.normalize("\x1b[<65;3;4M"), "");
     }
 
     #[test]

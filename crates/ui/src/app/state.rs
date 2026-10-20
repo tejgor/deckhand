@@ -287,7 +287,7 @@ pub struct PreviewFocusState {
     pub scroll_offset: i64,
     pub scroll_sensitivity: f64,
     /// TS `previewWheelAccumulatorRef`.
-    pub wheel_accumulator: f64,
+    pub wheel: deckhand_core::wheel::WheelScaler,
 }
 
 /// TS: the filter menu's way back (f): the filter and selection it was opened on.
@@ -533,8 +533,8 @@ pub struct App {
     pub effects: EffectState,
 }
 
-/// TS: app.tsx DEFAULT_SCROLL_SENSITIVITY.
-pub const DEFAULT_SCROLL_SENSITIVITY: f64 = 0.12;
+/// TS: app.tsx DEFAULT_SCROLL_SENSITIVITY (now 1: every wheel event).
+pub use deckhand_core::wheel::DEFAULT_SCROLL_SENSITIVITY;
 
 /// TS: app.tsx EMPTY_PREVIEW.
 pub fn empty_preview() -> PreviewRecord {
@@ -610,7 +610,7 @@ impl App {
             preview_focus: PreviewFocusState {
                 scroll_offset: 0,
                 scroll_sensitivity: DEFAULT_SCROLL_SENSITIVITY,
-                wheel_accumulator: 0.0,
+                wheel: deckhand_core::wheel::WheelScaler::default(),
             },
             filter: None,
             review: ReviewState::default(),
