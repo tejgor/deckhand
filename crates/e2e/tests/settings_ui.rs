@@ -197,6 +197,25 @@ fn settings_grid_global_and_repo_columns() {
     ui.press("\r");
     ui.screen("Scroll speed 2 (global)");
     assert_eq!(read_json(&config)["scroll_speed"], json!(2));
+    // custom… types any speed from 0 to 3; out of range keeps the field open with why.
+    ui.press("\r");
+    ui.screen("❯ ◉ 2");
+    ui.press("j");
+    ui.screen("❯ ○ 3");
+    ui.press("j");
+    ui.screen("❯ ○ custom…");
+    ui.press("\r");
+    ui.screen("a number from 0 to 3, e.g. 1.5");
+    ui.press("9");
+    ui.press("\r");
+    ui.screen("From 0 to 3 (0 ignores the wheel)");
+    ui.press("\x7f");
+    ui.screen("1 passes each wheel event on as your terminal sends it");
+    ui.press("1.5");
+    ui.screen("→ 1.5× the wheel events your terminal sends");
+    ui.press("\r");
+    ui.screen("Scroll speed 1.5 (global)");
+    assert_eq!(read_json(&config)["scroll_speed"], json!(1.5));
     ui.press("k");
     ui.screen("❯ Notifications");
     ui.press("k");

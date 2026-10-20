@@ -228,6 +228,23 @@ pub const SCROLL_SPEED_CHOICES: [(f64, &str); 4] = [
     (3.0, "each wheel event three times: fastest"),
 ];
 
+/// Not in the TS: why the choices are whole numbers (and a half): a speed between them forwards an uneven number of
+/// wheel events (1.5: one, then two), and Claude moves one line per event.
+pub const SCROLL_SPEED_EVEN: &str = "whole numbers scroll most evenly";
+
+/// Not in the TS: a Scroll speed typed into its custom… field: a number from 0 to 3, kept to two decimals.
+pub fn parse_scroll_speed(text: &str) -> std::result::Result<f64, String> {
+    let speed = jsstr::js_trim(text)
+        .parse::<f64>()
+        .ok()
+        .filter(|speed| speed.is_finite())
+        .ok_or_else(|| String::from("A number from 0 to 3, e.g. 1.5"))?;
+    if !(0.0..=crate::wheel::MAX_SCROLL_SENSITIVITY).contains(&speed) {
+        return Err(String::from("From 0 to 3 (0 ignores the wheel)"));
+    }
+    Ok((speed * 100.0).round() / 100.0)
+}
+
 /// Not in the TS: the wheel speed in effect (`scroll_speed`, else the default).
 pub fn scroll_speed(info: &SettingsInfo) -> f64 {
     crate::wheel::normalize_scroll_sensitivity(info.scroll_speed)
@@ -1043,22 +1060,26 @@ pub fn choice_options(info: &SettingsInfo, id: SettingId, target: ConfigTargetKi
                     option(&label, text(&label), Some(detail))
                 })
                 .collect();
-            // A speed set with + / − in Preview focus that is none of the choices.
-            if !options.iter().any(|option| option.label == current) {
-                let at = options
-                    .iter()
-                    .position(|option| {
-                        option
-                            .label
-                            .parse::<f64>()
-                            .is_ok_and(|speed| speed > scroll_speed(info))
-                    })
-                    .unwrap_or(options.len());
-                options.insert(
-                    at,
-                    option(&current, text(&current), Some("set with + / − in Preview focus")),
-                );
-            }
+            // Any other speed, typed (Enter opens a text field) or set with + / − in Preview focus.
+            let preset = options.iter().any(|option| option.label == current);
+            options.push(match info.scroll_speed {
+                Some(_) if !preset => ChoiceOption {
+                    custom: Some(true),
+                    ..option(
+                        "custom…",
+                        text(&current),
+                        Some(&format!("{current} · {SCROLL_SPEED_EVEN}")),
+                    )
+                },
+                _ => ChoiceOption {
+                    custom: Some(true),
+                    ..option(
+                        "custom…",
+                        None,
+                        Some(&format!("type a number from 0 to 3 · {SCROLL_SPEED_EVEN}")),
+                    )
+                },
+            });
             options
         }
         SettingId::WorktreeHook => vec![
@@ -2951,7 +2972,7 @@ mod tests {
                 .map(|option| option.label)
                 .collect()
         };
-        assert_eq!(labels(&info), ["0.5", "1", "2", "3"]);
+        assert_eq!(labels(&info), ["0.5", "1", "2", "3", "custom…"]);
         let options = choice_options(&info, ScrollSpeed, Global);
         // Unset: 1 is highlighted but not stored, so picking it saves it.
         assert_eq!(
@@ -2976,14 +2997,45 @@ mod tests {
             choice_change(&info, ScrollSpeed, Global, &options[0]).and_then(|change| change.value),
             Some(json!(0.5))
         );
-        // A speed from + / − joins the choices in order.
+        // custom… opens a text field: empty for a preset, else the speed in effect (typed, or from + / −).
+        assert_eq!(options[4].custom, Some(true));
+        assert_eq!(options[4].value, None);
         info.scroll_speed = Some(0.7000000000000001);
-        assert_eq!(labels(&info), ["0.5", "0.7", "1", "2", "3"]);
+        assert_eq!(row(&info, ScrollSpeed).cells.global.text, "0.7");
         let options = choice_options(&info, ScrollSpeed, Global);
-        assert_eq!(current_choice(&info, ScrollSpeed, Global, &options).current, Some(1));
+        assert_eq!(options[4].value, Some(StringOrBool::String(String::from("0.7"))));
+        assert_eq!(
+            options[4].detail.as_deref(),
+            Some("0.7 · whole numbers scroll most evenly")
+        );
+        assert_eq!(current_choice(&info, ScrollSpeed, Global, &options).current, Some(4));
         // Out of range: shown as used.
         info.scroll_speed = Some(9.0);
         assert_eq!(row(&info, ScrollSpeed).cells.global.text, "3");
+    }
+
+    // Not in the TS: what custom… accepts for Scroll speed.
+    #[test]
+    fn typed_scroll_speeds() {
+        assert_eq!(parse_scroll_speed("1.5"), Ok(1.5));
+        assert_eq!(parse_scroll_speed(" 0.25 "), Ok(0.25));
+        assert_eq!(parse_scroll_speed("0"), Ok(0.0));
+        assert_eq!(parse_scroll_speed("3"), Ok(3.0));
+        assert_eq!(parse_scroll_speed("1.234"), Ok(1.23));
+        for bad in ["", "fast", "1,5", "NaN", "inf"] {
+            assert_eq!(
+                parse_scroll_speed(bad),
+                Err(String::from("A number from 0 to 3, e.g. 1.5")),
+                "{bad}"
+            );
+        }
+        for out in ["3.5", "-1"] {
+            assert_eq!(
+                parse_scroll_speed(out),
+                Err(String::from("From 0 to 3 (0 ignores the wheel)")),
+                "{out}"
+            );
+        }
     }
 
     // covers: B-P9-02 Agent signals and Notifications are global only (config.json flags); Agent signals warns when Codex's hooks do not call this Deckhand

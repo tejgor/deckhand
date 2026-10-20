@@ -22,8 +22,8 @@ use deckhand_core::settings_model::{
     action_saved_message, apply_change, choice_change, choice_options, column_problem, command_problem, current_choice,
     derive_process_name, dev_command_change, dev_name_problem, dev_process_saved_message, dev_processes_of, entry_noun,
     info_layer, inherited_hint, initial_column, initial_links, initial_text, is_app_flag, layer_entries, layer_sets,
-    link_selection, other_target, own_value, preview_location, saved_message, scroll_speed_text, setting_path,
-    target_name, text_change, trust_note,
+    link_selection, other_target, own_value, parse_scroll_speed, preview_location, saved_message, scroll_speed_text,
+    setting_path, target_name, text_change, trust_note,
 };
 use deckhand_core::text_editor::{EditOptions, EditorState, edit_text};
 use deckhand_core::worktree_links::{BranchVars, expand_branch_name, valid_relative_path};
@@ -914,7 +914,14 @@ impl SettingsFlow {
                     error: None,
                     entry: None,
                     step: None,
-                    placeholder: Some("a template with {name}, e.g. ~/worktrees/{repo}/{name}".to_owned()),
+                    placeholder: Some(
+                        if id == SettingId::ScrollSpeed {
+                            "a number from 0 to 3, e.g. 1.5"
+                        } else {
+                            "a template with {name}, e.g. ~/worktrees/{repo}/{name}"
+                        }
+                        .to_owned(),
+                    ),
                 });
                 return;
             }
@@ -1061,6 +1068,23 @@ impl SettingsFlow {
                 next.row = end;
                 self.links = Some(next);
                 self.notice = None;
+                return;
+            }
+            // Scroll speed's custom…: a number, saved to config.json like its choices.
+            if id == SettingId::ScrollSpeed {
+                match parse_scroll_speed(&text) {
+                    Err(error) => self.edit = Some(with_error(Some(error))),
+                    Ok(speed) => {
+                        let unchanged = info.scroll_speed == Some(speed);
+                        let label = label.clone();
+                        self.edit = None;
+                        if unchanged {
+                            self.notice = notice(format!("{label} unchanged: it is already"), false);
+                        } else {
+                            self.save_scroll_speed(&label, speed, props, cx);
+                        }
+                    }
+                }
                 return;
             }
             let change = match text_change(id, &text, entry.as_deref()) {
@@ -1363,6 +1387,17 @@ impl SettingsFlow {
                     "Runs in the Dev pane (d d starts it), with your shell in the session's worktree",
                 )]
             }
+            SettingId::ScrollSpeed if blank => vec![line(
+                "1 passes each wheel event on as your terminal sends it; 0 ignores the wheel; whole numbers scroll most evenly",
+            )],
+            SettingId::ScrollSpeed => match parse_scroll_speed(text) {
+                Ok(speed) => vec![nowrap(format!(
+                    "→ {}× the wheel events your terminal sends",
+                    scroll_speed_text(speed)
+                ))],
+                Err(problem) if Some(&problem) != error.as_ref() => vec![colored(problem, THEME.error)],
+                Err(_) => Vec::new(),
+            },
             _ => vec![line("Runs in a new worktree before the agent starts")],
         })
     }

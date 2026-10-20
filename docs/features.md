@@ -246,7 +246,7 @@ Every worktree of a repository runs the same Dev config, so its servers want the
 
 ## Scroll speed
 
-While attached, and while you scroll the preview, Deckhand scales trackpad and mouse-wheel scrolling by the scroll speed. Pick it in Settings (`C` → **Scroll speed** in the Agents rows: 0.5, 1, 2 or 3), or while scrolling a preview (`→` on Preview) press `+` / `-` to raise or lower it by 0.1. Either is saved immediately and applies to both. Or edit the user config directly:
+While attached, and while you scroll the preview, Deckhand scales trackpad and mouse-wheel scrolling by the scroll speed. Pick it in Settings (`C` → **Scroll speed** in the Agents rows: 0.5, 1, 2 or 3, or **custom…** to type any number from 0 to 3), or while scrolling a preview (`→` on Preview) press `+` / `-` to raise or lower it by 0.1. Either is saved immediately and applies to both. Or edit the user config directly:
 
 ```json
 {
@@ -254,7 +254,7 @@ While attached, and while you scroll the preview, Deckhand scales trackpad and m
 }
 ```
 
-The default, `1`, passes every wheel event on as your terminal sends it. Lower values scroll slower and `0` ignores vertical wheel events; values up to `3` scroll faster (each event is sent several times). Below `1`, the first notch of a scroll always moves, and a pause or a change of direction starts over, so a short flick never does nothing.
+The default, `1`, passes every wheel event on as your terminal sends it. Lower values scroll slower and `0` ignores vertical wheel events; values up to `3` scroll faster (each event is sent several times). Whole numbers scroll most evenly: Deckhand can only pass on whole wheel events, so a speed like `1.5` sends one, then two, in turn. Below `1`, the first notch of a scroll always moves, and a pause or a change of direction starts over, so a short flick never does nothing.
 
 The TS version's `attach_scroll_sensitivity` (default `0.12`) is kept in `config.json` as it was but no longer read: its values were tuned to the old behaviour and would now scroll very slowly.
 
