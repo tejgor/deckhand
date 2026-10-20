@@ -35,3 +35,11 @@ Fixture cases where the Rust port deliberately differs from the TS oracle. verif
 | U5 | settingsPane/render | 381 | TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells |
 | U5 | settingsPane/render | 537 | TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells |
 | U5 | settingsPane/render | 654 | TS writes the BEL in the candidate path of the unsanitized details line to the terminal as is; ratatui drops control characters from cells |
+
+## Known deviations
+
+Behaviour where the Rust port deliberately differs from the TS oracle outside any recorded fixture case.
+
+| Area | Deviation | Reason |
+|---|---|---|
+| state.json sessions (`crates/sys/src/storage.rs`) | A session entry the Rust daemon cannot decode into its typed `SessionRecord` (an unknown `program` or `status` from a newer version, a fractional `pid`, a string `exitCode`, a `null` title, ...) is preserved on disk but not listed: it is recovered at daemon start like any session, written back in place by every save and the worktree records it references are kept, yet clients never see it. TS reads every element of `sessions` as it is and lists it. | Typed records cannot hold arbitrary values; keeping the entry on disk means nothing is erased and an older or newer version that can read it still finds it. Recorded as fixtures/state/MIGRATIONS.md row 19a; covered by `storage::tests::unreadable_records_are_kept_through_recovery_and_saves`. |
