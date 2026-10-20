@@ -9,6 +9,7 @@
 use std::cell::{Cell, RefCell};
 use std::io::{IsTerminal, Write};
 use std::rc::Rc;
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use deckhand_client::attach::{AttachSessionOptions, attach_session};
@@ -23,7 +24,7 @@ use deckhand_sys::git::ensure_git_repo;
 use deckhand_sys::notes_vim::write_notes_vim_script;
 use deckhand_sys::storage::load_app_config;
 use deckhand_sys::ui_state::{load_ui_state, save_ui_state};
-use deckhand_ui::app::event_loop::{capture_startup_termios, restore_startup_termios, stdin_fd};
+use deckhand_ui::app::event_loop::{SavedTermios, capture_startup_termios, stdin_fd};
 use deckhand_ui::app::state::{AppCallbacks, AppProps};
 
 /// TS: cli.ts `terminalView` (`'shell' | 'action'`): what the Terminal tab shows, kept across attach round trips (the
@@ -198,19 +199,52 @@ pub async fn run_ui(
 /// The UI process's hold on its terminal, from startup until the UI loop ends (however it ends): saves stdin's startup
 /// termios, and puts it back on the way out as Node's ResetStdio does at exit. Raw-mode entries only restore what they
 /// found, which is raw when `$EDITOR` left the tty that way.
-struct UiTerminal;
+///
+/// It is also the unwind guard for a panic in the UI or the attach proxy, whose terminal TS restores in `finally`
+/// blocks: the panic hook ([`install_panic_hook`]) restores the terminal before the report prints, and dropping this
+/// during the unwind puts the startup termios back once more after the raw-mode guards have restored theirs.
+struct UiTerminal {
+    saved: Option<SavedTermios>,
+}
+
+/// The termios the panic hook restores while a [`UiTerminal`] is held (taken by the first panic).
+static PANIC_RESTORE: Mutex<Option<SavedTermios>> = Mutex::new(None);
 
 impl UiTerminal {
     fn start(fd: std::os::fd::RawFd) -> UiTerminal {
         capture_startup_termios(fd);
-        UiTerminal
+        let saved = SavedTermios::capture(fd);
+        install_panic_hook();
+        *PANIC_RESTORE.lock().unwrap_or_else(PoisonError::into_inner) = saved;
+        UiTerminal { saved }
     }
 }
 
 impl Drop for UiTerminal {
     fn drop(&mut self) {
-        restore_startup_termios();
+        PANIC_RESTORE.lock().unwrap_or_else(PoisonError::into_inner).take();
+        if let Some(saved) = &self.saved {
+            saved.restore();
+        }
     }
+}
+
+/// TS: what runUi's and attach's `finally` blocks undo, done before a panic's report prints: the startup termios,
+/// then (TTY only) the modes the UI or the attached pane turned on, the alternate screen and the screen itself, as
+/// `leaveAlternateScreen(); clearTerminalScreen()` do. Only while the UI loop holds the terminal, and once: the screen
+/// is not cleared again under a second report.
+fn install_panic_hook() {
+    let report = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        // `try_lock`: a panic while the lock is held must still print its report.
+        let saved = PANIC_RESTORE.try_lock().ok().and_then(|mut saved| saved.take());
+        if let Some(saved) = saved {
+            saved.restore();
+            leave_alternate_screen();
+            clear_terminal_screen();
+        }
+        report(info);
+    }));
 }
 
 /// TS: cli.ts main's UI branch: loads the UI state of the cwd's repository (`ensure_git_repo`), then runs the UI and
@@ -396,6 +430,48 @@ mod tests {
             assert!(!is_cooked(fd));
         }
         assert!(is_cooked(fd));
+    }
+
+    #[test]
+    fn a_panic_restores_the_terminal_before_its_report_prints() {
+        use deckhand_ui::app::event_loop::RawMode;
+        use std::os::fd::AsRawFd;
+        use std::sync::{Arc, Mutex};
+        let pty = nix::pty::openpty(None, None).unwrap_or_else(|error| panic!("{error}"));
+        let fd = pty.slave.as_raw_fd();
+        // Stands in for the default hook that prints the report: records the tty's mode at that moment.
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let record = Arc::clone(&seen);
+        std::panic::set_hook(Box::new(move |_| {
+            if let Ok(mut seen) = record.lock() {
+                seen.push(is_cooked(fd));
+            }
+        }));
+        let outcome = std::panic::catch_unwind(|| {
+            let _terminal = UiTerminal::start(fd);
+            // The UI (or the attach proxy) holds the tty raw when it panics; the editor had left it raw too.
+            std::mem::forget(RawMode::enable(fd).unwrap_or_else(|error| panic!("{error}")));
+            let _raw = RawMode::enable(fd).unwrap_or_else(|error| panic!("{error}"));
+            panic!("boom");
+        });
+        drop(std::panic::take_hook());
+        assert!(outcome.is_err());
+        assert_eq!(seen.lock().map(|seen| seen.clone()).ok(), Some(vec![true]));
+        // Unwinding the raw-mode guards does not leave it raw again.
+        assert!(is_cooked(fd));
+        // Outside the UI the hook leaves the terminal alone.
+        std::mem::forget(RawMode::enable(fd).unwrap_or_else(|error| panic!("{error}")));
+        let record = Arc::clone(&seen);
+        std::panic::set_hook(Box::new(move |_| {
+            if let Ok(mut seen) = record.lock() {
+                seen.push(is_cooked(fd));
+            }
+        }));
+        install_panic_hook();
+        let outcome = std::panic::catch_unwind(|| panic!("outside"));
+        drop(std::panic::take_hook());
+        assert!(outcome.is_err());
+        assert_eq!(seen.lock().map(|seen| seen.clone()).ok(), Some(vec![true, false]));
     }
 
     #[test]
