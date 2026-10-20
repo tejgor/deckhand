@@ -11,8 +11,9 @@
 //!   `LiveClient` handlers, replies of requests, timers and intervals all send a closure that runs on the model.
 //!
 //! After each batch the model's effects run ([`UiModel::after_update`], React's `useEffect` phase) and the frame is
-//! drawn once with ratatui (which writes only the cells that changed). [`UiModel::exit`] ends the loop with the
-//! result Ink's `waitUntilExit` resolved to.
+//! drawn with ratatui (which writes only the cells that changed), at most once per [`RENDER_THROTTLE`] as Ink
+//! throttles its renders, each frame wrapped in synchronized output ([`InkBackend`]). [`UiModel::exit`] ends the loop
+//! with the result Ink's `waitUntilExit` resolved to.
 
 use std::cell::RefCell;
 use std::future::Future;
@@ -27,8 +28,11 @@ use nix::poll::{PollFd, PollFlags, PollTimeout, poll};
 use nix::sys::termios::{self, ControlFlags, InputFlags, LocalFlags, OutputFlags, SetArg, Termios};
 use ratatui::Frame;
 use ratatui::Terminal;
-use ratatui::backend::Backend;
+use ratatui::backend::{Backend, ClearType, CrosstermBackend, WindowSize};
+use ratatui::buffer::Cell;
+use ratatui::layout::{Position, Size};
 use tokio::sync::mpsc;
+use tokio::time::Instant;
 
 use deckhand_sys::async_util::{Interval, Task, Timer, spawn};
 
@@ -167,6 +171,7 @@ async fn handle_term_event<M: UiModel, B: Backend>(
     events: &mut mpsc::UnboundedReceiver<TermEvent>,
     first: TermEvent,
     exit: &mut Option<M::Exit>,
+    resized: &mut bool,
 ) -> io::Result<bool> {
     let mut next = Some(first);
     while let Some(event) = next.take() {
@@ -195,6 +200,7 @@ async fn handle_term_event<M: UiModel, B: Backend>(
             TermEvent::Resize { cols, rows } => {
                 // TS: app.tsx onResize clears the screen before the next render.
                 terminal.clear()?;
+                *resized = true;
                 model.on_resize(cols, rows);
                 *exit = model.exit();
                 next = events.try_recv().ok();
@@ -211,12 +217,30 @@ async fn handle_term_event<M: UiModel, B: Backend>(
     Ok(true)
 }
 
-/// Runs the UI until the model exits or stdin closes. The first frame is drawn before any input is read.
+/// TS: Ink's render throttle: `maxFps` 30 → `throttle(onRender, Math.ceil(1000 / 30))`, leading and trailing.
+pub const RENDER_THROTTLE: Duration = Duration::from_millis(34);
+
+/// Runs the UI until the model exits or stdin closes. The first frame is drawn before any input is read; later frames
+/// are throttled to [`RENDER_THROTTLE`].
 pub async fn run<M: UiModel, B: Backend>(
     model: &mut M,
     terminal: &mut Terminal<B>,
     events: &mut mpsc::UnboundedReceiver<TermEvent>,
     updates: &mut mpsc::UnboundedReceiver<Update<M>>,
+) -> io::Result<LoopEnd<M::Exit>> {
+    run_throttled(model, terminal, events, updates, RENDER_THROTTLE).await
+}
+
+/// [`run`] with frames at most once per `throttle`, as Ink's throttled `onRender` (lodash-style leading and trailing
+/// edges): a frame is drawn at once when none was drawn for `throttle`, else once the window ends, with everything
+/// that changed meanwhile. The model's effects still run after every batch (React commits every update; only Ink's
+/// output is throttled). A resize draws at once, as Ink's `resized` calls `onRender` directly.
+pub async fn run_throttled<M: UiModel, B: Backend>(
+    model: &mut M,
+    terminal: &mut Terminal<B>,
+    events: &mut mpsc::UnboundedReceiver<TermEvent>,
+    updates: &mut mpsc::UnboundedReceiver<Update<M>>,
+    throttle: Duration,
 ) -> io::Result<LoopEnd<M::Exit>> {
     let mut parser = StdinParser::new();
     let mut exit = None;
@@ -226,12 +250,16 @@ pub async fn run<M: UiModel, B: Backend>(
         return Ok(LoopEnd::Exit(result));
     }
     terminal.draw(|frame| model.render(frame))?;
+    let mut last_draw = Instant::now();
+    let mut draw_pending = false;
     loop {
+        let mut resized = false;
         tokio::select! {
             biased;
             event = events.recv(), if input_open => match event {
                 Some(event) => {
-                    input_open = handle_term_event(model, terminal, &mut parser, events, event, &mut exit).await?;
+                    input_open =
+                        handle_term_event(model, terminal, &mut parser, events, event, &mut exit, &mut resized).await?;
                 }
                 None => input_open = false,
             },
@@ -247,6 +275,13 @@ pub async fn run<M: UiModel, B: Backend>(
                 None if !input_open => return Ok(LoopEnd::InputClosed),
                 None => {}
             },
+            () = tokio::time::sleep_until(last_draw + throttle), if draw_pending => {
+                // The trailing edge: the effects of what it shows have run already.
+                terminal.draw(|frame| model.render(frame))?;
+                last_draw = Instant::now();
+                draw_pending = false;
+                continue;
+            }
         }
         if let Some(result) = exit.take() {
             return Ok(LoopEnd::Exit(result));
@@ -258,7 +293,117 @@ pub async fn run<M: UiModel, B: Backend>(
         if let Some(result) = model.exit() {
             return Ok(LoopEnd::Exit(result));
         }
-        terminal.draw(|frame| model.render(frame))?;
+        if resized || last_draw.elapsed() >= throttle {
+            terminal.draw(|frame| model.render(frame))?;
+            last_draw = Instant::now();
+            draw_pending = false;
+        } else {
+            draw_pending = true;
+        }
+    }
+}
+
+/// TS: Ink's write-synchronized.js `bsu` (begin synchronized update, DEC private mode 2026).
+pub const BEGIN_SYNCHRONIZED_UPDATE: &str = "\x1b[?2026h";
+/// TS: Ink's write-synchronized.js `esu` (end synchronized update).
+pub const END_SYNCHRONIZED_UPDATE: &str = "\x1b[?2026l";
+
+/// TS: is-in-ci (`CI` or `CONTINUOUS_INTEGRATION` set to anything but `0` or `false`).
+pub fn is_in_ci() -> bool {
+    is_in_ci_with(|key| std::env::var_os(key).map(|value| value.to_string_lossy().into_owned()))
+}
+
+fn is_in_ci_with(env: impl Fn(&str) -> Option<String>) -> bool {
+    let check = |key: &str| env(key).is_some_and(|value| value != "0" && value != "false");
+    check("CI") || check("CONTINUOUS_INTEGRATION")
+}
+
+/// TS: Ink's shouldSynchronize(stdout): a TTY stdout outside CI.
+pub fn should_synchronize() -> bool {
+    use std::io::IsTerminal;
+    io::stdout().is_terminal() && !is_in_ci()
+}
+
+/// The crossterm backend the UI draws with, writing frames as Ink's throttled log does: a frame that changes no cell
+/// writes no cells (Ink skips output equal to the last), and when `synchronize` (see [`should_synchronize`]) a frame
+/// that does is wrapped in [`BEGIN_SYNCHRONIZED_UPDATE`] … [`END_SYNCHRONIZED_UPDATE`], so the terminal shows it
+/// whole. The frame ends at ratatui's final flush, after the cursor update.
+#[derive(Debug)]
+pub struct InkBackend<W: io::Write> {
+    inner: CrosstermBackend<W>,
+    synchronize: bool,
+    in_frame: bool,
+}
+
+impl<W: io::Write> InkBackend<W> {
+    /// A backend writing to `writer`.
+    pub fn new(writer: W, synchronize: bool) -> InkBackend<W> {
+        InkBackend {
+            inner: CrosstermBackend::new(writer),
+            synchronize,
+            in_frame: false,
+        }
+    }
+}
+
+impl<W: io::Write> Backend for InkBackend<W> {
+    fn draw<'a, I>(&mut self, content: I) -> io::Result<()>
+    where
+        I: Iterator<Item = (u16, u16, &'a Cell)>,
+    {
+        let mut content = content.peekable();
+        if content.peek().is_none() {
+            return Ok(());
+        }
+        if self.synchronize && !self.in_frame {
+            io::Write::write_all(&mut self.inner, BEGIN_SYNCHRONIZED_UPDATE.as_bytes())?;
+            self.in_frame = true;
+        }
+        self.inner.draw(content)
+    }
+
+    fn hide_cursor(&mut self) -> io::Result<()> {
+        self.inner.hide_cursor()
+    }
+
+    fn show_cursor(&mut self) -> io::Result<()> {
+        self.inner.show_cursor()
+    }
+
+    fn get_cursor_position(&mut self) -> io::Result<Position> {
+        self.inner.get_cursor_position()
+    }
+
+    fn set_cursor_position<P: Into<Position>>(&mut self, position: P) -> io::Result<()> {
+        self.inner.set_cursor_position(position)
+    }
+
+    fn clear(&mut self) -> io::Result<()> {
+        self.inner.clear()
+    }
+
+    fn clear_region(&mut self, clear_type: ClearType) -> io::Result<()> {
+        self.inner.clear_region(clear_type)
+    }
+
+    fn append_lines(&mut self, n: u16) -> io::Result<()> {
+        self.inner.append_lines(n)
+    }
+
+    fn size(&self) -> io::Result<Size> {
+        self.inner.size()
+    }
+
+    fn window_size(&mut self) -> io::Result<WindowSize> {
+        self.inner.window_size()
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        if self.in_frame {
+            self.in_frame = false;
+            io::Write::write_all(&mut self.inner, END_SYNCHRONIZED_UPDATE.as_bytes())?;
+        }
+        self.inner.flush()
     }
 }
 
@@ -732,7 +877,8 @@ mod tests {
                 let (tx, mut events) = mpsc::unbounded_channel::<TermEvent>();
                 let (dispatch, mut update_rx) = Dispatch::<Recorder>::channel();
                 let _task = dispatch.spawn(async { 41 }, |model, value| model.counter = value);
-                let _timer = dispatch.after(Duration::from_millis(5), |model| {
+                // Later than the render throttle, so the trailing frame shows the spawned value first.
+                let _timer = dispatch.after(RENDER_THROTTLE * 3, |model| {
                     model.counter += 1;
                     model.quit = Some("timer");
                 });
@@ -803,6 +949,104 @@ mod tests {
             enable_ink_raw_mode(-1).err().map(|error| error.to_string()),
             Some(RAW_MODE_UNSUPPORTED.to_owned())
         );
+    }
+
+    #[test]
+    fn renders_are_throttled_like_ink_max_fps_30() {
+        // TS: Ink's maxFps 30 → throttle(onRender, ceil(1000 / 30), {leading: true, trailing: true}).
+        assert_eq!(RENDER_THROTTLE, Duration::from_millis(34));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn updates_within_the_throttle_window_share_one_trailing_frame() {
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let mut terminal = Terminal::new(TestBackend::new(12, 2)).expect("terminal");
+                let mut model = Recorder::default();
+                let (_tx, mut events) = mpsc::unbounded_channel::<TermEvent>();
+                let (dispatch, mut update_rx) = Dispatch::<Recorder>::channel();
+                // A wide window so the timers below land inside it however loaded the machine is.
+                let window = Duration::from_millis(400);
+                let _timers: Vec<Timer> = (1..=3)
+                    .map(|step| dispatch.after(Duration::from_millis(5 * step), |model| model.counter += 1))
+                    .collect();
+                let _quit = dispatch.after(window * 2, |model| model.quit = Some("done"));
+                let end = run_throttled(&mut model, &mut terminal, &mut events, &mut update_rx, window)
+                    .await
+                    .expect("loop runs");
+                assert_eq!(end, LoopEnd::Exit("done"));
+                // The leading frame, then one trailing frame with all three updates; every batch ran its effects.
+                assert_eq!(model.renders, 2);
+                assert!(model.effects >= 4);
+                assert_eq!(rows(&terminal)[0], "count 3     ");
+            })
+            .await;
+    }
+
+    #[test]
+    fn frames_are_wrapped_in_synchronized_output_when_they_write() {
+        use ratatui::layout::Rect;
+        use ratatui::{TerminalOptions, Viewport};
+        let options = || TerminalOptions {
+            viewport: Viewport::Fixed(Rect::new(0, 0, 8, 1)),
+        };
+        /// What the backend wrote, shared with the test.
+        #[derive(Clone, Default)]
+        struct Out(Rc<RefCell<Vec<u8>>>);
+        impl io::Write for Out {
+            fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+                self.0.borrow_mut().extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let written = |out: &Out| String::from_utf8(std::mem::take(&mut *out.0.borrow_mut())).expect("utf-8");
+        let out = Out::default();
+        let mut terminal = Terminal::with_options(InkBackend::new(out.clone(), true), options()).expect("terminal");
+        terminal
+            .draw(|frame| frame.render_widget(Line::from("hi"), frame.area()))
+            .expect("draw");
+        let first = written(&out);
+        assert!(first.starts_with("\x1b[?2026h"), "{first:?}");
+        assert!(first.ends_with("\x1b[?2026l"), "{first:?}");
+        assert!(first.contains("hi"));
+        // An unchanged frame writes no cells, so it is not wrapped (Ink skips output equal to the last).
+        terminal
+            .draw(|frame| frame.render_widget(Line::from("hi"), frame.area()))
+            .expect("draw");
+        let second = written(&out);
+        assert!(!second.contains("2026") && !second.contains("hi"), "{second:?}");
+        // Off a TTY (or in CI) Ink does not synchronize.
+        let plain_out = Out::default();
+        let mut plain = Terminal::with_options(InkBackend::new(plain_out.clone(), false), options()).expect("terminal");
+        plain
+            .draw(|frame| frame.render_widget(Line::from("hi"), frame.area()))
+            .expect("draw");
+        let plain_text = written(&plain_out);
+        assert!(
+            plain_text.contains("hi") && !plain_text.contains("2026"),
+            "{plain_text:?}"
+        );
+    }
+
+    #[test]
+    fn ci_detection_matches_is_in_ci() {
+        let env = |pairs: &[(&str, &str)]| {
+            let pairs: Vec<(String, String)> = pairs.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
+            move |key: &str| pairs.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
+        };
+        assert!(!is_in_ci_with(env(&[])));
+        assert!(is_in_ci_with(env(&[("CI", "")])));
+        assert!(is_in_ci_with(env(&[("CI", "1")])));
+        assert!(!is_in_ci_with(env(&[("CI", "0")])));
+        assert!(!is_in_ci_with(env(&[("CI", "false")])));
+        assert!(is_in_ci_with(env(&[
+            ("CI", "false"),
+            ("CONTINUOUS_INTEGRATION", "true")
+        ])));
     }
 
     #[test]

@@ -1424,7 +1424,8 @@ pub async fn run(props: AppProps) -> io::Result<Option<UiExitResult>> {
     let mut reader = StdinReader::spawn(fd, tx.clone())?;
     let resize = spawn_resize_watcher(tx)?;
     let (cols, rows) = terminal_size();
-    let mut terminal = ratatui::Terminal::new(ratatui::backend::CrosstermBackend::new(io::stdout()))?;
+    let backend = event_loop::InkBackend::new(io::stdout(), event_loop::should_synchronize());
+    let mut terminal = ratatui::Terminal::new(backend)?;
     terminal.hide_cursor()?;
     let (dispatch, mut updates) = Dispatch::channel();
     let mut app = App::new(props, dispatch, TerminalSize { cols, rows });
