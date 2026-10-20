@@ -1,5 +1,5 @@
 // The ? guide as data: short topics of key → what it does, with a few notes. Rendered by helpPane.tsx (topic list,
-// aligned key column, search). Keep rows to one idea each; the full reference lives in docs/no-brainers.md.
+// aligned key column, search). Keep rows to one idea each; the full reference lives in docs/features.md.
 
 export type HelpLine = {keys: string; text: string} | {note: string} | {heading: string};
 export interface HelpTopic {title: string; lines: HelpLine[]}

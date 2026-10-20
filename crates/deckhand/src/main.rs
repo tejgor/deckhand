@@ -11,6 +11,8 @@ mod doctor;
 mod guard;
 mod hook;
 mod hooks;
+#[cfg(target_os = "macos")]
+mod notifier;
 mod setup;
 mod ui_loop;
 
@@ -39,7 +41,13 @@ fn argv() -> Vec<String> {
 
 /// TS: cli.ts `main().catch(...)`: run the command argv asks for; an error prints its message to stderr and exits 1.
 fn main() -> ExitCode {
-    let command = cli::parse_args(&argv(), deckhand_sys::paths::is_dev_channel());
+    let args = argv();
+    // The copy inside Deckhand.app only posts notifications (see `notifier`).
+    #[cfg(target_os = "macos")]
+    if let Some(code) = notifier::run_if_bundled(&args) {
+        return code;
+    }
+    let command = cli::parse_args(&args, deckhand_sys::paths::is_dev_channel());
     // Debug builds refuse ~/.deckhand before anything can read or write it (CONVENTIONS, Isolation).
     if guard::needs_home(&command)
         && let Err(error) = guard::check_home()

@@ -62,7 +62,7 @@ Deckhand runs Claude Code, Codex and Pi, and lives in the terminal you already h
 - **Organization & Visibility** — Persistent archive/search/filter/tree preferences, local Git summaries, and explicit optional PR/check lookups.
 - **Handoffs & Attention** — Inspectable Markdown context for clean children and capability-gated lifecycle signals/desktop notifications.
 
-See [the feature guide](docs/no-brainers.md) and [isolated dev testing](docs/dev-build.md).
+See [the feature guide](docs/features.md) and [isolated dev testing](docs/dev-build.md).
 
 ---
 
@@ -316,7 +316,7 @@ When you create a session, Deckhand launches it in one of three workspace modes:
 
 A sub-session defaults to its parent's current directory, so a clean sub-session opens in the parent's worktree unless you choose a different mode.
 
-New worktrees use an explicitly trusted [project hook](#-worktree-hooks); otherwise Deckhand falls back to `git worktree add` at the configured `worktree.location` (default: the active state directory's `worktrees/`, normally `~/.deckhand/worktrees/`). The `worktree` setting can also choose the new branch's start point (current checkout, default branch, or a freshly fetched `origin/<default>`) and name template, switch the hook off, and symlink heavy directories (such as `node_modules` or a virtualenv) and private files into each new worktree. **C** (Settings) shows what is in effect and which layer sets it, and edits it in place: location presets, branch options, the hook switch and a link picker with suggestions from your checkout — see [worktree settings](docs/no-brainers.md#worktree-settings).
+New worktrees use an explicitly trusted [project hook](#-worktree-hooks); otherwise Deckhand falls back to `git worktree add` at the configured `worktree.location` (default: the active state directory's `worktrees/`, normally `~/.deckhand/worktrees/`). The `worktree` setting can also choose the new branch's start point (current checkout, default branch, or a freshly fetched `origin/<default>`) and name template, switch the hook off, and symlink heavy directories (such as `node_modules` or a virtualenv) and private files into each new worktree. **C** (Settings) shows what is in effect and which layer sets it, and edits it in place: location presets, branch options, the hook switch and a link picker with suggestions from your checkout — see [worktree settings](docs/features.md#worktree-settings).
 
 ### Sub-sessions
 
@@ -357,7 +357,7 @@ Deckhand reads configuration from `~/.deckhand/config.json`. `DECKHAND_HOME` sel
 
 ### Project Configuration
 
-Session defaults, a Dev command, a setup command and layout/symlinks for new worktrees, and named actions come from two layers, both edited in place from the **C** Settings screen: global `defaults` in your user `config.json` (never need trust), overridden per repository by one `deckhand.json` in the main checkout. The repository file applies only once you trust its exact contents; Deckhand asks inline (Enter trusts, `s` continues with global defaults only) when you create a session, open actions, start Dev or retry setup. Edits you make in Deckhand keep the file trusted if it was trusted (or new); changes from outside need review — see [project configuration, trust and cleanup](docs/no-brainers.md) for the full behaviour.
+Session defaults, a Dev command, a setup command and layout/symlinks for new worktrees, and named actions come from two layers, both edited in place from the **C** Settings screen: global `defaults` in your user `config.json` (never need trust), overridden per repository by one `deckhand.json` in the main checkout. The repository file applies only once you trust its exact contents; Deckhand asks inline (Enter trusts, `s` continues with global defaults only) when you create a session, open actions, start Dev or retry setup. Edits you make in Deckhand keep the file trusted if it was trusted (or new); changes from outside need review — see [project configuration, trust and cleanup](docs/features.md) for the full behaviour.
 
 **Agent signals** and optional **Notifications** (Settings → Agents, global only; `agent_hooks`/`notifications` in user config) enable capability-gated lifecycle integration and best-effort desktop notifications. Agent signals are on for Claude unless switched off (Claude needs nothing else); switching them on adds Codex, which needs its hooks configured: run `deckhand hooks codex`, merge the JSON it prints into `~/.codex/hooks.json` (Deckhand never writes to the Codex home), then review them with `/hooks` in Codex. Settings warns when they are missing. If Codex's hook config still calls the old Node bridge (`node … cli.js hook`, left over from a pre-native install), Settings and `deckhand doctor` warn about that stale command too and tell you to regenerate it with `deckhand hooks codex`; `deckhand hooks` (no argument) prints the Claude-style settings. Notifications default off. A session's details (and its notification) say what it waits on: the question it asks with its options, a plan to approve, the command it asks permission for, or the last line of its reply. Native approvals stay in agent terminals.
 
@@ -417,7 +417,7 @@ Use `1` for normal terminal scrolling, lower values for slower scrolling, or `0`
 
 ## 🪝 Worktree Hooks
 
-For new-worktree sessions, Deckhand creates or resolves a git worktree and then starts the agent inside it. Most layouts (location, shared dependency directories, env files) are covered by the declarative [`worktree` setting](docs/no-brainers.md#worktree-settings); the hook is the escape hatch for anything else. It uses this project hook only after its exact contents are reviewed and trusted (together with the repository's `deckhand.json`), and otherwise falls back to `git worktree add`:
+For new-worktree sessions, Deckhand creates or resolves a git worktree and then starts the agent inside it. Most layouts (location, shared dependency directories, env files) are covered by the declarative [`worktree` setting](docs/features.md#worktree-settings); the hook is the escape hatch for anything else. It uses this project hook only after its exact contents are reviewed and trusted (together with the repository's `deckhand.json`), and otherwise falls back to `git worktree add`:
 
 ```text
 .claude/scripts/create-worktree.sh

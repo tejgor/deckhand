@@ -4,7 +4,7 @@
 
 ## The idea
 
-Today Codex sessions run the TUI in a PTY with `--no-daemon`, and status comes from hooks the user installs by hand in `~/.codex/hooks.json` (see `docs/no-brainers.md`, *Lifecycle signals and notifications*). Instead:
+Today Codex sessions run the TUI in a PTY with `--no-daemon`, and status comes from hooks the user installs by hand in `~/.codex/hooks.json` (see `docs/features.md`, *Lifecycle signals and notifications*). Instead:
 
 1. Each Codex session's worker starts its own private app-server: `codex app-server --listen unix://<short path>`.
 2. The native TUI still runs in the PTY, as `codex --remote unix://<short path>` (also `codex resume <id> --remote …`). Attaching works exactly as today.

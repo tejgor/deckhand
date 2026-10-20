@@ -59,6 +59,10 @@ const OSASCRIPT_NOTIFY: &str =
 /// TS: notify's execFile `timeout`.
 const NOTIFY_TIMEOUT: Duration = Duration::from_millis(2000);
 
+/// Posting through Deckhand.app can wait on the user answering the first permission prompt.
+#[cfg(target_os = "macos")]
+const NOTIFIER_TIMEOUT: Duration = Duration::from_secs(30);
+
 static AGENT_PROMPT: LazyLock<Regex> = LazyLock::new(|| Regex::new(AGENT_PROMPT_PATTERN).expect("valid regex"));
 
 /// `/\x1b\[[0-?]*[ -/]*[@-~]/g`: CSI sequences.
@@ -284,7 +288,8 @@ impl Daemon {
     }
 
     /// TS: InkDaemon.notify: a desktop notification `Deckhand: <title>` when enabled (osascript on macOS,
-    /// notify-send elsewhere, 2 s timeout); failures are ignored.
+    /// notify-send elsewhere, 2 s timeout); failures are ignored. The port posts from Deckhand.app on macOS so the
+    /// notification shows Deckhand's icon, and uses osascript only when that app cannot post.
     pub async fn notify(&self, session: &SessionRecord, message: &str) {
         // Headless machines and denied notification permissions are normal.
         let enabled = load_app_config()
@@ -295,10 +300,41 @@ impl Daemon {
         }
         let title = format!("Deckhand: {}", session.title);
         let options = ExecOptions::default().timeout(NOTIFY_TIMEOUT);
-        if cfg!(target_os = "macos") {
+        #[cfg(target_os = "macos")]
+        {
+            if self.notify_from_app(&title, message).await {
+                return;
+            }
             let _ = proc::exec("osascript", &["-e", OSASCRIPT_NOTIFY, &title, message], &options).await;
-        } else {
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
             let _ = proc::exec("notify-send", &["--", &title, message], &options).await;
+        }
+    }
+
+    /// Posts through Deckhand.app (see `deckhand_sys::notifier_app`): true when it was posted, or when the user has
+    /// turned Deckhand's notifications off (then nothing is shown in its place either).
+    #[cfg(target_os = "macos")]
+    async fn notify_from_app(&self, title: &str, message: &str) -> bool {
+        use deckhand_sys::notifier_app::{EXIT_DENIED, POST_FLAG, notifier_executable};
+        let executable = match notifier_executable().await {
+            Ok(executable) => executable,
+            Err(error) => {
+                self.log(&format!("notifications fall back to osascript: {error}"))
+                    .await;
+                return false;
+            }
+        };
+        let options = ExecOptions::default().timeout(NOTIFIER_TIMEOUT);
+        match proc::exec(&executable.to_string_lossy(), &[POST_FLAG, title, message], &options).await {
+            Ok(_) => true,
+            Err(error) if error.exit_code() == Some(i32::from(EXIT_DENIED)) => true,
+            Err(error) => {
+                self.log(&format!("Deckhand.app could not post a notification: {error}"))
+                    .await;
+                false
+            }
         }
     }
 

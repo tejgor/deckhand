@@ -1,8 +1,8 @@
 # Future work
 
-Proposals, research and plans for work that is **not built yet**. Nothing here describes current behaviour: for that, see `README.md`, `docs/no-brainers.md` (user-facing) and `HANDOFF.md` (implementation).
+Proposals, research and plans for work that is **not built yet**. Nothing here describes current behaviour: for that, see `README.md`, `docs/features.md` (user-facing) and `HANDOFF.md` (implementation).
 
-Each doc starts with its status. When something here ships, move the lasting parts into `HANDOFF.md` / `docs/no-brainers.md`, then trim the doc to what is still open (or delete it).
+Each doc starts with its status. When something here ships, move the lasting parts into `HANDOFF.md` / `docs/features.md`, then trim the doc to what is still open (or delete it).
 
 | Doc | Status | What it covers |
 |---|---|---|

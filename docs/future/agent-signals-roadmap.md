@@ -1,6 +1,6 @@
 # Agent signals: roadmap
 
-What is built on agent hooks so far, and what is planned next. Implementation details of what shipped are in `HANDOFF.md` (*Design rules* → activity, protocol v43); user-facing behaviour is in `docs/no-brainers.md` (*Lifecycle signals and notifications*).
+What is built on agent hooks so far, and what is planned next. Implementation details of what shipped are in `HANDOFF.md` (*Design rules* → activity, protocol v43); user-facing behaviour is in `docs/features.md` (*Lifecycle signals and notifications*).
 
 ## Done (protocol v43)
 

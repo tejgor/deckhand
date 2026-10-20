@@ -43,6 +43,11 @@ crossterm = "0.28"
 alacritty_terminal = "0.25"
 vt100 = "0.15"
 tempfile = "3"
+# macOS notifications from Deckhand.app (crates/deckhand/src/notifier.rs).
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-user-notifications = "0.3"
+block2 = "0.6"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
