@@ -153,6 +153,8 @@ impl Utf8Stream {
 pub struct LineDecoder {
     utf8: Utf8Stream,
     buffer: String,
+    /// The length of `buffer` known to hold no newline (it was searched by an earlier chunk).
+    scanned: usize,
     max_line: Option<usize>,
     oversized_head: Option<String>,
 }
@@ -169,6 +171,7 @@ impl LineDecoder {
         LineDecoder {
             utf8: Utf8Stream::default(),
             buffer: String::new(),
+            scanned: 0,
             max_line: None,
             oversized_head: None,
         }
@@ -188,35 +191,44 @@ impl LineDecoder {
     }
 
     /// Feeds one chunk; returns the frames it completed, in order.
+    ///
+    /// Linear in the chunk: lines are cut from the buffer at a moving offset and the consumed prefix is dropped once,
+    /// and the search for the next newline starts where the previous chunk's search ended.
     pub fn push(&mut self, chunk: &[u8]) -> Vec<Frame> {
         self.utf8.write(chunk, &mut self.buffer);
         let mut frames = Vec::new();
+        // The buffer before `start` is consumed.
+        let mut start = 0;
         loop {
-            let newline = self.buffer.find('\n');
+            let from = start.max(self.scanned);
+            let newline = self.buffer[from..].find('\n').map(|index| from + index);
             if let Some(head) = &self.oversized_head {
                 let Some(newline) = newline else {
-                    self.buffer = js_tail(&self.buffer, OVERSIZED_EXCERPT).to_owned();
+                    self.buffer = js_tail(&self.buffer[start..], OVERSIZED_EXCERPT).to_owned();
                     break;
                 };
-                let excerpt = format!("{head}\n{}", js_tail(&self.buffer[..newline], OVERSIZED_EXCERPT));
+                let excerpt = format!("{head}\n{}", js_tail(&self.buffer[start..newline], OVERSIZED_EXCERPT));
                 frames.push(Frame::Oversized { excerpt });
                 self.oversized_head = None;
-                self.buffer.drain(..=newline);
+                start = newline + 1;
                 continue;
             }
             let Some(newline) = newline else {
+                let rest = &self.buffer[start..];
                 // Bytes bound UTF-16 units from above, so counting is only needed past the limit in bytes.
                 if let Some(max) = self.max_line
-                    && self.buffer.len() > max
-                    && js_len(&self.buffer) > max
+                    && rest.len() > max
+                    && js_len(rest) > max
                 {
-                    self.oversized_head = Some(js_head(&self.buffer, OVERSIZED_EXCERPT).to_owned());
-                    self.buffer = js_tail(&self.buffer, OVERSIZED_EXCERPT).to_owned();
+                    self.oversized_head = Some(js_head(rest, OVERSIZED_EXCERPT).to_owned());
+                    self.buffer = js_tail(rest, OVERSIZED_EXCERPT).to_owned();
+                } else {
+                    self.buffer.drain(..start);
                 }
                 break;
             };
-            let line = js_trim(&self.buffer[..newline]).to_owned();
-            self.buffer.drain(..=newline);
+            let line = js_trim(&self.buffer[start..newline]).to_owned();
+            start = newline + 1;
             if line.is_empty() {
                 continue;
             }
@@ -234,6 +246,8 @@ impl LineDecoder {
             }
             frames.push(Frame::Line(line));
         }
+        // What is left has no newline: the next chunk's search starts after it.
+        self.scanned = self.buffer.len();
         frames
     }
 }
@@ -352,6 +366,35 @@ mod tests {
         assert_eq!(oversized_request_id(excerpt), Some("r1"));
         assert!(excerpt.ends_with("y}"));
         assert_eq!(frames[1], Frame::Line(r#"{"type":"a"}"#.into()));
+    }
+
+    #[test]
+    fn an_oversized_line_after_complete_ones_in_the_same_chunk() {
+        let mut decoder = LineDecoder::with_max_line(16);
+        let mut chunk = b"{\"a\":1}\n\n{\"requestId\":\"r2\",".to_vec();
+        chunk.extend([b'y'; 40]);
+        assert_eq!(decoder.push(&chunk), vec![Frame::Line(r#"{"a":1}"#.into())]);
+        assert!(decoder.push(b"yy\nz").len() == 1);
+        assert_eq!(lines(decoder.push(b"\n")), vec!["z"]);
+        assert_eq!(decoder.buffered(), 0);
+    }
+
+    /// A chunk of many lines, or a long line arriving in many chunks, is decoded in time linear in its size (each byte
+    /// is scanned and moved a bounded number of times), not one buffer shift per line or one rescan per chunk.
+    #[test]
+    fn decodes_in_linear_time() {
+        let started = std::time::Instant::now();
+        let mut decoder = LineDecoder::with_max_line(MAX_REQUEST_LINE);
+        let chunk = "{\"a\":1}\n".repeat(400_000);
+        assert_eq!(decoder.push(chunk.as_bytes()).len(), 400_000);
+        assert_eq!(decoder.buffered(), 0);
+        let mut client = LineDecoder::new();
+        for _ in 0..40_000 {
+            assert!(client.push(&[b'x'; 100]).is_empty());
+        }
+        assert_eq!(lines(client.push(b"\n")), vec!["x".repeat(4_000_000)]);
+        let elapsed = started.elapsed();
+        assert!(elapsed < std::time::Duration::from_secs(5), "took {elapsed:?}");
     }
 
     #[test]
