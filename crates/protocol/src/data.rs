@@ -1,4 +1,5 @@
-//! Port of types.ts plus wire data types from agentSignals.ts, workspaceGit.ts, projectConfig.ts, projectConfigDocument.ts, settingsInfo.ts, changesModel.ts, tasks.ts.
+//! Wire data types: sessions, panes, worktrees, agent signals, project config and its documents, settings, changes,
+//! tasks.
 //!
 //! Field order is the order the TS code that builds each object writes its keys (object literal order, spreads
 //! included), which is what `JSON.stringify` puts on the wire; it often differs from the interface's declaration

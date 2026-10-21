@@ -1,5 +1,3 @@
-//! Port of processTree.ts.
-//!
 //! Stopping a pane kills its process group, but an interactive shell moves jobs to process groups of their own; the
 //! workspace worker snapshots the pane's descendants (pid plus start time) before signalling and SIGKILLs the ones
 //! still alive afterwards. The start time guards against killing a recycled pid. Everything here is synchronous and
@@ -340,7 +338,6 @@ mod tests {
         }
     }
 
-    // covers: B-I5-01 kills a SIGHUP-ignoring job that an interactive shell moved to its own process group
     #[test]
     fn kills_a_sighup_ignoring_job_in_its_own_process_group() {
         if !Path::new("/bin/zsh").exists() {
@@ -378,7 +375,6 @@ mod tests {
         assert!(!is_alive(sleeper));
     }
 
-    // covers: B-I5-02 does not kill a PID whose start time no longer matches
     #[test]
     fn does_not_kill_a_pid_whose_start_time_no_longer_matches() {
         let mut child = Command::new("sleep")

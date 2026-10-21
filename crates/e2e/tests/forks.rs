@@ -1,4 +1,4 @@
-//! Port of tests/forks.test.ts (black-box: drives DECKHAND_TEST_BIN against a real daemon with fake agents).
+//! Forks, black-box: drives DECKHAND_TEST_BIN against a real daemon with fake agents.
 
 use std::fs;
 use std::path::PathBuf;

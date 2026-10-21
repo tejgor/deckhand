@@ -1,5 +1,3 @@
-//! Port of uiState.ts.
-//!
 //! Per-repository UI preferences in `ui-state.json` (repository root → [`UiState`]). They are a convenience: an
 //! unreadable file falls back to defaults, and saves are serialized in-process (one queue) and written atomically.
 //! The record and its normalisation (`normalizeUiState`) are deckhand-protocol's [`UiState`] /
@@ -119,7 +117,6 @@ mod tests {
         });
     }
 
-    // covers: B-I1-04 UI state is validated and stored per repository
     #[test]
     fn ui_state_is_validated_and_stored_per_repository() {
         let home = tempfile::Builder::new()

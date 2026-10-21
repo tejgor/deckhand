@@ -1,4 +1,4 @@
-//! Port of tests/nodeEnvUi.test.ts.
+//! The environment agents and actions get (NODE_ENV and friends), in a real PTY.
 
 use std::fs;
 

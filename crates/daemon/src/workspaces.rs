@@ -1,4 +1,4 @@
-//! Port of daemon.ts (workspace workers, panes, actions).
+//! Workspace workers, their panes and actions.
 //!
 //! Every session in one worktree (its workspace, workspace.ts workspaceKey) shares one Terminal, Git (lazygit), Dev
 //! and action pane, hosted by one workspace worker started on demand. Requests name a session; the daemon resolves its

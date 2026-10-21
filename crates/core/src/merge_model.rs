@@ -1,5 +1,3 @@
-//! Port of mergeModel.ts.
-//!
 //! The merge confirmation (m) and the conflict result view as pure data; the app renders them. Widths are TS
 //! `.length` (UTF-16 units).
 
@@ -552,7 +550,6 @@ mod tests {
         items.iter().map(|item| (*item).to_owned()).collect()
     }
 
-    // covers: B-P4-01 merge confirmation: target line, summary with commits, the uncommitted toggle, options and hint
     #[test]
     fn confirmation_target_summary_toggle_options_hint() {
         with_home("/home/me", || {
@@ -673,7 +670,6 @@ mod tests {
         });
     }
 
-    // covers: B-P4-02 merge confirmation: a surprising target is warned, operations in progress and overlapping target edits are flagged
     #[test]
     fn confirmation_warns_surprising_target_operations_and_overlap() {
         with_home("/home/me", || {
@@ -770,7 +766,6 @@ mod tests {
         });
     }
 
-    // covers: B-P4-03 merge confirmation is height-budgeted: notes shrink first, then the error output, then commit subjects
     #[test]
     fn confirmation_is_height_budgeted() {
         // The TS test runs with the real HOME, which /home/me is not.
@@ -858,7 +853,6 @@ mod tests {
         }
     }
 
-    // covers: B-P4-04 conflict view: the count, up to five files (+N more) and only the two choices
     #[test]
     fn conflict_view_counts_files_and_choices() {
         let view = conflict_view(
@@ -900,7 +894,6 @@ mod tests {
         );
     }
 
-    // covers: B-P4-05 merge confirmation names the worktree's task (ticked by the merge) and offers its note's open items as one row space switches
     #[test]
     fn confirmation_names_task_and_offers_open_items() {
         let layout = merge_confirm_layout(&MergeConfirmInput {
@@ -952,7 +945,6 @@ mod tests {
         assert!(loading.toggles.is_empty());
     }
 
-    // covers: B-P4-10 the merge confirmation offers to send the worktree note's open items to the backlog: one row space switches
     #[test]
     fn confirmation_open_items_row_switches() {
         let base = || MergeConfirmInput {

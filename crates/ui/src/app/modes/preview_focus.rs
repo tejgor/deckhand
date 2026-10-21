@@ -1,5 +1,5 @@
-//! Port of app.tsx's preview-focus keys and mouse wheel (→ on a running session's Preview: scroll it, or send the
-//! wheel to a fullscreen agent, which scrolls its own view), and the changes-/notes-focus hand-off to their flows.
+//! Preview-focus keys and mouse wheel (→ on a running session's Preview: scroll it, or send the wheel to a fullscreen
+//! agent, which scrolls its own view), and the changes-/notes-focus hand-off to their flows.
 
 use std::time::Instant;
 

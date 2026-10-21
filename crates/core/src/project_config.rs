@@ -1,4 +1,5 @@
-//! Port of projectConfig.ts (pure validation parts).
+//! Project config (`deckhand.json`): validation, trust and the effective settings, without I/O (the files are read and
+//! written by deckhand_sys::config).
 //!
 //! deckhand.json validation, trust fingerprints and the effective settings (global defaults overlaid by the trusted
 //! repository file). Reading files (`readBoundedUtf8`, `loadProjectConfig`, `savedProjectTrust`) is I/O and lives in
@@ -1617,7 +1618,6 @@ mod tests {
         serde_json::to_value(value).unwrap()
     }
 
-    // covers: B-P10-01 strict project schema rejects malformed/unknown commands and defaults
     #[test]
     fn strict_project_schema() {
         for value in [
@@ -1707,7 +1707,6 @@ mod tests {
         );
     }
 
-    // covers: B-P10-02 effective settings: global defaults overlaid by the repository override only while trusted (its agent/workspace suggestions always); actions merge by name
     #[test]
     fn effective_settings() {
         let project = project(
@@ -1803,7 +1802,6 @@ mod tests {
         row.pending.as_ref().map(|pending| pending.value.as_str())
     }
 
-    // covers: B-P10-03 explainSettings: sources per row, pending untrusted values, list merges, legacy and built-in defaults; values equal resolveSettings
     #[test]
     fn explain_settings_rows() {
         let vars = TemplateVars {

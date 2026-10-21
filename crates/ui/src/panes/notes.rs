@@ -1,7 +1,6 @@
-//! Port of notesPane.tsx: the Notes tab's rows. The worktree's shared note above the session's own, each with a
-//! header, separated by a rule; read mode shows rendered checklists from the top (`+N more lines` when cut), the
-//! section being edited shows the raw Markdown with a cursor, scrolled to keep it visible. Layout is pure
-//! ([`notes_layout`]) so it is unit-tested.
+//! The Notes tab's rows. The worktree's shared note above the session's own, each with a header, separated by a rule;
+//! read mode shows rendered checklists from the top (`+N more lines` when cut), the section being edited shows the raw
+//! Markdown with a cursor, scrolled to keep it visible. Layout is pure ([`notes_layout`]) so it is unit-tested.
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -398,7 +397,6 @@ mod tests {
         row.iter().map(|part| part.text.as_str()).collect()
     }
 
-    // covers: B-U4-01 Notes tab layout: worktree section, a rule, the session section; empty sections collapse; long ones end in +N more lines
     #[test]
     fn notes_tab_layout_sections_rule_and_empty_collapse() {
         let shared = section(
@@ -464,7 +462,6 @@ mod tests {
         );
     }
 
-    // covers: B-U4-02 Notes tab layout while editing: the focused section shows the raw text with the cursor and scrolls to keep it visible
     #[test]
     fn notes_tab_layout_while_editing_scrolls_to_the_cursor() {
         let lines: Vec<String> = (1..=12).map(|index| format!("row {index}")).collect();

@@ -1,4 +1,4 @@
-//! Port of the JavaScript object key-order semantics that types.ts relies on implicitly.
+//! JSON object key order: keeps the key order of the existing wire and on-disk formats.
 //!
 //! `JSON.stringify` writes keys in insertion order, and the TS daemon builds most records by spreading
 //! (`{...session, doneAt}`), so a record's key order depends on its history (and, for state.json and config.json, on

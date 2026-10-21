@@ -1,5 +1,5 @@
-//! Port of helpPane.tsx: the ? guide (a topic list beside the selected topic, each a table of key → what it does
-//! with a few notes; / searches every topic; narrow panes show "◂ topic ▸" in the title instead of the list).
+//! The ? guide (a topic list beside the selected topic, each a table of key → what it does with a few notes; / searches
+//! every topic; narrow panes show "◂ topic ▸" in the title instead of the list).
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -729,7 +729,6 @@ mod tests {
             .collect()
     }
 
-    // covers: B-U2-06 help topics: keys in one aligned column, descriptions wrap under themselves, a long key gets its own row
     #[test]
     fn help_topics_keys_in_one_aligned_column() {
         let rows = help_rows(
@@ -890,7 +889,6 @@ mod tests {
         );
     }
 
-    // covers: B-U2-07 help search matches keys, descriptions and notes across topics; the pane shows a topic list when wide and ◂ topic ▸ when narrow
     #[test]
     fn help_search_matches_across_topics_and_the_pane_adapts_to_its_width() {
         let titles = |query: &str| -> Vec<&str> {

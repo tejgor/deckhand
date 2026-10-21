@@ -12,9 +12,9 @@ TS daemon makes of it. Nothing here was copied from a real `~/.deckhand`.
 | `read-responses.jsonl` | one `{"request", "response": {"ok", "data"|"error"}}` per read, in order (`requestId` omitted) |
 | `MIGRATIONS.md` | every implicit migration the fixture exercises, with TS file:line references |
 
-Regenerate with `npm run build && node --import tsx parity/gen/state.gen.ts` (`--check` exits 1 on drift, `--keep`
-keeps the sandbox, `--sandbox-only` prints the sandbox's SHAs and placeholder note hashes for editing the fixture).
-Two consecutive runs produce identical output.
+Frozen: this is what older versions wrote, and Deckhand must keep loading it. Never regenerate or bless it. It was
+recorded from the TypeScript daemon (tag `ts-final`) by a generator that is in this repository's history
+(`parity/gen/state.gen.ts`, removed with the TypeScript tree); the sections below describe how.
 
 ## Placeholder root and sandbox
 
@@ -52,15 +52,15 @@ Applied to every captured file and response; `--check` compares normalised bytes
 | token | replaces | written by |
 |---|---|---|
 | `/tmp/deckhand-fixture` | `R` (and its unresolved `$TMPDIR` spelling) | everything that stores paths |
-| note hash of `P/<root>` | note hash of `R/<root>` (file names and contents) | `repoNoteId` (src/notes.ts:23) |
-| `<now>` | an ISO-8601 timestamp within the run (±1 s) | crash recovery `updatedAt`/`attention.at` (src/storage.ts:90), detected `mergedAt` and the sessions' `updatedAt` (src/daemon.ts:1165, :3020), `checkedAt` of agent versions and the worktree overview |
+| note hash of `P/<root>` | note hash of `R/<root>` (file names and contents) | `repoNoteId` (crates/core/src/notes.rs:23) |
+| `<now>` | an ISO-8601 timestamp within the run (±1 s) | crash recovery `updatedAt`/`attention.at` (crates/sys/src/storage.rs:90), detected `mergedAt` and the sessions' `updatedAt` (crates/daemon/src/daemon.rs:1165, :3020), `checkedAt` of agent versions and the worktree overview |
 | `<now-ms>` | an integer epoch-ms value within the run | (none currently) |
-| `NOW_` (file names) | the `YYYY-MM-DDTHH-MM-SS_` prefix of trash files created during the run | `trashFileName` (src/notesStore.ts:34) |
-| `done=<today>` / `added=<today>` | a task date equal to the run's UTC day | `applyTaskOp` `today` (src/tasks.ts:155) |
-| `<uuid-N>` | a v4 UUID that does not occur anywhere in `home-v45`, numbered by first appearance (after-idle `state.json` first, then the tree in path order, then the responses) | worktree records lifted from legacy sessions (src/worktreeRecords.ts:113 `randomUUID`) |
-| `t=<task-N>` | a task ID not in `home-v45`, numbered the same way | `newTaskId` (src/tasks.ts:131, :165) |
-| recomputed `revision` | a note `revision` that hashed text changed by the tokens above is replaced by the hash of the normalised text (`{text, revision}` pairs and `notes`/`notesFile.revision`) | `noteRevision` (src/notes.ts:18) |
-| `"user": "<user>"` | the OS account slug in `settings-info` | `userSlug` (src/worktreeLinks.ts:67, from getpwuid) |
+| `NOW_` (file names) | the `YYYY-MM-DDTHH-MM-SS_` prefix of trash files created during the run | `trashFileName` (crates/sys/src/notes_store.rs:34) |
+| `done=<today>` / `added=<today>` | a task date equal to the run's UTC day | `applyTaskOp` `today` (crates/core/src/tasks.rs:155) |
+| `<uuid-N>` | a v4 UUID that does not occur anywhere in `home-v45`, numbered by first appearance (after-idle `state.json` first, then the tree in path order, then the responses) | worktree records lifted from legacy sessions (crates/core/src/worktree_records.rs:113 `randomUUID`) |
+| `t=<task-N>` | a task ID not in `home-v45`, numbered the same way | `newTaskId` (crates/core/src/tasks.rs:131, :165) |
+| recomputed `revision` | a note `revision` that hashed text changed by the tokens above is replaced by the hash of the normalised text (`{text, revision}` pairs and `notes`/`notesFile.revision`) | `noteRevision` (crates/core/src/notes.rs:18) |
+| `"user": "<user>"` | the OS account slug in `settings-info` | `userSlug` (crates/sys/src/worktree_links.rs:67, from getpwuid) |
 
 `daemon.log` is listed in the after-idle modes manifest but its content is not stored: TS appends wall-clock
 timestamps, its pid and lines whose order depends on timing. The daemon's pid is otherwise written only to

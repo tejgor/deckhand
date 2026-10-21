@@ -1,7 +1,7 @@
-//! Port of worktreesFlow.tsx: W, the worktree manager. Every worktree of the repository (Git's list plus
-//! Deckhand's records), grouped by what to do with it, with its sessions, merge state and what deleting it would
-//! lose. x deletes one (or, on the ready group's heading, all of them) after a confirmation that names the sessions
-//! it stops; data loss still needs a typed DELETE. The daemon re-checks everything at deletion time.
+//! W, the worktree manager. Every worktree of the repository (Git's list plus Deckhand's records), grouped by what to
+//! do with it, with its sessions, merge state and what deleting it would lose. x deletes one (or, on the ready group's
+//! heading, all of them) after a confirmation that names the sessions it stops; data loss still needs a typed DELETE.
+//! The daemon re-checks everything at deletion time.
 
 use std::cell::RefCell;
 use std::rc::Rc;

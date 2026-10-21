@@ -1,5 +1,3 @@
-//! Port of sessionScope.ts.
-
 use crate::jsstr::path;
 use deckhand_protocol::data::SessionRecord;
 
@@ -60,7 +58,6 @@ pub(crate) mod tests {
         });
     }
 
-    // covers: B-P2-01 session scope links a main repo and its worktrees without matching lookalike paths
     #[test]
     fn session_scope_links_main_repo_and_worktrees() {
         let session = partial_session(&json!({"repoRoot": "/repos/main", "cwd": "/worktrees/feature", "worktree": {"path": "/worktrees/feature", "mode": "managed"}})).unwrap();

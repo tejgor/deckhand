@@ -1,5 +1,3 @@
-//! Port of git.ts.
-//!
 //! Git plumbing for sessions and worktrees: bounded `git -C <cwd>` runs ([`git`], [`optional_git`]), repository
 //! context, the worktree list, creating a session's worktree (a trusted creation hook, or Deckhand's own `git worktree
 //! add` with worktree settings), removing and pruning worktrees, and merging a worktree into the launch checkout
@@ -1525,7 +1523,6 @@ mod tests {
         std::fs::set_permissions(file, permissions).unwrap();
     }
 
-    // covers: B-I3-01 preview: target, commits, diff stat, uncommitted files; commit-first commits them (title as message) before merging
     #[tokio::test(flavor = "current_thread")]
     async fn preview_commit_first_commits_before_merging() {
         let fx = Fixture::new();
@@ -1583,7 +1580,6 @@ mod tests {
         );
     }
 
-    // covers: B-I3-02 commit-first: a worktree with only uncommitted work merges through the toggle; off, it is skipped and the files stay; a failing hook merges nothing
     #[tokio::test(flavor = "current_thread")]
     async fn commit_first_toggle_and_failing_hook() {
         let fx = Fixture::new();
@@ -1649,7 +1645,6 @@ mod tests {
         assert_eq!(tgit(&blocked, &["log", "-1", "--format=%s"]), "other");
     }
 
-    // covers: B-I3-03 target checks: a merge, rebase, cherry-pick or conflicts in progress refuse the merge; overlapping uncommitted target edits are listed
     #[tokio::test(flavor = "current_thread")]
     async fn target_checks_refuse_operations_in_progress() {
         let fx = Fixture::new();
@@ -1699,7 +1694,6 @@ mod tests {
         assert_eq!(operation_in_progress(root).await.unwrap(), None);
     }
 
-    // covers: B-I3-04 conflicts: kept, the merge stays in progress with markers; aborted, normal and squash merges restore the target and keep unrelated edits
     #[tokio::test(flavor = "current_thread")]
     async fn conflicts_kept_or_aborted() {
         let fx = Fixture::new();

@@ -1,4 +1,4 @@
-//! Port of daemon.ts (startup, recovery, shutdown, persist).
+//! The daemon's startup, recovery, shutdown and persistence.
 //!
 //! Startup recovers from the previous daemon: sessions it left running are marked exited (their PTYs died with it),
 //! notes kept in state.json by older versions move to their files, worktree sessions' own notes merge into their

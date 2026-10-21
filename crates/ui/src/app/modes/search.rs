@@ -1,5 +1,4 @@
-//! Port of app.tsx's search keys (/): typed text filters the session list (at most 256 characters); Enter keeps
-//! it, Esc clears it.
+//! Search keys (/): typed text filters the session list (at most 256 characters); Enter keeps it, Esc clears it.
 
 use deckhand_core::display::strip_terminal_controls;
 use deckhand_core::jsstr::js_len;

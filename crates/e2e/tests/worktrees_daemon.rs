@@ -1,4 +1,4 @@
-//! Port of tests/worktreesDaemon.test.ts (black-box: drives DECKHAND_TEST_BIN).
+//! Worktrees, black-box: drives DECKHAND_TEST_BIN.
 
 use deckhand_e2e::harness::repo;
 use std::fs;

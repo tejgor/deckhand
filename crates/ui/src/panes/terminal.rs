@@ -1,4 +1,4 @@
-//! Port of terminalPane.tsx: the Terminal tab (the workspace's shell, or the last action run there; v switches).
+//! The Terminal tab (the workspace's shell, or the last action run there; v switches).
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

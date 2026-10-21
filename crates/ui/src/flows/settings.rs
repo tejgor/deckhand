@@ -1,8 +1,7 @@
-//! Port of settingsFlow.tsx: C → Settings. A grid of every setting with one column per layer; the cursor is a cell
-//! (↑↓ setting, ←→ or Tab layer) and edits save immediately into that cell's layer through save-config's
-//! revision-checked writes. E opens the raw JSON of the selected column's file and returns here; T reviews trust and
-//! returns here. Saving never runs anything; a repository file stays trusted when the version it replaced was (see
-//! savedProjectTrust).
+//! C → Settings. A grid of every setting with one column per layer; the cursor is a cell (↑↓ setting, ←→ or Tab layer)
+//! and edits save immediately into that cell's layer through save-config's revision-checked writes. E opens the raw
+//! JSON of the selected column's file and returns here; T reviews trust and returns here. Saving never runs anything; a
+//! repository file stays trusted when the version it replaced was (see savedProjectTrust).
 
 use std::rc::Rc;
 

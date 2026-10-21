@@ -1,4 +1,5 @@
-//! Port of worktreeLinks.ts (pure parts).
+//! Worktree links (`worktree.symlink`, `worktree.files`) and location templates: the pure parts (file I/O is in
+//! deckhand_sys::worktree_links).
 //!
 //! Declarative worktree settings (the `worktree` section of global defaults or deckhand.json): where new worktrees go
 //! and which heavy directories / private files are symlinked into them. Applying the links to a new worktree (and

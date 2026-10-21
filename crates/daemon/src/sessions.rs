@@ -1,4 +1,4 @@
-//! Port of daemon.ts (session create/restart/kill/remove/order).
+//! Sessions: create, restart, kill, remove, order.
 //!
 //! Sessions as the daemon holds and sends them (TS SessionMap): setting one projects its worktree record's markers
 //! (worktreeRecords.ts) and its notes (notesStore.ts) into it, so every reader sees them; persist() strips both. A

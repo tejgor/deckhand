@@ -1,5 +1,3 @@
-//! Port of workspaceGit.ts.
-//!
 //! Read-mostly Git views of a workspace (a session's worktree or checkout): the summary shown with `i`, the cleanup
 //! inspection a deletion is checked against, a handoff's Git context, the merge preview, merged-elsewhere detection
 //! and worktree activity, plus pushing a branch and opening its PR with `gh`. Every Git run is bounded
@@ -1541,7 +1539,6 @@ mod tests {
         );
     }
 
-    // covers: B-I4-01 porcelain v2 parsing handles headers, renames with odd names, unmerged, untracked and ignored entries
     #[test]
     fn porcelain_v2_parsing() {
         let raw = [
@@ -1585,7 +1582,6 @@ mod tests {
         );
     }
 
-    // covers: B-I4-02 cleanup blocks dirty, untracked and valuable ignored files but not dependency caches
     #[tokio::test(flavor = "current_thread")]
     async fn cleanup_blocks_dirty_untracked_and_valuable_ignored() {
         let (_dir, cwd) = repo();
@@ -1631,7 +1627,6 @@ mod tests {
         );
     }
 
-    // covers: B-I4-03 summary separates staged/unstaged changes from commits and reports local upstream
     #[tokio::test(flavor = "current_thread")]
     async fn summary_separates_changes_from_commits() {
         let (_dir, cwd) = repo();
@@ -1657,7 +1652,6 @@ mod tests {
         assert_eq!(inspection.unmerged_commits, Some(1));
     }
 
-    // covers: B-I4-04 commits only block when deleting the branch or detached HEAD would lose them; refs cannot inject options
     #[tokio::test(flavor = "current_thread")]
     async fn commits_only_block_when_they_would_be_lost() {
         let (_dir, cwd) = repo();
@@ -1694,7 +1688,6 @@ mod tests {
         assert!(inspection.unwrap_err().to_string().contains("Invalid Git"));
     }
 
-    // covers: B-I4-05 symlinked node_modules is disposable; unborn repositories and missing paths do not fabricate data
     #[tokio::test(flavor = "current_thread")]
     async fn symlinked_node_modules_and_unborn_repositories() {
         let (_dir, cwd) = repo();
@@ -1845,7 +1838,6 @@ mod tests {
         tgit(dir, &["commit", "-m", message]);
     }
 
-    // covers: B-I4-08 squash merge: cleanup counts commits up to the merged one as integrated, later commits still need DELETE
     #[tokio::test(flavor = "current_thread")]
     async fn squash_merge_cleanup_counts_integrated_commits() {
         use crate::git::{MergeOptions, merge_worktree_into_current};
@@ -1898,7 +1890,6 @@ mod tests {
         }
     }
 
-    // covers: B-I4-09 merge detection: a branch whose commits are in the default branch counts; a fresh or merely fast-forwarded branch never does
     #[tokio::test(flavor = "current_thread")]
     async fn merge_detection_counts_only_own_merged_commits() {
         use crate::git::branch_creation_commit;
@@ -1955,7 +1946,6 @@ mod tests {
         assert!(!check(&reset, "reset", &reset_start, &defaults).await);
     }
 
-    // covers: B-I4-10 the PR lookup is injectable: a MERGED PR reaches the summary (with its head and base), a failing lookup becomes prError
     #[tokio::test(flavor = "current_thread")]
     async fn pr_lookup_is_injectable() {
         use std::cell::RefCell;
@@ -2000,7 +1990,6 @@ mod tests {
             .unwrap();
     }
 
-    // covers: B-I4-11 handoffs list commit subjects and changed file names, never diff content
     #[tokio::test(flavor = "current_thread")]
     async fn handoffs_list_subjects_and_names_never_diff_content() {
         use deckhand_core::session_features::handoff_markdown;

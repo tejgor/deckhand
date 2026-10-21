@@ -1,7 +1,6 @@
 # Testing Deckhand
 
-Tests describe the current Rust application's rules, presentation and compatibility guarantees. New tests do not
-need a TypeScript counterpart, a port-unit ID or an export mapping.
+Tests describe Deckhand's rules, presentation and compatibility guarantees.
 
 ## Running tests
 
@@ -57,11 +56,11 @@ cargo nextest run -p deckhand-ui -E 'test(panes::settings::)'
 
 `DECKHAND_BLESS` updates text snapshots and the remaining replay expectations. It cannot distinguish a fix from a
 regression. Keep correctness rules as assertions, review every changed expectation, and rerun without the variable.
-The replay encoding and update mechanism are documented in [`parity/README.md`](../parity/README.md).
+The replay format and update mechanism are documented in [`fixtures/cases/README.md`](../fixtures/cases/README.md).
 
 ## Existing corpora and compatibility
 
-The port's sampled logic fixtures remain useful regression coverage. Keep low-churn corpora while they provide
+The recorded logic cases in `fixtures/cases` remain useful regression coverage. Keep low-churn corpora while they provide
 value; when a module changes, replace redundant cases only after identifying their rules and edge cases. Settings
 grid/render and help output now use named Rust tests instead of sampled output replays. Other modules can migrate
 incrementally. New behavior does not require a new sampled fixture corpus.
@@ -76,9 +75,8 @@ decoding, display width and string behavior. Changing those choices requires rev
 Their origin alone does not make every Node error phrase or incidental JSON key order a permanent API promise;
 retain exact bytes where they affect a format, revision/hash, protocol or explicitly chosen behavior.
 
-`parity/units`, TS generators, `scripts/verify-unit` and `docs/port` record how the port was checked. Existing
-replays still read fixture metadata from those manifests. They are not requirements for new Rust tests; current
-development uses the Cargo checks above.
+These corpora were first recorded from the TypeScript version Deckhand was ported from (tag `ts-final`). Its
+recorders are gone: the replayed cases are updated by blessing, and the frozen data is never regenerated.
 
 ## Isolation
 

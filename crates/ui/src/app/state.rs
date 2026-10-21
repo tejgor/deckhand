@@ -1,5 +1,5 @@
-//! Port of app.tsx's state: the `App` component's props, `useState`s and `useRef`s, grouped by the mode that owns
-//! their behaviour so each mode unit (crates/ui/src/app/modes) works on its own group.
+//! State: the `App` component's props, `useState`s and `useRef`s, grouped by the mode that owns their behaviour so each
+//! mode unit (crates/ui/src/app/modes) works on its own group.
 //!
 //! Field names follow the TS state names; initial values are the TS `useState` initialisers ([`App::new`]).
 //! Derived values (`sessions`, `visibleSessions`, `selectedSession`, `layout`, ...) are computed on demand by the

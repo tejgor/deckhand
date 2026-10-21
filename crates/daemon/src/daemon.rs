@@ -1,9 +1,9 @@
-//! Port of daemon.ts (`Daemon(Rc<Inner>)` and shared state).
+//! The daemon: `Daemon(Rc<Inner>)` and its shared state.
 //!
 //! TS InkDaemon is one class whose fields every method reads and writes. The port keeps one [`Daemon`] (a cheap
 //! `Rc` handle, cloned into every task it starts) whose [`Inner`] holds one `RefCell` per subsystem; each
 //! subsystem's state struct and its methods (`impl Daemon` blocks) live in that subsystem's module, so a unit adds
-//! fields and methods without touching this file. Runtime model (docs/port/CONVENTIONS.md): one `current_thread`
+//! fields and methods without touching this file. Runtime model (docs/conventions.md): one `current_thread`
 //! runtime with a `LocalSet`; borrow a subsystem's state, copy what is needed, drop the borrow, then await.
 //!
 //! Where each daemon.ts function went:

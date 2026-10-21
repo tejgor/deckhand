@@ -1,4 +1,4 @@
-//! Port of daemon.ts (request dispatch match).
+//! The daemon's request dispatch.
 //!
 //! TS InkDaemon.handleRequest: one `switch` over the request type inside a `try`. A case either answers
 //! `response(requestId, data)` or answers by itself (attach); anything it throws becomes `failure(requestId, error)`

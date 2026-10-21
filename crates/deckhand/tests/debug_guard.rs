@@ -1,5 +1,4 @@
-//! Port of the debug-build home guard's interaction with tests/devLauncher.test.ts (which runs a "production" daemon
-//! under a throwaway HOME).
+//! The debug-build home guard alongside the dev launcher, which runs a "production" daemon under a throwaway HOME.
 
 use std::process::Command;
 

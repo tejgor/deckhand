@@ -1,4 +1,4 @@
-//! Port of tests/agentUpdates.test.ts (black-box: drives DECKHAND_TEST_BIN).
+//! Agent versions and updates, black-box: drives DECKHAND_TEST_BIN.
 //!
 //! Agent versions and updates against a real daemon with fake agents (its own daemon). The daemon's PATH holds only the
 //! fakes and the system directories, so no real agent can ever be run here.

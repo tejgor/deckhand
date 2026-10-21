@@ -1,5 +1,3 @@
-//! Port of notesVim.ts.
-//!
 //! o on Notes in vim/nvim: the in-app editor's note keys as a vimscript sourced after the note loads (`-S`). Ctrl+]
 //! and Ctrl+Space (Deckhand's detach keys) save and quit; Ctrl+X, Ctrl+T and Enter mirror toggleChecklist,
 //! insertChecklistItem and continueChecklist (deckhand_core::notes) in the note's buffer only. Ctrl+P (send to
@@ -363,7 +361,6 @@ mod tests {
         std::fs::read_to_string(&out).expect("read out")
     }
 
-    // covers: B-I2-01 Ctrl+X checks and unchecks an item, or makes the line one (a bullet keeps its bullet)
     #[test]
     fn ctrl_x_checks_and_unchecks_an_item() {
         let Some(vim) = vim() else { return };
@@ -375,7 +372,6 @@ mod tests {
         assert_eq!(after_keys(&vim, "foo\n", r"A\<C-x>bar\<Esc>"), "- [ ] foobar\n");
     }
 
-    // covers: B-I2-02 Ctrl+T adds an open item below with the line's indent and bullet, ready to type
     #[test]
     fn ctrl_t_adds_an_open_item_below() {
         let Some(vim) = vim() else { return };
@@ -387,7 +383,6 @@ mod tests {
         assert_eq!(after_keys(&vim, "\n", r"\<C-t>q\<Esc>"), "- [ ] q\n");
     }
 
-    // covers: B-I2-03 Enter on an item continues the list, on an empty one ends it, elsewhere is a plain newline
     #[test]
     fn enter_on_an_item_continues_the_list() {
         let Some(vim) = vim() else { return };
@@ -525,7 +520,6 @@ mod tests {
         assert!(report[2].contains("s · note"), "{report:?}");
     }
 
-    // covers: B-I2-04 Ctrl+], Ctrl+Space save and quit
     #[test]
     fn ctrl_bracket_and_ctrl_space_save_and_quit() {
         let Some(vim) = vim() else { return };

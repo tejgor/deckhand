@@ -1,5 +1,5 @@
-//! Port of app.tsx's effects: every `useEffect` of App, run after each batch of events (React's effect phase), and
-//! the daemon subscription (`createLiveClient` with its handlers, reconnecting 500 ms after a close).
+//! Effects: every `useEffect` of App, run after each batch of events (React's effect phase), and the daemon
+//! subscription (`createLiveClient` with its handlers, reconnecting 500 ms after a close).
 //!
 //! Each effect keeps its last dependencies here; when they change, the previous run is cleaned up (its request
 //! aborted, its timer dropped, as TS's `cancelled` flags and cleanups do) and it runs again. Watch requests resolve

@@ -1,4 +1,4 @@
-//! Port of HeadlessTerminal impl on alacritty_terminal.
+//! The `HeadlessTerminal` implementation, on alacritty_terminal.
 //!
 //! The TS preview reads `@xterm/headless` 5.5, and the H0c goldens (fixtures/term/*.golden.json) pin exactly what that
 //! emulator shows. alacritty_terminal's own `Term` disagrees with it on things the goldens observe: it measures widths

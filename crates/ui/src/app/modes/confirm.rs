@@ -1,7 +1,7 @@
-//! Port of app.tsx's confirmations: stopping a session (x: kill, with the worktree's deletion choices and their
-//! cleanup inspections; confirm-loss: typing DELETE), merging its worktree (m: the preview, commit-first and the
-//! note's open items; merge-conflicts: keep or abort) and removing an archived session for good (confirm-remove),
-//! with their panes (KillConfirmPane, MergeConfirmPane, MergeConflictPane, RemoveConfirmPane).
+//! Confirmations: stopping a session (x: kill, with the worktree's deletion choices and their cleanup inspections;
+//! confirm-loss: typing DELETE), merging its worktree (m: the preview, commit-first and the note's open items;
+//! merge-conflicts: keep or abort) and removing an archived session for good (confirm-remove), with their panes
+//! (KillConfirmPane, MergeConfirmPane, MergeConflictPane, RemoveConfirmPane).
 
 use std::time::Duration;
 
@@ -2649,7 +2649,6 @@ mod tests {
             .collect()
     }
 
-    // covers: B-A4-01 rendered: the confirmation fills exactly its pane (warn target, toggle, notes) and the conflict view shows only the choices
     #[test]
     fn rendered_confirmation_fills_its_pane_and_the_conflict_view_shows_the_choices() {
         let _guard = HOME_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);

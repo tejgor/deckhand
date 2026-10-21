@@ -1,4 +1,4 @@
-//! Port of tests/helpers.ts: temp homes, `repo()`, the CLI under test, fake agents, dev-daemon control.
+//! Temp homes, `repo()`, the CLI under test, fake agents, dev-daemon control.
 //!
 //! Everything is synchronous (threads, no async runtime): a black-box test mostly waits on child processes and sockets.
 

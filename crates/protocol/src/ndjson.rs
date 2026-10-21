@@ -1,4 +1,4 @@
-//! Port of client.ts / daemon.ts (newline-delimited JSON framing).
+//! Newline-delimited JSON framing.
 //!
 //! Every message is one `JSON.stringify` line ending in `\n` ([`encode`]). Readers decode the byte stream as UTF-8
 //! incrementally (Node's StringDecoder: a sequence split across chunks is joined, invalid bytes become U+FFFD), split

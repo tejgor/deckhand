@@ -1,10 +1,9 @@
-//! Port of tasksFlow.tsx: the Tasks board (b). The repository's task list in the right pane, grouped by the
-//! worktree (or main-checkout session) each open task is on, then the backlog; v narrows it to the work of the
-//! session it was opened from. Also the open note items not yet tasks (tab), a small editor for adding and editing a
-//! task (title, then body), and the w picker that moves a task to a worktree or a main-checkout session (two views,
-//! Tab switches; / searches, as in the sidebar), back to the backlog, or back to the note it was sent from. The
-//! daemon owns the file; every change is an op (deckhand_core::tasks) applied to the file as it is, so an editor's
-//! edits are never overwritten.
+//! The Tasks board (b). The repository's task list in the right pane, grouped by the worktree (or main-checkout
+//! session) each open task is on, then the backlog; v narrows it to the work of the session it was opened from. Also
+//! the open note items not yet tasks (tab), a small editor for adding and editing a task (title, then body), and the w
+//! picker that moves a task to a worktree or a main-checkout session (two views, Tab switches; / searches, as in the
+//! sidebar), back to the backlog, or back to the note it was sent from. The daemon owns the file; every change is an op
+//! (deckhand_core::tasks) applied to the file as it is, so an editor's edits are never overwritten.
 
 use std::cell::RefCell;
 use std::collections::HashSet;

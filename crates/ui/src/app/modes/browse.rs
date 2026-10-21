@@ -1,6 +1,5 @@
-//! Port of app.tsx's browse keys (`if (mode === 'browse')`): the session list and the tabbed right pane. Selecting,
-//! tabs, the lifecycle keys (stop, resume, archive, done, merge), opening what a tab shows, and the doors to every
-//! other screen.
+//! Browse keys (`if (mode === 'browse')`): the session list and the tabbed right pane. Selecting, tabs, the lifecycle
+//! keys (stop, resume, archive, done, merge), opening what a tab shows, and the doors to every other screen.
 
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -1,4 +1,4 @@
-//! Port of PTY spawn (replaces node-pty / nodePty.ts).
+//! Spawning a program in a PTY.
 //!
 //! What node-pty's `pty.spawn` gave the workers: a child in its own session with the PTY slave as controlling terminal
 //! (so `kill(-pid)` reaches the whole job, pgid == pid), the same termios node-pty sets up, `TERM`/`PWD` in the child's

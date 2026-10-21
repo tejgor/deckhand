@@ -1,5 +1,3 @@
-//! Port of storage.ts.
-//!
 //! state.json (sessions and worktree records) and config.json (the user config) under the Deckhand home. Both are
 //! written atomically (a temporary file in the same directory, then a rename) with mode 0600, and the home directory
 //! is kept 0700. config.json is shared by the UI and daemon processes: [`update_app_config`] serializes its
@@ -2146,7 +2144,6 @@ pub(crate) mod tests {
 
     // ---- tests/storage.test.ts ---------------------------------------------------------------------------------
 
-    // covers: B-I1-01 crash recovery marks live sessions interrupted and keeps their identity, archive state and notes
     #[test]
     fn crash_recovery_marks_live_sessions_interrupted() {
         let home = temp_home();
@@ -2305,7 +2302,6 @@ pub(crate) mod tests {
         assert_eq!(stored_state(home.path()), r#"{"sessions":[],"worktrees":[]}"#);
     }
 
-    // covers: B-I1-02 config is private, keeps unknown keys without writing absent defaults, and reads legacy single-fingerprint trust
     #[test]
     fn config_is_private_and_keeps_unknown_keys() {
         let home = temp_home();
@@ -2351,7 +2347,6 @@ pub(crate) mod tests {
         })
     }
 
-    // covers: B-I1-03 config updates serialize within and across processes and recover from a stale lock
     #[test]
     fn config_updates_serialize_and_recover_from_a_stale_lock() {
         let home = temp_home();
@@ -2506,7 +2501,6 @@ pub(crate) mod tests {
         ]
     }
 
-    // covers: B-I1-05 a legacy state.json is migrated on daemon start and written back with records only
     #[test]
     fn legacy_state_is_migrated_on_daemon_start() {
         let home = temp_home();

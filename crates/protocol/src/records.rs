@@ -1,4 +1,4 @@
-//! Port of types.ts / storage.ts / uiState.ts (persisted state.json, config.json, ui-state.json records).
+//! Persisted records: state.json, config.json, ui-state.json.
 //!
 //! TS writes all three with `JSON.stringify(value, null, 2)` plus a trailing newline ([`to_ts_file_text`]); key order
 //! is insertion order, so the records keep the order they were read with ([`Ordered`], raw maps) and unknown keys

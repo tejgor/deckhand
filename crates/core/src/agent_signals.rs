@@ -1,4 +1,4 @@
-//! Port of agentSignals.ts (pure parts).
+//! Agent signals: the pure parts (the process and PATH lookups are in deckhand_sys::agent_path).
 //!
 //! Agent hook payloads → attention signals, and the hook settings Deckhand passes to agents. The parts that run
 //! processes or know the deckhand binary (`hookCommand`, `hookSettings`, `integrationArgs` and its `--help` probe
@@ -941,7 +941,6 @@ mod tests {
         signal.and_then(|signal| signal.get("reason").cloned())
     }
 
-    // covers: B-P1-05 lifecycle evidence is advisory, version tolerant, and excludes native subagents
     #[test]
     fn lifecycle_evidence_is_advisory_and_excludes_subagents() {
         let state = |payload: Value| state_of(claude(payload));
@@ -980,7 +979,6 @@ mod tests {
         assert!(normalize_hook(ProgramKey::Claude, &json!("invalid")).is_err());
     }
 
-    // covers: B-P1-06 signals say why a session waits: the question and its options, the plan, the permission asked for, the last line of a reply, a failure
     #[test]
     fn signals_say_why_a_session_waits() {
         let ask = json!({"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "tool_input": {"questions": [
@@ -1144,7 +1142,6 @@ mod tests {
         );
     }
 
-    // covers: B-P1-07 the hook bridge forwards only what a reason is made from, bounded
     #[test]
     fn hook_bridge_forwards_only_what_a_reason_is_made_from() {
         let big = "y".repeat(5000);
@@ -1210,7 +1207,6 @@ mod tests {
         assert_eq!(claude(fields(ask.clone())), claude(ask));
     }
 
-    // covers: B-P1-08 agent signals default on for Claude only, as async hooks; Codex's hooks.json entries stay plain
     #[test]
     fn agent_signals_default_on_for_claude_only() {
         assert!(hooks_enabled(None, ProgramKey::Claude));
@@ -1226,7 +1222,6 @@ mod tests {
         assert!(plain["hooks"]["Stop"][0]["hooks"][0].get("async").is_none());
     }
 
-    // covers: B-P1-09 Codex exit hints preserve exact identities without last-session guesses
     #[test]
     fn codex_exit_hints_preserve_exact_identities() {
         assert_eq!(

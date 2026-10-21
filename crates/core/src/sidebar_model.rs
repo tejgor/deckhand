@@ -1,5 +1,3 @@
-//! Port of sidebarModel.ts.
-//!
 //! Pure layout of the session sidebar (rendered by the sidebar pane): rows, header and the selected session's
 //! details. Widths are TS `.length` (UTF-16 units). Times are milliseconds since the epoch.
 
@@ -1302,7 +1300,6 @@ mod tests {
             .collect()
     }
 
-    // covers: B-P8-01 sidebar rows: unbracketed numbers, tree and status before the title, markers and the agent last; exact width
     #[test]
     fn sidebar_rows_layout() {
         let list = fixture();
@@ -1394,7 +1391,6 @@ mod tests {
         assert_eq!(collapsed[4], "  5         ▸ ↳ ● p ✶");
     }
 
-    // covers: B-P8-02 sidebar rows: ▶ once per workspace, on its first row on screen; rows sharing the selected workspace get ╎
     #[test]
     fn sidebar_rows_dev_and_gutter() {
         let list = fixture();
@@ -1476,7 +1472,6 @@ mod tests {
         assert_eq!(DROP_ORDER[0], RowRole::DevShared);
     }
 
-    // covers: B-P8-03 sidebar rows: archived rows dimmed, except in the archived view, which lists only archived ones (a sub-session of a live session at top level)
     #[test]
     fn sidebar_rows_archived_dimming() {
         let parent = sess("parent", json!({"title": "parent"}));
@@ -1561,7 +1556,6 @@ mod tests {
         );
     }
 
-    // covers: B-P8-04 sidebar rows: an archived sub-session (gone from the active view) gives its parent no ▾ ▸, +N or ╎N; the archived view still does
     #[test]
     fn sidebar_rows_archived_sub_session() {
         let parent = sess("parent", in_auth(json!({"title": "parent", "worktree": auth()})));
@@ -1603,7 +1597,6 @@ mod tests {
         );
     }
 
-    // covers: B-P8-05 sidebar header: plain count by default, filter/search with counts otherwise, attention count in front of the title
     #[test]
     fn sidebar_header_counts() {
         let list = fixture();
@@ -1664,7 +1657,6 @@ mod tests {
         );
     }
 
-    // covers: B-P8-06 sidebar details: title, agent · state · age, location; shrinks with fewer free rows
     #[test]
     fn sidebar_details_shrink() {
         let list = fixture();
@@ -1776,7 +1768,6 @@ mod tests {
         );
     }
 
-    // covers: B-P8-07 sidebar details: why a running session waits, under its state; two lines while the location still fits after them
     #[test]
     fn sidebar_details_attention_reason() {
         let asking = sess(
@@ -1838,7 +1829,6 @@ mod tests {
         assert_eq!(details(&exited, 10)[3..], ["main checkout"]);
     }
 
-    // covers: B-P8-08 sidebar details: state words and their timestamps follow the status glyph inputs; compact ages
     #[test]
     fn sidebar_details_state_words_and_ages() {
         let words = |fields: Value| status_words(&sess("s", fields));
@@ -1904,7 +1894,6 @@ mod tests {
         assert_eq!(ms_until_age_changes(-1.0), 60_000.0);
     }
 
-    // covers: B-P8-09 sidebar done marker: ☑ after ✓ in the suffix, dropped after ✓ when narrow; done rows slightly dimmed; details say done 2d ago
     #[test]
     fn sidebar_done_marker() {
         // A worktree session merged and done, a main-checkout session only done, an archived done one, and a plain one.
@@ -2040,7 +2029,6 @@ mod tests {
         });
     }
 
-    // covers: B-P8-14 sidebar details: ☐ open items of the session and its worktree, shortened to fit, the first line to go
     #[test]
     fn details_show_open_checklist_items() {
         let with_notes = partial_session(&serde_json::json!({

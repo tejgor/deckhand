@@ -1,4 +1,4 @@
-//! Port of daemon.ts (socket server, clients, subscriptions, broadcast).
+//! The daemon's socket server: clients, subscriptions, broadcast.
 //!
 //! The daemon listens on the private Unix socket (paths.ts getSocketPath). Every connection is multiplexed: the UI's
 //! requests, its subscriptions (what it watches, at which size) and attach streams share it. Each connection gets a

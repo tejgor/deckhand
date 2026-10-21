@@ -1,4 +1,4 @@
-//! Port of app.tsx (modes).
+//! The app's modes: one module per mode's keys.
 
 pub mod action_picker;
 pub mod browse;

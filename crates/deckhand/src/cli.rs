@@ -1,4 +1,4 @@
-//! Port of cli.ts (argv dispatch).
+//! Command-line dispatch.
 //!
 //! cli.ts `main` is an if-chain over argv; [`parse_args`] keeps its order of precedence and [`run`] carries out the
 //! result. The UI loop (`runUi` and the attach / `$EDITOR` hand-off) is `crate::ui_loop` (unit A1); the hook bridge

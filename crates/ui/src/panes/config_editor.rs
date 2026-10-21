@@ -1,5 +1,5 @@
-//! Port of configEditorPane.tsx: the raw JSON editor of a config layer (E in Settings): one row per editor line, the
-//! cursor inverse, scrolled only as far as needed to keep it on screen.
+//! The raw JSON editor of a config layer (E in Settings): one row per editor line, the cursor inverse, scrolled only as
+//! far as needed to keep it on screen.
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

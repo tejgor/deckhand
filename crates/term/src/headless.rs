@@ -1,4 +1,4 @@
-//! Port of HeadlessTerminal trait (stands in for @xterm/headless).
+//! The `HeadlessTerminal` trait: the terminal emulator surface the preview needs.
 //!
 //! The surface deckhand reads from `@xterm/headless`: TerminalPreview (src/terminalPreview.ts) writes decoded PTY
 //! output, resizes, and reads `buffer.active` (`baseY`, `getLine(y).translateToString(true)`, `cursorX/Y`); the

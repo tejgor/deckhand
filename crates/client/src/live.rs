@@ -1,4 +1,4 @@
-//! Port of client.ts (LiveClient subscription).
+//! The live client: a subscription to the daemon's updates.
 //!
 //! The UI's long-lived connection: requests are matched to responses by `requestId` (many may be in flight), and the
 //! daemon's push events go to [`LiveClientHandlers`]. As in TS, a request is written when the method is called, not

@@ -1,4 +1,4 @@
-//! Port of menu.tsx (the components; the pure helpers are in deckhand_core::display).
+//! Menus (the components; the pure helpers are in deckhand_core::display).
 //!
 //! The one selection style for every picker (a marker plus a full-width inverse, bold bar), picker lists that window
 //! around the selection, the details box and the boxed picker screen (MenuPane). Components become pure row
@@ -421,7 +421,6 @@ mod tests {
         }
     }
 
-    // covers: B-U1-01 fitHint keeps one line: full texts, then short forms, then drops the least important parts
     #[test]
     fn fit_hint_keeps_one_line() {
         let parts = [
@@ -438,7 +437,6 @@ mod tests {
         assert!(js_len(&fit_hint(&parts, 5, " • ")) <= 5);
     }
 
-    // covers: B-U1-02 fitHint can join with another separator
     #[test]
     fn fit_hint_can_join_with_another_separator() {
         let parts = [
@@ -450,7 +448,6 @@ mod tests {
         assert_eq!(fit_hint(&parts, 20, " • "), "o attach • ? help");
     }
 
-    // covers: B-U1-03 menuWindowStart keeps the selection visible
     #[test]
     fn menu_window_start_keeps_the_selection_visible() {
         assert_eq!(menu_window_start(0, 3, 5), 0);
@@ -458,7 +455,6 @@ mod tests {
         assert_eq!(menu_window_start(5, 10, 4), 3);
     }
 
-    // covers: B-U1-04 wrapWords wraps at spaces and cuts words longer than the width
     #[test]
     fn wrap_words_wraps_at_spaces_and_cuts_long_words() {
         assert_eq!(
@@ -469,7 +465,6 @@ mod tests {
         assert_eq!(wrap_words("", 5), [""]);
     }
 
-    // covers: B-U1-05 scrolledListTop: moving up onto a row shows the headings right above it, keeping the selection visible
     #[test]
     fn scrolled_list_top_shows_headings_above_the_selection() {
         // Rows 0 and 1 are headings (a group's name and its note's name), then selectable lines; 5 rows on screen.

@@ -1,4 +1,4 @@
-//! Port of tests/worktreesUi.test.ts: the Worktrees screen (W) in a real PTY, driving the isolated dev launcher.
+//! The Worktrees screen (W) in a real PTY, driving the isolated dev launcher.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;

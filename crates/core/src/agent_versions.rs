@@ -1,5 +1,3 @@
-//! Port of agentVersions.ts.
-//!
 //! Agent versions as pure data: parsing `--version` output, comparing, and what the UI says about them (the Agents
 //! screen U, the sidebar's ↑ marker, the header hint). The daemon's I/O lives in `deckhand_sys::agent_version_check`.
 
@@ -208,7 +206,6 @@ mod tests {
         }
     }
 
-    // covers: B-P1-03 agent versions: each agent's --version output parses to x.y.z; comparison is numeric and ignores suffixes
     #[test]
     fn parses_and_compares_versions() {
         assert_eq!(
@@ -253,7 +250,6 @@ mod tests {
         );
     }
 
-    // covers: B-P1-04 agent versions: status per agent, outdated sessions (running only), the header hint
     #[test]
     fn status_outdated_sessions_and_hint() {
         let info = |fields: Value| info_from(ProgramKey::Claude, fields);

@@ -1,4 +1,4 @@
-//! Port of Ink Key (keypress) model shared by ui input parser and text_editor.
+//! The keypress model (`Key`) shared by the UI's input parser and the text editor.
 //!
 //! Ink 6's `useInput(handler)` calls `handler(input, key)` once per keypress (or once per paste with the whole text):
 //! `key` is the [`Key`] below, built in `node_modules/ink/build/hooks/use-input.js` from `parse-keypress`. The ui

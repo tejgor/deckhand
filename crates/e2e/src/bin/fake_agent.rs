@@ -1,4 +1,4 @@
-//! Port of the helpers.ts `fakeAgent` script: a fake claude/codex/pi.
+//! A fake claude, codex or pi for the black-box tests.
 //!
 //! Install copies of this binary named `claude`/`codex`/`pi` (`harness::install_agent`); the provider is the file name.
 //! It records its argv and input under `$DECKHAND_HOME` and reports SessionStart through `$TEST_CLI hook`. `--version`

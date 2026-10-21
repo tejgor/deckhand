@@ -1,5 +1,3 @@
-//! Port of sessionOrder.ts.
-//!
 //! Session lists: functions that take a list of sessions are generic over [`SessionLike`], so the daemon can pass
 //! its `Ordered<SessionRecord>`s, the UI its `SessionRecord`s, and either can pass a `Vec<&_>` a previous call
 //! returned. Functions that return part of a list return references into it (TS returns the same objects).

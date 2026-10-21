@@ -1,4 +1,4 @@
-//! Port of worker side of the fd-3 NDJSON socketpair (replaces process.send/on('message')).
+//! The worker side of the fd-3 NDJSON socketpair.
 //!
 //! The TS daemon forked each worker with Node's IPC channel and the worker used `process.send`,
 //! `process.on('message')` and `process.on('disconnect')`. The Rust daemon instead hands the worker one end of a

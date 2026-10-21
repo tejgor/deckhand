@@ -1,16 +1,16 @@
-# Terminal goldens (gate for unit T1)
+# Terminal goldens
 
-`src/terminalPreview.ts` on `@xterm/headless` is the oracle; T1 reimplements it on `alacritty_terminal` and must
-reproduce these files.
+What `@xterm/headless` (the emulator the TypeScript version used) rendered for recorded PTY streams.
+`crates/term` reproduces them on `alacritty_terminal`; they are the reference for its correctness. Frozen.
 
 - `streams/<name>.bin` — raw PTY master bytes, exactly as they arrived.
-- `streams/<name>.json` — meta (`parity/gen/streams/format.ts` `StreamMeta`): initial `cols`/`rows`, `chunks` (byte
+- `streams/<name>.json` — meta: initial `cols`/`rows`, `chunks` (byte
   length of each `onData` chunk, in order; they sum to the .bin size), `events` (`resize` / `checkpoint`, each at a byte
   offset on a chunk boundary, applied in listed order), optional `scrollOffsets`, and how it was recorded.
-- `<name>.golden.json` — what the TS oracle produced for that stream (`parity/gen/term.gen.ts`).
+- `<name>.golden.json` — what xterm produced for that stream.
 
-Regenerate: `node --import tsx parity/gen/term.gen.ts` (`--check` exits 1 on drift). Deterministic. Recording new
-streams (`node --import tsx parity/gen/streams/record.ts [name...]`) is separate and changes the inputs.
+The recorder (`parity/gen/term.gen.ts` and `parity/gen/streams/`) is in this repository's history, removed with the
+TypeScript tree.
 
 ## Corpus
 
@@ -32,7 +32,7 @@ streams (`node --import tsx parity/gen/streams/record.ts [name...]`) is separate
 | `synthetic-c1-controls` | synthetic | C1 controls as UTF-8 code points (kept apart: emulators disagree) |
 | `synthetic-scrollback-reflow` | synthetic | wrapped styled lines through resizes in both directions, resize inside the alternate screen |
 
-The real claude, codex and pi were never run; their streams imitate their renderers (`parity/gen/streams/synthetic.ts`).
+The real claude, codex and pi were never run; their streams imitate their renderers.
 
 ## Replay contract (how the goldens were made)
 

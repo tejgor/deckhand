@@ -1,4 +1,4 @@
-//! Port of panes.
+//! Panes: the right pane's views.
 
 pub mod changes;
 pub mod cleanup;

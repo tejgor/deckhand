@@ -584,7 +584,6 @@ mod tests {
         assert!(panes.contains("\"claude_scroll_override\": false"));
     }
 
-    // covers: B-P12-01 help: the Sidebar topic explains every row glyph, the gutter marker, the header and the details
     #[test]
     fn sidebar_topic_explains_every_glyph() {
         let text = topic_text("Sidebar");

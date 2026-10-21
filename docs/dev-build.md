@@ -32,7 +32,7 @@ cargo build -p deckhand && scripts/deckhand-dev.sh stop && scripts/deckhand-dev.
 
 `q` closes only the UI. Reopening reconnects to the dev daemon. A rebuild does not replace an already-running daemon or its workers: stop the **dev** daemon before testing updated daemon/worker code (a daemon speaking another protocol version is refused, not replaced). Dev status/stop never start a daemon, and refuse to control a daemon that is not a dev-channel daemon for this exact namespace (compared by real path).
 
-The full end-to-end checklist, including crash recovery and the switch-over procedure, is [port-smoke.md](port-smoke.md).
+The full end-to-end checklist, including crash recovery, is [smoke-test.md](smoke-test.md).
 
 ## Manual smoke checklist
 

@@ -1,5 +1,3 @@
-//! Port of detailTexts.ts.
-//!
 //! Pure text builders for the scrollable details panes; the details pane wraps them and shows invisible characters.
 //! The cleanup view's file marks and lost-file count (cleanupView.tsx) are here too, since the DELETE screen text
 //! uses them; the cleanup pane renders with them.

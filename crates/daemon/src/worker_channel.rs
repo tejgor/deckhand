@@ -1,4 +1,4 @@
-//! Port of daemon.ts (spawn workers, daemon side of the fd-3 NDJSON channel).
+//! Spawning workers, and the daemon side of the fd-3 NDJSON channel.
 //!
 //! The TS daemon `fork`s `cli.js --session-worker` / `--workspace-worker` and talks to the child over Node's IPC
 //! channel (`process.send` / `child.on('message')`). The port re-executes the running binary with the same flag and

@@ -1,4 +1,4 @@
-//! Port of types.ts (daemon<->worker IPC messages).
+//! Daemon ↔ worker IPC messages.
 //!
 //! The TS daemon forks two kinds of worker over Node's IPC channel (JSON, one message per line): a session worker per
 //! running agent and a workspace worker per worktree (Terminal, Git, Dev and action panes). The Rust port keeps the

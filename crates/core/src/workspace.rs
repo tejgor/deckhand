@@ -1,5 +1,3 @@
-//! Port of workspace.ts.
-//!
 //! A workspace is the git worktree a session runs in. It is derived, never stored: every session in one worktree
 //! shares the workspace's companion panes (Terminal, Git and Dev), which outlive the agents.
 
@@ -140,7 +138,6 @@ mod tests {
         });
     }
 
-    // covers: B-P2-02 workspace key: the worktree a session runs in, none for deleted or unprepared worktrees
     #[test]
     fn workspace_key_cases() {
         let plain = json!({"cwd": "/repos/app", "launchWorktreeRoot": "/repos/app", "worktree": {"mode": "none"}, "requestedWorktreeMode": "none"});

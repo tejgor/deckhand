@@ -1,4 +1,4 @@
-//! Port of projectConfig.ts (file I/O parts).
+//! Project config files: reading and writing them (the pure parts are in deckhand_core::project_config).
 //!
 //! Reading the repository override (the main checkout's live deckhand.json; copies inside linked worktrees are
 //! ignored) together with the creation hook, which are trusted together, and the trust decision for a deckhand.json
@@ -431,7 +431,6 @@ pub(crate) mod tests {
 
     const HOOK_SCRIPT: &str = "#!/bin/bash\ntouch \"$CLAUDE_PROJECT_DIR/hook-ran\"\nexit 1\n";
 
-    // covers: B-I6-01 legacy creation hooks are inspectable, content-trusted and never run by default
     #[test]
     fn legacy_creation_hooks_are_content_trusted() {
         let (_dir, cwd) = repo();
@@ -482,7 +481,6 @@ pub(crate) mod tests {
         serde_json::from_value(value).unwrap()
     }
 
-    // covers: B-I6-05 worktree.hook false: the hook never runs, is not fingerprinted or reviewed; untrusted false disables, untrusted true never enables
     #[test]
     fn worktree_hook_false_disables_the_hook() {
         let (_dir, cwd) = repo();
@@ -576,7 +574,6 @@ pub(crate) mod tests {
         )
     }
 
-    // covers: B-I6-06 the repository override is the main checkout's live deckhand.json; worktree copies are ignored
     #[test]
     fn the_main_checkout_file_is_the_override() {
         let (_dir, cwd) = repo();
@@ -642,7 +639,6 @@ pub(crate) mod tests {
         });
     }
 
-    // covers: B-I6-07 trust keeps several fingerprints per repository, newest first and capped
     #[test]
     fn trust_keeps_several_fingerprints() {
         let (_dir, cwd) = repo();
@@ -677,7 +673,6 @@ pub(crate) mod tests {
         });
     }
 
-    // covers: B-I6-08 trust roots are unique for submodules and bare repositories; bare repositories have no repository override
     #[test]
     fn trust_roots_for_submodules_and_bare_repositories() {
         let (_outer_dir, outer) = repo();
@@ -710,7 +705,6 @@ pub(crate) mod tests {
         });
     }
 
-    // covers: B-I6-09 malformed, oversized and symlinked config errors are not hidden
     #[test]
     fn config_errors_are_not_hidden() {
         let (_dir, cwd) = repo();

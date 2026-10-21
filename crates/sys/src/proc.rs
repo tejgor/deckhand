@@ -1,4 +1,4 @@
-//! Port of child process exec with timeout, killpg (Node `child_process.execFile` as the TS uses it).
+//! Child processes: exec with a timeout, in their own process group, killed as a group.
 //!
 //! [`exec`] runs a program with arguments (never through a shell), an optional cwd, environment additions and stdin
 //! bytes, and captures stdout/stderr up to `max_buffer` bytes each, like `execFile` with `encoding: 'utf8'`. Every

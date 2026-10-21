@@ -1,5 +1,5 @@
-//! Port of the `use*Flow` hook pattern of the *Flow.tsx screens (agents, changes, notes, settings, tasks,
-//! worktrees) and the help guide.
+//! The flow pattern of the screens with their own state (agents, changes, notes, settings, tasks, worktrees) and the
+//! help guide.
 //!
 //! In TS each screen is a hook: it keeps its own state, takes the app's current values and callbacks as options on
 //! every render, and returns `{handleInput, render, hint, open, ...}`. In Rust a screen is a struct implementing

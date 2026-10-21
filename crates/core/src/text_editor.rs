@@ -1,5 +1,3 @@
-//! Port of textEditor.ts.
-//!
 //! The text editor shared by the config editor, the notes editor and the task editor. Cursors and row bounds are
 //! byte offsets on char boundaries (TS: UTF-16 indices; parity fixtures convert, see the unit's `utf16_fields`).
 //! Moving by one "character" moves by one code point, as the TS does by surrogate pair; columns count code points.
@@ -596,7 +594,6 @@ mod tests {
         }
     }
 
-    // covers: B-P11-01 editor inserts, selects/replaces, deletes and indents
     #[test]
     fn inserts_selects_deletes_indents() {
         let mut state = st("abcd", 2);
@@ -616,7 +613,6 @@ mod tests {
         assert_eq!(state.text, "{}\n  ");
     }
 
-    // covers: B-P11-02 arrows and home/end navigate multiline text and Unicode without splitting surrogate pairs
     #[test]
     fn arrows_and_home_end() {
         let mut state = st("abc\nxy\nlong", 2);
@@ -640,7 +636,6 @@ mod tests {
         assert_eq!(state.text, "ab");
     }
 
-    // covers: B-P11-03 paste normalizes newlines and strips terminal control sequences; oversized paste is not applied
     #[test]
     fn paste_normalizes_and_limit() {
         let state = edit(&st("", 0), "\x1b[200~{\r\n}\x1b[201~", json!({}));
@@ -650,7 +645,6 @@ mod tests {
         assert!(limited.message.unwrap_or_default().contains("64 KiB"));
     }
 
-    // covers: B-P11-04 rendering keeps the cursor visible on wrapped boundaries and empty lines
     #[test]
     fn rendering_keeps_cursor_visible() {
         let wrapped = editor_lines(&st("abcd", 4), 4);
@@ -665,7 +659,6 @@ mod tests {
         assert_eq!(empty.lines[0].cursor.as_deref(), Some(" "));
     }
 
-    // covers: B-P11-05 word jumps (Alt/Ctrl+arrows, Alt+B/F), word deletion, and line start/end on Ctrl+A/E without select-all
     #[test]
     fn word_jumps_and_deletion() {
         let text = "fix the  login-bug\nnext";
@@ -706,7 +699,6 @@ mod tests {
         assert_eq!(edit_text(&st("a", 1), "", &key(json!({"tab": true})), &notes).text, "a");
     }
 
-    // covers: B-P11-06 insertions and deletions anywhere; the character limit refuses growth but allows shrinking
     #[test]
     fn insertions_deletions_and_limit() {
         let notes = notes_options();
@@ -741,7 +733,6 @@ mod tests {
         );
     }
 
-    // covers: B-P11-07 soft wrap: words break at spaces, long words mid-word, the cursor gets a row at an exact fit; Up/Down move by visual rows
     #[test]
     fn soft_wrap() {
         let text = "the quick brown fox\nabcdefghij";
@@ -796,7 +787,6 @@ mod tests {
         );
     }
 
-    // covers: B-P11-08 scrolling follows the cursor: only as far as needed, and never past the end
     #[test]
     fn scrolling_follows_cursor() {
         assert_eq!(scroll_top_for(0, 3, 5, 20), 0);

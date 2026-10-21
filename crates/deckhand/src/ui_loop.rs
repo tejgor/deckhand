@@ -1,4 +1,4 @@
-//! Port of cli.ts (ratatui <-> attach/$EDITOR hand-off).
+//! The UI loop and its hand-off to attach or `$EDITOR`.
 //!
 //! The UI process loop: run the ratatui app until it exits with a [`UiExitResult`], then either quit, hand the
 //! terminal to an attached session pane (`deckhand_client::attach::attach_session`) or to the terminal editor for a

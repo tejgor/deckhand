@@ -1,6 +1,6 @@
-//! Port of sidebar.tsx: the session list (header, the filter menu, numbered rows that window around the selection
-//! with `↑ N more` lines, and the selected session's details block). Row contents come from
-//! deckhand_core::sidebar_model; this lays them out and styles them.
+//! The session list (header, the filter menu, numbered rows that window around the selection with `↑ N more` lines, and
+//! the selected session's details block). Row contents come from deckhand_core::sidebar_model; this lays them out and
+//! styles them.
 
 use std::collections::HashSet;
 
@@ -741,7 +741,6 @@ mod tests {
         assert_eq!(lines[4], "│ Press n to create.             │");
     }
 
-    // covers: B-U2-01 Sidebar renders the cursor in the padding column and pins the details to the bottom
     #[test]
     fn sidebar_renders_the_cursor_in_the_padding_column_and_pins_the_details_to_the_bottom() {
         let all = fixture();
@@ -771,7 +770,6 @@ mod tests {
         );
     }
 
-    // covers: B-U2-02 Sidebar with more sessions than fit keeps rows for the details and scrolls the list around the selection
     #[test]
     fn sidebar_with_more_sessions_than_fit_keeps_rows_for_the_details_and_scrolls_the_list() {
         let list = many(40);
@@ -807,7 +805,6 @@ mod tests {
         assert_eq!(more_text("↑", &[]), "");
     }
 
-    // covers: B-U2-03 a scrolling list keeps the same rows whichever session is selected: the details get the largest block any listed session needs
     #[test]
     fn a_scrolling_list_keeps_the_same_rows_whichever_session_is_selected() {
         let list = many(40);
@@ -841,7 +838,6 @@ mod tests {
         assert!(!without.iter().any(|line| line.contains('◆')));
     }
 
-    // covers: B-U2-04 Sidebar with the filter menu open lists every filter with its key and count above the sessions
     #[test]
     fn sidebar_with_the_filter_menu_open_lists_every_filter_with_its_key_and_count() {
         let list = many(3);
@@ -881,7 +877,6 @@ mod tests {
         assert_eq!(narrow[4..], ["  A  a… 0", "  *  a 12"]);
     }
 
-    // covers: B-U2-05 sidebar: ↑ before the agent glyph on outdated running sessions, dropped first; the details name both versions
     #[test]
     fn sidebar_marks_outdated_running_sessions_and_the_details_name_both_versions() {
         // tests/agentVersions.test.ts builds its sessions 3 minutes old.

@@ -1,4 +1,4 @@
-//! Port of tests/hookBridge.test.ts (black-box: drives DECKHAND_TEST_BIN).
+//! The hook bridge (`deckhand hook`), black-box: drives DECKHAND_TEST_BIN.
 
 use std::io::{Read, Write};
 use std::process::Stdio;

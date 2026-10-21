@@ -1,5 +1,5 @@
-//! Port of app.tsx's geometry and frame: the sidebar width rules, the `layout` memo (pane sizes), the header (title,
-//! task count, update hint, connection), the right pane per mode and the two-row footer (key hint and messages).
+//! Geometry and frame: the sidebar width rules, the `layout` memo (pane sizes), the header (title, task count, update
+//! hint, connection), the right pane per mode and the two-row footer (key hint and messages).
 //!
 //! The frame is drawn into a canvas of the layout's full size (header, content, footer) and copied onto the
 //! terminal, so a terminal smaller than the layout clips it as Ink's overflow would, and no pane draws outside a

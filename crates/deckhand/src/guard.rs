@@ -1,4 +1,4 @@
-//! Port of debug-build refusal to use ~/.deckhand.
+//! Debug builds refuse to use ~/.deckhand.
 //!
 //! Not in the TS: the Rust port's debug builds (`target/debug/deckhand`, which tests and agents run) must never touch
 //! the production state directory by accident. The check itself (canonical paths, symlinks, the

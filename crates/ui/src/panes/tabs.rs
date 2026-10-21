@@ -1,4 +1,4 @@
-//! Port of tabs.tsx: the right pane's tab bar (Preview, Terminal, Git, Dev, Notes).
+//! The right pane's tab bar (Preview, Terminal, Git, Dev, Notes).
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

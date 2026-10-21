@@ -1,5 +1,3 @@
-//! Port of tasksBoard.ts.
-//!
 //! The Tasks board (b) as pure data: its rows (one group per worktree, or main-checkout session, with open tasks;
 //! the backlog; done; the folded older done ones; and the open note items not yet tasks), each task's linked sessions
 //! and the state shown for it. A group is keyed by its work (`wt:<record id>` / `s:<session id>`, see
@@ -1540,7 +1538,6 @@ mod tests {
         rows.iter().filter(|row| selectable_row(row)).map(kind_of).collect()
     }
 
-    // covers: B-P6-01 board: a group per worktree with open tasks (first task's order; a lone task is its own heading), then the backlog and done
     #[test]
     fn board_groups_per_worktree() {
         assert_eq!(
@@ -1573,7 +1570,6 @@ mod tests {
         );
     }
 
-    // covers: B-P6-02 board: an empty backlog can be selected, so a adds there when every task is on a worktree
     #[test]
     fn board_empty_backlog_selectable() {
         let rows = board_rows(
@@ -1597,7 +1593,6 @@ mod tests {
         assert_eq!(selectable_kinds(&solo).len(), 1);
     }
 
-    // covers: B-P6-03 board v: only one work's group (even empty) and its done tasks
     #[test]
     fn board_scoped_to_one_work() {
         let tasks = base_tasks();
@@ -1622,7 +1617,6 @@ mod tests {
         );
     }
 
-    // covers: B-P6-04 work keys, labels and where w can move a task
     #[test]
     fn work_keys_labels_and_options() {
         let sessions = base_sessions();
@@ -1659,7 +1653,6 @@ mod tests {
         assert_eq!(work_options(&sessions, None)[0].note, "here");
     }
 
-    // covers: B-P6-05 a session's task: the open one it was started for, then a follow-up; the rest counted
     #[test]
     fn session_linked_task() {
         let (tasks, sessions) = (base_tasks(), base_sessions());
@@ -1679,7 +1672,6 @@ mod tests {
         assert_eq!(linked_task(&tasks, Some(&sessions[0])), None);
     }
 
-    // covers: B-P6-06 the w menu: backlog and the way back to the note pinned, then one view (worktrees or main-checkout sessions), searchable
     #[test]
     fn work_picker_rows() {
         let mut many = base_sessions();
@@ -1729,7 +1721,6 @@ mod tests {
         assert_eq!(picker_view_of(None), PickerView::Worktrees);
     }
 
-    // covers: B-P6-07 a task's origin: the note (session's or shared) still holding its ↗ line, unless done, some work's task, or read-only
     #[test]
     fn task_origin_from_notes() {
         let with_notes = vec![
@@ -1781,7 +1772,6 @@ mod tests {
         a
     }
 
-    // covers: B-P6-08 note items: every session's notes, grouped by worktree (its shared note first) in sidebar order, the main checkout last
     #[test]
     fn note_items_grouped() {
         let shared = |id: &str, text: &str| json!({"sharedNotes": {"kind": "worktree", "id": id, "text": text, "revision": "r"}});
@@ -1825,7 +1815,6 @@ mod tests {
         assert_eq!(note_group_label("main", &all), "main checkout");
     }
 
-    // covers: B-P6-09 the Notes view: every note in full by worktree, then the main checkout; f only open items; v one worktree or session
     #[test]
     fn notes_view() {
         let all = vec![
@@ -2272,7 +2261,6 @@ mod tests {
         );
     }
 
-    // covers: B-P6-10 a work's steps: its note's checklist (open and ticked, not ↗ links or empty items), under the task it was started for
     #[test]
     fn work_steps_from_note() {
         let note = "# Plan\n- [x] Read the spec\n- [ ] Write the parser\n  - [ ] Handle tabs\n- ↗ Docs <!-- dh:t=d0c5 -->\n- [ ] \nprose";
@@ -2383,7 +2371,6 @@ mod tests {
         assert_eq!(crate::notes::toggle_checklist_line(note, 0), None);
     }
 
-    // covers: B-P6-11 sending a note's open items at once: each becomes its ↗ link; the backlog remembers the branch they were left in
     #[test]
     fn sending_open_items() -> Result<(), Box<dyn std::error::Error>> {
         use crate::tasks::{PromotedItem, apply_task_op, promote_open_note_lines};
@@ -2473,7 +2460,6 @@ mod tests {
         Ok(())
     }
 
-    // covers: B-P6-12 ↗ lines say where their task is: in Tasks, done, or no longer in the list
     #[test]
     fn link_lines_say_where_their_task_is() {
         use crate::notes::{NoteRow, NoteRowKind, note_read_rows};
@@ -2507,7 +2493,6 @@ mod tests {
         );
     }
 
-    // covers: B-P6-13 w onto work without a task makes the task that work's (◆); onto work with one, the daemon puts it into its note as a step
     #[test]
     fn assign_onto_work_with_or_without_task() -> Result<(), Box<dyn std::error::Error>> {
         use crate::tasks::{apply_task_op, client_task_op};

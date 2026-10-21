@@ -1,4 +1,4 @@
-//! Port of setup.ts (doctor, stale Codex hook detection).
+//! `deckhand doctor`, including the stale Codex hook check.
 //!
 //! In TS `deckhand doctor` is `deckhand setup`. The port adds one check: Codex's own hook config (`hooks.json` and
 //! `config.toml` in `$CODEX_HOME`, else `~/.codex`) may still call the TS bridge (`node ... cli.js hook`), which no

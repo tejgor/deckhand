@@ -1,4 +1,4 @@
-//! Port of helpers.ts `terminalUi`: runs a program in a real PTY and reads it through a `vt100` screen model.
+//! A real terminal for UI tests: runs a program in a PTY and reads it through a `vt100` screen model.
 //!
 //! `screen()` matches the rendered screen, not the raw stream: a UI may redraw only the cells that changed, so text on
 //! screen need not appear contiguously in the output (and text drawn then erased is gone).

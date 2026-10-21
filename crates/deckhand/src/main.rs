@@ -4,7 +4,7 @@
 //! (`--daemon`), the per-session and per-workspace workers (`--session-worker`, `--workspace-worker`), the agent hook
 //! bridge (`hook`), the hooks config printer (`hooks [codex]`), `setup`/`doctor`, the dev channel's `status`/`stop`,
 //! `--version` and `help`. Whatever the role, the process runs on one current_thread tokio runtime with a `LocalSet`,
-//! so shared state is `Rc<RefCell<..>>` and futures need not be `Send` (docs/port/CONVENTIONS.md, Runtime model).
+//! so shared state is `Rc<RefCell<..>>` and futures need not be `Send` (docs/conventions.md, Runtime model).
 
 mod cli;
 mod doctor;

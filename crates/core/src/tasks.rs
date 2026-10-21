@@ -1,5 +1,3 @@
-//! Port of tasks.ts.
-//!
 //! Tasks as pure data: one Markdown file per repository, parsed into tasks and changed only through TaskOps, which
 //! edit the task blocks in place and keep every other line as written. A task is a top-level checklist item; the
 //! indented lines under it are its body; Deckhand's bookkeeping rides at the end of the item line in a hidden
@@ -1055,7 +1053,6 @@ mod tests {
         Regex::new(pattern).is_ok_and(|regex| regex.is_match(text))
     }
 
-    // covers: B-P5-01 tasks: top-level checklist items with their indented body; other lines are kept as written
     #[test]
     fn parses_tasks_and_keeps_other_lines() {
         let text = "# Tasks\n\nSome prose.\n- [ ] First <!-- dh:t=aaaa1111 wt=w1 added=2026-10-01 -->\n  detail one\n    deeper\n- [x] Second\n  - [ ] a sub-item stays body\nTrailing prose\n";
@@ -1085,7 +1082,6 @@ mod tests {
         ));
     }
 
-    // covers: B-P5-02 task ops: add after the last open task, edit, toggle, move, remove; unknown IDs throw
     #[test]
     fn task_ops() {
         let mut text = apply(
@@ -1132,7 +1128,6 @@ mod tests {
         assert_eq!(reopened, "- [ ] x <!-- dh:t=b wt=w -->\n");
     }
 
-    // covers: B-P5-03 linked work: tick on merge or done, reopen when undone, abandon back to the backlog
     #[test]
     fn linked_work() {
         let mut text = "- [ ] A <!-- dh:t=a wt=w1 -->\n- [ ] B <!-- dh:t=b wt=w1 -->\n- [ ] C <!-- dh:t=c s=s1 -->\n- [x] D <!-- dh:t=d wt=w1 done=2026-10-01 -->\n".to_owned();
@@ -1191,7 +1186,6 @@ mod tests {
         assert_eq!(parse_tasks(&linked.text)[0].meta, meta(json!({"t": "a", "s": "s9"})));
     }
 
-    // covers: B-P5-04 board groups: in progress, backlog, recent done (newest first) and older done
     #[test]
     fn board_groups() {
         let tasks = parse_tasks(
@@ -1213,7 +1207,6 @@ mod tests {
         assert_eq!(names(&groups.older_done), ["old", "undated"]);
     }
 
-    // covers: B-P5-05 notes: a checklist line becomes a link to its task; open items; display without metadata
     #[test]
     fn note_lines() {
         let note = "scratch\n  - [ ] Retry setup when trust changes\nmore";
@@ -1250,7 +1243,6 @@ mod tests {
         assert_eq!(task_prompt(&titled("Fix it", "")), "Fix it");
     }
 
-    // covers: B-P5-06 a work's task: w or add with a link makes it the task of that work (◆), ticked by its merge or done; follow-ups migrate into notes
     #[test]
     fn work_task_and_follow_up_migration() {
         let mut text = "- [ ] Elsewhere <!-- dh:t=b tried=old -->\n".to_owned();
@@ -1353,7 +1345,6 @@ mod tests {
         assert_eq!(append_note_item("", "First", ""), "- [ ] First\n");
     }
 
-    // covers: B-P5-07 client ops: add and assign may carry a link; anything else about links is the daemon's
     #[test]
     fn client_ops() {
         let ok = |raw: Value| {
@@ -1386,7 +1377,6 @@ mod tests {
         ));
     }
 
-    // covers: B-P5-08 a task goes back to the note it was sent from: its ↗ line becomes the item again, details under it
     #[test]
     fn task_back_to_note() {
         let note = "scratch\n  - ↗ Retry setup <!-- dh:t=abcd1234 -->\nmore";

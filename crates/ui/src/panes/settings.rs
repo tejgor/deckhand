@@ -1,6 +1,6 @@
-//! Port of settingsPane.tsx: the Settings screen (C). The grid (one row per setting, one column per layer, the
-//! cursor a cell), the Actions list and the link picker of one layer, each with a details box (or an inline edit
-//! control) under it and one hint line. State and keys live in flows/settings.rs.
+//! The Settings screen (C). The grid (one row per setting, one column per layer, the cursor a cell), the Actions list
+//! and the link picker of one layer, each with a details box (or an inline edit control) under it and one hint line.
+//! State and keys live in flows/settings.rs.
 
 use std::sync::LazyLock;
 
@@ -2994,7 +2994,6 @@ mod scenario_tests {
         assert!(any_contains(&text, "enter save"));
     }
 
-    // covers: B-U5-02 Settings pane, Linked items · Global: the global entries and what your repos share, counted per repo; nothing suggested is preselected
     #[test]
     fn settings_pane_linked_items_global() {
         let info = settings_info(None, global_defaults(), false);

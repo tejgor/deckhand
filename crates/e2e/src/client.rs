@@ -1,4 +1,4 @@
-//! Port of the NDJSON client in src/client.ts (`request`, `LiveClient`), over `serde_json::Value`.
+//! An NDJSON client for the daemon (`request`, a live connection), over `serde_json::Value`.
 //!
 //! Messages are untyped on purpose: a black-box test asserts on the wire shape, not on a Rust model of it.
 

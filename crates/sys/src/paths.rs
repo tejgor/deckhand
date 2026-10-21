@@ -1,4 +1,4 @@
-//! Port of paths.ts (plus the dev-home isolation of scripts/deckhand-dev.sh).
+//! Paths and `DECKHAND_HOME` (plus the dev-home isolation of scripts/deckhand-dev.sh).
 //!
 //! Every Deckhand file lives under one state directory: `DECKHAND_HOME` when set (resolved against the cwd), else
 //! `~/.deckhand`. The environment is read on every call, as the TS reads `process.env` on every call, so a process

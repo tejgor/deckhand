@@ -1,5 +1,4 @@
-//! Port of Ink 6's stdin keypress pipeline (ink/build/input-parser.js, parse-keypress.js, hooks/use-input.js) and of
-//! useTerminalInput.ts.
+//! The stdin keypress pipeline: raw bytes to keys, decoded as Ink 6 decodes them.
 //!
 //! Ink reads stdin with `setEncoding('utf8')` (Node's `StringDecoder`), splits what arrives into one event per key
 //! (input-parser.js: CSI/SS3 sequences, `ESC`+code point, runs of plain text, a trailing lone `ESC` held back until

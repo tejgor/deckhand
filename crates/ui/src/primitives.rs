@@ -1,4 +1,4 @@
-//! Port of the Ink Box/Text behaviour the panes rely on, on ratatui: styled text segments (nested `<Text>` styles),
+//! The Ink Box/Text behaviour the panes rely on, on ratatui: styled text segments (nested `<Text>` styles),
 //! `wrap="truncate*"` (cli-truncate), `wrap="wrap"` (wrap-ansi `{hard: true, trim: false}`), text measuring
 //! (string-width), `borderStyle` borders (render-border.js with cli-boxes) and padding.
 //!

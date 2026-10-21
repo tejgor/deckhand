@@ -1,4 +1,5 @@
-//! Port of ui.ts and the pure helpers of menu.tsx (wrapWords, fitParts, fitHint, menuWindowStart, ...).
+//! Display helpers shared by the panes: wrapping, fitting parts and hints into a width, menu windows (`wrap_words`,
+//! `fit_parts`, `fit_hint`, `menu_window_start`, ...).
 //!
 //! Widths here are TS `.length` (UTF-16 units), as the TS measures them (see `jsstr`); the ratatui renderers in
 //! `deckhand-ui` draw what these produce. Colors are Ink color names (ANSI named colors, so the palette follows the

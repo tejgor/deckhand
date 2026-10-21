@@ -1,5 +1,3 @@
-//! Port of agents.ts.
-//!
 //! One table of what each agent can do and how Deckhand launches it. The daemon decides *which* launch a session
 //! needs ([`relaunch_plan`]); this table only turns a plan into argv and reads the agent's exit screen.
 
@@ -424,7 +422,6 @@ pub(crate) mod tests {
         Some(plan)
     }
 
-    // covers: B-P1-01 each agent builds its create, resume, fork and fresh argv from one table
     #[test]
     fn builds_argv_from_one_table() {
         let new = |reference: Option<AgentSessionRef>, name: &str| LaunchPlan::New {
@@ -485,7 +482,6 @@ pub(crate) mod tests {
         assert!(agent_spec(Claude).forks_across_directories && agent_spec(Pi).forks_across_directories);
     }
 
-    // covers: B-P1-02 relaunch resumes a fork's own conversation and forks the parent again only when it has none
     #[test]
     fn relaunch_forks_parent_only_without_own_conversation() {
         let parent = id(ProgramKey::Claude, "parent");

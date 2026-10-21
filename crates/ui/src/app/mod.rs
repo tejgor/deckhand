@@ -1,4 +1,4 @@
-//! Port of app.tsx.
+//! The app: its state, effects, modes and layout.
 //!
 //! The App component, split by concern: [`state`] holds its state, [`event_loop`] runs it, [`effects`] are its
 //! `useEffect`s and daemon subscription, [`layout`] its geometry, header and footer, and [`modes`] each mode's keys and

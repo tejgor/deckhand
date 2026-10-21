@@ -1,4 +1,4 @@
-//! Port of projectConfigDocument.ts (file I/O parts).
+//! Config documents: file I/O (the pure parts are in deckhand_core::project_config_document).
 //!
 //! C's two editable documents: the user's global defaults (config.json `defaults`, pretty-printed; its revision hashes
 //! that value) and the repository's deckhand.json in the main checkout (its revision hashes the file's bytes). Saves
@@ -372,7 +372,6 @@ mod tests {
         std::fs::metadata(file).unwrap().permissions().mode() & 0o777
     }
 
-    // covers: B-I6-10 opening a missing config is side-effect free; explicit save creates a valid starter
     #[test]
     fn missing_config_opens_without_side_effects() {
         let (_dir, cwd) = repo();
@@ -403,7 +402,6 @@ mod tests {
         });
     }
 
-    // covers: B-I6-11 malformed JSON can be opened/repaired; invalid drafts never overwrite it
     #[test]
     fn malformed_json_can_be_repaired() {
         let (_dir, cwd) = repo();
@@ -432,7 +430,6 @@ mod tests {
         });
     }
 
-    // covers: B-I6-12 saving keeps the file permissions
     #[test]
     fn saving_keeps_the_file_permissions() {
         let (_dir, cwd) = repo();
@@ -453,7 +450,6 @@ mod tests {
         assert_eq!(mode(&file), 0o660);
     }
 
-    // covers: B-I6-13 a stale draft cannot replace an externally changed, created or removed file
     #[test]
     fn stale_drafts_never_replace_the_file() {
         let (_dir, cwd) = repo();
@@ -486,7 +482,6 @@ mod tests {
         });
     }
 
-    // covers: B-I6-14 simultaneous saves with one revision have exactly one winner
     #[test]
     fn simultaneous_saves_have_one_winner() {
         let (_dir, cwd) = repo();
@@ -503,7 +498,6 @@ mod tests {
         });
     }
 
-    // covers: B-I6-15 from a linked worktree, the editor opens and saves the main checkout's file
     #[test]
     fn linked_worktrees_edit_the_main_checkout_file() {
         let (_dir, cwd) = repo();
@@ -531,7 +525,6 @@ mod tests {
         );
     }
 
-    // covers: B-I6-16 symlinked and oversized configs are rejected without modifying their targets
     #[test]
     fn symlinked_and_oversized_configs_are_rejected() {
         let (_dir, cwd) = repo();
@@ -596,7 +589,6 @@ mod tests {
         .unwrap();
     }
 
-    // covers: B-I6-17 saves through Deckhand keep a trusted (or new) deckhand.json trusted; unreviewed bytes, outside edits and creation hooks still need review
     #[test]
     fn deckhand_saves_keep_trust() {
         use deckhand_protocol::data::SaveTrust;
@@ -704,7 +696,6 @@ mod tests {
         serde_json::to_value(resolve_settings(None, user, config_dir).unwrap()).unwrap()
     }
 
-    // covers: B-I6-18 global defaults round-trip through config.json, keep other keys, and are validated with a revision check
     #[test]
     fn global_defaults_round_trip() {
         let home = tempfile::tempdir().unwrap();

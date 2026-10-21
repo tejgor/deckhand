@@ -1,7 +1,6 @@
-//! Port of notesFlow.tsx: the Notes tab's state. One draft per note (a shared note is one draft for every session
-//! showing it, so its cursor and unsaved text follow it), debounced revision-checked saves, reloads when the file
-//! changed elsewhere, and the keys of notes focus (Enter). The daemon owns the files; records carry their text and
-//! revision.
+//! The Notes tab's state. One draft per note (a shared note is one draft for every session showing it, so its cursor
+//! and unsaved text follow it), debounced revision-checked saves, reloads when the file changed elsewhere, and the keys
+//! of notes focus (Enter). The daemon owns the files; records carry their text and revision.
 
 use std::cell::RefCell;
 use std::collections::HashMap;

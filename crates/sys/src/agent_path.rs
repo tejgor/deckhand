@@ -1,4 +1,4 @@
-//! Port of agentSignals.ts (process/PATH parts).
+//! Agent signals: the process and PATH lookups (the pure parts are in deckhand_core::agent_signals).
 //!
 //! What launches pass an agent so it reports its lifecycle to Deckhand: the `deckhand hook` command line (this
 //! executable), the hook settings built on it (`deckhand_core::agent_signals::hook_settings_for`), and the
@@ -314,7 +314,6 @@ mod tests {
         assert_eq!(hook_command_from(&["it's"]), r"'it'\''s' 'hook'");
     }
 
-    // covers: B-I7-02 dev Codex requires native-daemon isolation even when lifecycle hooks are off
     #[test]
     fn dev_codex_requires_native_daemon_isolation_even_when_hooks_are_off() {
         let directory = tempfile::tempdir().unwrap();

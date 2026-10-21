@@ -1,5 +1,3 @@
-//! Port of notesStore.ts.
-//!
 //! The daemon's notes: one Markdown file per note under the state directory (the single source of truth), held in
 //! memory and projected into the session records it sends. Files are written atomically (temp file + rename), saves
 //! are revision-checked against the file as it is on disk, and the directories are watched (notify) so edits made in
@@ -964,7 +962,6 @@ pub(crate) mod tests {
     }
 
     // Deferred to I2 by P3 (tests/notes.test.ts).
-    // covers: B-I2-05 a removed note goes to the trash under a name that says when and what it belonged to
     #[test]
     fn a_removed_note_goes_to_the_trash_under_a_name_that_says_when_and_what_it_belonged_to() {
         let at = |iso| parse_iso(iso).expect("date");

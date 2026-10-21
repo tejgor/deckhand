@@ -1,5 +1,3 @@
-//! Port of settingsModel.ts.
-//!
 //! The Settings screen (C) as pure data: a grid with one row per setting and one column per layer (global defaults,
 //! this repo's deckhand.json), each cell that layer's own value and whether it applies (from explainSettings); the
 //! options of each control; and the edits as JSON written into the selected column's document.
@@ -3026,7 +3024,6 @@ mod tests {
         }
     }
 
-    // covers: B-P9-02 Agent signals and Notifications are global only (config.json flags); Agent signals warns when Codex's hooks do not call this Deckhand
     #[test]
     fn global_only_flags() {
         // Detection (codexHookCommands / codexHookState) is settingsInfo.ts, ported and tested with I7.
@@ -3272,7 +3269,6 @@ mod tests {
         assert_eq!(apply(json!({}), add("web", "  ")), Err(String::from("Type a command")));
     }
 
-    // covers: B-P9-03 the grid opens on This repo when there is a repository layer, else Global; each layer's Actions list shows the other layer's as context
     #[test]
     fn initial_column_and_layer_actions() {
         let info = settings_info(Some(REPO), Some(global()), false, None);
@@ -3334,7 +3330,6 @@ mod tests {
         );
     }
 
-    // covers: B-P9-04 edits become one key in one layer, preserving every other key and its place; invalid values are rejected
     #[test]
     fn edits_preserve_other_keys() {
         use SettingId::*;
@@ -3599,7 +3594,6 @@ mod tests {
         );
     }
 
-    // covers: B-P9-05 adding an action: the name is checked live (rules, existing names in either layer, the per-layer limit); commands must be non-empty
     #[test]
     fn action_name_checks() {
         let info = settings_info(
@@ -3675,7 +3669,6 @@ mod tests {
         );
     }
 
-    // covers: B-P9-06 the status after a save says whether the repository file is still trusted
     #[test]
     fn saved_messages() {
         let trust = |trust| SavedMessageOptions {
@@ -3715,7 +3708,6 @@ mod tests {
         );
     }
 
-    // covers: B-P9-07 link picker: candidates classified and preselected; the selection rewrites only the target layer's symlink list
     #[test]
     fn link_picker_selection() {
         // classifyCandidate (settingsInfo.ts) is ported and tested with I7; its results for these entries are spelled out.

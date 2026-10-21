@@ -1,6 +1,6 @@
-//! Port of app.tsx's run list (r, pick-action): the worktree's Dev command first (when the session has a
-//! workspace), then the repository's actions; untrusted repository ones are reviewed when chosen. x stops the
-//! worktree's running action. ActionPickerPane renders it.
+//! Run list (r, pick-action): the worktree's Dev command first (when the session has a workspace), then the
+//! repository's actions; untrusted repository ones are reviewed when chosen. x stops the worktree's running action.
+//! ActionPickerPane renders it.
 //!
 //! Not in the TS: with named Dev processes (`devCommand` as a map), a row for each follows the Dev row. Enter starts that
 //! process alone, or restarts it while it runs; x stops it.

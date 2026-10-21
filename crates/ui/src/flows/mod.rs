@@ -1,4 +1,4 @@
-//! Port of flows.
+//! Screens with their own state (flows).
 
 pub mod agents;
 pub mod changes;

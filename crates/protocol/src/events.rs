@@ -1,4 +1,4 @@
-//! Port of types.ts (daemon->client responses and events).
+//! Daemon → client responses and events.
 //!
 //! Everything the daemon writes to a client socket is a [`ServerMessage`]: a [`ServerResponse`] to a request, or a
 //! push event. A response's `data` stays a JSON value in the envelope (its shape depends on the request it answers);

@@ -1,5 +1,3 @@
-//! Port of changesModel.ts.
-//!
 //! The Git tab's Changes view as pure data: VS Code-style groups built from porcelain-v2 status plus numstat, the
 //! rows and selection the pane shows, and the diff preview's line classification and first changed line. Git I/O
 //! lives in `deckhand_sys::changes_git`; the records it produces are `deckhand_protocol` types.
@@ -666,7 +664,6 @@ mod tests {
         }
     }
 
-    // covers: B-P7-01 Changes groups follow VS Code: conflicts, staged, unstaged, untracked; partially staged files are in both
     #[test]
     fn groups_follow_vs_code() {
         // Porcelain v2 -z: an ordinary change (partially staged), a staged rename with spaces, a staged deletion, an
@@ -776,7 +773,6 @@ mod tests {
         assert_eq!(stage_mode(text), StageMode::Stage);
     }
 
-    // covers: B-P7-02 the cap keeps group order, full counts and "+N more" rows
     #[test]
     fn cap_keeps_group_order() {
         let mut entries = ordinary(&[("M.", "s1"), ("M.", "s2"), (".M", "u1")]);
@@ -811,7 +807,6 @@ mod tests {
         );
     }
 
-    // covers: B-P7-03 selection stays on the same group and path across refreshes, else the same position
     #[test]
     fn selection_stays_across_refreshes() {
         let select = |key: &str, index: usize, offset: Option<usize>| PreviousSelection {
@@ -843,7 +838,6 @@ mod tests {
         assert_eq!(reselect(&[], &PreviousSelection::default()), None);
     }
 
-    // covers: B-P7-04 labels put the name first; renames read old → new
     #[test]
     fn labels_put_the_name_first() {
         assert_eq!(label_of("src/ui/app.tsx", None), label("app.tsx", "src/ui"));
@@ -856,7 +850,6 @@ mod tests {
         assert_eq!(label_of("vendor/nested/", None), label("nested/", "vendor"));
     }
 
-    // covers: B-P7-05 first changed line: the new-side line of the first hunk's first change
     #[test]
     fn first_changed_line_new_side() {
         let unified = [
@@ -901,7 +894,6 @@ mod tests {
         assert_eq!(first_changed_line(""), 1);
     }
 
-    // covers: B-P7-06 diff lines are classified for colour; header lines only before the first hunk
     #[test]
     fn diff_lines_are_classified() {
         use DiffLineKind::{Add, Context, Del, Hunk, Meta};

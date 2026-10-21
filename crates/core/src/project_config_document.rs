@@ -1,4 +1,5 @@
-//! Port of projectConfigDocument.ts (pure parts).
+//! Config documents (a layer's raw JSON and its revision): the pure parts (file I/O is in
+//! deckhand_sys::config_document).
 //!
 //! C's two config documents: the global defaults (config.json `defaults`) and the repository's deckhand.json. Reading
 //! and saving them is I/O and lives in `deckhand_sys::config_document`; the document types are deckhand-protocol's.

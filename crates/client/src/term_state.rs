@@ -1,5 +1,3 @@
-//! Port of terminalState.ts.
-//!
 //! Undoes the terminal modes a TUI may have left enabled (mouse reporting, bracketed paste, keyboard protocols,
 //! scroll region, ...) when control of the outer terminal changes hands.
 

@@ -1,4 +1,4 @@
-//! Port of tests/devLauncher.test.ts: the isolated dev launcher, `scripts/deckhand-dev.sh`.
+//! The isolated dev launcher, `scripts/deckhand-dev.sh`.
 //!
 //! The launcher's `isolatedHome` / `createSandbox` exports are its `isolated_home` / `create_sandbox` shell
 //! functions, reached by sourcing the script with `DECKHAND_DEV_LIB=1`. Every run gets a temp `HOME` (the TS test
@@ -121,7 +121,6 @@ fn ping(home: &Path) -> Option<serde_json::Value> {
     }
 }
 
-// covers: B-S1-01 dev isolation rejects production paths and symlink aliases
 #[test]
 fn dev_isolation_rejects_production_paths_and_symlink_aliases() {
     let temp = tempfile::tempdir().expect("temp dir");
@@ -168,7 +167,6 @@ fn dev_isolation_rejects_production_paths_and_symlink_aliases() {
     assert!(allowed.status.success(), "stderr: {}", text(&allowed.stderr));
 }
 
-// covers: B-S1-02 dev sandbox does not overwrite existing work and is built aside
 #[test]
 fn dev_sandbox_does_not_overwrite_existing_work_and_is_built_aside() {
     let temp = tempfile::tempdir().expect("temp dir");
@@ -222,7 +220,6 @@ fn dev_sandbox_does_not_overwrite_existing_work_and_is_built_aside() {
     );
 }
 
-// covers: B-S1-03 dev status/stop control only the isolated dev daemon; source helpers resolve outside the checkout
 #[test]
 fn dev_status_stop_control_only_the_isolated_dev_daemon() {
     // HOME is a temp dir, so "production" (~/.deckhand) is a throwaway stable daemon, never the user's.

@@ -1,4 +1,4 @@
-//! Port of KeyedQueue, Coalescer, SharedSlot, Timer (JS promise-chain idioms).
+//! Async coordination: `KeyedQueue`, `Coalescer`, `SharedSlot`, `Timer`.
 //!
 //! The TS daemon leans on a few promise idioms; these are their single-threaded Rust forms for a tokio
 //! `current_thread` runtime with a `LocalSet` (nothing here is `Send`):

@@ -1,5 +1,3 @@
-//! Port of notes.ts.
-//!
 //! Notes as pure data: identities, revisions, Markdown checklists and the Notes tab's layout. The daemon keeps the
 //! files (`deckhand_sys::notes_store`); the UI edits them (notes flow) and renders them (notes pane).
 //!
@@ -880,7 +878,6 @@ mod tests {
 
     // ── Ported TS tests ─────────────────────────────────────────────────────────────────────────────────────────
 
-    // covers: B-P3-01 checklists: -, * and + items, indented, [x] and [X]; counts
     #[test]
     fn checklists_items_and_counts() {
         assert_eq!(
@@ -916,7 +913,6 @@ mod tests {
         assert_eq!(checklist_label(Some("nothing")), "");
     }
 
-    // covers: B-P3-02 ctrl+x toggles the cursor line's item or makes the line one; ctrl+t and enter add items
     #[test]
     fn ctrl_x_toggles_and_ctrl_t_enter_add_items() {
         assert_eq!(
@@ -945,7 +941,6 @@ mod tests {
         assert_eq!(continue_checklist(&editor("plain", 5)), None);
     }
 
-    // covers: B-P3-03 read mode: wrapped rows, ☐/☑ items with a hanging indent, headings, and +N more lines when cut
     #[test]
     fn read_mode_rows_and_more_lines() {
         use NoteRowKind::{Done, Heading, More, Open};
@@ -991,7 +986,6 @@ mod tests {
         assert_eq!(fit_read_rows(note, 0), Vec::<NoteRow>::new());
     }
 
-    // covers: B-P3-04 the two sections share the height: needs when they fit, else a minimum each and a proportional split favouring focus
     #[test]
     fn sections_share_the_height() {
         let budget = |shared, session| SectionBudget { shared, session };
@@ -1015,7 +1009,6 @@ mod tests {
         assert_eq!(budget_sections(12, None, 40, None), budget(0, 12));
     }
 
-    // covers: B-P3-05 one note per worktree: a session there shows only the worktree's (unless it still has its own); merging keeps every word
     #[test]
     fn one_note_per_worktree() {
         let at = json!({"worktree": {"mode": "managed", "id": "w1", "path": "/wt"}});
@@ -1040,7 +1033,6 @@ mod tests {
         assert_eq!(merge_into_worktree_note("kept", &[]), "kept");
     }
 
-    // covers: B-P3-06 shared note identity: the worktree record, else the main checkout's repository note; none while preparing
     #[test]
     fn shared_note_identity_worktree_else_repo() {
         let identity = |kind, id: &str| {

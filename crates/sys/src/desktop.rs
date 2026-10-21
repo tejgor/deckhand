@@ -1,5 +1,3 @@
-//! Port of desktop.ts.
-//!
 //! Opening things outside the terminal UI: a file in Cursor or VS Code (at a line), an https URL in the browser, and
 //! choosing the terminal editor for notes (o on Notes) with its arguments. GUI helpers are spawned detached (their own
 //! session, stdio ignored) so their lifetime is never tied to the UI; failures are reported through `on_error`.
@@ -211,7 +209,6 @@ mod tests {
             .collect()
     }
 
-    // covers: B-I8-01 the terminal editor is $VISUAL, then $EDITOR (with its arguments), else a vi found on PATH
     #[test]
     fn terminal_editor_is_visual_then_editor_else_vi() {
         assert_eq!(
@@ -233,7 +230,6 @@ mod tests {
         }
     }
 
-    // covers: B-I8-02 vim-family editors source the notes script after the note loads; others only get the file
     #[test]
     fn vim_family_editors_source_the_notes_script() {
         assert_eq!(

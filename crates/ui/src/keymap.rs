@@ -1,5 +1,4 @@
-//! Port of the keys as data (what keysDocumented.test.ts read from the handlers' source) and the keymap ↔ help
-//! coverage rules.
+//! The keys as data, and the rules that keep the keymap and the help guide in step.
 //!
 //! TS checked that every `input === 'x'` a handler tests appears in the ? guide (src/help.ts) by scanning
 //! app.tsx / tasksFlow.tsx / worktreesFlow.tsx. Rust handlers cannot be scanned that way, so each mode and flow
@@ -291,7 +290,6 @@ mod tests {
         ]
     }
 
-    // covers: B-U6-01 every key the browse view handles has a line in the ? guide
     #[test]
     fn every_key_the_browse_view_handles_has_a_line_in_the_guide() {
         assert!(!handled_chars(browse::KEYMAP).is_empty());
@@ -303,7 +301,6 @@ mod tests {
         );
     }
 
-    // covers: B-U6-02 every key the Tasks board handles is in the guide's Tasks topic
     #[test]
     fn every_key_the_tasks_board_handles_is_in_the_guides_tasks_topic() {
         assert!(find_topic("Tasks").is_some());
@@ -316,7 +313,6 @@ mod tests {
         );
     }
 
-    // covers: B-U6-03 every key the worktree manager handles is in the guide's Worktrees topic
     #[test]
     fn every_key_the_worktree_manager_handles_is_in_the_guides_worktrees_topic() {
         assert!(find_topic("Worktrees").is_some());

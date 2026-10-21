@@ -1,4 +1,4 @@
-//! Port of daemon.ts (agent versions, updates).
+//! The daemon's agent versions and updates.
 //!
 //! The installed and latest version of every agent (agentVersionCheck.ts), broadcast to subscribed clients when they
 //! change; the latest releases are looked up in the background at start and then on a timer.

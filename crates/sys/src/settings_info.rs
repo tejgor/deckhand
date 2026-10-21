@@ -1,5 +1,3 @@
-//! Port of settingsInfo.ts.
-//!
 //! Daemon-side readers for the Settings screen (C): the effective settings with their sources plus both editable
 //! documents, the link candidates of the main checkout (or, for the Global column, the paths shared by the user's
 //! repositories) and their bounded sizes. Saving goes through save-config. The records are deckhand-protocol's.
@@ -1188,7 +1186,6 @@ mod tests {
         });
     }
 
-    // covers: B-I7-01 global link candidates: global entries with the repos that have them, then paths two or more repos share (no build output); worktrees count as their repo
     #[test]
     fn global_link_candidates_global_entries_then_shared_paths_worktrees_count_as_their_repo() {
         let home = tempfile::Builder::new()

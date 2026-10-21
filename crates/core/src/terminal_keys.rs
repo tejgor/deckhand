@@ -1,5 +1,3 @@
-//! Port of terminalKeys.ts.
-//!
 //! Ink labels ASCII DEL (the usual Backspace byte) and Kitty's Backspace codepoint 127 as `delete`. Forward Delete
 //! is a distinct CSI 3~ sequence. Alt+Backspace arrives as ESC DEL (or ESC BS): a backspace with meta.
 
@@ -67,7 +65,6 @@ mod tests {
         }
     }
 
-    // covers: B-P11-09 terminal Backspace bytes and Kitty codepoint delete left, not right
     #[test]
     fn backspace_bytes_delete_left() {
         for sequence in ["\x08", "\x7f", "\x1b[127u", "\x1b[127;1u", "\x1b[127;1:2u", "\x1b[8;1u"] {
@@ -81,7 +78,6 @@ mod tests {
         }
     }
 
-    // covers: B-P11-10 real forward Delete retains its direction and modifiers
     #[test]
     fn forward_delete_retained() {
         for sequence in ["\x1b[3~", "\x1b[3;2~", "\x1b[3;1:1~"] {

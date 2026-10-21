@@ -1,5 +1,4 @@
-//! Port of tests/settingsUi.test.ts: Settings (C), Help (?) and the Dev/action flows in a real PTY, driving the
-//! isolated dev launcher.
+//! Settings (C), Help (?) and the Dev/action flows in a real PTY, driving the isolated dev launcher.
 
 use std::fs;
 use std::path::Path;

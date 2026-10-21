@@ -1,4 +1,4 @@
-//! Port of daemon.ts (project config, settings, trust).
+//! The daemon's project config, settings and trust.
 //!
 //! The Settings view's requests: the repository's deckhand.json and the global defaults (read, saved revision-checked,
 //! never running anything), trusting a reviewed repository configuration, the worktree link candidates, and the branch

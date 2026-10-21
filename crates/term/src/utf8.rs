@@ -1,4 +1,4 @@
-//! Port of streaming UTF-8 decoder (string_decoder).
+//! A streaming UTF-8 decoder.
 //!
 //! node-pty hands PTY output to JS through `socket.setEncoding('utf8')`, i.e. Node's `StringDecoder('utf8')`, and the
 //! daemon/client/cli decode their sockets the same way. This is a byte-for-byte port of Node's C++

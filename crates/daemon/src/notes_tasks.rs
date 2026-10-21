@@ -1,4 +1,4 @@
-//! Port of daemon.ts (notes and tasks).
+//! The daemon's notes and tasks.
 //!
 //! Notes live in files (notesStore.ts); the daemon projects each session's own note and the note its worktree (or main
 //! checkout) shares into the session, and re-broadcasts sessions when a note changes, also outside Deckhand. Tasks:

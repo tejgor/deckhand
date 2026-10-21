@@ -1,4 +1,4 @@
-//! Port of tests/mergeUi.test.ts.
+//! Merging from the UI in a real PTY.
 
 use std::fs;
 

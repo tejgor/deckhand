@@ -1,4 +1,4 @@
-//! Port of worktreeLinks.ts (file I/O parts).
+//! Worktree links: file I/O (the pure parts are in deckhand_core::worktree_links).
 //!
 //! Applying `worktree.symlink` and `worktree.files` to a newly created worktree, and `userSlug` (which reads the OS
 //! user). Templates, validation and merging are pure and live in `deckhand_core::worktree_links`; LinkResult is
@@ -264,7 +264,6 @@ mod tests {
         }
     }
 
-    // covers: B-I6-02 worktree templates expand known placeholders; validation rejects escapes; merge rules and trust
     #[test]
     fn templates_validation_merge_and_trust() {
         use deckhand_core::project_config::{resolve_settings, trust_project_config, validate_project_config};
@@ -341,7 +340,6 @@ mod tests {
         assert_eq!(worktree_of(&AppConfig::default(), None), Value::Null);
     }
 
-    // covers: B-I6-03 links resolve real targets, skip missing sources, keep real content and refuse escapes; cleanup treats them as disposable and removal keeps targets
     #[test]
     fn links_resolve_real_targets_and_refuse_escapes() {
         use crate::config::tests::{exists, real, repo, tgit};
@@ -432,7 +430,6 @@ mod tests {
             .unwrap_or_default()
     }
 
-    // covers: B-I6-04 branchFrom current/default/origin and branchName templates decide the new branch; baseRef records the base; fetch failures fail creation
     #[test]
     fn branch_from_and_branch_name_decide_the_new_branch() {
         use crate::config::tests::{exists, real, repo, tgit};

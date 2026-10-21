@@ -1,6 +1,6 @@
-//! Port of changesPane.tsx: the Git tab's rendering. The Changes list of the session's workspace (browse: the list
-//! alone, read-only; focus: a selectable list plus the selected entry's diff, side by side when wide enough, stacked
-//! otherwise). State and keys live in flows/changes.rs; lazygit is only attached (o).
+//! The Git tab's rendering. The Changes list of the session's workspace (browse: the list alone, read-only; focus: a
+//! selectable list plus the selected entry's diff, side by side when wide enough, stacked otherwise). State and keys
+//! live in flows/changes.rs; lazygit is only attached (o).
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

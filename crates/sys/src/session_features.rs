@@ -1,4 +1,4 @@
-//! Port of sessionFeatures.ts (file I/O parts).
+//! Session features: file I/O (the pure parts are in deckhand_core::session_features).
 //!
 //! Exporting a handoff: the Markdown (pure, `deckhand_core::session_features::handoff_markdown`) written to
 //! `<home>/handoffs/<session id>-<8 hex>.md` (directory 0700, file 0600, never overwriting).

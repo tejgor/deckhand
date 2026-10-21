@@ -1,5 +1,5 @@
-//! Port of app.tsx's filter menu (f): a filter's key picks it, f goes back to active, j/k show each filter as they
-//! move, Enter keeps the shown one and Esc restores the filter and selection the menu was opened on.
+//! Filter menu (f): a filter's key picks it, f goes back to active, j/k show each filter as they move, Enter keeps the
+//! shown one and Esc restores the filter and selection the menu was opened on.
 
 use deckhand_core::jsstr::js_len;
 use deckhand_core::key::Input;

@@ -1,8 +1,7 @@
 //! deckhand-protocol: the wire and on-disk formats shared by the daemon, its workers and clients.
 //!
-//! Port of types.ts and the message/record shapes built in daemon.ts, sessionWorker.ts, client.ts, storage.ts and
-//! uiState.ts. Serialisation reproduces the TS output byte for byte (key order included); see [`order`] for how
-//! history-dependent key order is kept.
+//! Serialisation keeps the existing formats byte for byte, key order included; see [`order`] for how history-dependent
+//! key order is kept.
 
 pub mod data;
 pub mod events;

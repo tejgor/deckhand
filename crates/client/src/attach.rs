@@ -1,5 +1,3 @@
-//! Port of attach.ts.
-//!
 //! `deckhand attach` (and the UI's handoff to an attached pane) proxies the outer terminal to one PTY in the daemon:
 //! stdin goes up as `<pane>-input`, `<pane>-output` comes down to stdout, resizes follow the outer terminal. Ctrl+Space
 //! (NUL, or its CSI-u / modifyOtherKeys encodings) or Ctrl+] (0x1d) detaches. Output is cleaned on the way down (8-bit

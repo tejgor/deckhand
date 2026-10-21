@@ -1,4 +1,4 @@
-//! Port of devPane.tsx: the Dev tab (the workspace's Dev command, shared by every session in the worktree).
+//! The Dev tab (the workspace's Dev command, shared by every session in the worktree).
 //!
 //! Not in the TS: named Dev processes (`devCommand` as a map) split the tab into one cell per process, side by side while
 //! each column stays at least [`MIN_DEV_COLUMN`] wide, stacked otherwise. Every cell is the same size, and so is

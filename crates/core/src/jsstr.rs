@@ -1,4 +1,4 @@
-//! Port of JS string semantics: UTF-16 length/slice, localeCompare.
+//! JavaScript string semantics: UTF-16 length and slicing, `localeCompare`.
 //!
 //! TS strings are UTF-16; Rust strings are UTF-8. Everything here takes and returns UTF-16 code-unit indices where
 //! the JS original does, so a ported `text.slice(0, width - 1)` is `js_slice(text, 0, Some(width - 1))`.

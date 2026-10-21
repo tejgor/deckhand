@@ -1,4 +1,4 @@
-//! Port of tests/daemonFeatures.test.ts (black-box: drives DECKHAND_TEST_BIN against a real daemon with fake agents).
+//! Daemon features, black-box: drives DECKHAND_TEST_BIN against a real daemon with fake agents.
 //!
 //! Like the TS file this is one scenario: the subtests share a repository, a daemon and its state and run in order.
 //! The TS-only helpers (`loadState`, `updateAppConfig`, `workspaceKey`, `applyChange`, `linkSelection`, ...) are small

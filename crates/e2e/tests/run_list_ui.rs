@@ -1,4 +1,4 @@
-//! Port of tests/runListUi.test.ts: the run list (r) in a real PTY, driving the isolated dev launcher.
+//! The run list (r) in a real PTY, driving the isolated dev launcher.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;

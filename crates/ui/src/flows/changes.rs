@@ -1,6 +1,5 @@
-//! Port of changesFlow.tsx: the Git tab's Changes view. Selection (kept by group + path across refreshes), the
-//! selected entry's diff, and the focus-mode keys (→). The record itself is watched by the app like the other panes
-//! (watch-changes, changes-updated).
+//! The Git tab's Changes view. Selection (kept by group + path across refreshes), the selected entry's diff, and the
+//! focus-mode keys (→). The record itself is watched by the app like the other panes (watch-changes, changes-updated).
 
 use std::cell::RefCell;
 use std::rc::Rc;

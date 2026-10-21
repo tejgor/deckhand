@@ -1,4 +1,4 @@
-//! Port of cli.ts (`deckhand hooks`).
+//! `deckhand hooks`.
 //!
 //! Prints the hooks config a user saves into an agent's own settings (Codex: `~/.codex/hooks.json`, see
 //! `deckhand hooks codex`). The JSON is `JSON.stringify(hookSettings(), null, 2)` with plain (not async) entries,

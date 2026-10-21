@@ -1,4 +1,4 @@
-//! Port of daemon.ts (Git tab: changes, staging, commits).
+//! The daemon's Git tab: changes, staging, commits.
 //!
 //! The Git tab's Changes view of one workspace: no worker or PTY, just Git run by the daemon (changesGit.ts). A
 //! workspace is polled while at least one client watches one of its sessions, pushing only changed records; every

@@ -1,5 +1,3 @@
-//! Port of worktreeRecords.ts.
-//!
 //! Merge and deletion markers describe a linked worktree, which several sessions can share. They live in one
 //! WorktreeRecord per worktree incarnation (state.json `worktrees`); each session in it stores only the record's ID
 //! (`worktree.id`). The daemon projects the record's markers into the sessions it holds and sends
@@ -749,7 +747,6 @@ mod tests {
         body().unwrap_or_else(|error| Outcome::throws(format!("harness: {error}")))
     }
 
-    // covers: B-P2-03 migration lifts per-session worktree markers into one record per worktree incarnation
     #[test]
     fn migration_lifts_markers_into_records() {
         let mut new_id = counter();
@@ -828,7 +825,6 @@ mod tests {
         assert_eq!(again.worktrees, worktrees);
     }
 
-    // covers: B-P2-04 migration repairs stored state: stray markers dropped, missing records rebuilt, unreferenced records removed
     #[test]
     fn migration_repairs_stored_state() {
         let stray = session("s", 1, managed(json!({"id": "kept", "mergedAt": at(3)})), json!({}));
@@ -869,7 +865,6 @@ mod tests {
         );
     }
 
-    // covers: B-P2-05 done migration: main-checkout merge markers become doneAt and go; worktree records and their sessions are untouched; idempotent
     #[test]
     fn done_migration() {
         // The pure half of the TS test; its state-file half (loadState / markAllNonExitedSessionsExited) runs in I1.

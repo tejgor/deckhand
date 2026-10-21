@@ -1,4 +1,4 @@
-//! Port of setup.ts.
+//! `deckhand setup`: finds the agents and offers to install the missing ones.
 //!
 //! `deckhand setup [--check] [--yes|-y]`: reports which agents (and the optional lazygit) are on the user's PATH as
 //! their interactive shell sees it (`$SHELL -ic 'command -v <tool>'`), and offers to run each missing agent's

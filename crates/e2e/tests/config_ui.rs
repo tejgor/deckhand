@@ -1,4 +1,4 @@
-//! Port of tests/configUi.test.ts.
+//! Settings and the raw config editor in a real PTY.
 
 use std::fs;
 use std::path::Path;

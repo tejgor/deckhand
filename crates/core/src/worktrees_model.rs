@@ -1,5 +1,3 @@
-//! Port of worktreesModel.ts.
-//!
 //! W, the worktree manager (the worktrees flow renders it): the repository's worktrees grouped by what to do with
 //! them. Times are milliseconds since the epoch.
 
@@ -416,7 +414,6 @@ mod tests {
 
     const NONE: &[SessionRecord] = &[];
 
-    // covers: B-P4-06 worktrees are grouped by what to do with them
     #[test]
     fn worktrees_are_grouped() {
         let now = now();
@@ -470,7 +467,6 @@ mod tests {
         assert_eq!(worktree_group(&main, NONE, now, None), WorktreeGroup::Main);
     }
 
-    // covers: B-P4-07 merge labels say how it was merged
     #[test]
     fn merge_labels() {
         let text = |overrides: Value, default: Option<&str>| merged_text(&entry(overrides), default);
@@ -509,7 +505,6 @@ mod tests {
         assert_eq!(text(json!({}), None), None);
     }
 
-    // covers: B-P4-08 rows: groups in order, the main checkout last, x on the ready heading deletes what may be deleted
     #[test]
     fn rows_groups_and_bulk_targets() {
         let now = now();
@@ -565,7 +560,6 @@ mod tests {
         ));
     }
 
-    // covers: B-P4-09 tags: changes, commits, sessions and age
     #[test]
     fn tags_changes_commits_sessions_age() {
         let now = now();

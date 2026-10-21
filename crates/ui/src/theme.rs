@@ -1,4 +1,4 @@
-//! Port of ui.ts THEME (and Ink's colorize.js) on ratatui colors, in one of two modes ([`ThemeMode`]).
+//! The theme on ratatui colours, in one of two modes ([`ThemeMode`]).
 //!
 //! Terminal mode keeps ui.ts's palette: ANSI named colors, so it follows the user's terminal theme. Ink colors by chalk
 //! name; ratatui names the 16 ANSI colors differently: chalk `white` (SGR 37) is ratatui `Gray`, chalk `gray`

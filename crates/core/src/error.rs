@@ -1,4 +1,4 @@
-//! Port of DhError (TS Error.message parity).
+//! `DhError`, Deckhand's error type.
 //!
 //! TS code throws `new Error(message)` and tests (and users) see `error.message`, so [`DhError`]'s `Display` is
 //! exactly that message. Some TS errors also carry a Node-style `code` (`ENOENT` from fs, or one set with

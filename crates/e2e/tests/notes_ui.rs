@@ -1,4 +1,4 @@
-//! Port of tests/notesUi.test.ts: the Notes tab in a real PTY.
+//! The Notes tab in a real PTY.
 
 use std::fs;
 use std::path::Path;

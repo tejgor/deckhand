@@ -1,4 +1,4 @@
-//! Port of the Ink runtime the app runs in (ink render + components/App.js stdin handling + React state updates).
+//! The app's runtime: rendering, stdin handling and state updates.
 //!
 //! One loop on the process's `current_thread` runtime merges:
 //! - stdin bytes, read in raw mode by a poll(2) thread ([`StdinReader`]) and parsed with [`crate::input`] (never

@@ -1,5 +1,5 @@
-//! Port of tests/stepsUi.test.ts: checklist steps in worktree notes, the Tasks board and A (send open items), in a real
-//! PTY driving the isolated dev launcher.
+//! Checklist steps in worktree notes, the Tasks board and A (send open items), in a real PTY driving the isolated dev
+//! launcher.
 
 use std::fs;
 use std::path::PathBuf;

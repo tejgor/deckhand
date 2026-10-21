@@ -1,4 +1,4 @@
-//! Port of tests/tasksUi.test.ts: the Tasks board in a real PTY, driving the isolated dev launcher.
+//! The Tasks board in a real PTY, driving the isolated dev launcher.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;

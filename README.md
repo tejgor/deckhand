@@ -81,6 +81,8 @@ Your sessions, notes and settings carry over: the files in `~/.deckhand` are unc
 2. Remove the npm install (`npm uninstall -g @tejgor/deckhand`) and install v3 as above. Check with `deckhand --version`.
 3. If you use Codex with agent signals, regenerate its hooks: `deckhand doctor --check` tells you if they still call the old version.
 
+[Upgrading from npm](docs/upgrading-from-npm.md) is the careful version, with a backup and a way back.
+
 ## Quick start
 
 1. Run `deckhand` inside a git repository.

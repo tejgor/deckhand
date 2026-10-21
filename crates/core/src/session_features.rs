@@ -1,4 +1,4 @@
-//! Port of sessionFeatures.ts (pure parts).
+//! Session features: the pure parts (file I/O is in deckhand_sys::session_features).
 //!
 //! Session filters (f), attention, and the Markdown handoff (H). Writing the handoff file (`exportHandoff`) is I/O and
 //! lives in `deckhand_sys::session_features`. [`HandoffGitContext`] (workspaceGit.ts) is defined here because the
@@ -583,7 +583,6 @@ pub(crate) mod tests {
             .collect()
     }
 
-    // covers: B-P8-10 a response-ended reply needs you until you attach to the agent after it arrived; blocked sessions always do
     #[test]
     fn response_ended_reply_needs_you_until_read() {
         let ended = SessionRecord {
@@ -621,7 +620,6 @@ pub(crate) mod tests {
         // normalizeUiState's readReplies (the last assertion of the TS test) is ui state (I1).
     }
 
-    // covers: B-P8-11 filters retain ancestry/order and distinguish archive, running, attention and search
     #[test]
     fn filters_retain_ancestry_and_distinguish_views() {
         assert_eq!(listed_ids(&[root(), child()], SessionFilter::Active, ""), ["root"]);
@@ -652,7 +650,6 @@ pub(crate) mod tests {
         assert_eq!(listed_ids(&[interrupted], SessionFilter::Attention, ""), ["root"]);
     }
 
-    // covers: B-P8-12 the filter menu picks each filter by one key and counts the rows each would list
     #[test]
     fn filter_menu_keys_and_counts() {
         let picked: Vec<Option<SessionFilter>> = SESSION_FILTERS
@@ -702,7 +699,6 @@ pub(crate) mod tests {
         );
     }
 
-    // covers: B-P8-13 handoffs include notes by default, and clearly label optional terminal excerpts
     #[test]
     fn handoffs_include_notes_and_label_excerpts() {
         let with_notes = SessionRecord {
@@ -864,7 +860,6 @@ pub(crate) mod tests {
         });
     }
 
-    // covers: B-P8-15 search matches worktree notes too; handoffs have a Worktree notes section
     #[test]
     fn search_and_handoffs_include_worktree_notes() {
         let shared = json!({"kind": "worktree", "id": "w", "path": "/n/w.md", "revision": "r",

@@ -1,4 +1,4 @@
-//! Port of sessionWorker.ts (workspace worker: PaneHost for Terminal/Git/Dev panes and actions).
+//! Workspace worker: PaneHost for Terminal/Git/Dev panes and actions.
 //!
 //! A workspace worker hosts the panes shared by every session in one workspace (worktree): Terminal, Git, Dev and the
 //! last action. The daemon starts it on demand (first Terminal/Git view or attach, Dev start, an action run) and

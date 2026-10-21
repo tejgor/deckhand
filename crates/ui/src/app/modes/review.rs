@@ -1,6 +1,6 @@
-//! Port of app.tsx's review-project keys: the inline repository-config review. Enter trusts these exact bytes and
-//! resumes the gated action; s resumes it with the override ignored (or cancels); Esc closes (back where it came
-//! from). A config that changed since the review shows the new bytes instead.
+//! Review-project keys: the inline repository-config review. Enter trusts these exact bytes and resumes the gated
+//! action; s resumes it with the override ignored (or cancels); Esc closes (back where it came from). A config that
+//! changed since the review shows the new bytes instead.
 
 use deckhand_core::display::error_message;
 use deckhand_core::key::Input;

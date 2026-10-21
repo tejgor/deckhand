@@ -1,6 +1,6 @@
-//! Port of cleanupView.tsx: what deleting a worktree would lose, as the deletion confirmations show it (x on a
-//! session, x in W, and their typed DELETE screens): every reason on a line of its own, then the files themselves.
-//! The file marks, legend and lost-file count live in deckhand_core::detail_texts (the DELETE text uses them).
+//! What deleting a worktree would lose, as the deletion confirmations show it (x on a session, x in W, and their typed
+//! DELETE screens): every reason on a line of its own, then the files themselves. The file marks, legend and lost-file
+//! count live in deckhand_core::detail_texts (the DELETE text uses them).
 
 use deckhand_core::detail_texts::{CLEANUP_FILE_LEGEND, cleanup_file_mark, lost_file_count};
 use deckhand_core::jsstr::{js_len, js_slice};
@@ -173,7 +173,6 @@ mod tests {
         }
     }
 
-    // covers: B-U3-01 deletion confirmations list the files that would be lost, cut to the rows they have
     #[test]
     fn deletion_confirmations_list_the_files_that_would_be_lost_cut_to_the_rows_they_have() {
         // All fit: every file, nothing more.

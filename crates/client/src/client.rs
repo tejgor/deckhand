@@ -1,4 +1,4 @@
-//! Port of client.ts (request, ping, spawn daemon).
+//! The daemon client: requests, ping, starting the daemon.
 //!
 //! One-shot requests open a fresh connection to the daemon socket, write one NDJSON request and wait for the response
 //! with the same `requestId`. [`ensure_daemon_running`] pings the daemon and starts one when none answers, but never

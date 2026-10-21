@@ -1,4 +1,4 @@
-//! Port of tests/changesUi.test.ts.
+//! The Git tab's Changes view in a real PTY.
 
 use std::fs;
 

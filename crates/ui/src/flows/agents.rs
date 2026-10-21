@@ -1,6 +1,5 @@
-//! Port of agentsFlow.tsx: U → Agents. Each agent's installed and latest version and its own updater (enter).
-//! Updating never touches sessions: running ones keep their version until restarted (↑ in the sidebar). r looks the
-//! latest up again.
+//! U → Agents. Each agent's installed and latest version and its own updater (enter). Updating never touches sessions:
+//! running ones keep their version until restarted (↑ in the sidebar). r looks the latest up again.
 
 use std::rc::Rc;
 
@@ -610,7 +609,6 @@ mod tests {
         }
     }
 
-    // covers: B-F1-01 Agents screen: one row per agent with versions and status, details of the selected one, confirmation, results
     #[test]
     fn agents_screen_rows_details_confirmation_results() {
         let fixture = fixture();

@@ -1,6 +1,6 @@
-//! Port of app.tsx's new-session flow (n / N, n on a task): pick-program (agent, fork, from handoff), enter-name
-//! (name, workspace, base branch) and pick-worktree (an existing worktree, searchable), the CreatePane and
-//! WorktreePickerPane, and creating the session (reviewing an untrusted repository's creation parts first).
+//! New-session flow (n / N, n on a task): pick-program (agent, fork, from handoff), enter-name (name, workspace, base
+//! branch) and pick-worktree (an existing worktree, searchable), the CreatePane and WorktreePickerPane, and creating
+//! the session (reviewing an untrusted repository's creation parts first).
 
 use std::rc::Rc;
 

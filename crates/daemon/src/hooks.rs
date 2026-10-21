@@ -1,4 +1,4 @@
-//! Port of daemon.ts (hook events from `deckhand hook`).
+//! The daemon's handling of hook events from `deckhand hook`.
 //!
 //! Agents report their lifecycle through hooks (`deckhand hook`, relayed as `agent-hook` requests authenticated by
 //! the launch's token): the session's attention state (working, needs input, ended, ...), its conversation ID, and

@@ -1,4 +1,4 @@
-//! Port of daemon.ts (agent argv/env, worker launch).
+//! Launching sessions: the agent's argv and environment, and the session worker.
 //!
 //! A session's agent runs in its own session worker (one PTY). This module resolves the agent binary, builds the
 //! launch arguments' extra parts (first message, handoff), runs a new worktree's setup command, starts the worker and

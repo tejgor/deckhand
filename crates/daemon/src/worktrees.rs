@@ -1,4 +1,4 @@
-//! Port of daemon.ts (worktree create/delete/links).
+//! Worktrees: create, delete, links.
 //!
 //! Worktree records: one per incarnation of a linked worktree (persisted with the sessions), the only copy of its
 //! merge/deleted markers, shared by every session in it. Deleting a worktree, from a kill (`x` with delete) or from W

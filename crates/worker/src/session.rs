@@ -1,4 +1,4 @@
-//! Port of sessionWorker.ts (session worker: agent PTY, preview debounce, activity heuristic).
+//! Session worker: agent PTY, preview debounce, activity heuristic.
 //!
 //! A session worker owns one session's agent PTY; its companion panes belong to the session's workspace worker
 //! ([`crate::workspace`]). It mirrors the agent's output into a headless [`TerminalPreview`], posts debounced

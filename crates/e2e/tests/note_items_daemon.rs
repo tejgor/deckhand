@@ -1,4 +1,4 @@
-//! Port of tests/noteItemsDaemon.test.ts (black-box: drives DECKHAND_TEST_BIN).
+//! Note items: steps and sending open items to Tasks, black-box: drives DECKHAND_TEST_BIN.
 
 use deckhand_e2e::harness::repo;
 use deckhand_e2e::tasks::*;

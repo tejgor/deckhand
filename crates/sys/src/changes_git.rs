@@ -1,5 +1,3 @@
-//! Port of changesGit.ts.
-//!
 //! Git I/O for the Git tab's Changes view, run by the daemon in a workspace root: one status read (porcelain v2 plus
 //! numstat), one entry's bounded diff, and staging/unstaging of paths taken from the current status only. Never
 //! commits, discards or touches the worktree's files. The view's model (grouping, keys, line counts) is
@@ -626,7 +624,6 @@ mod tests {
         assert!(!binary_diff("Binary files a/x and b/x differ\n@@ -1 +1 @@\n"));
     }
 
-    // covers: B-I4-06 Changes read, diff and stage/unstage a fixture repository (spaces, globs, renames, binary, untracked)
     #[tokio::test(flavor = "current_thread")]
     async fn changes_read_diff_and_stage() {
         let (_dir, cwd) = repo();
@@ -786,7 +783,6 @@ mod tests {
         assert_eq!(missing.unwrap_err().to_string(), "Worktree directory is missing");
     }
 
-    // covers: B-I4-07 without a HEAD commit unstaging removes paths from the index; stage all leaves conflicts alone
     #[tokio::test(flavor = "current_thread")]
     async fn unborn_unstaging_and_conflicts() {
         let (_dir, cwd) = temp("deckhand-unborn-");

@@ -1,4 +1,4 @@
-//! Port of daemon.ts (merge flow).
+//! The daemon's merge flow.
 //!
 //! Merging a session's linked worktree into a target checkout (merge or squash, optionally committing first), keeping
 //! or aborting a conflicted merge Deckhand started, marking a worktree merged by hand, and detecting merges done

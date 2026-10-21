@@ -1,4 +1,4 @@
-//! Port of cli.ts (`deckhand hook`).
+//! `deckhand hook`.
 //!
 //! The agent hook bridge. Hooks are advisory, bounded, and never approve or block agent actions: whatever happens
 //! (no daemon, bad input, timeout) the command answers `{}` on stdout and exits 0. Claude runs hooks async, so they
@@ -277,7 +277,6 @@ mod tests {
         }
     }
 
-    // covers: B-B1-01 hook bridge is bounded, always neutral, and never starts a daemon
     #[tokio::test(flavor = "current_thread")]
     async fn hook_bridge_is_bounded_always_neutral_and_never_starts_a_daemon() {
         let home = match tempfile::Builder::new().prefix("deckhand-hook-bridge-").tempdir() {

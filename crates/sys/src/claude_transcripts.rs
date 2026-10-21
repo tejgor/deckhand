@@ -1,5 +1,3 @@
-//! Port of claudeTranscripts.ts.
-//!
 //! Claude moves to a new conversation ID without exiting: accepting a plan with "clear context", /clear, /resume,
 //! /branch. Hooks report the new ID while Deckhand runs, but a hook can be missed; restart then reads Claude's
 //! transcripts to find the conversation the session continued in.
@@ -781,7 +779,6 @@ mod tests {
         assert_eq!(latest("plan").await, Some("impl".to_string()));
     }
 
-    // covers: B-I5-03 restart follows the conversation a Claude session continued in, from its transcripts
     #[tokio::test(flavor = "current_thread")]
     async fn restart_follows_the_conversation_a_claude_session_continued_in() {
         fn line(record: Value) -> String {

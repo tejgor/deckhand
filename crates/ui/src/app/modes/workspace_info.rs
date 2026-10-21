@@ -1,5 +1,5 @@
-//! Port of app.tsx's workspace overview (i): the worktree's summary, P fetches its PR's state, b opens the PR, c
-//! asks to push and open GitHub's PR form (only Enter on that confirmation pushes), g the Git tab.
+//! Workspace overview (i): the worktree's summary, P fetches its PR's state, b opens the PR, c asks to push and open
+//! GitHub's PR form (only Enter on that confirmation pushes), g the Git tab.
 
 use std::cell::RefCell;
 use std::rc::Rc;

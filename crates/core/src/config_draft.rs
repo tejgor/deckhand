@@ -1,5 +1,3 @@
-//! Port of configDraft.ts.
-//!
 //! Pure helpers for the UI's config editor. Keep fs/Git code out of this module so UI code can use it without
 //! pulling in persistence code.
 //!

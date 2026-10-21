@@ -1,6 +1,6 @@
-//! Port of detailsPane.tsx: a scrollable text pane with one hint line (the trust review, the workspace overview,
-//! the DELETE override, the discard prompt). Text is shown exactly: tabs as four spaces, controls and invisible
-//! characters (bidi overrides, zero-width) escaped as `<U+XXXX>`, rows wrapped by code points.
+//! A scrollable text pane with one hint line (the trust review, the workspace overview, the DELETE override, the
+//! discard prompt). Text is shown exactly: tabs as four spaces, controls and invisible characters (bidi overrides,
+//! zero-width) escaped as `<U+XXXX>`, rows wrapped by code points.
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

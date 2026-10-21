@@ -1,5 +1,3 @@
-//! Port of agentVersionCheck.ts.
-//!
 //! The daemon's agent version I/O: the installed version (`<binary> --version`, cached by the binary's realpath and
 //! mtime), the latest release (`npm view <package> version`, cached, refreshed at most every LATEST_MAX_AGE in the
 //! background or on demand), and running an agent's own update command. Everything runs with the daemon's

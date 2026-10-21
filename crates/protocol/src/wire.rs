@@ -1,4 +1,4 @@
-//! Port of types.ts (client->daemon requests).
+//! Client → daemon requests.
 //!
 //! [`Request`] is types.ts ClientRequest, internally tagged on `type`. Every variant is a named struct whose field
 //! order is the order client.ts (or attach.ts / cli.ts) writes the keys, so a Rust client writes what the TS client

@@ -41,7 +41,7 @@ Variants are sidecar files: `AgentOptions { without_hooks, update_fails }`.
 ## Adding a suite
 
 1. Create `crates/e2e/tests/<name>.rs` (no edits to `Cargo.toml` needed; integration tests are auto-discovered).
-2. Name each test for the user behavior it protects and assert its meaningful results. No TS source or port marker is required.
+2. Name each test for the user behavior it protects and assert its meaningful results.
 3. Start with `let sandbox = Sandbox::new("name");`, spawn with `sandbox.spawn_cli(&[...])` / `exec_cli`, talk to the daemon
    at `sandbox.socket()`. Declare the sandbox before clients, daemons and `Ui` so it drops last.
 4. Rebuild the executable and run the suite without `DECKHAND_BLESS`. Keep persistence, process cleanup and trust checks as ordinary assertions.

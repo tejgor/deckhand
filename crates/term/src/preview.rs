@@ -1,5 +1,3 @@
-//! Port of terminalPreview.ts.
-//!
 //! The TS class chained every write/resize on a promise because xterm parses asynchronously; [`HeadlessTerminal`]
 //! parses synchronously, so these methods are plain `&mut self` calls (no await, nothing to hold across one) and a
 //! read always sees every earlier write. Sizes and scroll offsets stay JS numbers (`f64`) so NaN/±Infinity,

@@ -1,5 +1,5 @@
-//! Port of preview.tsx: the Preview tab (the agent's screen, or what a session that is not running leaves: setup
-//! output, its last preview, a hint).
+//! The Preview tab (the agent's screen, or what a session that is not running leaves: setup output, its last preview, a
+//! hint).
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
