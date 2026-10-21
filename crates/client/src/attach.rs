@@ -36,7 +36,7 @@ use deckhand_protocol::data::{AttachTarget, SessionRecord, SessionStatus, Termin
 use deckhand_protocol::events::SessionOutput;
 use deckhand_protocol::wire::{Attach, Detach, Input, RequestOnly, Resize, Subscribe};
 
-use crate::attach_status::StatusLine;
+use crate::attach_status::{StatusLine, StatusScope};
 use crate::client::{MessageReader, frame_message, open_persistent_connection, socket_error};
 use crate::term_state::RESET_TERMINAL_STATE_SEQUENCE;
 
@@ -51,6 +51,11 @@ pub struct AttachSessionOptions {
     pub theme: ThemeMode,
     /// Not in the TS: the Dev process to attach to (`devCommand` as a map); `None` is the first.
     pub dev_process: Option<String>,
+    /// Not in the TS: the session's full title (a sub-session's `parent / child`) on the status line (default:
+    /// `title`).
+    pub status_title: Option<String>,
+    /// Not in the TS: the sessions the status line counts.
+    pub status_scope: StatusScope,
 }
 
 /// TS: attach.ts targetRequestNames result: the message types of one attach target.
@@ -992,14 +997,19 @@ pub(crate) async fn run_attach<C: Console, S: AsyncRead + AsyncWrite + Unpin>(
     let status = console
         .stdout_is_tty()
         .then(|| {
-            let title = options.title.as_deref().unwrap_or(session_id);
+            let title = options
+                .status_title
+                .as_deref()
+                .or(options.title.as_deref())
+                .unwrap_or(session_id);
             let line = StatusLine::new(
                 session_id,
                 title,
                 attach_rows_on(console),
                 attach_cols_on(console),
                 options.theme,
-            )?;
+            )?
+            .in_scope(options.status_scope.clone());
             Some(match (status_pane_label(target), options.dev_process.as_deref()) {
                 // Which of Dev's named processes this is.
                 (Some(pane), Some(process)) if target == AttachTarget::Dev => line.on_pane(format!("{pane} {process}")),
@@ -1713,6 +1723,8 @@ mod tests {
             scroll_sensitivity: Some(1.0),
             theme: ThemeMode::Terminal,
             dev_process: None,
+            status_title: Some(String::from("Parent / Fix bug")),
+            status_scope: StatusScope::default(),
         };
         let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
         let driver = async {
@@ -1747,7 +1759,8 @@ mod tests {
                      \x1b[?1000h\x1b[?1006h\x1b[?2004h\x1b]0;dh/agent Fix bug\x07\x1b]2;dh/agent Fix bug\x07\x1b[1;38r"
                 );
                 assert!(state.out.starts_with(&attached), "{:?}", state.out);
-                assert!(state.out.contains("Fix bug") && state.out.contains("Ctrl+] detach"));
+                // The line has the full title from the start; the terminal's title keeps the short one.
+                assert!(state.out.contains("Parent / Fix bug") && state.out.contains("Ctrl+] detach"));
                 assert_eq!(state.raw, vec![true]);
                 assert_eq!(state.titles, vec![String::from("dh/agent Fix bug")]);
             }
@@ -1787,7 +1800,7 @@ mod tests {
         result.unwrap();
         let state = state.lock().unwrap();
         assert!(state.out.contains("a\x1b[1mbc"), "{:?}", state.out);
-        assert!(state.out.contains("1 other session waiting"), "{:?}", state.out);
+        assert!(state.out.contains("! 1 needs you"), "{:?}", state.out);
         // The rule and the line are cleared before the terminal is handed back.
         assert!(
             state.out.ends_with(&format!(

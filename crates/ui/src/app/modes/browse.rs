@@ -1986,6 +1986,7 @@ pub(crate) mod tests {
                 cwd: Some("/repo".to_owned()),
                 program: Some(ProgramKey::Claude),
                 process: None,
+                status_title: Some("Session 0".to_owned()),
             })
         );
     }

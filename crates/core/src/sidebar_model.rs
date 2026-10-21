@@ -13,8 +13,8 @@ use crate::display::{
 use crate::jsstr::{date, js_len, js_pad_end, js_pad_start, js_slice, js_trim, path};
 use crate::notes::open_checklist_text;
 use crate::session_features::{
-    SESSION_FILTERS, SessionFilter, SessionFilterCounts, filter_session_list, session_filter_key,
-    session_needs_attention,
+    SESSION_FILTERS, SessionFilter, SessionFilterCounts, filter_session_list, session_blocked, session_filter_key,
+    session_has_unread_reply,
 };
 use crate::session_order::{
     SessionLike, count_hidden_session_descendants, count_session_descendants, session_depth, session_has_children,
@@ -80,6 +80,9 @@ pub struct SidebarRow {
     pub dimmed: bool,
     /// Marked done (D) and not dimmed: its title is muted, its markers stay readable.
     pub done: bool,
+    /// Not in the TS: an unread reply, not selected or dimmed: its title is bold until you attach.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub unread: bool,
     /// statusColor of the session (status glyph, tree glyphs and title).
     pub color: Color,
 }
@@ -324,6 +327,7 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
             selected,
             dimmed,
             done: !selected && !dimmed && truthy(session.done_at.as_ref()),
+            unread: !selected && !dimmed && session_has_unread_reply(session),
             color: status_color(session),
         });
     }
@@ -391,8 +395,13 @@ pub struct SidebarHeader {
     pub title: String,
     /// Filter and/or search with the count, or the plain count in the default view.
     pub label: String,
-    /// `! N` when non-archived sessions need attention, else empty.
+    /// `! N` when non-archived sessions are blocked on you (asking, failed, rate-limited, exited failed or
+    /// interrupted), else empty.
     pub attention: String,
+    /// Not in the TS: `◆ N` when other non-archived sessions have an unread reply, else empty (the TS counted them in
+    /// `attention`).
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub unread: String,
     /// A non-default filter or a search is active.
     pub highlighted: bool,
 }
@@ -408,19 +417,27 @@ pub struct SidebarHeaderInput<'a> {
     pub all_sessions: &'a [&'a SessionRecord],
 }
 
-/// TS: sidebarModel.ts sidebarHeader: the attention count wins over the label (count over filter/search), which wins
-/// over the title.
+/// TS: sidebarModel.ts sidebarHeader: the attention counts win over the label (count over filter/search), which
+/// wins over the title.
 pub fn sidebar_header(input: &SidebarHeaderInput<'_>) -> SidebarHeader {
-    let needing = input
-        .all_sessions
-        .iter()
-        .filter(|session| !truthy(session.archived_at.as_ref()) && session_needs_attention(session))
-        .count();
-    let attention = if needing > 0 {
-        format!("! {needing}")
-    } else {
-        String::new()
+    let listed = || {
+        input
+            .all_sessions
+            .iter()
+            .filter(|session| !truthy(session.archived_at.as_ref()))
     };
+    let blocked = listed().filter(|session| session_blocked(session)).count();
+    let unread = listed()
+        .filter(|session| !session_blocked(session) && session_has_unread_reply(session))
+        .count();
+    let counted = |glyph: &str, count: usize| {
+        if count > 0 {
+            format!("{glyph} {count}")
+        } else {
+            String::new()
+        }
+    };
+    let (attention, unread) = (counted("!", blocked), counted("◆", unread));
     let search = js_trim(input.query);
     let highlighted = input.filter != SessionFilter::Active || !search.is_empty();
     let tag = [
@@ -444,7 +461,10 @@ pub fn sidebar_header(input: &SidebarHeaderInput<'_>) -> SidebarHeader {
     } else {
         input.shown.to_string()
     };
-    let room = jnum(input.width) - if attention.is_empty() { 0 } else { jlen(&attention) + 3 };
+    let room = [&attention, &unread]
+        .into_iter()
+        .filter(|count| !count.is_empty())
+        .fold(jnum(input.width), |room, count| room - jlen(count) - 3);
     let mut label = if tag.is_empty() {
         count.clone()
     } else {
@@ -469,6 +489,7 @@ pub fn sidebar_header(input: &SidebarHeaderInput<'_>) -> SidebarHeader {
         title: title.to_owned(),
         label,
         attention,
+        unread,
         highlighted,
     }
 }
@@ -531,12 +552,14 @@ fn detail(text: impl Into<String>, color: Color) -> DetailPart {
     }
 }
 
-/// TS: sidebarModel.ts statusWords (the session's state in words, from the same inputs as statusGlyph).
+/// TS: sidebarModel.ts statusWords (the session's state in words, from the same inputs as statusGlyph; an unread reply
+/// reads `unread reply`, the TS's `response ended`).
 pub fn status_words(session: &SessionRecord) -> &'static str {
+    let attention = session.attention.as_ref().map(|attention| attention.state);
     if session.status == SessionStatus::Running {
-        match session.attention.as_ref().map(|attention| attention.state) {
+        match attention {
             Some(AttentionState::NeedsInput) => return "needs input",
-            Some(AttentionState::ResponseEnded) if session.reply_read != Some(true) => return "response ended",
+            Some(AttentionState::ResponseEnded) if session.reply_read != Some(true) => return "unread reply",
             Some(AttentionState::Failed) => return "failed",
             Some(AttentionState::Limited) => return "rate-limited",
             Some(AttentionState::Working) => return "working",
@@ -551,8 +574,9 @@ pub fn status_words(session: &SessionRecord) -> &'static str {
         },
         SessionStatus::Starting => "starting",
         SessionStatus::Running => match session.agent_status {
-            Some(AgentActivityStatus::Active) => "working",
-            Some(AgentActivityStatus::Idle) => "idle",
+            // Not in the TS: as statusGlyph, a screen changing after a read reply is not work.
+            Some(AgentActivityStatus::Active) if attention != Some(AttentionState::ResponseEnded) => "working",
+            Some(AgentActivityStatus::Active | AgentActivityStatus::Idle) => "idle",
             _ => "running",
         },
     }
@@ -1615,6 +1639,7 @@ mod tests {
             title: title.into(),
             label: label.into(),
             attention: attention.into(),
+            unread: String::new(),
             highlighted,
         };
         // d needs input and e failed; an archived session needing attention is not counted.
@@ -1654,6 +1679,23 @@ mod tests {
         assert_eq!(
             header(12, SessionFilter::Active, "checkout flake", 1, &all),
             expect("", "1/7", "! 2", true)
+        );
+        // Unread replies are counted apart from the sessions blocked on you; a read one is not counted.
+        let replied = |id: &str, read: bool| {
+            sess(
+                id,
+                json!({"attention": {"state": "response-ended", "event": "Stop", "at": ago(1)}, "replyRead": read}),
+            )
+        };
+        let (unread, read) = (replied("r1", false), replied("r2", true));
+        let mut sessions = all.clone();
+        sessions.extend([&unread, &read]);
+        assert_eq!(
+            header(30, SessionFilter::Active, "", 6, &sessions),
+            SidebarHeader {
+                unread: "◆ 1".into(),
+                ..expect("Sessions", "6", "! 2", false)
+            }
         );
     }
 
@@ -1843,7 +1885,11 @@ mod tests {
         );
         assert_eq!(
             words(json!({"attention": {"state": "response-ended", "event": "Stop", "at": ago(1)}})),
-            "response ended"
+            "unread reply"
+        );
+        assert_eq!(
+            words(json!({"attention": {"state": "response-ended", "event": "Stop", "at": ago(1)}, "replyRead": true})),
+            "idle"
         );
         assert_eq!(
             words(json!({"attention": {"state": "failed", "event": "StopFailure", "at": ago(1)}})),

@@ -122,12 +122,16 @@ pub fn part_style_spec(part: &RowPart, row: &SidebarRow) -> PartStyleSpec {
     }
 }
 
-/// TS: sidebar.tsx partStyle: a row part's style (the selected row is one inverse highlight; dimmed rows muted).
+/// TS: sidebar.tsx partStyle: a row part's style (the selected row is one inverse highlight; dimmed rows muted; not in
+/// the TS: an unread reply's title bold).
 pub fn part_style(part: &RowPart, row: &SidebarRow) -> TextStyle {
     let spec = part_style_spec(part, row);
     let mut style = TextStyle::default().color(spec.color.and_then(color));
     if spec.dim {
         style = style.dim(true);
+    }
+    if row.unread && part.role == RowRole::Title {
+        style = style.bold(true);
     }
     style
 }
@@ -299,9 +303,11 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         header.label.clone(),
         TextStyle::fg(if header.highlighted { THEME.active } else { THEME.muted }),
     )];
-    if !header.attention.is_empty() {
-        header_right.push(Seg::new(" · ", TextStyle::fg(THEME.muted)));
-        header_right.push(Seg::new(header.attention.clone(), TextStyle::fg(THEME.warn).bold(true)));
+    for (count, colour) in [(&header.attention, THEME.warn), (&header.unread, THEME.accent)] {
+        if !count.is_empty() {
+            header_right.push(Seg::new(" · ", TextStyle::fg(THEME.muted)));
+            header_right.push(Seg::new(count.clone(), TextStyle::fg(colour).bold(true)));
+        }
     }
     let header_row = with_margin(space_between(&header_left, &header_right, content_width));
 
@@ -646,6 +652,7 @@ mod tests {
                 selected: flag("selected"),
                 dimmed: flag("dimmed"),
                 done: flag("done"),
+                unread: flag("unread"),
                 color,
             };
             let spec = part_style_spec(&part, &row);
@@ -702,6 +709,7 @@ mod tests {
             selected: false,
             dimmed: false,
             done: false,
+            unread: false,
             color: "red",
         };
         let style = part_style(&part, &row);

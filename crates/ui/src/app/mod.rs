@@ -917,6 +917,7 @@ impl App {
             cwd: Some(session.cwd.clone()),
             program: Some(session.program),
             process,
+            status_title: Some(session.title.clone()),
         });
     }
 
@@ -1789,6 +1790,7 @@ mod tests {
                 cwd: Some("/repo".to_owned()),
                 program: Some(ProgramKey::Claude),
                 process: None,
+                status_title: Some("Alpha".to_owned()),
             })
         );
         assert_eq!(UiModel::exit(&mut app), None);

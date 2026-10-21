@@ -1284,6 +1284,10 @@ pub enum UiExitResult {
         program: Option<ProgramKey>,
         /// Not in the TS: the Dev process to attach to (`devCommand` as a map).
         process: Option<String>,
+        /// Not in the TS: the session's full title (a sub-session's `parent / child`), for the status line under the
+        /// attach.
+        #[serde(rename = "statusTitle")]
+        status_title: Option<String>,
     },
     #[serde(rename = "edit-note")]
     EditNote {

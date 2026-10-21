@@ -24,6 +24,8 @@ use unicode_width::UnicodeWidthChar;
 
 use deckhand_core::agent_signals::needs_attention;
 use deckhand_core::display::{DUSK, Rgb, ThemeMode};
+use deckhand_core::session_features::{session_has_unread_reply, with_reply_read};
+use deckhand_core::session_scope::session_matches_scope;
 use deckhand_protocol::data::{AttentionState, SessionRecord, SessionStatus};
 
 /// The rows Deckhand takes: the line, and the rule between it and the program.
@@ -42,8 +44,10 @@ struct Colours {
     /// Separators and quiet text, not bold.
     quiet: String,
     title: String,
-    /// The other sessions waiting, bold.
+    /// The other sessions that need you, bold.
     waiting: String,
+    /// The other sessions' unread replies, bold.
+    unread: String,
     /// The rule over the line (on the terminal's background).
     rule: String,
     working: String,
@@ -62,6 +66,7 @@ impl Colours {
                 quiet: "\x1b[22;38;5;245m".to_owned(),
                 title: "\x1b[38;5;252m".to_owned(),
                 waiting: "\x1b[1;38;5;221m".to_owned(),
+                unread: "\x1b[1;38;5;177m".to_owned(),
                 rule: "\x1b[38;5;239m".to_owned(),
                 working: "\x1b[38;5;117m".to_owned(),
                 needs_you: "\x1b[38;5;221m".to_owned(),
@@ -76,6 +81,7 @@ impl Colours {
                 quiet: format!("\x1b[22;{}m", sgr(38, DUSK.dim)),
                 title: format!("\x1b[{}m", sgr(38, DUSK.ink)),
                 waiting: format!("\x1b[1;{}m", sgr(38, DUSK.yellow)),
+                unread: format!("\x1b[1;{}m", sgr(38, DUSK.magenta)),
                 rule: format!("\x1b[{}m", sgr(38, DUSK.rule)),
                 working: format!("\x1b[{}m", sgr(38, DUSK.green)),
                 needs_you: format!("\x1b[{}m", sgr(38, DUSK.yellow)),
@@ -102,25 +108,51 @@ fn sgr(layer: u8, Rgb(r, g, b): Rgb) -> String {
     format!("{layer};2;{r};{g};{b}")
 }
 
+/// Which sessions the line counts: those the UI it was attached from lists.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct StatusScope {
+    /// The UI's checkout (`None`: every session the subscription sends, the whole repository).
+    pub root: Option<String>,
+    /// The UI's read replies (session ID → when you last detached from its agent).
+    pub read_replies: IndexMap<String, String>,
+}
+
+/// How another session waits on you.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Waiting {
+    /// Asking, failed or rate-limited (the sidebar's `! N`).
+    NeedsYou,
+    /// A reply you have not read (the sidebar's `◆ N`).
+    UnreadReply,
+}
+
 /// What the status line knows about one session.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SessionSummary {
     attention: Option<AttentionState>,
-    running: bool,
-    archived: bool,
+    /// Running, not archived and in scope, and waiting on you. Unlike the sidebar, sessions that exited failed or
+    /// interrupted are not counted.
+    waiting: Option<Waiting>,
 }
 
 impl SessionSummary {
-    fn of(session: &SessionRecord) -> Self {
-        SessionSummary {
-            attention: session.attention.as_ref().map(|attention| attention.state),
-            running: session.status != SessionStatus::Exited,
-            archived: session.archived_at.is_some(),
-        }
-    }
-
-    fn waiting(&self) -> bool {
-        self.running && !self.archived && needs_attention(self.attention)
+    fn of(session: &SessionRecord, scope: &StatusScope) -> Self {
+        let attention = session.attention.as_ref().map(|attention| attention.state);
+        let listed = session.status != SessionStatus::Exited
+            && session.archived_at.is_none()
+            && scope
+                .root
+                .as_deref()
+                .is_none_or(|root| session_matches_scope(session, root));
+        let waiting = if !listed {
+            None
+        } else if attention == Some(AttentionState::ResponseEnded) {
+            session_has_unread_reply(&with_reply_read(session.clone(), &scope.read_replies))
+                .then_some(Waiting::UnreadReply)
+        } else {
+            needs_attention(attention).then_some(Waiting::NeedsYou)
+        };
+        SessionSummary { attention, waiting }
     }
 }
 
@@ -142,6 +174,7 @@ pub struct StatusLine {
     /// A redraw is due once the agent's synchronized update ends.
     redraw_due: bool,
     sessions: IndexMap<String, SessionSummary>,
+    scope: StatusScope,
     colours: Colours,
 }
 
@@ -164,6 +197,7 @@ impl StatusLine {
             in_sync: false,
             redraw_due: false,
             sessions: IndexMap::new(),
+            scope: StatusScope::default(),
             colours: Colours::of(theme),
         })
     }
@@ -172,6 +206,13 @@ impl StatusLine {
     #[must_use]
     pub fn on_pane(mut self, pane: impl Into<String>) -> Self {
         self.pane = Some(pane.into());
+        self
+    }
+
+    /// Counts only the sessions in `scope`.
+    #[must_use]
+    pub fn in_scope(mut self, scope: StatusScope) -> Self {
+        self.scope = scope;
         self
     }
 
@@ -201,14 +242,14 @@ impl StatusLine {
     pub fn set_sessions(&mut self, sessions: &[SessionRecord]) -> String {
         self.sessions = sessions
             .iter()
-            .map(|session| (session.id.clone(), SessionSummary::of(session)))
+            .map(|session| (session.id.clone(), SessionSummary::of(session, &self.scope)))
             .collect();
         self.redraw_soon()
     }
 
     /// A `session-updated` event: the line is drawn again when what it shows changed.
     pub fn session_updated(&mut self, session: &SessionRecord) -> String {
-        let summary = SessionSummary::of(session);
+        let summary = SessionSummary::of(session, &self.scope);
         let title_changed = session.id == self.session_id && session.title != self.title;
         if title_changed {
             session.title.clone_into(&mut self.title);
@@ -414,11 +455,13 @@ impl StatusLine {
     /// The rule and the line under it, drawn on the bottom two rows, then the agent's cursor and drawing attributes put
     /// back.
     fn draw(&self) -> String {
-        let waiting = self
-            .sessions
-            .iter()
-            .filter(|(id, summary)| **id != self.session_id && summary.waiting())
-            .count();
+        let count = |kind: Waiting| {
+            self.sessions
+                .iter()
+                .filter(|(id, summary)| **id != self.session_id && summary.waiting == Some(kind))
+                .count()
+        };
+        let (needs_you, unread) = (count(Waiting::NeedsYou), count(Waiting::UnreadReply));
         let own = self
             .sessions
             .get(&self.session_id)
@@ -439,11 +482,20 @@ impl StatusLine {
             line.push(colours.state(state), state_label(state));
         }
         line.push(&colours.quiet, " │ ");
-        if waiting > 0 {
-            let plural = if waiting == 1 { "" } else { "s" };
-            line.push(&colours.waiting, &format!("! {waiting} other session{plural} waiting"));
+        if needs_you > 0 {
+            let verb = if needs_you == 1 { "needs" } else { "need" };
+            line.push(&colours.waiting, &format!("! {needs_you} {verb} you"));
             line.push("\x1b[22m", "");
-        } else {
+        }
+        if unread > 0 {
+            if needs_you > 0 {
+                line.push(&colours.quiet, " · ");
+            }
+            let plural = if unread == 1 { "y" } else { "ies" };
+            line.push(&colours.unread, &format!("◆ {unread} unread repl{plural}"));
+            line.push("\x1b[22m", "");
+        }
+        if needs_you == 0 && unread == 0 {
             line.push(&colours.quiet, "nothing else waiting");
         }
         line.push(&colours.quiet, " │ Ctrl+] detach");
@@ -755,12 +807,21 @@ mod tests {
             session("b", Some(AttentionState::ResponseEnded)),
             session("c", None),
         ]);
-        assert!(drawn.contains("2 other sessions waiting"));
+        // Asking and replied are counted apart.
+        assert!(
+            drawn.contains("! 1 needs you") && drawn.contains("◆ 1 unread reply"),
+            "{drawn:?}"
+        );
         assert!(drawn.contains("working"));
         let unchanged = status.session_updated(&session("c", None));
         assert!(unchanged.is_empty());
         let drawn = status.session_removed("a");
-        assert!(drawn.contains("1 other session waiting"));
+        assert!(
+            !drawn.contains("needs you") && drawn.contains("◆ 1 unread reply"),
+            "{drawn:?}"
+        );
+        let drawn = status.session_removed("b");
+        assert!(drawn.contains("nothing else waiting"), "{drawn:?}");
         // A pane shows its name instead of the agent's state.
         let mut pane = StatusLine::new("s", "fix-login", 6, 80, ThemeMode::Terminal)
             .unwrap()
@@ -768,6 +829,49 @@ mod tests {
         let drawn = pane.set_sessions(&[session("s", Some(AttentionState::Working))]);
         assert!(drawn.contains("fix-login") && drawn.contains("git"));
         assert!(!drawn.contains("working"));
+    }
+
+    #[test]
+    fn only_the_uis_sessions_and_unread_replies_count() {
+        let scope = StatusScope {
+            root: Some("/r/wt".to_owned()),
+            read_replies: IndexMap::from([
+                ("read".to_owned(), "2026-01-01T00:02:00.000Z".to_owned()),
+                ("replied-since".to_owned(), "2026-01-01T00:00:00.000Z".to_owned()),
+            ]),
+        };
+        let mut status = StatusLine::new("s", "fix-login", 6, 80, ThemeMode::Terminal)
+            .unwrap()
+            .in_scope(scope);
+        let session = |id: &str, cwd: &str, state: AttentionState| -> SessionRecord {
+            serde_json::from_value(serde_json::json!({
+                "id": id, "title": id, "program": "claude", "command": "claude", "cwd": cwd, "repoRoot": "/r",
+                "status": "running", "createdAt": "x", "updatedAt": "x",
+                "attention": {"state": state, "event": "Stop", "at": "2026-01-01T00:01:00.000Z"}
+            }))
+            .unwrap()
+        };
+        let mut failed = session("failed", "/r/wt", AttentionState::Unknown);
+        failed.status = SessionStatus::Exited;
+        failed.exit_reason = Some(deckhand_protocol::data::ExitReason::Failed);
+        let drawn = status.set_sessions(&[
+            session("s", "/r/wt", AttentionState::Working),
+            // Another checkout of the repository: the subscription sends it, the UI does not list it.
+            session("elsewhere", "/r", AttentionState::NeedsInput),
+            session("read", "/r/wt", AttentionState::ResponseEnded),
+            session("replied-since", "/r/wt", AttentionState::ResponseEnded),
+            // The sidebar counts an exit that failed; the line counts only running sessions.
+            failed,
+        ]);
+        assert!(
+            drawn.contains("◆ 1 unread reply") && !drawn.contains("needs you"),
+            "{drawn:?}"
+        );
+        let drawn = status.session_updated(&session("asks", "/r/wt/sub", AttentionState::NeedsInput));
+        assert!(
+            drawn.contains("! 1 needs you") && drawn.contains("◆ 1 unread reply"),
+            "{drawn:?}"
+        );
     }
 
     #[test]

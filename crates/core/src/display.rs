@@ -280,8 +280,12 @@ pub fn status_glyph(session: &SessionRecord, spinner_frame: &str) -> String {
     match session.status {
         SessionStatus::Starting => spinner_frame.to_owned(),
         SessionStatus::Running => match session.agent_status {
-            Some(AgentActivityStatus::Active) => spinner_frame.to_owned(),
-            Some(AgentActivityStatus::Idle) => "●".to_owned(),
+            // Not in the TS: a screen changing after a read reply is not work, and the spinner does not animate for it
+            // (`session_animates`), so it showed one frame that never moved.
+            Some(AgentActivityStatus::Active) if attention != Some(AttentionState::ResponseEnded) => {
+                spinner_frame.to_owned()
+            }
+            Some(AgentActivityStatus::Active | AgentActivityStatus::Idle) => "●".to_owned(),
             _ => "◌".to_owned(),
         },
         SessionStatus::Exited => "○".to_owned(),
@@ -301,6 +305,13 @@ pub fn status_color(session: &SessionRecord) -> Color {
         || session.exit_reason == Some(ExitReason::Interrupted)
     {
         return THEME.warn;
+    }
+    // Not in the TS: an unread reply (◆) stands apart from the idle sessions' green.
+    if session.status == SessionStatus::Running
+        && attention == Some(AttentionState::ResponseEnded)
+        && session.reply_read != Some(true)
+    {
+        return THEME.accent;
     }
     match session.status {
         SessionStatus::Starting => THEME.warn,
@@ -355,7 +366,8 @@ pub fn status_label(session: Option<&SessionRecord>) -> String {
         && session.reply_read != Some(true)
     {
         return match attention.state {
-            AttentionState::ResponseEnded => "response ended".to_owned(),
+            // Not in the TS (`response ended`): the same words as the sidebar details.
+            AttentionState::ResponseEnded => "unread reply".to_owned(),
             state => state.as_str().to_owned(),
         };
     }

@@ -1216,6 +1216,46 @@ mod tests {
         assert!(!should_animate_status(&[]));
     }
 
+    #[test]
+    fn a_spinner_is_drawn_only_while_it_animates() {
+        // A read reply whose screen changed drew a spinner frame that never moved.
+        let mut cases = 0;
+        for status in [SessionStatus::Starting, SessionStatus::Running, SessionStatus::Exited] {
+            for agent_status in [
+                None,
+                Some(AgentActivityStatus::Active),
+                Some(AgentActivityStatus::Idle),
+                Some(AgentActivityStatus::Unknown),
+            ] {
+                let states = [
+                    None,
+                    Some(AttentionState::Working),
+                    Some(AttentionState::NeedsInput),
+                    Some(AttentionState::ResponseEnded),
+                    Some(AttentionState::Failed),
+                    Some(AttentionState::Limited),
+                    Some(AttentionState::Unknown),
+                ];
+                for state in states {
+                    for reply_read in [None, Some(true)] {
+                        let mut session = session("a", "A", status);
+                        session.agent_status = agent_status;
+                        session.attention = state.map(attention);
+                        session.reply_read = reply_read;
+                        let spinning = deckhand_core::display::status_glyph(&session, "⠙") == "⠙";
+                        assert_eq!(
+                            spinning,
+                            session_animates(status, &session),
+                            "{status:?} {agent_status:?} {state:?} {reply_read:?}"
+                        );
+                        cases += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!(cases, 168);
+    }
+
     /// Runs `body` inside a LocalSet (effects start timers).
     fn local(body: impl std::future::Future<Output = ()>) {
         let runtime = tokio::runtime::Builder::new_current_thread()

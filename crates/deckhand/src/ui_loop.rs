@@ -13,6 +13,7 @@ use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use deckhand_client::attach::{AttachSessionOptions, attach_session};
+use deckhand_client::attach_status::StatusScope;
 use deckhand_client::term_state::reset_terminal_state;
 use deckhand_core::display::{ThemeMode, theme_mode};
 use deckhand_core::error::DhError;
@@ -270,12 +271,14 @@ pub async fn run_ui_loop() -> Result<(), DhError> {
                 target,
                 title,
                 process,
+                status_title,
                 ..
             }) => {
                 if process.is_some() {
                     dev_process.clone_from(&process);
                 }
-                hand_off_attach(&ui_state, &session_id, target, title.as_deref(), process).await;
+                let title = title.as_deref();
+                hand_off_attach(&ui_state, &repo_root, &session_id, target, title, status_title, process).await;
             }
             Some(UiExitResult::EditNote {
                 session_id,
@@ -328,16 +331,24 @@ fn write_stderr(text: &str) {
 
 /// TS: cli.ts the `attach` hand-off: records the selection, clears the screen, attaches with the configured scroll
 /// sensitivity; only attaching to the agent marks its reply read. A failure prints `\nattach failed: <message>\n`
-/// on stderr and pauses [`HAND_OFF_ERROR_PAUSE`]. Clears the screen again on the way back.
+/// on stderr and pauses [`HAND_OFF_ERROR_PAUSE`]. Clears the screen again on the way back. The status line shows
+/// `status_title` (the full title, with a sub-session's parent) and counts the sessions the UI of `repo_root` lists,
+/// with its read replies.
 pub async fn hand_off_attach(
     ui_state: &Rc<RefCell<UiState>>,
+    repo_root: &str,
     session_id: &str,
     target: AttachTarget,
     title: Option<&str>,
+    status_title: Option<String>,
     process: Option<String>,
 ) {
     record_attach(&mut ui_state.borrow_mut(), session_id, target);
     clear_terminal_screen();
+    let status_scope = StatusScope {
+        root: Some(repo_root.to_owned()),
+        read_replies: ui_state.borrow().read_replies.clone(),
+    };
     let attached = async {
         let config = load_app_config().await?;
         let options = AttachSessionOptions {
@@ -345,6 +356,8 @@ pub async fn hand_off_attach(
             scroll_sensitivity: config.scroll_speed.map(|value| value.0),
             theme: theme_mode(config.theme.as_deref()),
             dev_process: process,
+            status_title,
+            status_scope,
         };
         attach_session(session_id, Some(target), options).await
     }
