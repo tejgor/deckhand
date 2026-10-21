@@ -133,6 +133,10 @@ pub struct MergeConfirmLayout {
     pub error: Vec<MergeLine>,
     /// The Notes section (its header first), last; empty when it does not fit.
     pub notes: Vec<MergeLine>,
+    /// Not in the TS: which rows of `details` are the commit subjects (what a dialog scrolls; the rows before them,
+    /// the target and summary, and after them, the uncommitted toggle and warnings, stay in view).
+    #[serde(skip)]
+    pub commit_rows: std::ops::Range<usize>,
 }
 
 /// TS: mergeModel.ts mergeConfirmLayout.
@@ -317,7 +321,8 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
             } else {
                 text.to_owned()
             };
-            line(fit(&text), Some(THEME.error))
+            // Whole: the dialog wraps it (a hook's output is what explains the failure).
+            line(text, Some(THEME.error))
         })
         .collect();
     // A blank row before the error output, then its lines (the last ones matter most for a hook's failure).
@@ -350,7 +355,7 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
             .iter()
             .flat_map(|entry| {
                 std::iter::once(MergeLine {
-                    text: fit(&entry.title),
+                    text: entry.title.clone(),
                     color: Some(THEME.muted),
                     bold: Some(true),
                 })
@@ -358,7 +363,8 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
                     entry
                         .lines
                         .iter()
-                        .map(|text| line(fit(&format!("  {text}")), Some(THEME.muted))),
+                        // Whole: the dialog wraps note lines rather than cutting them.
+                        .map(|text| line(format!("  {text}"), Some(THEME.muted))),
                 )
             })
             .collect()
@@ -384,7 +390,9 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
         notes.extend(shown);
     }
     let mut details = head;
+    let commits_start = details.len();
     details.extend(shown_commits);
+    let commit_rows = commits_start..details.len();
     details.extend(tail);
     MergeConfirmLayout {
         title: fit(&format!("Merge \"{}\"?", input.title)),
@@ -394,6 +402,7 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
         hint,
         error,
         notes,
+        commit_rows,
     }
 }
 
@@ -422,9 +431,6 @@ pub fn merge_confirm_rows(layout: &MergeConfirmLayout) -> usize {
     2 + 1 + layout.details.len() + layout.toggles.len() + 1 + layout.options.len() + 1 + 1 + error + notes
 }
 
-/// TS: mergeModel.ts CONFLICT_FILES_SHOWN.
-pub const CONFLICT_FILES_SHOWN: usize = 5;
-
 /// TS: mergeModel.ts ConflictView choice.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct ConflictChoice {
@@ -447,12 +453,8 @@ pub fn conflict_view(result: &WorktreeMergeResult, width: usize) -> ConflictView
     let files: &[String] = result.conflicts.as_deref().unwrap_or_default();
     let listed = to_js(files.len());
     let total = result.conflict_count.unwrap_or(listed).max(listed);
-    let cap = if total > to_js(CONFLICT_FILES_SHOWN) {
-        CONFLICT_FILES_SHOWN - 1
-    } else {
-        CONFLICT_FILES_SHOWN
-    };
-    let shown = &files[..cap.min(files.len())];
+    // Every file listed (the dialog scrolls); `+N more` only for files the result does not name.
+    let shown = files;
     let mut lines: Vec<String> = shown.iter().map(|file| truncate(&format!("  {file}"), width)).collect();
     if total > to_js(shown.len()) {
         lines.push(format!("  +{} more", total - to_js(shown.len())));
@@ -880,7 +882,10 @@ mod tests {
             &conflicted(Some((0..9).map(|index| format!("f{index}.ts")).collect()), Some(240)),
             60,
         );
-        assert_eq!(many.files, ["  f0.ts", "  f1.ts", "  f2.ts", "  f3.ts", "  +236 more"]);
+        // Every listed file (the dialog scrolls), then how many the result does not name.
+        assert_eq!(many.files.len(), 10);
+        assert_eq!(many.files[8], "  f8.ts");
+        assert_eq!(many.files[9], "  +231 more");
         assert_eq!(many.title, "Merged with conflicts in 240 files");
         assert_eq!(
             conflict_view(&conflicted(Some(strings(&["only.ts"])), Some(1)), 60).title,
@@ -1072,6 +1077,7 @@ mod tests {
             hint: text("hint"),
             error: lines("error")?,
             notes: lines("notes")?,
+            commit_rows: 0..0,
         })
     }
 

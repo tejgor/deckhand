@@ -5,15 +5,15 @@
 │ 2 uncommitted files                                                                            │
 │ ☑ commit them first ("beta")                                                                   │
 │                                                                                                │
+│ Notes                                                                                          │
+│ Worktree notes · beta                                                                          │
+│   Remember the tests                                                                           │
+│                                                                                                │
 │ ❯ Merge into main without committing                                                           │
 │   Squash merge into main without committing                                                    │
 │   Cancel                                                                                       │
 │                                                                                                │
 │ enter choose • space commit first • esc cancel                                                 │
-│                                                                                                │
-│ Notes                                                                                          │
-│ Worktree notes · beta                                                                          │
-│   Remember the tests                                                                           │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │

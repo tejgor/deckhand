@@ -15,7 +15,8 @@ use deckhand_core::display::{
 use deckhand_core::jsstr::{js_len, js_pad_end};
 
 use crate::primitives::{
-    Border, Column, Row, Seg, TextStyle, Wrap, bordered, draw_rows, fit_row, row_width, truncate_row, with_base,
+    Border, Column, Row, Seg, TextStyle, Wrap, bordered, clear_area, dialog_box, dialog_content, dialog_width,
+    draw_border, draw_rows, fit_row, row_width, truncate_row, with_base,
 };
 use crate::theme::{THEME, color};
 
@@ -337,16 +338,51 @@ pub fn menu_pane_budget(subtitle: usize, items: usize, has_details: bool, height
     }
 }
 
+/// The rows a MenuPane of outer `width` needs to show everything: border, title, subtitle and its spacer, every item,
+/// a blank row and the details box, then a blank row and the hint.
+pub fn menu_pane_height(props: &MenuPaneProps<'_>, width: usize) -> usize {
+    let inner = width.saturating_sub(4).max(1);
+    let head = props.subtitle.len();
+    let details = props.details.map_or(0, |details| {
+        let rows = menu_details_rows(
+            &MenuDetailsProps {
+                title: &details.title,
+                lines: &details.lines,
+                rows: None,
+            },
+            inner,
+        );
+        1 + rows.len() + 2
+    });
+    2 + 1 + head + usize::from(head > 0) + props.items.len().max(1) + details + 2
+}
+
+/// A MenuPane as a dialog `height` tall over `bounds`.
+pub fn render_menu_dialog(props: &MenuPaneProps<'_>, buf: &mut Buffer, bounds: Rect, height: u16) {
+    let area = dialog_box(bounds, dialog_width(bounds), height);
+    clear_area(buf, area);
+    draw_border(buf, area, &Border::round(THEME.border_active));
+    // The pane's height counts its border; the dialog's rows do not.
+    let rows = menu_pane_height(props, usize::from(area.width)).saturating_sub(2);
+    draw_menu_pane_content(props, buf, dialog_content(area, rows));
+}
+
 /// TS: menu.tsx MenuPane: a boxed picker: title, subtitle, the menu, a details box and one hint line.
 pub fn render_menu_pane(props: &MenuPaneProps<'_>, buf: &mut Buffer, area: Rect) {
-    let inner = usize::from(area.width).saturating_sub(4).max(1);
+    let content = bordered(buf, area, &Border::round(THEME.border_active), 1);
+    draw_menu_pane_content(props, buf, content);
+}
+
+/// A MenuPane's content in `content` (inside its box's border and padding).
+fn draw_menu_pane_content(props: &MenuPaneProps<'_>, buf: &mut Buffer, content: Rect) {
+    let inner = usize::from(content.width).max(1);
+    // The budget counts the box's border rows.
     let budget = menu_pane_budget(
         props.subtitle.len(),
         props.items.len(),
         props.details.is_some(),
-        usize::from(area.height),
+        usize::from(content.height) + 2,
     );
-    let content = bordered(buf, area, &Border::round(THEME.border_active), 1);
     let mut column = Column::new();
     let title = vec![Seg::plain(truncate(props.title, inner))];
     column.push(truncated_line(title, TextStyle::fg(THEME.accent).bold(true), inner));

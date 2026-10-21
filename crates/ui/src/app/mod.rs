@@ -1242,6 +1242,17 @@ impl App {
             return;
         }
         let mode = self.mode;
+        // Not in the TS: J/K (PgUp/PgDn) scroll a dialog's (or the merge screen's) body: what does not fit. Not while
+        // a field takes letters as text (the session's name, the worktree picker's search).
+        let typing = mode == Mode::EnterName || (mode == Mode::PickWorktree && self.create.worktree_typing);
+        let letter = matches!(input.input.as_str(), "J" | "K");
+        if mode.scrolls_body()
+            && !(typing && letter)
+            && let Some(up) = crate::keymap::dialog_scroll(input)
+        {
+            self.dialog.scroll = self.dialog.last.paged(self.dialog.scroll, up);
+            return;
+        }
         if is_settings_flow_mode(mode) {
             self.settings_flow_call(|flow, props, cx| flow.handle_input(props, input, cx));
             return;

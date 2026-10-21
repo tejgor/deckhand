@@ -27,14 +27,14 @@ use deckhand_protocol::data::{RightPaneTab, SessionRecord, SessionStatus};
 
 use crate::app::modes::action_picker::{ActionPickerPaneProps, DevRow, render_action_picker_pane};
 use crate::app::modes::confirm::{
-    KillConfirmPaneProps, KillOptionKind, MergeConfirmPaneProps, RemoveConfirmPaneProps, kill_options,
-    render_kill_confirm_pane, render_merge_confirm_pane, render_merge_conflict_pane, render_remove_confirm_pane,
+    KillConfirmPaneProps, KillOptionKind, MergeConfirmPaneProps, RemoveConfirmPaneProps, kill_loading, kill_options,
+    render_conflict_pane, render_kill_dialog, render_merge_pane, render_remove_dialog,
 };
 use crate::app::modes::create::{
-    BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, filtered_worktrees, render_create_pane,
+    BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, filtered_worktrees, render_create_dialog,
     render_worktree_picker,
 };
-use crate::app::state::{App, Mode, TerminalSize};
+use crate::app::state::{App, DialogState, Mode, TerminalSize};
 use crate::app::{
     Derived, base_options, connection_color, describe_connection, format_scroll_sensitivity, hint_short, notes_links,
     parent_workspace_label, supports_forked_sub_session, truthy, with_props,
@@ -48,10 +48,11 @@ use crate::panes::details::{DetailsPaneProps, render_details_pane};
 use crate::panes::dev::{DevPaneProps, render_dev_pane};
 use crate::panes::preview::{PreviewPaneProps, render_preview_pane};
 use crate::panes::sidebar::{FilterMenu, SidebarProps, render_sidebar};
-use crate::panes::tabs::render_tab_bar;
+use crate::panes::tabs::{TabBadges, open_note_count, render_tab_bar};
 use crate::panes::terminal::{TerminalPaneProps, action_status, has_action, render_terminal_pane};
 use crate::primitives::{
-    Border, Row, Seg, TextStyle, Wrap, bordered, draw_rows, row_width, space_between, string_width, truncate_row,
+    Border, Row, Seg, TextStyle, Wrap, bordered, clear_area, dim_area, draw_rows, row_text, row_width, space_between,
+    string_width, truncate_row,
 };
 use crate::theme::{THEME, apply_dusk};
 
@@ -60,10 +61,6 @@ pub const HEADER_ROWS: u16 = 2;
 
 /// TS: app.tsx FOOTER_ROWS: the key hint and one combined message line, always.
 pub const FOOTER_ROWS: u16 = 2;
-
-/// TS: app.tsx SPARE_ROWS: one spare row below the footer (Ink repainted the whole screen once output reached the
-/// terminal height).
-pub const SPARE_ROWS: u16 = 1;
 
 /// TS: app.tsx sidebarWidth: 24% of the width, 24..34, clamped.
 pub fn sidebar_width(total_width: i64) -> i64 {
@@ -170,7 +167,7 @@ pub fn app_layout(size: TerminalSize, sidebar_width_override: Option<i64>) -> Ap
     );
     let separator_width = 1;
     let right = 20.max(total_width - left - separator_width);
-    let content_height = 8.max(total_height - i64::from(HEADER_ROWS) - i64::from(FOOTER_ROWS) - i64::from(SPARE_ROWS));
+    let content_height = 8.max(total_height - i64::from(HEADER_ROWS) - i64::from(FOOTER_ROWS));
     // The right pane's wrapper takes 4 columns (border 2 + paddingX 2) and 4 rows (border 2 + tab bar 1 + spacer 1)
     // before the sub-pane's content begins.
     let pane_inner_width = 10.max(right - 4);
@@ -231,8 +228,8 @@ fn dropped_short(text: &str, short: &str, drop: i32) -> HintPart {
 pub fn footer_hint(input: &FooterHintInput<'_>) -> String {
     let width = input.width;
     match input.mode {
-        // Every other mode replaces the right pane with a screen that shows its own (single) hint line; Search, Tasks
-        // and Worktrees write their own line (the footer).
+        // Every other mode draws a screen (or a dialog over the right pane) that shows its own (single) hint line;
+        // Search, Tasks and Worktrees write their own line (the footer).
         Mode::Help
         | Mode::Settings
         | Mode::Agents
@@ -254,7 +251,7 @@ pub fn footer_hint(input: &FooterHintInput<'_>) -> String {
         | Mode::Search => String::new(),
         Mode::PreviewFocus => fit_hint(
             &[
-                hint_short("j/k ↑↓ PgUp/PgDn scroll", "j/k scroll"),
+                hint_short("j/k ↑↓ J/K scroll", "j/k scroll"),
                 dropped("g/G top/bottom", 1),
                 dropped_short(
                     &format!(
@@ -593,10 +590,13 @@ fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, ar
     let layout = app.layout();
     let selected = derived.selected.as_ref();
     let inner = bordered(buf, area, &Border::round(THEME.border), 1);
-    let dev_running = selected.is_some_and(|session| session.dev_running == Some(true));
+    let badges = TabBadges {
+        dev_running: selected.is_some_and(|session| session.dev_running == Some(true)),
+        open_notes: selected.map_or(0, open_note_count),
+    };
     render_tab_bar(
         app.browse.active_tab,
-        dev_running,
+        badges,
         buf,
         Rect::new(inner.x, inner.y, layout.pane_inner_width, 1),
     );
@@ -716,6 +716,27 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
         layout.preview_width,
         layout.content_height,
     );
+    // A dialog keeps the session's pane in sight behind it.
+    if mode.is_dialog() {
+        render_tabbed_pane_for(app, derived, buf, right);
+        dim_area(buf, right);
+    }
+    // Another dialog (or screen) starts scrolled to the top and at its own size.
+    if mode.scrolls_body() {
+        // Picking the agent and naming the session are one dialog: it keeps its size from one step to the next.
+        let dialog = if mode == Mode::EnterName {
+            Mode::PickProgram
+        } else {
+            mode
+        };
+        if app.dialog.mode != Some(dialog) {
+            app.dialog = DialogState {
+                mode: Some(dialog),
+                ..DialogState::default()
+            };
+        }
+    }
+    let view = app.dialog.last.view(app.dialog.scroll);
     let selected = derived.selected.as_ref();
     let session_refs: Vec<&SessionRecord> = derived.sessions.iter().collect();
     match mode {
@@ -743,7 +764,7 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 session: selected,
                 items: &app.remove.items,
             };
-            render_remove_confirm_pane(&props, buf, right);
+            app.dialog.last = render_remove_dialog(&props, buf, right, view);
         }
         Mode::WorkspaceInfo | Mode::ReviewProject | Mode::ConfirmLoss => {
             if let Some(details) = app.details_content() {
@@ -786,7 +807,7 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 typing: app.create.worktree_typing,
                 total_count: app.create.worktrees.len(),
             };
-            render_worktree_picker(&props, buf, right);
+            app.dialog.last = render_worktree_picker(&props, buf, right, view);
         }
         Mode::ConfirmKill => {
             let check = app.current_cleanup_check();
@@ -814,8 +835,10 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 inspection,
                 open_items: &open_items,
                 keep_open_items: app.kill.keep_open_items,
+                loading: kill_loading(app),
+                other_inspection: app.cleanup_inspection_for(!delete_branch),
             };
-            render_kill_confirm_pane(&props, buf, right);
+            app.dialog.last = render_kill_dialog(&props, buf, right, view);
         }
         Mode::ConfirmMerge => {
             let flow = app
@@ -830,11 +853,11 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 selected_index: app.merge.confirm_index,
                 tasks: &app.data.tasks,
             };
-            render_merge_confirm_pane(&props, buf, right);
+            app.dialog.last = render_merge_pane(&props, buf, right, app.dialog.scroll);
         }
         Mode::MergeConflicts => {
             if let Some(conflict) = app.merge.conflict.as_ref() {
-                render_merge_conflict_pane(&conflict.result, buf, right);
+                app.dialog.last = render_conflict_pane(&conflict.result, buf, right, app.dialog.scroll);
             }
         }
         Mode::PickProgram | Mode::EnterName => {
@@ -879,10 +902,43 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                     .map(|task| task.title.as_str()),
                 base: Some(&base),
             };
-            render_create_pane(&props, buf, right);
+            app.dialog.last = render_create_dialog(&props, buf, right, view);
         }
         _ => {}
     }
+}
+
+/// The most rows an error toast takes, border included.
+const ERROR_TOAST_MAX_ROWS: usize = 8;
+
+/// Not in the TS: an error too long for the footer's message row also shows whole, wrapped (its own line breaks
+/// kept), in a box of at most [`ERROR_TOAST_MAX_ROWS`] rows at the top right of the content, as long as the footer
+/// shows it (the top, so the preview's latest lines, where an agent asks for input, stay in view). `None` when it
+/// fits the row (`cols` wide).
+pub fn error_toast_rows(error: &str, cols: usize) -> Option<(usize, Vec<Row>)> {
+    let text = format!("Error: {}", error.trim());
+    if !text.contains('\n') && string_width(&text) <= cols {
+        return None;
+    }
+    let width = cols.saturating_sub(2).min(cols.max(40) / 2 + 20).max(1);
+    let inner = width.saturating_sub(4).max(1);
+    let mut rows: Vec<Row> = text
+        .lines()
+        .flat_map(|line| deckhand_core::display::wrap_words(line.trim_end(), inner))
+        .map(|line| vec![Seg::new(line, TextStyle::fg(THEME.error))])
+        .collect();
+    let room = ERROR_TOAST_MAX_ROWS - 2;
+    if rows.len() > room {
+        rows.truncate(room);
+        if let Some(last) = rows.last_mut() {
+            *last = truncate_row(
+                &[Seg::new(format!("{}…", row_text(last)), TextStyle::fg(THEME.error))],
+                inner,
+                Wrap::TruncateEnd,
+            );
+        }
+    }
+    Some((width, rows))
 }
 
 /// TS: app.tsx App's render: header, content, footer.
@@ -905,6 +961,22 @@ pub fn render_app(app: &mut App, frame: &mut Frame<'_>) {
         Rect::new(0, footer_y, cols, FOOTER_ROWS),
         &footer_rows_for(app, &derived),
     );
+    if let Some((width, rows)) = app
+        .messages
+        .error
+        .as_deref()
+        .filter(|error| !error.is_empty())
+        .and_then(|error| error_toast_rows(error, usize::from(cols)))
+    {
+        let width = u16::try_from(width).unwrap_or(cols);
+        let height = u16::try_from(rows.len() + 2)
+            .unwrap_or(u16::MAX)
+            .min(layout.content_height);
+        let toast = Rect::new(cols.saturating_sub(width + 1), HEADER_ROWS, width, height);
+        clear_area(&mut canvas, toast);
+        let content = bordered(&mut canvas, toast, &Border::round(THEME.border_danger), 1);
+        draw_rows(&mut canvas, content, &rows);
+    }
     let area = frame.area();
     let visible = area.intersection(canvas.area);
     let buf = frame.buffer_mut();
@@ -1172,11 +1244,11 @@ mod tests {
             AppLayout {
                 sidebar_width: 31,
                 preview_width: 98,
-                content_height: 31,
+                content_height: 32,
                 pane_inner_width: 94,
-                pane_inner_height: 27,
+                pane_inner_height: 28,
                 preview_cols: 94,
-                preview_rows: 26,
+                preview_rows: 27,
             }
         );
         let tiny = app_layout(TerminalSize { cols: 10, rows: 5 }, Some(-4));
@@ -1247,7 +1319,7 @@ mod tests {
         assert_eq!(footer_hint(&input(Mode::NotesFocus)), "esc done");
         assert_eq!(
             footer_hint(&input(Mode::PreviewFocus)),
-            "j/k ↑↓ PgUp/PgDn scroll • g/G top/bottom • wheel ×0.2 (+/− speed) • ← back"
+            "j/k ↑↓ J/K scroll • g/G top/bottom • wheel ×0.2 (+/− speed) • ← back"
         );
         assert_eq!(
             footer_hint(&input(Mode::PickFilter)),
@@ -1293,7 +1365,7 @@ mod tests {
 
     /// Renders `app` (connected over a socket pair, sessions loaded, `<TMP>/demo` the repo) after `setup` and compares
     /// the screen with `fixtures/ui/<name>.txt` (rows right-trimmed), using the default fitted sidebar.
-    fn assert_screen(name: &str, setup: impl FnOnce(&mut App)) {
+    fn assert_screen(name: &str, setup: impl FnOnce(&mut App)) -> Buffer {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -1331,12 +1403,106 @@ mod tests {
                 })
                 .collect();
             deckhand_testkit::assert_snapshot(format!("fixtures/ui/{name}.txt"), &rows.join("\n"));
-        });
+            buffer.clone()
+        })
     }
 
     #[test]
     fn renders_the_empty_dashboard_snapshot() {
         assert_screen("01-empty-dashboard", |_| {});
+    }
+
+    #[test]
+    fn an_error_too_long_for_the_footer_shows_whole_in_a_toast() {
+        assert_eq!(error_toast_rows("short", 130), None);
+        let long = format!("git worktree remove failed: {} (the end)", "detail ".repeat(30));
+        let (width, rows) = error_toast_rows(&long, 130).unwrap_or_else(|| panic!("a toast"));
+        assert_eq!(width, 85);
+        let text: Vec<String> = rows.iter().map(|row| row_text(row)).collect();
+        assert!(text[0].starts_with("Error: git worktree remove failed:"), "{text:?}");
+        assert!(text.last().is_some_and(|row| row.ends_with("(the end)")), "{text:?}");
+        // Line breaks are kept; a short multi-line error still gets the box.
+        let (_, rows) = error_toast_rows("first\nsecond", 130).unwrap_or_else(|| panic!("a toast"));
+        assert_eq!(
+            rows.iter().map(|row| row_text(row)).collect::<Vec<_>>(),
+            ["Error: first", "second"]
+        );
+        // At most ERROR_TOAST_MAX_ROWS, the cut marked.
+        let (_, rows) = error_toast_rows(&"word ".repeat(400), 130).unwrap_or_else(|| panic!("a toast"));
+        assert_eq!(rows.len(), ERROR_TOAST_MAX_ROWS - 2);
+        assert!(rows.last().is_some_and(|row| row_text(row).ends_with('…')));
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap_or_else(|error| panic!("{error}"));
+        tokio::task::LocalSet::new().block_on(&runtime, async {
+            let (mut app, _rx) = app(AppProps::default());
+            app.messages.error = Some(long.clone());
+            let mut terminal = Terminal::new(TestBackend::new(130, 36)).unwrap_or_else(|error| panic!("{error}"));
+            terminal
+                .draw(|frame| render_app(&mut app, frame))
+                .unwrap_or_else(|error| panic!("{error}"));
+            let buffer = terminal.backend().buffer();
+            let screen: Vec<String> = (0..buffer.area.height)
+                .map(|y| (0..buffer.area.width).map(|x| buffer[(x, y)].symbol()).collect())
+                .collect();
+            // The footer row (cut) and the toast at the top (whole).
+            assert!(screen[35].contains("Error: git worktree remove failed:"));
+            assert!(screen[2..10].iter().any(|row| row.contains("(the end)")), "{screen:#?}");
+        });
+    }
+
+    #[test]
+    fn a_dialog_floats_over_the_faded_session_pane() {
+        let buffer = assert_screen("07-dialog-over-dashboard", |app| {
+            let mut auth = session("a", "auth refactor", SessionStatus::Running);
+            let mut tests = session("b", "write tests", SessionStatus::Exited);
+            // Updated just now, so the details' age reads the same every day.
+            let now = deckhand_core::jsstr::date::to_iso_string(deckhand_core::jsstr::date::now_ms());
+            for record in [&mut auth, &mut tests] {
+                record.cwd = "<TMP>/demo".to_owned();
+                record.repo_root = "<TMP>/demo".to_owned();
+                record.agent_status_updated_at.clone_from(&now);
+            }
+            app.data.repo_sessions = vec![auth, tests];
+            app.set_selected_id(Some("a".to_owned()));
+            app.panes.preview = deckhand_protocol::data::PreviewRecord {
+                session_id: Some("a".to_owned()),
+                content: (1..=24)
+                    .map(|n| format!("agent output line {n}"))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                live: true,
+                status: Some(SessionStatus::Running),
+                agent_status: None,
+                scroll_offset: None,
+                max_scroll_offset: None,
+            };
+            app.set_mode(Mode::PickProgram);
+        });
+        let layout = app_layout(TerminalSize { cols: 130, rows: 36 }, None);
+        let right_x = layout.sidebar_width + 1;
+        let text_of = |y: u16| -> String { (0..buffer.area.width).map(|x| buffer[(x, y)].symbol()).collect() };
+        // The preview's last lines show below the dialog, faded; the sidebar is not.
+        let below = (0..buffer.area.height)
+            .find(|&y| text_of(y).contains("agent output line 24"))
+            .unwrap_or_else(|| panic!("the preview shows behind the dialog"));
+        let x = (right_x..buffer.area.width)
+            .find(|&x| buffer[(x, below)].symbol() == "a")
+            .unwrap_or(right_x);
+        assert!(buffer[(x, below)].modifier.contains(ratatui::style::Modifier::DIM));
+        let sidebar_title = (0..buffer.area.height)
+            .find(|&y| text_of(y).contains("auth refactor"))
+            .unwrap_or_else(|| panic!("the sidebar lists the session"));
+        let title_x = (0..layout.sidebar_width)
+            .find(|&x| buffer[(x, sidebar_title)].symbol() == "a")
+            .unwrap_or(0);
+        assert!(
+            !buffer[(title_x, sidebar_title)]
+                .modifier
+                .contains(ratatui::style::Modifier::DIM)
+        );
     }
 
     #[test]

@@ -1,23 +1,24 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Existing worktree                                                                              │
-│ Search: / to filter (1)                                                                        │
+│ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                         │
 │                                                                                                │
-│ ❯ main · main  <TMP>/demo                                                                      │
-│                                                                                                │
-│ enter select • / search • esc back                                                             │
+│ Select a session from the sidebar                                                              │
+│ No sessions yet. Press n to create one.                                                        │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
+│                  ╭──────────────────────────────────────────────────────────╮                  │
+│                  │                                                          │                  │
+│                  │ Existing worktree                                        │                  │
+│                  │ Search: / to filter (1)                                  │                  │
+│                  │                                                          │                  │
+│                  │ ❯ main · main  <TMP>/demo                                │                  │
+│                  │                                                          │                  │
+│                  │ enter select • / search • esc back                       │                  │
+│                  │                                                          │                  │
+│                  ╰──────────────────────────────────────────────────────────╯                  │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │

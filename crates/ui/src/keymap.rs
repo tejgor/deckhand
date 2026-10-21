@@ -98,6 +98,30 @@ impl Binding {
     }
 }
 
+/// Not in the TS: scrolling what does not fit in a dialog (or the merge screen): Shift+J/K, since a Mac keyboard has
+/// no page keys (as `J`/`K` scroll the Changes view's diff), and PgUp/PgDn. Not while a field takes letters as text.
+pub const SCROLL_DIALOG: Binding = Binding {
+    keys: &[
+        KeySpec::Char("J"),
+        KeySpec::Char("K"),
+        KeySpec::Named(NamedKey::PageDown),
+        KeySpec::Named(NamedKey::PageUp),
+    ],
+    action: "scroll what does not fit",
+    help: HelpRef::Hidden("the border says when there is more, and which key shows it"),
+};
+
+/// Whether `input` scrolls a dialog's body by [`SCROLL_DIALOG`]: `Some(true)` up (K, PgUp), `Some(false)` down.
+pub fn dialog_scroll(input: &Input) -> Option<bool> {
+    let up = KeySpec::Char("K").matches(input) || input.key.page_up;
+    let down = KeySpec::Char("J").matches(input) || input.key.page_down;
+    match (up, down) {
+        (true, _) => Some(true),
+        (_, true) => Some(false),
+        _ => None,
+    }
+}
+
 /// A mode's or flow's bindings (each exposes one as `pub static KEYMAP: Keymap`).
 pub type Keymap = &'static [Binding];
 

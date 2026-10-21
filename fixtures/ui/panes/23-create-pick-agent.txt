@@ -1,24 +1,25 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ New session                                                                                    │
+│ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                         │
 │                                                                                                │
-│ Choose an agent                                                                                │
-│ ❯ ✶ Claude                                                                                     │
-│   π Pi                                                                                         │
-│   ◇ Codex                                                                                      │
-│                                                                                                │
-│ enter continue • esc cancel                                                                    │
+│ Select a session from the sidebar                                                              │
+│ No sessions yet. Press n to create one.                                                        │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
+│                  ╭──────────────────────────────────────────────────────────╮                  │
+│                  │                                                          │                  │
+│                  │ New session                                              │                  │
+│                  │                                                          │                  │
+│                  │ Choose an agent                                          │                  │
+│                  │ ❯ ✶ Claude                                               │                  │
+│                  │   π Pi                                                   │                  │
+│                  │   ◇ Codex                                                │                  │
+│                  │                                                          │                  │
+│                  │ enter continue • esc cancel                              │                  │
+│                  │                                                          │                  │
+│                  ╰──────────────────────────────────────────────────────────╯                  │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │

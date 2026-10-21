@@ -1,25 +1,26 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ New sub-session under beta                                                                     │
+│ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                         │
 │                                                                                                │
-│ Choose an agent                                                                                │
-│ ❯ ✶ Claude                                                                                     │
-│   π Pi                                                                                         │
-│   ◇ Codex                                                                                      │
-│   ⑂ Fork parent                                                                                │
-│ Parent: beta                                                                                   │
-│                                                                                                │
-│ enter continue • esc cancel                                                                    │
+│ <TMP>/demo                                                                                idle │
+│ Waiting for agent output…                                                                      │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
+│                  ╭──────────────────────────────────────────────────────────╮                  │
+│                  │                                                          │                  │
+│                  │ New sub-session under beta                               │                  │
+│                  │                                                          │                  │
+│                  │ Choose an agent                                          │                  │
+│                  │ ❯ ✶ Claude                                               │                  │
+│                  │   π Pi                                                   │                  │
+│                  │   ◇ Codex                                                │                  │
+│                  │   ⑂ Fork parent                                          │                  │
+│                  │ Parent: beta                                             │                  │
+│                  │                                                          │                  │
+│                  │ enter continue • esc cancel                              │                  │
+│                  │                                                          │                  │
+│                  ╰──────────────────────────────────────────────────────────╯                  │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │

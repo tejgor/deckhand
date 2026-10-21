@@ -88,8 +88,9 @@ pub fn clamp_scroll(scroll: usize, max: usize) -> usize {
     clamp_scroll_f64(scroll as f64, max as f64) as usize
 }
 
-/// TS: detailsPane.tsx scrollDetails: ↑↓ j k, PgUp/PgDn, Home/End; `None` when the key does not scroll (callers
-/// handle it). `rows` and `max` are the viewport's.
+/// TS: detailsPane.tsx scrollDetails: ↑↓ j k, PgUp/PgDn, Home/End; not in the TS: K/J page too (a Mac keyboard has
+/// no page keys; not g/G, which in `i` opens the Git tab). `None` when the key does not scroll (callers handle it).
+/// `rows` and `max` are the viewport's.
 pub fn scroll_details(scroll: usize, input: &Input, rows: usize, max: usize) -> Option<usize> {
     let key = &input.key;
     let current = clamp_scroll(scroll, max);
@@ -111,6 +112,12 @@ pub fn scroll_details(scroll: usize, input: &Input, rows: usize, max: usize) -> 
     }
     if key.down_arrow || plain("j") {
         return Some(clamp_scroll(current.saturating_add(1), max));
+    }
+    if plain("K") {
+        return Some(clamp_scroll(current.saturating_sub(rows), max));
+    }
+    if plain("J") {
+        return Some(clamp_scroll(current.saturating_add(rows), max));
     }
     None
 }
@@ -140,7 +147,7 @@ pub fn details_pane_column(props: &DetailsPaneProps<'_>, width: usize, height: u
     let mut parts = props.footer.to_vec();
     if scrollable && !parts.iter().any(|part| part.text.contains("scroll")) {
         parts.push(HintPart {
-            text: "↑↓/PgUp/PgDn scroll".to_owned(),
+            text: "↑↓ J/K scroll".to_owned(),
             short: Some("↑↓ scroll".to_owned()),
             drop: Some(1),
         });
@@ -194,6 +201,18 @@ mod tests {
         Ok(usize::try_from(case.arg_i64(index)?.max(0)).unwrap_or(0))
     }
 
+    #[test]
+    fn shift_j_and_k_page_the_details() {
+        // A Mac keyboard has no page keys: K/J page as PgUp/PgDn do; j/k still move a line.
+        assert_eq!(scroll_details(3, &Input::text("J"), 10, 100), Some(13));
+        assert_eq!(scroll_details(13, &Input::text("K"), 10, 100), Some(3));
+        assert_eq!(scroll_details(3, &Input::text("j"), 10, 100), Some(4));
+        assert_eq!(
+            scroll_details(3, &Input::text("g"), 10, 100),
+            None,
+            "g is the Git tab in i"
+        );
+    }
     #[test]
     fn visible_detail_text_parity() {
         replay(

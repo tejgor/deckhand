@@ -21,7 +21,10 @@ use crate::app::{
 };
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 use crate::panes::menu::{MenuListProps, SelectableRowProps, menu_list, selectable_row};
-use crate::primitives::{Border, Row, Seg, TextStyle, Wrap, bordered, draw_rows, fit_row, truncate_row, with_base};
+use crate::primitives::{
+    Border, DialogRows, DialogScroll, DialogView, Row, Seg, TextStyle, Wrap, dialog_body_rows, draw_dialog, fit_row,
+    truncate_row, with_base,
+};
 use crate::theme::THEME;
 
 /// pick-program keys.
@@ -46,6 +49,7 @@ pub static PICK_PROGRAM_KEYMAP: Keymap = &[
         action: "cancel (from handoff: back to the choices)",
         help: HelpRef::Topic("Start here"),
     },
+    crate::keymap::SCROLL_DIALOG,
 ];
 
 /// enter-name keys.
@@ -821,8 +825,30 @@ pub fn create_pane_rows(props: &CreatePaneProps<'_>, width: usize) -> Vec<Row> {
 
 /// TS: app.tsx CreatePane.
 pub fn render_create_pane(props: &CreatePaneProps<'_>, buf: &mut Buffer, area: Rect) {
-    let content = bordered(buf, area, &Border::round(THEME.border_active), 1);
-    draw_rows(buf, content, &create_pane_rows(props, usize::from(area.width)));
+    render_create_dialog(props, buf, area, DialogView::default());
+}
+
+/// [`create_pane_rows`] as a dialog over `area` (compact at every step and workspace mode), the hint at its bottom,
+/// as `view` keeps it.
+pub fn render_create_dialog(
+    props: &CreatePaneProps<'_>,
+    buf: &mut Buffer,
+    area: Rect,
+    view: DialogView,
+) -> DialogScroll {
+    let build = |width: u16| {
+        let mut body = create_pane_rows(props, usize::from(width));
+        let hint = body.pop().unwrap_or_default();
+        if body.last().is_some_and(Vec::is_empty) {
+            body.pop();
+        }
+        DialogRows {
+            header: Vec::new(),
+            body,
+            footer: vec![Vec::new(), hint],
+        }
+    };
+    draw_dialog(buf, area, &Border::round(THEME.border_active), &build, view)
 }
 
 /// TS: app.tsx WorktreePickerPane props (width and height are the area's).
@@ -835,20 +861,24 @@ pub struct WorktreePickerProps<'a> {
     pub total_count: usize,
 }
 
-/// TS: app.tsx WorktreePickerPane's rows inside its border.
-fn worktree_picker_rows(props: &WorktreePickerProps<'_>, width: usize, height: usize) -> Vec<Row> {
-    let content_width = width.saturating_sub(4).max(1);
+/// TS: app.tsx WorktreePickerPane, as a dialog over `bounds`: the title and the search on top, the worktrees (as
+/// many as the tallest dialog has rows for; the list scrolls with its selection), the hint at the bottom.
+fn worktree_picker_rows(props: &WorktreePickerProps<'_>, bounds: Rect, width: u16) -> DialogRows {
+    let content_width = usize::from(width).saturating_sub(4).max(1);
     let muted = TextStyle::fg(THEME.muted);
     let count_label = if props.query.is_empty() {
         props.total_count.to_string()
     } else {
         format!("{}/{}", props.worktrees.len(), props.total_count)
     };
-    let mut rows = wrapped(
-        vec![Seg::plain("Existing worktree")],
-        TextStyle::fg(THEME.accent).bold(true),
-        content_width,
-    );
+    let mut rows = DialogRows {
+        header: wrapped(
+            vec![Seg::plain("Existing worktree")],
+            TextStyle::fg(THEME.accent).bold(true),
+            content_width,
+        ),
+        ..DialogRows::default()
+    };
     let search = if props.typing {
         format!("{}▏", props.query)
     } else if props.query.is_empty() {
@@ -861,7 +891,7 @@ fn worktree_picker_rows(props: &WorktreePickerProps<'_>, width: usize, height: u
     } else {
         THEME.muted
     };
-    rows.extend(wrapped(
+    rows.header.extend(wrapped(
         vec![
             Seg::plain("Search: "),
             Seg::new(search, TextStyle::fg(search_color)),
@@ -871,38 +901,7 @@ fn worktree_picker_rows(props: &WorktreePickerProps<'_>, width: usize, height: u
         TextStyle::default(),
         content_width,
     ));
-    rows.push(Vec::new());
-    if props.total_count == 0 {
-        rows.extend(wrapped(vec![Seg::plain("No worktrees found.")], muted, content_width));
-    }
-    if props.total_count > 0 && props.worktrees.is_empty() {
-        rows.extend(wrapped(
-            vec![Seg::plain("No matching worktrees.")],
-            muted,
-            content_width,
-        ));
-    }
-    if !props.worktrees.is_empty() {
-        let items: Vec<MenuItem> = props
-            .worktrees
-            .iter()
-            .map(|worktree| MenuItem {
-                key: worktree.path.clone(),
-                label: worktree_label(worktree, content_width.saturating_sub(2)),
-                ..MenuItem::default()
-            })
-            .collect();
-        rows.extend(menu_list(
-            &MenuListProps {
-                items: &items,
-                selected: props.selected_index,
-                rows: Some(height.saturating_sub(7).max(1)),
-                label_width: None,
-            },
-            content_width,
-        ));
-    }
-    rows.push(Vec::new());
+    rows.header.push(Vec::new());
     let hint: Vec<HintPart> = if props.typing {
         vec![
             "type to filter".into(),
@@ -918,15 +917,51 @@ fn worktree_picker_rows(props: &WorktreePickerProps<'_>, width: usize, height: u
         };
         vec!["enter select".into(), search.into(), escape.into()]
     };
-    rows.push(hint_row(&hint, content_width));
+    rows.footer = vec![Vec::new(), hint_row(&hint, content_width)];
+    if props.total_count == 0 {
+        rows.body
+            .extend(wrapped(vec![Seg::plain("No worktrees found.")], muted, content_width));
+    }
+    if props.total_count > 0 && props.worktrees.is_empty() {
+        rows.body.extend(wrapped(
+            vec![Seg::plain("No matching worktrees.")],
+            muted,
+            content_width,
+        ));
+    }
+    if !props.worktrees.is_empty() {
+        let items: Vec<MenuItem> = props
+            .worktrees
+            .iter()
+            .map(|worktree| MenuItem {
+                key: worktree.path.clone(),
+                label: worktree_label(worktree, content_width.saturating_sub(2)),
+                ..MenuItem::default()
+            })
+            .collect();
+        let room = dialog_body_rows(bounds, rows.header.len(), rows.footer.len());
+        rows.body.extend(menu_list(
+            &MenuListProps {
+                items: &items,
+                selected: props.selected_index,
+                rows: Some(room.max(1)),
+                label_width: None,
+            },
+            content_width,
+        ));
+    }
     rows
 }
 
 /// TS: app.tsx WorktreePickerPane.
-pub fn render_worktree_picker(props: &WorktreePickerProps<'_>, buf: &mut Buffer, area: Rect) {
-    let content = bordered(buf, area, &Border::round(THEME.border_active), 1);
-    let rows = worktree_picker_rows(props, usize::from(area.width), usize::from(area.height));
-    draw_rows(buf, content, &rows);
+pub fn render_worktree_picker(
+    props: &WorktreePickerProps<'_>,
+    buf: &mut Buffer,
+    area: Rect,
+    view: DialogView,
+) -> DialogScroll {
+    let build = |width| worktree_picker_rows(props, area, width);
+    draw_dialog(buf, area, &Border::round(THEME.border_active), &build, view)
 }
 
 #[cfg(test)]
@@ -1672,7 +1707,9 @@ mod tests {
                 typing,
                 total_count: total,
             };
-            texts(&worktree_picker_rows(&props, 60, 20))
+            // A 64-column pane: the dialog is laid out 60 wide.
+            let dialog = worktree_picker_rows(&props, Rect::new(0, 0, 64, 20), 60);
+            texts(&[dialog.header, dialog.body, dialog.footer].concat())
         };
         assert_eq!(
             rows(&[], "", false, 0),
@@ -1751,6 +1788,49 @@ mod tests {
             })
             .collect();
         deckhand_testkit::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &rows.join("\n"));
+    }
+
+    #[test]
+    fn the_new_session_dialog_keeps_its_size_through_its_steps_and_workspace_modes() {
+        // One app through the flow: picking the agent, then naming it with each workspace mode (and back). The
+        // dialog's box (where its corners are) never moves.
+        let (mut app, _rx) = app(AppProps::default());
+        app.data.sessions_loaded = true;
+        app.create.branch_list = Some(branches(&["main"]));
+        let size = app.browse.terminal_size;
+        let mut terminal =
+            Terminal::new(TestBackend::new(size.cols, size.rows)).unwrap_or_else(|error| panic!("{error}"));
+        let mut frame = |app: &mut App| -> (u16, u16, u16, u16) {
+            terminal
+                .draw(|frame| render_app(app, frame))
+                .unwrap_or_else(|error| panic!("{error}"));
+            let buffer = terminal.backend().buffer();
+            let left = app.layout().sidebar_width + 1;
+            let mut corners = Vec::new();
+            for y in 0..buffer.area.height {
+                for x in left..buffer.area.width {
+                    if matches!(buffer[(x, y)].symbol(), "╭" | "╯") {
+                        corners.push((x, y));
+                    }
+                }
+            }
+            // The right pane's own corners come first and last; the dialog's are between them.
+            let (top_left, bottom_right) = (corners[1], corners[corners.len() - 2]);
+            (top_left.0, top_left.1, bottom_right.0, bottom_right.1)
+        };
+        app.set_mode(Mode::PickProgram);
+        let first = frame(&mut app);
+        app.set_mode(Mode::EnterName);
+        app.create.draft_name = "gamma".to_owned();
+        for mode in [
+            WorktreeMode::None,
+            WorktreeMode::New,
+            WorktreeMode::Existing,
+            WorktreeMode::None,
+        ] {
+            app.create.worktree_mode = mode;
+            assert_eq!(frame(&mut app), first, "{mode:?}");
+        }
     }
 
     #[test]

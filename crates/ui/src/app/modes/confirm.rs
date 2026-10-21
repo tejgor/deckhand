@@ -9,7 +9,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
 use deckhand_client::live::{KillOptions, MergeOptions};
-use deckhand_core::display::{HintPart, compact_path, display_session_title, error_message, fit_hint, truncate};
+use deckhand_core::display::{
+    HintPart, compact_path, display_session_title, error_message, fit_hint, truncate, wrap_words,
+};
 use deckhand_core::jsstr::{js_pad_end, js_slice, js_trim};
 use deckhand_core::key::Input;
 use deckhand_core::merge_model::{
@@ -26,9 +28,12 @@ use crate::app::sanitize_name_input;
 use crate::app::state::{App, CleanupCheck, MergeConflict, MergeFlow, Mode};
 use crate::app::truthy;
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
-use crate::panes::cleanup::{cleanup_loss_lines, file_rows_left};
+use crate::panes::cleanup::cleanup_loss_lines;
 use crate::panes::menu::{SelectableRowProps, selectable_row};
-use crate::primitives::{Border, Column, Row, Seg, TextStyle, Wrap, bordered, fit_row};
+use crate::primitives::{
+    Border, DialogRows, DialogScroll, DialogView, Row, Seg, TextStyle, Wrap, dialog_view_fitting, draw_dialog,
+    draw_panel, fit_row, string_width,
+};
 use crate::theme::{THEME, color};
 
 /// How long after a polite stop the session is checked to have ended (TS `setTimeout(..., 1500)`).
@@ -61,6 +66,7 @@ pub static KILL_KEYMAP: Keymap = &[
         action: "cancel",
         help: HelpRef::Hidden("the confirmation shows its own hint line"),
     },
+    crate::keymap::SCROLL_DIALOG,
 ];
 /// confirm-merge keys (and merge-conflicts': enter / esc keep, x aborts).
 pub static MERGE_KEYMAP: Keymap = &[
@@ -94,6 +100,7 @@ pub static MERGE_KEYMAP: Keymap = &[
         action: "abort a conflicted merge",
         help: HelpRef::Hidden("the conflict screen shows its own choices"),
     },
+    crate::keymap::SCROLL_DIALOG,
 ];
 /// confirm-remove keys.
 pub static REMOVE_KEYMAP: Keymap = &[
@@ -112,6 +119,7 @@ pub static REMOVE_KEYMAP: Keymap = &[
         action: "keep it",
         help: HelpRef::Hidden("the confirmation shows its own hint line"),
     },
+    crate::keymap::SCROLL_DIALOG,
 ];
 
 /// TS: app.tsx KillOptionKind.
@@ -214,6 +222,23 @@ fn current_kill_options(app: &App) -> Vec<KillOption> {
     )
 }
 
+/// Not in the TS: the kill confirmation is still checking what deleting the worktree (and, when it could go too, its
+/// branch) would lose. No choices are shown until both answers are in: drawn early, they moved when the file list
+/// arrived, and a deletion found blocked dropped its choices from under the cursor. Without a worktree nothing is
+/// checked, so Kill shows at once.
+pub fn kill_loading(app: &App) -> bool {
+    app.current_cleanup_check()
+        .is_some_and(|check| match check.worktree.as_ref() {
+            None => true,
+            // A blocked worktree deletion offers no delete choices, so the branch's answer does not matter.
+            Some(worktree) => {
+                structural_blockers(Some(worktree)).is_empty()
+                    && app.selected_can_delete_branch()
+                    && check.branch.is_none()
+            }
+        })
+}
+
 /// TS: x on a running session: the kill confirmation, inspecting what deleting its worktree (and branch) would lose.
 pub fn open_kill_confirm(app: &mut App) {
     let Some(session) = app.selected_session().filter(|s| s.status == SessionStatus::Running) else {
@@ -292,6 +317,13 @@ pub fn handle_confirm_kill(app: &mut App, input: &Input) {
     let selected_index = app.kill.confirm_index.min(options.len().saturating_sub(1));
     if key.escape {
         app.set_mode(Mode::Browse);
+        return;
+    }
+    // Until both checks are in, the choices are not shown: only Esc acts.
+    if kill_loading(app) {
+        if key.return_ {
+            app.set_status(Some("Still checking cleanup safety…".to_owned()));
+        }
         return;
     }
     if key.up_arrow || input.input == "k" {
@@ -498,6 +530,13 @@ pub fn handle_confirm_merge(app: &mut App, input: &Input) {
         app.set_mode(Mode::Browse);
         return;
     }
+    // Until the preview (or its error) is in, the choices are not shown: only Esc acts.
+    if merge_loading(app.merge.flow.as_ref()) {
+        if key.return_ {
+            app.set_status(Some("Still checking what will be merged…".to_owned()));
+        }
+        return;
+    }
     // The note's open items row (listed once the preview is in) comes before the options in one j/k cycle; space or
     // enter on it switches it, space elsewhere toggles commit-first.
     let has_open_items = {
@@ -549,20 +588,18 @@ pub fn handle_confirm_merge(app: &mut App, input: &Input) {
         return;
     }
     if key.return_ {
-        // The preview decides what the toggle applies to; until it (or its error) arrives, only Cancel works.
-        let flow = app.merge.flow.as_ref();
-        let pending = app.merge.confirm_index < 2
-            && flow.is_none_or(|flow| flow.preview.is_none() && !truthy(flow.preview_error.as_ref()));
-        if pending {
-            app.set_status(Some("Still checking what will be merged…".to_owned()));
-        } else {
-            match app.merge.confirm_index {
-                0 => merge_selected(app, WorktreeMergeMode::Merge),
-                1 => merge_selected(app, WorktreeMergeMode::Squash),
-                _ => app.set_mode(Mode::Browse),
-            }
+        match app.merge.confirm_index {
+            0 => merge_selected(app, WorktreeMergeMode::Merge),
+            1 => merge_selected(app, WorktreeMergeMode::Squash),
+            _ => app.set_mode(Mode::Browse),
         }
     }
+}
+
+/// Not in the TS: the merge screen is still checking what will be merged (neither the preview nor its error is in),
+/// so it shows no choices yet: they would move down when the commits and summary arrive.
+pub fn merge_loading(flow: Option<&MergeFlow>) -> bool {
+    flow.is_none_or(|flow| flow.preview.is_none() && !truthy(flow.preview_error.as_ref()))
 }
 
 /// TS `mergeSelected`.
@@ -853,11 +890,6 @@ pub fn merged_target_branch(session: &SessionRecord) -> Option<&str> {
         .or(session.merge_target_branch.as_deref())
 }
 
-/// A single-line `<Text wrap="truncate-end">` of `segs`, cut to `width`.
-fn line(column: &mut Column, segs: Row, width: usize) {
-    column.extend(fit_row(&segs, width, Wrap::TruncateEnd));
-}
-
 /// A single-style `<Text>` row.
 fn text(text: impl Into<String>, style: TextStyle) -> Row {
     vec![Seg::new(text, style)]
@@ -875,44 +907,20 @@ pub struct KillConfirmPaneProps<'a> {
     /// Open items of its worktree's note: sent to the backlog when it is deleted, unless kept (space).
     pub open_items: &'a [String],
     pub keep_open_items: bool,
+    /// Not in the TS: the cleanup checks are not all in yet, so no choices are shown (see [`kill_loading`]).
+    pub loading: bool,
+    /// Not in the TS: the other deletion's check (with or without the branch), which the selection can switch to:
+    /// the dialog is sized for the bigger of the two.
+    pub other_inspection: Option<&'a SessionCleanupInspection>,
 }
 
-/// TS: app.tsx KillConfirmPane.
-pub fn render_kill_confirm_pane(props: &KillConfirmPaneProps<'_>, buf: &mut Buffer, area: Rect) {
-    let content = bordered(buf, area, &Border::round(THEME.border_danger), 1);
-    let content_width = usize::from(area.width).saturating_sub(4).max(1);
-    let height = usize::from(area.height);
-    let mut column = Column::new();
+/// TS: app.tsx KillConfirmPane, as a dialog `width` wide: the question and the worktree's path on top, what
+/// deleting it would lose (every file) in the body, the choices and the hint at the bottom.
+pub fn kill_dialog_rows(props: &KillConfirmPaneProps<'_>, width: u16) -> DialogRows {
+    let content_width = usize::from(width).saturating_sub(4).max(1);
+    let mut rows = DialogRows::default();
     let session = props.session;
     let worktree = session.and_then(|session| session.worktree.as_ref());
-    // What deleting would lose, in full: the reasons, then the files in the rows the rest of the pane leaves.
-    let loss: Vec<Row> = match props.inspection {
-        Some(inspection) if !inspection.inspection.safe && structural_blockers(Some(inspection)).is_empty() => {
-            cleanup_loss_lines(
-                &inspection.inspection,
-                content_width,
-                file_rows_left(height, 11 + inspection.inspection.reasons.len() + props.options.len()),
-            )
-        }
-        _ => Vec::new(),
-    };
-    if worktree.is_some_and(|worktree| truthy(worktree.path.as_ref()) && worktree.mode != SessionWorktreeMode::None) {
-        column.push(text(
-            truncate(cleanup_summary(props.inspection), content_width),
-            TextStyle::fg(THEME.warn),
-        ));
-    }
-    column.extend(loss);
-    for blocker in structural_blockers(props.inspection) {
-        column.extend(fit_row(
-            &text(
-                truncate(&format!("  {blocker}"), content_width),
-                TextStyle::fg(THEME.warn),
-            ),
-            content_width,
-            Wrap::Wrap,
-        ));
-    }
     let title = format!(
         "{} {}?",
         if props.force { "Force kill" } else { "Kill" },
@@ -921,7 +929,7 @@ pub fn render_kill_confirm_pane(props: &KillConfirmPaneProps<'_>, buf: &mut Buff
             |session| format!("\"{}\"", display_session_title(session, props.sessions))
         )
     );
-    column.extend(fit_row(
+    rows.header.extend(fit_row(
         &text(title, TextStyle::fg(THEME.error).bold(true)),
         content_width,
         Wrap::Wrap,
@@ -930,7 +938,7 @@ pub fn render_kill_confirm_pane(props: &KillConfirmPaneProps<'_>, buf: &mut Buff
         .and_then(|worktree| worktree.path.as_deref())
         .filter(|path| !path.is_empty())
     {
-        column.extend(fit_row(
+        rows.header.extend(fit_row(
             &text(
                 truncate(&compact_path(path, content_width), content_width),
                 TextStyle::fg(THEME.muted),
@@ -939,9 +947,37 @@ pub fn render_kill_confirm_pane(props: &KillConfirmPaneProps<'_>, buf: &mut Buff
             Wrap::Wrap,
         ));
     }
-    column.blank();
+    if worktree.is_some_and(|worktree| truthy(worktree.path.as_ref()) && worktree.mode != SessionWorktreeMode::None) {
+        rows.body.push(Vec::new());
+        rows.body.extend(fit_row(
+            &text(cleanup_summary(props.inspection), TextStyle::fg(THEME.warn)),
+            content_width,
+            Wrap::Wrap,
+        ));
+    }
+    // What deleting would lose, in full: the reasons, then every file.
+    if let Some(inspection) = props.inspection
+        && !inspection.inspection.safe
+        && structural_blockers(Some(inspection)).is_empty()
+    {
+        rows.body
+            .extend(cleanup_loss_lines(&inspection.inspection, content_width, usize::MAX));
+    }
+    for blocker in structural_blockers(props.inspection) {
+        rows.body.extend(fit_row(
+            &text(format!("  {blocker}"), TextStyle::fg(THEME.warn)),
+            content_width,
+            Wrap::Wrap,
+        ));
+    }
+    let footer = &mut rows.footer;
+    footer.push(Vec::new());
+    if props.loading {
+        footer.push(text("esc cancel", TextStyle::fg(THEME.muted)));
+        return rows;
+    }
     for (index, option) in props.options.iter().enumerate() {
-        column.extend(selectable_row(
+        footer.extend(selectable_row(
             &SelectableRowProps {
                 selected: index == props.selected_index,
                 text: option.label,
@@ -963,9 +999,8 @@ pub fn render_kill_confirm_pane(props: &KillConfirmPaneProps<'_>, buf: &mut Buff
     if !props.open_items.is_empty() && deletes {
         let keep = props.keep_open_items;
         let count = i64::try_from(props.open_items.len()).unwrap_or(i64::MAX);
-        line(
-            &mut column,
-            text(
+        footer.extend(fit_row(
+            &text(
                 format!(
                     "{} If deleted: {} {}: {}",
                     if keep { "☐" } else { "☑" },
@@ -980,20 +1015,49 @@ pub fn render_kill_confirm_pane(props: &KillConfirmPaneProps<'_>, buf: &mut Buff
                 TextStyle::fg(if keep { THEME.muted } else { THEME.active }),
             ),
             content_width,
-        );
+            Wrap::Wrap,
+        ));
     }
-    column.blank();
+    footer.push(Vec::new());
     let mut hint: Vec<HintPart> = vec!["enter choose".into()];
     if !props.open_items.is_empty() {
         hint.push("space note items".into());
     }
     hint.push("esc cancel".into());
-    line(
-        &mut column,
-        text(fit_hint(&hint, content_width, " • "), TextStyle::fg(THEME.muted)),
+    footer.extend(fit_row(
+        &text(fit_hint(&hint, content_width, " • "), TextStyle::fg(THEME.muted)),
         content_width,
-    );
-    column.draw(buf, content);
+        Wrap::TruncateEnd,
+    ));
+    rows
+}
+
+/// [`kill_dialog_rows`] drawn over `area` as `view` keeps it.
+pub fn render_kill_dialog(
+    props: &KillConfirmPaneProps<'_>,
+    buf: &mut Buffer,
+    area: Rect,
+    view: DialogView,
+) -> DialogScroll {
+    let build = |width| kill_dialog_rows(props, width);
+    // Moving between deleting the worktree and deleting it with its branch shows the other check: open at the size
+    // of the bigger, so it never resizes.
+    let view = match props.other_inspection.filter(|_| !props.loading) {
+        Some(other) => {
+            let other = KillConfirmPaneProps {
+                inspection: Some(other),
+                ..*props
+            };
+            dialog_view_fitting(area, &|width| kill_dialog_rows(&other, width), view)
+        }
+        None => view,
+    };
+    draw_dialog(buf, area, &Border::round(THEME.border_danger), &build, view)
+}
+
+/// TS: app.tsx KillConfirmPane ([`render_kill_dialog`] at the top).
+pub fn render_kill_confirm_pane(props: &KillConfirmPaneProps<'_>, buf: &mut Buffer, area: Rect) {
+    render_kill_dialog(props, buf, area, DialogView::default());
 }
 
 /// TS: app.tsx MergeConfirmPane props (width and height are the area's).
@@ -1013,10 +1077,15 @@ fn merge_line_row(line: &MergeLine) -> Row {
     text(line.text.clone(), style)
 }
 
-/// TS: app.tsx MergeConfirmPane.
-pub fn render_merge_confirm_pane(props: &MergeConfirmPaneProps<'_>, buf: &mut Buffer, area: Rect) {
-    let content = bordered(buf, area, &Border::round(THEME.border_active), 1);
-    let content_width = usize::from(area.width).saturating_sub(4).max(1);
+/// The rows the merge screen lays out for: enough that nothing (commits, a hook's output, notes) is cut; the body
+/// scrolls instead.
+const MERGE_LAYOUT_ROWS: usize = 100_000;
+
+/// TS: app.tsx MergeConfirmPane, laid out `width` wide: the question, target, summary and what decides the merge
+/// on top; the commits, a failed attempt's output and the notes in the body (scrolling); the open-items toggle, the
+/// choices and the hint at the bottom.
+pub fn merge_pane_rows(props: &MergeConfirmPaneProps<'_>, width: u16) -> DialogRows {
+    let content_width = usize::from(width).saturating_sub(4).max(1);
     let session = props.session;
     let flow = props.flow;
     let started = merge_tasks(props.tasks, session);
@@ -1042,20 +1111,48 @@ pub fn render_merge_confirm_pane(props: &MergeConfirmPaneProps<'_>, buf: &mut Bu
             send: !flow.is_some_and(|flow| flow.keep_open_items),
         }),
         width: content_width,
-        height: usize::from(area.height),
+        height: MERGE_LAYOUT_ROWS,
     });
     let on_task = flow.is_some_and(|flow| flow.on_items);
-    let mut column = Column::new();
-    line(
-        &mut column,
-        text(layout.title.clone(), TextStyle::fg(THEME.accent).bold(true)),
+    let mut rows = DialogRows::default();
+    rows.header.extend(fit_row(
+        &text(layout.title.clone(), TextStyle::fg(THEME.accent).bold(true)),
         content_width,
-    );
-    for detail in &layout.details {
-        line(&mut column, merge_line_row(detail), content_width);
+        Wrap::TruncateEnd,
+    ));
+    // The target, the summary and what decides the merge (the uncommitted toggle, the task, the warnings) stay on
+    // top; the commit subjects, a failed attempt's output and the notes scroll below them.
+    let detail_rows = |lines: &[MergeLine]| -> Vec<Row> {
+        lines
+            .iter()
+            .flat_map(|line| fit_row(&merge_line_row(line), content_width, Wrap::TruncateEnd))
+            .collect()
+    };
+    let commits = layout.commit_rows.clone();
+    rows.header
+        .extend(detail_rows(layout.details.get(..commits.start).unwrap_or_default()));
+    rows.body
+        .extend(detail_rows(layout.details.get(commits.clone()).unwrap_or_default()));
+    rows.header
+        .extend(detail_rows(layout.details.get(commits.end..).unwrap_or_default()));
+    // A failed attempt's output and the notes wrap: every line in full.
+    for section in [&layout.error, &layout.notes] {
+        if !section.is_empty() {
+            rows.body.push(Vec::new());
+            for line in section {
+                rows.body
+                    .extend(fit_row(&merge_line_row(line), content_width, Wrap::Wrap));
+            }
+        }
+    }
+    let footer = &mut rows.footer;
+    footer.push(Vec::new());
+    if merge_loading(flow) {
+        footer.push(text("esc cancel", TextStyle::fg(THEME.muted)));
+        return rows;
     }
     for toggle in &layout.toggles {
-        column.extend(selectable_row(
+        footer.extend(selectable_row(
             &SelectableRowProps {
                 selected: on_task,
                 text: toggle,
@@ -1069,9 +1166,11 @@ pub fn render_merge_confirm_pane(props: &MergeConfirmPaneProps<'_>, buf: &mut Bu
             content_width,
         ));
     }
-    column.blank();
+    if !layout.toggles.is_empty() {
+        footer.push(Vec::new());
+    }
     for (index, option) in layout.options.iter().enumerate() {
-        column.extend(selectable_row(
+        footer.extend(selectable_row(
             &SelectableRowProps {
                 selected: !on_task && index == props.selected_index,
                 text: option,
@@ -1081,58 +1180,74 @@ pub fn render_merge_confirm_pane(props: &MergeConfirmPaneProps<'_>, buf: &mut Bu
             content_width,
         ));
     }
-    column.blank();
-    line(
-        &mut column,
-        text(layout.hint.clone(), TextStyle::fg(THEME.muted)),
+    footer.push(Vec::new());
+    footer.extend(fit_row(
+        &text(layout.hint.clone(), TextStyle::fg(THEME.muted)),
         content_width,
-    );
-    if !layout.error.is_empty() {
-        column.blank();
-        for error in &layout.error {
-            line(&mut column, merge_line_row(error), content_width);
-        }
-    }
-    if !layout.notes.is_empty() {
-        column.blank();
-        for note in &layout.notes {
-            line(&mut column, merge_line_row(note), content_width);
-        }
-    }
-    column.draw(buf, content);
+        Wrap::TruncateEnd,
+    ));
+    rows
 }
 
-/// TS: app.tsx MergeConflictPane.
-pub fn render_merge_conflict_pane(result: &WorktreeMergeResult, buf: &mut Buffer, area: Rect) {
-    let content = bordered(buf, area, &Border::round(THEME.warn), 1);
-    let content_width = usize::from(area.width).saturating_sub(4).max(1);
+/// [`merge_pane_rows`] as the full-pane screen in `area` (a review, not a quick choice: it takes the room it can),
+/// its body scrolled to `scroll`.
+pub fn render_merge_pane(
+    props: &MergeConfirmPaneProps<'_>,
+    buf: &mut Buffer,
+    area: Rect,
+    scroll: usize,
+) -> DialogScroll {
+    let rows = merge_pane_rows(props, area.width);
+    draw_panel(buf, area, &Border::round(THEME.border_active), &rows, scroll)
+}
+
+/// TS: app.tsx MergeConfirmPane ([`render_merge_pane`] at the top).
+pub fn render_merge_confirm_pane(props: &MergeConfirmPaneProps<'_>, buf: &mut Buffer, area: Rect) {
+    render_merge_pane(props, buf, area, 0);
+}
+
+/// TS: app.tsx MergeConflictPane, laid out `width` wide: the title, every conflicted file (the body), the choices.
+pub fn conflict_pane_rows(result: &WorktreeMergeResult, width: u16) -> DialogRows {
+    let content_width = usize::from(width).saturating_sub(4).max(1);
     let view = conflict_view(result, content_width);
-    let mut column = Column::new();
-    line(
-        &mut column,
-        text(view.title.clone(), TextStyle::fg(THEME.warn).bold(true)),
+    let mut rows = DialogRows::default();
+    rows.header.extend(fit_row(
+        &text(view.title.clone(), TextStyle::fg(THEME.warn).bold(true)),
         content_width,
-    );
+        Wrap::TruncateEnd,
+    ));
     for file in &view.files {
-        line(
-            &mut column,
-            text(file.clone(), TextStyle::fg(THEME.muted)),
+        rows.body.extend(fit_row(
+            &text(file.clone(), TextStyle::fg(THEME.muted)),
             content_width,
-        );
+            Wrap::TruncateEnd,
+        ));
     }
-    column.blank();
+    rows.footer.push(Vec::new());
     for choice in &view.choices {
         let room = content_width.saturating_sub(6).max(1);
-        line(
-            &mut column,
-            vec![
+        rows.footer.extend(fit_row(
+            &[
                 Seg::new(js_pad_end(&choice.key, 6, " "), TextStyle::fg(THEME.active).bold(true)),
                 Seg::plain(truncate(&choice.text, room)),
             ],
             content_width,
-        );
+            Wrap::TruncateEnd,
+        ));
     }
-    column.draw(buf, content);
+    rows
+}
+
+/// [`conflict_pane_rows`] as the full-pane screen in `area` (it follows the merge screen), its body scrolled to
+/// `scroll`.
+pub fn render_conflict_pane(result: &WorktreeMergeResult, buf: &mut Buffer, area: Rect, scroll: usize) -> DialogScroll {
+    let rows = conflict_pane_rows(result, area.width);
+    draw_panel(buf, area, &Border::round(THEME.warn), &rows, scroll)
+}
+
+/// TS: app.tsx MergeConflictPane ([`render_conflict_pane`] at the top).
+pub fn render_merge_conflict_pane(result: &WorktreeMergeResult, buf: &mut Buffer, area: Rect) {
+    render_conflict_pane(result, buf, area, 0);
 }
 
 /// TS: app.tsx RemoveConfirmPane props (width is the area's).
@@ -1142,20 +1257,29 @@ pub struct RemoveConfirmPaneProps<'a> {
     pub items: &'a [String],
 }
 
-/// TS: app.tsx RemoveConfirmPane.
+/// `text` wrapped at `width` after `prefix`, later rows indented to line up under its first.
+fn hanging(prefix: &str, text: &str, style: TextStyle, width: usize) -> Vec<Row> {
+    let indent = " ".repeat(string_width(prefix));
+    wrap_words(text, width.saturating_sub(indent.len()).max(1))
+        .into_iter()
+        .enumerate()
+        .map(|(index, line)| {
+            let lead = if index == 0 { prefix } else { indent.as_str() };
+            vec![Seg::new(format!("{lead}{line}"), style)]
+        })
+        .collect()
+}
+
+/// TS: app.tsx RemoveConfirmPane, as a dialog `width` wide.
 ///
 /// Removing a session for good always asks (Backspace on an archived one): it cannot be resumed afterwards and its
-/// notes go to notes/trash. Open checklist items in them are listed, and Enter sends them to Tasks first.
-pub fn render_remove_confirm_pane(props: &RemoveConfirmPaneProps<'_>, buf: &mut Buffer, area: Rect) {
-    let content = bordered(buf, area, &Border::round(THEME.border_danger), 1);
-    let content_width = usize::from(area.width).saturating_sub(4).max(1);
-    let inner = usize::from(area.width).saturating_sub(4).max(10);
+/// notes go to notes/trash. Every open checklist item in them is listed, and Enter sends them to Tasks first.
+pub fn remove_dialog_rows(props: &RemoveConfirmPaneProps<'_>, width: u16) -> DialogRows {
+    let content_width = usize::from(width).saturating_sub(4).max(1);
     let items = props.items;
-    let shown = &items[..items.len().min(8)];
-    let mut column = Column::new();
-    line(
-        &mut column,
-        text(
+    let mut rows = DialogRows::default();
+    rows.header.extend(fit_row(
+        &text(
             format!(
                 "Remove “{}” for good?",
                 props.session.map_or("session", |session| session.title.as_str())
@@ -1163,52 +1287,33 @@ pub fn render_remove_confirm_pane(props: &RemoveConfirmPaneProps<'_>, buf: &mut 
             TextStyle::fg(THEME.error).bold(true),
         ),
         content_width,
-    );
-    column.blank();
-    line(
-        &mut column,
-        text(
+        Wrap::Wrap,
+    ));
+    rows.body.push(Vec::new());
+    rows.body.extend(fit_row(
+        &text(
             "It cannot be resumed afterwards; its notes go to notes/trash.",
             TextStyle::default(),
         ),
         content_width,
-    );
+        Wrap::Wrap,
+    ));
     if !items.is_empty() {
         let count = i64::try_from(items.len()).unwrap_or(i64::MAX);
-        line(
-            &mut column,
-            vec![
-                Seg::plain("Its notes have "),
-                Seg::new(
-                    format!("{} unchecked item{}", count, if count == 1 { "" } else { "s" }),
-                    TextStyle::fg(THEME.warn),
-                ),
-                Seg::plain(":"),
-            ],
-            content_width,
-        );
-    }
-    for item in shown {
-        line(
-            &mut column,
-            text(
-                format!("  ☐ {}", truncate(item, inner.saturating_sub(4))),
-                TextStyle::default(),
+        rows.body.push(vec![
+            Seg::plain("Its notes have "),
+            Seg::new(
+                format!("{} unchecked item{}", count, if count == 1 { "" } else { "s" }),
+                TextStyle::fg(THEME.warn),
             ),
-            content_width,
-        );
+            Seg::plain(":"),
+        ]);
     }
-    if items.len() > shown.len() {
-        line(
-            &mut column,
-            text(
-                format!("  +{} more", items.len() - shown.len()),
-                TextStyle::fg(THEME.muted),
-            ),
-            content_width,
-        );
+    for item in items {
+        rows.body
+            .extend(hanging("  ☐ ", item, TextStyle::default(), content_width));
     }
-    column.blank();
+    rows.footer.push(Vec::new());
     let hint: Vec<HintPart> = if items.is_empty() {
         vec!["enter remove".into(), "esc keep it".into()]
     } else {
@@ -1222,12 +1327,25 @@ pub fn render_remove_confirm_pane(props: &RemoveConfirmPaneProps<'_>, buf: &mut 
             "esc cancel".into(),
         ]
     };
-    line(
-        &mut column,
-        text(fit_hint(&hint, inner, " • "), TextStyle::fg(THEME.muted)),
-        content_width,
-    );
-    column.draw(buf, content);
+    rows.footer
+        .push(text(fit_hint(&hint, content_width, " • "), TextStyle::fg(THEME.muted)));
+    rows
+}
+
+/// [`remove_dialog_rows`] drawn over `area` as `view` keeps it.
+pub fn render_remove_dialog(
+    props: &RemoveConfirmPaneProps<'_>,
+    buf: &mut Buffer,
+    area: Rect,
+    view: DialogView,
+) -> DialogScroll {
+    let build = |width| remove_dialog_rows(props, width);
+    draw_dialog(buf, area, &Border::round(THEME.border_danger), &build, view)
+}
+
+/// TS: app.tsx RemoveConfirmPane ([`render_remove_dialog`] at the top).
+pub fn render_remove_confirm_pane(props: &RemoveConfirmPaneProps<'_>, buf: &mut Buffer, area: Rect) {
+    render_remove_dialog(props, buf, area, DialogView::default());
 }
 
 #[cfg(test)]
@@ -1247,7 +1365,7 @@ mod tests {
     use crate::app::event_loop::Update;
     use crate::app::state::AppProps;
     use crate::app::test_support::{app, session};
-    use crate::primitives::string_width;
+    use crate::primitives::{dialog_rows, string_width};
 
     fn run(test: impl std::future::Future<Output = ()>) {
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -1553,6 +1671,125 @@ mod tests {
     }
 
     #[test]
+    fn the_kill_confirmation_shows_its_choices_once_both_checks_are_in() {
+        let (mut app, _rx) = kill_app();
+        let screen = |app: &mut App| -> (String, (u16, u16), (u16, u16)) {
+            let size = app.browse.terminal_size;
+            let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(size.cols, size.rows))
+                .unwrap_or_else(|error| panic!("{error}"));
+            terminal
+                .draw(|frame| crate::app::layout::render_app(app, frame))
+                .unwrap_or_else(|error| panic!("{error}"));
+            let buffer = terminal.backend().buffer().clone();
+            let left = app.layout().sidebar_width + 1;
+            let cells: Vec<(u16, u16)> = (0..buffer.area.height)
+                .flat_map(|y| (left..buffer.area.width).map(move |x| (x, y)))
+                .collect();
+            // The dialog's corners: inside the right pane's own.
+            let top_left = cells
+                .iter()
+                .rev()
+                .find(|&&(x, y)| buffer[(x, y)].symbol() == "╭")
+                .copied();
+            let bottom_right = cells.iter().find(|&&(x, y)| buffer[(x, y)].symbol() == "╯").copied();
+            let text = (0..buffer.area.height)
+                .map(|y| {
+                    (0..buffer.area.width)
+                        .map(|x| buffer[(x, y)].symbol())
+                        .collect::<String>()
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            (text, top_left.unwrap_or_default(), bottom_right.unwrap_or_default())
+        };
+        app.kill.cleanup_check = Some(CleanupCheck {
+            session_id: "s1".to_owned(),
+            worktree: None,
+            branch: None,
+        });
+        // Checking: the question and Esc, no choices; keys other than Esc do nothing, Enter says why.
+        assert!(kill_loading(&app));
+        let (text, _, _) = screen(&mut app);
+        assert!(
+            text.contains("Checking cleanup safety…") && text.contains("esc cancel"),
+            "{text}"
+        );
+        assert!(!text.contains("Kill only"), "{text}");
+        handle_confirm_kill(&mut app, &press("j"));
+        assert_eq!(app.kill.confirm_index, 0);
+        handle_confirm_kill(&mut app, &enter());
+        assert_eq!(app.mode, Mode::ConfirmKill);
+        assert_eq!(
+            app.messages.status_message.as_deref(),
+            Some("Still checking cleanup safety…")
+        );
+        // The worktree's answer alone is not enough while the branch could go too.
+        if let Some(check) = app.kill.cleanup_check.as_mut() {
+            check.worktree = Some(inspection(false, &["1 untracked file"], &[]));
+        }
+        assert!(kill_loading(&app));
+        if let Some(check) = app.kill.cleanup_check.as_mut() {
+            check.branch = Some(inspection(
+                false,
+                &["1 untracked file", "3 unpublished commits", "the branch is not merged"],
+                &[],
+            ));
+        }
+        assert!(!kill_loading(&app));
+        // Both in: the choices, and one size whichever check the selection shows.
+        let (text, first_top, first_bottom) = screen(&mut app);
+        assert!(text.contains("Kill only, keep worktree (restartable)"), "{text}");
+        handle_confirm_kill(&mut app, &press("j"));
+        handle_confirm_kill(&mut app, &press("j"));
+        let (text, top, bottom) = screen(&mut app);
+        assert!(text.contains("3 unpublished commits"), "{text}");
+        assert_eq!((top, bottom), (first_top, first_bottom));
+        // Esc works throughout.
+        handle_confirm_kill(&mut app, &escape());
+        assert_eq!(app.mode, Mode::Browse);
+    }
+
+    #[test]
+    fn shift_j_and_k_scroll_a_dialog_that_does_not_fit_but_type_in_a_name() {
+        // Macs have no page keys: J/K scroll (PgUp/PgDn too), the border says so.
+        let (mut app, _rx) = app_with(vec![session("s1", "beta", SessionStatus::Exited)]);
+        app.remove.items = (1..=60).map(|n| format!("item {n}")).collect();
+        app.set_mode(Mode::ConfirmRemove);
+        let draw = |app: &mut App| -> String {
+            let size = app.browse.terminal_size;
+            let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(size.cols, size.rows))
+                .unwrap_or_else(|error| panic!("{error}"));
+            terminal
+                .draw(|frame| crate::app::layout::render_app(app, frame))
+                .unwrap_or_else(|error| panic!("{error}"));
+            let buffer = terminal.backend().buffer();
+            (0..buffer.area.height)
+                .map(|y| {
+                    (0..buffer.area.width)
+                        .map(|x| buffer[(x, y)].symbol())
+                        .collect::<String>()
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        let text = draw(&mut app);
+        assert!(text.contains("more · J") && !text.contains("item 60"), "{text}");
+        app.handle_input(&press("J"));
+        assert!(app.dialog.scroll > 0);
+        let text = draw(&mut app);
+        assert!(text.contains("more · K"), "{text}");
+        app.handle_input(&press("K"));
+        assert_eq!(app.dialog.scroll, 0);
+        app.handle_input(&named(|key| key.page_down = true));
+        assert!(app.dialog.scroll > 0);
+        // In the name field J is a letter.
+        app.set_mode(Mode::EnterName);
+        app.create.draft_name = "a".to_owned();
+        app.handle_input(&press("J"));
+        assert_eq!(app.create.draft_name, "aJ");
+    }
+
+    #[test]
     fn kill_confirm_clamps_a_stale_index_to_the_options() {
         let (mut app, _rx) = kill_app();
         // A blocker removes the delete choices: [keep, cancel] while the index still says 3.
@@ -1670,16 +1907,11 @@ mod tests {
             commit_first: true,
             ..MergeFlow::default()
         });
-        // Before the preview: no items row, three options in a cycle.
+        // Before the preview the choices are not shown: j/k and space do nothing.
         handle_confirm_merge(&mut app, &press("j"));
-        handle_confirm_merge(&mut app, &press("j"));
-        assert_eq!(app.merge.confirm_index, 2);
-        handle_confirm_merge(&mut app, &press("j"));
-        assert_eq!(app.merge.confirm_index, 0);
         handle_confirm_merge(&mut app, &press("k"));
-        assert_eq!(app.merge.confirm_index, 2);
-        app.merge.confirm_index = 0;
-        // Space only toggles commit-first when the preview shows uncommitted files.
+        handle_confirm_merge(&mut app, &press("k"));
+        assert_eq!(app.merge.confirm_index, 0);
         handle_confirm_merge(&mut app, &press(" "));
         assert_eq!(app.merge.flow.as_ref().map(|flow| flow.commit_first), Some(true));
         // With the preview: the items row joins the cycle, before the options.
@@ -1732,9 +1964,11 @@ mod tests {
             Some("Still checking what will be merged…")
         );
         assert_eq!(app.mode, Mode::ConfirmMerge);
-        // Cancel works without it.
+        // Without it the choices are not shown, so Enter on Cancel does nothing either; Esc cancels.
         app.merge.confirm_index = 2;
         handle_confirm_merge(&mut app, &enter());
+        assert_eq!(app.mode, Mode::ConfirmMerge);
+        handle_confirm_merge(&mut app, &escape());
         assert_eq!(app.mode, Mode::Browse);
         // A failed preview lets the merge be tried (here without a daemon, so it does nothing more).
         app.set_mode(Mode::ConfirmMerge);
@@ -2385,6 +2619,8 @@ mod tests {
             inspection: Some(&inspected),
             open_items: &[],
             keep_open_items: false,
+            loading: false,
+            other_inspection: None,
         };
         assert_pane("47-confirm-kill", |buf, area| {
             render_kill_confirm_pane(&props, buf, area);
@@ -2411,6 +2647,8 @@ mod tests {
             inspection: Some(&blocked),
             open_items: &[],
             keep_open_items: false,
+            loading: false,
+            other_inspection: None,
         };
         assert_pane("46-confirm-kill-blocked", |buf, area| {
             render_kill_confirm_pane(&props, buf, area);
@@ -2432,30 +2670,38 @@ mod tests {
             inspection: None,
             open_items: &items,
             keep_open_items: false,
+            loading: false,
+            other_inspection: None,
         };
-        let rows = drawn(|buf, area| render_kill_confirm_pane(&props, buf, area));
+        let rows = dialog_rows(&drawn(|buf, area| render_kill_confirm_pane(&props, buf, area)));
         let text: Vec<&str> = rows
             .iter()
-            .skip(1)
+            .skip(2)
             .map(|row| row.trim_matches(|c| c == '│' || c == ' '))
             .collect();
-        assert_eq!(text[0], "Checking cleanup safety…");
-        assert_eq!(text[1], "Force kill \"beta\"?");
-        assert_eq!(text[2], "/wt/beta");
-        assert_eq!(text[4], "Kill only, keep worktree (restartable)");
-        assert!(
-            text[5].starts_with("❯ Kill and delete worktree (not restartable)"),
-            "{}",
-            text[5]
-        );
+        // The question and the path on top, what deleting would lose below them, the choices at the bottom.
+        assert_eq!(text[0], "Force kill \"beta\"?");
+        assert_eq!(text[1], "/wt/beta");
+        assert_eq!(text[3], "Checking cleanup safety…");
+        let at = |text: &[&str], start: &str| {
+            text.iter()
+                .position(|row| row.starts_with(start))
+                .unwrap_or_else(|| panic!("{start}: {text:#?}"))
+        };
+        let kill_only = at(&text, "Kill only, keep worktree (restartable)");
+        assert!(kill_only > 3);
+        assert!(text[kill_only + 1].starts_with("❯ Kill and delete worktree (not restartable)"));
         assert_eq!(
-            text[7],
+            text[kill_only + 3],
             "☑ If deleted: 2 open note items → backlog: write docs, fix bug"
         );
-        assert_eq!(text[9], "enter choose • space note items • esc cancel");
+        // The hint sits at the dialog's bottom: above the margin row and the border.
+        assert_eq!(text[text.len() - 3], "enter choose • space note items • esc cancel");
         props.keep_open_items = true;
-        let rows = drawn(|buf, area| render_kill_confirm_pane(&props, buf, area));
-        assert!(rows[8].contains("☐ If deleted: 2 open note items stay in its (read-only) note: write docs, fix bug"));
+        let rows = dialog_rows(&drawn(|buf, area| render_kill_confirm_pane(&props, buf, area)));
+        assert!(rows.iter().any(|row| {
+            row.contains("☐ If deleted: 2 open note items stay in its (read-only) note: write docs, fix bug")
+        }));
         // Without a session or a deletion choice: the plain question, no open-items row.
         let only_kill = kill_options(false, false, None, None);
         let bare = KillConfirmPaneProps {
@@ -2467,9 +2713,11 @@ mod tests {
             inspection: None,
             open_items: &items,
             keep_open_items: false,
+            loading: false,
+            other_inspection: None,
         };
-        let rows = drawn(|buf, area| render_kill_confirm_pane(&bare, buf, area));
-        assert!(rows[1].contains("Kill session?"));
+        let rows = dialog_rows(&drawn(|buf, area| render_kill_confirm_pane(&bare, buf, area)));
+        assert!(rows[2].contains("Kill session?"));
         assert!(!rows.iter().any(|row| row.contains("If deleted")));
     }
 
@@ -2551,11 +2799,18 @@ mod tests {
             selected_index: 2,
             tasks: &[],
         };
-        let rows = drawn(|buf, area| render_merge_confirm_pane(&waiting, buf, area));
+        let rows = dialog_rows(&drawn(|buf, area| render_merge_confirm_pane(&waiting, buf, area)));
+        // A full-pane screen: the title right under the border.
         assert!(rows[1].contains("Merge \"feat\"?"));
         assert!(rows[2].contains("Checking what will be merged…"));
-        assert!(rows.iter().any(|row| row.contains("❯ Cancel")));
-        // A failed attempt's output follows the hint.
+        // While it checks, no choices (they would move down when the preview arrives): only Esc.
+        assert!(
+            !rows
+                .iter()
+                .any(|row| row.contains("Cancel") || row.contains("Merge into"))
+        );
+        assert!(rows.iter().any(|row| row.contains("esc cancel")));
+        // A failed attempt's output shows in full, above the choices.
         let flow = MergeFlow {
             session_id: "s1".to_owned(),
             preview: Some(feat_preview()),
@@ -2568,7 +2823,7 @@ mod tests {
             selected_index: 0,
             ..waiting
         };
-        let rows = drawn(|buf, area| render_merge_confirm_pane(&failed, buf, area));
+        let rows = dialog_rows(&drawn(|buf, area| render_merge_confirm_pane(&failed, buf, area)));
         assert!(rows.iter().any(|row| row.contains("hook failed")));
     }
 
@@ -2596,26 +2851,27 @@ mod tests {
     }
 
     #[test]
-    fn the_remove_confirmation_lists_up_to_eight_open_items() {
+    fn the_remove_confirmation_lists_every_open_item() {
         let items: Vec<String> = (1..=10).map(|n| format!("item {n}")).collect();
         let props = RemoveConfirmPaneProps {
             session: None,
             items: &items,
         };
-        let rows = drawn(|buf, area| render_remove_confirm_pane(&props, buf, area));
+        let rows = dialog_rows(&drawn(|buf, area| render_remove_confirm_pane(&props, buf, area)));
         let text: Vec<&str> = rows
             .iter()
-            .skip(1)
+            .skip(2)
             .map(|row| row.trim_matches(|c| c == '│' || c == ' '))
             .collect();
         assert_eq!(text[0], "Remove “session” for good?");
         assert_eq!(text[2], "It cannot be resumed afterwards; its notes go to notes/trash.");
         assert_eq!(text[3], "Its notes have 10 unchecked items:");
         assert_eq!(text[4], "☐ item 1");
-        assert_eq!(text[11], "☐ item 8");
-        assert_eq!(text[12], "+2 more");
+        assert_eq!(text[13], "☐ item 10");
+        assert!(!rows.iter().any(|row| row.contains("more")));
+        // The hint sits at the dialog's bottom: above the margin row and the border.
         assert_eq!(
-            text[14],
+            text[text.len() - 3],
             "enter move them to Tasks, then remove • x remove anyway • esc cancel"
         );
         let one = [String::from("only")];
@@ -2623,8 +2879,8 @@ mod tests {
             session: None,
             items: &one,
         };
-        let rows = drawn(|buf, area| render_remove_confirm_pane(&props, buf, area));
-        assert!(rows[4].contains("1 unchecked item:"));
+        let rows = dialog_rows(&drawn(|buf, area| render_remove_confirm_pane(&props, buf, area)));
+        assert!(rows[5].contains("1 unchecked item:"));
     }
 
     /// `compactPath` reads `$HOME`: tests that set it hold this lock (TS `withEnv`).
@@ -2650,7 +2906,7 @@ mod tests {
     }
 
     #[test]
-    fn rendered_confirmation_fills_its_pane_and_the_conflict_view_shows_the_choices() {
+    fn rendered_confirmation_fits_its_pane_and_the_conflict_view_shows_the_choices() {
         let _guard = HOME_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let saved = std::env::var_os("HOME");
         // SAFETY: every test of this module that reads or writes HOME holds HOME_LOCK.
@@ -2678,7 +2934,8 @@ mod tests {
                 ..MergeFlow::default()
             };
             let sessions = [record.clone()];
-            for height in [30u16, 16] {
+            // In a 48-row pane the notes show; in a 16-row one they are further down the body (it scrolls).
+            for height in [48u16, 16] {
                 let props = MergeConfirmPaneProps {
                     session: sessions.first(),
                     sessions: &refs(&sessions),
@@ -2686,13 +2943,20 @@ mod tests {
                     selected_index: 1,
                     tasks: &[],
                 };
-                let lines = plain_rows(84, height, |buf, area| render_merge_confirm_pane(&props, buf, area));
-                assert_eq!(lines.len(), usize::from(height), "{height}");
-                assert!(lines[2].contains("Into release · ~/wt/release"), "{}", lines[2]);
+                // The full 92-column pane.
+                let lines = dialog_rows(&plain_rows(92, height, |buf, area| {
+                    render_merge_confirm_pane(&props, buf, area)
+                }));
+                assert!(lines.len() <= usize::from(height), "{height}");
+                assert!(
+                    lines.iter().any(|line| line.contains("Into release · ~/wt/release")),
+                    "{lines:#?}"
+                );
                 assert!(
                     lines
                         .iter()
-                        .any(|line| line.contains("☑ commit them first (\"auth refactor\")"))
+                        .any(|line| line.contains("☑ commit them first (\"auth refactor\")")),
+                    "{lines:#?}"
                 );
                 assert!(lines.iter().any(|line| {
                     line.contains("⚠ Target has uncommitted changes in 1 file the merge touches: src/auth.ts")
@@ -2704,7 +2968,7 @@ mod tests {
                 );
                 assert_eq!(
                     lines.iter().any(|line| line.contains("cookie flags")),
-                    height == 30,
+                    height == 48,
                     "{height}"
                 );
             }
@@ -2730,7 +2994,9 @@ mod tests {
                 selected_index: 0,
                 tasks: &tasks,
             };
-            let with_tasks = plain_rows(84, 30, |buf, area| render_merge_confirm_pane(&props, buf, area));
+            let with_tasks = dialog_rows(&plain_rows(92, 30, |buf, area| {
+                render_merge_confirm_pane(&props, buf, area)
+            }));
             assert!(
                 with_tasks
                     .iter()
@@ -2750,7 +3016,11 @@ mod tests {
                 json!({"sourceRef": "auth", "conflicted": true, "conflicts": ["src/auth.ts"], "conflictCount": 1}),
             ))
             .unwrap();
-            let conflict = plain_rows(70, 7, |buf, area| render_merge_conflict_pane(&result, buf, area));
+            // The full 80-column pane.
+            let conflict = dialog_rows(&plain_rows(80, 7, |buf, area| {
+                render_merge_conflict_pane(&result, buf, area)
+            }));
+            // Seven rows leave no room for the blank margin rows.
             let inner: Vec<String> = conflict[1..conflict.len() - 1]
                 .iter()
                 .map(|line| line.chars().skip(2).collect::<String>())
@@ -2802,6 +3072,8 @@ mod tests {
                     inspection: None,
                     open_items: &items,
                     keep_open_items: false,
+                    loading: false,
+                    other_inspection: None,
                 },
                 &mut buf,
                 area,

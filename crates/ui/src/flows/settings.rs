@@ -321,25 +321,29 @@ fn nowrap(text: impl Into<String>) -> DetailLine {
     }
 }
 
-/// The list cursor keys (TS `move`): ↑/k, ↓/j, PageUp/PageDown by 5, Home/End.
+/// The list cursor keys (TS `move`): ↑/k, ↓/j, PageUp/PageDown by 5, Home/End; not in the TS: K/J by 5 and g/G
+/// first/last too (a Mac keyboard has no page or Home/End keys).
 fn move_cursor(input: &Input, current: usize, last: usize) -> Option<usize> {
     let key = &input.key;
-    if key.up_arrow || input.input == "k" {
+    let plain = |letter: &str| input.input == letter && !key.ctrl && !key.meta;
+    if key.up_arrow || plain("k") {
         return Some(current.saturating_sub(1));
     }
-    if key.down_arrow || input.input == "j" {
+    if key.down_arrow || plain("j") {
         return Some(last.min(current + 1));
     }
-    if key.page_up || key.page_down {
-        let next = if key.page_up {
+    let (page_up, page_down) = (key.page_up || plain("K"), key.page_down || plain("J"));
+    if page_up || page_down {
+        let next = if page_up {
             current.saturating_sub(5)
         } else {
             current.saturating_add(5)
         };
         return Some(last.min(next));
     }
-    if key.home || key.end {
-        return Some(if key.home { 0 } else { last });
+    let (first, end) = (key.home || plain("g"), key.end || plain("G"));
+    if first || end {
+        return Some(if first { 0 } else { last });
     }
     None
 }
@@ -1976,6 +1980,17 @@ mod tests {
     use crate::app::state::AppProps;
     use crate::app::test_support::app;
 
+    #[test]
+    fn list_keys_jump_with_letters_as_with_page_and_home_keys() {
+        // A Mac keyboard has no page or Home/End keys: K/J move 5 and g/G go to the first or last row.
+        let key = |text: &str| Input::text(text);
+        assert_eq!(move_cursor(&key("J"), 2, 20), Some(7));
+        assert_eq!(move_cursor(&key("K"), 2, 20), Some(0));
+        assert_eq!(move_cursor(&key("J"), 18, 20), Some(20));
+        assert_eq!(move_cursor(&key("g"), 9, 20), Some(0));
+        assert_eq!(move_cursor(&key("G"), 9, 20), Some(20));
+        assert_eq!(move_cursor(&key("x"), 9, 20), None);
+    }
     #[test]
     fn is_settings_flow_mode_parity() {
         replay(

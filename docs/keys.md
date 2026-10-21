@@ -70,12 +70,14 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | --- | --- |
 | `j`, `↓` | Scroll down |
 | `k`, `↑` | Scroll up |
-| `pgdn` / `pgup` | Scroll a page |
+| `J` / `K`, `pgdn` / `pgup` | Scroll a page |
 | `g` / `G` | Go to the top / bottom (a fullscreen agent gets Ctrl+Home / Ctrl+End) |
 | mouse wheel | Scroll |
 | `+` (or `=`) / `-` | Raise / lower the [scroll speed](features.md#scroll-speed) |
 
-**In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic, `/` searches every topic, `pgup`/`pgdn` scroll and `esc` closes.
+**In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic (`g`/`G` the first or last), `/` searches every topic, `J`/`K` (or `pgdn`/`pgup`, `space`) scroll and `esc` closes.
+
+**Dialogs and the merge screen**: when what they show does not fit, `J`/`K` (or `pgdn`/`pgup`) scroll it, and the border says how much more there is (`↓ 12 more · J`). In `i`, the trust review and the DELETE prompt, `J`/`K` scroll a page. In Settings lists, `J`/`K` move five rows and `g`/`G` go to the first or last.
 
 > [!NOTE]
 > Deletion is conservative. Unknown or unsafe Git state needs `DELETE` typed, and `X` never authorises data loss. The protections for the main checkout, the current worktree and an actively shared worktree can't be overridden. See [Cleanup](features.md#cleanup).
@@ -245,6 +247,7 @@ While editing a task, `enter` saves the title, `ctrl+s` saves from the details a
 | `x` | Delete the selected worktree, asking first (on a missing one: prune or forget it) |
 | `x` *(on the "Merged · safe to delete" heading)* | Delete every worktree in that group after one confirmation |
 | `space` *(in a confirmation)* | Keep the note's open items in the note, or send them to the backlog |
+| `J` / `K` *(in a confirmation)* | Scroll it when it does not fit (`pgdn` / `pgup` too) |
 | `enter`, `o` | Select its session in the sidebar |
 | `M` | Mark it merged, or clear the marker |
 | `E` | Open it in Cursor or VS Code |

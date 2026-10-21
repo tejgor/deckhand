@@ -14,6 +14,7 @@ use std::io::Write;
 use std::rc::Rc;
 use std::time::Duration;
 
+use deckhand_client::attach::sanitize_terminal_title;
 use deckhand_client::live::{LiveClientHandlers, create_live_client};
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::date;
@@ -108,6 +109,8 @@ pub struct EffectState {
     /// Bracketed paste / mouse reporting are on (undone when the mode ends or the app unmounts).
     pub paste_on: bool,
     pub mouse_on: bool,
+    /// Not in the TS: the terminal title last written (the terminal's own was saved before the first).
+    pub title: Option<String>,
     pub selected_id: Option<Option<String>>,
     pub active_tab: Option<RightPaneTab>,
     pub mode: Option<Mode>,
@@ -234,8 +237,12 @@ fn effect_pass(app: &mut App) {
     if app.effects.stdout_modes {
         let mut stdout = std::io::stdout();
         sync_terminal_modes(app, &mut stdout);
+        if std::io::IsTerminal::is_terminal(&stdout) {
+            sync_terminal_title(app, &mut stdout);
+        }
     } else {
         sync_terminal_modes(app, &mut std::io::sink());
+        sync_terminal_title(app, &mut std::io::sink());
     }
     spinner_effect(app, &derived);
     sidebar_fit_effect(app, &derived);
@@ -1129,6 +1136,37 @@ pub fn sync_terminal_modes(app: &mut App, out: &mut dyn std::io::Write) {
     }
 }
 
+/// XTWINOPS: save the terminal's title on its stack, and restore it.
+const TITLE_PUSH: &str = "\u{1b}[22;0t";
+const TITLE_POP: &str = "\u{1b}[23;0t";
+
+/// Not in the TS: the terminal's title, `deckhand · <repository>` (just `deckhand` without one).
+pub fn terminal_title(repo_root: &str) -> String {
+    match repo_root.trim_end_matches('/').rsplit('/').next() {
+        Some(repo) if !repo.is_empty() => format!("deckhand · {repo}"),
+        _ => "deckhand".to_owned(),
+    }
+}
+
+/// Not in the TS: writes [`terminal_title`] when it changed; the first write saves the terminal's own title, which
+/// [`unmount`] gives back. (An attach sets its own title, then `deckhand`, and the UI that comes back sets this one.)
+pub fn sync_terminal_title(app: &mut App, out: &mut dyn std::io::Write) {
+    let title = terminal_title(&app.props.repo_root);
+    if app.effects.title.as_deref() == Some(title.as_str()) {
+        return;
+    }
+    ran(app);
+    let mut text = String::new();
+    if app.effects.title.is_none() {
+        text.push_str(TITLE_PUSH);
+    }
+    let shown = sanitize_terminal_title(&title);
+    text.push_str(&format!("\u{1b}]0;{shown}\u{7}\u{1b}]2;{shown}\u{7}"));
+    app.effects.title = Some(title);
+    let _ = out.write_all(text.as_bytes());
+    let _ = out.flush();
+}
+
 /// TS: the effects that report state to cli.ts (selected id, tabs, collapse sets, visibility, terminal view).
 pub fn report_state(app: &mut App) {
     terminal_view_effect(app);
@@ -1175,6 +1213,9 @@ pub fn unmount(app: &mut App) {
     }
     if std::mem::take(&mut app.effects.mouse_on) {
         text.push_str(MOUSE_OFF);
+    }
+    if app.effects.title.take().is_some() {
+        text.push_str(TITLE_POP);
     }
     if app.effects.stdout_modes && !text.is_empty() {
         let mut stdout = std::io::stdout();
@@ -1427,6 +1468,30 @@ mod tests {
             app.set_mode(Mode::Browse);
             sync_terminal_modes(&mut app, &mut out);
             assert_eq!(String::from_utf8_lossy(&out), PASTE_OFF);
+        });
+    }
+
+    #[test]
+    fn the_terminal_title_names_the_repository() {
+        assert_eq!(terminal_title("/code/demo/"), "deckhand · demo");
+        assert_eq!(terminal_title(""), "deckhand");
+    }
+
+    #[test]
+    fn the_terminal_title_is_written_once_and_the_old_one_restored() {
+        local(async {
+            let (mut app, _rx) = app(AppProps::default());
+            let mut out = Vec::new();
+            sync_terminal_title(&mut app, &mut out);
+            assert_eq!(
+                String::from_utf8_lossy(&out),
+                format!("{TITLE_PUSH}\u{1b}]0;deckhand · repo\u{7}\u{1b}]2;deckhand · repo\u{7}")
+            );
+            out.clear();
+            sync_terminal_title(&mut app, &mut out);
+            assert!(out.is_empty(), "unchanged");
+            unmount(&mut app);
+            assert_eq!(app.effects.title, None);
         });
     }
 

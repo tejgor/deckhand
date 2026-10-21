@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭──────────────────────╮ ╭───────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions           2 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                                │
+│› 1 ● auth refactor ✶ │ │                                                                                                       │
+│╎ 2 ○ write tests   ✶ │ │ <TMP>/demo                                                                                       idle │
+│                      │ │ agent output line 1                                                                                   │
+│                      │ │ agent output line 2                                                                                   │
+│                      │ │ agent output line 3                                                                                   │
+│                      │ │ agent output line 4                                                                                   │
+│                      │ │ agent output line 5                                                                                   │
+│                      │ │ agent output line 6                                                                                   │
+│                      │ │ agent output line 7 ╭──────────────────────────────────────────────────────────╮                      │
+│                      │ │ agent output line 8 │                                                          │                      │
+│                      │ │ agent output line 9 │ New session                                              │                      │
+│                      │ │ agent output line 10│                                                          │                      │
+│                      │ │ agent output line 11│ Choose an agent                                          │                      │
+│                      │ │ agent output line 12│ ❯ ✶ Claude                                               │                      │
+│                      │ │ agent output line 13│   π Pi                                                   │                      │
+│                      │ │ agent output line 14│   ◇ Codex                                                │                      │
+│                      │ │ agent output line 15│                                                          │                      │
+│                      │ │ agent output line 16│ enter continue • esc cancel                              │                      │
+│                      │ │ agent output line 17│                                                          │                      │
+│                      │ │ agent output line 18╰──────────────────────────────────────────────────────────╯                      │
+│                      │ │ agent output line 19                                                                                  │
+│                      │ │ agent output line 20                                                                                  │
+│                      │ │ agent output line 21                                                                                  │
+│                      │ │ agent output line 22                                                                                  │
+│                      │ │ agent output line 23                                                                                  │
+│ ──────────────────── │ │ agent output line 24                                                                                  │
+│ auth refactor        │ │                                                                                                       │
+│ ✶ idle · now         │ │                                                                                                       │
+│ main checkout ╎1     │ │                                                                                                       │
+╰──────────────────────╯ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+

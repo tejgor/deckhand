@@ -1,23 +1,24 @@
 ╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ New Claude session                                                                             │
+│ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                         │
 │                                                                                                │
-│ Name: gamma                                                                                    │
-│ Workspace: new worktree                                                                        │
-│ Base: current checkout (main)  ↑↓ 1/2                                                          │
-│                                                                                                │
-│ tab worktree • ↑↓ base • enter create • esc back                                               │
+│ Select a session from the sidebar                                                              │
+│ No sessions yet. Press n to create one.                                                        │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
-│                                                                                                │
+│                  ╭──────────────────────────────────────────────────────────╮                  │
+│                  │                                                          │                  │
+│                  │ New Claude session                                       │                  │
+│                  │                                                          │                  │
+│                  │ Name: gamma                                              │                  │
+│                  │ Workspace: new worktree                                  │                  │
+│                  │ Base: current checkout (main)  ↑↓ 1/2                    │                  │
+│                  │                                                          │                  │
+│                  │ tab worktree • ↑↓ base • enter create • esc back         │                  │
+│                  │                                                          │                  │
+│                  ╰──────────────────────────────────────────────────────────╯                  │
 │                                                                                                │
 │                                                                                                │
 │                                                                                                │

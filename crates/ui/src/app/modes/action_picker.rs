@@ -22,8 +22,9 @@ use crate::app::state::{ActionProject, App, AppAction, AppCallback, Mode, Review
 use crate::app::{ProjectFn, ReviewOptions, hint_short, truthy};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 use crate::panes::dev::{dev_cell_size, dev_processes};
-use crate::panes::menu::{MenuPaneDetails, MenuPaneProps, render_menu_pane};
+use crate::panes::menu::{MenuPaneDetails, MenuPaneProps, menu_pane_height, render_menu_dialog};
 use crate::panes::terminal::TerminalView;
+use crate::primitives::{dialog_height, dialog_min_height, dialog_width};
 
 /// pick-action keys.
 pub static KEYMAP: Keymap = &[
@@ -56,6 +57,7 @@ pub static KEYMAP: Keymap = &[
         action: "close the run list",
         help: HelpRef::Hidden("the pane's own hint says esc cancels"),
     },
+    crate::keymap::SCROLL_DIALOG,
 ];
 
 /// TS: r in browse: the run list of the selected session's repository (the running action watched first).
@@ -67,34 +69,7 @@ pub fn open_run_list(app: &mut App) {
     let action_cwd = session
         .as_ref()
         .map_or_else(|| app.props.cwd.clone(), |session| session.cwd.clone());
-    // The picker says whether an action is still running in this worktree (x stops it), whichever tab is shown.
-    if let (Some(client), Some(id), true) = (
-        app.client(),
-        session_id.as_ref().filter(|id| !id.is_empty()),
-        truthy(app.selected_workspace().as_ref()),
-    ) {
-        let layout = app.layout();
-        let reply = client.watch_action(Some(id), i64::from(layout.preview_cols), i64::from(layout.preview_rows));
-        let task = app.dispatch().spawn(reply, |app: &mut App, result| {
-            if let Ok(record) = result
-                && record.session_id == app.selected_id_ref()
-            {
-                app.panes.action = record;
-            }
-        });
-        drop(task);
-        // Which of Dev's named processes run, for their rows (Dev's own tab may not be watched).
-        let (cols, rows) = dev_size(app, dev_processes(&app.panes.dev).map_or(0, <[_]>::len));
-        let reply = client.watch_dev(Some(id), i64::from(cols), i64::from(rows));
-        let task = app.dispatch().spawn(reply, |app: &mut App, result| {
-            if let Ok(record) = result
-                && record.session_id == app.selected_id_ref()
-            {
-                app.panes.dev = record;
-            }
-        });
-        drop(task);
-    }
+    let watched_id = session_id.clone();
     let cwd = action_cwd.clone();
     let resume: AppAction<Option<ProjectInfo>> = Rc::new(move |app: &mut App, project: Option<ProjectInfo>| {
         let Some(project) = project else {
@@ -113,6 +88,40 @@ pub fn open_run_list(app: &mut App) {
         gate: Some(Rc::new(|_: &ProjectInfo| false)),
         ..ReviewOptions::default()
     };
+    // The picker says whether an action is still running in this worktree (x stops it) and which of Dev's named
+    // processes run (Dev's own tab may not be watched), whichever tab is shown. Not in the TS: it opens once both
+    // are in, so a row's state, its details and the hint do not change under it just after it opens.
+    if let (Some(client), Some(id), true) = (
+        app.client(),
+        watched_id.as_ref().filter(|id| !id.is_empty()),
+        truthy(app.selected_workspace().as_ref()),
+    ) {
+        let layout = app.layout();
+        let action = client.watch_action(Some(id), i64::from(layout.preview_cols), i64::from(layout.preview_rows));
+        let (cols, rows) = dev_size(app, dev_processes(&app.panes.dev).map_or(0, <[_]>::len));
+        let dev = client.watch_dev(Some(id), i64::from(cols), i64::from(rows));
+        // Busy (as reading the project is next): keys wait, the footer says it is working.
+        app.set_busy(true);
+        let task = app.dispatch().spawn(
+            async move { (action.await, dev.await) },
+            move |app: &mut App, (action, dev)| {
+                if let Ok(record) = action
+                    && record.session_id == app.selected_id_ref()
+                {
+                    app.panes.action = record;
+                }
+                if let Ok(record) = dev
+                    && record.session_id == app.selected_id_ref()
+                {
+                    app.panes.dev = record;
+                }
+                app.set_busy(false);
+                app.review_then(&action_cwd, Some(resume), options);
+            },
+        );
+        drop(task);
+        return;
+    }
     app.review_then(&action_cwd, Some(resume), options);
 }
 
@@ -374,8 +383,52 @@ fn command_line(text: String) -> DetailLine {
     }
 }
 
-/// TS: app.tsx ActionPickerPane (a MenuPane).
+/// The run list's content for `props`' selection (a MenuPane's, owned).
+struct RunList {
+    subtitle: [MenuPaneLine; 1],
+    items: Vec<MenuItem>,
+    details: Option<MenuPaneDetails>,
+    hint: Vec<HintPart>,
+}
+
+impl RunList {
+    fn pane(&self, selected: usize) -> MenuPaneProps<'_> {
+        MenuPaneProps {
+            title: "Run",
+            subtitle: &self.subtitle,
+            items: &self.items,
+            selected,
+            details: self.details.as_ref(),
+            empty: Some("No actions configured (C → Settings › Actions adds one)"),
+            hint: &self.hint,
+            label_width: None,
+        }
+    }
+}
+
+/// TS: app.tsx ActionPickerPane (a MenuPane), as a dialog as tall as its tallest row's details need, so it keeps
+/// its size as the selection moves.
 pub fn render_action_picker_pane(props: &ActionPickerPaneProps<'_>, buf: &mut Buffer, area: Rect) {
+    let width = usize::from(dialog_width(area));
+    let count = run_list(props).items.len().max(1);
+    let height = (0..count)
+        .map(|index| {
+            let other = ActionPickerPaneProps {
+                selected_index: index,
+                ..*props
+            };
+            let list = run_list(&other);
+            // The pane's height counts its border; the dialog's rows do not.
+            dialog_height(area, menu_pane_height(&list.pane(index), width).saturating_sub(2), 0)
+        })
+        .max()
+        .unwrap_or_else(|| dialog_min_height(area));
+    let list = run_list(props);
+    render_menu_dialog(&list.pane(props.selected_index), buf, area, height);
+}
+
+/// The run list's content (TS: ActionPickerPane's body).
+fn run_list(props: &ActionPickerPaneProps<'_>) -> RunList {
     let project = props.project;
     let actions = project_actions(project);
     let processes = if props.dev.is_some() { props.processes } else { &[] };
@@ -589,17 +642,12 @@ pub fn render_action_picker_pane(props: &ActionPickerPaneProps<'_>, buf: &mut Bu
     }
     hint.push(HintPart::from("esc cancel"));
 
-    let pane = MenuPaneProps {
-        title: "Run",
-        subtitle: &subtitle,
-        items: &items,
-        selected: props.selected_index,
-        details: details.as_ref(),
-        empty: Some("No actions configured (C → Settings › Actions adds one)"),
-        hint: &hint,
-        label_width: None,
-    };
-    render_menu_pane(&pane, buf, area);
+    RunList {
+        subtitle,
+        items,
+        details,
+        hint,
+    }
 }
 
 #[cfg(test)]
@@ -663,8 +711,14 @@ mod tests {
         rows_of(&buf)
     }
 
+    /// The dialog's text with its borders taken off and its rows joined by spaces, so a sentence reads whole
+    /// wherever the dialog's width wrapped it.
     fn shown(rows: &[String]) -> String {
-        rows.join("\n")
+        rows.iter()
+            .map(|row| row.trim_matches(|c| c == ' ' || c == '│'))
+            .filter(|row| !row.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     fn picker_app() -> (App, UnboundedReceiver<Update<App>>) {
@@ -921,6 +975,10 @@ mod tests {
                 seen.iter()
                     .any(|message| message["type"] == "project-info" && message["cwd"] == "/repo")
             );
+            // The running states are asked for first: the list opens with them, so its rows do not change after.
+            let at = |kind: &str| seen.iter().position(|message| message["type"] == kind);
+            assert!(at("watch-action").is_some() && at("watch-dev").is_some());
+            assert!(at("watch-action") < at("project-info") && at("watch-dev") < at("project-info"));
         });
     }
 

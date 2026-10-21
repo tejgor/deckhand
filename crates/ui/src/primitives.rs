@@ -839,6 +839,282 @@ pub fn bordered(buf: &mut Buffer, area: Rect, border: &Border, padding_x: u16) -
     inset(inner, padding_x, padding_x, 0, 0)
 }
 
+/// A dialog's rows: the header stays at the top and the footer (its choices and key hint) at the bottom, always in
+/// view; the body between them scrolls (J/K, PgUp/PgDn) when it does not fit, so nothing is cut.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DialogRows {
+    pub header: Vec<Row>,
+    pub body: Vec<Row>,
+    pub footer: Vec<Row>,
+}
+
+impl DialogRows {
+    /// How many rows it holds.
+    pub fn len(&self) -> usize {
+        self.header.len() + self.body.len() + self.footer.len()
+    }
+
+    /// Whether it holds no rows.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+/// What a dialog keeps from one frame to the next while it is open: how far its body is scrolled, and its size, which
+/// it never goes below (a dialog grows when its content needs it, never shrinks while open).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DialogView {
+    pub scroll: usize,
+    pub floor_width: u16,
+    pub floor_height: u16,
+}
+
+/// The narrowest and the shortest a dialog is (content smaller than this gets room around it).
+const DIALOG_MIN_WIDTH: u16 = 60;
+const DIALOG_MIN_HEIGHT: u16 = 10;
+
+/// The widest a dialog over `bounds` gets, border included: two columns short of `bounds` on each side, at most 120
+/// (what the panes' row builders lay a dialog out at first; their text is four columns narrower).
+pub fn dialog_width(bounds: Rect) -> u16 {
+    bounds
+        .width
+        .saturating_sub(4)
+        .clamp(48.min(bounds.width), 120.min(bounds.width))
+}
+
+/// The width of a dialog over `bounds` whose widest row (laid out at [`dialog_width`]) is `widest` columns: that and
+/// the border and padding, at least [`DIALOG_MIN_WIDTH`] and `floor` (its width so far), at most [`dialog_width`].
+pub fn dialog_fit_width(bounds: Rect, widest: usize, floor: u16) -> u16 {
+    let natural = u16::try_from(widest + 4).unwrap_or(u16::MAX);
+    natural.max(DIALOG_MIN_WIDTH).max(floor).min(dialog_width(bounds))
+}
+
+/// The shortest a dialog over `bounds` is.
+pub fn dialog_min_height(bounds: Rect) -> u16 {
+    DIALOG_MIN_HEIGHT.min(bounds.height)
+}
+
+/// The tallest a dialog over `bounds` gets: `bounds` less a row above and below; past that its body scrolls.
+pub fn dialog_max_height(bounds: Rect) -> u16 {
+    bounds.height.saturating_sub(2).max(dialog_min_height(bounds))
+}
+
+/// The height of a dialog over `bounds` holding `rows` rows: its border, the margin rows and the rows, between
+/// [`dialog_min_height`] and [`dialog_max_height`], and never below `floor` (its height so far).
+pub fn dialog_height(bounds: Rect, rows: usize, floor: u16) -> u16 {
+    let natural = u16::try_from(rows + 4).unwrap_or(u16::MAX);
+    natural
+        .max(dialog_min_height(bounds))
+        .max(floor)
+        .min(dialog_max_height(bounds))
+}
+
+/// A dialog's box in `bounds`: `width` × `height`, centred.
+pub fn dialog_box(bounds: Rect, width: u16, height: u16) -> Rect {
+    let width = width.min(bounds.width);
+    let height = height.min(bounds.height);
+    let x = bounds.x + (bounds.width - width) / 2;
+    let y = bounds.y + (bounds.height - height) / 2;
+    Rect::new(x, y, width, height)
+}
+
+/// Where a dialog's `rows` rows go in its box: inside the border and a column of padding each side, with a blank row
+/// above and below when they fit with the rows (the margins give way before any content does).
+pub fn dialog_content(area: Rect, rows: usize) -> Rect {
+    let inner = Border::round(Color::Reset).inner(area);
+    let margin = u16::from(usize::from(inner.height) >= rows + 2);
+    inset(inner, 1, 1, margin, margin)
+}
+
+/// The most rows a dialog over `bounds` has for its body beside `header` and `footer` rows (at its tallest): what a
+/// list that scrolls by its selection shows at most.
+pub fn dialog_body_rows(bounds: Rect, header: usize, footer: usize) -> usize {
+    let tallest = dialog_box(bounds, dialog_width(bounds), dialog_max_height(bounds));
+    usize::from(dialog_content(tallest, 0).height).saturating_sub(header + footer)
+}
+
+/// `rows`' texts, trailing spaces aside.
+fn row_texts(rows: &DialogRows) -> Vec<String> {
+    rows.header
+        .iter()
+        .chain(&rows.body)
+        .chain(&rows.footer)
+        .map(|row| row_text(row).trim_end().to_owned())
+        .collect()
+}
+
+/// The widest of `rows`, trailing spaces aside (a selection bar's padding does not count).
+fn widest_row(rows: &DialogRows) -> usize {
+    rows.header
+        .iter()
+        .chain(&rows.body)
+        .chain(&rows.footer)
+        .map(|row| string_width(row_text(row).trim_end()))
+        .max()
+        .unwrap_or(0)
+}
+
+/// Fades what is drawn in `area` (dim): the screen behind a dialog.
+pub fn dim_area(buf: &mut Buffer, area: Rect) {
+    buf.set_style(
+        buf.area.intersection(area),
+        Style::default().add_modifier(Modifier::DIM),
+    );
+}
+
+/// Clears what is drawn in `area` (ratatui's `Clear`), for something drawn over it.
+pub fn clear_area(buf: &mut Buffer, area: Rect) {
+    let clip = buf.area.intersection(area);
+    for y in clip.top()..clip.bottom() {
+        for x in clip.left()..clip.right() {
+            buf[(x, y)].reset();
+        }
+    }
+}
+
+/// Draws a dialog over `bounds` (over whatever is drawn there, cleared first), as big as its content needs: `build`
+/// lays its rows out for a width (border included), first the widest, then the width its widest row needs (see
+/// [`dialog_fit_width`], [`dialog_height`]; `view`'s floors keep it from shrinking while open). The header is drawn
+/// at the top, the footer at the bottom and the body between them from row `view.scroll` on (clamped). When the body
+/// does not fit, the border says how many rows are above (`↑ N more · K`) and below (`↓ N more · J`). Returns
+/// how the body scrolls and the size drawn (the next frame's floors).
+pub fn draw_dialog(
+    buf: &mut Buffer,
+    bounds: Rect,
+    border: &Border,
+    build: &dyn Fn(u16) -> DialogRows,
+    view: DialogView,
+) -> DialogScroll {
+    let (width, height, rows) = fit_dialog(bounds, build, view);
+    let area = dialog_box(bounds, width, height);
+    clear_area(buf, area);
+    draw_border(buf, area, border);
+    let content = dialog_content(area, rows.len());
+    let (max, page) = draw_framed_rows(buf, area, content, &rows, view.scroll, true);
+    DialogScroll {
+        max,
+        page,
+        width,
+        height,
+    }
+}
+
+/// The width, height and rows of a dialog over `bounds` (see [`draw_dialog`]).
+fn fit_dialog(bounds: Rect, build: &dyn Fn(u16) -> DialogRows, view: DialogView) -> (u16, u16, DialogRows) {
+    let widest = dialog_width(bounds);
+    let full = build(widest);
+    // The narrowest width that shows the same text: wrapping and cutting measure some characters (☑, →) wider than
+    // the widest row does, so a candidate that changes any row gives way to a wider one.
+    let fit = dialog_fit_width(bounds, widest_row(&full), view.floor_width);
+    let same = |rows: &DialogRows| row_texts(rows) == row_texts(&full);
+    let (width, rows) = [fit, fit + 1, fit + 2, fit + 4, fit + 8]
+        .into_iter()
+        .filter(|&width| width < widest)
+        .map(|width| (width, build(width)))
+        .find(|(_, rows)| same(rows))
+        .unwrap_or((widest, full.clone()));
+    let height = dialog_height(bounds, rows.len(), view.floor_height);
+    (width, height, rows)
+}
+
+/// `view` made at least as big as the dialog `build` would draw over `bounds`: for a dialog that shows one of several
+/// contents (as its selection moves), so it opens at the size of the biggest and never resizes.
+pub fn dialog_view_fitting(bounds: Rect, build: &dyn Fn(u16) -> DialogRows, view: DialogView) -> DialogView {
+    let (width, height, _) = fit_dialog(bounds, build, DialogView::default());
+    DialogView {
+        scroll: view.scroll,
+        floor_width: view.floor_width.max(width),
+        floor_height: view.floor_height.max(height),
+    }
+}
+
+/// Draws `rows` as a full-pane screen in `area` (bordered, a column of padding each side): top to bottom when they
+/// fit, else with the header on top, the footer at the bottom and the body between them scrolled to `scroll` (see
+/// [`draw_dialog`]).
+pub fn draw_panel(buf: &mut Buffer, area: Rect, border: &Border, rows: &DialogRows, scroll: usize) -> DialogScroll {
+    let content = bordered(buf, area, border, 1);
+    let (max, page) = draw_framed_rows(buf, area, content, rows, scroll, false);
+    DialogScroll {
+        max,
+        page,
+        width: area.width,
+        height: area.height,
+    }
+}
+
+/// Draws `rows` in `content` (inside the box `area`): the header, the body from row `scroll` on (clamped) and the
+/// footer, against the bottom when `pin_footer` or when the body does not fit (else right after the body). When the
+/// body does not fit, the border says how many rows are above (`↑ N more · K`) and below (`↓ N more · J`).
+/// Returns how far the body scrolls at most and how many of its rows show at once.
+fn draw_framed_rows(
+    buf: &mut Buffer,
+    area: Rect,
+    content: Rect,
+    rows: &DialogRows,
+    scroll: usize,
+    pin_footer: bool,
+) -> (usize, usize) {
+    let room = usize::from(content.height).saturating_sub(rows.header.len() + rows.footer.len());
+    let max = rows.body.len().saturating_sub(room);
+    let scroll = scroll.min(max);
+    let mut column = Column::new();
+    column.extend(rows.header.iter().cloned());
+    column.extend(rows.body.iter().skip(scroll).take(room).cloned());
+    if pin_footer || max > 0 {
+        column.grow();
+    }
+    column.extend(rows.footer.iter().cloned());
+    column.draw(buf, content);
+    let label_style = Style::default().fg(THEME.active);
+    let mut label = |y: u16, text: String| {
+        let width = u16::try_from(string_width(&text)).unwrap_or(u16::MAX);
+        if area.width > width + 4 {
+            buf.set_stringn(area.right() - 2 - width, y, &text, usize::from(width), label_style);
+        }
+    };
+    if scroll > 0 {
+        label(area.y, format!(" ↑ {scroll} more · K "));
+    }
+    let below = max - scroll;
+    if below > 0 && area.height > 1 {
+        label(area.bottom() - 1, format!(" ↓ {below} more · J "));
+    }
+    (max, room.max(1))
+}
+
+/// How a dialog's body scrolls, as last drawn.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DialogScroll {
+    /// The furthest the body scrolls (0: it fits).
+    pub max: usize,
+    /// The body rows that show at once (what J/K and PgUp/PgDn move by).
+    pub page: usize,
+    /// The dialog's size.
+    pub width: u16,
+    pub height: u16,
+}
+
+impl DialogScroll {
+    /// The next frame's view: scrolled to `scroll`, no smaller than this frame.
+    pub fn view(self, scroll: usize) -> DialogView {
+        DialogView {
+            scroll,
+            floor_width: self.width,
+            floor_height: self.height,
+        }
+    }
+
+    /// `scroll` after K or PgUp (`up`), or J or PgDn, within the body.
+    pub fn paged(self, scroll: usize, up: bool) -> usize {
+        let scroll = scroll.min(self.max);
+        if up {
+            scroll.saturating_sub(self.page)
+        } else {
+            (scroll + self.page).min(self.max)
+        }
+    }
+}
+
 /// A column of rows to draw top to bottom (a `<Box flexDirection="column">` of single-line `<Text>`s), with Ink's
 /// `<Box flexGrow={1} />` spacer: rows pushed after [`Column::grow`] are drawn at the bottom of the area.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -879,6 +1155,11 @@ impl Column {
         self.grown = true;
     }
 
+    /// How many rows it holds (top and bottom).
+    pub fn height(&self) -> usize {
+        self.top.len() + self.bottom.len()
+    }
+
     /// Draws the rows: the top ones from the top, the bottom ones against the bottom (the top rows win when they
     /// do not all fit, as Ink's flex shrinking does to a spacer first).
     pub fn draw(&self, buf: &mut Buffer, area: Rect) {
@@ -889,6 +1170,24 @@ impl Column {
         let start = area.bottom() - count;
         draw_rows(buf, Rect::new(area.x, start, area.width, count), &self.bottom[skip..]);
     }
+}
+
+/// Test support: the rows of the first dialog box in `rows` (a drawn area as text, one string per row), from its top
+/// border to its bottom border, without the columns left of it.
+#[cfg(test)]
+pub(crate) fn dialog_rows(rows: &[String]) -> Vec<String> {
+    let Some(top) = rows.iter().position(|row| row.contains('╭')) else {
+        return Vec::new();
+    };
+    let left = rows[top].chars().position(|c| c == '╭').unwrap_or(0);
+    let bottom = rows[top..]
+        .iter()
+        .position(|row| row.chars().nth(left) == Some('╰'))
+        .map_or(rows.len() - 1, |offset| top + offset);
+    rows[top..=bottom]
+        .iter()
+        .map(|row| row.chars().skip(left).collect())
+        .collect()
 }
 
 #[cfg(test)]
@@ -905,6 +1204,61 @@ mod tests {
                     .collect::<String>()
             })
             .collect()
+    }
+
+    #[test]
+    fn a_dialog_fits_its_content_never_shrinks_while_open_and_scrolls_past_the_pane() {
+        let bounds = Rect::new(0, 0, 100, 30);
+        let text_rows = |buf: &Buffer| -> Vec<String> {
+            (0..buf.area.height)
+                .map(|y| (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect::<String>())
+                .collect()
+        };
+        let rows = |count: usize, line: &'static str| {
+            move |width: u16| DialogRows {
+                header: vec![vec![Seg::plain("Title")]],
+                body: (1..=count)
+                    .map(|n| {
+                        vec![
+                            Seg::plain(format!("{n} {line}")),
+                            Seg::plain(" ".repeat(usize::from(width))),
+                        ]
+                    })
+                    .collect(),
+                footer: vec![Vec::new(), vec![Seg::plain("enter ok • esc cancel")]],
+            }
+        };
+        let border = Border::round(Color::Red);
+        let draw = |count: usize, line: &'static str, view: DialogView| {
+            let mut buf = Buffer::empty(bounds);
+            let scroll = draw_dialog(&mut buf, bounds, &border, &rows(count, line), view);
+            (scroll, text_rows(&buf).join("\n"))
+        };
+        // Short content: the smallest dialog (60 × 10), whatever padding the rows carry.
+        let (short, _) = draw(3, "short", DialogView::default());
+        assert_eq!((short.width, short.height), (60, 10));
+        // More content: taller and wider (the widest row and the padding), up to the pane less its margins.
+        let wide: &'static str = "a line of text that needs seventy-odd columns to show without being cut";
+        let (bigger, _) = draw(20, wide, DialogView::default());
+        assert_eq!((bigger.width, bigger.height), (78, 27));
+        // While open it never shrinks: content that gets smaller keeps the size it had.
+        let (kept, _) = draw(3, "short", bigger.view(0));
+        assert_eq!((kept.width, kept.height), (78, 27));
+        // Past the pane the body scrolls; the title and the hint stay, the border says what is hidden.
+        let (tall, screen) = draw(40, "short", DialogView::default());
+        // Full: the margin rows give way to two more rows of body.
+        assert_eq!((tall.max, tall.page, tall.height), (17, 23, 28));
+        assert!(screen.contains("23 short") && !screen.contains("24 short"), "{screen}");
+        assert!(screen.contains("↓ 17 more · J") && !screen.contains("· K"), "{screen}");
+        let next = tall.paged(0, false);
+        assert_eq!(next, 17);
+        let (_, screen) = draw(40, "short", tall.view(next));
+        assert!(
+            screen.contains("Title") && screen.contains("40 short") && screen.contains("enter ok"),
+            "{screen}"
+        );
+        assert!(screen.contains("↑ 17 more · K") && !screen.contains("· J"), "{screen}");
+        assert_eq!(tall.paged(5, true), 0);
     }
 
     #[test]

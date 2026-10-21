@@ -132,6 +132,25 @@ impl Mode {
             Mode::Browse | Mode::PreviewFocus | Mode::ChangesFocus | Mode::NotesFocus | Mode::Search | Mode::PickFilter
         )
     }
+
+    /// Not in the TS: a mode drawn as a dialog over the (faded) tabbed pane rather than in its place.
+    pub fn is_dialog(self) -> bool {
+        matches!(
+            self,
+            Mode::PickProgram
+                | Mode::EnterName
+                | Mode::PickWorktree
+                | Mode::PickAction
+                | Mode::ConfirmKill
+                | Mode::ConfirmRemove
+        )
+    }
+
+    /// Not in the TS: a dialog, or a full-pane confirmation (merge and its conflicts), whose body scrolls with
+    /// J/K (PgUp/PgDn).
+    pub fn scrolls_body(self) -> bool {
+        self.is_dialog() || matches!(self, Mode::ConfirmMerge | Mode::MergeConflicts)
+    }
 }
 
 /// TS: app.tsx TerminalSize (`process.stdout.columns || 80`, `rows || 24`).
@@ -513,6 +532,15 @@ pub struct AppTimers {
     pub clock: Option<Timer>,
 }
 
+/// Not in the TS: how far the open dialog's body is scrolled, and how it scrolled when last drawn.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DialogState {
+    /// The dialog mode the scroll belongs to; another dialog starts at the top.
+    pub mode: Option<Mode>,
+    pub scroll: usize,
+    pub last: crate::primitives::DialogScroll,
+}
+
 /// TS: the App component: every piece of its state.
 #[derive(Debug)]
 pub struct App {
@@ -532,6 +560,8 @@ pub struct App {
     pub merge: MergeState,
     pub remove: RemoveState,
     pub create: CreateState,
+    /// Not in the TS: the open dialog's body scroll (J/K, PgUp/PgDn).
+    pub dialog: DialogState,
     pub flows: Flows,
     pub timers: AppTimers,
     /// The effects' last dependencies and their in-flight work (crates/ui/src/app/effects.rs).
@@ -626,6 +656,7 @@ impl App {
             kill: KillState::default(),
             merge: MergeState::default(),
             remove: RemoveState::default(),
+            dialog: DialogState::default(),
             create: CreateState {
                 program_index: 0,
                 draft_name: String::new(),

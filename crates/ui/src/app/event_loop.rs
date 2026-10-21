@@ -5,14 +5,14 @@
 //!   crossterm's event parser): each read goes to [`UiModel::on_stdin_text`] (a raw `stdin.on('data')` listener, as
 //!   the preview's mouse-wheel handler is) and then key by key to [`UiModel::on_key`]. A trailing lone `ESC` is
 //!   flushed as Escape once no more input is immediately queued (Ink's `setImmediate`);
-//! - terminal resizes (SIGWINCH, [`spawn_resize_watcher`]): the screen is cleared and fully repainted, as app.tsx's
-//!   resize handler does;
+//! - terminal resizes (SIGWINCH, [`spawn_resize_watcher`]): the next frame clears the screen and repaints it fully,
+//!   in the same synchronized update, so the clear never shows on its own;
 //! - model updates ([`Dispatch`]): what React's `setState` from async code is: daemon events from the
 //!   `LiveClient` handlers, replies of requests, timers and intervals all send a closure that runs on the model.
 //!
 //! After each batch the model's effects run ([`UiModel::after_update`], React's `useEffect` phase) and the frame is
-//! drawn with ratatui (which writes only the cells that changed), at most once per [`RENDER_THROTTLE`] as Ink
-//! throttles its renders, each frame wrapped in synchronized output ([`InkBackend`]). [`UiModel::exit`] ends the loop
+//! drawn with ratatui (which writes only the cells that changed): at once after a key, otherwise at most once per
+//! [`RENDER_THROTTLE`], each frame wrapped in synchronized output ([`InkBackend`]). [`UiModel::exit`] ends the loop
 //! with the result Ink's `waitUntilExit` resolved to.
 
 use std::cell::RefCell;
@@ -148,38 +148,55 @@ pub enum LoopEnd<E> {
     InputClosed,
 }
 
-/// Feeds one batch of stdin bytes to the model; returns whether the model asked to exit.
-fn feed<M: UiModel>(model: &mut M, parser: &mut StdinParser, bytes: &[u8], exit: &mut Option<M::Exit>) {
+/// Whether `sequence` is a mouse report (SGR `ESC [ <` or legacy `ESC [ M`) rather than a key.
+fn is_mouse_report(sequence: &str) -> bool {
+    sequence.starts_with("\x1b[<") || sequence.starts_with("\x1b[M")
+}
+
+/// Feeds one batch of stdin bytes to the model, stopping once it asks to exit; returns whether the batch held a key
+/// (not only mouse reports).
+fn feed<M: UiModel>(model: &mut M, parser: &mut StdinParser, bytes: &[u8], exit: &mut Option<M::Exit>) -> bool {
     let chunk = parser.push(bytes);
     if !chunk.text.is_empty() {
         model.on_stdin_text(&chunk.text);
     }
+    let mut keyed = false;
     for event in &chunk.events {
         if exit.is_some() {
-            return;
+            break;
         }
+        keyed |= !is_mouse_report(&event.sequence);
         model.on_key(event);
         *exit = model.exit();
     }
+    keyed
+}
+
+/// What a batch of terminal events asks of the next frame.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct FrameRequest {
+    /// Draw at once rather than at the throttle's trailing edge: a key was typed or the terminal resized.
+    now: bool,
+    /// Clear the screen first, because the terminal resized.
+    clear: bool,
 }
 
 /// Handles one terminal event (and, for data, everything queued right behind it); returns false once stdin closed.
-async fn handle_term_event<M: UiModel, B: Backend>(
+async fn handle_term_event<M: UiModel>(
     model: &mut M,
-    terminal: &mut Terminal<B>,
     parser: &mut StdinParser,
     events: &mut mpsc::UnboundedReceiver<TermEvent>,
     first: TermEvent,
     exit: &mut Option<M::Exit>,
-    resized: &mut bool,
-) -> io::Result<bool> {
+    frame: &mut FrameRequest,
+) -> bool {
     let mut next = Some(first);
     while let Some(event) = next.take() {
         match event {
             TermEvent::Data(bytes) => {
-                feed(model, parser, &bytes, exit);
+                frame.now |= feed(model, parser, &bytes, exit);
                 if exit.is_some() {
-                    return Ok(true);
+                    return true;
                 }
                 next = events.try_recv().ok();
                 if next.is_none() && parser.has_pending_escape() {
@@ -189,18 +206,18 @@ async fn handle_term_event<M: UiModel, B: Backend>(
                     if !matches!(next, Some(TermEvent::Data(_)))
                         && let Some(escape) = parser.flush_pending_escape()
                     {
+                        frame.now = true;
                         model.on_key(&escape);
                         *exit = model.exit();
                         if exit.is_some() {
-                            return Ok(true);
+                            return true;
                         }
                     }
                 }
             }
             TermEvent::Resize { cols, rows } => {
-                // TS: app.tsx onResize clears the screen before the next render.
-                terminal.clear()?;
-                *resized = true;
+                // The screen is cleared by the frame that repaints it (see `draw`).
+                *frame = FrameRequest { now: true, clear: true };
                 model.on_resize(cols, rows);
                 *exit = model.exit();
                 next = events.try_recv().ok();
@@ -210,11 +227,21 @@ async fn handle_term_event<M: UiModel, B: Backend>(
                     model.on_key(&escape);
                     *exit = model.exit();
                 }
-                return Ok(false);
+                return false;
             }
         }
     }
-    Ok(true)
+    true
+}
+
+/// Draws a frame, clearing the screen first when `clear` (after a resize the terminal's contents no longer match
+/// the last frame). The clear and the frame go out in one synchronized update ([`InkBackend::clear_region`]).
+fn draw<M: UiModel, B: Backend>(model: &mut M, terminal: &mut Terminal<B>, clear: bool) -> io::Result<()> {
+    if clear {
+        terminal.clear()?;
+    }
+    terminal.draw(|frame| model.render(frame))?;
+    Ok(())
 }
 
 /// TS: Ink's render throttle: `maxFps` 30 → `throttle(onRender, Math.ceil(1000 / 30))`, leading and trailing.
@@ -231,10 +258,10 @@ pub async fn run<M: UiModel, B: Backend>(
     run_throttled(model, terminal, events, updates, RENDER_THROTTLE).await
 }
 
-/// [`run`] with frames at most once per `throttle`, as Ink's throttled `onRender` (lodash-style leading and trailing
-/// edges): a frame is drawn at once when none was drawn for `throttle`, else once the window ends, with everything
-/// that changed meanwhile. The model's effects still run after every batch (React commits every update; only Ink's
-/// output is throttled). A resize draws at once, as Ink's `resized` calls `onRender` directly.
+/// [`run`] with frames from updates at most once per `throttle` (leading and trailing edges): a frame is drawn at once
+/// when none was drawn for `throttle`, else once the window ends, with everything that changed meanwhile. A key or a
+/// resize draws at once, so typing never waits for the window; mouse reports (a wheel burst) stay throttled. The
+/// model's effects still run after every batch.
 pub async fn run_throttled<M: UiModel, B: Backend>(
     model: &mut M,
     terminal: &mut Terminal<B>,
@@ -252,14 +279,14 @@ pub async fn run_throttled<M: UiModel, B: Backend>(
     terminal.draw(|frame| model.render(frame))?;
     let mut last_draw = Instant::now();
     let mut draw_pending = false;
+    let mut clear_pending = false;
     loop {
-        let mut resized = false;
+        let mut frame = FrameRequest::default();
         tokio::select! {
             biased;
             event = events.recv(), if input_open => match event {
                 Some(event) => {
-                    input_open =
-                        handle_term_event(model, terminal, &mut parser, events, event, &mut exit, &mut resized).await?;
+                    input_open = handle_term_event(model, &mut parser, events, event, &mut exit, &mut frame).await;
                 }
                 None => input_open = false,
             },
@@ -277,12 +304,14 @@ pub async fn run_throttled<M: UiModel, B: Backend>(
             },
             () = tokio::time::sleep_until(last_draw + throttle), if draw_pending => {
                 // The trailing edge: the effects of what it shows have run already.
-                terminal.draw(|frame| model.render(frame))?;
+                draw(model, terminal, std::mem::take(&mut clear_pending))?;
                 last_draw = Instant::now();
                 draw_pending = false;
                 continue;
             }
         }
+        // A resize whose frame is not drawn yet (the UI exits first) leaves the screen alone.
+        clear_pending |= frame.clear;
         if let Some(result) = exit.take() {
             return Ok(LoopEnd::Exit(result));
         }
@@ -293,8 +322,8 @@ pub async fn run_throttled<M: UiModel, B: Backend>(
         if let Some(result) = model.exit() {
             return Ok(LoopEnd::Exit(result));
         }
-        if resized || last_draw.elapsed() >= throttle {
-            terminal.draw(|frame| model.render(frame))?;
+        if frame.now || last_draw.elapsed() >= throttle {
+            draw(model, terminal, std::mem::take(&mut clear_pending))?;
             last_draw = Instant::now();
             draw_pending = false;
         } else {
@@ -344,6 +373,15 @@ impl<W: io::Write> InkBackend<W> {
             in_frame: false,
         }
     }
+
+    /// Begins the synchronized update of the frame being written (once; [`Backend::flush`] ends it).
+    fn begin_frame(&mut self) -> io::Result<()> {
+        if self.synchronize && !self.in_frame {
+            io::Write::write_all(&mut self.inner, BEGIN_SYNCHRONIZED_UPDATE.as_bytes())?;
+            self.in_frame = true;
+        }
+        Ok(())
+    }
 }
 
 impl<W: io::Write> Backend for InkBackend<W> {
@@ -355,10 +393,7 @@ impl<W: io::Write> Backend for InkBackend<W> {
         if content.peek().is_none() {
             return Ok(());
         }
-        if self.synchronize && !self.in_frame {
-            io::Write::write_all(&mut self.inner, BEGIN_SYNCHRONIZED_UPDATE.as_bytes())?;
-            self.in_frame = true;
-        }
+        self.begin_frame()?;
         self.inner.draw(content)
     }
 
@@ -379,10 +414,14 @@ impl<W: io::Write> Backend for InkBackend<W> {
     }
 
     fn clear(&mut self) -> io::Result<()> {
+        self.begin_frame()?;
         self.inner.clear()
     }
 
+    /// Opens the frame's synchronized update first: ratatui clears (after a resize) right before it repaints, and
+    /// the terminal must not show the empty screen in between.
     fn clear_region(&mut self, clear_type: ClearType) -> io::Result<()> {
+        self.begin_frame()?;
         self.inner.clear_region(clear_type)
     }
 
@@ -982,6 +1021,72 @@ mod tests {
                 assert_eq!(rows(&terminal)[0], "count 3     ");
             })
             .await;
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_key_draws_at_once_inside_the_throttle_window_but_mouse_reports_wait() {
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let mut terminal = Terminal::new(TestBackend::new(12, 2)).expect("terminal");
+                let mut model = Recorder::default();
+                let (tx, mut events) = mpsc::unbounded_channel::<TermEvent>();
+                let (dispatch, mut update_rx) = Dispatch::<Recorder>::channel();
+                // A window far longer than the test, so only an immediate frame can be drawn inside it.
+                let window = Duration::from_secs(60);
+                tx.send(TermEvent::Data(b"\x1b[<65;3;4M".to_vec()))
+                    .expect("event queued");
+                let _key = dispatch.after(Duration::from_millis(5), {
+                    let tx = tx.clone();
+                    move |_| {
+                        let _ = tx.send(TermEvent::Data(b"x".to_vec()));
+                    }
+                });
+                let _quit = dispatch.after(Duration::from_millis(200), |model: &mut Recorder| {
+                    model.quit = Some("done");
+                });
+                let end = run_throttled(&mut model, &mut terminal, &mut events, &mut update_rx, window)
+                    .await
+                    .expect("loop runs");
+                assert_eq!(end, LoopEnd::Exit("done"));
+                // The leading frame, then the key's frame; the wheel report before it drew nothing of its own.
+                assert_eq!(model.keys.last().map(String::as_str), Some("x"));
+                assert_eq!(model.renders, 2);
+            })
+            .await;
+    }
+
+    #[test]
+    fn a_resize_clears_inside_the_frames_synchronized_update() {
+        /// What the backend wrote, shared with the test.
+        #[derive(Clone, Default)]
+        struct Out(Rc<RefCell<Vec<u8>>>);
+        impl io::Write for Out {
+            fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+                self.0.borrow_mut().extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let out = Out::default();
+        let mut terminal = Terminal::with_options(
+            InkBackend::new(out.clone(), true),
+            ratatui::TerminalOptions {
+                viewport: ratatui::Viewport::Fixed(ratatui::layout::Rect::new(0, 0, 8, 1)),
+            },
+        )
+        .expect("terminal");
+        let mut model = Recorder::default();
+        draw(&mut model, &mut terminal, true).expect("draw");
+        let written = String::from_utf8(out.0.borrow().clone()).expect("utf-8");
+        let begin = written.find("\x1b[?2026h").expect("begins a synchronized update");
+        // A fixed viewport clears from its first row down (a full screen clears it all).
+        let clear = written.find("\x1b[J").expect("clears the screen");
+        let end = written.rfind("\x1b[?2026l").expect("ends the synchronized update");
+        assert!(begin < clear && clear < end, "{written:?}");
+        assert!(written[clear..end].contains("count"), "{written:?}");
     }
 
     #[test]

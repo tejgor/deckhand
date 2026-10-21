@@ -49,7 +49,12 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Topic("Panes"),
     },
     Binding {
-        keys: &[KeySpec::Named(NamedKey::PageUp), KeySpec::Named(NamedKey::PageDown)],
+        keys: &[
+            KeySpec::Char("K"),
+            KeySpec::Char("J"),
+            KeySpec::Named(NamedKey::PageUp),
+            KeySpec::Named(NamedKey::PageDown),
+        ],
         action: "scroll a page",
         help: HelpRef::Topic("Panes"),
     },
@@ -89,8 +94,10 @@ pub fn handle_preview_focus(app: &mut App, input: &Input) {
         return;
     }
     let rows = i64::from(app.layout().preview_rows);
-    if key.page_up || key.page_down {
-        let direction = if key.page_up {
+    // Not in the TS: K/J page too (a Mac keyboard has no page keys).
+    let (page_up, page_down) = (key.page_up || text == "K", key.page_down || text == "J");
+    if page_up || page_down {
+        let direction = if page_up {
             WheelDirection::Up
         } else {
             WheelDirection::Down
@@ -292,6 +299,11 @@ pub(crate) mod tests {
                 ..Key::NONE
             }),
         );
+        assert_eq!(app.preview_focus.scroll_offset, 0);
+        // K/J page as PgUp/PgDn do (a Mac keyboard has no page keys).
+        handle_preview_focus(&mut app, &text("K"));
+        assert_eq!(app.preview_focus.scroll_offset, rows - 2);
+        handle_preview_focus(&mut app, &text("J"));
         assert_eq!(app.preview_focus.scroll_offset, 0);
         handle_preview_focus(&mut app, &text("g"));
         assert_eq!(app.preview_focus.scroll_offset, rows);

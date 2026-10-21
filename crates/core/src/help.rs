@@ -232,7 +232,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "j k  ↑↓",
-                text: "Scroll (PgUp/PgDn a page, g/G top/bottom, the mouse wheel; + − change wheel speed)",
+                text: "Scroll (J/K or PgUp/PgDn a page, g/G top/bottom, the mouse wheel; + − change wheel speed)",
             },
             HelpLine::Note {
                 note: "Mouse wheel: Scroll speed in Settings (C); \"claude_scroll_override\": false in config.json keeps your own Claude scroll settings.",
@@ -350,6 +350,10 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 keys: "R  j k  g G",
                 text: "Check them all again / move",
             },
+            HelpLine::Key {
+                keys: "J K",
+                text: "In a deletion confirmation that does not fit: scroll it (PgUp/PgDn too)",
+            },
             HelpLine::Note {
                 note: "Same safety as x on a session: uncommitted work or commits only on the branch need DELETE typed; the main checkout and the one this Deckhand runs in are never deleted. Its sessions are archived afterwards (f A shows them).",
             },
@@ -394,7 +398,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Scroll its diff (Page Up/Down: a page)",
             },
             HelpLine::Heading {
-                heading: "Inside i (Esc closes; ↑↓, j k and PgUp/PgDn move through it)",
+                heading: "Inside i (Esc closes; ↑↓ and j k move through it, J/K or PgUp/PgDn a page)",
             },
             HelpLine::Key {
                 keys: "c",
@@ -462,7 +466,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "j k  ← →",
-                text: "Setting / column (Tab too; PgUp/PgDn, Home/End jump)",
+                text: "Setting / column (Tab too; J/K, g/G jump)",
             },
             HelpLine::Key {
                 keys: "Enter  x",

@@ -31,10 +31,11 @@ use deckhand_sys::desktop::open_in_editor;
 use crate::app::state::App;
 use crate::flow::{Flow, FlowCx, FlowEffect};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
-use crate::panes::cleanup::{cleanup_loss_lines, file_rows_left};
+use crate::panes::cleanup::cleanup_loss_lines;
 use crate::panes::menu::{SelectableRowProps, selectable_row};
 use crate::primitives::{
-    Border, Column, Row, Seg, TextStyle, Wrap, bordered, fit_row, space_between, truncate_row, with_base,
+    Border, Column, DialogRows, DialogScroll, DialogView, Row, Seg, TextStyle, Wrap, bordered, dialog_view_fitting,
+    dim_area, draw_dialog, fit_row, space_between, truncate_row, with_base,
 };
 use crate::theme::{THEME, color};
 
@@ -388,16 +389,19 @@ pub struct ConfirmPaneProps<'a> {
     /// Open checklist items of their notes (sent to the backlog first unless kept).
     pub open_items: &'a [String],
     pub working: Option<&'a str>,
+    /// Not in the TS: the checks are not all in yet, so no choices are shown (see [`WorktreesFlow::confirm_loading`]).
+    pub loading: bool,
 }
 
-/// TS: worktreesFlow.tsx ConfirmPane: the rows inside its border.
-fn confirm_pane_rows(props: &ConfirmPaneProps<'_>, width: usize, height: usize) -> Vec<Row> {
+/// TS: worktreesFlow.tsx ConfirmPane, as a dialog `width` wide: the question (and the path) on top; what goes and
+/// what it would lose, in full, in the body; the choices at the bottom (the keys are in the footer).
+fn confirm_pane_rows(props: &ConfirmPaneProps<'_>, width: usize) -> DialogRows {
     let inner = width.saturating_sub(4).max(1);
     let state = props.state;
     let options = props.options;
     let index = state.index.min(options.len().saturating_sub(1));
     let Some(entry) = state.entries.first() else {
-        return Vec::new();
+        return DialogRows::default();
     };
     let running: Vec<&SessionRecord> = props
         .sessions
@@ -414,33 +418,26 @@ fn confirm_pane_rows(props: &ConfirmPaneProps<'_>, width: usize, height: usize) 
     let muted = TextStyle::fg(THEME.muted);
     let warn = TextStyle::fg(THEME.warn);
     let title_style = TextStyle::fg(THEME.error).bold(true);
-    let mut rows: Vec<Row> = Vec::new();
+    let mut rows = DialogRows::default();
     if let Some(override_) = state.override_.as_ref() {
         let check = state.check(override_.delete_branch);
-        rows.extend(wrapped(
+        rows.header.extend(wrapped(
             format!("Delete {} anyway?", worktree_name(entry)),
             title_style,
             inner,
         ));
-        rows.extend(wrapped(
+        rows.body.extend(wrapped(
             "This permanently erases what is listed below. Main/current/shared worktree protections cannot be overridden.",
             TextStyle::default(),
             inner,
         ));
-        rows.push(Vec::new());
+        rows.body.push(Vec::new());
         match check {
-            Some(check) => {
-                let loss = loss_of(check);
-                rows.extend(cleanup_loss_lines(
-                    loss,
-                    inner,
-                    file_rows_left(height, 9 + loss.reasons.len()),
-                ));
-            }
-            None => rows.extend(wrapped("Safety could not be verified", warn, inner)),
+            Some(check) => rows.body.extend(cleanup_loss_lines(loss_of(check), inner, usize::MAX)),
+            None => rows.body.extend(wrapped("Safety could not be verified", warn, inner)),
         }
-        rows.push(Vec::new());
-        rows.extend(wrapped(
+        rows.footer.push(Vec::new());
+        rows.footer.extend(wrapped(
             format!("Type DELETE then enter: {}", override_.draft),
             warn,
             inner,
@@ -474,44 +471,41 @@ fn confirm_pane_rows(props: &ConfirmPaneProps<'_>, width: usize, height: usize) 
     } else {
         format!("Delete {}?", worktree_name(entry))
     };
-    rows.extend(wrapped(title, title_style, inner));
+    rows.header.extend(wrapped(title, title_style, inner));
     if state.bulk {
-        for item in state.entries.iter().take(8) {
+        for item in &state.entries {
             let name = worktree_name(item);
             let room = count(inner)
                 .saturating_sub(count(js_len(&name)))
                 .saturating_sub(5)
                 .max(8);
             let room = usize::try_from(room).unwrap_or(8);
-            rows.push(line(
+            rows.body.push(line(
                 format!("  {name} · {}", compact_path(&item.path, room)),
                 muted,
                 inner,
             ));
         }
-        if state.entries.len() > 8 {
-            rows.extend(wrapped(format!("  +{} more", state.entries.len() - 8), muted, inner));
-        }
     } else {
-        rows.push(line(compact_path(&entry.path, inner), muted, inner));
+        rows.header.push(line(compact_path(&entry.path, inner), muted, inner));
     }
     if let Some(summary) = summary {
         let safe = check.is_some_and(|check| loss_of(check).safe);
-        rows.push(line(
+        rows.body.push(Vec::new());
+        rows.body.extend(wrapped(
             summary,
             TextStyle::fg(if safe { THEME.success } else { THEME.warn }),
             inner,
         ));
     }
-    // What it would lose, in full: the reasons, then the files in the rows the rest of the pane leaves.
+    // What it would lose, in full: the reasons, then every file.
     if let Some(check) = check {
         let loss = loss_of(check);
         if !loss.safe && check.inspection.structural_blockers.is_empty() {
-            let used = 12 + loss.reasons.len() + options.len() + usize::from(!running.is_empty());
-            rows.extend(cleanup_loss_lines(loss, inner, file_rows_left(height, used)));
+            rows.body.extend(cleanup_loss_lines(loss, inner, usize::MAX));
         }
         for blocker in &check.inspection.structural_blockers {
-            rows.push(line(format!("  {blocker}"), warn, inner));
+            rows.body.extend(wrapped(format!("  {blocker}"), warn, inner));
         }
     }
     if !running.is_empty() {
@@ -524,7 +518,7 @@ fn confirm_pane_rows(props: &ConfirmPaneProps<'_>, width: usize, height: usize) 
             .iter()
             .map(|session| display_session_title(session, props.sessions))
             .collect();
-        rows.push(line(
+        rows.body.extend(wrapped(
             format!("Stops {who} running there first: {}", titles.join(", ")),
             warn,
             inner,
@@ -544,27 +538,30 @@ fn confirm_pane_rows(props: &ConfirmPaneProps<'_>, width: usize, height: usize) 
             },
             props.open_items.join(", ")
         );
-        rows.push(line(
+        rows.body.extend(wrapped(
             text,
             TextStyle::fg(if keep { THEME.muted } else { THEME.active }),
             inner,
         ));
     }
     if entry.missing.is_none() {
-        rows.push(line(
+        rows.body.extend(wrapped(
             "Its sessions cannot be resumed afterwards; they are archived (notes kept, f A shows them).",
             muted,
             inner,
         ));
     }
-    rows.push(Vec::new());
+    if props.loading {
+        return rows;
+    }
+    rows.footer.push(Vec::new());
     for (row, option) in options.iter().enumerate() {
         let selected_color = if option.kind == ConfirmKind::Cancel {
             THEME.muted
         } else {
             THEME.error
         };
-        rows.extend(selectable_row(
+        rows.footer.extend(selectable_row(
             &SelectableRowProps {
                 selected: row == index,
                 text: &option.label,
@@ -576,22 +573,21 @@ fn confirm_pane_rows(props: &ConfirmPaneProps<'_>, width: usize, height: usize) 
         ));
     }
     if let Some(working) = props.working {
-        rows.push(Vec::new());
-        rows.extend(wrapped(working, warn, inner));
+        rows.footer.push(Vec::new());
+        rows.footer.extend(wrapped(working, warn, inner));
     }
     rows
 }
 
 /// TS: worktreesFlow.tsx ConfirmPane.
-pub fn render_confirm_pane(props: &ConfirmPaneProps<'_>, buf: &mut Buffer, area: Rect) {
-    let content = bordered(buf, area, &Border::round(THEME.border_danger), 1);
-    let mut column = Column::new();
-    column.extend(confirm_pane_rows(
-        props,
-        usize::from(area.width),
-        usize::from(area.height),
-    ));
-    column.draw(buf, content);
+pub fn render_confirm_pane(
+    props: &ConfirmPaneProps<'_>,
+    buf: &mut Buffer,
+    area: Rect,
+    view: DialogView,
+) -> DialogScroll {
+    let build = |width| confirm_pane_rows(props, usize::from(width));
+    draw_dialog(buf, area, &Border::round(THEME.border_danger), &build, view)
 }
 
 /// TS: worktreesFlow.tsx WorktreesFlowOptions (values; `onExit`, `onGoTo`, `setError`, `setStatusMessage` are
@@ -621,6 +617,8 @@ pub struct WorktreesFlow {
     pub check_id: u64,
     /// The list's first shown row (TS `top` ref).
     pub top: usize,
+    /// Not in the TS: how far the confirmation's body is scrolled (J/K, PgUp/PgDn), and how it scrolled when last drawn.
+    pub confirm_scroll: (usize, DialogScroll),
 }
 
 /// The worktree manager's keys (keysDocumented: each must be in the guide's Worktrees topic).
@@ -689,6 +687,11 @@ pub static KEYMAP: Keymap = &[
         keys: &[KeySpec::Named(NamedKey::Backspace), KeySpec::Named(NamedKey::Delete)],
         action: "in the DELETE prompt: erase a letter",
         help: HelpRef::Hidden("typing DELETE is explained by the prompt itself"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("J"), KeySpec::Char("K")],
+        action: "scroll a deletion confirmation that does not fit (PgUp/PgDn too)",
+        help: HelpRef::Topic("Worktrees"),
     },
 ];
 
@@ -944,6 +947,18 @@ impl WorktreesFlow {
         }
     }
 
+    /// Not in the TS: the deletion confirmation of one worktree is still checking what deleting it (and, when it
+    /// could go too, its branch) would lose. No choices are shown until both answers are in: drawn early, they moved
+    /// when the file list arrived. A bulk deletion and a missing worktree check nothing.
+    pub fn confirm_loading(&self, state: &DeleteConfirm) -> bool {
+        match state.entries.first() {
+            Some(entry) if !state.bulk && entry.missing.is_none() => {
+                state.checks.worktree.is_none() || (self.can_delete_branch(entry) && state.checks.branch.is_none())
+            }
+            _ => false,
+        }
+    }
+
     /// TS `canDeleteBranch(entry)`.
     fn can_delete_branch(&self, entry: &WorktreeOverviewEntry) -> bool {
         !entry.branch.is_empty() && !protected_branch(&entry.branch, self.default_branch())
@@ -967,6 +982,7 @@ impl WorktreesFlow {
         self.check_id += 1;
         let id = self.check_id;
         let entry = entries.first().cloned();
+        self.confirm_scroll = (0, DialogScroll::default());
         self.confirm = Some(DeleteConfirm {
             entries,
             bulk,
@@ -1277,6 +1293,21 @@ impl WorktreesFlow {
         };
         let key = &input.key;
         let text = input.input.as_str();
+        // J/K (PgUp/PgDn) scroll what does not fit, except while DELETE is typed.
+        if let Some(up) = crate::keymap::dialog_scroll(input).filter(|_| state.override_.is_none()) {
+            let (scroll, last) = self.confirm_scroll;
+            self.confirm_scroll.0 = last.paged(scroll, up);
+            return;
+        }
+        // Until the checks are in, the choices are not shown: only Esc acts.
+        if self.confirm_loading(&state) {
+            if key.escape {
+                self.confirm = None;
+            } else if key.return_ {
+                cx.set_status("Still checking what it would lose…".to_owned());
+            }
+            return;
+        }
         let list = self.options(&state, props);
         let len = list.len();
         let index = state.index.min(len.saturating_sub(1));
@@ -1647,7 +1678,14 @@ impl Flow<App> for WorktreesFlow {
     }
 
     fn render(&mut self, props: &WorktreesFlowProps<'_>, buf: &mut Buffer, area: Rect) {
+        let rows = self.list_rows(props, usize::from(area.width), usize::from(area.height), date::now_ms());
+        let content = bordered(buf, area, &Border::round(THEME.border_active), 1);
+        let mut column = Column::new();
+        column.extend(rows);
+        column.draw(buf, content);
+        // A deletion asks in a dialog over the (faded) list it was started from.
         if let Some(state) = self.confirm.as_ref() {
+            dim_area(buf, area);
             let options = self.options(state, props);
             let open_items: Vec<String> = state
                 .entries
@@ -1660,15 +1698,36 @@ impl Flow<App> for WorktreesFlow {
                 sessions: props.sessions,
                 open_items: &open_items,
                 working: self.working.as_deref(),
+                loading: self.confirm_loading(state),
             };
-            render_confirm_pane(&pane, buf, area);
-            return;
+            let (scroll, last) = self.confirm_scroll;
+            let mut view = last.view(scroll);
+            // Moving between deleting the worktree and deleting it with its branch shows the other check: open at
+            // the size of the bigger, so it never resizes.
+            let selected = options
+                .get(state.index.min(options.len().saturating_sub(1)))
+                .map(|option| option.kind);
+            let other_kind = match selected {
+                Some(ConfirmKind::DeleteBranch) => Some(ConfirmKind::Delete),
+                Some(ConfirmKind::Delete) => Some(ConfirmKind::DeleteBranch),
+                _ => None,
+            };
+            if let Some(other_index) = other_kind
+                .filter(|_| !pane.loading)
+                .and_then(|kind| options.iter().position(|option| option.kind == kind))
+            {
+                let other_state = DeleteConfirm {
+                    index: other_index,
+                    ..state.clone()
+                };
+                let other = ConfirmPaneProps {
+                    state: &other_state,
+                    ..pane
+                };
+                view = dialog_view_fitting(area, &|width| confirm_pane_rows(&other, usize::from(width)), view);
+            }
+            self.confirm_scroll.1 = render_confirm_pane(&pane, buf, area, view);
         }
-        let rows = self.list_rows(props, usize::from(area.width), usize::from(area.height), date::now_ms());
-        let content = bordered(buf, area, &Border::round(THEME.border_active), 1);
-        let mut column = Column::new();
-        column.extend(rows);
-        column.draw(buf, content);
     }
 
     /// TS: WorktreesFlow.hint: the manager's footer.
@@ -1679,6 +1738,9 @@ impl Flow<App> for WorktreesFlow {
             drop,
         };
         if let Some(confirm) = self.confirm.as_ref() {
+            if self.confirm_loading(confirm) {
+                return fit_hint(&[HintPart::from("esc cancel")], width, HINT_SEPARATOR);
+            }
             if confirm.override_.is_some() {
                 return fit_hint(
                     &[HintPart::from("type DELETE then enter"), HintPart::from("esc back")],
@@ -1996,6 +2058,70 @@ mod tests {
         assert_eq!(scratch[2], "Not created or attached by Deckhand");
         assert_eq!(scratch[3], "Deleting it would lose: 1 untracked file(s)");
         assert!(detail_lines(None, &rows, &refs, None, "⠋", 0, 80).is_empty());
+    }
+
+    #[test]
+    fn the_deletion_confirmation_shows_its_choices_once_both_checks_are_in() {
+        let records = sessions();
+        let refs: Vec<&SessionRecord> = records.iter().collect();
+        let props = props(&refs);
+        let entry = overview_record().entries[2].clone();
+        let mut flow = WorktreesFlow {
+            overview: Some(overview_record()),
+            confirm: Some(DeleteConfirm {
+                entries: vec![entry],
+                bulk: false,
+                index: 0,
+                checks: ConfirmChecks::default(),
+                override_: None,
+                keep_open_items: false,
+            }),
+            ..WorktreesFlow::default()
+        };
+        let (mut cx, _rx) = cx();
+        // Checking: no choices, only Esc; Enter says why.
+        let text = render(&mut flow, &props, 98, 31);
+        assert!(text.contains("Checking what it would lose…"), "{text}");
+        assert!(!text.contains("Delete the worktree"), "{text}");
+        assert_eq!(flow.hint(&props, 98), "esc cancel");
+        flow.handle_input(&props, &Input::text("j"), &mut cx);
+        flow.handle_input(&props, &enter(), &mut cx);
+        assert_eq!(flow.confirm.as_ref().map(|state| state.index), Some(0));
+        assert_eq!(
+            effects(&mut cx),
+            ["SetStatus(Some(\"Still checking what it would lose…\"))"]
+        );
+        // The worktree's answer alone is not enough while its branch could go too.
+        let mut branch = failed_check("1 untracked file".to_owned());
+        branch
+            .inspection
+            .inspection
+            .reasons
+            .extend(["3 unpublished commits", "the branch is not merged", "a stash"].map(str::to_owned));
+        if let Some(state) = flow.confirm.as_mut() {
+            state.checks.worktree = Some(failed_check("1 untracked file".to_owned()));
+        }
+        assert!(flow.confirm.as_ref().is_some_and(|state| flow.confirm_loading(state)));
+        if let Some(state) = flow.confirm.as_mut() {
+            state.checks.branch = Some(branch);
+        }
+        // Both in: the choices, and one size whichever check the selection shows.
+        let corners = |text: &str| -> (Option<usize>, Option<usize>) {
+            let rows: Vec<&str> = text.lines().collect();
+            (
+                rows.iter().rposition(|row| row.contains('╭')),
+                rows.iter().position(|row| row.contains('╯')),
+            )
+        };
+        let first = render(&mut flow, &props, 98, 31);
+        assert!(first.contains("Delete the worktree, keep its branch"), "{first}");
+        flow.handle_input(&props, &Input::text("j"), &mut cx);
+        let second = render(&mut flow, &props, 98, 31);
+        assert!(second.contains("3 unpublished commits"), "{second}");
+        assert_eq!(corners(&second), corners(&first));
+        // Esc still cancels.
+        flow.handle_input(&props, &escape(), &mut cx);
+        assert!(flow.confirm.is_none());
     }
 
     #[test]

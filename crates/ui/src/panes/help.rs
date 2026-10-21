@@ -239,11 +239,12 @@ impl HelpView {
         let key = &input.key;
         let text = input.input.as_str();
         let page = isize::try_from(self.view.page).unwrap_or(isize::MAX);
-        if key.page_down || (text == " " && !self.typing) {
+        // Not in the TS: J/K page too (a Mac keyboard has no page keys), unless the search takes letters.
+        if key.page_down || (matches!(text, " " | "J") && !self.typing) {
             self.scroll_by(page);
             return None;
         }
-        if key.page_up {
+        if key.page_up || (text == "K" && !self.typing) {
             self.scroll_by(-page);
             return None;
         }
@@ -302,11 +303,11 @@ impl HelpView {
             self.pick(topic + 1);
             return None;
         }
-        if key.home {
+        if key.home || text == "g" {
             self.pick(0);
             return None;
         }
-        if key.end {
+        if key.end || text == "G" {
             self.pick(isize::try_from(HELP_TOPICS.len()).unwrap_or(1) - 1);
             return None;
         }
@@ -439,7 +440,7 @@ pub fn render_help_pane(props: &HelpPaneProps<'_>, buf: &mut Buffer, area: Rect)
             ]
         } else {
             vec![
-                hint("↑↓/PgUp/PgDn scroll", Some("↑↓ scroll"), None),
+                hint("↑↓ J/K scroll", Some("↑↓ scroll"), None),
                 "/ edit search".into(),
                 "esc clear".into(),
                 "? close".into(),
@@ -451,7 +452,7 @@ pub fn render_help_pane(props: &HelpPaneProps<'_>, buf: &mut Buffer, area: Rect)
             hint("1-9 jump", None, Some(2)),
         ];
         if max > 0 {
-            hints.push(hint("PgUp/PgDn/space scroll", Some("PgDn scroll"), Some(1)));
+            hints.push(hint("J/K/space scroll", Some("J/K scroll"), Some(1)));
         }
         hints.push("/ search".into());
         hints.push("esc close".into());
@@ -608,6 +609,26 @@ mod tests {
         },
     ];
 
+    #[test]
+    fn shift_j_and_k_page_and_g_and_shift_g_pick_the_first_and_last_topic() {
+        // A Mac keyboard has no page or Home/End keys.
+        let mut view = HelpView::default();
+        view.open(Some(1));
+        view.view.max = 30;
+        view.view.page = 10;
+        view.handle_input(&Input::text("J"));
+        assert_eq!(view.scroll, 10);
+        view.handle_input(&Input::text("K"));
+        assert_eq!(view.scroll, 0);
+        view.handle_input(&Input::text("G"));
+        assert_eq!(view.topic, HELP_TOPICS.len() - 1);
+        view.handle_input(&Input::text("g"));
+        assert_eq!(view.topic, 0);
+        // While a search is typed, letters are text.
+        view.handle_input(&Input::text("/"));
+        view.handle_input(&Input::text("J"));
+        assert_eq!(view.query.as_deref(), Some("J"));
+    }
     #[test]
     fn search_matches_keys_descriptions_and_notes_case_insensitively() {
         for (query, line) in [("CTRL+]", 2), (" deckHAND ", 2), ("\tSaVeD\n", 3)] {
@@ -905,7 +926,7 @@ mod tests {
         let selected = Regex::new(r"❯ 2 Sessions +│ +handoff \(after H\)").expect("regex");
         assert!(wide.iter().any(|line| selected.is_match(line)), "{wide:#?}");
         // Every topic fits a 24-row pane at 100 columns, so none needs scrolling there.
-        let scrolling = Regex::new(r"PgDn scroll|↓ \d").expect("regex");
+        let scrolling = Regex::new(r"J/K scroll|↓ \d").expect("regex");
         for (index, topic) in HELP_TOPICS.iter().enumerate() {
             let text = pane(&topic_props(index), 100, 24).join("\n");
             assert!(!scrolling.is_match(&text), "{}", topic.title);
@@ -913,7 +934,7 @@ mod tests {
         let narrow = pane(&topic_props(1), 56, 14);
         let heading = Regex::new(r"Help · ◂ Sessions \(2/11\) ▸ +↓ \d+/\d+").expect("regex");
         assert!(heading.is_match(&narrow[1]), "{}", narrow[1]);
-        assert!(narrow.iter().any(|line| line.contains("PgDn scroll")));
+        assert!(narrow.iter().any(|line| line.contains("J/K scroll")));
         let search = pane(
             &HelpPaneProps {
                 query: Some("lazygit"),
