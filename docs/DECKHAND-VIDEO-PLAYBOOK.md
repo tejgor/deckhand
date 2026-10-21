@@ -67,7 +67,10 @@ So: accessible to someone running their second agent, without patronising someon
   preview).
 - Sessions belong to a **background process,** not the window. Quit Deckhand (`q`), or let your terminal close or your
   editor restart, and the agents keep working. Open it again and they're all still there.
-- **Free and open source.** Installed with `npm install -g @tejgor/deckhand`. Code at `github.com/tejgor/deckhand`.
+- **Free and open source.** Deckhand 3 is one native binary (Rust, no Node.js), downloaded from a release
+  (`github.com/tejgor/deckhand/releases`, macOS and Linux) or installed with
+  `cargo install --git https://github.com/tejgor/deckhand deckhand`. Recommend the release: cargo needs Rust first.
+  (Deckhand 2 was `npm install -g @tejgor/deckhand`.) Code at `github.com/tejgor/deckhand`.
 
 ### What never to claim
 
@@ -512,12 +515,54 @@ What D, E and G share:
 - **The music tells the story.** Parts thin out as agents stop to wait, there's silence before the reveal, the logo lands
   on the biggest drop, and later drops land on the key actions (`!`, the merge, the close). E made this literal: one
   musical part per agent.
-- **One cue map for picture and music.** Every key press, hit and scene change is a time both share. G's score reads its
-  cues straight from the cut (`music/cues.mjs`); keep cue times unchanged unless you re-render the score.
-- **A few sound effects,** in time and in key: soft clicks under key presses, whooshes under pushes, hits under slams.
+- **One timeline for picture and music.** Every key press, hit and scene change is a position both share, written in bars
+  and beats, and the score reads it from the cut (see [section 12](#12-making-it-in-this-repository)).
+- **Sound effects that belong to the music** (below): every visible arrival makes a sound, in time and in key.
 
 A new piece can pick a different style within that family, or a different energy for a different purpose, as long as it
-stays bright, warm and in the world of the tool. It shouldn't sound like a game, a trailer or stock music.
+stays bright, warm and in the world of the tool. It shouldn't sound like a game, a trailer or stock music. A walkthrough
+is the exception in energy: its bed sits under captions, so it is soft, mellow and atmospheric, with no bright attacks.
+
+### Sound effects are part of the score
+
+- **Every visible arrival makes a sound:** a cut, a slam, a key press, a typed character, a row appearing, a panel, a
+  notification, a result. A cut with silent arrivals feels unfinished; stripping the effects out to calm a track made it
+  sound unpolished.
+- **In time:** each effect lands on its picture event, and the event lands on the grid. A whoosh rises into a cut and
+  peaks on its frame; a key goes down on the frame the keycap inverts. Effects at raw picture times (between beats)
+  sound pasted on: the first kinetic cut's session-spawn plucks did.
+- **In key:** pitched effects (chimes, blips, knocks, the notes of a spawn run) play notes of the chord under them, on
+  the track's own instruments, so a run of rows plays as an arpeggio of the song.
+- **In the mix:** effects share the music's reverb and the kick's sidechain, and sit at a level relative to the music:
+  slams near the music's peaks, whooshes and keys 6 to 12 dB under, typing and UI ticks 12 to 24 dB under (in a
+  walkthrough, everything quieter still).
+- **Varied:** two or three variants of a repeated sound, with small random changes, so repeats don't sound copied.
+- **Few big hits:** impacts, crashes and glitch noises only on the moments that earn them (the hook, the reveal, the logo),
+  not on every cut.
+
+### What made scores sound wrong
+
+Each of these was heard in a draft and fixed. Check for them before anyone listens.
+
+- **Retro or "farmland":** a square-wave lead, twangy saw plucks, bright bells, a bouncy offbeat bass, and plain major
+  triads used as win stingers (C, then F). A softer lead (a filtered saw over a sine) and warmer plucks fixed it without
+  losing the energy.
+- **Flat and boring:** one loop at one level for the whole piece, or a rebalance that took energy out without adding
+  any back. Contrast comes from arrangement: an intro, builds (snare rolls, risers, an opening filter), a stop before a
+  big entry, a breakdown, drops on the big moments, the hook coming and going. Not from more bass.
+- **Bass-heavy:** generated mixes drift there. Keep the low end well under the mids on laptop and phone speakers.
+- **Off and dissonant notes:** a melody looping over itself, phrases not tied to the chord they play over, effects at
+  random pitches, an echo out of time with the beat. Every note in key and in the chord under it (the pitch check).
+- **Jarring or stinging:** bright electric-piano attacks, stick snares and hats loud in 2 to 5 kHz, where the ear is
+  most sensitive.
+- **Muddy and rumbling:** everything crowded into 150 to 600 Hz, reverb on the low mids, long kick tails and the
+  lowest bass notes. Clearing it by moving parts up an octave as pure tones made the mix thin and whistly instead.
+  Balance every octave at once, not one band at a time.
+- **Harsh endings:** stacked noise crashes and a sudden stop. Resolve to the home chord and let it ring.
+- **Restarting the grid:** a groove that restarts at each scene change stutters. Keep one grid for the whole piece and
+  mark changes with a swell and the drums resting.
+- **Thin and synthetic:** sine-based instruments sound cheap however balanced they are. When the sound itself is the
+  problem, ask for a reference track the owner likes and match its octave balance, or use a produced track.
 
 ---
 
@@ -553,7 +598,8 @@ stays bright, warm and in the world of the tool. It shouldn't sound like a game,
 
 ## 12. Making it in this repository
 
-The drafts are built with the tooling in `promo/`, which you can reuse:
+D, E and G were built with the tooling in `promo/`; the Deckhand 3 drafts (race, kinetic, the walkthrough) with its
+successor in `demo/rust-port/` (git-ignored; see its README). Both work the same way:
 
 - **`src/<draft>.js`:** each cut is a function of time that returns the frame as HTML (a factory can draw both a wide and a
   square cut). `src/core.js` holds shared helpers: easing, the logo (`anchor`, `banner`), the agent table and fonts.
@@ -570,8 +616,47 @@ The checks that kept quality up (write them per cut):
 - cut text: no interface text partly inside the window's box in a held shot;
 - cursors: where each one appears, for how long, and whether it blinks;
 - camera: no per-frame jumps except deliberate cuts under a covering change;
-- cues: identical before and after any change, unless the score is re-rendered;
 - the page loads and every frame draws without errors.
+
+### Picture and music on one grid
+
+- **Write the picture in bars and beats, not seconds.** A cut's tempo and grid are its music's (`SONG = { bpm, offset }`),
+  and every event is placed with `at(bar, beat, sixteenth)` (`songGrid` in `src/core.js`). Events then land on the grid
+  by construction. Offsets inside a shot (a panel after a key, a line after a title) are counted in beats too; only
+  ease durations and reading-paced captions stay in seconds.
+- **Scene changes land on the phrase,** not just on a beat: chapters, screens, results and sections start on bar lines,
+  and a run of them (feature screens, receipts) is evenly spaced, so each change arrives with the music's phrase. A
+  keycap can be a one-beat pickup into its screen on the next downbeat.
+- **One event list.** The cut lists every picture event that makes a sound as `SFX_EVENTS` (`{ t, kind, label }`). The
+  score reads it, and the timeline, from the cut (`load_draft` in `synth.py`) and turns each event into its sound, so
+  picture and music can't drift apart and nothing is copied by hand. When a picture time changes, re-run the score.
+- **Measured times stay measured.** A timer or progress that shows real data (a benchmark scaled on screen) keeps its
+  true times; label any scaling ("shown 10× slower") and keep the ratio exact.
+- **The page plays to the music's clock:** the preview draws each frame from the audio's playback position, and the MP4
+  renderer adds the same file.
+
+### The music checks
+
+Scores are generated, so every note and every effect is logged with its time. The checks run on every render of a score
+(`music/synth.py`), before anyone listens:
+
+| Check | What it asks |
+|---|---|
+| Pitch (the audit) | Every note in the key; nothing held a semitone from the chord under it; the lead never plays two notes at once |
+| Grid (`check_grid`) | Every effect and hit within 8 ms of the 16th-note grid (typing on its own rate) |
+| Phrase (`check_phrase`) | Scene changes on bar lines, runs of them evenly spaced |
+| Sync (`check_sync`) | Every picture event has an effect within 20 ms, and every effect has a picture event |
+| Effect levels (`check_sfx_levels`) | Each effect, from its own stem, against the music around it, by kind |
+| Octaves (`check_octaves`) | Each section against a smooth −3 dB-per-octave slope; mud (150–300 Hz over 600–1200) and sting (2–5 kHz over 0.5–2 kHz) always flagged; a score lists its deliberate character as allowances |
+| Loudness (`check_loudness`) | About −14 LUFS for promos and −16 for a walkthrough, true peak under −1 dBTP; normalises the file |
+
+Then look and listen:
+
+- contact sheets, dense around every scene change, with stills at the event times the checks print (`render.mjs
+  --stills`, named by time);
+- a spectrogram of each score, read for its shape (builds, stops, drops, ring-out);
+- the owner listens last. The checks catch faults, not taste: "retro", "flat" or "jarring" are judgements, and the
+  list in [section 9](#9-sound) is what they turned out to mean.
 
 ---
 
@@ -593,6 +678,8 @@ The checks that kept quality up (write them per cut):
 - Is the text big at the peaks, and placed differently from scene to scene?
 - Does the square cut read on a phone with the sound off?
 - Does the music move with the story, with silence before the reveal and drops on the key actions?
+- Does every scene change land on the music's phrase, and every visible arrival make a sound, in time and in key?
+- Do all the music checks pass, with any exceptions explained?
 
 ---
 
@@ -612,7 +699,10 @@ What it is:  "A workbench for running coding agents in parallel."
              "A lightweight agent workbench for your IDE terminal."
 Taglines:    "Run more agents. Watch fewer tabs."
              "Run as many agents as you like. Deckhand makes them easy to manage."
-Install:     npm install -g @tejgor/deckhand · github.com/tejgor/deckhand · Free and open source
+Install:     download a release: github.com/tejgor/deckhand/releases (macOS, Linux)
+             or with Rust: cargo install --git https://github.com/tejgor/deckhand deckhand · Free and open source
+Sync:        picture in bars and beats on the music's grid · scene changes on bar lines
+             every arrival makes a sound, in time and in key · the checks pass before anyone listens
 Colours:     magenta brand · yellow needs you · green working/done · cyan selection
              orange an agent's own · red clash · ink-dark dark beats · slate under the logo
 Type:        Martian Mono (display; condensed extra-bold; hollow) · JetBrains Mono (UI, text)
