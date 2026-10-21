@@ -222,7 +222,7 @@ pub fn worktree_rows<S: SessionLike>(
             .iter()
             .map(|entry| (last_activity(entry, sessions).unwrap_or(0), *entry))
             .collect();
-        sorted.sort_by(|left, right| right.0.cmp(&left.0));
+        sorted.sort_by_key(|(activity, _)| std::cmp::Reverse(*activity));
         rows.push(WorktreeRow::Heading {
             group,
             count: entries.len(),
