@@ -14,25 +14,25 @@ Set `"worktree": {"hook": false}` to ignore the script entirely, or switch **Cre
 
 ## Contract
 
-- **Input**: JSON on `stdin`: `name` (the sanitised worktree and session name) and `cwd` (the directory where `deckhand` was launched).
+- **Input**: JSON on `stdin`: `name` (the sanitised worktree and session name) and `cwd` (the [launch checkout](features.md#checkouts-and-the-session-list): the root of the checkout you ran `deckhand` in).
 - **Job**: create or register a git worktree.
 - **Output**: print the worktree's path to `stdout` as the final non-empty line. Send everything else, such as Git's own output, to `stderr`.
 - **Exit status**: `0` on success. A non-zero exit fails the session's creation and shows the hook's `stderr`.
-- **Environment**: `CLAUDE_PROJECT_DIR` is set to the launch directory, for compatibility with Claude-style hooks.
-- **Working directory**: the root of the checkout Deckhand was launched from.
+- **Environment**: the daemon's environment, plus `CLAUDE_PROJECT_DIR` set to the launch checkout. The hook's path and this variable follow Claude Code's hook conventions, but the hook works the same whichever agent the session runs. `DECKHAND_HOME` is set only if you set it yourself.
+- **Working directory**: the launch checkout.
 
 Deckhand enforces these limits:
 
 - **Timeout**: the hook is stopped after 60 seconds, and creation fails with `create-worktree.sh timed out after 60s`.
 - **Path**: the printed path must be absolute and must be a worktree Git has registered. Otherwise creation fails (`returned a non-absolute path`, or `created path is not registered as a git worktree`).
-- **Lookup**: the script is looked up in the current checkout first, then in the main checkout. Only a regular file counts.
+- **Lookup**: the script is looked up in the launch checkout first, then in the main checkout. Only a regular file counts.
 - **Execution**: Deckhand runs the reviewed bytes with `bash -c`, so a file swapped after review never runs. `$0` is the script path but `${BASH_SOURCE[0]}` is empty, so locate sibling files with `$0`.
 - **Settings**: while a hook is active, it decides the location and the branch. `worktree.location`, `branchFrom` and `branchName` are ignored, and the new-session form can't choose a base branch.
 - **Links**: `worktree.symlink` and `worktree.files` still apply after the hook runs, but only when the hook created a new worktree, not when it returned an existing one.
 
 ## Example
 
-A minimal hook that reuses an existing worktree or creates one under the state directory:
+A minimal hook that reuses an existing worktree or creates one under the state directory. It needs [`jq`](https://jqlang.org):
 
 ```bash
 #!/bin/bash

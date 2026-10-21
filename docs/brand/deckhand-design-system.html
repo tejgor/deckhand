@@ -16,7 +16,7 @@
 	--ink: #f4f2ec; --muted: #c3c8d0; --dim: #848c99; --rule: #59616e; --edge: #9aa2ae; --faint: #555d6b; --ink-dark: #2a2f38;
 	/* accents and states */
 	--magenta: #f7a8f0; --magenta-2: #fbcdf6; --cyan: #86e2ee; --green: #b8e69c; --yellow: #f6d47e; --red: #ffa29b; --orange: #ffb98f;
-	--shadow: #3a414c; --scrim: rgba(54, 60, 70, 0.8);
+	--shadow: #3a414c; --magenta-shade: #ce8dc9; --scrim: rgba(54, 60, 70, 0.8);
 	/* type */
 	--mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
 	--disp: 'Martian Mono', var(--mono);
@@ -148,6 +148,10 @@ ol.pr li span { color: var(--muted); }
 .giant { display: flex; gap: 14px; flex-wrap: wrap; }
 .giant div { width: 104px; height: 104px; display: grid; place-items: center; background: var(--surface); border: 1.5px solid var(--dim); border-radius: 8px; font: 700 68px/1 var(--mono); }
 .giant .kc { width: 70px; height: 70px; border: 5px solid var(--magenta); border-radius: 14px; display: grid; place-items: center; font-size: 46px; color: var(--magenta); }
+/* the macOS icon template: the mark fills a rounded square, the anchor's 14 cells span 672 of its 824 px */
+.appicon { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
+.appicon div { display: grid; place-items: center; background: var(--magenta); border-radius: 22.5%; }
+.appicon svg { width: 81.6%; height: auto; display: block; }
 /* annotation demo */
 .anno { position: relative; }
 .anno .hole { position: absolute; border-radius: 3px; box-shadow: 0 0 0 200em var(--scrim); pointer-events: none; }
@@ -258,7 +262,7 @@ footer { margin-top: 96px; color: var(--dim); font-size: 14px; }
 		<li><span class="ma b">Magenta</span> is the brand: the logo, the cursor and one or two accent words in a headline.</li>
 		<li><span class="ye b">Yellow</span> is attention and annotation: labels, leaders, rings, the "needs you" state.</li>
 		<li><span class="cy b">Cyan</span> is selection. <span class="gr">Green</span>, <span class="re">red</span> and <span class="or">orange</span> keep their product meanings.</li>
-		<li>The logo carries a one-cell drop shadow.</li>
+		<li>The logo carries a one-cell drop shadow. The app icon reverses it: ink-dark on a magenta tile, with a magenta-shade shadow.</li>
 	</ul>
 </section>
 
@@ -419,6 +423,7 @@ footer { margin-top: 96px; color: var(--dim); font-size: 14px; }
 	<div class="grid2">
 		<div class="card plain"><div class="giant"><div class="ye">?</div><div class="ma">⎇</div><div><span class="kc">k</span></div><div class="gr">✓</div></div><div class="cap"><b>GIANT GLYPH</b> · a vocabulary glyph at huge scale, in its own colour; it reads as the product's own glyph.</div></div>
 		<div class="card plain"><div style="display:flex;align-items:center;gap:14px"><svg id="anchor-s" style="width:56px;height:auto"></svg><span class="ma b" style="font-size:22px">deckhand</span></div><div class="cap"><b>LOGO</b> · the half-block anchor (flat magenta, one-cell shadow) with the ANSI-shadow DECKHAND banner (see the top of this page); small use: anchor + <span class="ma">deckhand</span> in bold mono.</div></div>
+		<div class="card plain"><div class="appicon"><div style="width:104px;height:104px"><svg id="anchor-icon"></svg></div><div style="width:36px;height:36px"><svg id="anchor-icon-s"></svg></div></div><div class="cap"><b>APP ICON</b> · the same anchor reversed for small square icons (the macOS app, notifications): ink-dark on a magenta tile, one-cell shadow in magenta shade. Built from <code>assets/deckhand.png</code>.</div></div>
 	</div>
 </section>
 
@@ -474,7 +479,7 @@ footer { margin-top: 96px; color: var(--dim); font-size: 14px; }
 			['--rule', 'Rule', 'Thin rules in chrome'], ['--edge', 'Edge', 'Window outlines'], ['--faint', 'Faint', 'Grid dots'], ['--ink-dark', 'Ink dark', 'Text on fills; label backs']],
 		'sw-acc': [['--magenta', 'Magenta', 'Brand: logo, accents, cursor'], ['--magenta-2', 'Magenta bright', 'Brand titles in the product'], ['--cyan', 'Cyan', 'Active / selected'],
 			['--green', 'Green', 'Success: working, done, additions'], ['--yellow', 'Yellow', 'Attention and annotation'], ['--red', 'Red', 'Error: failures, deletions'],
-			['--orange', 'Orange', 'Third-party marks'], ['--shadow', 'Shadow', "The logo's one-cell shadow"], ['--scrim', 'Scrim', 'Dims outside a focus']],
+			['--orange', 'Orange', 'Third-party marks'], ['--shadow', 'Shadow', "The logo's one-cell shadow"], ['--magenta-shade', 'Magenta shade', "The app icon's one-cell shadow"], ['--scrim', 'Scrim', 'Dims outside a focus']],
 	};
 	for (const [id, list] of Object.entries(groups)) {
 		document.getElementById(id).innerHTML = list.map(([t, n, r]) => {
@@ -488,7 +493,7 @@ footer { margin-top: 96px; color: var(--dim); font-size: 14px; }
 		"\n  --mono: 'JetBrains Mono', monospace;  /* k1 20/24, k2 40/48 */\n  --disp: 'Martian Mono', monospace;    /* k3 51.4/72, k4 68.6/96, k5 85.7/120, k6 102.9/144 */\n  --cell-w: 12px;\n  --cell-h: 24px;\n  --safe: 48px;\n  --radius-s: 6px;\n  --radius-m: 10px;\n  --border: 1.5px;\n  --leader: 4px;\n}";
 
 	// ---- the half-block anchor ----
-	function anchor(el, w = 14, h2 = 14, stroke = 10, pad = 2) {
+	function anchor(el, ink = v('--magenta'), shade = v('--shadow'), w = 14, h2 = 14, stroke = 10, pad = 2) {
 		const S = 8, cv = document.createElement('canvas'); cv.width = w * S; cv.height = h2 * S;
 		const ctx = cv.getContext('2d');
 		const box = 100 + pad * 2, sc = Math.min(cv.width, cv.height) / box;
@@ -505,13 +510,14 @@ footer { margin-top: 96px; color: var(--dim); font-size: 14px; }
 		};
 		let out = '';
 		for (let y = 0; y < h2; y++) for (let x = 0; x < w; x++) {
-			if (on(x, y)) out += `<rect x="${x * 12}" y="${y * 12}" width="12" height="12" fill="${v('--magenta')}"/>`;
-			else if (on(x - 1, y - 2)) out += `<rect x="${x * 12}" y="${y * 12}" width="12" height="12" fill="${v('--shadow')}"/>`;
+			if (on(x, y)) out += `<rect x="${x * 12}" y="${y * 12}" width="12" height="12" fill="${ink}"/>`;
+			else if (on(x - 1, y - 2)) out += `<rect x="${x * 12}" y="${y * 12}" width="12" height="12" fill="${shade}"/>`;
 		}
 		el.setAttribute('viewBox', `0 0 ${w * 12} ${h2 * 12}`); el.setAttribute('shape-rendering', 'crispEdges'); el.innerHTML = out;
 	}
 	anchor(document.getElementById('anchor'));
 	anchor(document.getElementById('anchor-s'));
+	for (const id of ['anchor-icon', 'anchor-icon-s']) anchor(document.getElementById(id), v('--ink-dark'), v('--magenta-shade'));
 
 	// ---- the DECKHAND banner (figlet ANSI Shadow, drawn per cell) ----
 	(function banner() {

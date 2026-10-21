@@ -48,12 +48,17 @@ More in [docs/architecture.md](docs/architecture.md).
 - macOS or Linux (x86_64 or aarch64). The Linux binaries need glibc 2.35 or newer.
 - Windows: run Deckhand inside [WSL2](https://learn.microsoft.com/windows/wsl/install), using the Linux binary.
 - `git`, and at least one agent on `PATH`: `claude`, `codex` or `pi`.
-- Optional: [`lazygit`](https://github.com/jesseduffield/lazygit) for `o` on the Git tab, and `npm` for the agent update check.
+- Optional:
+  - [`lazygit`](https://github.com/jesseduffield/lazygit) for `o` on the Git tab.
+  - Cursor or VS Code for `E`, which opens a worktree, note or file in your editor. Other editors aren't supported.
+  - [`gh`](https://cli.github.com), signed in, to open pull requests.
+  - `npm` for the agent update check on the Agents screen (`U`).
+  - On Linux, `notify-send` for desktop notifications.
 
-**From a release**: download the archive for your platform and `SHA256SUMS` from the [releases page](https://github.com/tejgor/deckhand/releases), check it and put the binary on your `PATH`:
+**From a release**: download the archive for your platform and `SHA256SUMS` from the [releases page](https://github.com/tejgor/deckhand/releases). In the folder you downloaded them to, check the archive and put the binary on your `PATH` (here `~/.local/bin`, which must be on your `PATH`):
 
 ```sh
-VERSION=v3.0.0                    # the latest release
+VERSION=v3.0.0                    # the release you downloaded
 TARGET=aarch64-apple-darwin       # or x86_64-apple-darwin, x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu
 tar -xzf "deckhand-$VERSION-$TARGET.tar.gz"
 shasum -a 256 -c SHA256SUMS --ignore-missing
@@ -85,13 +90,14 @@ Your sessions, notes and settings carry over: the files in `~/.deckhand` are unc
 
 ## Quick start
 
-1. Run `deckhand` inside a git repository.
-2. Press `n`, choose an agent and type a name. Use `tab` to choose **new worktree** (its own branch), then press `enter`.
-3. Watch it on the Preview tab. When the sidebar shows `?`, the agent needs you: press `o` to attach and answer it, then `ctrl+]` to come back.
-4. When the work is done, press `m` to merge its worktree into your current branch. The result is staged, not committed.
-5. Press `W` to see which worktrees are merged and safe to delete.
+1. Run `deckhand` inside a git repository. The first run starts the background daemon. Your sessions are on the left (empty at first), and the selected session's tabs are on the right.
+2. Press `n` for a new session. Pick an agent with `↑`/`↓` and press `enter`. Type a name: it becomes the session's title and, with a new worktree, the worktree's folder and branch name. Press `tab` until the form says **new worktree**, then `enter`.
+3. The agent starts with no task. Press `o` to attach to it, type what you want done as you would in the agent itself, then press `ctrl+]` to detach. The agent keeps working.
+4. Watch it on the Preview tab. With Claude Code, the sidebar shows `?` when the agent needs you, such as a question or a permission prompt: press `o` to answer it, then `ctrl+]` again. Codex shows `?` only once you set up its [agent signals](#configuration). Pi never does, so check its preview.
+5. When the work is done, press `m` to merge its worktree into the branch of the checkout you started `deckhand` in. The result is staged, not committed.
+6. Press `W` to see which worktrees are merged and safe to delete.
 
-`q` quits Deckhand and leaves your agents running. `?` lists every key.
+`q` quits Deckhand and leaves your agents running. `?` lists every key. To hand an agent its task without typing it, add the task to the task list (`b`, then `A`) and start a session from it with `n`: Deckhand types the task into the agent for you to send.
 
 ## Features
 
@@ -172,8 +178,10 @@ Press `C` for Settings: one column for your global settings and one for this rep
 **Agent signals** tell Deckhand when an agent needs you, has finished or has failed:
 
 - **Unset** (the default): on for Claude Code, which needs nothing else.
-- **On**: Claude Code and Codex. Codex needs its hooks: run `deckhand hooks codex` and merge the output into `$CODEX_HOME/hooks.json` (default `~/.codex`). Deckhand never writes to the Codex home.
+- **On**: Claude Code and Codex. Codex needs its hooks, set up once: run `deckhand hooks codex`, merge the output into `$CODEX_HOME/hooks.json` (default `~/.codex`), then trust the hooks with `/hooks` in Codex. Deckhand never writes to the Codex home. [More](docs/features.md#lifecycle-signals-and-notifications)
 - **Off**: neither.
+
+Pi has no agent signals. Changing agent signals applies to sessions you start or restart afterwards, not to agents already running.
 
 **Notifications** send the same as desktop alerts and are off by default. On macOS, switching them on sends a test notification so you can allow Deckhand straight away; if you missed it, see [allowing notifications on macOS](docs/features.md#allowing-notifications-on-macos).
 
@@ -196,7 +204,7 @@ Inside WSL2, with the Linux binary.
 
 ## Troubleshooting
 
-- **Deckhand can't find an agent**: check with `which claude` (or `codex`, `pi`). Deckhand uses the `PATH` of the shell that started it.
+- **Deckhand can't find an agent**: check with `which claude` (or `codex`, `pi`). Sessions start with the `PATH` of the shell that started the daemon: the one where you ran `deckhand` while no daemon was running. After installing an agent or changing `PATH`, stop the daemon (`kill "$(cat ~/.deckhand/daemon.pid)"`, which ends running sessions) and run `deckhand` again from a shell that has the new `PATH`.
 - **"protocol mismatch; stop the old daemon first"**: an older Deckhand's daemon is still running, usually just after upgrading. Stop it with `kill "$(cat ~/.deckhand/daemon.pid)"` and run `deckhand` again.
 - **"daemon … did not respond"**: see `~/.deckhand/daemon.log`, then stop the daemon as above.
 - **Codex hooks warning about `cli.js hook`**: Codex still calls the old Node version. Run `deckhand hooks codex` and replace the stale entries in `$CODEX_HOME/hooks.json` (check `config.toml` too). `deckhand doctor --check` lists what is left.

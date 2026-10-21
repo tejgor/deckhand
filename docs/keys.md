@@ -4,7 +4,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 
 ## Session list
 
-**Layout**: Deckhand has two places, the session list on the left and the pane on the right. `→` or `l` steps into the pane, and `←`, `h` or `esc` steps back out. The same keys mean the same thing on every screen: `enter` opens or chooses, `space` toggles and `E` opens your editor. In lists, `a` adds and `x` removes. On the session list itself, `a` opens the Notes tab and `x` stops a session. `o` opens full screen.
+**Layout**: Deckhand has two places, the session list on the left and the pane on the right. `→` or `l` steps into the pane, and `←`, `h` or `esc` steps back out. The same keys mean the same thing on every screen: `enter` opens or chooses, `space` toggles and `E` opens your editor. In lists, `a` adds and `x` removes. On the session list itself, `a` opens the Notes tab and `x` stops a session. `o` (or `enter`) attaches: it opens what the tab shows full screen, and `ctrl+]` comes back ([Attach](#attach)).
 
 | Key | Action |
 | --- | --- |
@@ -79,6 +79,30 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 
 > [!NOTE]
 > Deletion is conservative. Unknown or unsafe Git state needs `DELETE` typed, and `X` never authorises data loss. The protections for the main checkout, the current worktree and an actively shared worktree can't be overridden. See [Cleanup](features.md#cleanup).
+
+## New session
+
+`n` (or `N` for a sub-session) opens the new-session form in two steps. First pick the agent:
+
+| Key | Action |
+| --- | --- |
+| `j`, `↓` / `k`, `↑` | Next / previous agent (for `N`, also **⑂ Fork parent** and **↳ From its handoff**) |
+| `enter` | Continue to the name |
+| `esc` | Cancel |
+
+The list starts on your default agent (Claude unless [`defaultAgent`](features.md#configuration) says otherwise), or on the parent's agent for `N`. Then name the session:
+
+| Key | Action |
+| --- | --- |
+| typing | The session's name, which can't be empty. With a new worktree, it also names the worktree's folder and branch, sanitised ([worktree settings](features.md#worktree-settings)) |
+| `tab` | Next workspace: **no worktree** (the launch checkout), **new worktree**, **existing worktree** ([modes](features.md#sessions-and-sub-sessions)) |
+| `↑` / `↓` | With a new worktree: the branch it starts from |
+| `enter` | Create the session (with an existing worktree: pick it first) |
+| `esc` | Back to the agent |
+
+The form opens on **no worktree** unless [`defaultWorkspace`](features.md#configuration) says otherwise. With **existing worktree**, `enter` lists the repository's worktrees: `j`/`k` pick one, `/` searches, `enter` creates the session there and `esc` goes back.
+
+The agent starts with no task: attach (`o`) and type it, or start the session from a task (`n` in the [task list](#tasks)) to have the task typed for you.
 
 ## Sidebar
 
