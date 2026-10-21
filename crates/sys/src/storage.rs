@@ -1617,18 +1617,17 @@ pub(crate) mod tests {
     use std::path::Path;
     use std::sync::{Mutex, MutexGuard};
 
-    use deckhand_parity::{Case, DirOp, Outcome, Replay, replay, tags};
+    use deckhand_testkit::{Case, DirOp, Outcome, Replay, replay, tags};
     use serde_json::{Value, json};
 
     use super::*;
 
-    pub(crate) const UNIT: &str = "I1";
     /// The fixtures' fixed clock (`2026-01-01T00:00:00.000Z`).
     pub(crate) const FIXED_CLOCK_MS: i64 = 1_767_225_600_000;
-    /// parity/lib.ts DEFAULT_SEED.
+    /// The seed the fixtures were recorded with.
     const SEED: u32 = 0x5eed;
 
-    /// parity/lib.ts installDeterminism's seeded randomUUID (mulberry32 bytes, version 4 / variant bits set).
+    /// The seeded randomUUID the fixtures were recorded with (mulberry32 bytes, version 4 / variant bits set).
     pub(crate) struct SeededUuids(u32);
 
     impl SeededUuids {
@@ -1775,18 +1774,14 @@ pub(crate) mod tests {
         }
     }
 
-    /// Replays every directory case of `module` the manifest lists through `port(fixture, root, op)`; fails with the
-    /// summary of every failing case.
+    /// Replays every directory case of `module` through `port(fixture, root, op)`; fails with the summary of every
+    /// failing case.
     pub(crate) fn replay_dir_cases(module: &str, mut port: impl FnMut(&str, &Path, &DirOp) -> Outcome) {
-        let manifest = deckhand_parity::Manifest::load(UNIT).expect("manifest");
-        let cases: Vec<String> = deckhand_parity::dir_cases(module)
-            .into_iter()
-            .filter(|case| manifest.fixtures.contains(case))
-            .collect();
+        let cases = deckhand_testkit::dir_cases(module);
         assert!(!cases.is_empty(), "no directory cases for {module}");
         let mut failed = Vec::new();
         for fixture in cases {
-            let report = Replay::new(UNIT, &fixture).run_dir(|root, op| port(&fixture, root, op));
+            let report = Replay::new(&fixture).run_dir(|root, op| port(&fixture, root, op));
             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| report.assert_ok())).is_err() {
                 failed.push(report.summary());
             }
@@ -1799,7 +1794,6 @@ pub(crate) mod tests {
     #[test]
     fn sort_sessions_newest_first_parity() {
         replay(
-            UNIT,
             "storage/sortSessionsNewestFirst",
             |case: &Case| -> std::result::Result<Vec<Value>, String> {
                 // The recorded sessions are partial (and some statuses are not SessionStatus values), so the replay sorts
@@ -1820,7 +1814,7 @@ pub(crate) mod tests {
 
     type Updater = Box<dyn FnOnce(AppConfig) -> Result<AppConfig>>;
 
-    /// An updateAppConfig updater the fixtures name (`registerFn` in parity/gen/storage.gen.ts).
+    /// An updateAppConfig updater the fixtures name.
     fn named_updater(name: &str) -> Option<Updater> {
         Some(match name {
             "addTrust" => Box::new(|mut current: AppConfig| {
@@ -1910,13 +1904,13 @@ pub(crate) mod tests {
         });
     }
 
-    /// fixtures/parity/storage/mark-exited-home-v45 (recorded by parity/gen/storage.gen.ts, not listed in the
-    /// manifest): the v45 legacy state.json recovered on daemon start, written byte for byte as TS writes it. Unknown
+    /// fixtures/cases/storage/mark-exited-home-v45: the v45 legacy state.json recovered on daemon start, written byte
+    /// for byte as TS writes it. Unknown
     /// keys inside `agentSessionRef`, `worktree.links`, `setup` and an exited session's `attention` round-trip
     /// (fixtures/state/MIGRATIONS.md row 19); a live session's `attention` is replaced (row 14).
     #[test]
     fn legacy_home_state_recovers_like_ts() {
-        let case = deckhand_parity::fixtures_root().join("storage/mark-exited-home-v45");
+        let case = deckhand_testkit::fixtures_root().join("storage/mark-exited-home-v45");
         let home = temp_home();
         std::fs::copy(case.join("before/state.json"), home.path().join("state.json")).unwrap();
         let _home = Home::set(home.path());

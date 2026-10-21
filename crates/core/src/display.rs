@@ -623,9 +623,9 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------------------------------------------
-    // Parity replays (fixtures/parity/ui, fixtures/parity/menu)
+    // Parity replays (fixtures/cases/ui, fixtures/cases/menu)
 
-    use deckhand_parity::{Case, JsValue, replay, tags};
+    use deckhand_testkit::{Case, JsValue, replay, tags};
     use serde_json::Value;
 
     /// An Ink color name from a fixture (the fixtures use a handful of names; tests may leak them).
@@ -683,7 +683,7 @@ mod tests {
 
     #[test]
     fn theme_parity() {
-        replay("P12", "ui/THEME", |_case: &Case| -> Result<Theme, String> { Ok(THEME) });
+        replay("ui/THEME", |_case: &Case| -> Result<Theme, String> { Ok(THEME) });
     }
 
     #[test]
@@ -697,62 +697,56 @@ mod tests {
     #[test]
     fn display_control_pattern_parity() {
         // The JS pattern is recorded as its source; the Rust one must match exactly the same code points.
-        replay(
-            "P12",
-            "ui/DISPLAY_CONTROL_PATTERN",
-            |_case: &Case| -> Result<Value, String> {
-                for code in 0u32..0x3000 {
-                    let Some(ch) = char::from_u32(code) else { continue };
-                    let js = matches!(code, 0..=0x08 | 0x0B..=0x1F | 0x7F..=0x9F);
-                    if DISPLAY_CONTROL_PATTERN.is_match(ch.encode_utf8(&mut [0; 4])) != js {
-                        return Err(format!("U+{code:04X} differs"));
-                    }
+        replay("ui/DISPLAY_CONTROL_PATTERN", |_case: &Case| -> Result<Value, String> {
+            for code in 0u32..0x3000 {
+                let Some(ch) = char::from_u32(code) else { continue };
+                let js = matches!(code, 0..=0x08 | 0x0B..=0x1F | 0x7F..=0x9F);
+                if DISPLAY_CONTROL_PATTERN.is_match(ch.encode_utf8(&mut [0; 4])) != js {
+                    return Err(format!("U+{code:04X} differs"));
                 }
-                Ok(serde_json::json!({"$regexp": "/[\\u0000-\\u0008\\u000B-\\u001F\\u007F-\\u009F]/g"}))
-            },
-        );
+            }
+            Ok(serde_json::json!({"$regexp": "/[\\u0000-\\u0008\\u000B-\\u001F\\u007F-\\u009F]/g"}))
+        });
     }
 
     #[test]
     fn error_message_parity() {
-        replay("P12", "ui/errorMessage", |case: &Case| -> Result<String, String> {
+        replay("ui/errorMessage", |case: &Case| -> Result<String, String> {
             Ok(error_message(&JsString(tags::decode(case.arg(0))?)))
         });
     }
 
     #[test]
     fn strip_terminal_controls_parity() {
-        replay(
-            "P12",
-            "ui/stripTerminalControls",
-            |case: &Case| -> Result<String, String> { Ok(strip_terminal_controls(case.arg_str(0)?)) },
-        );
+        replay("ui/stripTerminalControls", |case: &Case| -> Result<String, String> {
+            Ok(strip_terminal_controls(case.arg_str(0)?))
+        });
     }
 
     #[test]
     fn plain_terminal_text_parity() {
-        replay("P12", "ui/plainTerminalText", |case: &Case| -> Result<String, String> {
+        replay("ui/plainTerminalText", |case: &Case| -> Result<String, String> {
             Ok(plain_terminal_text(case.arg_str(0)?))
         });
     }
 
     #[test]
     fn truncate_parity() {
-        replay("P12", "ui/truncate", |case: &Case| -> Result<String, String> {
+        replay("ui/truncate", |case: &Case| -> Result<String, String> {
             Ok(truncate_js(case.arg_str(0)?, case.arg_i64(1)?))
         });
     }
 
     #[test]
     fn fit_lines_parity() {
-        replay("P12", "ui/fitLines", |case: &Case| -> Result<Vec<String>, String> {
+        replay("ui/fitLines", |case: &Case| -> Result<Vec<String>, String> {
             Ok(fit_lines_js(case.arg_str(0)?, case.arg_i64(1)?, case.arg_usize(2)?))
         });
     }
 
     #[test]
     fn compact_path_parity() {
-        replay("P12", "ui/compactPath", |case: &Case| -> Result<String, String> {
+        replay("ui/compactPath", |case: &Case| -> Result<String, String> {
             Ok(compact_path_home(case.arg_str(0)?, None, case.arg_usize(1)?))
         });
     }
@@ -760,7 +754,7 @@ mod tests {
     #[test]
     fn compact_path_home_parity() {
         // [home, path, width]: compactPath with HOME set to `home`.
-        replay("P12", "ui/compactPathHome", |case: &Case| -> Result<String, String> {
+        replay("ui/compactPathHome", |case: &Case| -> Result<String, String> {
             Ok(compact_path_home(
                 case.arg_str(1)?,
                 Some(case.arg_str(0)?),
@@ -771,28 +765,28 @@ mod tests {
 
     #[test]
     fn program_glyph_parity() {
-        replay("P12", "ui/programGlyph", |case: &Case| -> Result<&str, String> {
+        replay("ui/programGlyph", |case: &Case| -> Result<&str, String> {
             Ok(program_glyph(case.arg_as(0)?))
         });
     }
 
     #[test]
     fn status_glyph_parity() {
-        replay("P12", "ui/statusGlyph", |case: &Case| -> Result<String, String> {
+        replay("ui/statusGlyph", |case: &Case| -> Result<String, String> {
             Ok(status_glyph(&case.arg_as(0)?, case.arg_str(1)?))
         });
     }
 
     #[test]
     fn status_color_parity() {
-        replay("P12", "ui/statusColor", |case: &Case| -> Result<Color, String> {
+        replay("ui/statusColor", |case: &Case| -> Result<Color, String> {
             Ok(status_color(&case.arg_as(0)?))
         });
     }
 
     #[test]
     fn status_label_parity() {
-        replay("P12", "ui/statusLabel", |case: &Case| -> Result<String, String> {
+        replay("ui/statusLabel", |case: &Case| -> Result<String, String> {
             let session: Option<SessionRecord> = if case.arg_is_undefined(0) {
                 None
             } else {
@@ -804,26 +798,22 @@ mod tests {
 
     #[test]
     fn display_session_title_parity() {
-        replay(
-            "P12",
-            "ui/displaySessionTitle",
-            |case: &Case| -> Result<String, String> {
-                let sessions: Vec<SessionRecord> = case.arg_as(1)?;
-                Ok(display_session_title(&case.arg_as(0)?, &sessions))
-            },
-        );
+        replay("ui/displaySessionTitle", |case: &Case| -> Result<String, String> {
+            let sessions: Vec<SessionRecord> = case.arg_as(1)?;
+            Ok(display_session_title(&case.arg_as(0)?, &sessions))
+        });
     }
 
     #[test]
     fn selection_marker_parity() {
-        replay("P12", "menu/SELECTION_MARKER", |_case: &Case| -> Result<&str, String> {
+        replay("menu/SELECTION_MARKER", |_case: &Case| -> Result<&str, String> {
             Ok(SELECTION_MARKER)
         });
     }
 
     #[test]
     fn menu_window_start_parity() {
-        replay("P12", "menu/menuWindowStart", |case: &Case| -> Result<i64, String> {
+        replay("menu/menuWindowStart", |case: &Case| -> Result<i64, String> {
             Ok(menu_window_start_js(
                 case.arg_i64(0)?,
                 case.arg_i64(1)?,
@@ -834,7 +824,7 @@ mod tests {
 
     #[test]
     fn scrolled_list_top_parity() {
-        replay("P12", "menu/scrolledListTop", |case: &Case| -> Result<i64, String> {
+        replay("menu/scrolledListTop", |case: &Case| -> Result<i64, String> {
             let selectable: fn(usize) -> bool = match case.fn_name(4) {
                 Some("all") => |_| true,
                 Some("none") => |_| false,
@@ -858,25 +848,21 @@ mod tests {
 
     #[test]
     fn wrap_words_parity() {
-        replay("P12", "menu/wrapWords", |case: &Case| -> Result<Vec<String>, String> {
+        replay("menu/wrapWords", |case: &Case| -> Result<Vec<String>, String> {
             Ok(wrap_words_js(case.arg_str(0)?, case.arg_i64(1)?))
         });
     }
 
     #[test]
     fn fit_parts_parity() {
-        replay(
-            "P12",
-            "menu/fitParts",
-            |case: &Case| -> Result<Vec<DetailPart>, String> {
-                Ok(fit_parts_js(&detail_parts(case, 0)?, case.arg_i64(1)?))
-            },
-        );
+        replay("menu/fitParts", |case: &Case| -> Result<Vec<DetailPart>, String> {
+            Ok(fit_parts_js(&detail_parts(case, 0)?, case.arg_i64(1)?))
+        });
     }
 
     #[test]
     fn fit_hint_parity() {
-        replay("P12", "menu/fitHint", |case: &Case| -> Result<String, String> {
+        replay("menu/fitHint", |case: &Case| -> Result<String, String> {
             let parts = case.arg(0).as_array().ok_or("parts: expected an array")?;
             let parts = parts
                 .iter()
@@ -896,7 +882,7 @@ mod tests {
 
     #[test]
     fn menu_details_rows_parity() {
-        replay("P12", "menu/menuDetailsRows", |case: &Case| -> Result<usize, String> {
+        replay("menu/menuDetailsRows", |case: &Case| -> Result<usize, String> {
             let lines = case.arg(0).as_array().ok_or("lines: expected an array")?;
             let lines: Vec<DetailLine> = lines
                 .iter()

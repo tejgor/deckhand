@@ -2172,9 +2172,9 @@ mod tests {
     use crate::project_config::{
         ExplainContext, UserSettings, explain_settings, parse_project_config, trust_project_config,
     };
-    use deckhand_parity::{Case, Outcome, replay, tags};
     use deckhand_protocol::Ordered;
     use deckhand_protocol::data::{LoadedProject, ProjectConfig, RepositoryInfo};
+    use deckhand_testkit::{Case, Outcome, replay, tags};
     use serde_json::json;
 
     // Fixture arguments ---------------------------------------------------------------------------------------
@@ -2288,41 +2288,34 @@ mod tests {
     #[test]
     fn simple_parity() {
         replay(
-            "P9",
             "settingsModel/isAppFlag",
             |case: &Case| -> std::result::Result<bool, String> { Ok(is_app_flag(id_arg(case, 0)?)) },
         );
         replay(
-            "P9",
             "settingsModel/settingPath",
             |case: &Case| -> std::result::Result<Vec<String>, String> {
                 Ok(setting_path(id_arg(case, 0)?, opt_str_arg(case, 1)?.as_deref()))
             },
         );
         replay(
-            "P9",
             "settingsModel/otherTarget",
             |case: &Case| -> std::result::Result<ConfigTargetKind, String> { Ok(other_target(kind_arg(case, 0)?)) },
         );
         replay(
-            "P9",
             "settingsModel/targetName",
             |case: &Case| -> std::result::Result<&str, String> { Ok(target_name(kind_arg(case, 0)?)) },
         );
         replay(
-            "P9",
             "settingsModel/layerName",
             |case: &Case| -> std::result::Result<&str, String> { Ok(layer_name(kind_arg(case, 0)?)) },
         );
         replay(
-            "P9",
             "settingsModel/homePath",
             |case: &Case| -> std::result::Result<String, String> {
                 Ok(home_path(case.arg_str(0)?, opt_str_arg(case, 1)?.as_deref()))
             },
         );
         replay(
-            "P9",
             "settingsModel/codexHookNote",
             |case: &Case| -> std::result::Result<String, String> {
                 let status: CodexHookStatus = case.arg_as(0)?;
@@ -2330,7 +2323,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/previewLocation",
             |case: &Case| -> std::result::Result<String, String> {
                 let vars: Option<TemplateVars> = if case.arg_is_undefined(1) {
@@ -2346,14 +2338,12 @@ mod tests {
     #[test]
     fn layer_parity() {
         replay(
-            "P9",
             "settingsModel/infoLayer",
             |case: &Case| -> std::result::Result<Value, String> {
                 Ok(undefined_or(info_layer(&targets_arg(case, 0)?, kind_arg(case, 1)?)))
             },
         );
         replay(
-            "P9",
             "settingsModel/layerSets",
             |case: &Case| -> std::result::Result<bool, String> {
                 let layer = layer_arg(case, 0)?;
@@ -2365,7 +2355,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/ownValue",
             |case: &Case| -> std::result::Result<Value, String> {
                 let layer = layer_arg(case, 0)?;
@@ -2376,7 +2365,7 @@ mod tests {
                 )))
             },
         );
-        replay("P9", "settingsModel/applyChange", |case: &Case| -> Outcome {
+        replay("settingsModel/applyChange", |case: &Case| -> Outcome {
             let run = || -> std::result::Result<Result<String>, String> {
                 let document: DocumentArg = case.arg_as(0)?;
                 let document = ProjectConfigDocument {
@@ -2400,35 +2389,30 @@ mod tests {
     #[test]
     fn grid_parity() {
         replay(
-            "P9",
             "settingsModel/cellDetail",
             |case: &Case| -> std::result::Result<CellDetail, String> {
                 Ok(cell_detail(&info_arg(case, 0)?, &row_arg(case, 1)?, kind_arg(case, 2)?))
             },
         );
         replay(
-            "P9",
             "settingsModel/layerActions",
             |case: &Case| -> std::result::Result<LayerActions, String> {
                 Ok(layer_actions(&info_arg(case, 0)?, kind_arg(case, 1)?))
             },
         );
         replay(
-            "P9",
             "settingsModel/actionCount",
             |case: &Case| -> std::result::Result<usize, String> {
                 Ok(action_count(&targets_arg(case, 0)?, kind_arg(case, 1)?))
             },
         );
         replay(
-            "P9",
             "settingsModel/columnProblem",
             |case: &Case| -> std::result::Result<Value, String> {
                 Ok(undefined_or(column_problem(&targets_arg(case, 0)?, kind_arg(case, 1)?)))
             },
         );
         replay(
-            "P9",
             "settingsModel/initialColumn",
             |case: &Case| -> std::result::Result<ConfigTargetKind, String> {
                 Ok(initial_column(&targets_arg(case, 0)?))
@@ -2439,7 +2423,6 @@ mod tests {
     #[test]
     fn control_parity() {
         replay(
-            "P9",
             "settingsModel/choiceOptions",
             |case: &Case| -> std::result::Result<Vec<ChoiceOption>, String> {
                 Ok(choice_options(
@@ -2450,7 +2433,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/currentChoice",
             |case: &Case| -> std::result::Result<Value, String> {
                 let options: Vec<ChoiceOption> = case.arg_as(3)?;
@@ -2459,7 +2441,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/choiceChange",
             |case: &Case| -> std::result::Result<Value, String> {
                 let option: ChoiceOption = case.arg_as(3)?;
@@ -2472,7 +2453,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/initialText",
             |case: &Case| -> std::result::Result<String, String> {
                 Ok(initial_text(
@@ -2484,7 +2464,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/inheritedHint",
             |case: &Case| -> std::result::Result<Value, String> {
                 Ok(undefined_or(inherited_hint(
@@ -2500,14 +2479,12 @@ mod tests {
     #[test]
     fn action_parity() {
         replay(
-            "P9",
             "settingsModel/actionNameProblem",
             |case: &Case| -> std::result::Result<Value, String> {
                 Ok(undefined_or(action_name_problem(case.arg_str(0)?)))
             },
         );
         replay(
-            "P9",
             "settingsModel/actionNameCheck",
             |case: &Case| -> std::result::Result<NameCheck, String> {
                 Ok(action_name_check(
@@ -2518,12 +2495,10 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/commandProblem",
             |case: &Case| -> std::result::Result<Value, String> { Ok(undefined_or(command_problem(case.arg_str(0)?))) },
         );
         replay(
-            "P9",
             "settingsModel/textChange",
             |case: &Case| -> std::result::Result<Value, String> {
                 Ok(
@@ -2539,7 +2514,6 @@ mod tests {
     #[test]
     fn link_and_message_parity() {
         replay(
-            "P9",
             "settingsModel/initialLinks",
             |case: &Case| -> std::result::Result<IndexMap<String, bool>, String> {
                 let suggest = if case.arg_is_undefined(1) {
@@ -2551,7 +2525,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/linkSelection",
             |case: &Case| -> std::result::Result<LinkSelection, String> {
                 let (target, other) = (layer_arg(case, 0)?, layer_arg(case, 1)?);
@@ -2565,7 +2538,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/trustNote",
             |case: &Case| -> std::result::Result<&str, String> {
                 let trust: Option<SaveTrust> = if case.arg_is_undefined(0) {
@@ -2577,7 +2549,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/savedMessage",
             |case: &Case| -> std::result::Result<String, String> {
                 let options: SavedOptionsArg = if case.arg_is_undefined(2) {
@@ -2593,7 +2564,6 @@ mod tests {
             },
         );
         replay(
-            "P9",
             "settingsModel/actionSavedMessage",
             |case: &Case| -> std::result::Result<String, String> {
                 let trust: Option<SaveTrust> = if case.arg_is_undefined(2) {

@@ -1,8 +1,0 @@
-#!/usr/bin/env node
-// Verifies one Rust port unit against its manifest (parity/units/<unit>.toml). See parity/README.md.
-// Usage: DECKHAND_HOME=$(mktemp -d) scripts/verify-unit <unit> [--base rust-port] [--gate-suites] [--report out.json]
-//        [--only scope,exports] [--skip ts-suites]
-import('./verify-unit.mjs')
-	.then(module => module.main(process.argv.slice(2)))
-	.then(code => { process.exitCode = code; })
-	.catch(error => { console.error(error?.stack ?? String(error)); process.exitCode = 2; });

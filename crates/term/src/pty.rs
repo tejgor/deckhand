@@ -4,7 +4,7 @@
 //! (so `kill(-pid)` reaches the whole job, pgid == pid), the same termios node-pty sets up, `TERM`/`PWD` in the child's
 //! environment, an exit status reported like `onExit({exitCode, signal})` and a non-blocking master. nodePty.ts itself
 //! only made node-pty's prebuilt macOS binaries executable and signed; a native spawn has nothing to sign, so it has
-//! no port (see parity/units/T1.toml).
+//! no counterpart here.
 //!
 //! Reads return raw bytes; decode them with [`crate::utf8::Utf8Decoder`] to get exactly the strings node-pty emitted.
 //! Exit and EOF are independent: node-pty delayed `onExit` until the socket closed (or 200 ms passed), so callers that

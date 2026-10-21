@@ -275,7 +275,7 @@ pub fn create_pr_confirm_text(summary: &WorkspaceSummary) -> String {
 mod tests {
     use super::*;
 
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::Value;
 
     /// A recorded `Pick<CleanupInspection, ...>`: `safe` is not part of the pick (and not read).
@@ -294,24 +294,19 @@ mod tests {
 
     #[test]
     fn trust_review_text_parity() {
-        replay(
-            "P12",
-            "detailTexts/trustReviewText",
-            |case: &Case| -> Result<String, String> {
-                let purpose = if case.arg_is_undefined(1) {
-                    None
-                } else {
-                    Some(case.arg_str(1)?)
-                };
-                Ok(trust_review_text(&case.arg_as(0)?, purpose))
-            },
-        );
+        replay("detailTexts/trustReviewText", |case: &Case| -> Result<String, String> {
+            let purpose = if case.arg_is_undefined(1) {
+                None
+            } else {
+                Some(case.arg_str(1)?)
+            };
+            Ok(trust_review_text(&case.arg_as(0)?, purpose))
+        });
     }
 
     #[test]
     fn cleanup_override_text_parity() {
         replay(
-            "P12",
             "detailTexts/cleanupOverrideText",
             |case: &Case| -> Result<String, String> { Ok(cleanup_override_text(inspection_arg(case)?.as_ref())) },
         );
@@ -320,7 +315,6 @@ mod tests {
     #[test]
     fn project_actions_parity() {
         replay(
-            "P12",
             "detailTexts/projectActions",
             |case: &Case| -> Result<Vec<ProjectAction>, String> {
                 let project: Option<ProjectInfo> = if case.arg_is_undefined(0) {
@@ -336,7 +330,6 @@ mod tests {
     #[test]
     fn workspace_summary_text_parity() {
         replay(
-            "P12",
             "detailTexts/workspaceSummaryText",
             |case: &Case| -> Result<String, String> {
                 let summary: Option<WorkspaceSummary> = if case.arg_is_undefined(0) {
@@ -370,7 +363,6 @@ mod tests {
     #[test]
     fn create_pr_confirm_text_parity() {
         replay(
-            "P12",
             "detailTexts/createPrConfirmText",
             |case: &Case| -> Result<String, String> { Ok(create_pr_confirm_text(&case.arg_as(0)?)) },
         );

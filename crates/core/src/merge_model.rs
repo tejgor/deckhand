@@ -480,10 +480,8 @@ mod tests {
     use std::sync::Mutex;
 
     use super::*;
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::{Value, json};
-
-    const UNIT: &str = "P4";
 
     /// `compactPath` reads `$HOME`: tests that set it hold this lock (TS `withEnv`).
     static HOME_LOCK: Mutex<()> = Mutex::new(());
@@ -1012,7 +1010,7 @@ mod tests {
         );
     }
 
-    // ── Parity replays (fixtures/parity/mergeModel) ──────────────────────────────────────────────────────────
+    // ── Parity replays (fixtures/cases/mergeModel) ──────────────────────────────────────────────────────────
 
     /// A recorded MergePreview: a mutation may drop `targetIsMain` (undefined: falsy).
     fn preview_value(value: &Value) -> Value {
@@ -1087,7 +1085,7 @@ mod tests {
 
     #[test]
     fn merge_options_parity() {
-        replay(UNIT, "mergeModel/mergeOptions", |case: &Case| -> Result<_, String> {
+        replay("mergeModel/mergeOptions", |case: &Case| -> Result<_, String> {
             let preview = if case.arg_is_undefined(0) {
                 None
             } else {
@@ -1099,24 +1097,22 @@ mod tests {
 
     #[test]
     fn surprising_target_parity() {
-        replay(UNIT, "mergeModel/surprisingTarget", |case: &Case| {
+        replay("mergeModel/surprisingTarget", |case: &Case| {
             preview_arg(case, 0).map(|preview| surprising_target(&preview))
         });
     }
 
     #[test]
     fn overlapping_files_parity() {
-        replay(
-            UNIT,
-            "mergeModel/overlappingFiles",
-            |case: &Case| -> Result<_, String> { Ok(overlapping_files(&preview_arg(case, 0)?, case.arg_bool(1)?)) },
-        );
+        replay("mergeModel/overlappingFiles", |case: &Case| -> Result<_, String> {
+            Ok(overlapping_files(&preview_arg(case, 0)?, case.arg_bool(1)?))
+        });
     }
 
     #[test]
     fn merge_confirm_layout_parity() {
         with_home("/nonexistent-parity-home", || {
-            replay(UNIT, "mergeModel/mergeConfirmLayout", |case: &Case| {
+            replay("mergeModel/mergeConfirmLayout", |case: &Case| {
                 input_arg(case).map(|input| merge_confirm_layout(&input))
             });
         });
@@ -1124,14 +1120,14 @@ mod tests {
 
     #[test]
     fn merge_confirm_rows_parity() {
-        replay(UNIT, "mergeModel/mergeConfirmRows", |case: &Case| {
+        replay("mergeModel/mergeConfirmRows", |case: &Case| {
             layout_arg(case).map(|layout| merge_confirm_rows(&layout))
         });
     }
 
     #[test]
     fn conflict_view_parity() {
-        replay(UNIT, "mergeModel/conflictView", |case: &Case| -> Result<_, String> {
+        replay("mergeModel/conflictView", |case: &Case| -> Result<_, String> {
             let result = tags::untag(case.arg(0));
             let conflicts = result
                 .get("conflicts")

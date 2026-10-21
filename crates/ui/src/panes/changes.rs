@@ -580,7 +580,7 @@ pub fn render_changes_pane(props: &ChangesPaneProps<'_>, buf: &mut Buffer, area:
 mod tests {
     use super::*;
     use crate::primitives::row_text;
-    use deckhand_parity::{Case, replay};
+    use deckhand_testkit::{Case, replay};
     use serde_json::{Value, json};
 
     fn entry(group: &str, status: &str, path: &str, extra: Value) -> ChangeEntry {
@@ -898,7 +898,7 @@ mod tests {
 
     #[test]
     fn changes_layout_parity() {
-        replay("U4", "changesPane/changesLayout", |case: &Case| {
+        replay("changesPane/changesLayout", |case: &Case| {
             // Negative sizes (the fast-check cases) have no usize: a negative height lays out as 0 does, and a negative
             // width is passed through to the stacked widths, which are the width itself.
             let count = |index: usize| -> Result<usize, String> { Ok(case.arg_f64(index)?.max(0.0) as usize) };
@@ -918,7 +918,7 @@ mod tests {
 
     #[test]
     fn diff_lines_parity() {
-        replay("U4", "changesPane/diffLines", |case: &Case| {
+        replay("changesPane/diffLines", |case: &Case| {
             let diff = if case.arg_is_undefined(0) {
                 None
             } else {

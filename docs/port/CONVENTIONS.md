@@ -61,8 +61,8 @@ they do not impose blanket TS output equivalence on new behavior.
 ## Tests
 - Port each TS `test('title', ...)` from the unit's `ts_tests` to a Rust `#[test]` (or `#[tokio::test(flavor =
   "current_thread")]`) with a comment line directly above: `// covers: B-<unit>-NN <exact TS title>`; NN counts from 01.
-- Parity fixtures (`fixtures/parity/<module>/<fn>.jsonl`) are replayed by a test in the owning unit using
-  the `deckhand-parity` crate (dev-dependency of every crate) (see `parity/README.md`).
+- Parity fixtures (`fixtures/cases/<module>/<fn>.jsonl`) are replayed by a test in the owning unit using
+  the `deckhand-testkit` crate (dev-dependency of every crate) (see `parity/README.md`).
 - No `todo!()`, `unimplemented!()`, `#[ignore]` in owned paths when a unit is done.
 - Git-based tests use a `repo()` helper equivalent to `tests/helpers.ts` (GIT_CONFIG_GLOBAL=/dev/null,
   GIT_CONFIG_NOSYSTEM=1, `-b main`, fixed user, `commit.gpgsign=false`).

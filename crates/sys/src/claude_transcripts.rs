@@ -601,7 +601,7 @@ pub async fn latest_claude_conversation(id: &str, options: &LatestConversationOp
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, DirOp, Replay, replay, tags};
+    use deckhand_testkit::{Case, DirOp, Replay, replay, tags};
 
     fn runtime() -> tokio::runtime::Runtime {
         tokio::runtime::Builder::new_current_thread()
@@ -613,7 +613,6 @@ mod tests {
     #[test]
     fn claude_project_key_parity() {
         replay(
-            "I5",
             "claudeTranscripts/claudeProjectKey",
             |case: &Case| -> Result<String, String> { Ok(claude_project_key(case.arg_str(0)?)) },
         );
@@ -622,7 +621,6 @@ mod tests {
     #[test]
     fn claude_projects_dir_parity() {
         replay(
-            "I5",
             "claudeTranscripts/claudeProjectsDir",
             |case: &Case| -> Result<String, String> {
                 let dir = case.arg(0).get("CLAUDE_CONFIG_DIR").and_then(Value::as_str);
@@ -649,34 +647,21 @@ mod tests {
 
     #[test]
     fn latest_claude_conversation_parity() {
-        let manifest = deckhand_parity::manifest::Manifest::load("I5").expect("manifest");
-        let cases: Vec<String> = manifest
-            .fixtures
-            .iter()
-            .filter(|name| {
-                name.starts_with("claudeTranscripts/")
-                    && !matches!(
-                        name.as_str(),
-                        "claudeTranscripts/claudeProjectKey" | "claudeTranscripts/claudeProjectsDir"
-                    )
-            })
-            .cloned()
-            .collect();
+        let cases = deckhand_testkit::dir_cases("claudeTranscripts");
         assert!(!cases.is_empty());
         let mut failed = Vec::new();
         for fixture in &cases {
-            let report =
-                Replay::new("I5", fixture).run_dir(|_root, op: &DirOp| -> std::result::Result<Value, String> {
-                    if op.fn_name != "latestClaudeConversation" {
-                        return Err(format!("unexpected fn {}", op.fn_name));
-                    }
-                    let id = op.arg_str(0)?.to_string();
-                    let options = options_of(op)?;
-                    let found = runtime()
-                        .block_on(latest_claude_conversation(&id, &options))
-                        .map_err(|error| error.to_string())?;
-                    Ok(found.map(Value::String).unwrap_or_else(tags::undefined))
-                });
+            let report = Replay::new(fixture).run_dir(|_root, op: &DirOp| -> std::result::Result<Value, String> {
+                if op.fn_name != "latestClaudeConversation" {
+                    return Err(format!("unexpected fn {}", op.fn_name));
+                }
+                let id = op.arg_str(0)?.to_string();
+                let options = options_of(op)?;
+                let found = runtime()
+                    .block_on(latest_claude_conversation(&id, &options))
+                    .map_err(|error| error.to_string())?;
+                Ok(found.map(Value::String).unwrap_or_else(tags::undefined))
+            });
             if !report.ok {
                 failed.push(report.summary());
             }

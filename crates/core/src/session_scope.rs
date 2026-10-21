@@ -27,7 +27,7 @@ pub fn session_matches_scope(session: &SessionRecord, repo_root: &str) -> bool {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use deckhand_parity::{Case, replay};
+    use deckhand_testkit::{Case, replay};
     use serde_json::{Value, json};
 
     /// A SessionRecord from a partial TS literal (`{...} as SessionRecord`): required fields the code under test never
@@ -47,15 +47,15 @@ pub(crate) mod tests {
 
     #[test]
     fn is_path_inside_parity() {
-        replay("P2", "sessionScope/isPathInside", |case: &Case| {
+        replay("sessionScope/isPathInside", |case: &Case| {
             Ok::<_, String>(is_path_inside(case.arg_str(0)?, case.arg_str(1)?))
         });
     }
 
     #[test]
     fn session_matches_scope_parity() {
-        replay("P2", "sessionScope/sessionMatchesScope", |case: &Case| {
-            let session = partial_session(&deckhand_parity::tags::untag(case.arg(0)))?;
+        replay("sessionScope/sessionMatchesScope", |case: &Case| {
+            let session = partial_session(&deckhand_testkit::tags::untag(case.arg(0)))?;
             Ok::<_, String>(session_matches_scope(&session, case.arg_str(1)?))
         });
     }

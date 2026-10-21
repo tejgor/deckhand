@@ -1291,12 +1291,12 @@ pub fn explain_settings(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, Outcome, Replay, replay, tags};
+    use deckhand_testkit::{Case, Outcome, Replay, replay, tags};
     use serde_json::json;
 
     /// `replay` that also compares object key order (these objects are written to the wire and config.json).
     fn replay_ordered(fixture: &str, port: impl FnMut(&Case) -> Outcome) {
-        Replay::new("P10", fixture).key_order(true).run(port).assert_ok();
+        Replay::new(fixture).key_order(true).run(port).assert_ok();
     }
 
     /// The fixtures pin DECKHAND_HOME to this directory.
@@ -1404,7 +1404,7 @@ mod tests {
 
     #[test]
     fn sha256_parity() {
-        replay("P10", "projectConfig-P10/sha256", |case: &Case| {
+        replay("projectConfig-P10/sha256", |case: &Case| {
             port(|| {
                 let bytes = match case.arg(0) {
                     Value::String(text) => text.as_bytes().to_vec(),
@@ -1420,7 +1420,7 @@ mod tests {
 
     #[test]
     fn project_fingerprint_parity() {
-        replay("P10", "projectConfig-P10/projectFingerprint", |case: &Case| {
+        replay("projectConfig-P10/projectFingerprint", |case: &Case| {
             port(|| {
                 Ok(Outcome::ret(project_fingerprint(
                     case.arg_str(0)?,
@@ -1451,7 +1451,7 @@ mod tests {
 
     #[test]
     fn is_project_trusted_parity() {
-        replay("P10", "projectConfig-P10/isProjectTrusted", |case: &Case| {
+        replay("projectConfig-P10/isProjectTrusted", |case: &Case| {
             port(|| {
                 let project = tags::untag(case.arg(0));
                 let field = |key: &str| project.get(key).and_then(Value::as_str).unwrap_or_default().to_owned();
@@ -1467,7 +1467,7 @@ mod tests {
 
     #[test]
     fn project_needs_review_parity() {
-        replay("P10", "projectConfig-P10/projectNeedsReview", |case: &Case| {
+        replay("projectConfig-P10/projectNeedsReview", |case: &Case| {
             port(|| {
                 let project = project_of(case, 0)?.ok_or("project expected")?;
                 let trusted = trusted_of(&tags::untag(case.arg(1)));
@@ -1534,7 +1534,7 @@ mod tests {
 
     #[test]
     fn resolve_dev_command_parity() {
-        replay("P10", "projectConfig-P10/resolveDevCommand", |case: &Case| {
+        replay("projectConfig-P10/resolveDevCommand", |case: &Case| {
             port(|| {
                 Ok(outcome(resolve_dev_command(
                     project_of(case, 0)?.as_ref(),
@@ -1547,7 +1547,7 @@ mod tests {
 
     #[test]
     fn resolve_setup_command_parity() {
-        replay("P10", "projectConfig-P10/resolveSetupCommand", |case: &Case| {
+        replay("projectConfig-P10/resolveSetupCommand", |case: &Case| {
             port(|| {
                 let result = resolve_setup_command(
                     project_of(case, 0)?.as_ref(),

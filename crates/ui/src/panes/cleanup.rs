@@ -149,8 +149,8 @@ mod tests {
     use super::*;
     use crate::primitives::row_text;
     use deckhand_core::detail_texts::cleanup_override_text;
-    use deckhand_parity::{Case, replay};
     use deckhand_protocol::data::CleanupFileState;
+    use deckhand_testkit::{Case, replay};
     use serde_json::{Value, json};
 
     fn inspection(files: usize, counted: usize) -> CleanupInspection {
@@ -236,48 +236,39 @@ mod tests {
 
     #[test]
     fn lost_file_count_parity() {
-        replay(
-            "U3",
-            "cleanupView/lostFileCount",
-            |case: &Case| -> Result<i64, String> { Ok(lost_file_count(&inspection_arg(case)?)) },
-        );
+        replay("cleanupView/lostFileCount", |case: &Case| -> Result<i64, String> {
+            Ok(lost_file_count(&inspection_arg(case)?))
+        });
     }
 
     #[test]
     fn fit_path_parity() {
-        replay("U3", "cleanupView/fitPath", |case: &Case| -> Result<String, String> {
+        replay("cleanupView/fitPath", |case: &Case| -> Result<String, String> {
             Ok(fit_path_at(case.arg_str(0)?, case.arg_i64(1)?))
         });
     }
 
     #[test]
     fn lost_file_rows_parity() {
-        replay(
-            "U3",
-            "cleanupView/lostFileRows",
-            |case: &Case| -> Result<Value, String> {
-                let result = lost_file_rows(&inspection_arg(case)?, count_arg(case, 1)?);
-                Ok(json!({"files": result.files, "more": result.more}))
-            },
-        );
+        replay("cleanupView/lostFileRows", |case: &Case| -> Result<Value, String> {
+            let result = lost_file_rows(&inspection_arg(case)?, count_arg(case, 1)?);
+            Ok(json!({"files": result.files, "more": result.more}))
+        });
     }
 
     #[test]
     fn file_rows_left_parity() {
-        replay("U3", "cleanupView/fileRowsLeft", |case: &Case| -> Result<i64, String> {
+        replay("cleanupView/fileRowsLeft", |case: &Case| -> Result<i64, String> {
             Ok(file_rows_left_at(case.arg_i64(0)?, case.arg_i64(1)?))
         });
     }
 
     #[test]
     fn cleanup_loss_lines_parity() {
-        replay(
-            "U3",
-            "cleanupView/cleanupLossLines",
-            |case: &Case| -> Result<Value, String> {
-                let lines = loss_lines(&inspection_arg(case)?, count_arg(case, 1)?, count_arg(case, 2)?);
-                // The recorded elements: key, color, wrap and the text children (a nested Text for a file's mark).
-                Ok(Value::Array(
+        replay("cleanupView/cleanupLossLines", |case: &Case| -> Result<Value, String> {
+            let lines = loss_lines(&inspection_arg(case)?, count_arg(case, 1)?, count_arg(case, 2)?);
+            // The recorded elements: key, color, wrap and the text children (a nested Text for a file's mark).
+            Ok(Value::Array(
                 lines
                     .iter()
                     .map(|line| match line {
@@ -299,8 +290,7 @@ mod tests {
                     })
                     .collect(),
             ))
-            },
-        );
+        });
     }
 
     #[test]

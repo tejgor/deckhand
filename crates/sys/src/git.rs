@@ -1404,13 +1404,12 @@ pub fn error_output(error: &ExecError) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, DirOp, Outcome, dir_cases, replay, replay_dir, tags};
+    use deckhand_testkit::{Case, DirOp, Outcome, dir_cases, replay, replay_dir, tags};
     use std::path::Path;
     use std::process::Command;
 
     // Merging a worktree (m) against real fixture repositories, as tests/merge.test.ts does. The helpers' own Git
-    // runs ignore the user's Git config; library calls rely on the repository's local config (and verify-unit's
-    // GIT_CONFIG_GLOBAL=/dev/null).
+    // runs ignore the user's Git config; library calls rely on the repository's local config.
 
     fn run_git(dir: &str, args: &[&str]) -> std::result::Result<String, String> {
         let output = Command::new("git")
@@ -1536,9 +1535,8 @@ mod tests {
         commit(&wt, "file.txt", "first\nchanged\n", "change file");
         write(&wt, "other.txt", "other edited\n");
         write(&wt, "new.txt", "untracked\n");
-        // The git.ts inputs of the preview. getMergePreview itself (workspaceGit.ts, I4) and this test's assertions
-        // on it (commits, diff stat, overlap, sourceSha, the whole preview object) are handed off to I4: see the
-        // notes in parity/units/I3.toml.
+        // The git.ts inputs of the preview. getMergePreview itself (commits, diff stat, overlap, sourceSha) is
+        // tested in workspace_git.rs.
         assert_eq!(uncommitted_files(&wt).await.unwrap(), 2);
         assert_eq!(count_commits_to_merge(root, "feat").await.unwrap(), 2);
         assert_eq!(current_branch(root).await.unwrap(), "main");
@@ -1659,8 +1657,7 @@ mod tests {
         let wt = fx.worktree("feat");
         commit(&wt, "a.txt", "a\n", "add a");
         commit(&wt, "file.txt", "feature\n", "change file");
-        // The preview's overlap lists (getMergePreview, workspaceGit.ts) are handed off to I4: see the notes in
-        // parity/units/I3.toml. Its git.ts input: no operation in progress, so the preview has no inProgress.
+        // The preview's overlap lists (getMergePreview) are tested in workspace_git.rs. Its git.ts input: no operation in progress, so the preview has no inProgress.
         assert_eq!(operation_in_progress(root).await.unwrap(), None);
 
         // A merge in progress (a conflicted one, started outside Deckhand).
@@ -1936,7 +1933,7 @@ mod tests {
             "{error}"
         );
         prune_worktrees(root).await.unwrap();
-        // removeWorktree reads Deckhand's own worktree root: only with an isolated DECKHAND_HOME (as verify-unit sets).
+        // removeWorktree reads Deckhand's own worktree root: only with an isolated DECKHAND_HOME.
         if std::env::var_os("DECKHAND_HOME").is_some_and(|home| !home.is_empty()) {
             remove_worktree(&expected, root, Some("my_feature")).await.unwrap();
             assert!(!Path::new(&expected).exists());
@@ -2048,7 +2045,7 @@ mod tests {
 
     #[test]
     fn sanitize_worktree_name_parity() {
-        replay("I3", "git/sanitizeWorktreeName", |case: &Case| {
+        replay("git/sanitizeWorktreeName", |case: &Case| {
             // A lone surrogate arrives as U+FFFD, which the name rules replace just the same.
             Ok::<_, String>(sanitize_worktree_name(&case.arg_as::<String>(0)?))
         });
@@ -2056,7 +2053,7 @@ mod tests {
 
     #[test]
     fn operation_problem_parity() {
-        replay("I3", "git/operationProblem", |case: &Case| {
+        replay("git/operationProblem", |case: &Case| {
             Ok::<_, String>(target_problem(case.arg_as::<TargetOperation>(0)?))
         });
     }
@@ -2087,7 +2084,7 @@ mod tests {
         let cases = dir_cases("git");
         assert_eq!(cases.len(), 11);
         for case in cases {
-            replay_dir("I3", &case, |_root: &Path, op: &DirOp| {
+            replay_dir(&case, |_root: &Path, op: &DirOp| {
                 resolve_script_case(op).unwrap_or_else(Outcome::throws)
             });
         }

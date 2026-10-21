@@ -1,8 +1,8 @@
 //! Port of HeadlessTerminal trait (stands in for @xterm/headless).
 //!
 //! The surface deckhand reads from `@xterm/headless`: TerminalPreview (src/terminalPreview.ts) writes decoded PTY
-//! output, resizes, and reads `buffer.active` (`baseY`, `getLine(y).translateToString(true)`, `cursorX/Y`); the H0c
-//! goldens (parity/gen/term.gen.ts) additionally record the buffer type, wrapped lines, per-cell attributes, wide
+//! output, resizes, and reads `buffer.active` (`baseY`, `getLine(y).translateToString(true)`, `cursorX/Y`); the
+//! goldens in fixtures/term additionally record the buffer type, wrapped lines, per-cell attributes, wide
 //! cells, scrollback, modes and the title. Implementations: [`crate::alacritty::AlacrittyTerminal`].
 //!
 //! Line indices (`y`) are absolute buffer lines as in xterm: `0..length()`, scrollback first, the viewport starting
@@ -51,7 +51,7 @@ pub struct CursorPos {
     pub y: u16,
 }
 
-/// TS: @xterm/headless IBufferCell getFgColorMode/getFgColor (and Bg), as encoded by parity/gen/term.gen.ts color()
+/// TS: @xterm/headless IBufferCell getFgColorMode/getFgColor (and Bg), as the goldens in fixtures/term encode it
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Color {
     /// Terminal default colour (`d`).
@@ -120,7 +120,7 @@ impl<'de> Deserialize<'de> for Color {
     }
 }
 
-/// TS: @xterm/headless IBufferCell isBold()/isDim()/... as encoded by parity/gen/term.gen.ts flags()
+/// TS: @xterm/headless IBufferCell isBold()/isDim()/... as the goldens in fixtures/term encode them
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct CellFlags(u16);
 
@@ -426,7 +426,7 @@ pub trait HeadlessTerminal {
             .collect()
     }
 
-    /// Non-default attribute runs of line `y`, merged exactly as term.gen.ts attributeRuns().
+    /// Non-default attribute runs of line `y`, merged as the goldens in fixtures/term record them.
     fn line_runs(&self, y: usize) -> Vec<AttrRun> {
         let mut runs: Vec<AttrRun> = Vec::new();
         for x in 0..self.cols() {

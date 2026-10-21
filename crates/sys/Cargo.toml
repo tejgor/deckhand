@@ -30,5 +30,5 @@ chrono = { workspace = true }
 [dev-dependencies]
 # test-util: tokio::time::pause for the async_util tests.
 tokio = { workspace = true, features = ["test-util"] }
-deckhand-parity = { workspace = true }
+deckhand-testkit = { workspace = true }
 tempfile = { workspace = true }

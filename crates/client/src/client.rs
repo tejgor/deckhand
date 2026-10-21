@@ -1001,7 +1001,7 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::json;
 
     use super::*;
@@ -1057,7 +1057,7 @@ mod tests {
 
     #[test]
     fn write_message_parity() {
-        replay("K1", "client/writeMessage", |case: &Case| -> Result<String, String> {
+        replay("client/writeMessage", |case: &Case| -> Result<String, String> {
             let message = tags::untag(case.arg(0));
             // Protocol messages go through the typed request (its key order is the wire order); anything else
             // through the same stringifier.
@@ -1072,44 +1072,40 @@ mod tests {
 
     #[test]
     fn attach_json_parser_parity() {
-        replay(
-            "K1",
-            "client/attachJsonParser",
-            |case: &Case| -> Result<Value, String> {
-                let chunks = case.arg(0).as_array().cloned().unwrap_or_default();
-                let detach_after = if case.arg_is_undefined(1) {
-                    None
-                } else {
-                    Some(case.arg_usize(1)?)
+        replay("client/attachJsonParser", |case: &Case| -> Result<Value, String> {
+            let chunks = case.arg(0).as_array().cloned().unwrap_or_default();
+            let detach_after = if case.arg_is_undefined(1) {
+                None
+            } else {
+                Some(case.arg_usize(1)?)
+            };
+            let mut parser = JsonParser::new();
+            let mut messages = Vec::new();
+            let mut error = None;
+            let mut detached = false;
+            for (index, chunk) in chunks.iter().enumerate() {
+                let bytes = match (chunk.get("text"), chunk.get("bytes")) {
+                    (Some(text), _) => tags::untag(text).as_str().unwrap_or_default().as_bytes().to_vec(),
+                    (_, Some(bytes)) => tags::base64_decode(bytes["$bytes"].as_str().unwrap_or_default())?,
+                    _ => return Err(format!("unknown chunk {chunk}")),
                 };
-                let mut parser = JsonParser::new();
-                let mut messages = Vec::new();
-                let mut error = None;
-                let mut detached = false;
-                for (index, chunk) in chunks.iter().enumerate() {
-                    let bytes = match (chunk.get("text"), chunk.get("bytes")) {
-                        (Some(text), _) => tags::untag(text).as_str().unwrap_or_default().as_bytes().to_vec(),
-                        (_, Some(bytes)) => tags::base64_decode(bytes["$bytes"].as_str().unwrap_or_default())?,
-                        _ => return Err(format!("unknown chunk {chunk}")),
-                    };
-                    let parsed = parser.push_values(&bytes);
-                    messages.extend(parsed.messages);
-                    if let Some(thrown) = parsed.error {
-                        error = Some(thrown.to_string());
-                        break;
-                    }
-                    if detach_after == Some(index) {
-                        detached = true;
-                        break;
-                    }
+                let parsed = parser.push_values(&bytes);
+                messages.extend(parsed.messages);
+                if let Some(thrown) = parsed.error {
+                    error = Some(thrown.to_string());
+                    break;
                 }
-                let listeners = if detached { 0 } else { 1 };
-                Ok(match error {
-                    Some(error) => json!({"messages": messages, "error": error, "listeners": listeners}),
-                    None => json!({"messages": messages, "listeners": listeners}),
-                })
-            },
-        );
+                if detach_after == Some(index) {
+                    detached = true;
+                    break;
+                }
+            }
+            let listeners = if detached { 0 } else { 1 };
+            Ok(match error {
+                Some(error) => json!({"messages": messages, "error": error, "listeners": listeners}),
+                None => json!({"messages": messages, "listeners": listeners}),
+            })
+        });
     }
 
     #[test]

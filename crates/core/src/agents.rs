@@ -375,10 +375,8 @@ pub fn relaunch_plan(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use deckhand_parity::{Case, Outcome, replay, tags};
+    use deckhand_testkit::{Case, Outcome, replay, tags};
     use serde_json::{Value, json};
-
-    const UNIT: &str = "P1";
 
     /// A SessionRecord from the partial session a fixture or test passes (the TS functions take a `Pick<..>`): the
     /// fields they never read get placeholders.
@@ -538,7 +536,7 @@ pub(crate) mod tests {
 
     #[test]
     fn agent_spec_parity() {
-        replay(UNIT, "agents/agentSpec", |case: &Case| -> Result<Value, String> {
+        replay("agents/agentSpec", |case: &Case| -> Result<Value, String> {
             let spec = agent_spec(case.arg_as(0)?);
             let mut value = serde_json::to_value(spec).map_err(|error| error.to_string())?;
             if let Some(object) = value.as_object_mut() {
@@ -552,7 +550,7 @@ pub(crate) mod tests {
 
     #[test]
     fn new_agent_ref_parity() {
-        replay(UNIT, "agents/newAgentRef", |case: &Case| {
+        replay("agents/newAgentRef", |case: &Case| {
             let Ok(program) = case.arg_as::<ProgramKey>(0) else {
                 return Outcome::throws("parity: bad arguments");
             };
@@ -567,29 +565,23 @@ pub(crate) mod tests {
 
     #[test]
     fn launch_args_parity() {
-        replay(
-            UNIT,
-            "agents/launchArgs",
-            |case: &Case| -> Result<Vec<String>, String> { Ok(launch_args(case.arg_as(0)?, &case.arg_as(1)?)) },
-        );
+        replay("agents/launchArgs", |case: &Case| -> Result<Vec<String>, String> {
+            Ok(launch_args(case.arg_as(0)?, &case.arg_as(1)?))
+        });
     }
 
     #[test]
     fn same_agent_session_ref_parity() {
-        replay(
-            UNIT,
-            "agents/sameAgentSessionRef",
-            |case: &Case| -> Result<bool, String> {
-                let left: Option<AgentSessionRef> = case.arg_as(0)?;
-                let right: Option<AgentSessionRef> = case.arg_as(1)?;
-                Ok(same_agent_session_ref(left.as_ref(), right.as_ref()))
-            },
-        );
+        replay("agents/sameAgentSessionRef", |case: &Case| -> Result<bool, String> {
+            let left: Option<AgentSessionRef> = case.arg_as(0)?;
+            let right: Option<AgentSessionRef> = case.arg_as(1)?;
+            Ok(same_agent_session_ref(left.as_ref(), right.as_ref()))
+        });
     }
 
     #[test]
     fn forks_parent_again_parity() {
-        replay(UNIT, "agents/forksParentAgain", |case: &Case| -> Result<bool, String> {
+        replay("agents/forksParentAgain", |case: &Case| -> Result<bool, String> {
             Ok(forks_parent_again(
                 &session_from(tags::untag(case.arg(0))),
                 case.arg_bool(1)?,
@@ -599,7 +591,7 @@ pub(crate) mod tests {
 
     #[test]
     fn relaunch_plan_parity() {
-        replay(UNIT, "agents/relaunchPlan", |case: &Case| {
+        replay("agents/relaunchPlan", |case: &Case| {
             let session = session_from(tags::untag(case.arg(0)));
             let (Ok(mode), Ok(never_started), Ok(name)) = (case.arg_as(1), case.arg_bool(2), case.arg_str(3)) else {
                 return Outcome::throws("parity: bad arguments");
@@ -631,7 +623,7 @@ pub(crate) mod tests {
 
     #[test]
     fn exit_ref_parity() {
-        replay(UNIT, "agents/exitRef", |case: &Case| {
+        replay("agents/exitRef", |case: &Case| {
             let (Ok(program), Ok(output)) = (case.arg_as::<ProgramKey>(0), case.arg_str(1)) else {
                 return Outcome::throws("parity: bad arguments");
             };
@@ -645,7 +637,7 @@ pub(crate) mod tests {
 
     #[test]
     fn missing_conversation_parity() {
-        replay(UNIT, "agents/missingConversation", |case: &Case| {
+        replay("agents/missingConversation", |case: &Case| {
             let (Ok(program), Ok(output)) = (case.arg_as::<ProgramKey>(0), case.arg_str(1)) else {
                 return Outcome::throws("parity: bad arguments");
             };
@@ -655,7 +647,7 @@ pub(crate) mod tests {
 
     #[test]
     fn fork_failed_parity() {
-        replay(UNIT, "agents/forkFailed", |case: &Case| {
+        replay("agents/forkFailed", |case: &Case| {
             let (Ok(program), Ok(output)) = (case.arg_as::<ProgramKey>(0), case.arg_str(1)) else {
                 return Outcome::throws("parity: bad arguments");
             };

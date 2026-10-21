@@ -193,7 +193,7 @@ pub fn terminal_editor_args(editor: &EditorCommand, file: &str, vim_script: Opti
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use std::cell::RefCell;
 
     fn editor(command: &str, args: &[&str], label: &str) -> EditorCommand {
@@ -305,7 +305,7 @@ mod tests {
 
     #[test]
     fn is_vim_family_parity() {
-        replay("I8", "desktop/isVimFamily", |case: &Case| -> Result<bool, String> {
+        replay("desktop/isVimFamily", |case: &Case| -> Result<bool, String> {
             Ok(is_vim_family(&editor_arg(case)?))
         });
     }
@@ -313,7 +313,6 @@ mod tests {
     #[test]
     fn terminal_editor_args_parity() {
         replay(
-            "I8",
             "desktop/terminalEditorArgs",
             |case: &Case| -> Result<Vec<String>, String> {
                 let script = if case.arg_is_undefined(2) {
@@ -329,7 +328,6 @@ mod tests {
     #[test]
     fn resolve_terminal_editor_parity() {
         replay(
-            "I8",
             "desktop/resolveTerminalEditor",
             |case: &Case| -> Result<serde_json::Value, String> {
                 let env = case.arg_as::<HashMap<String, String>>(0)?;

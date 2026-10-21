@@ -448,10 +448,8 @@ pub fn handoff_markdown(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use deckhand_parity::{Case, Outcome, replay, tags};
+    use deckhand_testkit::{Case, Outcome, replay, tags};
     use serde_json::{Value, json};
-
-    const UNIT: &str = "P8";
 
     /// A SessionRecord from a partial TS literal (`{...} as SessionRecord`): required fields the code under test never
     /// reads get placeholder values (and nested records their required keys).
@@ -745,7 +743,7 @@ pub(crate) mod tests {
 
     #[test]
     fn filter_for_key_parity() {
-        replay(UNIT, "sessionFeatures-P8/filterForKey", |case: &Case| -> Outcome {
+        replay("sessionFeatures-P8/filterForKey", |case: &Case| -> Outcome {
             match case.arg_str(0) {
                 Ok(input) => undefined_or(filter_for_key(input)),
                 Err(error) => Outcome::throws(error),
@@ -755,21 +753,21 @@ pub(crate) mod tests {
 
     #[test]
     fn session_blocked_parity() {
-        replay(UNIT, "sessionFeatures-P8/sessionBlocked", |case: &Case| {
+        replay("sessionFeatures-P8/sessionBlocked", |case: &Case| {
             Ok::<_, String>(session_blocked(&partial_session(case.arg(0))?))
         });
     }
 
     #[test]
     fn session_has_unread_reply_parity() {
-        replay(UNIT, "sessionFeatures-P8/sessionHasUnreadReply", |case: &Case| {
+        replay("sessionFeatures-P8/sessionHasUnreadReply", |case: &Case| {
             Ok::<_, String>(session_has_unread_reply(&partial_session(case.arg(0))?))
         });
     }
 
     #[test]
     fn session_needs_attention_parity() {
-        replay(UNIT, "sessionFeatures-P8/sessionNeedsAttention", |case: &Case| {
+        replay("sessionFeatures-P8/sessionNeedsAttention", |case: &Case| {
             Ok::<_, String>(session_needs_attention(&partial_session(case.arg(0))?))
         });
     }
@@ -777,7 +775,6 @@ pub(crate) mod tests {
     #[test]
     fn with_reply_read_parity() {
         replay(
-            UNIT,
             "sessionFeatures-P8/withReplyRead",
             |case: &Case| -> Result<Value, String> {
                 let input = tags::untag(case.arg(0));
@@ -796,7 +793,6 @@ pub(crate) mod tests {
     #[test]
     fn filter_session_list_parity() {
         replay(
-            UNIT,
             "sessionFeatures-P8/filterSessionList",
             |case: &Case| -> Result<Value, String> {
                 let input = tags::untag(case.arg(0));
@@ -820,7 +816,7 @@ pub(crate) mod tests {
 
     #[test]
     fn session_filter_counts_parity() {
-        replay(UNIT, "sessionFeatures-P8/sessionFilterCounts", |case: &Case| {
+        replay("sessionFeatures-P8/sessionFilterCounts", |case: &Case| {
             let sessions = sessions_arg(&tags::untag(case.arg(0)))?;
             Ok::<_, String>(session_filter_counts(
                 &sessions,
@@ -832,14 +828,14 @@ pub(crate) mod tests {
 
     #[test]
     fn handoff_git_lines_parity() {
-        replay(UNIT, "sessionFeatures-P8/handoffGitLines", |case: &Case| {
+        replay("sessionFeatures-P8/handoffGitLines", |case: &Case| {
             Ok::<_, String>(handoff_git_lines(&case.arg_as(0)?))
         });
     }
 
     #[test]
     fn handoff_markdown_parity() {
-        replay(UNIT, "sessionFeatures-P8/handoffMarkdown", |case: &Case| {
+        replay("sessionFeatures-P8/handoffMarkdown", |case: &Case| {
             let session = partial_session(case.arg(0))?;
             let include_output = !case.arg_is_undefined(1) && case.arg_bool(1)?;
             let git: Option<HandoffGitContext> = if case.arg_is_undefined(2) {

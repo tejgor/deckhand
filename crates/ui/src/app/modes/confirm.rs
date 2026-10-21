@@ -2351,7 +2351,7 @@ mod tests {
 
     /// The pane drawn by `draw` matches the snapshot `fixtures/ui/panes/<name>.txt`.
     fn assert_pane(name: &str, draw: impl FnOnce(&mut Buffer, Rect)) {
-        deckhand_parity::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &drawn(draw).join("\n"));
+        deckhand_testkit::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &drawn(draw).join("\n"));
     }
 
     fn refs(sessions: &[SessionRecord]) -> Vec<&SessionRecord> {

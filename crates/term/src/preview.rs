@@ -139,7 +139,7 @@ impl<T: HeadlessTerminal> TerminalPreview<T> {
         drop(self);
     }
 
-    /// The preview's own terminal (term.gen.ts reads `preview.terminal` for the golden screen snapshot).
+    /// The preview's own terminal (the goldens in fixtures/term snapshot its screen).
     pub fn terminal(&self) -> &T {
         &self.terminal
     }
@@ -281,7 +281,7 @@ mod tests {
         (!runs.is_empty()).then(|| serde_json::to_value(runs).unwrap_or(Value::Null))
     }
 
-    /// The `screen` object of parity/gen/term.gen.ts screenSnapshot().
+    /// The `screen` object the goldens in fixtures/term record.
     fn screen(terminal: &AlacrittyTerminal) -> Value {
         let base = terminal.base_y();
         let mut lines = Vec::new();
@@ -357,7 +357,7 @@ mod tests {
         call.get("args").and_then(|args| args.get(0)).and_then(Value::as_f64)
     }
 
-    /// Replays one stream as term.gen.ts golden() did; returns the mismatching checkpoints.
+    /// Replays one recorded stream; returns the mismatching checkpoints.
     fn replay_golden(path: &Path) -> (usize, Vec<(String, String)>) {
         let golden: Value = serde_json::from_str(&std::fs::read_to_string(path).expect("golden")).expect("json");
         let name = golden["name"].as_str().expect("name").to_string();

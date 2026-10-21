@@ -668,7 +668,7 @@ impl AgentVersionChecker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, DirOp, replay_async, replay_dir, tags};
+    use deckhand_testkit::{Case, DirOp, replay_async, replay_dir, tags};
     use std::cell::Cell;
     use std::os::unix::fs::PermissionsExt;
 
@@ -697,7 +697,7 @@ mod tests {
 
     #[test]
     fn run_bounded_parity() {
-        local(replay_async("I8", "agentVersionCheck/runBounded", |case: &Case| {
+        local(replay_async("agentVersionCheck/runBounded", |case: &Case| {
             let file = case.arg_str(0).map(str::to_owned);
             let args = case.arg_as::<Vec<String>>(1);
             let options = case.arg_as::<RunArgs>(2);
@@ -716,7 +716,7 @@ mod tests {
 
     #[test]
     fn npm_latest_override_parity() {
-        local(replay_async("I8", "agentVersionCheck/npmLatest", |case: &Case| {
+        local(replay_async("agentVersionCheck/npmLatest", |case: &Case| {
             let outcome = (|| -> std::result::Result<Result<Option<String>>, String> {
                 Ok(latest_from_override(case.arg_str(0)?, case.arg_as::<ProgramKey>(1)?))
             })();
@@ -754,7 +754,7 @@ mod tests {
             "find-trailing-slash-entry",
             "find-unicode-name",
         ] {
-            replay_dir("I8", &format!("agentVersionCheck/{case}"), find_case);
+            replay_dir(&format!("agentVersionCheck/{case}"), find_case);
         }
     }
 

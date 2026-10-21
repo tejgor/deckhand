@@ -242,8 +242,8 @@ pub fn filter_collapsed_sessions<'a, S: SessionLike>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, replay};
     use deckhand_protocol::data::JsNumber;
+    use deckhand_testkit::{Case, replay};
 
     fn sessions(case: &Case, index: usize) -> Result<Vec<Ordered<SessionRecord>>, String> {
         case.arg_as(index)
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn compare_session_order_parity() {
-        replay("P2", "sessionOrder/compareSessionOrder", |case: &Case| {
+        replay("sessionOrder/compareSessionOrder", |case: &Case| {
             let a: SessionRecord = case.arg_as(0)?;
             let b: SessionRecord = case.arg_as(1)?;
             // TS returns the raw `sidebarOrder` difference when it is not zero, else localeCompare's -1/0/1.
@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn sort_sessions_for_sidebar_parity() {
-        replay("P2", "sessionOrder/sortSessionsForSidebar", |case: &Case| {
+        replay("sessionOrder/sortSessionsForSidebar", |case: &Case| {
             let list = sessions(case, 0)?;
             Ok::<_, String>(
                 sort_sessions_for_sidebar(&list)
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn session_depth_parity() {
-        replay("P2", "sessionOrder/sessionDepth", |case: &Case| {
+        replay("sessionOrder/sessionDepth", |case: &Case| {
             let session: SessionRecord = case.arg_as(0)?;
             Ok::<_, String>(session_depth(&session, &sessions(case, 1)?))
         });
@@ -289,14 +289,14 @@ mod tests {
 
     #[test]
     fn session_has_children_parity() {
-        replay("P2", "sessionOrder/sessionHasChildren", |case: &Case| {
+        replay("sessionOrder/sessionHasChildren", |case: &Case| {
             Ok::<_, String>(session_has_children(case.arg_str(0)?, &sessions(case, 1)?))
         });
     }
 
     #[test]
     fn session_descendants_parity() {
-        replay("P2", "sessionOrder/sessionDescendants", |case: &Case| {
+        replay("sessionOrder/sessionDescendants", |case: &Case| {
             let list = sessions(case, 1)?;
             Ok::<_, String>(
                 session_descendants(case.arg_str(0)?, &list)
@@ -309,14 +309,14 @@ mod tests {
 
     #[test]
     fn count_session_descendants_parity() {
-        replay("P2", "sessionOrder/countSessionDescendants", |case: &Case| {
+        replay("sessionOrder/countSessionDescendants", |case: &Case| {
             Ok::<_, String>(count_session_descendants(case.arg_str(0)?, &sessions(case, 1)?))
         });
     }
 
     #[test]
     fn count_hidden_session_descendants_parity() {
-        replay("P2", "sessionOrder/countHiddenSessionDescendants", |case: &Case| {
+        replay("sessionOrder/countHiddenSessionDescendants", |case: &Case| {
             Ok::<_, String>(count_hidden_session_descendants(
                 case.arg_str(0)?,
                 &sessions(case, 1)?,
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn filter_collapsed_sessions_parity() {
-        replay("P2", "sessionOrder/filterCollapsedSessions", |case: &Case| {
+        replay("sessionOrder/filterCollapsedSessions", |case: &Case| {
             let list = sessions(case, 0)?;
             let collapsed = id_set(case, 1)?;
             let hidden = if case.arg_is_undefined(2) {

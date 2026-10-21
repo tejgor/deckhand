@@ -1750,7 +1750,7 @@ mod tests {
                 line.trim_end().to_owned()
             })
             .collect();
-        deckhand_parity::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &rows.join("\n"));
+        deckhand_testkit::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &rows.join("\n"));
     }
 
     #[test]

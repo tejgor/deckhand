@@ -1009,7 +1009,7 @@ pub fn without_task_meta(line: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::json;
 
     fn now() -> i64 {
@@ -1458,7 +1458,7 @@ mod tests {
 
     #[test]
     fn append_note_item_parity() {
-        replay("P5", "tasks/appendNoteItem", |case: &Case| {
+        replay("tasks/appendNoteItem", |case: &Case| {
             let body = if case.arg_is_undefined(2) { "" } else { case.arg_str(2)? };
             Ok::<_, String>(append_note_item(case.arg_str(0)?, case.arg_str(1)?, body))
         });
@@ -1466,7 +1466,7 @@ mod tests {
 
     #[test]
     fn apply_task_op_parity() {
-        replay("P5", "tasks/applyTaskOp", |case: &Case| {
+        replay("tasks/applyTaskOp", |case: &Case| {
             let op: TaskOp = case.arg_as(1)?;
             let now = if case.arg_is_undefined(2) {
                 jsstr::date::now_ms()
@@ -1479,14 +1479,14 @@ mod tests {
 
     #[test]
     fn clean_task_title_parity() {
-        replay("P5", "tasks/cleanTaskTitle", |case: &Case| {
+        replay("tasks/cleanTaskTitle", |case: &Case| {
             Ok::<_, String>(clean_task_title(case.arg_str(0)?))
         });
     }
 
     #[test]
     fn client_task_op_parity() {
-        replay("P5", "tasks/clientTaskOp", |case: &Case| {
+        replay("tasks/clientTaskOp", |case: &Case| {
             let raw = tags::untag(case.arg(0));
             client_task_op(&raw).map_err(message)
         });
@@ -1494,7 +1494,7 @@ mod tests {
 
     #[test]
     fn find_note_task_link_parity() {
-        replay("P5", "tasks/findNoteTaskLink", |case: &Case| {
+        replay("tasks/findNoteTaskLink", |case: &Case| {
             let found = find_note_task_link(case.arg_str(0)?, case.arg_str(1)?);
             Ok::<_, String>(found.map_or(-1, |line| i64::try_from(line).unwrap_or(i64::MAX)))
         });
@@ -1502,7 +1502,7 @@ mod tests {
 
     #[test]
     fn group_tasks_parity() {
-        replay("P5", "tasks/groupTasks", |case: &Case| {
+        replay("tasks/groupTasks", |case: &Case| {
             let tasks: Vec<Task> = case.arg_as(0)?;
             Ok::<_, String>(group_tasks(&tasks, date_arg(case, 1)?))
         });
@@ -1510,14 +1510,14 @@ mod tests {
 
     #[test]
     fn is_linked_parity() {
-        replay("P5", "tasks/isLinked", |case: &Case| {
+        replay("tasks/isLinked", |case: &Case| {
             Ok::<_, String>(is_linked(&partial_task(case.arg(0))?))
         });
     }
 
     #[test]
     fn key_of_link_parity() {
-        replay("P5", "tasks/keyOfLink", |case: &Case| {
+        replay("tasks/keyOfLink", |case: &Case| {
             let link: TaskLink = case.arg_as(0)?;
             Ok::<_, String>(key_of_link(&link))
         });
@@ -1525,7 +1525,7 @@ mod tests {
 
     #[test]
     fn link_key_parity() {
-        replay("P5", "tasks/linkKey", |case: &Case| {
+        replay("tasks/linkKey", |case: &Case| {
             let meta: TaskMeta = case.arg_as(0)?;
             Ok::<_, String>(maybe(link_key(&meta)))
         });
@@ -1533,7 +1533,7 @@ mod tests {
 
     #[test]
     fn link_matches_parity() {
-        replay("P5", "tasks/linkMatches", |case: &Case| {
+        replay("tasks/linkMatches", |case: &Case| {
             let meta: TaskMeta = case.arg_as(0)?;
             let link: TaskLink = case.arg_as(1)?;
             Ok::<_, String>(link_matches(&meta, &link))
@@ -1542,14 +1542,14 @@ mod tests {
 
     #[test]
     fn link_of_key_parity() {
-        replay("P5", "tasks/linkOfKey", |case: &Case| {
+        replay("tasks/linkOfKey", |case: &Case| {
             Ok::<_, String>(maybe(link_of_key(case.arg_str(0)?)))
         });
     }
 
     #[test]
     fn migrate_follow_ups_parity() {
-        replay("P5", "tasks/migrateFollowUps", |case: &Case| {
+        replay("tasks/migrateFollowUps", |case: &Case| {
             let has_note: Box<dyn Fn(&TaskLink) -> bool> = match case.fn_name(1) {
                 Some("hasAll") => Box::new(|_| true),
                 Some("hasNone") => Box::new(|_| false),
@@ -1562,7 +1562,7 @@ mod tests {
 
     #[test]
     fn note_task_link_line_parity() {
-        replay("P5", "tasks/noteTaskLinkLine", |case: &Case| {
+        replay("tasks/noteTaskLinkLine", |case: &Case| {
             Ok::<_, String>(note_task_link_line(
                 case.arg_str(0)?,
                 case.arg_str(1)?,
@@ -1573,7 +1573,7 @@ mod tests {
 
     #[test]
     fn open_note_items_parity() {
-        replay("P5", "tasks/openNoteItems", |case: &Case| {
+        replay("tasks/openNoteItems", |case: &Case| {
             let text = if case.arg_is_undefined(0) {
                 None
             } else {
@@ -1585,7 +1585,7 @@ mod tests {
 
     #[test]
     fn open_task_count_parity() {
-        replay("P5", "tasks/openTaskCount", |case: &Case| {
+        replay("tasks/openTaskCount", |case: &Case| {
             let tasks: Vec<Task> = case.arg_as(0)?;
             Ok::<_, String>(open_task_count(&tasks))
         });
@@ -1593,21 +1593,21 @@ mod tests {
 
     #[test]
     fn parse_note_task_link_parity() {
-        replay("P5", "tasks/parseNoteTaskLink", |case: &Case| {
+        replay("tasks/parseNoteTaskLink", |case: &Case| {
             Ok::<_, String>(maybe(parse_note_task_link(case.arg_str(0)?)))
         });
     }
 
     #[test]
     fn parse_tasks_parity() {
-        replay("P5", "tasks/parseTasks", |case: &Case| {
+        replay("tasks/parseTasks", |case: &Case| {
             Ok::<_, String>(parse_tasks(case.arg_str(0)?))
         });
     }
 
     #[test]
     fn promote_note_line_parity() {
-        replay("P5", "tasks/promoteNoteLine", |case: &Case| {
+        replay("tasks/promoteNoteLine", |case: &Case| {
             let promoted = promote_note_line(case.arg_str(0)?, line_arg(case, 1)?, case.arg_str(2)?);
             Ok::<_, String>(maybe(promoted))
         });
@@ -1615,7 +1615,7 @@ mod tests {
 
     #[test]
     fn promote_open_note_lines_parity() {
-        replay("P5", "tasks/promoteOpenNoteLines", |case: &Case| {
+        replay("tasks/promoteOpenNoteLines", |case: &Case| {
             if case.fn_name(1) != Some("seq") {
                 return Err(format!("unknown newId {:?}", case.fn_name(1)));
             }
@@ -1630,7 +1630,7 @@ mod tests {
 
     #[test]
     fn return_task_to_note_parity() {
-        replay("P5", "tasks/returnTaskToNote", |case: &Case| {
+        replay("tasks/returnTaskToNote", |case: &Case| {
             let task = partial_task(case.arg(2))?;
             return_task_to_note(case.arg_str(0)?, line_arg(case, 1)?, &task).map_err(message)
         });
@@ -1638,14 +1638,14 @@ mod tests {
 
     #[test]
     fn task_prompt_parity() {
-        replay("P5", "tasks/taskPrompt", |case: &Case| {
+        replay("tasks/taskPrompt", |case: &Case| {
             Ok::<_, String>(task_prompt(&partial_task(case.arg(0))?))
         });
     }
 
     #[test]
     fn without_task_meta_parity() {
-        replay("P5", "tasks/withoutTaskMeta", |case: &Case| {
+        replay("tasks/withoutTaskMeta", |case: &Case| {
             Ok::<_, String>(without_task_meta(case.arg_str(0)?))
         });
     }

@@ -2264,11 +2264,11 @@ mod scenario_tests {
         ExplainContext, UserSettings, explain_settings, parse_project_config, trust_project_config,
     };
     use deckhand_core::settings_model::{choice_options, current_choice, initial_links};
-    use deckhand_parity::assert_snapshot;
     use deckhand_protocol::data::{
         ConfigTargets, LoadedProject, ProjectConfig, ProjectConfigDocument, RepositoryInfo, TemplateVars,
     };
     use deckhand_protocol::order::Ordered;
+    use deckhand_testkit::assert_snapshot;
     use regex::Regex;
     use serde_json::{Value, json};
 

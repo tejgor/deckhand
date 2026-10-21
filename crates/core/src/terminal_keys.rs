@@ -49,7 +49,7 @@ pub fn normalize_terminal_key(key: Key, sequence: &str) -> Key {
 
 #[cfg(test)]
 mod tests {
-    use deckhand_parity::{Case, replay};
+    use deckhand_testkit::{Case, replay};
     use serde_json::{Value, json};
 
     use super::*;
@@ -98,7 +98,6 @@ mod tests {
     #[test]
     fn normalize_terminal_key_parity() {
         replay(
-            "P11",
             "terminalKeys/normalizeTerminalKey",
             |case: &Case| -> Result<Value, String> {
                 let sequence = case.arg_str(1)?;

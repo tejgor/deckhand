@@ -6,7 +6,7 @@
 //! fields and methods without touching this file. Runtime model (docs/port/CONVENTIONS.md): one `current_thread`
 //! runtime with a `LocalSet`; borrow a subsystem's state, copy what is needed, drop the borrow, then await.
 //!
-//! Where each daemon.ts function went (also the `[exports]` tables of parity/units/D1..D11.toml):
+//! Where each daemon.ts function went:
 //!
 //! | daemon.ts | module | Rust | unit |
 //! |---|---|---|---|

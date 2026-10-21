@@ -1,4 +1,4 @@
-//! Replays tests/data/keypress-vectors.json (recorded from Ink 6 by gen-keypress-vectors.mjs): raw stdin bytes in
+//! Replays tests/data/keypress-vectors.json (recorded from Ink 6): raw stdin bytes in
 //! chunks, through deckhand_ui::input, must give Ink's events, each with the `input` and `key` useInput reports.
 
 use deckhand_core::key::Key;

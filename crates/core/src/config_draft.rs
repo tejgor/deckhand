@@ -434,7 +434,7 @@ fn stringify(nodes: &[Node], root: usize, out: &mut String) {
 
 #[cfg(test)]
 mod tests {
-    use deckhand_parity::{Case, replay};
+    use deckhand_testkit::{Case, replay};
 
     use super::*;
 
@@ -481,7 +481,6 @@ mod tests {
     #[test]
     fn format_config_json_parity() {
         replay(
-            "P11",
             "configDraft/formatConfigJson",
             |case: &Case| -> Result<String, String> {
                 format_config_json(case.arg_str(0)?).map_err(|error| error.to_string())

@@ -80,7 +80,7 @@ The Rust workspace lives in `crates/`. Lower crates never depend on higher ones:
 | `crates/client` | The daemon client (start-up, ping, stale socket handling, protocol-mismatch refusal), live subscriptions and attach streaming |
 | `crates/ui` | The ratatui app: state and effects, the screens (create, merge, settings, notes, tasks, worktrees, agents, help), panes, keymaps and theme |
 | `crates/deckhand` | The binary: command-line dispatch, the UI loop and the hand-off to attach or your editor, plus `hook`, `hooks`, `setup` and `doctor` |
-| `crates/parity` | Test-only: replays fixtures recorded from the earlier TypeScript version to check identical behaviour |
+| `crates/testkit` | Test-only: replays fixtures recorded from the earlier TypeScript version to check identical behaviour |
 | `crates/e2e` | Test-only: drives the built binary with a real daemon, fake agents and the dev launcher |
 
 To build and test, see the README's Development section and [the isolated dev build](dev-build.md).

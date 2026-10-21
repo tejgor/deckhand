@@ -995,13 +995,12 @@ pub async fn read_candidate_sizes(cwd: &str, paths: &[String]) -> Result<Candida
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, Outcome, replay, replay_async};
+    use deckhand_testkit::{Case, Outcome, replay, replay_async};
     use serde_json::json;
 
     #[test]
     fn classify_candidate_parity() {
         replay(
-            "I7",
             "settingsInfo/classifyCandidate",
             |case: &Case| -> std::result::Result<Value, String> {
                 let class = classify_candidate(case.arg_str(0)?);
@@ -1013,7 +1012,6 @@ mod tests {
     #[test]
     fn codex_hook_commands_parity() {
         replay(
-            "I7",
             "settingsInfo/codexHookCommands",
             |case: &Case| -> std::result::Result<Vec<String>, String> {
                 let text = |index: usize| -> std::result::Result<Option<String>, String> {
@@ -1032,13 +1030,12 @@ mod tests {
     #[test]
     fn codex_hook_state_parity() {
         replay(
-            "I7",
             "settingsInfo/codexHookState",
             |case: &Case| -> std::result::Result<Value, String> {
                 let commands: Vec<String> = case.arg_as(0)?;
                 Ok(match codex_hook_state(&commands, case.arg_str(1)?) {
                     Some(state) => json!(state),
-                    None => deckhand_parity::tags::undefined(),
+                    None => deckhand_testkit::tags::undefined(),
                 })
             },
         );
@@ -1046,7 +1043,7 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn read_candidate_sizes_parity() {
-        replay_async("I7", "settingsInfo/readCandidateSizes", |case: &Case| {
+        replay_async("settingsInfo/readCandidateSizes", |case: &Case| {
             let case = case.clone();
             async move {
                 let cwd = match case.arg_str(0) {

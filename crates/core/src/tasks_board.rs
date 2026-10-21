@@ -1200,10 +1200,8 @@ mod tests {
     use crate::jsstr::date;
     use crate::session_features::tests::{partial_session, session as sess, sessions_arg};
     use crate::tasks::parse_tasks;
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::{Map, Value, json};
-
-    const UNIT: &str = "P6";
 
     // ── Fixture plumbing ──────────────────────────────────────────────────────────────────────────────────────
 
@@ -1230,7 +1228,7 @@ mod tests {
         }
     }
 
-    /// The TS `stepsOf` callbacks the fixtures pass (parity/gen/tasksBoard.gen.ts).
+    /// The TS `stepsOf` callbacks the fixtures pass.
     fn steps_fixed(section: &str) -> Vec<WorkStep> {
         let step = |line: usize, text: &str, done: bool| WorkStep {
             line,
@@ -1946,21 +1944,21 @@ mod tests {
 
     #[test]
     fn selectable_row_parity() {
-        replay(UNIT, "tasksBoard/selectableRow", |case: &Case| {
+        replay("tasksBoard/selectableRow", |case: &Case| {
             row_from(case.arg(0)).map(|row| selectable_row(&row))
         });
     }
 
     #[test]
     fn row_key_parity() {
-        replay(UNIT, "tasksBoard/rowKey", |case: &Case| -> Result<Value, String> {
+        replay("tasksBoard/rowKey", |case: &Case| -> Result<Value, String> {
             Ok(row_key(&row_from(case.arg(0))?).map_or_else(tags::undefined, Value::String))
         });
     }
 
     #[test]
     fn work_note_parity() {
-        replay(UNIT, "tasksBoard/workNote", |case: &Case| -> Result<Value, String> {
+        replay("tasksBoard/workNote", |case: &Case| -> Result<Value, String> {
             let sessions = sessions_arg(case.arg(1))?;
             Ok(work_note(case.arg_str(0)?, &sessions).map_or_else(tags::undefined, |note| json!(note)))
         });
@@ -1968,21 +1966,19 @@ mod tests {
 
     #[test]
     fn step_count_parity() {
-        replay(UNIT, "tasksBoard/stepCount", |case: &Case| {
+        replay("tasksBoard/stepCount", |case: &Case| {
             case.arg_as::<Vec<WorkStep>>(0).map(|steps| step_count(&steps))
         });
     }
 
     #[test]
     fn note_steps_parity() {
-        replay(UNIT, "tasksBoard/noteSteps", |case: &Case| {
-            opt_str(case, 0).map(note_steps)
-        });
+        replay("tasksBoard/noteSteps", |case: &Case| opt_str(case, 0).map(note_steps));
     }
 
     #[test]
     fn board_rows_parity() {
-        replay(UNIT, "tasksBoard/boardRows", |case: &Case| -> Result<Value, String> {
+        replay("tasksBoard/boardRows", |case: &Case| -> Result<Value, String> {
             let tasks = tasks_arg(case.arg(0))?;
             let now = if case.arg_is_undefined(2) {
                 FIXED_NOW.to_owned()
@@ -2003,7 +1999,7 @@ mod tests {
 
     #[test]
     fn has_main_task_parity() {
-        replay(UNIT, "tasksBoard/hasMainTask", |case: &Case| -> Result<bool, String> {
+        replay("tasksBoard/hasMainTask", |case: &Case| -> Result<bool, String> {
             let tasks = tasks_arg(case.arg(1))?;
             Ok(has_main_task(case.arg_str(0)?, &tasks, opt_str(case, 2)?))
         });
@@ -2011,58 +2007,50 @@ mod tests {
 
     #[test]
     fn task_sessions_parity() {
-        replay(
-            UNIT,
-            "tasksBoard/taskSessions",
-            |case: &Case| -> Result<Value, String> {
-                let task = task_arg(case.arg(0))?;
-                let sessions = sessions_arg(case.arg(1))?;
-                let found = task_sessions(&task, &sessions);
-                Ok(Value::Array(
-                    found
-                        .into_iter()
-                        .map(|item| given(case.arg(1), index_in(&sessions, item)))
-                        .collect(),
-                ))
-            },
-        );
+        replay("tasksBoard/taskSessions", |case: &Case| -> Result<Value, String> {
+            let task = task_arg(case.arg(0))?;
+            let sessions = sessions_arg(case.arg(1))?;
+            let found = task_sessions(&task, &sessions);
+            Ok(Value::Array(
+                found
+                    .into_iter()
+                    .map(|item| given(case.arg(1), index_in(&sessions, item)))
+                    .collect(),
+            ))
+        });
     }
 
     #[test]
     fn work_sessions_parity() {
-        replay(
-            UNIT,
-            "tasksBoard/workSessions",
-            |case: &Case| -> Result<Value, String> {
-                let sessions = sessions_arg(case.arg(1))?;
-                let found = work_sessions(case.arg_str(0)?, &sessions);
-                Ok(Value::Array(
-                    found
-                        .into_iter()
-                        .map(|item| given(case.arg(1), index_in(&sessions, item)))
-                        .collect(),
-                ))
-            },
-        );
+        replay("tasksBoard/workSessions", |case: &Case| -> Result<Value, String> {
+            let sessions = sessions_arg(case.arg(1))?;
+            let found = work_sessions(case.arg_str(0)?, &sessions);
+            Ok(Value::Array(
+                found
+                    .into_iter()
+                    .map(|item| given(case.arg(1), index_in(&sessions, item)))
+                    .collect(),
+            ))
+        });
     }
 
     #[test]
     fn work_key_of_parity() {
-        replay(UNIT, "tasksBoard/workKeyOf", |case: &Case| {
+        replay("tasksBoard/workKeyOf", |case: &Case| {
             partial_session(case.arg(0)).map(|session| work_key_of(&session))
         });
     }
 
     #[test]
     fn work_label_parity() {
-        replay(UNIT, "tasksBoard/workLabel", |case: &Case| -> Result<String, String> {
+        replay("tasksBoard/workLabel", |case: &Case| -> Result<String, String> {
             Ok(work_label(case.arg_str(0)?, &sessions_arg(case.arg(1))?))
         });
     }
 
     #[test]
     fn picker_view_of_parity() {
-        replay(UNIT, "tasksBoard/pickerViewOf", |case: &Case| {
+        replay("tasksBoard/pickerViewOf", |case: &Case| {
             opt_str(case, 0).map(picker_view_of)
         });
     }
@@ -2070,7 +2058,6 @@ mod tests {
     #[test]
     fn work_options_parity() {
         replay(
-            UNIT,
             "tasksBoard/workOptions",
             |case: &Case| -> Result<Vec<WorkOption>, String> {
                 Ok(work_options(&sessions_arg(case.arg(0))?, opt_str(case, 1)?))
@@ -2081,7 +2068,6 @@ mod tests {
     #[test]
     fn picker_rows_parity() {
         replay(
-            UNIT,
             "tasksBoard/pickerRows",
             |case: &Case| -> Result<Vec<WorkOption>, String> {
                 let options: Vec<WorkOption> = case.arg_as(0)?;
@@ -2098,7 +2084,6 @@ mod tests {
     #[test]
     fn picker_counts_parity() {
         replay(
-            UNIT,
             "tasksBoard/pickerCounts",
             |case: &Case| -> Result<PickerCounts, String> {
                 let options: Vec<WorkOption> = case.arg_as(0)?;
@@ -2109,7 +2094,7 @@ mod tests {
 
     #[test]
     fn task_origin_parity() {
-        replay(UNIT, "tasksBoard/taskOrigin", |case: &Case| -> Result<Value, String> {
+        replay("tasksBoard/taskOrigin", |case: &Case| -> Result<Value, String> {
             let task = task_arg(case.arg(0))?;
             let sessions = sessions_arg(case.arg(1))?;
             Ok(task_origin(&task, &sessions).map_or_else(tags::undefined, Value::String))
@@ -2118,7 +2103,7 @@ mod tests {
 
     #[test]
     fn lead_session_parity() {
-        replay(UNIT, "tasksBoard/leadSession", |case: &Case| -> Result<Value, String> {
+        replay("tasksBoard/leadSession", |case: &Case| -> Result<Value, String> {
             let sessions = sessions_arg(case.arg(0))?;
             Ok(lead_session(&sessions)
                 .map_or_else(tags::undefined, |lead| given(case.arg(0), index_in(&sessions, lead))))
@@ -2127,7 +2112,7 @@ mod tests {
 
     #[test]
     fn linked_tasks_parity() {
-        replay(UNIT, "tasksBoard/linkedTasks", |case: &Case| -> Result<Value, String> {
+        replay("tasksBoard/linkedTasks", |case: &Case| -> Result<Value, String> {
             let tasks = tasks_arg(case.arg(0))?;
             let session = session_or_none(case, 1)?;
             let found = linked_tasks(&tasks, session.as_ref());
@@ -2142,7 +2127,7 @@ mod tests {
 
     #[test]
     fn linked_task_parity() {
-        replay(UNIT, "tasksBoard/linkedTask", |case: &Case| -> Result<Value, String> {
+        replay("tasksBoard/linkedTask", |case: &Case| -> Result<Value, String> {
             let tasks = tasks_arg(case.arg(0))?;
             let session = session_or_none(case, 1)?;
             Ok(linked_task(&tasks, session.as_ref())
@@ -2152,52 +2137,40 @@ mod tests {
 
     #[test]
     fn other_open_tasks_parity() {
-        replay(
-            UNIT,
-            "tasksBoard/otherOpenTasks",
-            |case: &Case| -> Result<usize, String> {
-                let tasks = tasks_arg(case.arg(0))?;
-                let session = session_or_none(case, 1)?;
-                Ok(other_open_tasks(&tasks, session.as_ref()))
-            },
-        );
+        replay("tasksBoard/otherOpenTasks", |case: &Case| -> Result<usize, String> {
+            let tasks = tasks_arg(case.arg(0))?;
+            let session = session_or_none(case, 1)?;
+            Ok(other_open_tasks(&tasks, session.as_ref()))
+        });
     }
 
     #[test]
     fn task_state_parity() {
-        replay(
-            UNIT,
-            "tasksBoard/taskState",
-            |case: &Case| -> Result<TaskState, String> {
-                let task = task_arg(case.arg(0))?;
-                let sessions = sessions_arg(case.arg(1))?;
-                let all = sessions_or_none(case, 3)?;
-                Ok(task_state(&task, &sessions, case.arg_str(2)?, all.as_deref()))
-            },
-        );
+        replay("tasksBoard/taskState", |case: &Case| -> Result<TaskState, String> {
+            let task = task_arg(case.arg(0))?;
+            let sessions = sessions_arg(case.arg(1))?;
+            let all = sessions_or_none(case, 3)?;
+            Ok(task_state(&task, &sessions, case.arg_str(2)?, all.as_deref()))
+        });
     }
 
     #[test]
     fn work_state_parity() {
-        replay(
-            UNIT,
-            "tasksBoard/workState",
-            |case: &Case| -> Result<TaskState, String> {
-                let sessions = sessions_arg(case.arg(1))?;
-                let all = sessions_or_none(case, 3)?;
-                Ok(work_state(
-                    case.arg_str(0)?,
-                    &sessions,
-                    case.arg_str(2)?,
-                    all.as_deref(),
-                ))
-            },
-        );
+        replay("tasksBoard/workState", |case: &Case| -> Result<TaskState, String> {
+            let sessions = sessions_arg(case.arg(1))?;
+            let all = sessions_or_none(case, 3)?;
+            Ok(work_state(
+                case.arg_str(0)?,
+                &sessions,
+                case.arg_str(2)?,
+                all.as_deref(),
+            ))
+        });
     }
 
     #[test]
     fn note_blocks_parity() {
-        replay(UNIT, "tasksBoard/noteBlocks", |case: &Case| {
+        replay("tasksBoard/noteBlocks", |case: &Case| {
             sessions_arg(case.arg(0)).map(|sessions| note_blocks(&sessions))
         });
     }
@@ -2205,7 +2178,6 @@ mod tests {
     #[test]
     fn block_items_parity() {
         replay(
-            UNIT,
             "tasksBoard/blockItems",
             |case: &Case| -> Result<Vec<NoteItem>, String> {
                 let block: NoteBlock = case.arg_as(0)?;
@@ -2216,7 +2188,7 @@ mod tests {
 
     #[test]
     fn note_items_parity() {
-        replay(UNIT, "tasksBoard/noteItems", |case: &Case| {
+        replay("tasksBoard/noteItems", |case: &Case| {
             sessions_arg(case.arg(0)).map(|sessions| note_items(&sessions))
         });
     }
@@ -2224,28 +2196,24 @@ mod tests {
     #[test]
     fn task_link_lookup_parity() {
         // The fixture applies the lookup to a list of ids (a closure cannot be recorded).
-        replay(
-            UNIT,
-            "tasksBoard/taskLinkLookup",
-            |case: &Case| -> Result<Value, String> {
-                let tasks = if case.arg_is_undefined(0) {
-                    None
-                } else {
-                    Some(tasks_arg(case.arg(0))?)
-                };
-                let ids: Vec<String> = case.arg_as(1)?;
-                Ok(
-                    task_link_lookup(tasks.as_deref()).map_or_else(tags::undefined, |lookup| {
-                        json!(ids.iter().map(|id| lookup(id)).collect::<Vec<_>>())
-                    }),
-                )
-            },
-        );
+        replay("tasksBoard/taskLinkLookup", |case: &Case| -> Result<Value, String> {
+            let tasks = if case.arg_is_undefined(0) {
+                None
+            } else {
+                Some(tasks_arg(case.arg(0))?)
+            };
+            let ids: Vec<String> = case.arg_as(1)?;
+            Ok(
+                task_link_lookup(tasks.as_deref()).map_or_else(tags::undefined, |lookup| {
+                    json!(ids.iter().map(|id| lookup(id)).collect::<Vec<_>>())
+                }),
+            )
+        });
     }
 
     #[test]
     fn note_line_parity() {
-        replay(UNIT, "tasksBoard/noteLine", |case: &Case| -> Result<Value, String> {
+        replay("tasksBoard/noteLine", |case: &Case| -> Result<Value, String> {
             let links = links_fn(case.arg(1))?;
             Ok(note_line(case.arg_str(0)?, links).map_or_else(tags::undefined, |view| json!(view)))
         });
@@ -2253,40 +2221,32 @@ mod tests {
 
     #[test]
     fn notes_view_rows_parity() {
-        replay(
-            UNIT,
-            "tasksBoard/notesViewRows",
-            |case: &Case| -> Result<Value, String> {
-                let sessions = sessions_arg(case.arg(0))?;
-                let object = case.arg(1).as_object().cloned().unwrap_or_default();
-                let links = match object.get("links") {
-                    Some(value) => links_fn(value)?,
-                    None => None,
-                };
-                let options = NotesViewOptions {
-                    items_only: object.get("itemsOnly").and_then(Value::as_bool).unwrap_or(false),
-                    scope: object.get("scope").and_then(Value::as_str),
-                    links,
-                };
-                Ok(rows_value(&notes_view_rows(&sessions, &options)))
-            },
-        );
+        replay("tasksBoard/notesViewRows", |case: &Case| -> Result<Value, String> {
+            let sessions = sessions_arg(case.arg(0))?;
+            let object = case.arg(1).as_object().cloned().unwrap_or_default();
+            let links = match object.get("links") {
+                Some(value) => links_fn(value)?,
+                None => None,
+            };
+            let options = NotesViewOptions {
+                items_only: object.get("itemsOnly").and_then(Value::as_bool).unwrap_or(false),
+                scope: object.get("scope").and_then(Value::as_str),
+                links,
+            };
+            Ok(rows_value(&notes_view_rows(&sessions, &options)))
+        });
     }
 
     #[test]
     fn note_group_label_parity() {
-        replay(
-            UNIT,
-            "tasksBoard/noteGroupLabel",
-            |case: &Case| -> Result<String, String> {
-                Ok(note_group_label(case.arg_str(0)?, &sessions_arg(case.arg(1))?))
-            },
-        );
+        replay("tasksBoard/noteGroupLabel", |case: &Case| -> Result<String, String> {
+            Ok(note_group_label(case.arg_str(0)?, &sessions_arg(case.arg(1))?))
+        });
     }
 
     #[test]
     fn task_count_label_parity() {
-        replay(UNIT, "tasksBoard/taskCountLabel", |case: &Case| {
+        replay("tasksBoard/taskCountLabel", |case: &Case| {
             tasks_arg(case.arg(0)).map(|tasks| task_count_label(&tasks))
         });
     }
@@ -2294,7 +2254,6 @@ mod tests {
     #[test]
     fn worktree_open_items_parity() {
         replay(
-            UNIT,
             "tasksBoard/worktreeOpenItems",
             |case: &Case| -> Result<Vec<String>, String> {
                 Ok(worktree_open_items(opt_str(case, 0)?, &sessions_arg(case.arg(1))?))
@@ -2305,7 +2264,6 @@ mod tests {
     #[test]
     fn open_items_removed_with_parity() {
         replay(
-            UNIT,
             "tasksBoard/openItemsRemovedWith",
             |case: &Case| -> Result<Vec<String>, String> {
                 let session = partial_session(case.arg(0))?;

@@ -386,7 +386,7 @@ pub fn merge_worktree_settings(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, Outcome, replay};
+    use deckhand_testkit::{Case, Outcome, replay};
 
     fn vars(case: &Case, index: usize) -> std::result::Result<TemplateVars, String> {
         case.arg_as(index)
@@ -399,7 +399,7 @@ mod tests {
 
     #[test]
     fn expand_worktree_template_parity() {
-        replay("P2", "worktreeLinks-P2/expandWorktreeTemplate", |case: &Case| {
+        replay("worktreeLinks-P2/expandWorktreeTemplate", |case: &Case| {
             port(|| {
                 Ok(match expand_worktree_template(case.arg_str(0)?, &vars(case, 1)?) {
                     Ok(value) => Outcome::ret(value),
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn worktree_location_parity() {
-        replay("P2", "worktreeLinks-P2/worktreeLocation", |case: &Case| {
+        replay("worktreeLinks-P2/worktreeLocation", |case: &Case| {
             port(|| {
                 Ok(match worktree_location(case.arg_str(0)?, &vars(case, 1)?) {
                     Ok(value) => Outcome::ret(value),
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn expand_branch_name_parity() {
-        replay("P2", "worktreeLinks-P2/expandBranchName", |case: &Case| {
+        replay("worktreeLinks-P2/expandBranchName", |case: &Case| {
             port(|| {
                 let bvars: IndexMap<String, String> = case.arg_as(1)?;
                 let get = |key: &str| bvars.get(key).map_or("", String::as_str);
@@ -441,11 +441,11 @@ mod tests {
 
     #[test]
     fn branch_name_problem_parity() {
-        replay("P2", "worktreeLinks-P2/branchNameProblem", |case: &Case| {
+        replay("worktreeLinks-P2/branchNameProblem", |case: &Case| {
             port(|| {
                 Ok(match branch_name_problem(case.arg_str(0)?) {
                     Some(problem) => Outcome::ret(problem),
-                    None => Outcome::ret(deckhand_parity::tags::undefined()),
+                    None => Outcome::ret(deckhand_testkit::tags::undefined()),
                 })
             })
         });
@@ -453,18 +453,18 @@ mod tests {
 
     #[test]
     fn valid_relative_path_parity() {
-        replay("P2", "worktreeLinks-P2/validRelativePath", |case: &Case| {
+        replay("worktreeLinks-P2/validRelativePath", |case: &Case| {
             Ok::<_, String>(case.arg(0).as_str().is_some_and(valid_relative_path))
         });
     }
 
     #[test]
     fn validate_worktree_settings_parity() {
-        replay("P2", "worktreeLinks-P2/validateWorktreeSettings", |case: &Case| {
+        replay("worktreeLinks-P2/validateWorktreeSettings", |case: &Case| {
             let value = if case.arg_is_undefined(0) {
                 Value::Null
             } else {
-                deckhand_parity::tags::untag(case.arg(0))
+                deckhand_testkit::tags::untag(case.arg(0))
             };
             match validate_worktree_settings(&value) {
                 Ok(settings) => Outcome::ret(settings),
@@ -475,7 +475,7 @@ mod tests {
 
     #[test]
     fn merge_worktree_settings_parity() {
-        replay("P2", "worktreeLinks-P2/mergeWorktreeSettings", |case: &Case| {
+        replay("worktreeLinks-P2/mergeWorktreeSettings", |case: &Case| {
             port(|| {
                 let settings = |index: usize| -> std::result::Result<Option<WorktreeSettings>, String> {
                     if case.arg_is_undefined(index) {
@@ -487,7 +487,7 @@ mod tests {
                 let merged = merge_worktree_settings(settings(0)?.as_ref(), settings(1)?.as_ref());
                 Ok(match merged {
                     Some(merged) => Outcome::ret(merged),
-                    None => Outcome::ret(deckhand_parity::tags::undefined()),
+                    None => Outcome::ret(deckhand_testkit::tags::undefined()),
                 })
             })
         });

@@ -2350,7 +2350,7 @@ mod tests {
         text.push(flow.hint(props, 130));
         text.push("── styles".to_owned());
         text.extend(style_rows(&buf));
-        deckhand_parity::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &text.join("\n"));
+        deckhand_testkit::assert_snapshot(format!("fixtures/ui/panes/{name}.txt"), &text.join("\n"));
     }
 
     fn editor(kind: TaskEditorKind, field: TaskEditorField, title: &str, body: &str) -> TaskEditor {

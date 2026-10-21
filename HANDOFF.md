@@ -44,7 +44,7 @@ Implemented behavior:
 | `crates/client` (`deckhand-client`) | Daemon client (autostart, ping, stale socket handling, protocol-mismatch refusal), live subscriptions, attach streaming and terminal state | `client.ts`, `attach.ts` |
 | `crates/ui` (`deckhand-ui`) | The ratatui app: state and effects (`app`), flows (create, merge, settings, notes, tasks, worktrees, agents, help), panes, keymap/input, theme | `app.tsx`, `*Flow.tsx`, `*Pane.tsx`, `ui.ts` |
 | `crates/deckhand` (`deckhand`) | The binary: argv dispatch (`cli`), the UI loop and attach/`$EDITOR` hand-off (`ui_loop`), `hook`, `hooks`, `setup`, `doctor`, the production-home `guard` | `cli.ts`, `setup.ts` |
-| `crates/parity` (`deckhand-parity`) | Test-only: replays the fixtures (first recorded from the TS) and checks text snapshots; `DECKHAND_BLESS=1` updates both | `parity/` |
+| `crates/testkit` (`deckhand-testkit`) | Test-only: replays the fixtures (first recorded from the TS) and checks text snapshots; `DECKHAND_BLESS=1` updates both | `parity/` |
 | `crates/e2e` (`deckhand-e2e`) | Test-only: drives the built binary with a real daemon, fake agents and the dev launcher | `tests/*.test.ts` |
 
 Dependency direction: `protocol` and `core` at the bottom, `sys` and `term` above them, then `worker`, `daemon`, `client`, `ui`, and the binary on top. `core` does no I/O: anything that touches the disk, Git or a process belongs in `sys`.

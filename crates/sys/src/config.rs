@@ -290,24 +290,18 @@ pub(crate) mod tests {
     use crate::git::create_worktree_for_session;
     use crate::storage::tests::{Home, block_on};
     use deckhand_core::project_config::{project_needs_review, resolve_settings, trust_project_config};
-    use deckhand_parity::{DirOp, Outcome, Replay, dir_cases, tags};
     use deckhand_protocol::data::{ConfigTargetKind, WorktreeCreator};
+    use deckhand_testkit::{DirOp, Outcome, Replay, dir_cases, tags};
     use serde_json::{Value, json};
     use std::process::Command;
 
-    pub(crate) const UNIT: &str = "I6";
-
-    /// Replays every directory case of `module` listed in the manifest; fails with every failing case's summary.
+    /// Replays every directory case of `module`; fails with every failing case's summary.
     pub(crate) fn replay_dir_cases(module: &str, mut port: impl FnMut(&Path, &DirOp) -> Outcome) {
-        let manifest = deckhand_parity::Manifest::load(UNIT).expect("manifest");
-        let cases: Vec<String> = dir_cases(module)
-            .into_iter()
-            .filter(|case| manifest.fixtures.contains(case))
-            .collect();
+        let cases = dir_cases(module);
         assert!(!cases.is_empty(), "no directory cases for {module}");
         let mut failed = Vec::new();
         for fixture in cases {
-            let report = Replay::new(UNIT, &fixture).run_dir(&mut port);
+            let report = Replay::new(&fixture).run_dir(&mut port);
             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| report.assert_ok())).is_err() {
                 failed.push(report.summary());
             }

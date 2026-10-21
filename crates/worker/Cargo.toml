@@ -23,5 +23,5 @@ libc = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-deckhand-parity = { workspace = true }
+deckhand-testkit = { workspace = true }
 tempfile = { workspace = true }

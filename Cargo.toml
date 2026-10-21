@@ -18,7 +18,7 @@ deckhand-worker = { path = "crates/worker" }
 deckhand-daemon = { path = "crates/daemon" }
 deckhand-client = { path = "crates/client" }
 deckhand-ui = { path = "crates/ui" }
-deckhand-parity = { path = "crates/parity" }
+deckhand-testkit = { path = "crates/testkit" }
 
 tokio = { version = "1", features = ["rt", "net", "io-util", "time", "process", "signal", "macros", "sync", "fs"] }
 tokio-util = { version = "0.7", features = ["codec"] }

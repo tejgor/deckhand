@@ -212,7 +212,7 @@ async fn integration_args_with(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{DirOp, replay, replay_dir};
+    use deckhand_testkit::{DirOp, replay, replay_dir};
     use serde_json::Value;
 
     /// TS records node's path as `$EXEC` and the CLI entry as `$CLI` (`$TSX`: the dev loader); the Rust binary is
@@ -221,7 +221,7 @@ mod tests {
     const DEV_PARTS: [&str; 4] = ["$EXEC", "--import", "$TSX", "$CLI"];
 
     /// JS truthiness of `options.async` (undefined options: no).
-    fn async_option(case: &deckhand_parity::Case) -> bool {
+    fn async_option(case: &deckhand_testkit::Case) -> bool {
         match case.arg(0).get("async") {
             None | Some(Value::Null) | Some(Value::Bool(false)) => false,
             Some(Value::Number(n)) => n.as_f64().is_some_and(|n| n != 0.0 && !n.is_nan()),
@@ -233,26 +233,22 @@ mod tests {
 
     #[test]
     fn hook_command_parity() {
-        replay("I7", "agentSignals-I7/hookCommand", |_| -> Result<String> {
+        replay("agentSignals-I7/hookCommand", |_| -> Result<String> {
             Ok(hook_command_from(&PROD_PARTS))
         });
-        replay("I7", "agentSignals-I7/hookCommandDev", |_| -> Result<String> {
+        replay("agentSignals-I7/hookCommandDev", |_| -> Result<String> {
             Ok(hook_command_from(&DEV_PARTS))
         });
     }
 
     #[test]
     fn hook_settings_parity() {
-        replay("I7", "agentSignals-I7/hookSettings", |case| -> Result<HookSettings> {
+        replay("agentSignals-I7/hookSettings", |case| -> Result<HookSettings> {
             Ok(hook_settings_for(&hook_command_from(&PROD_PARTS), async_option(case)))
         });
-        replay(
-            "I7",
-            "agentSignals-I7/hookSettingsDev",
-            |case| -> Result<HookSettings> {
-                Ok(hook_settings_for(&hook_command_from(&DEV_PARTS), async_option(case)))
-            },
-        );
+        replay("agentSignals-I7/hookSettingsDev", |case| -> Result<HookSettings> {
+            Ok(hook_settings_for(&hook_command_from(&DEV_PARTS), async_option(case)))
+        });
     }
 
     fn run_integration_case(op: &DirOp) -> std::result::Result<Vec<String>, String> {
@@ -283,10 +279,10 @@ mod tests {
 
     #[test]
     fn integration_args_parity() {
-        let cases = deckhand_parity::dir_cases("agentSignals-I7");
+        let cases = deckhand_testkit::dir_cases("agentSignals-I7");
         assert!(!cases.is_empty());
         for fixture in cases {
-            replay_dir("I7", &fixture, |_root, op| run_integration_case(op));
+            replay_dir(&fixture, |_root, op| run_integration_case(op));
         }
     }
 

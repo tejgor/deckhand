@@ -172,7 +172,7 @@ pub fn render_config_editor_pane(
 mod tests {
     use super::*;
     use crate::panes::settings::test_support::styled_lines;
-    use deckhand_parity::{Case, replay};
+    use deckhand_testkit::{Case, replay};
     use serde_json::Value;
 
     fn render(case: &Case) -> Result<Vec<String>, String> {
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn config_editor_pane_render_parity() {
-        replay("U5", "configEditorPane/render", render);
+        replay("configEditorPane/render", render);
     }
 
     #[test]

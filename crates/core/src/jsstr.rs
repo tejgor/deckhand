@@ -201,7 +201,7 @@ pub fn json_stringify_str(text: &str) -> String {
 /// not numeric): primary weights (base letters, with punctuation and symbols before digits before letters), then
 /// accents, then case and width (lowercase first). Strings equal at all three levels compare equal, as in JS.
 ///
-/// The weights are measured from Node by `tests/data/gen_collation.mjs` for Latin, Greek, Cyrillic, the other
+/// The weights are measured from Node for Latin, Greek, Cyrillic, the other
 /// scripts below U+2000, punctuation, symbols, kana, BMP Han (ICU's radical-stroke order), fullwidth forms and emoji;
 /// Hangul syllables decompose to their jamo. Anything else (Han beyond the BMP included, which ICU interleaves with
 /// BMP Han) sorts after the table by code point, as UCA's implicit weights do. Thai and other scripts with
@@ -1017,7 +1017,7 @@ pub mod date {
 
 #[cfg(test)]
 mod tests {
-    use deckhand_parity::strategies::unicode_text;
+    use deckhand_testkit::strategies::unicode_text;
     use proptest::prelude::*;
 
     use super::*;

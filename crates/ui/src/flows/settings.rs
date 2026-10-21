@@ -1965,7 +1965,7 @@ mod tests {
 
     use deckhand_client::live::LiveClientHandlers;
     use deckhand_core::key::Key;
-    use deckhand_parity::{Case, replay};
+    use deckhand_testkit::{Case, replay};
     use serde_json::json;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::UnixStream;
@@ -1980,7 +1980,6 @@ mod tests {
     #[test]
     fn is_settings_flow_mode_parity() {
         replay(
-            "F4",
             "settingsFlow/isSettingsFlowMode",
             |case: &Case| -> Result<bool, String> {
                 // A string with a lone surrogate (not a Rust string) names no mode either.

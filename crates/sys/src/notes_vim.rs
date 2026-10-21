@@ -251,23 +251,20 @@ mod tests {
     use std::process::{Command, ExitStatus, Stdio};
     use std::time::{Duration, Instant};
 
-    use deckhand_parity::{Case, DirOp, replay, replay_dir};
+    use deckhand_testkit::{Case, DirOp, replay, replay_dir};
 
     use super::*;
     use crate::notes_store::tests::Home;
 
-    const UNIT: &str = "I2";
-
     #[test]
     fn notes_vim_script_parity() {
-        replay(UNIT, "notesVim/NOTES_VIM_SCRIPT", |_: &Case| {
+        replay("notesVim/NOTES_VIM_SCRIPT", |_: &Case| {
             Ok::<_, String>(NOTES_VIM_SCRIPT)
         });
     }
 
     fn replay_write(name: &str) {
         replay_dir(
-            UNIT,
             &format!("notesVim/{name}"),
             |root: &Path, op: &DirOp| -> Result<String, String> {
                 if op.fn_name != "writeNotesVimScript" {

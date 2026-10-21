@@ -576,7 +576,7 @@ pub fn open_checklist_text(session: &SessionRecord, width: usize) -> Option<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::{Value, json};
 
     /// `undefined` for `None`, as TS returns it.
@@ -662,7 +662,7 @@ mod tests {
         list.iter().map(|(text, kind)| row((*text).to_owned(), *kind)).collect()
     }
 
-    /// The `linkById` lookup the fixtures record (parity/gen/notes.gen.ts).
+    /// The `linkById` lookup the fixtures record.
     fn link_by_id(id: &str) -> TaskLinkState {
         match id.chars().next() {
             Some(first) if first.is_ascii_digit() => TaskLinkState::Done,
@@ -675,7 +675,7 @@ mod tests {
 
     #[test]
     fn note_revision_parity() {
-        replay("P3", "notes/noteRevision", |case: &Case| {
+        replay("notes/noteRevision", |case: &Case| {
             // Node hashes a lone surrogate as U+FFFD, which is what the lossy untag gives.
             let text = tags::untag(case.arg(0));
             Ok::<_, String>(note_revision(text.as_str().ok_or("text")?))
@@ -684,28 +684,28 @@ mod tests {
 
     #[test]
     fn repo_note_id_parity() {
-        replay("P3", "notes/repoNoteId", |case: &Case| {
+        replay("notes/repoNoteId", |case: &Case| {
             Ok::<_, String>(repo_note_id(case.arg_str(0)?))
         });
     }
 
     #[test]
     fn shared_note_identity_parity() {
-        replay("P3", "notes/sharedNoteIdentity", |case: &Case| {
+        replay("notes/sharedNoteIdentity", |case: &Case| {
             Ok::<_, String>(maybe(shared_note_identity(&partial_session(case.arg(0))?)))
         });
     }
 
     #[test]
     fn shows_own_note_parity() {
-        replay("P3", "notes/showsOwnNote", |case: &Case| {
+        replay("notes/showsOwnNote", |case: &Case| {
             Ok::<_, String>(shows_own_note(&partial_session(case.arg(0))?))
         });
     }
 
     #[test]
     fn merge_into_worktree_note_parity() {
-        replay("P3", "notes/mergeIntoWorktreeNote", |case: &Case| {
+        replay("notes/mergeIntoWorktreeNote", |case: &Case| {
             let notes: Vec<TitledNote> = case.arg_as(1)?;
             Ok::<_, String>(merge_into_worktree_note(case.arg_str(0)?, &notes))
         });
@@ -713,7 +713,7 @@ mod tests {
 
     #[test]
     fn note_key_parity() {
-        replay("P3", "notes/noteKey", |case: &Case| {
+        replay("notes/noteKey", |case: &Case| {
             let section = section(case.arg(1)).ok_or("section")?;
             Ok::<_, String>(maybe(note_key(&partial_session(case.arg(0))?, section)))
         });
@@ -721,14 +721,14 @@ mod tests {
 
     #[test]
     fn parse_checklist_line_parity() {
-        replay("P3", "notes/parseChecklistLine", |case: &Case| {
+        replay("notes/parseChecklistLine", |case: &Case| {
             Ok::<_, String>(maybe(parse_checklist_line(case.arg_str(0)?)))
         });
     }
 
     #[test]
     fn checklist_counts_parity() {
-        replay("P3", "notes/checklistCounts", |case: &Case| {
+        replay("notes/checklistCounts", |case: &Case| {
             let text = if case.arg_is_undefined(0) {
                 None
             } else {
@@ -740,7 +740,7 @@ mod tests {
 
     #[test]
     fn toggle_checklist_line_parity() {
-        replay("P3", "notes/toggleChecklistLine", |case: &Case| {
+        replay("notes/toggleChecklistLine", |case: &Case| {
             // `lines[line]` is undefined for a negative or fractional index.
             let line = case.arg_f64(1)?;
             let result = if line >= 0.0 && line.fract() == 0.0 {
@@ -754,7 +754,7 @@ mod tests {
 
     #[test]
     fn task_link_suffix_parity() {
-        replay("P3", "notes/taskLinkSuffix", |case: &Case| {
+        replay("notes/taskLinkSuffix", |case: &Case| {
             let state: Option<TaskLinkState> = if case.arg_is_undefined(0) {
                 None
             } else {
@@ -766,42 +766,42 @@ mod tests {
 
     #[test]
     fn linked_task_id_parity() {
-        replay("P3", "notes/linkedTaskId", |case: &Case| {
+        replay("notes/linkedTaskId", |case: &Case| {
             Ok::<_, String>(maybe(linked_task_id(case.arg_str(0)?)))
         });
     }
 
     #[test]
     fn toggle_checklist_parity() {
-        replay("P3", "notes/toggleChecklist", |case: &Case| {
+        replay("notes/toggleChecklist", |case: &Case| {
             Ok::<_, String>(toggle_checklist(&editor_arg(case)?))
         });
     }
 
     #[test]
     fn insert_checklist_item_parity() {
-        replay("P3", "notes/insertChecklistItem", |case: &Case| {
+        replay("notes/insertChecklistItem", |case: &Case| {
             Ok::<_, String>(insert_checklist_item(&editor_arg(case)?))
         });
     }
 
     #[test]
     fn continue_checklist_parity() {
-        replay("P3", "notes/continueChecklist", |case: &Case| {
+        replay("notes/continueChecklist", |case: &Case| {
             Ok::<_, String>(maybe(continue_checklist(&editor_arg(case)?)))
         });
     }
 
     #[test]
     fn visible_text_parity() {
-        replay("P3", "notes/visibleText", |case: &Case| {
+        replay("notes/visibleText", |case: &Case| {
             Ok::<_, String>(visible_text(case.arg_str(0)?))
         });
     }
 
     #[test]
     fn note_read_rows_parity() {
-        replay("P3", "notes/noteReadRows", |case: &Case| {
+        replay("notes/noteReadRows", |case: &Case| {
             let open = |_: &str| TaskLinkState::Open;
             let done = |_: &str| TaskLinkState::Done;
             let gone = |_: &str| TaskLinkState::Gone;
@@ -819,14 +819,14 @@ mod tests {
 
     #[test]
     fn fit_read_rows_parity() {
-        replay("P3", "notes/fitReadRows", |case: &Case| {
+        replay("notes/fitReadRows", |case: &Case| {
             Ok::<_, String>(fit_read_rows(case.arg_as(0)?, count(case, 1)?))
         });
     }
 
     #[test]
     fn budget_sections_parity() {
-        replay("P3", "notes/budgetSections", |case: &Case| {
+        replay("notes/budgetSections", |case: &Case| {
             let shared = if case.arg_is_undefined(1) {
                 None
             } else {
@@ -843,7 +843,7 @@ mod tests {
 
     #[test]
     fn checklist_label_parity() {
-        replay("P3", "notes/checklistLabel", |case: &Case| {
+        replay("notes/checklistLabel", |case: &Case| {
             let text = if case.arg_is_undefined(0) {
                 None
             } else {
@@ -855,7 +855,7 @@ mod tests {
 
     #[test]
     fn fit_first_parity() {
-        replay("P3", "notes/fitFirst", |case: &Case| {
+        replay("notes/fitFirst", |case: &Case| {
             // Rust strings cannot hold lone surrogates: the lossy U+FFFD keeps the UTF-16 length, and a candidate
             // returned whole is answered with its original (tagged) value.
             let candidates: Vec<String> = case.arg_as(0)?;
@@ -870,7 +870,7 @@ mod tests {
 
     #[test]
     fn open_checklist_text_parity() {
-        replay("P3", "notes/openChecklistText", |case: &Case| {
+        replay("notes/openChecklistText", |case: &Case| {
             Ok::<_, String>(maybe(open_checklist_text(
                 &partial_session(case.arg(0))?,
                 count(case, 1)?,

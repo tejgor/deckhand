@@ -1405,8 +1405,8 @@ pub(crate) mod test_repo {
 mod tests {
     use super::test_repo::{repo, temp, tgit, write};
     use super::*;
-    use deckhand_parity::tags::{self, JsValue};
-    use deckhand_parity::{Case, replay};
+    use deckhand_testkit::tags::{self, JsValue};
+    use deckhand_testkit::{Case, replay};
     use std::path::Path;
 
     // Lone UTF-16 surrogates cannot live in a Rust String (and Git output is UTF-8, so the port never sees them). The
@@ -1453,7 +1453,6 @@ mod tests {
     #[test]
     fn parse_status_parity() {
         replay(
-            "I4",
             "workspaceGit/parseStatus",
             |case: &Case| -> std::result::Result<Value, String> {
                 let raw = match tags::decode(case.arg(0))? {

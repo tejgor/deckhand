@@ -613,7 +613,7 @@ pub fn untracked_diff(content: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use deckhand_parity::{Case, Outcome, replay, tags};
+    use deckhand_testkit::{Case, Outcome, replay, tags};
     use serde_json::{Value, json};
 
     use super::*;
@@ -1018,17 +1018,12 @@ mod tests {
 
     #[test]
     fn empty_counts_parity() {
-        replay(
-            "P7",
-            "changesModel/emptyCounts",
-            |_: &Case| Outcome::ret(empty_counts()),
-        );
+        replay("changesModel/emptyCounts", |_: &Case| Outcome::ret(empty_counts()));
     }
 
     #[test]
     fn empty_changes_parity() {
         replay(
-            "P7",
             "changesModel/emptyChanges",
             |case: &Case| -> Result<ChangesRecord, String> {
                 let mut record = empty_changes();
@@ -1047,24 +1042,19 @@ mod tests {
 
     #[test]
     fn parse_numstat_parity() {
-        replay(
-            "P7",
-            "changesModel/parseNumstat",
-            |case: &Case| -> Result<Value, String> {
-                let parsed = parse_numstat(case.arg_str(0)?);
-                let entries = parsed
-                    .into_iter()
-                    .map(|(file, counts)| Ok((json!(file), serde_json::to_value(counts).map_err(|e| e.to_string())?)))
-                    .collect::<Result<Vec<_>, String>>()?;
-                Ok(tags::map(entries))
-            },
-        );
+        replay("changesModel/parseNumstat", |case: &Case| -> Result<Value, String> {
+            let parsed = parse_numstat(case.arg_str(0)?);
+            let entries = parsed
+                .into_iter()
+                .map(|(file, counts)| Ok((json!(file), serde_json::to_value(counts).map_err(|e| e.to_string())?)))
+                .collect::<Result<Vec<_>, String>>()?;
+            Ok(tags::map(entries))
+        });
     }
 
     #[test]
     fn group_changes_parity() {
         replay(
-            "P7",
             "changesModel/groupChanges",
             |case: &Case| -> Result<GroupedChanges, String> {
                 let recorded: Vec<RecordedStatus> = case.arg_as(0)?;
@@ -1104,39 +1094,30 @@ mod tests {
 
     #[test]
     fn change_key_parity() {
-        replay(
-            "P7",
-            "changesModel/changeKey",
-            |case: &Case| -> Result<String, String> { Ok(change_key(&case.arg_as::<ChangeEntry>(0)?)) },
-        );
+        replay("changesModel/changeKey", |case: &Case| -> Result<String, String> {
+            Ok(change_key(&case.arg_as::<ChangeEntry>(0)?))
+        });
     }
 
     #[test]
     fn find_change_parity() {
-        replay(
-            "P7",
-            "changesModel/findChange",
-            |case: &Case| -> Result<Value, String> {
-                let entries: Vec<ChangeEntry> = case.arg_as(0)?;
-                let group: ChangeGroup = case.arg_as(1)?;
-                undefined_or(find_change(&entries, group, case.arg_str(2)?))
-            },
-        );
+        replay("changesModel/findChange", |case: &Case| -> Result<Value, String> {
+            let entries: Vec<ChangeEntry> = case.arg_as(0)?;
+            let group: ChangeGroup = case.arg_as(1)?;
+            undefined_or(find_change(&entries, group, case.arg_str(2)?))
+        });
     }
 
     #[test]
     fn total_changes_parity() {
-        replay(
-            "P7",
-            "changesModel/totalChanges",
-            |case: &Case| -> Result<i64, String> { Ok(total_changes(&case.arg_as(0)?)) },
-        );
+        replay("changesModel/totalChanges", |case: &Case| -> Result<i64, String> {
+            Ok(total_changes(&case.arg_as(0)?))
+        });
     }
 
     #[test]
     fn change_rows_parity() {
         replay(
-            "P7",
             "changesModel/changeRows",
             |case: &Case| -> Result<Vec<ChangeRow>, String> {
                 Ok(change_rows(&record(&case.arg_as::<GroupedChanges>(0)?)))
@@ -1146,7 +1127,7 @@ mod tests {
 
     #[test]
     fn reselect_parity() {
-        replay("P7", "changesModel/reselect", |case: &Case| -> Result<i64, String> {
+        replay("changesModel/reselect", |case: &Case| -> Result<i64, String> {
             let entries: Vec<ChangeEntry> = case.arg_as(0)?;
             let recorded: RecordedSelection = case.arg_as(1)?;
             let previous = PreviousSelection {
@@ -1160,31 +1141,24 @@ mod tests {
 
     #[test]
     fn group_offset_parity() {
-        replay(
-            "P7",
-            "changesModel/groupOffset",
-            |case: &Case| -> Result<usize, String> {
-                let entries: Vec<ChangeEntry> = case.arg_as(0)?;
-                // A negative index reads `entries[-1]`: undefined, like any index past the end.
-                let index = usize::try_from(case.arg_i64(1)?).unwrap_or(usize::MAX);
-                Ok(group_offset(&entries, index))
-            },
-        );
+        replay("changesModel/groupOffset", |case: &Case| -> Result<usize, String> {
+            let entries: Vec<ChangeEntry> = case.arg_as(0)?;
+            // A negative index reads `entries[-1]`: undefined, like any index past the end.
+            let index = usize::try_from(case.arg_i64(1)?).unwrap_or(usize::MAX);
+            Ok(group_offset(&entries, index))
+        });
     }
 
     #[test]
     fn stage_mode_parity() {
-        replay(
-            "P7",
-            "changesModel/stageMode",
-            |case: &Case| -> Result<StageMode, String> { Ok(stage_mode(&case.arg_as::<PartialEntry>(0)?.entry())) },
-        );
+        replay("changesModel/stageMode", |case: &Case| -> Result<StageMode, String> {
+            Ok(stage_mode(&case.arg_as::<PartialEntry>(0)?.entry()))
+        });
     }
 
     #[test]
     fn change_label_parity() {
         replay(
-            "P7",
             "changesModel/changeLabel",
             |case: &Case| -> Result<ChangeLabel, String> { Ok(change_label(&case.arg_as::<PartialEntry>(0)?.entry())) },
         );
@@ -1192,26 +1166,21 @@ mod tests {
 
     #[test]
     fn line_counts_text_parity() {
-        replay(
-            "P7",
-            "changesModel/lineCountsText",
-            |case: &Case| -> Result<String, String> { Ok(line_counts_text(&case.arg_as(0)?)) },
-        );
+        replay("changesModel/lineCountsText", |case: &Case| -> Result<String, String> {
+            Ok(line_counts_text(&case.arg_as(0)?))
+        });
     }
 
     #[test]
     fn first_changed_line_parity() {
-        replay(
-            "P7",
-            "changesModel/firstChangedLine",
-            |case: &Case| -> Result<i64, String> { Ok(first_changed_line(case.arg_str(0)?)) },
-        );
+        replay("changesModel/firstChangedLine", |case: &Case| -> Result<i64, String> {
+            Ok(first_changed_line(case.arg_str(0)?))
+        });
     }
 
     #[test]
     fn classify_diff_parity() {
         replay(
-            "P7",
             "changesModel/classifyDiff",
             |case: &Case| -> Result<Vec<DiffLine>, String> { Ok(classify_diff(case.arg_str(0)?)) },
         );
@@ -1219,10 +1188,8 @@ mod tests {
 
     #[test]
     fn untracked_diff_parity() {
-        replay(
-            "P7",
-            "changesModel/untrackedDiff",
-            |case: &Case| -> Result<String, String> { Ok(untracked_diff(case.arg_str(0)?)) },
-        );
+        replay("changesModel/untrackedDiff", |case: &Case| -> Result<String, String> {
+            Ok(untracked_diff(case.arg_str(0)?))
+        });
     }
 }

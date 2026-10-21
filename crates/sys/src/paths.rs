@@ -1,4 +1,4 @@
-//! Port of paths.ts (plus the dev-home isolation of scripts/deckhand-dev.mjs).
+//! Port of paths.ts (plus the dev-home isolation of scripts/deckhand-dev.sh).
 //!
 //! Every Deckhand file lives under one state directory: `DECKHAND_HOME` when set (resolved against the cwd), else
 //! `~/.deckhand`. The environment is read on every call, as the TS reads `process.env` on every call, so a process
@@ -6,7 +6,7 @@
 //!
 //! Isolation: debug builds must never touch the production home by accident. [`is_production_home`] says whether a
 //! directory is (or is inside) `~/.deckhand`, comparing canonical paths the way `isolatedHome()` in
-//! scripts/deckhand-dev.mjs does (symlinks and macOS `/var` vs `/private/var` resolved, missing tails kept), and
+//! scripts/deckhand-dev.sh does (symlinks and macOS `/var` vs `/private/var` resolved, missing tails kept), and
 //! [`guard_debug_home`] refuses it in debug builds unless `DECKHAND_ALLOW_PROD_HOME=1`.
 
 use std::ffi::OsStr;
@@ -25,7 +25,7 @@ pub const DEV_ENV: &str = "DECKHAND_DEV";
 pub const ALLOW_PROD_HOME_ENV: &str = "DECKHAND_ALLOW_PROD_HOME";
 /// The production state directory's name under the home directory.
 pub const PRODUCTION_DIR: &str = ".deckhand";
-/// deckhand-dev.mjs: the default isolated dev home's name under the home directory.
+/// deckhand-dev.sh: the default isolated dev home's name under the home directory.
 pub const DEV_HOME_DIR: &str = ".deckhand-dev";
 
 /// Which Deckhand this process is: the stable install or the isolated dev launcher (`DECKHAND_CHANNEL=dev`).
@@ -232,7 +232,7 @@ pub fn production_home() -> PathBuf {
     home_dir().join(PRODUCTION_DIR)
 }
 
-/// scripts/deckhand-dev.mjs `canonical`: the realpath of `path`; for a path that does not exist (yet), the
+/// scripts/deckhand-dev.sh `canonical`: the realpath of `path`; for a path that does not exist (yet), the
 /// canonical form of its nearest existing ancestor with the missing tail appended, following a dangling symlink to
 /// where it points. Errors other than a missing file are returned.
 pub fn canonical(path: &Path) -> io::Result<PathBuf> {
@@ -328,7 +328,7 @@ pub fn guard_home(config_dir: &Path, home: &Path, allow_production: bool) -> Res
     Ok(())
 }
 
-/// scripts/deckhand-dev.mjs isolatedHome: the canonical dev state directory (`candidate`, default
+/// scripts/deckhand-dev.sh isolatedHome: the canonical dev state directory (`candidate`, default
 /// `$DECKHAND_DEV_HOME` or `~/.deckhand-dev`), refused when it is, contains or is inside `~/.deckhand` or (outside the
 /// dev channel) `DECKHAND_HOME`.
 pub fn isolated_home(candidate: Option<&Path>) -> Result<PathBuf> {

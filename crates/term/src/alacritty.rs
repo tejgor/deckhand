@@ -359,7 +359,7 @@ impl CellData {
         String::new()
     }
 
-    /// The cell as parity/gen/term.gen.ts reads it through IBufferCell.
+    /// The cell as xterm's IBufferCell reports it (the encoding of the goldens in fixtures/term).
     fn info(&self) -> CellInfo {
         let Attr { fg, bg, extended } = self.attr;
         let mut flags = CellFlags::empty();
@@ -389,7 +389,7 @@ impl CellData {
     }
 }
 
-/// TS: getFgColorMode/getFgColor as encoded by term.gen.ts color()
+/// TS: getFgColorMode/getFgColor as the goldens in fixtures/term encode it
 fn color(value: u32) -> Color {
     let low = (value & PCOLOR_MASK) as u8;
     match value & CM_MASK {

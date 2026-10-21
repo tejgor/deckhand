@@ -433,10 +433,8 @@ mod tests {
     use deckhand_core::jsstr::date;
     use deckhand_core::session_order::sort_sessions_for_sidebar;
     use deckhand_core::sidebar_model::filter_menu_lines;
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::{Value, json};
-
-    const UNIT: &str = "U2";
 
     fn now() -> i64 {
         date::parse("2026-10-05T12:00:00.000Z").unwrap_or_default()
@@ -631,7 +629,7 @@ mod tests {
 
     #[test]
     fn part_style_parity() {
-        replay(UNIT, "sidebar/partStyle", |case: &Case| -> Result<Value, String> {
+        replay("sidebar/partStyle", |case: &Case| -> Result<Value, String> {
             let part = tags::untag(case.arg(0));
             let row = tags::untag(case.arg(1));
             let text = |value: &Value, key: &str| value.get(key).and_then(Value::as_str).map(str::to_owned);
@@ -664,7 +662,7 @@ mod tests {
 
     #[test]
     fn more_text_parity() {
-        replay(UNIT, "sidebar/moreText", |case: &Case| -> Result<String, String> {
+        replay("sidebar/moreText", |case: &Case| -> Result<String, String> {
             // Fixtures mutate `program` and `exitReason` to unknown strings, which a Rust record cannot hold; moreText
             // reads neither (an unknown exitReason is no different from none to sessionNeedsAttention).
             let mut sessions = tags::untag(case.arg(1));

@@ -338,10 +338,10 @@ dependencies = [
  "deckhand-client",
  "deckhand-core",
  "deckhand-daemon",
- "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "deckhand-term",
+ "deckhand-testkit",
  "deckhand-ui",
  "deckhand-worker",
  "libc",
@@ -363,10 +363,10 @@ name = "deckhand-client"
 version = "3.0.0"
 dependencies = [
  "deckhand-core",
- "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "deckhand-term",
+ "deckhand-testkit",
  "futures",
  "indexmap 2.14.2",
  "libc",
@@ -386,8 +386,8 @@ name = "deckhand-core"
 version = "3.0.0"
 dependencies = [
  "chrono",
- "deckhand-parity",
  "deckhand-protocol",
+ "deckhand-testkit",
  "indexmap 2.14.2",
  "proptest",
  "regex",
@@ -409,10 +409,10 @@ version = "3.0.0"
 dependencies = [
  "chrono",
  "deckhand-core",
- "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "deckhand-term",
+ "deckhand-testkit",
  "futures",
  "indexmap 2.14.2",
  "libc",
@@ -443,19 +443,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deckhand-parity"
-version = "3.0.0"
-dependencies = [
- "indexmap 2.14.2",
- "libc",
- "proptest",
- "serde",
- "serde_json",
- "tempfile",
- "toml",
-]
-
-[[package]]
 name = "deckhand-protocol"
 version = "3.0.0"
 dependencies = [
@@ -473,8 +460,8 @@ version = "3.0.0"
 dependencies = [
  "chrono",
  "deckhand-core",
- "deckhand-parity",
  "deckhand-protocol",
+ "deckhand-testkit",
  "futures",
  "indexmap 2.14.2",
  "libc",
@@ -497,8 +484,8 @@ version = "3.0.0"
 dependencies = [
  "alacritty_terminal",
  "deckhand-core",
- "deckhand-parity",
  "deckhand-protocol",
+ "deckhand-testkit",
  "libc",
  "nix",
  "serde",
@@ -511,16 +498,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "deckhand-testkit"
+version = "3.0.0"
+dependencies = [
+ "indexmap 2.14.2",
+ "libc",
+ "proptest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "deckhand-ui"
 version = "3.0.0"
 dependencies = [
  "crossterm",
  "deckhand-client",
  "deckhand-core",
- "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "deckhand-term",
+ "deckhand-testkit",
  "futures",
  "indexmap 2.14.2",
  "libc",
@@ -541,10 +541,10 @@ name = "deckhand-worker"
 version = "3.0.0"
 dependencies = [
  "deckhand-core",
- "deckhand-parity",
  "deckhand-protocol",
  "deckhand-sys",
  "deckhand-term",
+ "deckhand-testkit",
  "futures",
  "libc",
  "nix",

@@ -336,7 +336,7 @@ pub fn render_notes_message(text: &str, buf: &mut Buffer, area: Rect) {
 mod tests {
     use super::*;
     use deckhand_core::notes::TaskLinkState;
-    use deckhand_parity::{Case, replay};
+    use deckhand_testkit::{Case, replay};
     use serde_json::{Map, Value, json};
 
     // ── Ported TS tests ─────────────────────────────────────────────────────────────────────────────────────────
@@ -645,7 +645,7 @@ mod tests {
 
     #[test]
     fn notes_layout_parity() {
-        replay("U4", "notesPane/notesLayout", |case: &Case| {
+        replay("notesPane/notesLayout", |case: &Case| {
             let raw = case.arg(0);
             let shared = raw.get("shared").map(section_arg).transpose()?;
             let session = raw.get("session").map(section_arg).transpose()?;

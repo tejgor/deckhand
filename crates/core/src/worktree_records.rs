@@ -632,7 +632,7 @@ pub fn migrate_done_markers(sessions: Vec<Ordered<SessionRecord>>) -> DoneMigrat
 mod tests {
     use super::*;
     use crate::workspace::workspace_key;
-    use deckhand_parity::{Case, Outcome, Replay, replay, tags};
+    use deckhand_testkit::{Case, Outcome, Replay, replay, tags};
     use serde_json::{Value, json};
 
     fn at(minute: u32) -> String {
@@ -949,7 +949,7 @@ mod tests {
     #[test]
     fn legacy_home_v45_state_migrates_like_ts() {
         let read = |name: &str| -> Value {
-            let file = deckhand_parity::repo_root()
+            let file = deckhand_testkit::repo_root()
                 .join("fixtures/state")
                 .join(name)
                 .join("state.json");
@@ -1045,14 +1045,14 @@ mod tests {
 
     #[test]
     fn worktree_markers_parity() {
-        replay("P2", "worktreeRecords/worktreeMarkers", |case: &Case| {
+        replay("worktreeRecords/worktreeMarkers", |case: &Case| {
             Ok::<_, String>(worktree_markers(&worktree_arg(case, 0)?.0))
         });
     }
 
     #[test]
     fn without_markers_parity() {
-        replay("P2", "worktreeRecords/withoutMarkers", |case: &Case| {
+        replay("worktreeRecords/withoutMarkers", |case: &Case| {
             let (source, had_mode) = worktree_arg(case, 0)?;
             let keys: Vec<WorktreeMarker> = if case.arg_is_undefined(1) {
                 WORKTREE_MARKERS.to_vec()
@@ -1072,7 +1072,7 @@ mod tests {
 
     #[test]
     fn own_worktree_path_parity() {
-        replay("P2", "worktreeRecords/ownWorktreePath", |case: &Case| {
+        replay("worktreeRecords/ownWorktreePath", |case: &Case| {
             port(|| {
                 let worktree: Option<SessionWorktreeRecord> = case.arg_as(0)?;
                 Ok(undefined_or(own_worktree_path(worktree.as_ref())))
@@ -1082,7 +1082,7 @@ mod tests {
 
     #[test]
     fn live_worktree_record_parity() {
-        replay("P2", "worktreeRecords/liveWorktreeRecord", |case: &Case| {
+        replay("worktreeRecords/liveWorktreeRecord", |case: &Case| {
             port(|| {
                 let records: Vec<Ordered<WorktreeRecord>> = case.arg_as(0)?;
                 let found = live_worktree_record(records.iter().map(|record| &**record), case.arg_str(1)?);
@@ -1095,7 +1095,7 @@ mod tests {
 
     #[test]
     fn project_worktree_parity() {
-        Replay::new("P2", "worktreeRecords/projectWorktree")
+        Replay::new("worktreeRecords/projectWorktree")
             .key_order(true)
             .run(|case: &Case| {
                 let session: Ordered<SessionRecord> = case.arg_as(0)?;
@@ -1107,7 +1107,7 @@ mod tests {
 
     #[test]
     fn stored_session_parity() {
-        Replay::new("P2", "worktreeRecords/storedSession")
+        Replay::new("worktreeRecords/storedSession")
             .key_order(true)
             .run(|case: &Case| {
                 let session: Ordered<SessionRecord> = case.arg_as(0)?;
@@ -1118,7 +1118,7 @@ mod tests {
 
     #[test]
     fn migrate_worktree_records_parity() {
-        Replay::new("P2", "worktreeRecords/migrateWorktreeRecords")
+        Replay::new("worktreeRecords/migrateWorktreeRecords")
             .key_order(true)
             .run(|case: &Case| {
                 let sessions: Vec<Ordered<SessionRecord>> = case.arg_as(0)?;
@@ -1134,7 +1134,7 @@ mod tests {
 
     #[test]
     fn migrate_done_markers_parity() {
-        Replay::new("P2", "worktreeRecords/migrateDoneMarkers")
+        Replay::new("worktreeRecords/migrateDoneMarkers")
             .key_order(true)
             .run(|case: &Case| {
                 let sessions: Vec<Ordered<SessionRecord>> = case.arg_as(0)?;

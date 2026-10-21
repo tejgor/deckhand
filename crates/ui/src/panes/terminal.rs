@@ -171,7 +171,7 @@ pub fn render_terminal_pane(props: &TerminalPaneProps<'_>, buf: &mut Buffer, are
 mod tests {
     use super::*;
     use crate::primitives::{row_text, string_width};
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::{Value, json};
 
     fn session(extra: Value) -> SessionRecord {
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn has_action_parity() {
-        replay("U1", "terminalPane/hasAction", |case: &Case| -> Result<bool, String> {
+        replay("terminalPane/hasAction", |case: &Case| -> Result<bool, String> {
             let session_arg = tags::untag(case.arg(0));
             let session = session_arg
                 .get("id")
@@ -222,14 +222,10 @@ mod tests {
 
     #[test]
     fn action_status_parity() {
-        replay(
-            "U1",
-            "terminalPane/actionStatus",
-            |case: &Case| -> Result<Value, String> {
-                let status = action_status(&pane(&tags::untag(case.arg(0)))?);
-                Ok(json!({"text": status.text, "color": ink_name(status.color)}))
-            },
-        );
+        replay("terminalPane/actionStatus", |case: &Case| -> Result<Value, String> {
+            let status = action_status(&pane(&tags::untag(case.arg(0)))?);
+            Ok(json!({"text": status.text, "color": ink_name(status.color)}))
+        });
     }
 
     #[test]

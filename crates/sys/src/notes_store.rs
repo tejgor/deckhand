@@ -853,12 +853,11 @@ pub(crate) mod tests {
     use std::path::Path;
 
     use deckhand_core::jsstr::js_to_upper;
-    use deckhand_parity::{Case, DirOp, replay, replay_dir};
+    use deckhand_testkit::{Case, DirOp, replay, replay_dir};
     use serde_json::{Value, json};
 
     use super::*;
 
-    const UNIT: &str = "I2";
     /// The fixtures' fixed clock (`2026-01-01T00:00:00.000Z`).
     const FIXED_CLOCK_MS: i64 = 1_767_225_600_000;
 
@@ -986,50 +985,40 @@ pub(crate) mod tests {
 
     #[test]
     fn trash_file_name_parity() {
-        replay(
-            UNIT,
-            "notesStore/trashFileName",
-            |case: &Case| -> Result<String, String> {
-                let kind = js_string(case.arg(0))?;
-                let label = if case.arg_is_undefined(1) {
-                    None
-                } else {
-                    Some(js_string(case.arg(1))?)
-                };
-                let stem = js_string(case.arg(2))?;
-                let now = if case.arg_is_undefined(3) {
-                    FIXED_CLOCK_MS
-                } else {
-                    date_ms(case.arg(3))?
-                };
-                Ok(format_trash_file_name(&kind, label.as_deref(), &stem, now))
-            },
-        );
+        replay("notesStore/trashFileName", |case: &Case| -> Result<String, String> {
+            let kind = js_string(case.arg(0))?;
+            let label = if case.arg_is_undefined(1) {
+                None
+            } else {
+                Some(js_string(case.arg(1))?)
+            };
+            let stem = js_string(case.arg(2))?;
+            let now = if case.arg_is_undefined(3) {
+                FIXED_CLOCK_MS
+            } else {
+                date_ms(case.arg(3))?
+            };
+            Ok(format_trash_file_name(&kind, label.as_deref(), &stem, now))
+        });
     }
 
     #[test]
     fn note_file_stem_parity() {
-        replay(
-            UNIT,
-            "notesStore/noteFileStem",
-            |case: &Case| -> Result<String, String> { Ok(note_file_stem(&js_string(case.arg(0))?)) },
-        );
+        replay("notesStore/noteFileStem", |case: &Case| -> Result<String, String> {
+            Ok(note_file_stem(&js_string(case.arg(0))?))
+        });
     }
 
     #[test]
     fn note_file_path_parity() {
         let _home = Home::set(Path::new("/parity-home"));
-        replay(
-            UNIT,
-            "notesStore/noteFilePath",
-            |case: &Case| -> Result<String, String> {
-                let arg = case.arg(0);
-                let kind: NoteKind = serde_json::from_value(arg.get("kind").cloned().unwrap_or(Value::Null))
-                    .map_err(|error| error.to_string())?;
-                let id = js_string(arg.get("id").unwrap_or(&Value::Null))?;
-                Ok(display(&note_file_path(&NoteId { kind, id })))
-            },
-        );
+        replay("notesStore/noteFilePath", |case: &Case| -> Result<String, String> {
+            let arg = case.arg(0);
+            let kind: NoteKind = serde_json::from_value(arg.get("kind").cloned().unwrap_or(Value::Null))
+                .map_err(|error| error.to_string())?;
+            let id = js_string(arg.get("id").unwrap_or(&Value::Null))?;
+            Ok(display(&note_file_path(&NoteId { kind, id })))
+        });
     }
 
     #[test]
@@ -1125,7 +1114,7 @@ pub(crate) mod tests {
     }
 
     fn replay_store_case(name: &str) {
-        replay_dir(UNIT, &format!("notesStore/{name}"), |root: &Path, op: &DirOp| {
+        replay_dir(&format!("notesStore/{name}"), |root: &Path, op: &DirOp| {
             let _home = Home::set(root);
             CLOCK.with(|clock| clock.set(Some(FIXED_CLOCK_MS)));
             let outcome = block_on(run_op(op, name.ends_with("-cold-cache")));

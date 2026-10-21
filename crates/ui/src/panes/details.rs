@@ -186,7 +186,7 @@ mod tests {
     use super::*;
     use crate::primitives::row_text;
     use deckhand_core::key::Key;
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::json;
 
     fn width_arg(case: &Case, index: usize) -> Result<usize, String> {
@@ -197,7 +197,6 @@ mod tests {
     #[test]
     fn visible_detail_text_parity() {
         replay(
-            "U3",
             "detailsPane/visibleDetailText",
             |case: &Case| -> Result<String, String> { Ok(visible_detail_text(case.arg_str(0)?)) },
         );
@@ -206,7 +205,6 @@ mod tests {
     #[test]
     fn detail_lines_parity() {
         replay(
-            "U3",
             "detailsPane/detailLines",
             |case: &Case| -> Result<Vec<String>, String> { Ok(detail_lines(case.arg_str(0)?, width_arg(case, 1)?)) },
         );
@@ -215,7 +213,6 @@ mod tests {
     #[test]
     fn details_viewport_parity() {
         replay(
-            "U3",
             "detailsPane/detailsViewport",
             |case: &Case| -> Result<serde_json::Value, String> {
                 let viewport = details_viewport(case.arg_str(0)?, width_arg(case, 1)?, width_arg(case, 2)?);
@@ -226,7 +223,7 @@ mod tests {
 
     #[test]
     fn clamp_scroll_parity() {
-        replay("U3", "detailsPane/clampScroll", |case: &Case| -> Result<f64, String> {
+        replay("detailsPane/clampScroll", |case: &Case| -> Result<f64, String> {
             Ok(clamp_scroll_f64(case.arg_f64(0)?, case.arg_f64(1)?))
         });
     }
@@ -234,7 +231,6 @@ mod tests {
     #[test]
     fn scroll_details_parity() {
         replay(
-            "U3",
             "detailsPane/scrollDetails",
             |case: &Case| -> Result<serde_json::Value, String> {
                 let scroll = width_arg(case, 0)?;

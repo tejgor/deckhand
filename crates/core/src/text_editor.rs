@@ -517,8 +517,8 @@ pub fn scroll_top_for(previous_top: usize, cursor_row: usize, rows: usize, line_
 
 #[cfg(test)]
 mod tests {
-    use deckhand_parity::strategies::unicode_text;
-    use deckhand_parity::{Case, replay};
+    use deckhand_testkit::strategies::unicode_text;
+    use deckhand_testkit::{Case, replay};
     use proptest::prelude::*;
     use serde_json::{Value, json};
 
@@ -838,7 +838,7 @@ mod tests {
         }
     }
 
-    // Parity replays (fixtures/parity/textEditor).
+    // Parity replays (fixtures/cases/textEditor).
 
     fn options(case: &Case, index: usize) -> Result<EditOptions, String> {
         if case.arg_is_undefined(index) {
@@ -856,7 +856,7 @@ mod tests {
             ("textEditor/wordLeft", word_left),
             ("textEditor/wordRight", word_right),
         ] {
-            replay("P11", fixture, |case: &Case| -> Result<usize, String> {
+            replay(fixture, |case: &Case| -> Result<usize, String> {
                 Ok(port(case.arg_str(0)?, case.arg_usize(1)?))
             });
         }
@@ -865,7 +865,6 @@ mod tests {
     #[test]
     fn clean_inserted_text_parity() {
         replay(
-            "P11",
             "textEditor/cleanInsertedText",
             |case: &Case| -> Result<String, String> { Ok(clean_inserted_text(case.arg_str(0)?)) },
         );
@@ -874,7 +873,6 @@ mod tests {
     #[test]
     fn replace_range_parity() {
         replay(
-            "P11",
             "textEditor/replaceRange",
             |case: &Case| -> Result<EditorState, String> {
                 Ok(replace_range(
@@ -890,18 +888,14 @@ mod tests {
 
     #[test]
     fn edit_text_parity() {
-        replay(
-            "P11",
-            "textEditor/editText",
-            |case: &Case| -> Result<EditorState, String> {
-                Ok(edit_text(
-                    &case.arg_as(0)?,
-                    case.arg_str(1)?,
-                    &case.arg_as(2)?,
-                    &options(case, 3)?,
-                ))
-            },
-        );
+        replay("textEditor/editText", |case: &Case| -> Result<EditorState, String> {
+            Ok(edit_text(
+                &case.arg_as(0)?,
+                case.arg_str(1)?,
+                &case.arg_as(2)?,
+                &options(case, 3)?,
+            ))
+        });
     }
 
     #[test]
@@ -913,7 +907,7 @@ mod tests {
             ),
             ("textEditor/wrappedEditorLines", wrapped_editor_lines),
         ] {
-            replay("P11", fixture, |case: &Case| -> Result<EditorLines, String> {
+            replay(fixture, |case: &Case| -> Result<EditorLines, String> {
                 Ok(port(&case.arg_as(0)?, case.arg_usize(1)?))
             });
         }
@@ -929,31 +923,23 @@ mod tests {
 
     #[test]
     fn wrap_rows_parity() {
-        replay(
-            "P11",
-            "textEditor/wrapRows",
-            |case: &Case| -> Result<Vec<WrapRow>, String> {
-                let room = !case.arg_is_undefined(2) && case.arg_bool(2)?;
-                Ok(wrap_rows(case.arg_str(0)?, js_width(case.arg_f64(1)?), room))
-            },
-        );
+        replay("textEditor/wrapRows", |case: &Case| -> Result<Vec<WrapRow>, String> {
+            let room = !case.arg_is_undefined(2) && case.arg_bool(2)?;
+            Ok(wrap_rows(case.arg_str(0)?, js_width(case.arg_f64(1)?), room))
+        });
     }
 
     #[test]
     fn cursor_row_index_parity() {
-        replay(
-            "P11",
-            "textEditor/cursorRowIndex",
-            |case: &Case| -> Result<usize, String> {
-                let rows: Vec<WrapRow> = case.arg_as(0)?;
-                Ok(cursor_row_index(&rows, case.arg_usize(1)?))
-            },
-        );
+        replay("textEditor/cursorRowIndex", |case: &Case| -> Result<usize, String> {
+            let rows: Vec<WrapRow> = case.arg_as(0)?;
+            Ok(cursor_row_index(&rows, case.arg_usize(1)?))
+        });
     }
 
     #[test]
     fn move_visual_parity() {
-        replay("P11", "textEditor/moveVisual", |case: &Case| -> Result<usize, String> {
+        replay("textEditor/moveVisual", |case: &Case| -> Result<usize, String> {
             let count = if case.arg_is_undefined(4) {
                 1
             } else {
@@ -973,7 +959,7 @@ mod tests {
 
     #[test]
     fn scroll_top_for_parity() {
-        replay("P11", "textEditor/scrollTopFor", |case: &Case| -> Result<i64, String> {
+        replay("textEditor/scrollTopFor", |case: &Case| -> Result<i64, String> {
             Ok(scroll_top(
                 case.arg_i64(0)?,
                 case.arg_i64(1)?,

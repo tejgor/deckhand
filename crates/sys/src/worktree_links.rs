@@ -198,9 +198,7 @@ pub async fn apply_worktree_links(settings: Option<&WorktreeSettings>, options: 
 mod tests {
     use super::*;
     use crate::storage::tests::block_on;
-    use deckhand_parity::{DirOp, Outcome, Replay, dir_cases};
-
-    const UNIT: &str = "I6";
+    use deckhand_testkit::{DirOp, Outcome, Replay, dir_cases};
 
     fn apply_op(op: &DirOp) -> Outcome {
         let settings: Option<WorktreeSettings> = if op.arg_is_undefined(0) {
@@ -233,15 +231,11 @@ mod tests {
 
     #[test]
     fn apply_worktree_links_parity() {
-        let manifest = deckhand_parity::Manifest::load(UNIT).expect("manifest");
-        let cases: Vec<String> = dir_cases("worktreeLinks-I6")
-            .into_iter()
-            .filter(|case| manifest.fixtures.contains(case))
-            .collect();
+        let cases = dir_cases("worktreeLinks-I6");
         assert!(!cases.is_empty());
         let mut failed = Vec::new();
         for fixture in cases {
-            let report = Replay::new(UNIT, &fixture).run_dir(|_root, op| match op.fn_name.as_str() {
+            let report = Replay::new(&fixture).run_dir(|_root, op| match op.fn_name.as_str() {
                 "applyWorktreeLinks" => apply_op(op),
                 other => Outcome::throws(format!("parity: unknown op {other}")),
             });

@@ -1,5 +1,5 @@
-//! Replays tests/data/text-vectors.json (recorded from Ink's string-width, cli-truncate and wrap-ansi by
-//! gen-text-vectors.mjs) against deckhand_ui::primitives.
+//! Replays tests/data/text-vectors.json (recorded from Ink's string-width, cli-truncate and wrap-ansi) against
+//! deckhand_ui::primitives.
 
 use deckhand_ui::primitives::{Wrap, string_width, truncate, wrap_text};
 use serde::Deserialize;

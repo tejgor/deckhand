@@ -1,7 +1,7 @@
 # UI screen snapshots
 
 What the app draws, as text: one line per terminal row, trailing spaces trimmed. Tests render the app (or one pane)
-with ratatui's `TestBackend` and compare with `deckhand_parity::assert_snapshot`; an intended change is updated with
+with ratatui's `TestBackend` and compare with `deckhand_testkit::assert_snapshot`; an intended change is updated with
 `DECKHAND_BLESS=1` (see `parity/README.md`, "Changing behaviour"), then reviewed in the diff.
 
 - `<nn>-<name>.txt`, used by `crates/ui/src/app/layout.rs`: the whole 130x36 screen.

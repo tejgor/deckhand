@@ -167,10 +167,8 @@ pub fn update_hint(versions: Option<&AgentVersions>) -> String {
 mod tests {
     use super::*;
     use crate::agents::{AGENTS, tests::session_from};
-    use deckhand_parity::{Case, Outcome, replay, tags};
+    use deckhand_testkit::{Case, Outcome, replay, tags};
     use serde_json::{Value, json};
-
-    const UNIT: &str = "P1";
 
     fn info_from(program: ProgramKey, fields: Value) -> AgentVersionInfo {
         let mut record = json!({"program": program, "running": 0, "outdated": 0});
@@ -330,7 +328,7 @@ mod tests {
 
     #[test]
     fn parse_version_parity() {
-        replay(UNIT, "agentVersions/parseVersion", |case: &Case| {
+        replay("agentVersions/parseVersion", |case: &Case| {
             let text = case.arg(0).as_str();
             optional(parse_version(text))
         });
@@ -338,16 +336,14 @@ mod tests {
 
     #[test]
     fn compare_versions_parity() {
-        replay(
-            UNIT,
-            "agentVersions/compareVersions",
-            |case: &Case| -> Result<i64, String> { Ok(compare_versions(case.arg_str(0)?, case.arg_str(1)?)) },
-        );
+        replay("agentVersions/compareVersions", |case: &Case| -> Result<i64, String> {
+            Ok(compare_versions(case.arg_str(0)?, case.arg_str(1)?))
+        });
     }
 
     #[test]
     fn agent_update_status_parity() {
-        replay(UNIT, "agentVersions/agentUpdateStatus", |case: &Case| {
+        replay("agentVersions/agentUpdateStatus", |case: &Case| {
             let info = Some(tags::untag(case.arg(0)))
                 .filter(|value| !value.is_null())
                 .map(|value| info_from(ProgramKey::Claude, value));
@@ -357,7 +353,7 @@ mod tests {
 
     #[test]
     fn session_outdated_parity() {
-        replay(UNIT, "agentVersions/sessionOutdated", |case: &Case| {
+        replay("agentVersions/sessionOutdated", |case: &Case| {
             let mut partial = tags::untag(case.arg(0));
             // Only `running` matters: a status Rust cannot hold (undefined, `stopped`) reads as another non-running one.
             if let Some(fields) = partial.as_object_mut()
@@ -372,14 +368,14 @@ mod tests {
 
     #[test]
     fn installed_versions_parity() {
-        replay(UNIT, "agentVersions/installedVersions", |case: &Case| {
+        replay("agentVersions/installedVersions", |case: &Case| {
             Outcome::ret(installed_versions(versions_from(case.arg(0)).as_ref()))
         });
     }
 
     #[test]
     fn update_hint_parity() {
-        replay(UNIT, "agentVersions/updateHint", |case: &Case| {
+        replay("agentVersions/updateHint", |case: &Case| {
             Outcome::ret(update_hint(versions_from(case.arg(0)).as_ref()))
         });
     }

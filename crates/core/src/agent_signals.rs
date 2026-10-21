@@ -691,10 +691,8 @@ fn url_host(input: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, Outcome, replay, tags};
+    use deckhand_testkit::{Case, Outcome, replay, tags};
     use serde_json::json;
-
-    const UNIT: &str = "P1";
 
     fn optional<T: Serialize>(value: Option<T>) -> Outcome {
         match value {
@@ -856,7 +854,7 @@ mod tests {
 
     #[test]
     fn normalize_hook_parity() {
-        replay(UNIT, "agentSignals-P1/normalizeHook", |case: &Case| {
+        replay("agentSignals-P1/normalizeHook", |case: &Case| {
             let Ok(program) = case.arg_as::<ProgramKey>(0) else {
                 return Outcome::throws("parity: bad arguments");
             };
@@ -869,33 +867,28 @@ mod tests {
 
     #[test]
     fn answers_prompt_parity() {
-        replay(
-            UNIT,
-            "agentSignals-P1/answersPrompt",
-            |case: &Case| -> Result<bool, String> { Ok(answers_prompt(case.arg_str(0)?)) },
-        );
+        replay("agentSignals-P1/answersPrompt", |case: &Case| -> Result<bool, String> {
+            Ok(answers_prompt(case.arg_str(0)?))
+        });
     }
 
     #[test]
     fn hook_payload_fields_parity() {
-        replay(UNIT, "agentSignals-P1/hookPayloadFields", |case: &Case| {
+        replay("agentSignals-P1/hookPayloadFields", |case: &Case| {
             hook_payload_fields(&tags::untag(case.arg(0)))
         });
     }
 
     #[test]
     fn hooks_enabled_parity() {
-        replay(
-            UNIT,
-            "agentSignals-P1/hooksEnabled",
-            |case: &Case| -> Result<bool, String> { Ok(hooks_enabled(case.arg_as(0)?, case.arg_as(1)?)) },
-        );
+        replay("agentSignals-P1/hooksEnabled", |case: &Case| -> Result<bool, String> {
+            Ok(hooks_enabled(case.arg_as(0)?, case.arg_as(1)?))
+        });
     }
 
     #[test]
     fn attention_message_parity() {
         replay(
-            UNIT,
             "agentSignals-P1/attentionMessage",
             |case: &Case| -> Result<String, String> {
                 let reason: Option<AttentionReason> = case.arg_as(1)?;
@@ -906,29 +899,24 @@ mod tests {
 
     #[test]
     fn shell_quote_parity() {
-        replay(
-            UNIT,
-            "agentSignals-P1/shellQuote",
-            |case: &Case| -> Result<String, String> { Ok(shell_quote(case.arg_str(0)?)) },
-        );
+        replay("agentSignals-P1/shellQuote", |case: &Case| -> Result<String, String> {
+            Ok(shell_quote(case.arg_str(0)?))
+        });
     }
 
     #[test]
     fn codex_resume_from_output_parity() {
-        replay(
-            UNIT,
-            "agentSignals-P1/codexResumeFromOutput",
-            |case: &Case| match case.arg_str(0) {
+        replay("agentSignals-P1/codexResumeFromOutput", |case: &Case| {
+            match case.arg_str(0) {
                 Ok(output) => optional(codex_resume_from_output(output)),
                 Err(error) => Outcome::throws(error),
-            },
-        );
+            }
+        });
     }
 
     #[test]
     fn needs_attention_parity() {
         replay(
-            UNIT,
             "agentSignals-P1/needsAttention",
             |case: &Case| -> Result<bool, String> { Ok(needs_attention(case.arg_as(0)?)) },
         );

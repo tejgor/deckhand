@@ -9,7 +9,7 @@
 //!
 //! Deckhand never enables the kitty protocol (Ink only does with the `kittyKeyboard` render option), but Ink parses
 //! kitty sequences whenever a terminal sends them, so this does too. Vectors recorded from Ink itself live in
-//! `tests/data/keypress-vectors.json` (`gen-keypress-vectors.mjs`).
+//! `tests/data/keypress-vectors.json`.
 
 use std::sync::LazyLock;
 

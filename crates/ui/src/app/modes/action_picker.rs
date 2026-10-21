@@ -713,7 +713,7 @@ mod tests {
         };
         // The right pane of the 130x36 app: 98 columns, 31 rows.
         let got = render(&props, 98, 31);
-        deckhand_parity::assert_snapshot("fixtures/ui/panes/43-run-list.txt", &got.join("\n"));
+        deckhand_testkit::assert_snapshot("fixtures/ui/panes/43-run-list.txt", &got.join("\n"));
     }
 
     #[test]

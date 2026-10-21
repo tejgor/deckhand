@@ -1,5 +1,5 @@
 #!/bin/sh
-# Port of scripts/deckhand-dev.mjs: the isolated dev launcher (and its disposable sandbox) in POSIX sh.
+# The isolated dev launcher (and its disposable sandbox) in POSIX sh.
 # Usage: scripts/deckhand-dev.sh [--source] [--sandbox] [status|stop]   (see --help)
 #
 # Sourcing this file with DECKHAND_DEV_LIB=1 defines isolated_home / create_sandbox (the TS exports isolatedHome /

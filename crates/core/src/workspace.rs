@@ -86,7 +86,7 @@ pub fn workspace_worker_id(workspace: &str) -> String {
 mod tests {
     use super::*;
     use crate::session_scope::tests::partial_session;
-    use deckhand_parity::{Case, Outcome, replay, tags};
+    use deckhand_testkit::{Case, Outcome, replay, tags};
     use serde_json::json;
 
     fn session_arg(case: &Case, index: usize) -> Result<SessionRecord, String> {
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn workspace_key_parity() {
-        replay("P2", "workspace/workspaceKey", |case: &Case| {
+        replay("workspace/workspaceKey", |case: &Case| {
             port(|| {
                 Ok(match workspace_key(&session_arg(case, 0)?) {
                     Some(key) => Outcome::ret(key),
@@ -112,14 +112,14 @@ mod tests {
 
     #[test]
     fn no_workspace_reason_parity() {
-        replay("P2", "workspace/noWorkspaceReason", |case: &Case| {
+        replay("workspace/noWorkspaceReason", |case: &Case| {
             Ok::<_, String>(no_workspace_reason(&session_arg(case, 0)?))
         });
     }
 
     #[test]
     fn workspace_pane_unavailable_parity() {
-        replay("P2", "workspace/workspacePaneUnavailable", |case: &Case| {
+        replay("workspace/workspacePaneUnavailable", |case: &Case| {
             port(|| {
                 let record = tags::untag(case.arg(1));
                 let field = |key: &str| record.get(key).and_then(|value| value.as_str());
@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn workspace_worker_id_parity() {
-        replay("P2", "workspace/workspaceWorkerId", |case: &Case| {
+        replay("workspace/workspaceWorkerId", |case: &Case| {
             Ok::<_, String>(workspace_worker_id(case.arg_str(0)?))
         });
     }

@@ -359,11 +359,10 @@ pub fn worktree_tags<S: SessionLike>(entry: &WorktreeOverviewEntry, sessions: &[
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, replay, tags};
     use deckhand_protocol::data::SessionRecord;
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::{Map, Value, json};
 
-    const UNIT: &str = "P4";
     const DAY_MS: i64 = 24 * 60 * 60_000;
 
     fn now() -> i64 {
@@ -615,7 +614,7 @@ mod tests {
         }
     }
 
-    // ── Parity replays (fixtures/parity/worktreesModel) ──────────────────────────────────────────────────────
+    // ── Parity replays (fixtures/cases/worktreesModel) ──────────────────────────────────────────────────────
 
     /// Keep `key` only when it is one of `allowed`, else replace it with `fallback` (`None`: drop it). Recorded
     /// mutations write strings outside the TS unions; each fallback behaves as the stray value does in the TS.
@@ -749,127 +748,111 @@ mod tests {
 
     #[test]
     fn worktree_name_parity() {
-        replay(UNIT, "worktreesModel/worktreeName", |case: &Case| {
+        replay("worktreesModel/worktreeName", |case: &Case| {
             entry_arg(case, 0).map(|entry| worktree_name(&entry))
         });
     }
 
     #[test]
     fn merged_text_parity() {
-        replay(UNIT, "worktreesModel/mergedText", |case: &Case| -> Result<_, String> {
+        replay("worktreesModel/mergedText", |case: &Case| -> Result<_, String> {
             Ok(or_undefined(merged_text(&entry_arg(case, 0)?, optional_str(case, 1)?)))
         });
     }
 
     #[test]
     fn last_activity_parity() {
-        replay(
-            UNIT,
-            "worktreesModel/lastActivity",
-            |case: &Case| -> Result<_, String> {
-                Ok(or_undefined(last_activity(
-                    &entry_arg(case, 0)?,
-                    &sessions_arg(case, 1)?,
-                )))
-            },
-        );
+        replay("worktreesModel/lastActivity", |case: &Case| -> Result<_, String> {
+            Ok(or_undefined(last_activity(
+                &entry_arg(case, 0)?,
+                &sessions_arg(case, 1)?,
+            )))
+        });
     }
 
     #[test]
     fn worktree_group_parity() {
-        replay(
-            UNIT,
-            "worktreesModel/worktreeGroup",
-            |case: &Case| -> Result<_, String> {
-                Ok(worktree_group(
-                    &entry_arg(case, 0)?,
-                    &sessions_arg(case, 1)?,
-                    case.arg_i64(2)?,
-                    optional_str(case, 3)?,
-                ))
-            },
-        );
+        replay("worktreesModel/worktreeGroup", |case: &Case| -> Result<_, String> {
+            Ok(worktree_group(
+                &entry_arg(case, 0)?,
+                &sessions_arg(case, 1)?,
+                case.arg_i64(2)?,
+                optional_str(case, 3)?,
+            ))
+        });
     }
 
     #[test]
     fn worktree_rows_parity() {
-        replay(
-            UNIT,
-            "worktreesModel/worktreeRows",
-            |case: &Case| -> Result<_, String> {
-                let original = tags::untag(case.arg(0));
-                let overview: Option<WorktreeOverview> = if case.arg_is_undefined(0) {
-                    None
-                } else {
-                    let mut value = original.clone();
-                    let entries = value
-                        .get_mut("entries")
-                        .and_then(Value::as_array_mut)
-                        .ok_or("entries: not an array")?;
-                    for (index, entry) in entries.iter_mut().enumerate() {
-                        *entry = entry_value(entry);
-                        // The index rides in `path`'s place, so a row's entry is written back as recorded.
-                        if let Some(object) = entry.as_object_mut() {
-                            object.insert("path".into(), json!(format!("{index}")));
-                        }
+        replay("worktreesModel/worktreeRows", |case: &Case| -> Result<_, String> {
+            let original = tags::untag(case.arg(0));
+            let overview: Option<WorktreeOverview> = if case.arg_is_undefined(0) {
+                None
+            } else {
+                let mut value = original.clone();
+                let entries = value
+                    .get_mut("entries")
+                    .and_then(Value::as_array_mut)
+                    .ok_or("entries: not an array")?;
+                for (index, entry) in entries.iter_mut().enumerate() {
+                    *entry = entry_value(entry);
+                    // The index rides in `path`'s place, so a row's entry is written back as recorded.
+                    if let Some(object) = entry.as_object_mut() {
+                        object.insert("path".into(), json!(format!("{index}")));
                     }
-                    Some(serde_json::from_value(value).map_err(|error| error.to_string())?)
-                };
-                let originals = original
-                    .get("entries")
-                    .and_then(Value::as_array)
-                    .cloned()
-                    .unwrap_or_default();
-                let rows = worktree_rows(overview.as_ref(), &sessions_arg(case, 1)?, case.arg_i64(2)?);
-                rows.into_iter()
-                    .map(|row| match row {
-                        WorktreeRow::Worktree { group, entry } => {
-                            let index: usize = entry.path.parse().map_err(|_| "path index")?;
-                            let entry = originals.get(index).cloned().ok_or("entry index")?;
-                            Ok(json!({"kind": "worktree", "group": group, "entry": entry}))
-                        }
-                        other => serde_json::to_value(other).map_err(|error| error.to_string()),
-                    })
-                    .collect::<Result<Vec<Value>, String>>()
-            },
-        );
+                }
+                Some(serde_json::from_value(value).map_err(|error| error.to_string())?)
+            };
+            let originals = original
+                .get("entries")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let rows = worktree_rows(overview.as_ref(), &sessions_arg(case, 1)?, case.arg_i64(2)?);
+            rows.into_iter()
+                .map(|row| match row {
+                    WorktreeRow::Worktree { group, entry } => {
+                        let index: usize = entry.path.parse().map_err(|_| "path index")?;
+                        let entry = originals.get(index).cloned().ok_or("entry index")?;
+                        Ok(json!({"kind": "worktree", "group": group, "entry": entry}))
+                    }
+                    other => serde_json::to_value(other).map_err(|error| error.to_string()),
+                })
+                .collect::<Result<Vec<Value>, String>>()
+        });
     }
 
     #[test]
     fn selectable_worktree_row_parity() {
-        replay(UNIT, "worktreesModel/selectableWorktreeRow", |case: &Case| {
+        replay("worktreesModel/selectableWorktreeRow", |case: &Case| {
             row_value(&tags::untag(case.arg(0))).map(|row| selectable_worktree_row(&row))
         });
     }
 
     #[test]
     fn worktree_row_key_parity() {
-        replay(UNIT, "worktreesModel/worktreeRowKey", |case: &Case| {
+        replay("worktreesModel/worktreeRowKey", |case: &Case| {
             row_value(&tags::untag(case.arg(0))).map(|row| or_undefined(worktree_row_key(&row)))
         });
     }
 
     #[test]
     fn delete_refusal_parity() {
-        replay(
-            UNIT,
-            "worktreesModel/deleteRefusal",
-            |case: &Case| -> Result<_, String> { Ok(or_undefined(delete_refusal(&entry_arg(case, 0)?))) },
-        );
+        replay("worktreesModel/deleteRefusal", |case: &Case| -> Result<_, String> {
+            Ok(or_undefined(delete_refusal(&entry_arg(case, 0)?)))
+        });
     }
 
     #[test]
     fn protected_branch_parity() {
-        replay(
-            UNIT,
-            "worktreesModel/protectedBranch",
-            |case: &Case| -> Result<_, String> { Ok(protected_branch(case.arg_str(0)?, optional_str(case, 1)?)) },
-        );
+        replay("worktreesModel/protectedBranch", |case: &Case| -> Result<_, String> {
+            Ok(protected_branch(case.arg_str(0)?, optional_str(case, 1)?))
+        });
     }
 
     #[test]
     fn bulk_targets_parity() {
-        replay(UNIT, "worktreesModel/bulkTargets", |case: &Case| -> Result<_, String> {
+        replay("worktreesModel/bulkTargets", |case: &Case| -> Result<_, String> {
             let (rows, originals) = rows_arg(case, 0)?;
             bulk_targets(&rows)
                 .into_iter()
@@ -883,16 +866,12 @@ mod tests {
 
     #[test]
     fn worktree_tags_parity() {
-        replay(
-            UNIT,
-            "worktreesModel/worktreeTags",
-            |case: &Case| -> Result<_, String> {
-                Ok(worktree_tags(
-                    &entry_arg(case, 0)?,
-                    &sessions_arg(case, 1)?,
-                    case.arg_i64(2)?,
-                ))
-            },
-        );
+        replay("worktreesModel/worktreeTags", |case: &Case| -> Result<_, String> {
+            Ok(worktree_tags(
+                &entry_arg(case, 0)?,
+                &sessions_arg(case, 1)?,
+                case.arg_i64(2)?,
+            ))
+        });
     }
 }

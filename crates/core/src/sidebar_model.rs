@@ -962,10 +962,8 @@ fn state_line(session: &SessionRecord, state: &str, age: &str, width: usize, ins
 mod tests {
     use super::*;
     use crate::session_features::tests::{partial_session, sessions_arg};
-    use deckhand_parity::{Case, Outcome, replay, tags};
+    use deckhand_testkit::{Case, Outcome, replay, tags};
     use serde_json::Value;
-
-    const UNIT: &str = "P8";
 
     /// A width argument: every width at or below zero lays out the same in TS (nothing fits), so negatives are 0.
     fn width_of(value: &Value) -> Result<usize, String> {
@@ -995,21 +993,21 @@ mod tests {
 
     #[test]
     fn row_dimmed_parity() {
-        replay(UNIT, "sidebarModel/rowDimmed", |case: &Case| {
+        replay("sidebarModel/rowDimmed", |case: &Case| {
             Ok::<_, String>(row_dimmed(&partial_session(case.arg(0))?, case.arg_as(1)?))
         });
     }
 
     #[test]
     fn status_words_parity() {
-        replay(UNIT, "sidebarModel/statusWords", |case: &Case| {
+        replay("sidebarModel/statusWords", |case: &Case| {
             Ok::<_, String>(status_words(&partial_session(case.arg(0))?))
         });
     }
 
     #[test]
     fn status_since_parity() {
-        replay(UNIT, "sidebarModel/statusSince", |case: &Case| -> Outcome {
+        replay("sidebarModel/statusSince", |case: &Case| -> Outcome {
             match partial_session(case.arg(0)) {
                 Ok(session) => match status_since(&session) {
                     Some(since) => Outcome::ret(since),
@@ -1022,21 +1020,21 @@ mod tests {
 
     #[test]
     fn format_age_parity() {
-        replay(UNIT, "sidebarModel/formatAge", |case: &Case| {
+        replay("sidebarModel/formatAge", |case: &Case| {
             Ok::<_, String>(format_age(case.arg_f64(0)?))
         });
     }
 
     #[test]
     fn ms_until_age_changes_parity() {
-        replay(UNIT, "sidebarModel/msUntilAgeChanges", |case: &Case| {
+        replay("sidebarModel/msUntilAgeChanges", |case: &Case| {
             Ok::<_, String>(tags::number(ms_until_age_changes(case.arg_f64(0)?)))
         });
     }
 
     #[test]
     fn filter_menu_lines_parity() {
-        replay(UNIT, "sidebarModel/filterMenuLines", |case: &Case| {
+        replay("sidebarModel/filterMenuLines", |case: &Case| {
             Ok::<_, String>(filter_menu_lines(
                 case.arg_as(0)?,
                 &case.arg_as(1)?,
@@ -1048,7 +1046,6 @@ mod tests {
     #[test]
     fn sidebar_header_parity() {
         replay(
-            UNIT,
             "sidebarModel/sidebarHeader",
             |case: &Case| -> Result<SidebarHeader, String> {
                 let input = tags::untag(case.arg(0));
@@ -1073,7 +1070,6 @@ mod tests {
     #[test]
     fn sidebar_rows_parity() {
         replay(
-            UNIT,
             "sidebarModel/sidebarRows",
             |case: &Case| -> Result<Vec<SidebarRow>, String> {
                 let input = tags::untag(case.arg(0));
@@ -1110,36 +1106,31 @@ mod tests {
 
     #[test]
     fn location_text_parity() {
-        replay(
-            UNIT,
-            "sidebarModel/locationText",
-            |case: &Case| -> Result<String, String> {
-                let session = partial_session(case.arg(0))?;
-                let all = sessions_arg(&tags::untag(case.arg(1)))?;
-                let width = if case.arg_is_undefined(2) {
+        replay("sidebarModel/locationText", |case: &Case| -> Result<String, String> {
+            let session = partial_session(case.arg(0))?;
+            let all = sessions_arg(&tags::untag(case.arg(1)))?;
+            let width = if case.arg_is_undefined(2) {
+                None
+            } else {
+                let width = case.arg_f64(2)?;
+                if width == f64::INFINITY {
                     None
                 } else {
-                    let width = case.arg_f64(2)?;
-                    if width == f64::INFINITY {
-                        None
-                    } else {
-                        Some(width_of(&serde_json::json!(width))?)
-                    }
-                };
-                let now = if case.arg_is_undefined(3) {
-                    None
-                } else {
-                    Some(case.arg_i64(3)?)
-                };
-                Ok(location_text(&session, &all, width, now))
-            },
-        );
+                    Some(width_of(&serde_json::json!(width))?)
+                }
+            };
+            let now = if case.arg_is_undefined(3) {
+                None
+            } else {
+                Some(case.arg_i64(3)?)
+            };
+            Ok(location_text(&session, &all, width, now))
+        });
     }
 
     #[test]
     fn session_details_parity() {
         replay(
-            UNIT,
             "sidebarModel/sessionDetails",
             |case: &Case| -> Result<Vec<DetailLine>, String> {
                 let session = if case.arg_is_undefined(0) {
@@ -2040,7 +2031,7 @@ mod tests {
 
     #[test]
     fn attention_reason_lines_parity() {
-        replay(UNIT, "sidebarModel/attentionReasonLines", |case: &Case| {
+        replay("sidebarModel/attentionReasonLines", |case: &Case| {
             Ok::<_, String>(attention_reason_lines(
                 &partial_session(case.arg(0))?,
                 arg_width(case, 1)?,

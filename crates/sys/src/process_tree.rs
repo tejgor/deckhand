@@ -176,7 +176,7 @@ pub fn kill_survivors(snapshot: &ProcessSnapshot) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_parity::{Case, replay, tags};
+    use deckhand_testkit::{Case, replay, tags};
     use serde_json::Value;
     use std::path::Path;
 
@@ -233,21 +233,17 @@ mod tests {
 
     #[test]
     fn survivors_parity() {
-        replay("I5", "processTree/survivors", |case: &Case| -> Result<Value, String> {
+        replay("processTree/survivors", |case: &Case| -> Result<Value, String> {
             Ok(snapshot_value(&survivors(&snapshot_arg(case)?)))
         });
     }
 
     #[test]
     fn kill_survivors_parity() {
-        replay(
-            "I5",
-            "processTree/killSurvivors",
-            |case: &Case| -> Result<Value, String> {
-                kill_survivors(&snapshot_arg(case)?);
-                Ok(tags::undefined())
-            },
-        );
+        replay("processTree/killSurvivors", |case: &Case| -> Result<Value, String> {
+            kill_survivors(&snapshot_arg(case)?);
+            Ok(tags::undefined())
+        });
     }
 
     #[test]

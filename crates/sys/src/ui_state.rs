@@ -82,18 +82,17 @@ pub fn save_ui_state(repo_root: &str, state: &UiState) -> Task<Result<()>> {
 mod tests {
     use std::path::Path;
 
-    use deckhand_parity::{Case, Outcome, replay, tags};
     use deckhand_protocol::data::RightPaneTab;
     use deckhand_protocol::records::SessionFilter;
+    use deckhand_testkit::{Case, Outcome, replay, tags};
     use serde_json::json;
 
     use super::*;
-    use crate::storage::tests::{Determinism, Home, UNIT, block_on, replay_dir_cases, undefined_or_error};
+    use crate::storage::tests::{Determinism, Home, block_on, replay_dir_cases, undefined_or_error};
 
     #[test]
     fn normalize_ui_state_parity() {
         replay(
-            UNIT,
             "uiState/normalizeUiState",
             |case: &Case| -> std::result::Result<UiState, String> { Ok(UiState::normalize(&tags::untag(case.arg(0)))) },
         );

@@ -302,12 +302,12 @@ pub async fn save_global_defaults_document(
 mod tests {
     use super::*;
     use crate::config::load_project_config;
-    use crate::config::tests::{UNIT, exists, real, replay_dir_cases, repo, tgit};
+    use crate::config::tests::{exists, real, replay_dir_cases, repo, tgit};
     use crate::storage::tests::{Home, block_on};
     use crate::storage::{load_app_config, patch_app_config};
     use deckhand_core::project_config::{UserSettings, is_project_trusted, resolve_settings};
-    use deckhand_parity::{Case, DirOp, Replay};
     use deckhand_protocol::records::AppConfig;
+    use deckhand_testkit::{Case, DirOp, Replay};
     use serde_json::{Value, json};
 
     fn optional_str(case: &Case, index: usize) -> Option<String> {
@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn rejected_repository_drafts_parity() {
-        let report = Replay::new(UNIT, "projectConfigDocument-I6/saveProjectConfigDocument").run(|case: &Case| {
+        let report = Replay::new("projectConfigDocument-I6/saveProjectConfigDocument").run(|case: &Case| {
             let options = SaveDocumentOptions {
                 keep_trust: case.arg(3).get("keepTrust").and_then(Value::as_bool).unwrap_or(false),
             };

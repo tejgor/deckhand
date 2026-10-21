@@ -1,4 +1,4 @@
-//! Replays the wire corpus (fixtures/wire/corpus.jsonl, captured from the TS test suite by parity/gen/wire.gen.ts, plus
+//! Replays the wire corpus (fixtures/wire/corpus.jsonl, captured from the TypeScript test suite, plus
 //! the hand-written fixtures/wire/extra.jsonl) and the persisted-record fixtures through the typed protocol: every
 //! message must deserialise into its typed enum and serialise back to exactly the original JSON, key order included.
 

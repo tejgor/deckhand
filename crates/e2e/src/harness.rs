@@ -57,7 +57,7 @@ pub fn launcher() -> PathBuf {
 }
 
 /// Refuses a state directory that is, contains or sits inside the user's real Deckhand/agent state, or lies outside the
-/// temp directory (the same check as scripts/verify-unit isolation).
+/// temp directory.
 pub fn assert_isolated(path: &Path) {
     let real_home = nix::unistd::User::from_uid(nix::unistd::getuid())
         .ok()
