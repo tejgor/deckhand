@@ -20,7 +20,7 @@
   <a href="#faq">FAQ</a>
 </p>
 
-https://github.com/user-attachments/assets/02462231-7c46-40bd-b523-be7153ff593e
+https://github.com/user-attachments/assets/1cebcf63-9fed-4a9e-bbb1-283c77e789d6
 
 > [!NOTE]
 > Deckhand is a single native binary, written in Rust. It is still young, so behaviour and saved state can change between releases.
