@@ -17,3 +17,5 @@ install-path = "CARGO_HOME"
 hosting = "github"
 # Whether to install an updater program
 install-updater = false
+# After the release is published, append whether updating needs a daemon restart (.github/workflows/release-notes.yml)
+post-announce-jobs = ["./release-notes"]

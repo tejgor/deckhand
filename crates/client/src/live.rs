@@ -23,11 +23,11 @@ use deckhand_protocol::Request;
 use deckhand_protocol::data::{
     ActionRecord, AgentUpdateResult, AgentVersions, BranchList, CandidateSizes, ChangeDiff, ChangeGroup,
     ChangeStageResult, ChangesRecord, ConfigTargetKind, CreatePrResult, CreateSessionInput, DevRecord, MergePreview,
-    MoveDirection, NoteSaveResult, NoteSection, PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult,
-    ResolveMergeAction, RestartMode, SavedConfigDocument, SendOpenItemsResult, SessionCleanupInspection, SessionRecord,
-    SettingsInfo, StageMode, TaskOp, TasksDoc, TerminalRecord, WorkspaceSummary, WorktreeCandidates,
-    WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult,
-    WorktreeOverview,
+    MoveDirection, NoteSaveResult, NoteSection, PingResult, PreviewRecord, ProgramKey, ProjectInfo,
+    PromoteNoteItemResult, ResolveMergeAction, RestartMode, SavedConfigDocument, SendOpenItemsResult,
+    SessionCleanupInspection, SessionRecord, SettingsInfo, StageMode, TaskOp, TasksDoc, TerminalRecord,
+    WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord,
+    WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview,
 };
 use deckhand_protocol::wire::{
     AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest, DeleteWorktree,
@@ -538,6 +538,13 @@ impl LiveClient {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
             process: process.map(str::to_owned),
+        }))
+    }
+
+    /// What the daemon says about itself (`build` and `pid` only from daemons that report them).
+    pub fn ping(&self) -> Reply<PingResult> {
+        self.request(Request::Ping(RequestOnly {
+            request_id: new_request_id(),
         }))
     }
 

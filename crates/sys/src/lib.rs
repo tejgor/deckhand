@@ -7,6 +7,7 @@ pub mod changes_git;
 pub mod claude_transcripts;
 pub mod config;
 pub mod config_document;
+pub mod daemon_notice;
 pub mod desktop;
 pub mod git;
 pub mod notes_store;

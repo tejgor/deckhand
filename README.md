@@ -53,14 +53,19 @@ More in [docs/architecture.md](docs/architecture.md).
   - `npm` for the agent update check on the Agents screen (`U`).
   - On Linux, `notify-send` for desktop notifications.
 
-**From a release**: download the archive for your platform and `SHA256SUMS` from the [releases page](https://github.com/tejgor/deckhand/releases). In the folder you downloaded them to, check the archive and put the binary on your `PATH` (here `~/.local/bin`, which must be on your `PATH`):
+**With the installer** (macOS and Linux): it downloads the latest release's binary for your platform into `~/.cargo/bin` (`$CARGO_HOME/bin`) and tells you if that directory still needs to go on your `PATH`:
 
 ```sh
-VERSION=v3.0.0                    # the release you downloaded
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tejgor/deckhand/releases/latest/download/deckhand-installer.sh | sh
+```
+
+**From a release archive**: download the archive for your platform and `sha256.sum` from the [releases page](https://github.com/tejgor/deckhand/releases). In the folder you downloaded them to, check the archive and put the binary on your `PATH` (here `~/.local/bin`, which must be on your `PATH`):
+
+```sh
 TARGET=aarch64-apple-darwin       # or x86_64-apple-darwin, x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu
-tar -xzf "deckhand-$VERSION-$TARGET.tar.gz"
-shasum -a 256 -c SHA256SUMS --ignore-missing
-mkdir -p ~/.local/bin && install -m 755 "deckhand-$VERSION-$TARGET/deckhand" ~/.local/bin/deckhand
+shasum -a 256 -c sha256.sum --ignore-missing
+tar -xJf "deckhand-$TARGET.tar.xz"
+mkdir -p ~/.local/bin && install -m 755 "deckhand-$TARGET/deckhand" ~/.local/bin/deckhand
 ```
 
 If macOS refuses to open it, remove the download quarantine: `xattr -d com.apple.quarantine ~/.local/bin/deckhand`.
@@ -73,15 +78,21 @@ cargo install --git https://github.com/tejgor/deckhand deckhand
 
 **Set up agents**: `deckhand setup` checks for Claude Code, Codex and Pi and offers to install the missing ones with their official installers. `deckhand setup --check` only reports.
 
+### Updating
+
+Install the new version the way you installed it: run the installer again, download the new archive, or add `--force` to the `cargo install` command. Then look at the **Daemon restart** line of the [release notes](https://github.com/tejgor/deckhand/releases):
+
+- **Required**: the new version speaks another protocol, so `deckhand` refuses the running daemon until it restarts. Run `deckhand restart`.
+- **Not required**: `deckhand` keeps working with the running daemon, which runs the previous version's daemon code until it restarts. Deckhand says so once, at the bottom of the screen (`Daemon 3.0.0 is still running (this is 3.0.1) · restart when convenient: deckhand restart`). Run `deckhand restart` when it suits you to pick up daemon fixes.
+
+`deckhand restart` stops the daemon and starts the new version's. Running sessions are interrupted; `s` resumes each conversation. It asks first when sessions are running; `--yes` skips the question, and is needed when there is no terminal to ask on. `deckhand doctor` shows which version the running daemon is.
+
 ### Upgrading from v2 (npm)
 
 Your sessions, notes and settings carry over: the files in `~/.deckhand` are unchanged.
 
-1. Stop the old daemon. This ends its running sessions; `s` resumes each conversation later.
-   ```sh
-   kill "$(cat ~/.deckhand/daemon.pid)"
-   ```
-2. Remove the npm install (`npm uninstall -g @tejgor/deckhand`) and install v3 as above. Check with `deckhand --version`.
+1. Remove the npm install (`npm uninstall -g @tejgor/deckhand`) and install v3 as above. Check with `deckhand --version`.
+2. Restart the daemon: `deckhand restart` stops the old one and starts v3's. This ends its running sessions; `s` resumes each conversation later.
 3. If you use Codex with agent signals, regenerate its hooks: `deckhand doctor --check` tells you if they still call the old version.
 
 [Upgrading from npm](docs/upgrading-from-npm.md) is the careful version, with a backup and a way back.
@@ -186,7 +197,7 @@ Pi has no agent signals. Changing agent signals applies to sessions you start or
 ## FAQ
 
 **Does quitting Deckhand stop my agents?**
-No. The daemon keeps them running. Stopping the daemon itself ends them; `s` resumes each conversation afterwards.
+No. The daemon keeps them running. Stopping or restarting the daemon itself ends them; `s` resumes each conversation afterwards.
 
 **Does Deckhand commit or push for me?**
 Merges are staged, not committed. If the worktree has uncommitted files, the merge screen commits them first by default, with the session title as the message; press `space` there to leave them uncommitted in the worktree. Deckhand pushes only when you open a pull request from the Git summary (`i`, then `c`), after asking.
@@ -202,9 +213,9 @@ Inside WSL2, with the Linux binary.
 
 ## Troubleshooting
 
-- **Deckhand can't find an agent**: check with `which claude` (or `codex`, `pi`). Sessions start with the `PATH` of the shell that started the daemon: the one where you ran `deckhand` while no daemon was running. After installing an agent or changing `PATH`, stop the daemon (`kill "$(cat ~/.deckhand/daemon.pid)"`, which ends running sessions) and run `deckhand` again from a shell that has the new `PATH`.
-- **"protocol mismatch; stop the old daemon first"**: an older Deckhand's daemon is still running, usually just after upgrading. Stop it with `kill "$(cat ~/.deckhand/daemon.pid)"` and run `deckhand` again.
-- **"daemon … did not respond"**: see `~/.deckhand/daemon.log`, then stop the daemon as above.
+- **Deckhand can't find an agent**: check with `which claude` (or `codex`, `pi`). Sessions start with the `PATH` of the shell that started the daemon: the one where you ran `deckhand` while no daemon was running, or `deckhand restart`. After installing an agent or changing `PATH`, run `deckhand restart` (which interrupts running sessions) from a shell that has the new `PATH`.
+- **"protocol mismatch; a daemon restart is required"**: an older Deckhand's daemon is still running, usually just after upgrading. Run `deckhand restart`, then `deckhand` again. If that fails, stop it with `kill "$(cat ~/.deckhand/daemon.pid)"`.
+- **"daemon … did not respond"**: see `~/.deckhand/daemon.log`, then `deckhand restart`.
 - **Codex hooks warning about `cli.js hook`**: Codex still calls the old Node version. Run `deckhand hooks codex` and replace the stale entries in `$CODEX_HOME/hooks.json` (check `config.toml` too). `deckhand doctor --check` lists what is left.
 - **`o` on the Git tab fails**: install [`lazygit`](https://github.com/jesseduffield/lazygit). The rest of the Git tab only needs `git`.
 - **The Dev tab is empty**: press `d` twice quickly to start the Dev command, and set one in Settings (`C`). A single `d` only shows the tab.
@@ -233,7 +244,7 @@ Stop the daemon first, which ends any running sessions: `kill "$(cat ~/.deckhand
 
 ```sh
 cargo uninstall deckhand      # if installed with cargo
-rm "$(command -v deckhand)"   # if installed from a release
+rm "$(command -v deckhand)"   # if installed with the installer or from a release archive
 ```
 
 To remove all local state, delete `~/.deckhand`.

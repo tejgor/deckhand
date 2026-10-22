@@ -5,6 +5,7 @@ pub mod agent_versions;
 pub mod agents;
 pub mod changes_model;
 pub mod config_draft;
+pub mod daemon_build;
 pub mod detail_texts;
 pub mod display;
 pub mod error;

@@ -1,6 +1,6 @@
 # Upgrading from Deckhand 2 (npm)
 
-Deckhand 2 was a TypeScript app installed from npm (`@tejgor/deckhand`); Deckhand 3 is a native binary. Your sessions, notes, tasks and settings carry over: Deckhand 3 reads the files in `~/.deckhand` as version 2 left them. The README has the short version; this is the careful one, which keeps a copy of your state so you can go back. **It changes your real Deckhand: run it by hand, not through an agent or script.**
+Deckhand 2 was a TypeScript app installed from npm (`@tejgor/deckhand`); Deckhand 3 is a native binary. Your sessions, notes, tasks and settings carry over: Deckhand 3 reads the files in `~/.deckhand` as version 2 left them. The README has the short version (a release's notes point here with *Daemon restart: required when upgrading from the npm version*); this is the careful one, which keeps a copy of your state so you can go back. **It changes your real Deckhand: run it by hand, not through an agent or script.**
 
 Before you start:
 - **Run it from a plain terminal, not from inside a Deckhand session.** Step 2 stops the v45 daemon, which ends every agent session it hosts, including an agent you might be talking to.
@@ -20,13 +20,18 @@ Before you start:
    rm -f ~/.deckhand/daemon.pid ~/.deckhand/daemon.sock   # only if they remain after it exited
    ```
 
+   Or leave it running until step 3 is done and run `deckhand restart` then: the native binary stops the v45 daemon the same way (after asking, since it ends the running sessions) and starts its own. Until either happens, the native `deckhand` refuses the old daemon with *daemon protocol mismatch … a daemon restart is required*.
+
 3. **Install the native binary** (one of):
 
    ```sh
+   curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tejgor/deckhand/releases/latest/download/deckhand-installer.sh | sh
    cargo install --path crates/deckhand                      # from the checkout
    cargo install --git https://github.com/tejgor/deckhand deckhand
-   # or download the release archive, check SHA256SUMS, and install the binary on your PATH
+   # or download the release archive, check it against sha256.sum, and install the binary on your PATH
    ```
+
+   The installer puts the binary in `~/.cargo/bin`, as `cargo install` does.
 
    Remove the old install so the shell cannot find it first (nvm's `bin` usually comes before `~/.cargo/bin` on PATH):
    - **registry install:** `npm uninstall -g @tejgor/deckhand`
@@ -36,7 +41,7 @@ Before you start:
 
 4. **Run it** from a repository: `deckhand`. Expected: a new daemon starts, your previous sessions appear as exited with their notes, tasks and ordering, and `s` resumes them.
 
-5. **Doctor:** `deckhand doctor`. Expected: agents found; if Codex hooks were set up for the TypeScript version, a warning about the stale `node ... cli.js hook` command. Fix it: `deckhand hooks codex`, merge the printed JSON into `~/.codex/hooks.json`, then `/hooks` in Codex to review.
+5. **Doctor:** `deckhand doctor`. Expected: agents found, `✓ Daemon: <version> …, the same build as this deckhand`; if Codex hooks were set up for the TypeScript version, a warning about the stale `node ... cli.js hook` command. Fix it: `deckhand hooks codex`, merge the printed JSON into `~/.codex/hooks.json`, then `/hooks` in Codex to review.
 
 6. **Roll back if needed.** This restores the state files only and leaves the worktrees alone:
 

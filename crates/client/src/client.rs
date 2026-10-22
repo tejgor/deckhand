@@ -19,6 +19,7 @@ use tokio::net::UnixStream;
 
 use deckhand_core::error::{DhError, errno_code};
 use deckhand_core::jsstr::date;
+use deckhand_protocol::data::PingResult;
 use deckhand_protocol::ndjson::{Frame, LineDecoder};
 use deckhand_protocol::{PROTOCOL_VERSION, Request, ServerMessage};
 use deckhand_sys::paths;
@@ -711,22 +712,34 @@ pub enum PingError {
     Failed(#[from] DhError),
 }
 
-/// TS: client.ts ping: a `ping` request whose `version` must equal [`deckhand_protocol::PROTOCOL_VERSION`].
-pub async fn ping() -> Result<(), PingError> {
+/// TS: client.ts ping: a `ping` request whose `version` must equal [`deckhand_protocol::PROTOCOL_VERSION`]. Resolves
+/// with what the daemon says about itself.
+pub async fn ping() -> Result<PingResult, PingError> {
     ping_at(&paths::socket_path()).await
 }
 
 /// [`ping`] on a given socket.
-pub(crate) async fn ping_at(socket_path: &Path) -> Result<(), PingError> {
+pub(crate) async fn ping_at(socket_path: &Path) -> Result<PingResult, PingError> {
+    ping_within_at(socket_path, None).await
+}
+
+/// [`ping_at`] with its own timeout (`None`: [`DEFAULT_REQUEST_TIMEOUT_MS`]).
+async fn ping_within_at(socket_path: &Path, timeout_ms: Option<u64>) -> Result<PingResult, PingError> {
     let message = Request::Ping(deckhand_protocol::wire::RequestOnly {
         request_id: uuid::Uuid::new_v4().to_string(),
     });
-    let data = request_value_at(socket_path, &message, None).await?;
+    let data = request_value_at(socket_path, &message, timeout_ms).await?;
     check_ping_version(data.as_ref())
 }
 
 /// `response.version !== PROTOCOL_VERSION` on a ping's `data` (`undefined`/`null` data throws as property access does).
-fn check_ping_version(data: Option<&Value>) -> Result<(), PingError> {
+/// A matching answer is read field by field: what the daemon added later (`build`, `pid`) is optional, and a field
+/// of an unexpected type is left out rather than failing a ping TS accepted.
+fn check_ping_version(data: Option<&Value>) -> Result<PingResult, PingError> {
+    let object = match data {
+        Some(Value::Object(object)) => Some(object),
+        _ => None,
+    };
     let version = match data {
         None => {
             return Err(PingError::Failed(DhError::msg(
@@ -745,7 +758,24 @@ fn check_ping_version(data: Option<&Value>) -> Result<(), PingError> {
         .and_then(Value::as_f64)
         .is_some_and(|version| version == f64::from(PROTOCOL_VERSION));
     if matches {
-        return Ok(());
+        let text = |key: &str| {
+            object
+                .and_then(|object| object.get(key))
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        };
+        return Ok(PingResult {
+            ok: js_truthy(object.and_then(|object| object.get("ok"))),
+            version: Some(PROTOCOL_VERSION),
+            home: text("home"),
+            channel: text("channel"),
+            build: text("build"),
+            pid: object
+                .and_then(|object| object.get("pid"))
+                .and_then(Value::as_u64)
+                .and_then(|pid| u32::try_from(pid).ok())
+                .filter(|pid| *pid > 0),
+        });
     }
     let got = version.map_or_else(|| String::from("undefined"), js_string);
     Err(PingError::ProtocolMismatch(format!(
@@ -877,16 +907,16 @@ fn spawn_error(program: &str, error: &std::io::Error) -> DhError {
 
 /// TS: client.ts waitForDaemon: pings every [`DAEMON_POLL_INTERVAL`] until one succeeds or `deadline_ms` passes, then
 /// fails with `failed to start daemon: <last ping error>`.
-pub async fn wait_for_daemon(deadline_ms: u64) -> Result<(), DhError> {
+pub async fn wait_for_daemon(deadline_ms: u64) -> Result<PingResult, DhError> {
     wait_for_daemon_at(&paths::socket_path(), deadline_ms).await
 }
 
-async fn wait_for_daemon_at(socket_path: &Path, deadline_ms: u64) -> Result<(), DhError> {
+async fn wait_for_daemon_at(socket_path: &Path, deadline_ms: u64) -> Result<PingResult, DhError> {
     let deadline = Instant::now() + Duration::from_millis(deadline_ms);
     let mut last_error: Option<PingError> = None;
     while Instant::now() < deadline {
         match ping_at(socket_path).await {
-            Ok(()) => return Ok(()),
+            Ok(daemon) => return Ok(daemon),
             Err(error) => {
                 last_error = Some(error);
                 tokio::time::sleep(DAEMON_POLL_INTERVAL).await;
@@ -922,15 +952,25 @@ impl DaemonFiles {
     }
 }
 
-/// TS: client.ts ensureDaemonRunning (exported).
+/// The protocol-mismatch refusal's hint: a restart is required, `deckhand restart` does it, and `kill` is the fallback.
+fn mismatch_restart_hint(live_pid: i32, pid_file: &Path) -> String {
+    format!(
+        "a daemon restart is required: run {} (or stop the old daemon yourself: kill {live_pid}, or kill $(cat {}))",
+        deckhand_core::daemon_build::RESTART_COMMAND,
+        pid_file.display()
+    )
+}
+
+/// TS: client.ts ensureDaemonRunning (exported). Resolves with the running daemon's ping answer.
 ///
 /// - Ping succeeds: done.
-/// - Protocol mismatch and the pid in `daemon.pid` is alive: logs and fails with
-///   `<mismatch message>; stop the old daemon first: kill <pid> (or kill $(cat <pid path>))`.
+/// - Protocol mismatch and the pid in `daemon.pid` is alive: logs and fails with `<mismatch message>; a daemon
+///   restart is required: run deckhand restart (or stop the old daemon yourself: kill <pid>, or kill $(cat <pid
+///   path>))`. It never replaces that daemon itself: stopping it interrupts every running session.
 /// - Other failure with a live pid: retries for [`DAEMON_RETRY_DEADLINE_MS`], then fails with
 ///   `daemon pid <pid> is alive but did not respond; see <log path>: <error>`.
 /// - Otherwise: logs, removes the stale socket, spawns a daemon and waits [`DAEMON_START_DEADLINE_MS`] for it.
-pub async fn ensure_daemon_running() -> Result<(), DhError> {
+pub async fn ensure_daemon_running() -> Result<PingResult, DhError> {
     ensure_daemon_running_with(&DaemonFiles::from_env(), spawn_daemon).await
 }
 
@@ -938,19 +978,16 @@ pub async fn ensure_daemon_running() -> Result<(), DhError> {
 pub(crate) async fn ensure_daemon_running_with(
     files: &DaemonFiles,
     spawn: impl FnOnce() -> Result<(), DhError>,
-) -> Result<(), DhError> {
+) -> Result<PingResult, DhError> {
     let initial_error = match ping_at(&files.socket).await {
-        Ok(()) => return Ok(()),
+        Ok(daemon) => return Ok(daemon),
         Err(error) => error,
     };
     let pid = read_daemon_pid_at(&files.pid).await;
     if let (PingError::ProtocolMismatch(mismatch), Some(live_pid)) = (&initial_error, pid)
         && is_process_alive(pid)
     {
-        let restart_hint = format!(
-            "stop the old daemon first: kill {live_pid} (or kill $(cat {}))",
-            files.pid.display()
-        );
+        let restart_hint = mismatch_restart_hint(live_pid, &files.pid);
         log(
             files,
             format!(
@@ -992,6 +1029,185 @@ pub(crate) async fn ensure_daemon_running_with(
 pub async fn open_persistent_connection() -> Result<UnixStream, DhError> {
     ensure_daemon_running().await?;
     create_connection().await
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Inspecting and stopping the daemon (`deckhand restart`, `deckhand doctor`)
+
+/// How long a control request (`ping`, `list`, `shutdown`) to a daemon that may be busy or old gets.
+pub const DAEMON_CONTROL_TIMEOUT_MS: u64 = 1_500;
+
+/// How long a daemon asked to stop gets to stop its workers, save its state and exit before SIGKILL.
+pub const DAEMON_STOP_GRACE: Duration = Duration::from_secs(10);
+
+/// How long a daemon gets to go after SIGKILL.
+const DAEMON_KILL_GRACE: Duration = Duration::from_secs(2);
+
+/// What answers at the daemon socket.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DaemonState {
+    /// Nothing answers and `daemon.pid` names no live process.
+    NotRunning,
+    /// A daemon of this protocol answered; `pid` as it reported it, else from `daemon.pid`.
+    Running { ping: PingResult, pid: Option<i32> },
+    /// A daemon of another protocol answered (`message`: the mismatch); `pid` from `daemon.pid` if it is alive.
+    OtherProtocol { message: String, pid: Option<i32> },
+    /// `daemon.pid` names a live process, but the ping failed.
+    Unresponsive { pid: i32, error: String },
+}
+
+impl DaemonState {
+    /// The daemon's process, when known.
+    pub fn pid(&self) -> Option<i32> {
+        match self {
+            DaemonState::NotRunning => None,
+            DaemonState::Running { pid, .. } | DaemonState::OtherProtocol { pid, .. } => *pid,
+            DaemonState::Unresponsive { pid, .. } => Some(*pid),
+        }
+    }
+}
+
+/// What answers at the daemon socket (never starts a daemon).
+pub async fn daemon_state() -> DaemonState {
+    daemon_state_with(&DaemonFiles::from_env()).await
+}
+
+pub(crate) async fn daemon_state_with(files: &DaemonFiles) -> DaemonState {
+    let answer = ping_within_at(&files.socket, Some(DAEMON_CONTROL_TIMEOUT_MS)).await;
+    let file_pid = read_daemon_pid_at(&files.pid)
+        .await
+        .filter(|pid| is_process_alive(Some(*pid)));
+    match answer {
+        Ok(ping) => {
+            let pid = ping.pid.and_then(|pid| i32::try_from(pid).ok()).or(file_pid);
+            DaemonState::Running { ping, pid }
+        }
+        Err(PingError::ProtocolMismatch(message)) => DaemonState::OtherProtocol { message, pid: file_pid },
+        Err(PingError::Failed(error)) => match file_pid {
+            Some(pid) => DaemonState::Unresponsive {
+                pid,
+                error: error.to_string(),
+            },
+            None => DaemonState::NotRunning,
+        },
+    }
+}
+
+/// How many of the daemon's sessions are not exited (what a restart interrupts); `None` when it cannot list them.
+/// Read as plain JSON so a daemon of another protocol can answer too.
+pub async fn count_live_sessions() -> Option<usize> {
+    count_live_sessions_at(&paths::socket_path()).await
+}
+
+pub(crate) async fn count_live_sessions_at(socket_path: &Path) -> Option<usize> {
+    let list = Request::List(deckhand_protocol::wire::RequestOnly {
+        request_id: uuid::Uuid::new_v4().to_string(),
+    });
+    let data = request_value_at(socket_path, &list, Some(DAEMON_CONTROL_TIMEOUT_MS))
+        .await
+        .ok()??;
+    let sessions = data.as_array()?;
+    Some(
+        sessions
+            .iter()
+            .filter(|session| session.get("status").and_then(Value::as_str) != Some("exited"))
+            .count(),
+    )
+}
+
+/// How [`stop_daemon`] ended the daemon.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StopOutcome {
+    /// It shut down by itself (after `shutdown` or SIGTERM): workers stopped, state saved.
+    Exited,
+    /// It did not exit within [`DAEMON_STOP_GRACE`] and was killed; its socket and pid file were removed.
+    Killed,
+}
+
+/// Stops the daemon at the socket: the `shutdown` request (only a dev-channel daemon accepts it), else SIGTERM to
+/// `pid` (every daemon, the TypeScript one included, shuts down cleanly on it); then waits up to
+/// [`DAEMON_STOP_GRACE`] for it to go, and SIGKILLs it after that.
+pub async fn stop_daemon(pid: Option<i32>) -> Result<StopOutcome, DhError> {
+    stop_daemon_with(&DaemonFiles::from_env(), pid, DAEMON_STOP_GRACE).await
+}
+
+pub(crate) async fn stop_daemon_with(
+    files: &DaemonFiles,
+    pid: Option<i32>,
+    grace: Duration,
+) -> Result<StopOutcome, DhError> {
+    let shutdown = Request::Shutdown(deckhand_protocol::wire::RequestOnly {
+        request_id: uuid::Uuid::new_v4().to_string(),
+    });
+    let accepted = request_value_at(&files.socket, &shutdown, Some(DAEMON_CONTROL_TIMEOUT_MS))
+        .await
+        .is_ok();
+    if !accepted {
+        match pid {
+            Some(pid) if is_process_alive(Some(pid)) => signal(pid, nix::sys::signal::Signal::SIGTERM)?,
+            Some(_) => {}
+            None => {
+                return Err(DhError::msg(format!(
+                    "cannot stop the daemon: it refused to shut down and {} names no running process",
+                    files.pid.display()
+                )));
+            }
+        }
+    }
+    if wait_until_gone(files, pid, grace).await {
+        return Ok(StopOutcome::Exited);
+    }
+    let Some(pid) = pid else {
+        return Err(DhError::msg("the daemon did not shut down"));
+    };
+    signal(pid, nix::sys::signal::Signal::SIGKILL)?;
+    if !wait_until_gone(files, Some(pid), DAEMON_KILL_GRACE).await {
+        return Err(DhError::msg(format!("daemon pid {pid} did not exit after SIGKILL")));
+    }
+    // Killed, it could not clean up after itself.
+    if read_daemon_pid_at(&files.pid).await == Some(pid) {
+        let _ = tokio::fs::remove_file(&files.pid).await;
+    }
+    let _ = tokio::fs::remove_file(&files.socket).await;
+    Ok(StopOutcome::Killed)
+}
+
+fn signal(pid: i32, signal: nix::sys::signal::Signal) -> Result<(), DhError> {
+    match nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), signal) {
+        // Gone meanwhile: what was asked for.
+        Ok(()) | Err(nix::errno::Errno::ESRCH) => Ok(()),
+        Err(errno) => Err(DhError::msg(format!("kill {pid}: {}", errno.desc()))),
+    }
+}
+
+/// Whether the daemon is gone: its process no longer exists, or (an exited process its parent has not reaped still
+/// counts as alive to `kill(pid, 0)`) `daemon.pid` no longer names it and its socket no longer answers.
+async fn daemon_gone(files: &DaemonFiles, pid: Option<i32>) -> bool {
+    if pid.is_some() && !is_process_alive(pid) {
+        return true;
+    }
+    if pid.is_some() && read_daemon_pid_at(&files.pid).await == pid {
+        return false;
+    }
+    let ping = Request::Ping(deckhand_protocol::wire::RequestOnly {
+        request_id: uuid::Uuid::new_v4().to_string(),
+    });
+    request_value_at(&files.socket, &ping, Some(DAEMON_CONTROL_TIMEOUT_MS))
+        .await
+        .is_err()
+}
+
+async fn wait_until_gone(files: &DaemonFiles, pid: Option<i32>, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if daemon_gone(files, pid).await {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        tokio::time::sleep(DAEMON_POLL_INTERVAL).await;
+    }
 }
 
 #[cfg(test)]
@@ -1157,7 +1373,15 @@ mod tests {
 
     #[test]
     fn ping_version_must_match_the_protocol() {
-        assert_eq!(check_ping_version(Some(&json!({"ok": true, "version": 49}))), Ok(()));
+        // A daemon older than build reporting answers without `build` and `pid`.
+        assert_eq!(
+            check_ping_version(Some(&json!({"ok": true, "version": 49}))),
+            Ok(PingResult {
+                ok: true,
+                version: Some(49),
+                ..PingResult::default()
+            })
+        );
         assert_eq!(
             check_ping_version(Some(&json!({"ok": true, "version": 45}))),
             Err(PingError::ProtocolMismatch(String::from(
@@ -1178,6 +1402,26 @@ mod tests {
             check_ping_version(Some(&Value::Null)),
             Err(PingError::Failed(_))
         ));
+    }
+
+    #[test]
+    fn a_matching_ping_reports_the_daemon_build_and_pid_when_sent() {
+        let answer = json!({"ok": true, "version": 49, "home": "/h", "channel": "stable", "build": "3.0.1", "pid": 42});
+        assert_eq!(
+            check_ping_version(Some(&answer)),
+            Ok(PingResult {
+                ok: true,
+                version: Some(49),
+                home: Some("/h".into()),
+                channel: Some("stable".into()),
+                build: Some("3.0.1".into()),
+                pid: Some(42),
+            })
+        );
+        // Fields of an unexpected type are left out; the ping still succeeds.
+        let odd = json!({"ok": true, "version": 49, "build": 3, "pid": -1});
+        let ping = check_ping_version(Some(&odd)).unwrap();
+        assert_eq!((ping.build, ping.pid), (None, None));
     }
 
     #[test]
@@ -1453,8 +1697,10 @@ mod tests {
         let error = ensure_daemon_running_with(&files, || panic!("must not spawn"))
             .await
             .unwrap_err();
+        // The refusal says a restart is required and how: `deckhand restart`, with `kill` as the fallback.
         let hint = format!(
-            "stop the old daemon first: kill {pid} (or kill $(cat {}))",
+            "a daemon restart is required: run deckhand restart (or stop the old daemon yourself: kill {pid}, or \
+             kill $(cat {}))",
             files.pid.display()
         );
         assert_eq!(
@@ -1542,5 +1788,168 @@ mod tests {
         );
         let error = wait_for_daemon_at(&socket, 0).await.unwrap_err();
         assert_eq!(error.to_string(), "failed to start daemon: undefined");
+    }
+
+    /// A fake daemon that answers `ping` (`version`, plus `extra` fields), `list` with `sessions`, and refuses
+    /// `shutdown` as a stable-channel daemon does; every request type is recorded.
+    fn fake_daemon(socket: &Path, version: u32, extra: Value, sessions: Value) -> Arc<std::sync::Mutex<Vec<String>>> {
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = Arc::clone(&seen);
+        serve(socket, move |request| {
+            let kind = request["type"].as_str().unwrap_or_default().to_owned();
+            log.lock().unwrap().push(kind.clone());
+            let body = match kind.as_str() {
+                "ping" => {
+                    let mut data = json!({"ok": true, "version": version});
+                    if let (Some(data), Some(extra)) = (data.as_object_mut(), extra.as_object()) {
+                        data.extend(extra.clone());
+                    }
+                    json!({"ok": true, "data": data})
+                }
+                "list" => json!({"ok": true, "data": sessions.clone()}),
+                _ => json!({"ok": false, "error": "This control is restricted to the isolated dev daemon"}),
+            };
+            Some(response(&request, body))
+        });
+        seen
+    }
+
+    /// A stand-in daemon process (`sleep 30`), SIGTERM ignored when `ignore_term`, reaped by a thread as soon as it
+    /// exits (an unreaped child would still count as alive).
+    fn stand_in(ignore_term: bool) -> (i32, std::thread::JoinHandle<std::process::ExitStatus>) {
+        use std::os::unix::process::CommandExt as _;
+        let mut command = std::process::Command::new("sleep");
+        command.arg("30");
+        if ignore_term {
+            // SAFETY: only async-signal-safe signal(2) between fork and exec; an ignored signal stays ignored
+            // across exec.
+            unsafe {
+                command.pre_exec(|| {
+                    nix::sys::signal::signal(nix::sys::signal::Signal::SIGTERM, nix::sys::signal::SigHandler::SigIgn)
+                        .map(|_| ())
+                        .map_err(std::io::Error::from)
+                });
+            }
+        }
+        let mut child = command.spawn().unwrap();
+        let pid = i32::try_from(child.id()).unwrap();
+        (pid, std::thread::spawn(move || child.wait().unwrap()))
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn daemon_state_tells_running_other_protocol_unresponsive_and_absent_apart() {
+        let dir = tempfile::tempdir().unwrap();
+        let files = files(dir.path());
+        assert_eq!(daemon_state_with(&files).await, DaemonState::NotRunning);
+        // A pid file naming a dead process is no daemon either.
+        std::fs::write(&files.pid, format!("{}\n", i32::MAX)).unwrap();
+        assert_eq!(daemon_state_with(&files).await, DaemonState::NotRunning);
+        // A live process in daemon.pid that does not answer.
+        let own = i32::try_from(std::process::id()).unwrap();
+        std::fs::write(&files.pid, own.to_string()).unwrap();
+        assert!(matches!(
+            daemon_state_with(&files).await,
+            DaemonState::Unresponsive { pid, .. } if pid == own
+        ));
+
+        fake_daemon(&files.socket, 49, json!({"build": "3.0.0", "pid": 4242}), json!([]));
+        let DaemonState::Running { ping, pid } = daemon_state_with(&files).await else {
+            panic!("a running daemon");
+        };
+        // The pid it reports wins over daemon.pid.
+        assert_eq!((ping.build.as_deref(), pid), (Some("3.0.0"), Some(4242)));
+
+        let other = tempfile::tempdir().unwrap();
+        let other_files = self::files(other.path());
+        std::fs::write(&other_files.pid, own.to_string()).unwrap();
+        fake_daemon(&other_files.socket, 45, json!({}), json!([]));
+        assert_eq!(
+            daemon_state_with(&other_files).await,
+            DaemonState::OtherProtocol {
+                message: "daemon protocol mismatch: expected v49, got 45".into(),
+                pid: Some(own),
+            }
+        );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn live_sessions_are_the_ones_not_exited() {
+        let dir = tempfile::tempdir().unwrap();
+        let socket = dir.path().join("daemon.sock");
+        assert_eq!(count_live_sessions_at(&socket).await, None);
+        let sessions = json!([{"status": "running"}, {"status": "exited"}, {"status": "starting"}, {"id": "x"}]);
+        fake_daemon(&socket, 49, json!({}), sessions);
+        assert_eq!(count_live_sessions_at(&socket).await, Some(3));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn stopping_a_daemon_that_refuses_shutdown_sends_sigterm() {
+        use std::os::unix::process::ExitStatusExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        let files = files(dir.path());
+        let (pid, exited) = stand_in(false);
+        std::fs::write(&files.pid, pid.to_string()).unwrap();
+        let seen = fake_daemon(&files.socket, 49, json!({}), json!([]));
+        let outcome = stop_daemon_with(&files, Some(pid), Duration::from_secs(5))
+            .await
+            .unwrap();
+        assert_eq!(outcome, StopOutcome::Exited);
+        assert_eq!(
+            exited.join().unwrap().signal(),
+            Some(nix::sys::signal::Signal::SIGTERM as i32)
+        );
+        assert!(seen.lock().unwrap().contains(&"shutdown".to_owned()));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_daemon_that_ignores_sigterm_is_killed_and_its_files_removed() {
+        use std::os::unix::process::ExitStatusExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        let files = files(dir.path());
+        let (pid, exited) = stand_in(true);
+        std::fs::write(&files.pid, pid.to_string()).unwrap();
+        fake_daemon(&files.socket, 49, json!({}), json!([]));
+        let outcome = stop_daemon_with(&files, Some(pid), Duration::from_millis(300))
+            .await
+            .unwrap();
+        assert_eq!(outcome, StopOutcome::Killed);
+        assert_eq!(
+            exited.join().unwrap().signal(),
+            Some(nix::sys::signal::Signal::SIGKILL as i32)
+        );
+        assert!(!files.pid.exists());
+        assert!(!files.socket.exists());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_daemon_that_accepts_shutdown_is_not_signalled() {
+        let dir = tempfile::tempdir().unwrap();
+        let files = files(dir.path());
+        let socket = files.socket.clone();
+        // A dev-channel daemon: it accepts `shutdown` and goes (its socket with it).
+        serve(&files.socket, move |request| {
+            if request["type"] == "shutdown" {
+                let _ = std::fs::remove_file(&socket);
+            }
+            Some(response(&request, json!({"ok": true, "data": {"ok": true}})))
+        });
+        let outcome = stop_daemon_with(&files, None, Duration::from_secs(5)).await.unwrap();
+        assert_eq!(outcome, StopOutcome::Exited);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_daemon_that_refuses_shutdown_without_a_pid_cannot_be_stopped() {
+        let dir = tempfile::tempdir().unwrap();
+        let files = files(dir.path());
+        fake_daemon(&files.socket, 45, json!({}), json!([]));
+        let error = stop_daemon_with(&files, None, Duration::from_millis(100))
+            .await
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .starts_with("cannot stop the daemon: it refused to shut down"),
+            "{error}"
+        );
     }
 }

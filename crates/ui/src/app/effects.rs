@@ -10,16 +10,21 @@
 //! `visibleSessions`, `selectedSession`) are those of the pass's start, as in one React commit.
 
 use std::cell::Cell;
+use std::future::Future;
 use std::io::Write;
 use std::rc::Rc;
 use std::time::Duration;
 
 use deckhand_client::attach::sanitize_terminal_title;
+use deckhand_client::client::read_daemon_pid;
 use deckhand_client::live::{LiveClientHandlers, create_live_client};
+use deckhand_core::daemon_build::{notice_key, update_notice};
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::date;
 use deckhand_core::sidebar_model::{ms_until_age_changes, status_since};
 use deckhand_core::workspace::workspace_key;
+use deckhand_protocol::BUILD_VERSION;
+use deckhand_protocol::data::PingResult;
 use deckhand_protocol::data::{AgentActivityStatus, AttentionState, RightPaneTab, SessionRecord, SessionStatus};
 use deckhand_protocol::records::SessionFilter;
 use deckhand_sys::async_util::{Task, spawn};
@@ -544,6 +549,19 @@ pub fn connect(app: &mut App) {
                     }
                 }),
             );
+            let flag = Rc::clone(&cancelled);
+            drop(dispatch.spawn(
+                daemon_build_notice(client.ping(), |key: String| async move {
+                    deckhand_sys::daemon_notice::claim_notice(&key).await
+                }),
+                move |app: &mut App, notice| {
+                    if let Some(notice) = notice
+                        && !flag.get()
+                    {
+                        app.show_notice(notice);
+                    }
+                },
+            ));
             Ok(())
         }
         .await;
@@ -561,6 +579,27 @@ pub fn connect(app: &mut App) {
         }
     });
     app.connection.connecting = Some(task);
+}
+
+/// The footer notice for a compatible daemon of another build (`ping`: the daemon's answer), once per daemon:
+/// `claim` records the notice key (`deckhand_sys::daemon_notice::claim_notice`) and says whether it is new. A daemon
+/// that does not report its pid is keyed by the pid in `daemon.pid`.
+pub async fn daemon_build_notice<C, F>(
+    ping: impl Future<Output = Result<PingResult, DhError>>,
+    claim: C,
+) -> Option<String>
+where
+    C: FnOnce(String) -> F,
+    F: Future<Output = bool>,
+{
+    let ping = ping.await.ok()?;
+    let notice = update_notice(BUILD_VERSION, ping.build.as_deref())?;
+    let pid = match ping.pid {
+        Some(pid) => Some(pid),
+        None => read_daemon_pid().await.and_then(|pid| u32::try_from(pid).ok()),
+    };
+    let key = notice_key(pid, ping.build.as_deref(), BUILD_VERSION);
+    claim(key).await.then_some(notice)
 }
 
 /// TS: the createLiveClient handlers: each daemon push becomes an update of the app (records for another
@@ -1561,6 +1600,49 @@ mod tests {
             assert!(app.timers.spinner.is_some());
             unmount(&mut app);
             assert!(app.timers.spinner.is_none());
+        });
+    }
+
+    fn ping(build: Option<&str>, pid: Option<u32>) -> PingResult {
+        PingResult {
+            ok: true,
+            version: Some(deckhand_protocol::PROTOCOL_VERSION),
+            build: build.map(str::to_owned),
+            pid,
+            ..PingResult::default()
+        }
+    }
+
+    #[test]
+    fn the_daemon_notice_shows_once_per_daemon_and_build() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap_or_else(|error| panic!("{error}"));
+            let marker = dir.path().join("daemon-notice");
+            let notice = |answer: Result<PingResult, DhError>| {
+                let marker = marker.clone();
+                daemon_build_notice(async move { answer }, move |key: String| async move {
+                    deckhand_sys::daemon_notice::claim_notice_at(&marker, &key).await
+                })
+            };
+            // The same build: nothing to say, nothing recorded.
+            assert_eq!(notice(Ok(ping(Some(BUILD_VERSION), Some(7)))).await, None);
+            assert!(!marker.exists());
+            // An older daemon: shown once for that daemon process.
+            let expected = update_notice(BUILD_VERSION, Some("0.0.1"));
+            assert!(expected.is_some());
+            assert_eq!(notice(Ok(ping(Some("0.0.1"), Some(7)))).await, expected);
+            assert_eq!(notice(Ok(ping(Some("0.0.1"), Some(7)))).await, None);
+            // Restarted (another pid) or replaced by another build: shown again, once.
+            assert_eq!(notice(Ok(ping(Some("0.0.1"), Some(8)))).await, expected);
+            assert_eq!(notice(Ok(ping(Some("0.0.1"), Some(8)))).await, None);
+            let other = update_notice(BUILD_VERSION, Some("0.0.2"));
+            assert_eq!(notice(Ok(ping(Some("0.0.2"), Some(8)))).await, other);
+            // A daemon from before build reporting is older too; a failed ping says nothing.
+            assert_eq!(
+                notice(Ok(ping(None, Some(9)))).await,
+                update_notice(BUILD_VERSION, None)
+            );
+            assert_eq!(notice(Err(DhError::msg("daemon connection closed"))).await, None);
         });
     }
 

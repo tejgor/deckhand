@@ -1,9 +1,9 @@
-//! deckhand binary: argv dispatch to UI, daemon, workers, hook, hooks, setup, doctor (port of cli.ts `main`).
+//! deckhand binary: argv dispatch to UI, daemon, workers, hook, hooks, setup, doctor, restart (port of cli.ts `main`).
 //!
 //! One binary plays every role the TS split between `node dist/cli.js <mode>` invocations: the Ink UI, the daemon
 //! (`--daemon`), the per-session and per-workspace workers (`--session-worker`, `--workspace-worker`), the agent hook
-//! bridge (`hook`), the hooks config printer (`hooks [codex]`), `setup`/`doctor`, the dev channel's `status`/`stop`,
-//! `--version` and `help`. Whatever the role, the process runs on one current_thread tokio runtime with a `LocalSet`,
+//! bridge (`hook`), the hooks config printer (`hooks [codex]`), `setup`/`doctor`, `restart` (not in TS), the dev
+//! channel's `status`/`stop`, `--version` and `help`. Whatever the role, the process runs on one current_thread tokio runtime with a `LocalSet`,
 //! so shared state is `Rc<RefCell<..>>` and futures need not be `Send` (docs/conventions.md, Runtime model).
 
 mod cli;
@@ -13,6 +13,7 @@ mod hook;
 mod hooks;
 #[cfg(target_os = "macos")]
 mod notifier;
+mod restart;
 mod setup;
 mod ui_loop;
 
@@ -104,6 +105,7 @@ mod tests {
         assert!(!guard::needs_home(&cli::Command::Hooks(hooks::HooksTarget::Codex)));
         assert!(guard::needs_home(&cli::Command::Ui));
         assert!(guard::needs_home(&cli::Command::Daemon));
+        assert!(guard::needs_home(&cli::Command::Restart(Vec::new())));
         assert!(guard::needs_home(&cli::Command::Hook));
         assert!(guard::needs_home(&cli::Command::SessionWorker));
         assert!(guard::needs_home(&cli::Command::WorkspaceWorker));

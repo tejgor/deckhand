@@ -16,7 +16,7 @@ use deckhand_sys::paths;
 use serde_json::Value;
 
 use crate::hooks::HooksTarget;
-use crate::{doctor, hook, hooks, setup, ui_loop};
+use crate::{doctor, hook, hooks, restart, setup, ui_loop};
 
 /// TS: cli.ts `process.title` in the dev channel.
 pub const DEV_PROCESS_TITLE: &str = "deckhand-dev";
@@ -44,6 +44,8 @@ pub enum Command {
     Setup(Vec<String>),
     /// `doctor [args...]` (TS: same as setup; the port adds the Codex hooks check, see `crate::doctor`).
     Doctor(Vec<String>),
+    /// `restart [--yes|-y]` (not in TS): replace the running daemon with this executable's (see `crate::restart`).
+    Restart(Vec<String>),
     /// `--version` (not in TS): prints [`version_line`].
     Version,
     /// `help`, `--help` or `-h` (not in TS, where they opened the UI): prints [`HELP_TEXT`].
@@ -60,12 +62,13 @@ Usage: deckhand [command]
 Commands:
   (none)                       Open the UI in the current Git repository
   setup [--check] [--yes|-y]   Check which agents are installed and offer to install missing ones
-  doctor [--check] [--yes|-y]  The same as setup, then check Codex's hook config
+  doctor [--check] [--yes|-y]  The same as setup, then check Codex's hook config and the running daemon
+  restart [--yes|-y]           Restart the daemon to run this version (running sessions are interrupted)
   hooks [codex]                Print the hooks config to save in an agent's settings (codex: for Codex)
   --version                    Print the version
   help, --help, -h             Show this help
 
---check only reports; --yes (-y) installs without asking.
+--check only reports; --yes (-y) installs, or restarts, without asking.
 deckhand hook is run by agents, not by hand.";
 
 /// The dev channel's daemon controls.
@@ -84,7 +87,7 @@ pub fn process_title(dev_channel: bool) -> &'static str {
 
 /// TS: cli.ts main's argv tests, in order: dev `status`/`stop` (first argument, dev channel only), `hook`, `hooks`
 /// (second argument `codex` selects Codex), `--session-worker`, `--workspace-worker`, `--daemon` (anywhere), `setup`
-/// / `doctor` (first argument; the rest are passed on), `--version` (first argument), else the UI. `args` excludes
+/// / `doctor` / `restart` (first argument; the rest are passed on), `--version` (first argument), else the UI. `args` excludes
 /// the program name (`process.argv.slice(2)`). The port adds `help` / `--help` / `-h` (first argument) beside
 /// `--version`, so the worker and daemon flags still win over it.
 pub fn parse_args(args: &[String], dev_channel: bool) -> Command {
@@ -110,6 +113,7 @@ pub fn parse_args(args: &[String], dev_channel: bool) -> Command {
     match first {
         Some("setup") => Command::Setup(rest()),
         Some("doctor") => Command::Doctor(rest()),
+        Some("restart") => Command::Restart(rest()),
         Some("--version") => Command::Version,
         Some("help" | "--help" | "-h") => Command::Help,
         _ => Command::Ui,
@@ -152,6 +156,7 @@ pub async fn run(command: Command) -> Result<ExitCode, DhError> {
         Command::Daemon => run_daemon().await?,
         Command::Setup(args) => setup::run_setup(&args).await?,
         Command::Doctor(args) => return Ok(doctor_exit_code(doctor::run_doctor(&args).await?)),
+        Command::Restart(args) => return restart::run_restart(&args).await,
         Command::Version => print_line(&version_line()),
         Command::Help => print_line(HELP_TEXT),
         Command::Ui => ui_loop::run_ui_loop().await?,
@@ -364,6 +369,12 @@ mod tests {
             Command::Setup(args(&["--check", "-y"]))
         );
         assert_eq!(parse_args(&args(&["doctor"]), false), Command::Doctor(Vec::new()));
+        assert_eq!(
+            parse_args(&args(&["restart", "--yes"]), false),
+            Command::Restart(args(&["--yes"]))
+        );
+        assert_eq!(parse_args(&args(&["restart", "--daemon"]), false), Command::Daemon);
+        assert_eq!(parse_args(&args(&["x", "restart"]), false), Command::Ui);
         assert_eq!(parse_args(&args(&["--version"]), false), Command::Version);
         assert_eq!(parse_args(&args(&["x", "--version"]), false), Command::Ui);
         assert_eq!(parse_args(&args(&["hook"]), true), Command::Hook);
@@ -401,6 +412,7 @@ mod tests {
             "setup [--check] [--yes|-y]",
             "doctor [--check] [--yes|-y]",
             "hooks [codex]",
+            "restart [--yes|-y]",
             "--version",
         ] {
             assert!(HELP_TEXT.contains(listed), "{listed}");
@@ -453,6 +465,7 @@ mod tests {
             version: Some(48),
             home: home.map(str::to_owned),
             channel: channel.map(str::to_owned),
+            ..PingResult::default()
         };
         let other = tempfile::tempdir().ok();
         let other_home = other
@@ -484,6 +497,7 @@ mod tests {
             version: Some(48),
             home: Some("/tmp/x".into()),
             channel: Some("dev".into()),
+            ..PingResult::default()
         };
         assert_eq!(
             status_line(&daemon),
@@ -491,9 +505,7 @@ mod tests {
         );
         let bare = PingResult {
             ok: true,
-            version: None,
-            home: None,
-            channel: None,
+            ..PingResult::default()
         };
         assert_eq!(
             status_line(&bare),

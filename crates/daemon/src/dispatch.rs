@@ -407,10 +407,12 @@ mod tests {
         });
         let line = rx.try_recv().unwrap();
         let expected = format!(
-            "{{\"type\":\"response\",\"requestId\":\"p1\",\"ok\":true,\"data\":{{\"ok\":true,\"version\":{},\"home\":{},\"channel\":{}}}}}\n",
+            "{{\"type\":\"response\",\"requestId\":\"p1\",\"ok\":true,\"data\":{{\"ok\":true,\"version\":{},\"home\":{},\"channel\":{},\"build\":{},\"pid\":{}}}}}\n",
             deckhand_protocol::PROTOCOL_VERSION,
             serde_json::to_string(dir.path().to_str().unwrap()).unwrap(),
             serde_json::to_string(&std::env::var("DECKHAND_CHANNEL").unwrap_or_else(|_| "stable".into())).unwrap(),
+            serde_json::to_string(deckhand_protocol::BUILD_VERSION).unwrap(),
+            std::process::id(),
         );
         assert_eq!(line, expected);
         assert!(rx.try_recv().is_err());
