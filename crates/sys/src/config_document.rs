@@ -98,10 +98,9 @@ pub async fn read_project_config_document(cwd: &str) -> Result<ProjectConfigDocu
 
 /// Whether a hard link failed because the filesystem has none (TS: EPERM, ENOTSUP, EOPNOTSUPP, EXDEV, ENOSYS).
 fn no_hard_links(error: &std::io::Error) -> bool {
-    matches!(
-        error.raw_os_error(),
-        Some(libc::EPERM | libc::ENOTSUP | libc::EOPNOTSUPP | libc::EXDEV | libc::ENOSYS)
-    )
+    // A list, not a match pattern: on Linux ENOTSUP and EOPNOTSUPP are the same number.
+    const CODES: [i32; 5] = [libc::EPERM, libc::ENOTSUP, libc::EOPNOTSUPP, libc::EXDEV, libc::ENOSYS];
+    error.raw_os_error().is_some_and(|code| CODES.contains(&code))
 }
 
 /// `fs.copyFile(source, destination, COPYFILE_EXCL)`: never overwrites; the copy keeps the source's mode.

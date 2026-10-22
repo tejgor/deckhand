@@ -860,6 +860,13 @@ mod tests {
 
     #[test]
     fn worktree_tags_parity() {
+        // Some recorded lastCommitAt values have no offset, so they are local time, and the fixture was recorded in
+        // Europe/London. Refuse to run elsewhere rather than offer to bless a timezone artifact.
+        assert_eq!(
+            date::parse("2026-10-09T12:00:00.000"),
+            date::parse("2026-10-09T11:00:00Z"),
+            "worktreesModel/worktreeTags was recorded in Europe/London: run scripts/test.sh, or set TZ=Europe/London"
+        );
         replay("worktreesModel/worktreeTags", |case: &Case| -> Result<_, String> {
             Ok(worktree_tags(
                 &entry_arg(case, 0)?,

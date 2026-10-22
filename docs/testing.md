@@ -17,6 +17,11 @@ built executable rather than linking the application. It uses `cargo-nextest` wh
 back to `cargo test`. Arguments pass through to the selected runner: with nextest, a focused run can use
 `scripts/test.sh -E 'test(settings)'`; with Cargo's runner, use `scripts/test.sh settings`.
 
+The script also sets `TZ=Europe/London`: a few recorded cases hold local timestamps without an offset, and they were
+recorded in that timezone. Running those tests directly needs the same zone (`TZ=Europe/London cargo test …`).
+`worktree_tags_parity` checks the zone before replaying, so that a different zone is never mistaken for a fixture
+change to bless.
+
 For a unit test that does not launch the executable, use `cargo test -p deckhand-core <test-name>` or the equivalent
 nextest filter directly. Rebuild the binary after application changes before running E2E directly. See
 [`crates/e2e/README.md`](../crates/e2e/README.md) for the isolated daemon, fake agents and PTY harness.
