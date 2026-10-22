@@ -878,7 +878,7 @@ mod tests {
 
     /// A session worker that exits on `kill` (`OBEY` set) or ignores it.
     const SH_WORKER: &str = r#"#!/bin/sh
-printf '{"type":"hello","version":48}\n' >&3
+printf '{"type":"hello","version":49}\n' >&3
 : > "$KILLS.ready"
 while IFS= read -r line <&3; do
   case "$line" in

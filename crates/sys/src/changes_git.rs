@@ -12,11 +12,12 @@ use indexmap::IndexMap;
 use nix::sys::signal::Signal;
 use tokio::io::AsyncReadExt;
 
-use crate::git::{GitOptions, git};
+use crate::git::{BranchWhere, GitOptions, git, resolve_default_branch};
 use crate::proc::{self, ExecFailure, ExecOptions, GroupGuard};
-use crate::workspace_git::parse_status;
+use crate::workspace_git::{parse_status, validate_ref};
 use deckhand_core::changes_model::{
-    LineCounts, Numstats, empty_changes, first_changed_line, group_changes, parse_numstat, untracked_diff,
+    LineCounts, Numstats, append_committed, committed_changes, empty_changes, first_changed_line, group_changes,
+    parse_numstat, untracked_diff,
 };
 use deckhand_core::error::{DhError, Result, errno_code};
 use deckhand_core::jsstr::{self, path};
@@ -41,6 +42,8 @@ pub struct ChangesSnapshot {
     pub record: ChangesRecord,
     pub all: Vec<ChangeEntry>,
     pub has_head: bool,
+    /// Not in the TS: where the branch left its base (what Committed entries are diffed against).
+    pub merge_base: Option<String>,
 }
 
 /// One cached untracked line count (TS `{size, mtimeMs, counts}`).
@@ -53,6 +56,32 @@ pub struct UntrackedCount {
 
 /// TS: changesGit.ts UntrackedCounts (by path, reused while size and mtime are unchanged).
 pub type UntrackedCounts = HashMap<String, UntrackedCount>;
+
+/// The files a branch committed since its base, as last read: reused while HEAD and the base stay where they were.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CommittedRead {
+    pub head: String,
+    pub base: String,
+    pub merge_base: Option<String>,
+    pub entries: Vec<ChangeEntry>,
+}
+
+/// What the Committed group counts from.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CommittedBase {
+    /// The branch the worktree was created from.
+    Ref(String),
+    /// The repository's default branch: local, else the remote's (a worktree made by a script or attached has no
+    /// recorded base).
+    DefaultBranch,
+}
+
+/// What a workspace's status reads keep between polls.
+#[derive(Clone, Debug, Default)]
+pub struct ChangesCache {
+    pub untracked: UntrackedCounts,
+    pub committed: Option<CommittedRead>,
+}
 
 /// TS: changesGit.ts isBinary.
 pub fn is_binary(bytes: &[u8]) -> bool {
@@ -134,7 +163,11 @@ pub async fn untracked_counts(cwd: &str, files: &[String], cache: &mut Untracked
 ///
 /// `git status --porcelain=v2 -z` (no optional locks, so polling never takes the index lock) plus staged/unstaged
 /// numstat.
-pub async fn read_changes(cwd: &str, cache: &mut UntrackedCounts) -> Result<ChangesSnapshot> {
+pub async fn read_changes(
+    cwd: &str,
+    base: Option<&CommittedBase>,
+    cache: &mut ChangesCache,
+) -> Result<ChangesSnapshot> {
     if !tokio::fs::metadata(cwd).await.is_ok_and(|stat| stat.is_dir()) {
         return Err(DhError::msg("Worktree directory is missing"));
     }
@@ -164,7 +197,7 @@ pub async fn read_changes(cwd: &str, cache: &mut UntrackedCounts) -> Result<Chan
         git(cwd, &unstaged_args, Some(&options)),
     )?;
     let status = parse_status(&raw_status);
-    let untracked = untracked_counts(cwd, &status.untracked, cache).await;
+    let untracked = untracked_counts(cwd, &status.untracked, &mut cache.untracked).await;
     // groupChanges only looks counts up by path, so the map's order does not matter.
     let untracked: IndexMap<String, LineCounts> = untracked.into_iter().collect();
     let numstat = Numstats {
@@ -172,8 +205,23 @@ pub async fn read_changes(cwd: &str, cache: &mut UntrackedCounts) -> Result<Chan
         unstaged: Some(parse_numstat(&unstaged)),
         untracked: Some(untracked),
     };
-    let all = group_changes(&status.entries, &numstat, usize::MAX).entries;
-    let grouped = group_changes(&status.entries, &numstat, deckhand_core::changes_model::MAX_CHANGES);
+    let head = status.oid.as_deref().filter(|oid| !oid.is_empty());
+    let committed = match (head, base) {
+        (Some(head), Some(base)) => read_committed(cwd, head, base, cache.committed.take()).await,
+        _ => None,
+    };
+    let mut all = group_changes(&status.entries, &numstat, usize::MAX);
+    let mut grouped = group_changes(&status.entries, &numstat, deckhand_core::changes_model::MAX_CHANGES);
+    if let Some(committed) = &committed {
+        append_committed(&mut all, committed.entries.clone(), usize::MAX);
+        append_committed(
+            &mut grouped,
+            committed.entries.clone(),
+            deckhand_core::changes_model::MAX_CHANGES,
+        );
+    }
+    let merge_base = committed.as_ref().and_then(|committed| committed.merge_base.clone());
+    cache.committed = committed;
     let branch = status.branch.clone().or_else(|| {
         status
             .oid
@@ -191,8 +239,65 @@ pub async fn read_changes(cwd: &str, cache: &mut UntrackedCounts) -> Result<Chan
     };
     Ok(ChangesSnapshot {
         record,
-        all,
+        all: all.entries,
         has_head: status.oid.as_ref().is_some_and(|oid| !oid.is_empty()),
+        merge_base,
+    })
+}
+
+/// The files HEAD's commits changed since the branch left `base` (none when that names no commit, or nothing was
+/// committed since), reusing `last` while HEAD and the base have not moved.
+async fn read_committed(
+    cwd: &str,
+    head: &str,
+    base: &CommittedBase,
+    last: Option<CommittedRead>,
+) -> Option<CommittedRead> {
+    let base_ref = match base {
+        CommittedBase::Ref(reference) => reference.clone(),
+        CommittedBase::DefaultBranch => match resolve_default_branch(cwd, None, BranchWhere::Local).await {
+            Some(local) => local,
+            None => {
+                let remote = git(cwd, &["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"], None)
+                    .await
+                    .ok()?;
+                remote.strip_prefix("refs/remotes/").unwrap_or(&remote).to_owned()
+            }
+        },
+    };
+    let commit = format!("{}^{{commit}}", validate_ref(&base_ref).ok()?);
+    let base = git(cwd, &["rev-parse", "--verify", "--quiet", &commit], None)
+        .await
+        .ok()?;
+    if let Some(last) = last.filter(|last| last.head == head && last.base == base) {
+        return Some(last);
+    }
+    let unchanged = CommittedRead {
+        head: head.to_owned(),
+        base: base.clone(),
+        merge_base: None,
+        entries: Vec::new(),
+    };
+    let Ok(merge_base) = git(cwd, &["merge-base", &base, head], None).await else {
+        return Some(unchanged);
+    };
+    if merge_base == head {
+        return Some(unchanged);
+    }
+    let options = GitOptions::default().with_max_buffer(32 * 1024 * 1024);
+    let diff = |format: &'static str| {
+        let range = [merge_base.as_str(), head];
+        let mut args = vec!["--no-optional-locks", "diff", format, "-z", "-M", "--no-ext-diff"];
+        args.extend(range);
+        args.push("--");
+        let options = options.clone();
+        async move { git(cwd, &args, Some(&options)).await }
+    };
+    let (names, numstat) = futures::try_join!(diff("--name-status"), diff("--numstat")).ok()?;
+    Some(CommittedRead {
+        entries: committed_changes(&names, &numstat),
+        merge_base: Some(merge_base),
+        ..unchanged
     })
 }
 
@@ -323,7 +428,9 @@ fn binary_diff(text: &str) -> bool {
 
 /// TS: changesGit.ts readChangeDiff (staged: `git diff --cached -M`, both paths of a rename; unstaged and conflicted:
 /// `git diff`; untracked: the file's contents as additions, a symlink's target, a directory nothing).
-pub async fn read_change_diff(cwd: &str, entry: &ChangeEntry) -> Result<ChangeDiff> {
+///
+/// A Committed entry's diff is the branch's whole change to the file since `merge_base` (where it left its base).
+pub async fn read_change_diff(cwd: &str, entry: &ChangeEntry, merge_base: Option<&str>) -> Result<ChangeDiff> {
     let diff = |text: String, truncated: bool, binary: bool, first_line: i64| ChangeDiff {
         group: entry.group,
         path: entry.path.clone(),
@@ -372,12 +479,23 @@ pub async fn read_change_diff(cwd: &str, entry: &ChangeEntry) -> Result<ChangeDi
         return Ok(diff(untracked_diff(&text), truncated, false, 1));
     }
     let staged = entry.group == ChangeGroup::Staged;
+    let committed = entry.group == ChangeGroup::Committed;
     let mut args: Vec<&str> = vec!["--no-optional-locks", "--literal-pathspecs", "diff"];
     if staged {
         args.extend(["--cached", "-M"]);
     }
-    args.extend(["--no-color", "--no-ext-diff", "--"]);
-    match (&entry.orig_path, staged) {
+    if committed {
+        args.push("-M");
+    }
+    args.extend(["--no-color", "--no-ext-diff"]);
+    if committed {
+        let Some(merge_base) = merge_base else {
+            return Err(DhError::msg("The branch's base is unknown"));
+        };
+        args.extend([merge_base, "HEAD"]);
+    }
+    args.push("--");
+    match (&entry.orig_path, staged || committed) {
         (Some(orig), true) => args.extend([orig.as_str(), entry.path.as_str()]),
         _ => args.push(&entry.path),
     }
@@ -509,7 +627,9 @@ pub async fn apply_stage(
             .all
             .iter()
             .find(|candidate| candidate.group == target.group && candidate.path == target.path);
-        let Some(entry) = entry.filter(|entry| stage == (entry.group != ChangeGroup::Staged)) else {
+        let Some(entry) = entry
+            .filter(|entry| entry.group != ChangeGroup::Committed && stage == (entry.group != ChangeGroup::Staged))
+        else {
             return Err(DhError::msg(format!(
                 "{} is not among the {} changes; refresh and try again",
                 target.path,
@@ -579,14 +699,15 @@ mod tests {
     use std::path::Path;
 
     async fn snapshot(cwd: &str) -> ChangesSnapshot {
-        read_changes(cwd, &mut UntrackedCounts::new()).await.unwrap()
+        read_changes(cwd, None, &mut ChangesCache::default()).await.unwrap()
     }
 
     async fn shape(cwd: &str) -> Vec<String> {
-        snapshot(cwd)
-            .await
-            .record
-            .entries
+        shape_of(&snapshot(cwd).await.record.entries)
+    }
+
+    fn shape_of(entries: &[ChangeEntry]) -> Vec<String> {
+        entries
             .iter()
             .map(|entry| {
                 let from = entry
@@ -622,6 +743,99 @@ mod tests {
         assert!(!is_binary(&late));
         assert!(binary_diff("diff --git a/x b/x\nBinary files a/x and b/x differ\n"));
         assert!(!binary_diff("Binary files a/x and b/x differ\n@@ -1 +1 @@\n"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_branch_lists_what_it_committed_since_its_base_and_diffs_it_whole() {
+        let (_dir, cwd) = repo();
+        write(&cwd, "old name.txt", "a\nb\nc\n");
+        tgit(&cwd, &["add", "."]);
+        tgit(&cwd, &["commit", "-m", "base"]);
+        tgit(&cwd, &["checkout", "-b", "feature"]);
+        let main = CommittedBase::Ref("main".into());
+        let mut cache = ChangesCache::default();
+        let fresh = read_changes(&cwd, Some(&main), &mut cache).await.unwrap();
+        assert!(
+            fresh.record.entries.is_empty() && fresh.merge_base.is_none(),
+            "nothing committed yet"
+        );
+
+        write(&cwd, "file.txt", "first\nfeature\n");
+        tgit(&cwd, &["commit", "-am", "one"]);
+        write(&cwd, "file.txt", "first\nfeature\nmore\n");
+        tgit(&cwd, &["mv", "old name.txt", "new name.txt"]);
+        tgit(&cwd, &["commit", "-am", "two"]);
+        // main moves on: only what the branch did counts.
+        tgit(&cwd, &["checkout", "main"]);
+        write(&cwd, "main only.txt", "x\n");
+        tgit(&cwd, &["add", "."]);
+        tgit(&cwd, &["commit", "-m", "elsewhere"]);
+        tgit(&cwd, &["checkout", "feature"]);
+        write(&cwd, "file.txt", "dirty\n");
+        let snap = read_changes(&cwd, Some(&main), &mut cache).await.unwrap();
+        assert_eq!(
+            shape_of(&snap.record.entries),
+            vec![
+                "unstaged:M:file.txt",
+                "committed:M:file.txt",
+                "committed:R:old name.txt → new name.txt",
+            ]
+        );
+        assert_eq!((snap.record.counts.unstaged, snap.record.counts.committed), (1, 2));
+        let file = found(&snap.all, ChangeGroup::Committed, "file.txt");
+        assert_eq!((file.additions, file.deletions), (Some(2), Some(0)));
+
+        // The diff covers both commits, not the uncommitted edit.
+        let diff = read_change_diff(&cwd, file, snap.merge_base.as_deref()).await.unwrap();
+        assert!(diff.text.contains("+feature\n+more"), "{}", diff.text);
+        assert!(!diff.text.contains("dirty"), "{}", diff.text);
+        let renamed = found(&snap.all, ChangeGroup::Committed, "new name.txt");
+        let diff = read_change_diff(&cwd, renamed, snap.merge_base.as_deref())
+            .await
+            .unwrap();
+        assert!(diff.text.contains("rename from old name.txt"), "{}", diff.text);
+        assert!(read_change_diff(&cwd, file, None).await.is_err());
+
+        // A committed file is not staged; the read is reused until HEAD moves.
+        let staging = apply_stage(
+            &cwd,
+            &snap,
+            StageMode::Stage,
+            Some(&StageTarget {
+                group: ChangeGroup::Committed,
+                path: "file.txt".into(),
+            }),
+        )
+        .await;
+        assert!(staging.is_err());
+        let kept = cache.committed.clone().unwrap();
+        read_changes(&cwd, Some(&main), &mut cache).await.unwrap();
+        assert_eq!(cache.committed.as_ref(), Some(&kept));
+
+        // Without a recorded base (a worktree made by a script or attached): the default branch, local first.
+        let default = read_changes(&cwd, Some(&CommittedBase::DefaultBranch), &mut ChangesCache::default())
+            .await
+            .unwrap();
+        assert_eq!(default.record.entries, snap.record.entries);
+        tgit(&cwd, &["branch", "-m", "main", "trunk"]);
+        tgit(&cwd, &["update-ref", "refs/remotes/origin/trunk", "trunk"]);
+        tgit(
+            &cwd,
+            &["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk"],
+        );
+        // No local default branch at all: the remote's.
+        tgit(&cwd, &["branch", "-D", "trunk"]);
+        let remote = read_changes(&cwd, Some(&CommittedBase::DefaultBranch), &mut ChangesCache::default())
+            .await
+            .unwrap();
+        assert_eq!(remote.record.counts.committed, 2);
+
+        // No base, or one that names no commit: no Committed group.
+        let refs = [CommittedBase::Ref("nope".into()), CommittedBase::Ref("-x".into())];
+        for base in [None, Some(&refs[0]), Some(&refs[1])] {
+            let snap = read_changes(&cwd, base, &mut ChangesCache::default()).await.unwrap();
+            assert_eq!(shape_of(&snap.record.entries), vec!["unstaged:M:file.txt"], "{base:?}");
+        }
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -673,27 +887,27 @@ mod tests {
         );
 
         // Diffs: staged vs unstaged sides, an untracked file as additions, binary detection.
-        let staged = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Staged, "file.txt"))
+        let staged = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Staged, "file.txt"), None)
             .await
             .unwrap();
         assert!(staged.text.split('\n').any(|line| line == "+second"));
         assert!(!staged.text.contains("third"));
         assert_eq!(staged.first_line, 2);
-        let unstaged = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Unstaged, "file.txt"))
+        let unstaged = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Unstaged, "file.txt"), None)
             .await
             .unwrap();
         assert!(unstaged.text.split('\n').any(|line| line == "+third"));
         assert_eq!(unstaged.first_line, 3);
-        let rename = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Staged, "moved me.txt"))
+        let rename = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Staged, "moved me.txt"), None)
             .await
             .unwrap();
         assert!(rename.text.contains("rename from move me.txt"));
-        let untracked = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Untracked, "new *.txt"))
+        let untracked = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Untracked, "new *.txt"), None)
             .await
             .unwrap();
         assert_eq!(untracked.text, "@@ -0,0 +1,3 @@\n+one\n+two\n+three");
         assert_eq!(untracked.first_line, 1);
-        let blob = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Untracked, "blob.bin"))
+        let blob = read_change_diff(&cwd, found(&snap.all, ChangeGroup::Untracked, "blob.bin"), None)
             .await
             .unwrap();
         assert!(blob.binary);
@@ -779,7 +993,7 @@ mod tests {
             .await
             .unwrap();
         assert!(shape(&cwd).await.iter().all(|line| !line.starts_with("staged:")));
-        let missing = read_changes(&format!("{cwd}/missing"), &mut UntrackedCounts::new()).await;
+        let missing = read_changes(&format!("{cwd}/missing"), None, &mut ChangesCache::default()).await;
         assert_eq!(missing.unwrap_err().to_string(), "Worktree directory is missing");
     }
 
@@ -823,7 +1037,7 @@ mod tests {
             shape(&conflicted).await,
             vec!["conflicts:U:file.txt", "untracked:?:extra.txt"]
         );
-        let diff = read_change_diff(&conflicted, found(&snap.all, ChangeGroup::Conflicts, "file.txt"))
+        let diff = read_change_diff(&conflicted, found(&snap.all, ChangeGroup::Conflicts, "file.txt"), None)
             .await
             .unwrap();
         assert!(diff.text.split('\n').any(|line| line.starts_with("diff --cc file.txt")));
@@ -892,14 +1106,14 @@ mod tests {
             deletions: None,
             binary: None,
         };
-        let diff = read_change_diff(&cwd, &link).await.unwrap();
+        let diff = read_change_diff(&cwd, &link, None).await.unwrap();
         assert_eq!(diff.text, "symbolic link\n@@ -0,0 +1,1 @@\n+file.txt");
         // A big untracked file is cut at the last complete line.
         let big = ChangeEntry {
             path: "big.txt".to_owned(),
             ..link.clone()
         };
-        let diff = read_change_diff(&cwd, &big).await.unwrap();
+        let diff = read_change_diff(&cwd, &big, None).await.unwrap();
         assert!(diff.truncated);
         assert!(diff.text.ends_with("+line"));
         // A big diff is bounded too.
@@ -909,7 +1123,7 @@ mod tests {
             status: "A".to_owned(),
             ..big
         };
-        let diff = read_change_diff(&cwd, &staged).await.unwrap();
+        let diff = read_change_diff(&cwd, &staged, None).await.unwrap();
         assert!(diff.truncated);
         assert!(diff.text.len() <= MAX_DIFF_BYTES);
         assert!(diff.text.ends_with("+line"));

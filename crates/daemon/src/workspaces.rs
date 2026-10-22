@@ -1293,7 +1293,7 @@ mod tests {
         let mut theirs = BufReader::new(theirs);
         theirs
             .get_mut()
-            .write_all(b"{\"type\":\"hello\",\"version\":48}\n")
+            .write_all(b"{\"type\":\"hello\",\"version\":49}\n")
             .await
             .unwrap();
         let workspace = Rc::new(WorkspaceRuntime::new(key.to_owned(), channel));
@@ -2178,7 +2178,7 @@ mod tests {
 
     /// A workspace worker in sh: says hello, answers `start` and `snapshot`, exits on `shutdown`.
     const SH_WORKSPACE_WORKER: &str = r#"#!/bin/sh
-printf '{"type":"hello","version":48}\n' >&3
+printf '{"type":"hello","version":49}\n' >&3
 echo "workspace $1"
 while IFS= read -r line <&3; do
   id=$(printf '%s' "$line" | sed -n 's/.*"requestId":"\([^"]*\)".*/\1/p')

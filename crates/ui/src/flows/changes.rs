@@ -494,8 +494,12 @@ impl Flow<App> for ChangesFlow {
             return;
         }
         if text == " " {
-            if let Some((entry, _)) = self.entry_and_key(props) {
-                self.stage(stage_mode(entry), Some(entry), props, cx);
+            match self.entry_and_key(props) {
+                Some((entry, _)) if entry.group == ChangeGroup::Committed => {
+                    cx.set_status(format!("{} is already committed on this branch", entry.path));
+                }
+                Some((entry, _)) => self.stage(stage_mode(entry), Some(entry), props, cx),
+                None => {}
             }
             return;
         }
@@ -610,6 +614,7 @@ mod tests {
             "counts": {
                 "conflicts": count("conflicts"), "staged": count("staged"),
                 "unstaged": count("unstaged"), "untracked": count("untracked"),
+                "committed": count("committed"),
             },
             "omitted": {"conflicts": 0, "staged": 0, "unstaged": 0, "untracked": 0},
             "branch": "main",
@@ -994,6 +999,31 @@ mod tests {
             assert_eq!(sent["mode"], "stage");
             assert_eq!(sent["group"], "unstaged");
             assert_eq!(sent["path"], "a.txt");
+        });
+    }
+
+    #[test]
+    fn space_on_a_committed_file_says_so_and_asks_nothing() {
+        local(async {
+            let (client, requests) = fake_daemon(|_| Err("unexpected".into()));
+            let (mut app, _rx) = app(AppProps::default());
+            let s1 = session("s1", "One", SessionStatus::Running);
+            let changes = record("s1", Some("/repo"), &files(&[("committed", "src/a.rs", "M")]));
+            let p = props(Some(&client), &s1, &changes, false);
+            call(&mut app, |flow, cx| flow.sync(&p, cx));
+            let (_, effects) = call(&mut app, |flow, cx| flow.handle_input(&p, &press(" "), cx));
+            app.apply_flow_effects(effects);
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("src/a.rs is already committed on this branch")
+            );
+            assert!(!app.messages.busy);
+            assert!(
+                requests
+                    .borrow()
+                    .iter()
+                    .all(|request| request["type"] != "change-stage")
+            );
         });
     }
 

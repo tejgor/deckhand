@@ -35,7 +35,7 @@ Sanity: `$DH --version` prints `deckhand <version>`. `ls ~/.deckhand` is never t
 4. **Pi.** Press `n`, choose `pi`, name `smoke pi`, Enter. Expected: a second row with `π`, its own worktree, Preview shows Pi's UI.
 5. **Codex.** Press `n`, choose `codex`, name `smoke codex`, Enter. Expected: a third row with `◇`; if Codex is not installed the form says so and nothing is created.
 6. Press `1`, `2`, `3`. Expected: the selection jumps to each numbered row and the Preview follows it.
-7. `$DH status` from another terminal. Expected: `Isolated dev daemon running (protocol v48): <home>`.
+7. `$DH status` from another terminal. Expected: `Isolated dev daemon running (protocol v49): <home>`.
 
 ## 2. Every tab
 

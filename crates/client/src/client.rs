@@ -702,7 +702,7 @@ async fn exchange(socket: &mut UnixStream, message: &Request) -> Result<Option<V
 /// TS: client.ts ProtocolMismatchError vs any other ping failure.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum PingError {
-    /// TS: ProtocolMismatchError: `daemon protocol mismatch: expected v48, got <version>` (`undefined` when the daemon
+    /// TS: ProtocolMismatchError: `daemon protocol mismatch: expected v49, got <version>` (`undefined` when the daemon
     /// sent no version).
     #[error("{0}")]
     ProtocolMismatch(String),
@@ -1157,22 +1157,22 @@ mod tests {
 
     #[test]
     fn ping_version_must_match_the_protocol() {
-        assert_eq!(check_ping_version(Some(&json!({"ok": true, "version": 48}))), Ok(()));
+        assert_eq!(check_ping_version(Some(&json!({"ok": true, "version": 49}))), Ok(()));
         assert_eq!(
             check_ping_version(Some(&json!({"ok": true, "version": 45}))),
             Err(PingError::ProtocolMismatch(String::from(
-                "daemon protocol mismatch: expected v48, got 45"
+                "daemon protocol mismatch: expected v49, got 45"
             )))
         );
         assert_eq!(
             check_ping_version(Some(&json!({"ok": true}))).unwrap_err().to_string(),
-            "daemon protocol mismatch: expected v48, got undefined"
+            "daemon protocol mismatch: expected v49, got undefined"
         );
         assert_eq!(
-            check_ping_version(Some(&json!({"version": "48"})))
+            check_ping_version(Some(&json!({"version": "49"})))
                 .unwrap_err()
                 .to_string(),
-            "daemon protocol mismatch: expected v48, got 48"
+            "daemon protocol mismatch: expected v49, got 49"
         );
         assert!(matches!(
             check_ping_version(Some(&Value::Null)),
@@ -1429,7 +1429,7 @@ mod tests {
         serve(&files.socket, |request| {
             Some(response(
                 &request,
-                json!({"ok": true, "data": {"ok": true, "version": 48}}),
+                json!({"ok": true, "data": {"ok": true, "version": 49}}),
             ))
         });
         ensure_daemon_running_with(&files, || panic!("must not spawn"))
@@ -1459,14 +1459,14 @@ mod tests {
         );
         assert_eq!(
             error.to_string(),
-            format!("daemon protocol mismatch: expected v48, got 45; {hint}")
+            format!("daemon protocol mismatch: expected v49, got 45; {hint}")
         );
         let log = std::fs::read_to_string(&files.log).unwrap();
         assert!(log.starts_with('['), "{log}");
         assert!(
             log.ends_with(&format!(
                 "] client refusing to replace live daemon pid {pid} after protocol mismatch: daemon protocol \
-                 mismatch: expected v48, got 45; {hint}\n"
+                 mismatch: expected v49, got 45; {hint}\n"
             )),
             "{log}"
         );
@@ -1488,7 +1488,7 @@ mod tests {
             serve(&socket, |request| {
                 Some(response(
                     &request,
-                    json!({"ok": true, "data": {"ok": true, "version": 48}}),
+                    json!({"ok": true, "data": {"ok": true, "version": 49}}),
                 ))
             });
             Ok(())

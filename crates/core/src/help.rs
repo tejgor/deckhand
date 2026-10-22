@@ -372,7 +372,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "→  Enter",
-                text: "On the Git tab (the worktree's changes, VS Code style): browse them / open lazygit",
+                text: "On the Git tab (the worktree's changes, then what its branch committed): browse them / open lazygit",
             },
             HelpLine::Heading {
                 heading: "Browsing changes (→; ← or Esc back; o opens lazygit)",

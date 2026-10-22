@@ -27,8 +27,8 @@ use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{self, path};
 use deckhand_core::session_features::{HandoffChange, HandoffDiff, HandoffDiffName, HandoffGitContext};
 use deckhand_protocol::data::{
-    CleanupFile, CleanupFileState, CleanupInspection, CreatePrResult, DiffStat, JsNumber, MergeOverlap, MergePreview,
-    PrChecks, PullRequestInfo, WorkspaceSummary,
+    CleanupFile, CleanupFileState, CleanupInspection, CreatePrResult, DiffStat, JsNumber, MergeCommit, MergeOverlap,
+    MergePreview, PrChecks, PullRequestInfo, WorkspaceSummary,
 };
 
 /// TS: workspaceGit.ts CLEANUP_FILES_LISTED (files named by a cleanup inspection at most; the counts are complete).
@@ -39,8 +39,9 @@ pub const MAX_SYMLINK_CHECKS: usize = 2000;
 pub const MAX_HANDOFF_COMMITS: usize = 30;
 /// TS: workspaceGit.ts MAX_HANDOFF_CHANGES.
 pub const MAX_HANDOFF_CHANGES: usize = 50;
-/// TS: workspaceGit.ts MERGE_PREVIEW_COMMITS (commit subjects shown by a merge preview; the count is exact).
-pub const MERGE_PREVIEW_COMMITS: usize = 6;
+/// TS: workspaceGit.ts MERGE_PREVIEW_COMMITS (commits listed by a merge preview; the count is exact). The TS listed
+/// 6; the merge screen scrolls, so it lists them all up to this.
+pub const MERGE_PREVIEW_COMMITS: usize = 100;
 /// TS: workspaceGit.ts MAX_OVERLAP (overlapping paths listed per kind).
 pub const MAX_OVERLAP: usize = 200;
 /// TS: workspaceGit.ts NON_INTERACTIVE (git push and gh never prompt).
@@ -1214,7 +1215,7 @@ pub async fn get_merge_preview(source_cwd: &str, target_cwd: &str) -> Result<Mer
         "--no-decorate",
         "--no-color",
         &max_count,
-        "--format=%s",
+        "--format=%h%x1f%ct%x1f%s",
         &range,
         "--",
     ];
@@ -1238,7 +1239,7 @@ pub async fn get_merge_preview(source_cwd: &str, target_cwd: &str) -> Result<Mer
     preview.commits = if log.is_empty() {
         Vec::new()
     } else {
-        log.split('\n').map(str::to_owned).collect()
+        log.split('\n').map(merge_commit).collect()
     };
     let files = numstat_files(&diff);
     preview.diff = DiffStat {
@@ -1248,6 +1249,19 @@ pub async fn get_merge_preview(source_cwd: &str, target_cwd: &str) -> Result<Mer
     };
     preview.overlap.committed = touched(&numstat_paths(&diff), &dirty);
     Ok(preview)
+}
+
+/// A `%h%x1f%ct%x1f%s` log line as a [`MergeCommit`] (a line not in that shape: its text as the subject).
+fn merge_commit(line: &str) -> MergeCommit {
+    let mut parts = line.splitn(3, '\x1f');
+    match (parts.next(), parts.next().map(str::parse::<i64>), parts.next()) {
+        (Some(hash), Some(Ok(time)), Some(subject)) => MergeCommit::Detail {
+            hash: hash.to_owned(),
+            time,
+            subject: subject.to_owned(),
+        },
+        _ => MergeCommit::Subject(line.to_owned()),
+    }
 }
 
 /// TS: workspaceGit.ts AncestryCheck.
@@ -1777,7 +1791,15 @@ mod tests {
         assert_eq!(preview.target_branch.as_deref(), Some("main"));
         assert_eq!(preview.default_branch.as_deref(), Some("main"));
         assert_eq!(preview.commit_count, 1);
-        assert_eq!(preview.commits, vec!["feature work"]);
+        assert_eq!(
+            preview.commits.iter().map(MergeCommit::subject).collect::<Vec<_>>(),
+            vec!["feature work"]
+        );
+        assert!(
+            matches!(&preview.commits[0], MergeCommit::Detail { hash, time, .. } if hash.len() >= 7 && *time > 0),
+            "{:?}",
+            preview.commits
+        );
         assert_eq!((preview.diff.files, preview.diff.insertions), (1, 1));
         assert_eq!(preview.uncommitted, 1);
         assert_eq!(preview.overlap.committed, vec!["file.txt"]);

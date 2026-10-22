@@ -349,6 +349,7 @@ pub fn diff_view(
                 ChangeGroup::Untracked => "untracked",
                 ChangeGroup::Conflicts => "conflict",
                 ChangeGroup::Unstaged => "unstaged",
+                ChangeGroup::Committed => "committed",
             };
             format!("{group} · {}", visible(&entry.path))
         },
@@ -415,14 +416,20 @@ pub fn summary(changes: &ChangesRecord) -> (String, Color) {
         return ("…".to_owned(), THEME.muted);
     }
     let counts = &changes.counts;
-    if total_changes(counts) == 0 {
-        return ("● clean".to_owned(), THEME.success);
+    let committed = if counts.committed == 0 {
+        String::new()
+    } else {
+        format!(" · {} committed", counts.committed)
+    };
+    if total_changes(counts) == counts.committed {
+        return (format!("● clean{committed}"), THEME.success);
     }
     let parts: Vec<String> = [
         (counts.conflicts, "conflicted"),
         (counts.staged, "staged"),
         (counts.unstaged, "changed"),
         (counts.untracked, "untracked"),
+        (counts.committed, "committed"),
     ]
     .into_iter()
     .filter(|(count, _)| *count != 0)
@@ -600,6 +607,7 @@ mod tests {
         let counts = serde_json::from_value(json!({
             "conflicts": count(ChangeGroup::Conflicts), "staged": count(ChangeGroup::Staged),
             "unstaged": count(ChangeGroup::Unstaged), "untracked": count(ChangeGroup::Untracked),
+            "committed": count(ChangeGroup::Committed),
         }))
         .expect("counts");
         ChangesRecord {
@@ -668,6 +676,44 @@ mod tests {
             }
         );
         assert_eq!(changes_layout(0, 0, 0).list_rows, 2);
+    }
+
+    fn words(row: &str) -> String {
+        row.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    #[test]
+    fn what_the_branch_committed_is_listed_after_the_working_tree_and_counted_in_the_header() {
+        let session = session();
+        let committed = |path: &str| entry("committed", "M", path, json!({"additions": 4, "deletions": 1}));
+        let only_committed = record(vec![committed("src/a.rs"), committed("src/b.rs")]);
+        let props = |changes| ChangesPaneProps {
+            session: Some(&session),
+            changes,
+            focused: false,
+            selected: None,
+            diff: None,
+            diff_scroll: 0,
+        };
+        let rows = draw(&props(&only_committed), 60, 5);
+        assert_eq!(words(&rows[0]), "/work/wt · main ● clean · 2 committed");
+        assert_eq!(rows[1], "Committed on this branch 2");
+        assert_eq!(words(&rows[2]), "M a.rs src +4 −1");
+        assert_eq!(summary(&only_committed).1, THEME.success);
+
+        let mut both = record(vec![
+            entry("unstaged", "M", "README.md", json!({})),
+            committed("src/a.rs"),
+        ]);
+        let rows = draw(&props(&both), 60, 6);
+        assert_eq!(words(&rows[0]), "/work/wt · main 1 changed · 1 committed");
+        assert_eq!(rows[1], "Changes 1");
+        assert_eq!(rows[3], "Committed on this branch 1");
+
+        // The diff's title names the group.
+        both.entries.remove(0);
+        let diff = diff_view(both.entries.first(), None, 0, 40, 3);
+        assert_eq!(row_text(&diff[0]), "committed · src/a.rs");
     }
 
     #[test]

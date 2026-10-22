@@ -1068,6 +1068,8 @@ pub struct MergeConfirmPaneProps<'a> {
     pub flow: Option<&'a MergeFlow>,
     pub selected_index: usize,
     pub tasks: &'a [Task],
+    /// The time now (epoch milliseconds), for the commits' ages; `None` leaves them out.
+    pub now: Option<i64>,
 }
 
 /// A merge line as a `<Text wrap="truncate-end">`.
@@ -1112,6 +1114,7 @@ pub fn merge_pane_rows(props: &MergeConfirmPaneProps<'_>, width: u16) -> DialogR
         }),
         width: content_width,
         height: MERGE_LAYOUT_ROWS,
+        now: props.now,
     });
     let on_task = flow.is_some_and(|flow| flow.on_items);
     let mut rows = DialogRows::default();
@@ -2758,6 +2761,7 @@ mod tests {
             flow: Some(&flow),
             selected_index: 0,
             tasks: &[],
+            now: None,
         };
         assert_pane("45-confirm-merge", |buf, area| {
             render_merge_confirm_pane(&props, buf, area);
@@ -2782,6 +2786,7 @@ mod tests {
             flow: Some(&flow),
             selected_index: 0,
             tasks: &[],
+            now: None,
         };
         assert_pane("58-confirm-merge-commits", |buf, area| {
             render_merge_confirm_pane(&props, buf, area);
@@ -2798,6 +2803,7 @@ mod tests {
             flow: None,
             selected_index: 2,
             tasks: &[],
+            now: None,
         };
         let rows = dialog_rows(&drawn(|buf, area| render_merge_confirm_pane(&waiting, buf, area)));
         // A full-pane screen: the title right under the border.
@@ -2942,6 +2948,7 @@ mod tests {
                     flow: Some(&flow),
                     selected_index: 1,
                     tasks: &[],
+                    now: None,
                 };
                 // The full 92-column pane.
                 let lines = dialog_rows(&plain_rows(92, height, |buf, area| {
@@ -2993,6 +3000,7 @@ mod tests {
                 flow: Some(&on_items),
                 selected_index: 0,
                 tasks: &tasks,
+                now: None,
             };
             let with_tasks = dialog_rows(&plain_rows(92, 30, |buf, area| {
                 render_merge_confirm_pane(&props, buf, area)
@@ -3085,6 +3093,7 @@ mod tests {
                     flow: None,
                     selected_index: 0,
                     tasks: &[],
+                    now: None,
                 },
                 &mut buf,
                 area,

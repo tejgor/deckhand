@@ -256,7 +256,7 @@ While editing a task, `enter` saves the title, `ctrl+s` saves from the details a
 
 ## Git changes
 
-On the Git tab, `→` (or `l`) browses the worktree's changes; [Git changes](features.md#git-changes) describes the groups, rows and diff preview.
+On the Git tab, `→` (or `l`) browses the worktree's changes and the files its branch committed; [Git changes](features.md#git-changes) describes the groups, rows and diff preview.
 
 | Key | Action |
 | --- | --- |
@@ -264,7 +264,7 @@ On the Git tab, `→` (or `l`) browses the worktree's changes; [Git changes](fea
 | `k`, `↑` | Select the previous file |
 | `g`, `home` | Select the first file |
 | `G`, `end` | Select the last file |
-| `space` | Stage the selected file, or unstage it if staged (staging a conflict marks it resolved) |
+| `space` | Stage the selected file, or unstage it if staged (staging a conflict marks it resolved; a committed file is left as it is) |
 | `a` | Stage everything except conflicted files |
 | `A` | Unstage everything |
 | `enter`, `E` | Open the file in Cursor or VS Code at its first changed line |

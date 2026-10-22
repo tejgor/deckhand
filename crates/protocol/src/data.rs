@@ -159,7 +159,14 @@ string_union!(CodexHookState { Missing = "missing", Other = "other" });
 string_union!(CandidateKind { Dir = "dir", File = "file", Symlink = "symlink" });
 string_union!(CandidateSuggestion { Link = "link", Skip = "skip" });
 string_union!(CandidateConfigured { Symlink = "symlink", Files = "files" });
-string_union!(ChangeGroup { Conflicts = "conflicts", Staged = "staged", Unstaged = "unstaged", Untracked = "untracked" });
+string_union!(ChangeGroup {
+    Conflicts = "conflicts",
+    Staged = "staged",
+    Unstaged = "unstaged",
+    Untracked = "untracked",
+    /// Not in the TS: a file the branch's commits changed since its base.
+    Committed = "committed",
+});
 string_union!(CleanupFileState { Changed = "changed", Untracked = "untracked", Ignored = "ignored" });
 string_union!(PrChecks { Passing = "passing", Pending = "pending", Failing = "failing", Unknown = "unknown" });
 string_union!(TaskAuto { Merge = "merge", Done = "done" });
@@ -536,6 +543,23 @@ pub struct MergeOverlap {
     pub uncommitted: Vec<String>,
 }
 
+/// A commit a merge would bring in (not in the TS): its short hash, commit time (Unix seconds) and subject. A bare
+/// subject, as the TS sent, still reads.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MergeCommit {
+    Detail { hash: String, time: i64, subject: String },
+    Subject(String),
+}
+
+impl MergeCommit {
+    pub fn subject(&self) -> &str {
+        match self {
+            MergeCommit::Detail { subject, .. } | MergeCommit::Subject(subject) => subject,
+        }
+    }
+}
+
 /// types.ts MergePreview (workspaceGit.ts getMergePreview literal order).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -548,7 +572,7 @@ pub struct MergePreview {
     pub target_is_main: bool,
     pub default_branch: Option<String>,
     pub commit_count: i64,
-    pub commits: Vec<String>,
+    pub commits: Vec<MergeCommit>,
     pub diff: DiffStat,
     pub uncommitted: i64,
     pub overlap: MergeOverlap,
@@ -1128,6 +1152,13 @@ pub struct ChangeCounts {
     pub staged: i64,
     pub unstaged: i64,
     pub untracked: i64,
+    /// Not in the TS (left out while 0): files the branch's commits changed since its base.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub committed: i64,
+}
+
+fn is_zero(count: &i64) -> bool {
+    *count == 0
 }
 
 /// changesModel.ts ChangesRecord: `emptyChanges` order, `...fields` appended, then the daemon's stamp.

@@ -17,20 +17,22 @@ use deckhand_protocol::data::{ChangeCounts, ChangeEntry, ChangeGroup, ChangesRec
 
 use crate::jsstr::utf16_to_byte;
 
-/// TS: changesModel.ts CHANGE_GROUPS (VS Code's order).
-pub const CHANGE_GROUPS: [ChangeGroup; 4] = [
+/// TS: changesModel.ts CHANGE_GROUPS (VS Code's order), then (not in the TS) what the branch committed.
+pub const CHANGE_GROUPS: [ChangeGroup; 5] = [
     ChangeGroup::Conflicts,
     ChangeGroup::Staged,
     ChangeGroup::Unstaged,
     ChangeGroup::Untracked,
+    ChangeGroup::Committed,
 ];
 
 /// TS: changesModel.ts CHANGE_GROUP_TITLES.
-pub const CHANGE_GROUP_TITLES: [(ChangeGroup, &str); 4] = [
+pub const CHANGE_GROUP_TITLES: [(ChangeGroup, &str); 5] = [
     (ChangeGroup::Conflicts, "Merge Conflicts"),
     (ChangeGroup::Staged, "Staged Changes"),
     (ChangeGroup::Unstaged, "Changes"),
     (ChangeGroup::Untracked, "Untracked"),
+    (ChangeGroup::Committed, "Committed on this branch"),
 ];
 
 /// TS: changesModel.ts CHANGE_GROUP_TITLES[group].
@@ -99,6 +101,7 @@ pub fn empty_counts() -> ChangeCounts {
         staged: 0,
         unstaged: 0,
         untracked: 0,
+        committed: 0,
     }
 }
 
@@ -122,6 +125,7 @@ fn count_of(counts: &ChangeCounts, group: ChangeGroup) -> i64 {
         ChangeGroup::Staged => counts.staged,
         ChangeGroup::Unstaged => counts.unstaged,
         ChangeGroup::Untracked => counts.untracked,
+        ChangeGroup::Committed => counts.committed,
     }
 }
 
@@ -131,6 +135,7 @@ fn count_mut(counts: &mut ChangeCounts, group: ChangeGroup) -> &mut i64 {
         ChangeGroup::Staged => &mut counts.staged,
         ChangeGroup::Unstaged => &mut counts.unstaged,
         ChangeGroup::Untracked => &mut counts.untracked,
+        ChangeGroup::Committed => &mut counts.committed,
     }
 }
 
@@ -249,6 +254,7 @@ pub fn group_changes(entries: &[StatusEntry], numstat: &Numstats, cap: usize) ->
     let lookup = |map: &Option<IndexMap<String, LineCounts>>, path: &str| -> Option<LineCounts> {
         map.as_ref().and_then(|map| map.get(path)).copied()
     };
+    // The status groups; Committed comes from the branch's history ([`append_committed`]).
     let mut groups: [Vec<ChangeEntry>; 4] = Default::default();
     for entry in entries {
         let path = entry.path.as_str();
@@ -299,6 +305,36 @@ pub fn group_changes(entries: &[StatusEntry], numstat: &Numstats, cap: usize) ->
         counts,
         omitted,
     }
+}
+
+/// Not in the TS: the files `git diff --name-status -z -M <base> HEAD` names, with their `--numstat -z` line counts,
+/// as Committed entries in path order. A rename or copy keeps its old path.
+pub fn committed_changes(name_status: &str, numstat: &str) -> Vec<ChangeEntry> {
+    let counts = parse_numstat(numstat);
+    let mut fields = name_status.split('\0');
+    let mut entries = Vec::new();
+    while let Some(status) = fields.next() {
+        let Some(letter) = status.chars().next() else {
+            continue;
+        };
+        let renamed = matches!(letter, 'R' | 'C');
+        let orig_path = if renamed { fields.next() } else { None };
+        let Some(path) = fields.next() else { break };
+        let mut change = new_entry(ChangeGroup::Committed, path, letter.encode_utf8(&mut [0; 4]));
+        change.orig_path = orig_path.map(str::to_owned);
+        entries.push(with_counts(change, counts.get(path)));
+    }
+    entries.sort_by(|left, right| js_string_cmp(&left.path, &right.path));
+    entries
+}
+
+/// Not in the TS: `committed` after the status groups, in what is left of `cap` (the rest is counted as omitted).
+pub fn append_committed(grouped: &mut GroupedChanges, committed: Vec<ChangeEntry>, cap: usize) {
+    let length = committed.len();
+    let take = cap.saturating_sub(grouped.entries.len()).min(length);
+    grouped.counts.committed = i64::try_from(length).unwrap_or(i64::MAX);
+    grouped.omitted.committed = i64::try_from(length - take).unwrap_or(i64::MAX);
+    grouped.entries.extend(committed.into_iter().take(take));
 }
 
 /// TS: changesModel.ts changeKey (`<group>\0<path>`).
@@ -648,7 +684,89 @@ mod tests {
             staged,
             unstaged,
             untracked,
+            committed: 0,
         }
+    }
+
+    #[test]
+    fn committed_files_follow_the_status_groups_within_the_cap() {
+        let name_status = "M\0src/b.rs\0R087\0old.rs\0src/a.rs\0D\0gone.txt\0A\0img.png\0";
+        let numstat = [
+            "3\t1\tsrc/b.rs",
+            "10\t2\t",
+            "old.rs",
+            "src/a.rs",
+            "0\t4\tgone.txt",
+            "-\t-\timg.png",
+            "",
+        ]
+        .join("\0");
+        let committed = committed_changes(name_status, &numstat);
+        let summary: Vec<_> = committed
+            .iter()
+            .map(|entry| {
+                (
+                    entry.status.as_str(),
+                    entry.path.as_str(),
+                    entry.orig_path.as_deref(),
+                    entry.additions,
+                    entry.binary,
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            [
+                ("D", "gone.txt", None, Some(0), None),
+                ("A", "img.png", None, None, Some(true)),
+                ("R", "src/a.rs", Some("old.rs"), Some(10), None),
+                ("M", "src/b.rs", None, Some(3), None),
+            ]
+        );
+        assert!(committed.iter().all(|entry| entry.group == ChangeGroup::Committed));
+
+        // After the status groups, in the room the cap leaves; the rest is counted as omitted.
+        let mut grouped = group_changes(
+            &[status(StatusKind::Untracked, "??", "new.txt")],
+            &Numstats::default(),
+            3,
+        );
+        append_committed(&mut grouped, committed, 3);
+        assert_eq!(grouped.entries.len(), 3);
+        assert_eq!((grouped.counts.committed, grouped.omitted.committed), (4, 2));
+        assert_eq!(total_changes(&grouped.counts), 5);
+        let record = ChangesRecord {
+            entries: grouped.entries,
+            counts: grouped.counts,
+            omitted: grouped.omitted,
+            ..empty_changes()
+        };
+        let headers: Vec<_> = change_rows(&record)
+            .into_iter()
+            .filter(|row| !matches!(row, ChangeRow::Entry { .. }))
+            .collect();
+        assert_eq!(
+            headers,
+            [
+                ChangeRow::Header {
+                    group: ChangeGroup::Untracked,
+                    count: 1
+                },
+                ChangeRow::Header {
+                    group: ChangeGroup::Committed,
+                    count: 4
+                },
+                ChangeRow::More {
+                    group: ChangeGroup::Committed,
+                    count: 2
+                },
+            ]
+        );
+        // Zero is left off the wire, as before the group existed.
+        assert_eq!(
+            serde_json::to_value(empty_counts()).unwrap(),
+            json!({"conflicts": 0, "staged": 0, "unstaged": 0, "untracked": 0})
+        );
     }
 
     fn label_of(path: &str, orig_path: Option<&str>) -> ChangeLabel {

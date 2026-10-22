@@ -21,7 +21,7 @@ use deckhand_protocol::events::{ChangesUpdated, ServerMessage};
 use deckhand_protocol::wire::{ChangeStage, ChangesDiff, CreatePr, WatchChanges, WorkspaceSummaryRequest};
 use deckhand_sys::async_util::{Interval, KeyedQueue, SharedTask, Task, spawn};
 use deckhand_sys::changes_git::{
-    ChangesSnapshot, StageTarget, UntrackedCounts, apply_stage, read_change_diff, read_changes,
+    ChangesCache, ChangesSnapshot, CommittedBase, StageTarget, apply_stage, read_change_diff, read_changes,
 };
 use deckhand_sys::workspace_git::{CreatePrOptions, create_pull_request, get_workspace_summary};
 use futures::FutureExt;
@@ -61,7 +61,10 @@ pub struct ChangesWatch {
     pub last: Option<ChangesSnapshotAt>,
     /// The last record pushed to watchers (JSON), so polls push only changes.
     pub published: Option<String>,
-    pub untracked: UntrackedCounts,
+    /// The untracked line counts and the branch's committed files, kept between reads.
+    pub cache: ChangesCache,
+    /// Not in the TS: what the session last watched here counts its commits from.
+    pub base: Option<CommittedBase>,
 }
 
 /// A watch as the daemon and its in-flight Git runs share it (TS: the object itself). A read that outlives its watch
@@ -100,6 +103,7 @@ fn failed_snapshot(error: &DhError) -> ChangesSnapshot {
         },
         all: Vec::new(),
         has_head: false,
+        merge_base: None,
     }
 }
 
@@ -148,13 +152,29 @@ impl Drop for RunningGuard {
     }
 }
 
-/// `readChanges(key, watch.untracked)`: the watch's untracked line counts are lent to the read (every read of a
-/// workspace runs in its exclusive section, so no other read uses them meanwhile).
+/// `readChanges(key, watch.untracked)`: the watch's cache is lent to the read (every read of a workspace runs in its
+/// exclusive section, so no other read uses it meanwhile).
 async fn read_with_cache(key: &str, watch: &SharedWatch) -> Result<ChangesSnapshot> {
-    let mut cache = std::mem::take(&mut watch.borrow_mut().untracked);
-    let read = read_changes(key, &mut cache).await;
-    watch.borrow_mut().untracked = cache;
+    let (mut cache, base) = {
+        let mut watch = watch.borrow_mut();
+        (std::mem::take(&mut watch.cache), watch.base.clone())
+    };
+    let read = read_changes(key, base.as_ref(), &mut cache).await;
+    watch.borrow_mut().cache = cache;
     read
+}
+
+/// What the Git tab lists a session's commits since: the branch its worktree started from, else (a worktree made by a
+/// script or attached records none) the default branch. A session in the main checkout has nothing to list.
+fn changes_base(session: &SessionRecord) -> Option<CommittedBase> {
+    let worktree = session.worktree.as_ref()?;
+    if worktree.mode == SessionWorktreeMode::None {
+        return None;
+    }
+    Some(match worktree.base_ref.clone().filter(|base| !base.is_empty()) {
+        Some(base) => CommittedBase::Ref(base),
+        None => CommittedBase::DefaultBranch,
+    })
 }
 
 impl Daemon {
@@ -167,6 +187,13 @@ impl Daemon {
                 ..ChangesWatch::default()
             }))
         }))
+    }
+
+    /// The workspace's watch, noting the base branch of `session` (the one viewed there).
+    fn changes_watch_of(&self, key: &str, session: &SessionRecord) -> SharedWatch {
+        let watch = self.changes_watch(key);
+        watch.borrow_mut().base = changes_base(session);
+        watch
     }
 
     /// TS: InkDaemon.changesExclusive: runs `run` after every Git run queued for the workspace (failures do not stop
@@ -284,6 +311,7 @@ impl Daemon {
                 ..empty_changes()
             });
         };
+        self.changes_watch_of(&key, &session);
         let snapshot = self.refresh_changes(&key).await;
         Ok(stamped(snapshot.record, session_id, &key))
     }
@@ -293,6 +321,7 @@ impl Daemon {
         let mut watched: IndexSet<String> = IndexSet::new();
         for (_, session) in self.changes_viewers() {
             if let Some(key) = self.workspace_key_of(&session) {
+                self.changes_watch_of(&key, &session);
                 watched.insert(key);
             }
         }
@@ -351,8 +380,8 @@ impl Daemon {
 
     /// TS: handleRequest `changes-diff` (`<path> is not in the current changes`, or the status read's error).
     pub async fn handle_changes_diff(&self, request: &ChangesDiff) -> Result<ChangeDiff> {
-        let (_, key) = self.require_workspace(&request.session_id, WorkspacePane::Git)?;
-        let watch = self.changes_watch(&key);
+        let (session, key) = self.require_workspace(&request.session_id, WorkspacePane::Git)?;
+        let watch = self.changes_watch_of(&key, &session);
         let fresh = {
             let watch = watch.borrow();
             watch
@@ -380,8 +409,11 @@ impl Daemon {
             )));
         };
         let diff_key = key.clone();
+        let merge_base = recent.merge_base.clone();
         let diff = self
-            .changes_exclusive(&key, move || async move { read_change_diff(&diff_key, &entry).await })
+            .changes_exclusive(&key, move || async move {
+                read_change_diff(&diff_key, &entry, merge_base.as_deref()).await
+            })
             .await?;
         self.sync_change_watches();
         Ok(diff)
@@ -391,7 +423,7 @@ impl Daemon {
     /// answering the result with the refreshed changes.
     pub async fn handle_change_stage(&self, request: &ChangeStage) -> Result<ChangeStageResult> {
         let (session, key) = self.require_workspace(&request.session_id, WorkspacePane::Git)?;
-        let watch = self.changes_watch(&key);
+        let watch = self.changes_watch_of(&key, &session);
         // TS: `message.path !== undefined && message.group ? {group, path} : undefined`. A target is matched by its
         // changeKey (`${group}\0${path}`), so a path of another type is compared as its string and a group that is
         // not one never matches.
@@ -575,6 +607,34 @@ mod tests {
     }
 
     #[test]
+    fn a_watch_lists_commits_since_the_base_of_the_worktree_viewed() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = test_daemon(dir.path());
+        let origin_main = Some(CommittedBase::Ref("origin/main".into()));
+        let mut record = session("s1", "/repo", "/repo/wt");
+        assert_eq!(changes_base(&record), None);
+        let mut worktree = SessionWorktreeRecord::new(SessionWorktreeMode::Managed);
+        worktree.base_ref = Some("origin/main".into());
+        record.worktree = Some(worktree.clone());
+        assert_eq!(changes_base(&record), origin_main);
+        let watch = daemon.changes_watch_of("/repo/wt", &record);
+        assert_eq!(watch.borrow().base, origin_main);
+        // The main checkout has no base of its own: nothing is listed as committed there.
+        worktree.mode = SessionWorktreeMode::None;
+        record.worktree = Some(worktree.clone());
+        assert_eq!(changes_base(&record), None);
+        daemon.changes_watch_of("/repo/wt", &record);
+        assert_eq!(watch.borrow().base, None);
+        // A worktree made by a script, or attached, records no base: the default branch.
+        for base_ref in [None, Some(String::new())] {
+            worktree.mode = SessionWorktreeMode::Attached;
+            worktree.base_ref = base_ref;
+            record.worktree = Some(worktree.clone());
+            assert_eq!(changes_base(&record), Some(CommittedBase::DefaultBranch));
+        }
+    }
+
+    #[test]
     fn create_pr_needs_a_live_worktree_on_a_branch() {
         let message = "Create PR needs a session in a worktree on a branch";
         let mut record = session("s1", "/repo", "/repo/wt");
@@ -659,7 +719,7 @@ mod tests {
             deletions: None,
             binary: Some(true),
         };
-        watch.borrow_mut().untracked.insert(
+        watch.borrow_mut().cache.untracked.insert(
             "a.bin".into(),
             UntrackedCount {
                 size: 1,
@@ -671,7 +731,7 @@ mod tests {
             let error = read_with_cache(missing, &watch).await.unwrap_err();
             assert_eq!(error.to_string(), "Worktree directory is missing");
         });
-        assert!(watch.borrow().untracked.contains_key("a.bin"));
+        assert!(watch.borrow().cache.untracked.contains_key("a.bin"));
     }
 
     #[test]

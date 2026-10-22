@@ -1,8 +1,0 @@
-{
-  "fn": "resolveCreateScript",
-  "args": [
-    "$ROOT/cur"
-  ],
-  "async": true,
-  "ret": "$ROOT/cur/.claude/scripts/create-worktree.sh"
-}

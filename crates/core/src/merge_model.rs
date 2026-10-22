@@ -8,7 +8,8 @@ use serde_with::skip_serializing_none;
 
 use crate::display::{Color, HINT_SEPARATOR, HintPart, THEME, compact_path, fit_hint, truncate};
 use crate::jsstr::{js_len, js_trim_end};
-use deckhand_protocol::data::{MergePreview, TargetOperation, WorktreeMergeResult};
+use crate::sidebar_model::format_age;
+use deckhand_protocol::data::{MergeCommit, MergePreview, TargetOperation, WorktreeMergeResult};
 
 /// TS: mergeModel.ts MergeLine.
 #[skip_serializing_none]
@@ -117,6 +118,9 @@ pub struct MergeConfirmInput {
     pub width: usize,
     /// The pane's rows, border included.
     pub height: usize,
+    /// Not in the TS: the time now (epoch milliseconds), for each commit's age; missing, commits show no age.
+    #[serde(default)]
+    pub now: Option<i64>,
 }
 
 /// TS: mergeModel.ts MergeConfirmLayout.
@@ -204,7 +208,7 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
             commits = preview
                 .commits
                 .iter()
-                .map(|subject| line(fit(&format!("  {subject}")), Some(THEME.muted)))
+                .map(|commit| line(fit(&commit_text(commit, input.now)), Some(THEME.muted)))
                 .collect();
             let more = preview.commit_count - to_js(preview.commits.len());
             if !commits.is_empty() && more > 0 {
@@ -407,6 +411,21 @@ pub fn merge_confirm_layout(input: &MergeConfirmInput) -> MergeConfirmLayout {
 }
 
 /// A Rust count as the JS number it stands for.
+/// A commit's row: its short hash and age (right-aligned, so the subjects line up), then its subject.
+fn commit_text(commit: &MergeCommit, now: Option<i64>) -> String {
+    match commit {
+        MergeCommit::Subject(subject) => format!("  {subject}"),
+        MergeCommit::Detail { hash, time, subject } => match now {
+            #[allow(clippy::cast_precision_loss)]
+            Some(now) => {
+                let age = format_age((now - time.saturating_mul(1000)).max(0) as f64);
+                format!("  {hash} {age:>4}  {subject}")
+            }
+            None => format!("  {hash}  {subject}"),
+        },
+    }
+}
+
 fn to_js(value: usize) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
@@ -541,6 +560,7 @@ mod tests {
             open_items: None,
             width: 60,
             height: 40,
+            now: None,
         }
     }
 
@@ -668,6 +688,43 @@ mod tests {
                     "Squash merge into the current branch without committing",
                     "Cancel"
                 ]
+            );
+        });
+    }
+
+    #[test]
+    fn commits_show_their_hash_and_age_with_the_subjects_lined_up() {
+        with_home("/home/me", || {
+            let now = 1_700_000_000_000;
+            let at = |ms_ago: i64| (now - ms_ago) / 1000;
+            let layout = merge_confirm_layout(&MergeConfirmInput {
+                preview: Some(preview(json!({"commitCount": 3, "commits": [
+                    {"hash": "a1b2c3d", "time": at(30_000), "subject": "fix tests"},
+                    {"hash": "e4f5a6b", "time": at(3 * 3_600_000), "subject": "wire the session cookie"},
+                    {"hash": "c7d8e9f", "time": at(12 * 86_400_000), "subject": "add login form"},
+                ]}))),
+                now: Some(now),
+                ..input()
+            });
+            let commits = &layout.details[layout.commit_rows.clone()];
+            assert_eq!(
+                texts(commits),
+                [
+                    "  a1b2c3d  now  fix tests",
+                    "  e4f5a6b   3h  wire the session cookie",
+                    "  c7d8e9f  12d  add login form",
+                ]
+            );
+            // Without the time now: the hash alone. A bare subject (what the TS sent) still shows.
+            let layout = merge_confirm_layout(&MergeConfirmInput {
+                preview: Some(preview(json!({"commitCount": 2, "commits": [
+                    {"hash": "a1b2c3d", "time": at(0), "subject": "fix tests"}, "lint",
+                ]}))),
+                ..input()
+            });
+            assert_eq!(
+                texts(&layout.details[layout.commit_rows.clone()]),
+                ["  a1b2c3d  fix tests", "  lint"]
             );
         });
     }

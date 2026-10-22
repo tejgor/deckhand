@@ -486,7 +486,7 @@ pub(crate) mod tests {
         let mut theirs = BufReader::new(theirs);
         theirs
             .get_mut()
-            .write_all(b"{\"type\":\"hello\",\"version\":48}\n")
+            .write_all(b"{\"type\":\"hello\",\"version\":49}\n")
             .await
             .unwrap();
         let worker = Rc::new(WorkerRuntime {

@@ -1251,7 +1251,7 @@ mod tests {
                 cwd,
                 _dir: dir,
             };
-            assert_eq!(daemon.next_text().await, r#"{"type":"hello","version":48}"#);
+            assert_eq!(daemon.next_text().await, r#"{"type":"hello","version":49}"#);
             daemon
         }
 

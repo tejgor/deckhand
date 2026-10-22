@@ -654,7 +654,7 @@ mod tests {
     /// A worker in sh: says hello, answers `echo` with `{ok: true}`, `fail` with an error, `event` with a `running`
     /// event, exits 3 on `exit` and ignores anything else.
     const SH_WORKER: &str = r#"#!/bin/sh
-if [ -n "$HELLO" ]; then printf '%s\n' "$HELLO" >&3; else printf '{"type":"hello","version":48}\n' >&3; fi
+if [ -n "$HELLO" ]; then printf '%s\n' "$HELLO" >&3; else printf '{"type":"hello","version":49}\n' >&3; fi
 echo "started $1"
 while IFS= read -r line <&3; do
   id=$(printf '%s' "$line" | sed -n 's/.*"requestId":"\([^"]*\)".*/\1/p')
@@ -720,7 +720,7 @@ done
             check_hello(&WorkerMessage::Hello(Hello { version: 45 }))
                 .unwrap_err()
                 .to_string(),
-            "worker speaks protocol 45, expected 48"
+            "worker speaks protocol 45, expected 49"
         );
         let running: WorkerMessage = serde_json::from_value(json!({"type": "running", "pid": 1})).unwrap();
         assert_eq!(
@@ -832,7 +832,7 @@ done
             let message = error.to_string();
             // The refusal itself, or (when the handshake was read before the request was sent) the closed channel.
             assert!(
-                message == "worker speaks protocol 1, expected 48" || message == "worker is not running",
+                message == "worker speaks protocol 1, expected 49" || message == "worker is not running",
                 "{message}"
             );
             assert!(!channel.is_connected());
@@ -888,7 +888,7 @@ done
             let mut theirs = BufReader::new(theirs);
             theirs
                 .get_mut()
-                .write_all(b"{\"type\":\"hello\",\"version\":48}\n")
+                .write_all(b"{\"type\":\"hello\",\"version\":49}\n")
                 .await
                 .unwrap();
             let error = channel

@@ -852,6 +852,7 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 flow,
                 selected_index: app.merge.confirm_index,
                 tasks: &app.data.tasks,
+                now: Some(deckhand_core::jsstr::date::now_ms()),
             };
             app.dialog.last = render_merge_pane(&props, buf, right, app.dialog.scroll);
         }
