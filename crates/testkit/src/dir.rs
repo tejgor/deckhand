@@ -242,7 +242,9 @@ pub fn diff_tree(entries: &[TreeEntry], files_dir: &Path, actual: &Tree) -> Vec<
             ));
             continue;
         }
-        if found.mode != entry.mode {
+        // A symlink's own mode means nothing and differs by platform (0755 on macOS where the trees were recorded,
+        // always 0777 on Linux), so only files and dirs compare modes.
+        if entry.kind != "symlink" && found.mode != entry.mode {
             out.push(format!(
                 "tree: {} mode expected {}, got {}",
                 entry.path, entry.mode, found.mode

@@ -795,6 +795,9 @@ mod tests {
         let repo = root.join("repo");
         std::fs::create_dir_all(&repo).unwrap();
         git(&repo, &["init", "-q", "-b", "main"]);
+        // The daemon's own git runs (merges) need an identity too; on a host without a domain git cannot invent one.
+        git(&repo, &["config", "user.name", "Deckhand Test"]);
+        git(&repo, &["config", "user.email", "test@example.com"]);
         commit(&repo, "README.md", "hi\n", "init");
         let linked = root.join("wt");
         git(
