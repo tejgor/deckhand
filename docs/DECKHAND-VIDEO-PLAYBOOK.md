@@ -599,8 +599,8 @@ Each of these was heard in a draft and fixed. Check for them before anyone liste
 
 ## 12. Making it in this repository
 
-D, E and G were built with the tooling in `promo/`; the Deckhand 3 drafts (race, kinetic, the walkthrough) with its
-successor in `demo/rust-port/` (git-ignored; see its README). Both work the same way:
+The drafts are built with the tooling in `promo/` (see its README): D, E and G with its first version, the Deckhand 3
+drafts (race, kinetic, the walkthrough) with the current one. Both work the same way:
 
 - **`src/<draft>.js`:** each cut is a function of time that returns the frame as HTML (a factory can draw both a wide and a
   square cut). `src/core.js` holds shared helpers: easing, the logo (`anchor`, `banner`), the agent table and fonts.
