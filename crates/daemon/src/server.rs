@@ -563,13 +563,16 @@ impl Daemon {
         }
     }
 
-    /// TS: handleRequest `ping`: `{ok: true, version: PROTOCOL_VERSION, home, channel}`.
+    /// TS: handleRequest `ping`: `{ok: true, version: PROTOCOL_VERSION, home, channel}`, then this daemon's `build`
+    /// and `pid`, so a client can say that an older build is still running and `deckhand restart` can stop it.
     pub fn handle_ping(&self) -> Result<PingResult> {
         Ok(PingResult {
             ok: true,
             version: Some(PROTOCOL_VERSION),
             home: Some(self.paths.config_dir.to_string_lossy().into_owned()),
             channel: Some(std::env::var("DECKHAND_CHANNEL").unwrap_or_else(|_| "stable".to_owned())),
+            build: Some(deckhand_protocol::BUILD_VERSION.to_owned()),
+            pid: Some(std::process::id()),
         })
     }
 
@@ -951,7 +954,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn ping_names_the_protocol_home_and_channel() {
+    fn ping_names_the_protocol_home_channel_build_and_pid() {
         // The ping reads DECKHAND_CHANNEL, which lifecycle's tests change.
         let _env = env_lock();
         let dir = tempfile::tempdir().unwrap();
@@ -962,6 +965,8 @@ pub(crate) mod tests {
         assert_eq!(ping.home.as_deref(), Some(dir.path().to_str().unwrap()));
         let expected = std::env::var("DECKHAND_CHANNEL").unwrap_or_else(|_| "stable".into());
         assert_eq!(ping.channel, Some(expected));
+        assert_eq!(ping.build.as_deref(), Some(env!("CARGO_PKG_VERSION")));
+        assert_eq!(ping.pid, Some(std::process::id()));
     }
 
     #[test]

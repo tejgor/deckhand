@@ -13,8 +13,11 @@
 
 use std::path::{Path, PathBuf};
 
+use deckhand_client::client::DaemonState;
+use deckhand_core::daemon_build::{RESTART_COMMAND, doctor_line};
 use deckhand_core::error::DhError;
 use deckhand_core::settings_model::notification_permission_note;
+use deckhand_protocol::BUILD_VERSION;
 use deckhand_protocol::data::{CodexHookState, NotificationPermission};
 use deckhand_sys::settings_info::{codex_hook_commands, codex_hook_state};
 
@@ -312,11 +315,46 @@ pub async fn run_doctor(args: &[String]) -> Result<DoctorStatus, DhError> {
         status
     });
     let codex = run_codex_hooks_check().await?;
+    run_daemon_check().await;
     Ok(if notifications == Some(DoctorStatus::Problems) {
         DoctorStatus::Problems
     } else {
         codex
     })
+}
+
+/// Not in the TS: the running daemon's build against this one (informational: the status is unchanged, since a
+/// compatible older daemon works). Read-only: it only pings, never starts or stops a daemon. Skipped where the
+/// debug-build guard refuses the state directory.
+async fn run_daemon_check() {
+    if crate::guard::check_home().is_err() {
+        return;
+    }
+    let state = deckhand_client::client::daemon_state().await;
+    crate::setup::write_stdout(&format_daemon_report(&state, &deckhand_sys::paths::daemon_log_path()));
+}
+
+/// `deckhand doctor`'s daemon line for `state` (`log`: where an unresponsive daemon's log is).
+pub fn format_daemon_report(state: &DaemonState, log: &Path) -> String {
+    match state {
+        DaemonState::NotRunning => "Daemon: not running (the UI starts it)\n".to_owned(),
+        DaemonState::Running { ping, pid } => doctor_line(
+            BUILD_VERSION,
+            ping.build.as_deref(),
+            pid.and_then(|pid| u32::try_from(pid).ok()),
+        ),
+        DaemonState::OtherProtocol { message, pid } => {
+            let pid = pid.map(|pid| format!(" (pid {pid})")).unwrap_or_default();
+            format!(
+                "• Daemon{pid}: {message}. A restart is required: {RESTART_COMMAND} (running sessions are \
+                 interrupted; resume them with s)\n"
+            )
+        }
+        DaemonState::Unresponsive { pid, error } => format!(
+            "• Daemon: pid {pid} is alive but did not answer ({error}); see {}\n",
+            log.display()
+        ),
+    }
 }
 
 /// The Codex hooks check, printed.
@@ -360,6 +398,49 @@ mod tests {
         let (status, text) = format_notification_report(None);
         assert_eq!(status, DoctorStatus::Healthy);
         assert!(text.contains("isn't known yet"));
+    }
+
+    #[test]
+    fn doctor_reports_the_running_daemon() {
+        use deckhand_protocol::data::PingResult;
+        let log = Path::new("/h/daemon.log");
+        assert_eq!(
+            format_daemon_report(&DaemonState::NotRunning, log),
+            "Daemon: not running (the UI starts it)\n"
+        );
+        let running = |build: &str| DaemonState::Running {
+            ping: PingResult {
+                ok: true,
+                version: Some(deckhand_protocol::PROTOCOL_VERSION),
+                build: Some(build.to_owned()),
+                ..PingResult::default()
+            },
+            pid: Some(12),
+        };
+        assert_eq!(
+            format_daemon_report(&running(BUILD_VERSION), log),
+            format!("✓ Daemon: {BUILD_VERSION} (pid 12), the same build as this deckhand\n")
+        );
+        let older = format_daemon_report(&running("0.0.1"), log);
+        assert!(older.starts_with("• Daemon: 0.0.1 (pid 12) is running;"), "{older}");
+        assert!(older.contains("deckhand restart"), "{older}");
+        let other = DaemonState::OtherProtocol {
+            message: "daemon protocol mismatch: expected v49, got 45".into(),
+            pid: Some(12),
+        };
+        assert_eq!(
+            format_daemon_report(&other, log),
+            "• Daemon (pid 12): daemon protocol mismatch: expected v49, got 45. A restart is required: deckhand \
+             restart (running sessions are interrupted; resume them with s)\n"
+        );
+        let stuck = DaemonState::Unresponsive {
+            pid: 12,
+            error: "daemon request timed out".into(),
+        };
+        assert_eq!(
+            format_daemon_report(&stuck, log),
+            "• Daemon: pid 12 is alive but did not answer (daemon request timed out); see /h/daemon.log\n"
+        );
     }
 
     fn runtime() -> tokio::runtime::Runtime {

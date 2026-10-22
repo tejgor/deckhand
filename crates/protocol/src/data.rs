@@ -1271,14 +1271,20 @@ impl Default for OkResult {
     }
 }
 
-/// `ping`: protocol version, the daemon's home and channel.
+/// `ping`: protocol version, the daemon's home and channel, and the daemon's build version and pid. The last two
+/// came without a protocol bump: a client treats them as optional, since an older daemon of the same protocol
+/// leaves them out.
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct PingResult {
     pub ok: bool,
     pub version: Option<u32>,
     pub home: Option<String>,
     pub channel: Option<String>,
+    /// The daemon's [`crate::BUILD_VERSION`].
+    pub build: Option<String>,
+    /// The daemon's process id.
+    pub pid: Option<u32>,
 }
 
 /// types.ts UiExitResult: what the UI process exits with (never on the wire; kept with the other shared types).
