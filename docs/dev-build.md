@@ -1,6 +1,6 @@
 # Test the isolated dev build
 
-The feature branch can run beside your installed Deckhand without replacing its binary or reconnecting to its daemon. **Do not `cargo install`, copy the binary onto your `PATH`, or stop the production daemon.** Everything runs from `target/` through `scripts/deckhand-dev.sh`.
+The feature branch can run beside your installed Deckhand without replacing its binary or reconnecting to its daemon. **While testing a branch, do not `cargo install`, copy the binary onto your `PATH`, or stop the production daemon.** Everything runs from `target/` through `scripts/deckhand-dev.sh`. To make a finished build your everyday Deckhand, see [Updating your own Deckhand from this checkout](#updating-your-own-deckhand-from-this-checkout).
 
 ## The dev loop
 
@@ -34,6 +34,21 @@ scripts/deckhand-dev.sh restart  # or: replace the dev daemon with this build (a
 `q` closes only the UI. Reopening reconnects to the dev daemon. A rebuild does not replace an already-running daemon or its workers: stop the **dev** daemon before testing updated daemon/worker code (a daemon speaking another protocol version is refused, not replaced). Dev status/stop never start a daemon, and refuse to control a daemon that is not a dev-channel daemon for this exact namespace (compared by real path).
 
 The full end-to-end checklist, including crash recovery, is [smoke-test.md](smoke-test.md).
+
+## Updating your own Deckhand from this checkout
+
+When a change is ready to be the Deckhand you use every day (usually once it is on `main`), install it from the checkout instead of the release installer:
+
+```sh
+git switch main && git pull
+cargo install --path crates/deckhand --locked   # release build into ~/.cargo/bin, replacing the previous one
+deckhand restart                                # when daemon or worker code changed; asks while sessions run
+```
+
+- `cargo install` builds the release profile; debug builds refuse `~/.deckhand`, so never put one on your `PATH`.
+- The restart matters only for daemon and worker changes. After a compatible update the UI says once that the older daemon is still running; after a protocol change `deckhand` refuses the old daemon until you restart it. Interrupted sessions resume with `s`.
+- Keep one install per machine. The release installer puts `deckhand` in `~/.local/bin`, which usually comes before `~/.cargo/bin` on `PATH`, so a copy there would silently shadow your own builds. `which -a deckhand` shows every copy; delete the one you don't use. Try the installer in a fresh user account or a container instead.
+- Codex hooks call the `deckhand` they were generated for. Reinstalling to the same place keeps them working; after moving the binary, rerun `deckhand hooks codex` (`deckhand doctor` warns when they point elsewhere).
 
 ## Manual smoke checklist
 

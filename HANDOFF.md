@@ -414,4 +414,4 @@ scripts/deckhand-dev.sh --sandbox    # isolated state in ~/.deckhand-dev, dispos
 scripts/deckhand-dev.sh stop         # stop only the dev daemon
 ```
 
-Never run the plain debug binary against your real home, and never `cargo install` while testing a branch. More in [docs/dev-build.md](docs/dev-build.md).
+Never run the plain debug binary against your real home, and never `cargo install` while testing a branch. To update your everyday Deckhand from the checkout, run `cargo install --path crates/deckhand --locked`, then `deckhand restart` if the daemon changed. Don't mix that with the release installer on the same machine (`~/.local/bin` shadows `~/.cargo/bin`). More in [docs/dev-build.md](docs/dev-build.md).
