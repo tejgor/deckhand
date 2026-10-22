@@ -68,10 +68,10 @@ So: accessible to someone running their second agent, without patronising someon
 - Sessions belong to a **background process,** not the window. Quit Deckhand (`q`), or let your terminal close or your
   editor restart, and the agents keep working. Open it again and they're all still there.
 - **Free and open source.** Deckhand 3 is one native binary (Rust, no Node.js) for macOS and Linux, installed with a
-  one-line installer from the README (or a release archive, or cargo). Don't put the installer command in a video:
-  nobody types it from a video, and it doesn't read on a phone. Promos close on the repo, `github.com/tejgor/deckhand`,
-  with "One-line install for macOS and Linux"; a walkthrough, watched on GitHub, points at
-  `github.com/tejgor/deckhand/releases`. (Deckhand 2 was `npm install -g @tejgor/deckhand`.)
+  one line from the README: `brew install tejgor/tap/deckhand`, or the install script (or a release archive, or
+  cargo). Every close shows `brew install tejgor/tap/deckhand`, with "No Homebrew? The README has a one-line installer:
+  github.com/tejgor/deckhand" under it; never the install script's command, which doesn't read on a phone.
+  (Deckhand 2 was `npm install -g @tejgor/deckhand`.)
 
 ### What never to claim
 
@@ -718,8 +718,8 @@ What it is:  "A workbench for running coding agents in parallel."
              "A lightweight agent workbench for your IDE terminal."
 Taglines:    "Run more agents. Watch fewer tabs."
              "Run as many agents as you like. Deckhand makes them easy to manage."
-Close:       github.com/tejgor/deckhand · "One-line install for macOS and Linux" · Free and open source
-             (a walkthrough: github.com/tejgor/deckhand/releases); never the installer command itself
+Close:       brew install tejgor/tap/deckhand · "No Homebrew? The README has a one-line installer:
+             github.com/tejgor/deckhand" · Free and open source; never the install script's command
 Sync:        picture in bars and beats on the music's grid · scene changes on bar lines
              every arrival makes a sound, in time and in key · the checks pass before anyone listens
 Colours:     magenta brand · yellow needs you · green working/done · cyan selection
