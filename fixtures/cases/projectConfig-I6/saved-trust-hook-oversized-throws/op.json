@@ -14,5 +14,7 @@
     {}
   ],
   "async": true,
-  "throws": "create-worktree.sh exceeds 64 KiB"
+  "ret": {
+    "trust": "unreviewed"
+  }
 }

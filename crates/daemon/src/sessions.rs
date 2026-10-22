@@ -11,7 +11,7 @@ use deckhand_core::agent_signals::hooks_enabled;
 use deckhand_core::agents::{LaunchPlan, agent_spec, launch_args, new_agent_ref, relaunch_plan};
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{self, date, path};
-use deckhand_core::project_config::{is_project_trusted, resolve_settings, resolve_setup_command};
+use deckhand_core::project_config::{resolve_settings, resolve_setup_command};
 use deckhand_core::session_features::HandoffTask;
 use deckhand_core::session_order::{compare_session_order, sort_sessions_for_sidebar};
 use deckhand_core::session_scope::session_matches_scope;
@@ -1058,13 +1058,12 @@ impl Daemon {
         let mut session_cwd = launch_cwd.clone();
         let mut worktree = SessionWorktreeRecord::new(SessionWorktreeMode::None);
         let requested_worktree_mode = input.worktree_mode.unwrap_or(WorktreeMode::None);
-        // Project configuration only matters for new worktrees (creation hook + setup), so a malformed deckhand.json
-        // never blocks none/existing sessions. The repository config is the main checkout's; the creation hook
-        // resolves from the launch checkout (the worktree does not exist yet).
+        // Project configuration only matters for new worktrees (worktree settings + setup), so a malformed
+        // deckhand.json never blocks none/existing sessions. The repository config is the main checkout's.
         let mut launch_project: Option<LoadedProject> = None;
         let mut project_error: Option<String> = None;
         if requested_worktree_mode == WorktreeMode::New {
-            match load_project_config(&launch_cwd, Some(&app_config), None).await {
+            match load_project_config(&launch_cwd, None).await {
                 Ok(project) => launch_project = Some(project),
                 Err(error) => project_error = Some(error.to_string()),
             }
@@ -1073,20 +1072,9 @@ impl Daemon {
             let worktree_settings = resolve_settings(launch_project.as_ref(), &app_config, &config_dir)
                 .ok()
                 .and_then(|settings| settings.worktree.clone());
-            let creation_hook = launch_project
-                .as_ref()
-                .filter(|project| {
-                    is_project_trusted(
-                        &project.trust_root,
-                        &project.fingerprint,
-                        app_config.trusted_projects.as_ref(),
-                    )
-                })
-                .and_then(|project| project.creation_hook.as_ref());
             let created = create_worktree_for_session(
                 &title,
                 &launch_cwd,
-                creation_hook,
                 worktree_settings.as_ref(),
                 input.base_branch.as_deref().filter(|base| !base.is_empty()),
             )
@@ -1290,8 +1278,8 @@ impl Daemon {
             return Ok(());
         }
 
-        // Setup uses the configuration that was reviewed for this launch (the same bytes whose trust chose the
-        // creation hook): global defaults, overlaid by the repository override only when trusted.
+        // Setup uses the configuration that was reviewed for this launch (the same bytes whose trust placed the
+        // worktree): global defaults, overlaid by the repository override only when trusted.
         if worktree.origin == Some(WorktreeOrigin::Created) {
             let resolved = match project_error.as_deref() {
                 Some(problem) => Err(DhError::msg(format!(
@@ -1595,7 +1583,7 @@ impl Daemon {
                 .as_ref()
                 .is_some_and(|setup| setup.state != SetupState::Complete)
             {
-                let project = load_project_config(&existing.cwd, Some(&config), None).await?;
+                let project = load_project_config(&existing.cwd, None).await?;
                 let config_dir = self.paths.config_dir.to_string_lossy().into_owned();
                 let setup_command =
                     resolve_setup_command(Some(&project), &config, project_fingerprint.as_deref(), &config_dir)?;

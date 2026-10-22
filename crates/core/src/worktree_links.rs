@@ -230,6 +230,8 @@ fn into_js_order<V>(mut map: IndexMap<String, V>) -> IndexMap<String, V> {
     map
 }
 
+/// The keys a `worktree` setting may hold. `hook` switched a repository's worktree creation script on or off: Deckhand
+/// no longer runs those, and files that still set it read without complaint (it is ignored).
 const SETTING_KEYS: [&str; 6] = ["location", "symlink", "files", "branchFrom", "branchName", "hook"];
 
 /// TS: worktreeLinks.ts validateWorktreeSettings (the `worktree` value of a deckhand.json-shaped object).
@@ -252,9 +254,6 @@ pub fn validate_worktree_settings(value: &Value) -> Result<WorktreeSettings> {
             "worktree.branchFrom must be one of {}",
             names.join(", ")
         )));
-    }
-    if record.get("hook").is_some_and(|hook| !hook.is_boolean()) {
-        return Err(DhError::msg("worktree.hook must be true or false"));
     }
     if let Some(branch_name) = record.get("branchName") {
         let Some(template) = branch_name.as_str().filter(|template| template.contains("{name}")) else {
@@ -334,7 +333,7 @@ pub fn validate_worktree_settings(value: &Value) -> Result<WorktreeSettings> {
 
 /// TS: worktreeLinks.ts mergeWorktreeSettings (repository scalars win; symlinks are a deduplicated union, global
 /// first; files merge by destination, repository winning). The TS literal's key order is location, branchFrom,
-/// branchName, hook, symlink, files: callers that serialise the result record that order.
+/// branchName, symlink, files: callers that serialise the result record that order.
 pub fn merge_worktree_settings(
     global: Option<&WorktreeSettings>,
     repository: Option<&WorktreeSettings>,
@@ -355,7 +354,6 @@ pub fn merge_worktree_settings(
         location: non_empty(pick(global, repository, |settings| settings.location.as_ref())),
         branch_from: pick(global, repository, |settings| settings.branch_from.as_ref()),
         branch_name: non_empty(pick(global, repository, |settings| settings.branch_name.as_ref())),
-        hook: pick(global, repository, |settings| settings.hook.as_ref()),
         ..WorktreeSettings::default()
     };
     let global_symlink = global.and_then(|settings| settings.symlink.as_ref());

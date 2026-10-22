@@ -507,7 +507,8 @@ fn hook_bridge_records_the_codex_identity(c: &Ctx, daemon: &mut Daemon) {
 fn untrusted_repository_commands_never_run(c: &Ctx) {
     // Global defaults are user-authored: they run without trust.
     c.set_defaults(Some(json!({"setupCommand": "touch global-setup", "devCommand": "printf global-dev", "actions": {"gtest": "printf global-action", "gsleep": "sleep 30"}})));
-    // The repository override (uncommitted, live in the main checkout) and a creation hook that must not run untrusted.
+    // The repository override (uncommitted, live in the main checkout) and a leftover creation script, which Deckhand
+    // never runs.
     let setup = r#"touch repo-setup; if [ ! -e .attempt ]; then printf 1 > .attempt; echo 'first attempt'; exit 1; fi; echo 'setup complete'"#;
     fs::write(
         c.root.join("deckhand.json"),
@@ -520,7 +521,7 @@ fn untrusted_repository_commands_never_run(c: &Ctx) {
     let mut info = c.ok(json!({"type": "project-info", "cwd": c.root}));
     assert_eq!(info["needsReview"], true);
     assert_eq!(info["effective"]["setupCommand"], "touch global-setup");
-    // Not reviewed: the repository setup is refused (the race path), the worktree retained, the hook never run.
+    // Not reviewed: the repository setup is refused (the race path), the worktree retained, the script never run.
     let unreviewed = c.create_mode("unreviewed-setup", "claude", "new");
     let unreviewed_id = id_of(&unreviewed);
     let mut item = c.wait(&unreviewed_id, |s| s["status"] == "exited");
@@ -564,7 +565,8 @@ fn untrusted_repository_commands_never_run(c: &Ctx) {
     c.ok(json!({"type": "stop-dev", "sessionId": skipped_id}));
     c.kill_and_wait(&skipped_id);
     // A trust request for bytes that changed after review is refused.
-    fs::remove_dir_all(c.root.join(".claude")).unwrap();
+    let reviewed = fs::read_to_string(c.root.join("deckhand.json")).unwrap();
+    fs::write(c.root.join("deckhand.json"), format!("{reviewed}\n")).unwrap();
     assert_rejects(
         c.call(json!({"type": "trust-project", "cwd": c.root, "fingerprint": info["fingerprint"]})),
         &["changed"],

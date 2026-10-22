@@ -11,8 +11,7 @@
       "symlink": [
         "node_modules"
       ],
-      "branchFrom": "default",
-      "hook": false
+      "branchFrom": "default"
     }
   }
 }

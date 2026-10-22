@@ -418,9 +418,6 @@ pub fn untrusted_creation_parts(project: &ProjectInfo) -> Vec<String> {
     if let Some(setup) = config.setup_command.as_deref().filter(|setup| !setup.is_empty()) {
         parts.push(format!("setupCommand ({setup})"));
     }
-    if let Some(hook) = project.project.creation_hook.as_ref() {
-        parts.push(format!("creation hook ({})", hook.file));
-    }
     if let Some(worktree) = config.worktree.as_ref() {
         let fields: Vec<&str> = [
             ("location", worktree.location.is_some()),
@@ -1048,12 +1045,8 @@ mod tests {
         })
     }
 
-    fn project_info(config: Value, creation_hook: Option<&str>) -> ProjectInfo {
-        let mut value = project(true, config, json!({}));
-        if let Some(file) = creation_hook {
-            value["creationHook"] = json!({"file": file, "content": "#!/bin/sh", "fingerprint": "h"});
-        }
-        serde_json::from_value(value).unwrap_or_else(|error| panic!("{error}"))
+    fn project_info(config: Value) -> ProjectInfo {
+        serde_json::from_value(project(true, config, json!({}))).unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn key(key: Key) -> Input {
@@ -1120,24 +1113,19 @@ mod tests {
 
     #[test]
     fn untrusted_parts_list_what_a_new_worktree_would_run() {
-        assert!(untrusted_creation_parts(&project_info(json!({"devCommand": "npm run dev"}), None)).is_empty());
+        assert!(untrusted_creation_parts(&project_info(json!({"devCommand": "npm run dev"}))).is_empty());
         let parts = untrusted_creation_parts(&project_info(
             json!({"setupCommand": "npm ci", "worktree": {"files": {"a": "b"}, "location": "../wt", "branchName": "x/{name}"}}),
-            Some(".deckhand/create-worktree"),
         ));
         assert_eq!(
             parts,
             [
                 "setupCommand (npm ci)",
-                "creation hook (.deckhand/create-worktree)",
                 "worktree settings (location, branchName, files)"
             ]
         );
-        // An empty setup command runs nothing; `hook` alone is not a creation setting.
-        let parts = untrusted_creation_parts(&project_info(
-            json!({"setupCommand": "", "worktree": {"hook": false}}),
-            None,
-        ));
+        // An empty setup command runs nothing; a legacy `hook` key is ignored.
+        let parts = untrusted_creation_parts(&project_info(json!({"setupCommand": "", "worktree": {"hook": false}})));
         assert!(parts.is_empty());
     }
 

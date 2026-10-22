@@ -401,9 +401,6 @@ pub fn base_options(list: Option<&BranchList>) -> Vec<BaseOption> {
     let Some(list) = list else {
         return vec![label("loading branches…".to_owned())];
     };
-    if list.hook == Some(true) {
-        return vec![label("decided by the repository's worktree hook".to_owned())];
-    }
     let setting = match list.branch_from {
         BranchFrom::Default => format!(
             "{} (default branch)",
@@ -1681,11 +1678,6 @@ mod tests {
             base_options(Some(&default))[0].label,
             "the default branch (default branch)"
         );
-        let hook = BranchList {
-            hook: Some(true),
-            ..list
-        };
-        assert_eq!(base_options(Some(&hook)).len(), 1);
     }
 
     #[test]

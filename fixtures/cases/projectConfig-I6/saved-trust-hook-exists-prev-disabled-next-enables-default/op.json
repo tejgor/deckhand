@@ -25,6 +25,7 @@
   ],
   "async": true,
   "ret": {
-    "trust": "hook"
+    "trust": "kept",
+    "fingerprint": "31fb1cf81e152c1062ce1bfbe2af1be68fa275374e16aff584bd1110d713ff1e"
   }
 }

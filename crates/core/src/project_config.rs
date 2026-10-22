@@ -27,8 +27,8 @@ use crate::worktree_links::{
     worktree_location,
 };
 use deckhand_protocol::data::{
-    ConfigTargetKind, DevCommand, LoadedProject, PendingSetting, ProjectConfig, SettingRow, SettingSource,
-    StringOrBool, TemplateVars, WorktreeSettings,
+    DevCommand, LoadedProject, PendingSetting, ProjectConfig, SettingRow, SettingSource, StringOrBool, TemplateVars,
+    WorktreeSettings,
 };
 use deckhand_protocol::records::AppConfig;
 use deckhand_protocol::{KeyOrder, Ordered};
@@ -460,52 +460,11 @@ fn drop_without_recursion(value: Value) {
     }
 }
 
-/// TS: projectConfig.ts hookSetting result: whether a detected creation hook is enabled, and which layer disabled it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct HookSetting {
-    pub enabled: bool,
-    pub by: Option<ConfigTargetKind>,
-}
-
-/// TS: projectConfig.ts hookSetting (the repository's `worktree.hook`, else a global `false`; read leniently).
-///
-/// `worktree.hook: false` in the repository file is honoured even while that file is untrusted: it can only stop a
-/// script from running. Global defaults are read leniently because a `false` there only disables, too.
-pub fn hook_setting(config: &ProjectConfig, user: &UserSettings) -> HookSetting {
-    if let Some(hook) = config.worktree.as_ref().and_then(|worktree| worktree.hook) {
-        return if hook {
-            HookSetting {
-                enabled: true,
-                by: None,
-            }
-        } else {
-            HookSetting {
-                enabled: false,
-                by: Some(ConfigTargetKind::Repository),
-            }
-        };
-    }
-    let global_hook = user
-        .defaults
-        .as_ref()
-        .and_then(|defaults| defaults.get("worktree"))
-        .and_then(|worktree| worktree.get("hook"));
-    if global_hook == Some(&Value::Bool(false)) {
-        HookSetting {
-            enabled: false,
-            by: Some(ConfigTargetKind::Global),
-        }
-    } else {
-        HookSetting {
-            enabled: true,
-            by: None,
-        }
-    }
-}
-
-/// TS: projectConfig.ts projectFingerprint (deckhand.json's text together with the enabled hook's fingerprint).
-pub fn project_fingerprint(raw: &str, hook_fingerprint: Option<&str>) -> String {
-    sha256(format!("config\0{raw}\0creation-hook\0{}", hook_fingerprint.unwrap_or("")).as_bytes())
+/// TS: projectConfig.ts projectFingerprint (deckhand.json's text). The empty `creation-hook` part is what the TS hashed
+/// without an enabled worktree creation script: keeping it keeps every fingerprint trusted before Deckhand stopped
+/// running those scripts.
+pub fn project_fingerprint(raw: &str) -> String {
+    sha256(format!("config\0{raw}\0creation-hook\0").as_bytes())
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -518,11 +477,9 @@ pub fn is_project_trusted(trust_root: &str, fingerprint: &str, trusted: Option<&
         .is_some_and(|list| list.iter().any(|value| value == fingerprint))
 }
 
-/// TS: projectConfig.ts projectNeedsReview (only a repository with a deckhand.json or an enabled creation hook has
-/// anything to trust).
+/// TS: projectConfig.ts projectNeedsReview (only a repository with a deckhand.json has anything to trust).
 pub fn project_needs_review(project: &LoadedProject, trusted: Option<&TrustedProjects>) -> bool {
-    (project.exists || project.creation_hook.is_some())
-        && !is_project_trusted(&project.trust_root, &project.fingerprint, trusted)
+    project.exists && !is_project_trusted(&project.trust_root, &project.fingerprint, trusted)
 }
 
 /// TS: projectConfig.ts trustProjectConfig: the new `trustedProjects` with the fingerprint first for its root
@@ -633,7 +590,7 @@ pub fn untrusted_layer(config: &ProjectConfig) -> ProjectConfig {
     }
 }
 
-/// mergeWorktreeSettings's literal key order: location, branchFrom, branchName, hook, symlink, files.
+/// mergeWorktreeSettings's literal key order: location, branchFrom, branchName, symlink, files.
 fn worktree_value(settings: &WorktreeSettings) -> Value {
     let mut map = Map::new();
     if let Some(location) = &settings.location {
@@ -644,9 +601,6 @@ fn worktree_value(settings: &WorktreeSettings) -> Value {
     }
     if let Some(branch_name) = &settings.branch_name {
         map.insert("branchName".to_owned(), Value::String(branch_name.clone()));
-    }
-    if let Some(hook) = settings.hook {
-        map.insert("hook".to_owned(), Value::Bool(hook));
     }
     if let Some(symlink) = &settings.symlink {
         map.insert(
@@ -705,12 +659,6 @@ pub fn resolve_settings(
     }
     if let Some(worktree) = merge_worktree_settings(global.worktree.as_ref(), repository.worktree.as_ref()) {
         merged.insert("worktree".to_owned(), worktree_value(&worktree));
-    }
-    // An untrusted repository may still switch the creation hook off (see hook_setting); it can never switch it on.
-    if project.and_then(|project| project.config.worktree.as_ref()?.hook) == Some(false) {
-        let mut worktree = spread(merged.get("worktree"));
-        worktree.insert("hook".to_owned(), Value::Bool(false));
-        merged.insert("worktree".to_owned(), Value::Object(worktree));
     }
     ordered_config(merged)
 }
@@ -789,8 +737,6 @@ pub struct ExplainContext {
     pub vars: Option<TemplateVars>,
     /// `{user}` for the branch-name example.
     pub user: Option<String>,
-    /// A detected create-worktree.sh when the project could not be loaded.
-    pub hook_file: Option<String>,
     /// Deckhand's state directory (TS `getConfigDir()`): the config path in messages, and the built-in worktree
     /// location unless `location_config_dir` is set.
     pub config_dir: String,
@@ -1000,11 +946,6 @@ fn unset_row(key: &str) -> SettingRow {
     }
 }
 
-const NO_HOOK: &str = "no .claude/scripts/create-worktree.sh detected";
-const HOOK_UNUSED: &str = ".claude/scripts/create-worktree.sh detected, not used";
-const HOOK_DECIDES: &str = ".claude/scripts/create-worktree.sh detected: decides location and branch";
-const HOOK_UNTRUSTED: &str = ".claude/scripts/create-worktree.sh detected: will not run until trusted (T)";
-
 /// TS: projectConfig.ts explainSettings (row by row with sources; pending values of an untrusted file).
 ///
 /// Values come from resolve_settings (invalid global defaults are reported and skipped, keeping the legacy
@@ -1068,22 +1009,8 @@ pub fn explain_settings(
         };
         expand_branch_name(&template, &branch_vars).unwrap_or(template)
     };
-    let show = |value: &StringOrBool| match value {
-        StringOrBool::Bool(true) => String::from("on"),
-        StringOrBool::Bool(false) => String::from("off"),
-        StringOrBool::String(text) => text.clone(),
-    };
     let text = |value: Option<String>| value.map(StringOrBool::String);
     let mut rows = Vec::new();
-    let hook_file = match project {
-        Some(project) => project
-            .creation_hook
-            .as_ref()
-            .map(|hook| hook.file.clone())
-            .or_else(|| project.disabled_hook.as_ref().map(|hook| hook.file.clone())),
-        None => context.hook_file.clone(),
-    };
-    let hook_active = trusted && project.is_some_and(|project| project.creation_hook.is_some());
 
     for (key, built_in) in SCALARS {
         let repo_value = scalar(&repository, key);
@@ -1142,7 +1069,6 @@ pub fn explain_settings(
     let repo_tree = repository.worktree.as_ref().unwrap_or(&empty);
     let global_tree = global.worktree.as_ref().unwrap_or(&empty);
     let pending_tree = pending_layer.worktree.as_ref().unwrap_or(&empty);
-    let ignored = hook_active.then_some("ignored: the creation hook decides");
     let default_location = path::join(&[
         context.location_config_dir.as_deref().unwrap_or(config_dir),
         "worktrees",
@@ -1161,7 +1087,7 @@ pub fn explain_settings(
             fallback: Some(StringOrBool::String(default_location)),
             display: &location,
             legacy: false,
-            note: ignored,
+            note: None,
         },
     );
     let branch_from = |settings: &WorktreeSettings| settings.branch_from.map(|from| from.as_str().to_owned());
@@ -1178,7 +1104,7 @@ pub fn explain_settings(
             fallback: Some(StringOrBool::String(String::from("current"))),
             display: &plain,
             legacy: false,
-            note: ignored,
+            note: None,
         },
     );
     pick(
@@ -1194,42 +1120,9 @@ pub fn explain_settings(
             fallback: Some(StringOrBool::String(String::from("{name}"))),
             display: &branch,
             legacy: false,
-            note: ignored,
+            note: None,
         },
     );
-    // The repository's hook: false applies even untrusted (see hook_setting); only `true` can be pending.
-    let hook_on = tree.hook != Some(false);
-    let hook_note = if hook_file.is_none() {
-        NO_HOOK
-    } else if !hook_on {
-        HOOK_UNUSED
-    } else if hook_active {
-        HOOK_DECIDES
-    } else {
-        HOOK_UNTRUSTED
-    };
-    let repository_hook_off = project.and_then(|project| project.config.worktree.as_ref()?.hook) == Some(false);
-    pick(
-        &mut rows,
-        Pick {
-            key: "worktree.hook",
-            value: tree.hook.map(StringOrBool::Bool),
-            layers: Layers {
-                repo: if repository_hook_off {
-                    Some(StringOrBool::Bool(false))
-                } else {
-                    repo_tree.hook.map(StringOrBool::Bool)
-                },
-                global: global_tree.hook.map(StringOrBool::Bool),
-                pending: (pending_tree.hook == Some(true)).then_some(StringOrBool::Bool(true)),
-            },
-            fallback: Some(StringOrBool::Bool(true)),
-            display: &show,
-            legacy: false,
-            note: Some(hook_note),
-        },
-    );
-
     let symlinks: &[String] = tree.symlink.as_deref().unwrap_or_default();
     let repo_links: &[String] = repo_tree.symlink.as_deref().unwrap_or_default();
     let global_links: &[String] = global_tree.symlink.as_deref().unwrap_or_default();
@@ -1366,16 +1259,12 @@ mod tests {
         )
     }
 
-    /// A recorded LoadedProject (the generator's creation hooks carry no `content`, which nothing here reads).
+    /// A recorded LoadedProject (one recorded with a creation hook still reads: the hook is ignored).
     fn project_of(case: &Case, index: usize) -> std::result::Result<Option<LoadedProject>, String> {
         if case.arg_is_undefined(index) {
             return Ok(None);
         }
-        let mut value = tags::untag(case.arg(index));
-        if let Some(hook) = value.get_mut("creationHook").and_then(Value::as_object_mut) {
-            hook.entry("content").or_insert_with(|| json!(""));
-        }
-        serde_json::from_value(value)
+        serde_json::from_value(tags::untag(case.arg(index)))
             .map(Some)
             .map_err(|error| format!("case {} project: {error}", case.index))
     }
@@ -1397,7 +1286,6 @@ mod tests {
                 None => None,
             },
             user: text("user"),
-            hook_file: text("hookFile"),
             config_dir: CONFIG_DIR.to_owned(),
             location_config_dir: text("configDir"),
         })
@@ -1423,10 +1311,8 @@ mod tests {
     fn project_fingerprint_parity() {
         replay("projectConfig-P10/projectFingerprint", |case: &Case| {
             port(|| {
-                Ok(Outcome::ret(project_fingerprint(
-                    case.arg_str(0)?,
-                    optional_str(case, 1)?,
-                )))
+                // The recorded cases pass a creation hook's fingerprint second: no longer part of it.
+                Ok(Outcome::ret(project_fingerprint(case.arg_str(0)?)))
             })
         });
     }
@@ -1597,8 +1483,6 @@ mod tests {
             config: config(value),
             exists: true,
             fingerprint: String::from("f"),
-            creation_hook: None,
-            disabled_hook: None,
         }
     }
 
@@ -1814,7 +1698,6 @@ mod tests {
         let context = ExplainContext {
             vars: Some(vars),
             user: Some(String::from("tejas")),
-            hook_file: None,
             config_dir: CONFIG_DIR.to_owned(),
             location_config_dir: Some(String::from("/state")),
         };
@@ -1858,14 +1741,8 @@ mod tests {
         assert_eq!(find(&empty, "setupCommand", None).source, SettingSource::NotSet);
         assert_eq!(find(&empty, "actions", None).source, SettingSource::NotSet);
         assert_eq!(find(&empty, "worktree.location", None).value, "/state/worktrees/<name>");
-        let hook = find(&empty, "worktree.hook", None);
-        assert_eq!(
-            (hook.value.as_str(), hook.note.as_deref()),
-            ("on", Some("no .claude/scripts/create-worktree.sh detected"))
-        );
 
-        // Global only (repository untrusted): legacy dev_command, repo values pending; the repository's hook: false
-        // applies anyway.
+        // Global only (repository untrusted): legacy dev_command, repo values pending.
         let pending = explain_settings(Some(&project), &user_settings, &context).rows;
         let dev = find(&pending, "devCommand", None);
         assert_eq!(
@@ -1905,11 +1782,6 @@ mod tests {
                 find(&pending, "worktree.symlink", Some("node_modules")).source
             ),
             (SettingSource::NotSet, SettingSource::Global)
-        );
-        let hook = find(&pending, "worktree.hook", None);
-        assert_eq!(
-            (hook.value.as_str(), hook.source, hook.pending.as_ref()),
-            ("off", SettingSource::Repo, None)
         );
         let branch_name = find(&pending, "worktree.branchName", None);
         assert_eq!(
@@ -2052,33 +1924,33 @@ mod tests {
     }
 
     #[test]
-    fn hook_setting_layers() {
-        let repo_off = config(json!({"worktree": {"hook": false}}));
-        let repo_on = config(json!({"worktree": {"hook": true}}));
-        let global_off = user(json!({"defaults": {"worktree": {"hook": false}}}));
+    fn a_legacy_worktree_hook_key_is_read_and_ignored() {
+        // Files from when Deckhand ran a repository's creation script may still switch it on or off.
+        for hook in [json!(false), json!(true), json!("anything")] {
+            let parsed = config(json!({"worktree": {"location": "/w/{name}", "hook": hook}}));
+            assert_eq!(
+                parsed
+                    .worktree
+                    .as_ref()
+                    .and_then(|worktree| worktree.location.as_deref()),
+                Some("/w/{name}")
+            );
+        }
+        let project = project("/r", json!({"worktree": {"hook": false}}));
+        let global = user(json!({"defaults": {"worktree": {"hook": false, "location": "/g/{name}"}}}));
+        let resolved = resolve_settings(Some(&project), &global, CONFIG_DIR).unwrap();
         assert_eq!(
-            hook_setting(&repo_off, &UserSettings::default()),
-            HookSetting {
-                enabled: false,
-                by: Some(ConfigTargetKind::Repository)
-            }
+            serde_json::to_string(&resolved).unwrap(),
+            r#"{"worktree":{"location":"/g/{name}"}}"#
         );
-        assert_eq!(
-            hook_setting(&repo_on, &global_off),
-            HookSetting {
-                enabled: true,
-                by: None
-            }
+        assert!(
+            explain_settings(Some(&project), &global, &ExplainContext::default())
+                .rows
+                .iter()
+                .all(|row| row.key != "worktree.hook")
         );
-        assert_eq!(
-            hook_setting(&ProjectConfig::default(), &global_off),
-            HookSetting {
-                enabled: false,
-                by: Some(ConfigTargetKind::Global)
-            }
-        );
-        // Read leniently: malformed defaults never disable anything.
-        assert!(hook_setting(&ProjectConfig::default(), &user(json!({"defaults": "x"}))).enabled);
+        // The fingerprint keeps the TS's form without a hook, so trust given before still holds.
+        assert_eq!(project_fingerprint("{}"), sha256(b"config\0{}\0creation-hook\0"));
     }
 
     #[test]
@@ -2115,7 +1987,7 @@ mod tests {
         let resolved = resolve_settings(Some(&project), &user_settings, CONFIG_DIR).unwrap();
         assert_eq!(
             serde_json::to_string(&resolved).unwrap(),
-            r#"{"worktree":{"location":"/g/{name}","symlink":["a"],"hook":false},"actions":{"t":"x"},"devCommand":"legacy","defaultAgent":"pi"}"#
+            r#"{"worktree":{"location":"/g/{name}","symlink":["a"]},"actions":{"t":"x"},"devCommand":"legacy","defaultAgent":"pi"}"#
         );
     }
 }

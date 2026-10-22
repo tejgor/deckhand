@@ -9,8 +9,8 @@
     "kind": "global",
     "root": "$ROOT",
     "path": "$ROOT/config.json",
-    "raw": "{\n  \"defaultAgent\": \"claude\",\n  \"defaultWorkspace\": \"new\",\n  \"devCommand\": \"npm run dev\",\n  \"actions\": {\n    \"Test\": \"npm test\"\n  },\n  \"worktree\": {\n    \"location\": \"~/wt/{name}\",\n    \"symlink\": [\n      \"node_modules\"\n    ],\n    \"branchFrom\": \"default\",\n    \"hook\": false\n  }\n}\n",
-    "revision": "694a2c0cf837a11cb310889e83ae0c8ad43aca68cea8c6c8904bc70f49ff3ea0",
+    "raw": "{\n  \"defaultAgent\": \"claude\",\n  \"defaultWorkspace\": \"new\",\n  \"devCommand\": \"npm run dev\",\n  \"actions\": {\n    \"Test\": \"npm test\"\n  },\n  \"worktree\": {\n    \"location\": \"~/wt/{name}\",\n    \"symlink\": [\n      \"node_modules\"\n    ],\n    \"branchFrom\": \"default\"\n  }\n}\n",
+    "revision": "079b55e4a80d2af432b001d2ea40dc5997fcddbb382f4988bd035b9f2be861ea",
     "exists": true
   }
 }

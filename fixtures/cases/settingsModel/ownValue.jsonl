@@ -16,8 +16,6 @@
 {"args":[{"$u":1},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
 {"args":[{"$u":1},"worktree.branchName","a"],"ret":{"$u":1}}
 {"args":[{"$u":1},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"$u":1},"worktree.hook","a"],"ret":{"$u":1}}
-{"args":[{"$u":1},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"$u":1},"worktree.links","a"],"ret":{"$u":1}}
 {"args":[{"$u":1},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"$u":1},"worktree.location","a"],"ret":{"$u":1}}
@@ -40,8 +38,6 @@
 {"args":[{"actions":"str"},"worktree.branchFrom"],"ret":{"$u":1}}
 {"args":[{"actions":"str"},"worktree.branchName","x.y"],"ret":{"$u":1}}
 {"args":[{"actions":"str"},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"actions":"str"},"worktree.hook","x.y"],"ret":{"$u":1}}
-{"args":[{"actions":"str"},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"actions":"str"},"worktree.links","x.y"],"ret":{"$u":1}}
 {"args":[{"actions":"str"},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"actions":"str"},"worktree.location","x.y"],"ret":{"$u":1}}
@@ -63,8 +59,6 @@
 {"args":[{"actions":[]},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
 {"args":[{"actions":[]},"worktree.branchName","a"],"ret":{"$u":1}}
 {"args":[{"actions":[]},"worktree.branchName","x.y"],"ret":{"$u":1}}
-{"args":[{"actions":[]},"worktree.hook","a"],"ret":{"$u":1}}
-{"args":[{"actions":[]},"worktree.hook","x.y"],"ret":{"$u":1}}
 {"args":[{"actions":[]},"worktree.links","a"],"ret":{"$u":1}}
 {"args":[{"actions":[]},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"actions":[]},"worktree.location","a"],"ret":{"$u":1}}
@@ -87,8 +81,6 @@
 {"args":[{"actions":{"a":"b"}},"worktree.branchFrom"],"ret":{"$u":1}}
 {"args":[{"actions":{"a":"b"}},"worktree.branchName","x.y"],"ret":{"$u":1}}
 {"args":[{"actions":{"a":"b"}},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"actions":{"a":"b"}},"worktree.hook","x.y"],"ret":{"$u":1}}
-{"args":[{"actions":{"a":"b"}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"actions":{"a":"b"}},"worktree.links","x.y"],"ret":{"$u":1}}
 {"args":[{"actions":{"a":"b"}},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"actions":{"a":"b"}},"worktree.location","x.y"],"ret":{"$u":1}}
@@ -98,7 +90,6 @@
 {"args":[{"actions":{"test":"global test"}},"devCommand"],"ret":{"$u":1}}
 {"args":[{"actions":{"test":"global test"}},"notifications"],"ret":{"$u":1}}
 {"args":[{"actions":{"test":"global test"}},"worktree.branchFrom"],"ret":{"$u":1}}
-{"args":[{"actions":{"test":"global test"}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"actions":{"test":"global test"}},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"actions":{"x.y":1}},"actions","a"],"ret":{"$u":1}}
 {"args":[{"actions":{"x.y":1}},"actions","x.y"],"ret":1}
@@ -118,8 +109,6 @@
 {"args":[{"actions":{"x.y":1}},"worktree.branchFrom"],"ret":{"$u":1}}
 {"args":[{"actions":{"x.y":1}},"worktree.branchName","a"],"ret":{"$u":1}}
 {"args":[{"actions":{"x.y":1}},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"actions":{"x.y":1}},"worktree.hook","a"],"ret":{"$u":1}}
-{"args":[{"actions":{"x.y":1}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"actions":{"x.y":1}},"worktree.links","a"],"ret":{"$u":1}}
 {"args":[{"actions":{"x.y":1}},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"actions":{"x.y":1}},"worktree.location","a"],"ret":{"$u":1}}
@@ -130,7 +119,6 @@
 {"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"notifications"],"ret":{"$u":1}}
 {"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"setupCommand"],"ret":"yarn"}
 {"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"worktree.branchName"],"ret":"{user}/{name}"}
-{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"worktree.hook"],"ret":false}
 {"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"worktree.location"],"ret":"{repoParent}/wt/{name}"}
 {"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"agentHooks"],"ret":{"$u":1}}
 {"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"defaultAgent"],"ret":"codex"}
@@ -165,8 +153,6 @@
 {"args":[{"defaultAgent":null},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
 {"args":[{"defaultAgent":null},"worktree.branchName","a"],"ret":{"$u":1}}
 {"args":[{"defaultAgent":null},"worktree.branchName","x.y"],"ret":{"$u":1}}
-{"args":[{"defaultAgent":null},"worktree.hook","a"],"ret":{"$u":1}}
-{"args":[{"defaultAgent":null},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"defaultAgent":null},"worktree.links","a"],"ret":{"$u":1}}
 {"args":[{"defaultAgent":null},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"defaultAgent":null},"worktree.location","a"],"ret":{"$u":1}}
@@ -177,7 +163,6 @@
 {"args":[{"devCommand":"make dev"},"notifications"],"ret":{"$u":1}}
 {"args":[{"devCommand":"make dev"},"setupCommand"],"ret":{"$u":1}}
 {"args":[{"devCommand":"make dev"},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"devCommand":"make dev"},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"devCommand":"make dev"},"worktree.location"],"ret":{"$u":1}}
 {"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"actions"],"ret":{"test":"npm test"}}
 {"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"defaultAgent"],"ret":{"$u":1}}
@@ -212,8 +197,6 @@
 {"args":[{"devCommand":"x"},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
 {"args":[{"devCommand":"x"},"worktree.branchName","a"],"ret":{"$u":1}}
 {"args":[{"devCommand":"x"},"worktree.branchName","x.y"],"ret":{"$u":1}}
-{"args":[{"devCommand":"x"},"worktree.hook","a"],"ret":{"$u":1}}
-{"args":[{"devCommand":"x"},"worktree.hook","x.y"],"ret":{"$u":1}}
 {"args":[{"devCommand":"x"},"worktree.links","a"],"ret":{"$u":1}}
 {"args":[{"devCommand":"x"},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"devCommand":"x"},"worktree.location","a"],"ret":{"$u":1}}
@@ -236,8 +219,6 @@
 {"args":[{"worktree":"str"},"worktree.branchFrom"],"ret":{"$u":1}}
 {"args":[{"worktree":"str"},"worktree.branchName","x.y"],"ret":{"$u":1}}
 {"args":[{"worktree":"str"},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"worktree":"str"},"worktree.hook","x.y"],"ret":{"$u":1}}
-{"args":[{"worktree":"str"},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"worktree":"str"},"worktree.links","x.y"],"ret":{"$u":1}}
 {"args":[{"worktree":"str"},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"worktree":"str"},"worktree.location","x.y"],"ret":{"$u":1}}
@@ -259,8 +240,6 @@
 {"args":[{"worktree":null},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
 {"args":[{"worktree":null},"worktree.branchName","a"],"ret":{"$u":1}}
 {"args":[{"worktree":null},"worktree.branchName","x.y"],"ret":{"$u":1}}
-{"args":[{"worktree":null},"worktree.hook","a"],"ret":{"$u":1}}
-{"args":[{"worktree":null},"worktree.hook","x.y"],"ret":{"$u":1}}
 {"args":[{"worktree":null},"worktree.links","a"],"ret":{"$u":1}}
 {"args":[{"worktree":null},"worktree.links","x.y"],"ret":{"$u":1}}
 {"args":[{"worktree":null},"worktree.location","a"],"ret":{"$u":1}}
@@ -283,8 +262,6 @@
 {"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchFrom"],"ret":{"$u":1}}
 {"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchName","a"],"ret":{"$u":1}}
 {"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.hook","x.y"],"ret":{"$u":1}}
-{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"worktree":{"files":{"a":"b"}}},"worktree.links","x.y"],"ret":{"$u":1}}
 {"args":[{"worktree":{"files":{"a":"b"}}},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"worktree":{"files":{"a":"b"}}},"worktree.location","x.y"],"ret":{"$u":1}}
@@ -302,7 +279,6 @@
 {"args":[{"worktree":{"location":"/home/me/x/{name}"}},"devCommand"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"/home/me/x/{name}"}},"setupCommand"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"/home/me/x/{name}"}},"worktree.branchFrom"],"ret":{"$u":1}}
-{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"/home/me/x/{name}"}},"worktree.links"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"actions"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"agentHooks"],"ret":{"$u":1}}
@@ -310,7 +286,6 @@
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"devCommand"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"setupCommand"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"worktree.branchFrom"],"ret":"origin"}
-{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"worktree.links"],"ret":["a","b"]}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"actions"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"agentHooks"],"ret":{"$u":1}}
@@ -318,7 +293,6 @@
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"notifications"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"setupCommand"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"worktree.location"],"ret":"{repoRoot}/.worktrees/{name}"}
 {"args":[{"worktree":{"location":"~/wt/{name}"}},"actions"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"~/wt/{name}"}},"defaultAgent"],"ret":{"$u":1}}
@@ -326,7 +300,6 @@
 {"args":[{"worktree":{"location":"~/wt/{name}"}},"notifications"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"~/wt/{name}"}},"setupCommand"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"~/wt/{name}"}},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"worktree":{"location":"~/wt/{name}"}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"worktree":{"location":"~/wt/{name}"}},"worktree.location"],"ret":"~/wt/{name}"}
 {"args":[{"worktree":{"symlink":"str","files":[]}},"actions","a"],"ret":{"$u":1}}
 {"args":[{"worktree":{"symlink":"str","files":[]}},"actions"],"ret":{"$u":1}}
@@ -346,8 +319,6 @@
 {"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchFrom"],"ret":{"$u":1}}
 {"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchName","x.y"],"ret":{"$u":1}}
 {"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.hook","x.y"],"ret":{"$u":1}}
-{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.links","x.y"],"ret":"str"}
 {"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.location","a"],"ret":{"$u":1}}
 {"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.location","x.y"],"ret":{"$u":1}}
@@ -369,8 +340,6 @@
 {"args":[{"worktree":{"symlink":["a"]}},"worktree.branchFrom"],"ret":{"$u":1}}
 {"args":[{"worktree":{"symlink":["a"]}},"worktree.branchName","a"],"ret":{"$u":1}}
 {"args":[{"worktree":{"symlink":["a"]}},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{"worktree":{"symlink":["a"]}},"worktree.hook","a"],"ret":{"$u":1}}
-{"args":[{"worktree":{"symlink":["a"]}},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{"worktree":{"symlink":["a"]}},"worktree.links","a"],"ret":["a"]}
 {"args":[{"worktree":{"symlink":["a"]}},"worktree.links"],"ret":["a"]}
 {"args":[{"worktree":{"symlink":["a"]}},"worktree.location","a"],"ret":{"$u":1}}
@@ -393,8 +362,6 @@
 {"args":[{},"worktree.branchFrom"],"ret":{"$u":1}}
 {"args":[{},"worktree.branchName","x.y"],"ret":{"$u":1}}
 {"args":[{},"worktree.branchName"],"ret":{"$u":1}}
-{"args":[{},"worktree.hook","x.y"],"ret":{"$u":1}}
-{"args":[{},"worktree.hook"],"ret":{"$u":1}}
 {"args":[{},"worktree.links","x.y"],"ret":{"$u":1}}
 {"args":[{},"worktree.links"],"ret":{"$u":1}}
 {"args":[{},"worktree.location","x.y"],"ret":{"$u":1}}

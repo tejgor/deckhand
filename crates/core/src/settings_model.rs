@@ -43,8 +43,6 @@ pub enum SettingId {
     WorktreeBranchName,
     #[serde(rename = "worktree.links")]
     WorktreeLinks,
-    #[serde(rename = "worktree.hook")]
-    WorktreeHook,
     #[serde(rename = "agentHooks")]
     AgentHooks,
     #[serde(rename = "notifications")]
@@ -67,7 +65,6 @@ impl SettingId {
             SettingId::WorktreeBranchFrom => "worktree.branchFrom",
             SettingId::WorktreeBranchName => "worktree.branchName",
             SettingId::WorktreeLinks => "worktree.links",
-            SettingId::WorktreeHook => "worktree.hook",
             SettingId::AgentHooks => "agentHooks",
             SettingId::Notifications => "notifications",
             SettingId::ScrollSpeed => "scrollSpeed",
@@ -120,7 +117,7 @@ const fn def(id: SettingId, label: &'static str, section: SettingSection, contro
 }
 
 /// TS: settingsModel.ts SETTINGS (screen order).
-pub const SETTINGS: [SettingDef; 13] = [
+pub const SETTINGS: [SettingDef; 12] = [
     def(
         SettingId::DefaultAgent,
         "Default agent",
@@ -174,12 +171,6 @@ pub const SETTINGS: [SettingDef; 13] = [
         "Linked items",
         SettingSection::Worktrees,
         SettingControl::Links,
-    ),
-    def(
-        SettingId::WorktreeHook,
-        "Creation hook",
-        SettingSection::Worktrees,
-        SettingControl::Choice,
     ),
     SettingDef {
         global_only: true,
@@ -551,7 +542,6 @@ pub fn settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
         ConfigTargetKind::Global => global_layer.as_ref(),
         ConfigTargetKind::Repository => repository_layer.as_ref(),
     };
-    let hook_row = info.rows.iter().find(|row| row.key == "worktree.hook");
     SETTINGS
         .iter()
         .map(|def| {
@@ -709,27 +699,13 @@ pub fn settings_grid(info: &SettingsInfo) -> Vec<GridRow> {
                     ..GridCell::default()
                 }
             };
-            let ignored = def.id.as_str().starts_with("worktree.")
-                && def.id != SettingId::WorktreeHook
-                && row
-                    .and_then(|row| row.note.as_deref())
-                    .is_some_and(|note| note.starts_with("ignored"));
-            let note = if def.id == SettingId::WorktreeHook {
-                if info.hook_file.as_deref().is_some_and(|file| !file.is_empty()) {
-                    hook_row.and_then(|row| row.note.clone())
-                } else {
-                    Some(String::from("no .claude/scripts/create-worktree.sh in this repo"))
-                }
-            } else {
-                ignored.then(|| String::from("ignored while the creation hook is active"))
-            };
             GridRow {
                 def: *def,
                 cells: GridCells {
                     global: cell(ConfigTargetKind::Global),
                     repository: cell(ConfigTargetKind::Repository),
                 },
-                note: note.filter(|note| !note.is_empty()),
+                note: None,
                 warn: None,
             }
         })
@@ -839,11 +815,9 @@ pub fn cell_detail(info: &SettingsInfo, row: &GridRow, column: ConfigTargetKind)
         } else {
             "applies here"
         };
-        // What an untrusted file may still do: preselect the n picker, or switch the creation hook off.
+        // What an untrusted file may still do: preselect the n picker.
         let untrusted = if info.repository.state == RepositoryState::Trusted {
             None
-        } else if id == SettingId::WorktreeHook {
-            Some("it can only switch the hook off")
         } else if row.def.section == SettingSection::General {
             Some("it only preselects n")
         } else {
@@ -1065,18 +1039,6 @@ pub fn choice_options(info: &SettingsInfo, id: SettingId, target: ConfigTargetKi
             });
             options
         }
-        SettingId::WorktreeHook => vec![
-            option(
-                "on",
-                flag(true),
-                Some(if info.hook_file.as_deref().is_some_and(|file| !file.is_empty()) {
-                    "create-worktree.sh runs once trusted"
-                } else {
-                    "no create-worktree.sh found"
-                }),
-            ),
-            option("off", flag(false), Some("Deckhand creates worktrees itself")),
-        ],
         SettingId::WorktreeLocation => {
             let vars = info.vars.as_ref();
             let global_layer = if target == ConfigTargetKind::Repository {
@@ -1198,7 +1160,6 @@ pub fn current_choice(
     let row = info.rows.iter().find(|entry| entry.key == id.as_str());
     let value = match row.and_then(|row| row.raw.as_ref()) {
         Some(raw) => Some(or_bool_value(raw)),
-        None if id == SettingId::WorktreeHook => Some(Value::Bool(row.map(|row| row.value.as_str()) != Some("off"))),
         None => row.map(|row| Value::String(row.value.clone())),
     };
     let index = position(&|option| same_value(option.value.as_ref(), value.as_ref()));
@@ -1728,7 +1689,6 @@ pub fn trust_note(trust: Option<SaveTrust>) -> &'static str {
         Some(SaveTrust::Kept) => "still trusted",
         Some(SaveTrust::Created) => "created and trusted",
         Some(SaveTrust::Unreviewed) => "review required (the file had changes you haven't reviewed)",
-        Some(SaveTrust::Hook) => "review required (the creation hook hasn't been reviewed)",
         None => "reviewed before anything from it runs",
     }
 }
@@ -2068,7 +2028,6 @@ fn built_in_value(id: SettingId) -> Option<Value> {
         SettingId::DevCommand => Some(Value::from("dev")),
         SettingId::WorktreeBranchFrom => Some(Value::from("current")),
         SettingId::WorktreeBranchName => Some(Value::from("{name}")),
-        SettingId::WorktreeHook => Some(Value::Bool(true)),
         _ => None,
     }
 }
@@ -2083,10 +2042,6 @@ fn show(info: &SettingsInfo, id: SettingId, value: &Value) -> GridCell {
         },
         SettingId::WorktreeBranchFrom => GridCell {
             text: branch_from_label(&text, info),
-            ..GridCell::default()
-        },
-        SettingId::WorktreeHook => GridCell {
-            text: String::from(if *value == Value::Bool(false) { "off" } else { "on" }),
             ..GridCell::default()
         },
         // Not in the TS: Dev's named processes, by name.
@@ -2127,7 +2082,6 @@ fn built_in_detail(id: SettingId) -> &'static str {
         SettingId::WorktreeBranchFrom => "Nothing sets it: new branches start at the current checkout.",
         SettingId::WorktreeBranchName => "Nothing sets it: new branches are named after the session.",
         SettingId::WorktreeLinks => "Nothing linked: new worktrees start without untracked files.",
-        SettingId::WorktreeHook => "On by default: a trusted create-worktree.sh makes worktrees.",
         SettingId::AgentHooks => "Off: attention (! and the session markers) comes from terminal activity only.",
         SettingId::Notifications => "Off: no desktop notifications.",
         SettingId::ScrollSpeed => "Not set: 1, each wheel event as your terminal sends it.",
@@ -2606,8 +2560,6 @@ mod tests {
             config,
             exists: repo_raw.is_some(),
             fingerprint: String::from("f"),
-            creation_hook: None,
-            disabled_hook: None,
         };
         let mut user = UserSettings {
             defaults: defaults.clone(),
@@ -2622,7 +2574,6 @@ mod tests {
             user: Some(String::from("me")),
             config_dir: String::from("/state"),
             location_config_dir: Some(String::from("/state")),
-            ..ExplainContext::default()
         };
         let document = |kind: ConfigTargetKind, raw: Option<String>| ProjectConfigDocument {
             kind,
@@ -2658,7 +2609,6 @@ mod tests {
                 repository: Some(document(Repository, repo_raw.map(str::to_owned))),
                 repository_error: None,
             },
-            hook_file: None,
             vars: Some(vars()),
             default_location: String::from("/state/worktrees/<name>"),
             inside_ignored: false,
@@ -2742,7 +2692,6 @@ mod tests {
                 "Worktrees/Branch from",
                 "Worktrees/Branch name",
                 "Worktrees/Linked items",
-                "Worktrees/Creation hook",
                 "Agents/Agent signals",
                 "Agents/Notifications",
                 "Agents/Scroll speed",
@@ -2862,7 +2811,7 @@ mod tests {
     }
 
     #[test]
-    fn repository_suggestions_and_disabling_hooks_do_not_require_trust() {
+    fn repository_suggestions_do_not_require_trust() {
         use SettingId::*;
         let suggestion = settings_info(
             Some(r#"{"defaultAgent":"codex","worktree":{"hook":false}}"#),
@@ -2883,10 +2832,11 @@ mod tests {
             detail(&suggestion, DefaultAgent, Repository).relation,
             "overrides global, untrusted too: it only preselects n"
         );
-        let hook = cell(&suggestion, WorktreeHook, Repository);
-        assert_eq!(
-            [hook["text"].clone(), hook["effective"].clone()],
-            [json!("off"), json!(true)]
+        // A legacy worktree.hook is ignored: no row shows it.
+        assert!(
+            settings_grid(&suggestion)
+                .iter()
+                .all(|row| row.def.label != "Creation hook")
         );
     }
 
@@ -3376,22 +3326,6 @@ mod tests {
                 .collect::<Vec<_>>(),
             [text_value("current"), text_value("default"), text_value("origin")]
         );
-        // Hook on/off.
-        let hook = choice_options(&info, WorktreeHook, Global);
-        assert_eq!(
-            hook.iter()
-                .map(|option| (option.label.as_str(), option.detail.as_deref()))
-                .collect::<Vec<_>>(),
-            [
-                ("on", Some("no create-worktree.sh found")),
-                ("off", Some("Deckhand creates worktrees itself"))
-            ]
-        );
-        let change = choice_change(&info, WorktreeHook, Global, &hook[1]).unwrap();
-        assert_eq!(
-            parse(&apply_change(&global_doc, &change).unwrap()),
-            json!({"defaultAgent": "pi", "worktree": {"symlink": ["shared"], "branchFrom": "origin", "hook": false}})
-        );
         // Location presets: the repository's own template is preselected; the first option removes it, custom… types one.
         let location = choice_options(&info, WorktreeLocation, Repository);
         assert_eq!(
@@ -3686,10 +3620,6 @@ mod tests {
         assert_eq!(
             saved_message("Dev command", Repository, trust(SaveTrust::Unreviewed)),
             "Saved Dev command to this repo · review required (the file had changes you haven't reviewed)"
-        );
-        assert_eq!(
-            saved_message("Location", Repository, trust(SaveTrust::Hook)),
-            "Saved Location to this repo · review required (the creation hook hasn't been reviewed)"
         );
         assert_eq!(
             saved_message(

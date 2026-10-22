@@ -7,6 +7,5 @@
 {"args":["setupCommand"],"ret":false}
 {"args":["worktree.branchFrom"],"ret":false}
 {"args":["worktree.branchName"],"ret":false}
-{"args":["worktree.hook"],"ret":false}
 {"args":["worktree.links"],"ret":false}
 {"args":["worktree.location"],"ret":false}

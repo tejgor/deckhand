@@ -33,8 +33,7 @@
           ".secrets": "{repoRoot}/.secrets"
         },
         "branchFrom": "origin",
-        "branchName": "u/{name}",
-        "hook": true
+        "branchName": "u/{name}"
       }
     },
     "exists": true,

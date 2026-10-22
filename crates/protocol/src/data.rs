@@ -91,7 +91,12 @@ string_union!(RightPaneTab { Preview = "preview", Terminal = "terminal", Git = "
 string_union!(WorktreeMergeMode { Merge = "merge", Squash = "squash" });
 string_union!(RestartMode { Resume = "resume", Fresh = "fresh" });
 string_union!(WorktreeOrigin { Created = "created", Existing = "existing", Selected = "selected" });
-string_union!(WorktreeCreator { Script = "script", Fallback = "fallback", Picker = "picker" });
+string_union!(WorktreeCreator {
+    /// A repository creation script made it (worktrees from before Deckhand stopped running those; still read).
+    Script = "script",
+    Fallback = "fallback",
+    Picker = "picker",
+});
 string_union!(MergeDetected { Ancestor = "ancestor", Pr = "pr" });
 string_union!(SubSessionKind { Clean = "clean", Forked = "forked" });
 string_union!(AgentSessionRefKind { Name = "name", Path = "path", Id = "id" });
@@ -139,7 +144,7 @@ string_union!(StageMode { Stage = "stage", Unstage = "unstage" });
 string_union!(MoveDirection { Up = "up", Down = "down" });
 string_union!(ResolveMergeAction { Keep = "keep", Abort = "abort" });
 string_union!(ConfigTargetKind { Global = "global", Repository = "repository" });
-string_union!(SaveTrust { Kept = "kept", Created = "created", Unreviewed = "unreviewed", Hook = "hook" });
+string_union!(SaveTrust { Kept = "kept", Created = "created", Unreviewed = "unreviewed" });
 string_union!(SettingSource {
     Repo = "repo",
     Global = "global",
@@ -600,7 +605,6 @@ pub struct BranchList {
     pub current: Option<String>,
     pub default_branch: Option<String>,
     pub branch_from: BranchFrom,
-    pub hook: Option<bool>,
 }
 
 /// types.ts NoteSaveResult.
@@ -812,7 +816,6 @@ pub struct WorktreeSettings {
     pub files: Option<IndexMap<String, String>>,
     pub branch_from: Option<BranchFrom>,
     pub branch_name: Option<String>,
-    pub hook: Option<bool>,
 }
 
 /// projectConfig.ts ProjectConfig (a validated deckhand.json). Its key order is the file's, so it travels as
@@ -868,23 +871,6 @@ impl DevCommand {
     }
 }
 
-/// git.ts CreationHook: the reviewed creation hook.
-#[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct CreationHook {
-    pub file: String,
-    pub content: String,
-    pub fingerprint: String,
-}
-
-/// LoadedProject.disabledHook: a detected hook that `worktree.hook: false` disables.
-#[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DisabledHook {
-    pub file: String,
-    pub by: ConfigTargetKind,
-}
-
 /// projectConfig.ts LoadedProject.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -896,8 +882,6 @@ pub struct LoadedProject {
     pub config: Ordered<ProjectConfig>,
     pub exists: bool,
     pub fingerprint: String,
-    pub creation_hook: Option<CreationHook>,
-    pub disabled_hook: Option<DisabledHook>,
 }
 
 /// types.ts ProjectInfo: `{...project, trusted, needsReview, effective}`.
@@ -946,7 +930,7 @@ pub struct ConfigTargets {
     pub repository_error: Option<String>,
 }
 
-/// A setting's raw value: a string, or a boolean (`worktree.hook`).
+/// A setting's raw value: a string, or a boolean (an on/off choice).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StringOrBool {
@@ -1032,7 +1016,6 @@ pub struct SettingsInfo {
     pub global_error: Option<String>,
     pub rows: Vec<SettingRow>,
     pub targets: ConfigTargets,
-    pub hook_file: Option<String>,
     pub vars: Option<TemplateVars>,
     pub default_location: String,
     pub inside_ignored: bool,

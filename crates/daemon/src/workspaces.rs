@@ -983,14 +983,14 @@ impl Daemon {
     /// An unreadable deckhand.json is treated as untrusted: fall back to the global dev command.
     pub async fn resolve_session_dev_command(&self, session: &SessionRecord) -> Result<String> {
         let app_config = load_app_config().await?;
-        let project = load_project_config(&session.cwd, Some(&app_config), None).await.ok();
+        let project = load_project_config(&session.cwd, None).await.ok();
         resolve_dev_command(project.as_ref(), &app_config, &self.config_dir_string())
     }
 
     /// Not in the TS: [`Daemon::resolve_session_dev_command`], or the session's named processes (`devCommand` as a map).
     pub async fn resolve_session_dev_plan(&self, session: &SessionRecord) -> Result<DevPlan> {
         let app_config = load_app_config().await?;
-        let project = load_project_config(&session.cwd, Some(&app_config), None).await.ok();
+        let project = load_project_config(&session.cwd, None).await.ok();
         resolve_dev_plan(project.as_ref(), &app_config, &self.config_dir_string())
     }
 
@@ -1003,7 +1003,7 @@ impl Daemon {
         let (session, key) = self.require_workspace(&request.session_id, WorkspacePane::Action)?;
         // Untrusted repository actions are never run, only global defaults' actions.
         let config = load_app_config().await?;
-        let project = load_project_config(&session.cwd, Some(&config), None).await?;
+        let project = load_project_config(&session.cwd, None).await?;
         let settings = resolve_settings(Some(&project), &config, &self.config_dir_string())?;
         // `Object.hasOwn(actions, message.action)` looks the value up as its string.
         let action = request.action.js_string();

@@ -16,11 +16,6 @@
     "path": "$ROOT/main/deckhand.json",
     "config": {},
     "exists": false,
-    "fingerprint": "2be7196362e28f4ade4c5a0e53a00df446e70ef1e4b1c89ca95a6a2c575ca2ea",
-    "creationHook": {
-      "file": "$ROOT/main/.claude/scripts/create-worktree.sh",
-      "content": "",
-      "fingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    }
+    "fingerprint": "7fc7564777b407322c18f0bf012b2a3d134e3450b256f930ebd174127795d6db"
   }
 }

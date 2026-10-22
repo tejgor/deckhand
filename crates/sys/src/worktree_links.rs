@@ -446,15 +446,16 @@ mod tests {
             json!({"branchName": "{name}..x"}),
             json!({"branchName": "{name}.lock"}),
             json!({"branchName": "{nope}/{name}"}),
-            json!({"hook": "no"}),
         ] {
             assert!(
                 validate_project_config(&json!({"worktree": worktree}), None).is_err(),
                 "{worktree}"
             );
         }
-        let valid = json!({"branchFrom": "default", "branchName": "feat/{user}-{name}", "hook": false});
-        let validated = validate_project_config(&json!({"worktree": valid}), None).unwrap();
+        let valid = json!({"branchFrom": "default", "branchName": "feat/{user}-{name}"});
+        // A legacy `hook` key is accepted and dropped.
+        let legacy = json!({"branchFrom": "default", "branchName": "feat/{user}-{name}", "hook": false});
+        let validated = validate_project_config(&json!({"worktree": legacy}), None).unwrap();
         assert_eq!(serde_json::to_value(&validated.worktree).unwrap(), valid);
 
         let home_dir = tempfile::Builder::new().prefix("deckhand-branch-").tempdir().unwrap();
@@ -487,21 +488,21 @@ mod tests {
             ..WorktreeSettings::default()
         };
         block_on(async {
-            let current = create_worktree_for_session("from current", &cwd, None, None, None)
+            let current = create_worktree_for_session("from current", &cwd, None, None)
                 .await
                 .unwrap();
             assert_eq!(current.branch, "from_current");
             assert_eq!(current.head, feature);
             assert_eq!(current.base_ref.as_deref(), Some("feature"));
             let from_default = settings(Some(BranchFrom::Default), Some("{user}/{name}"));
-            let local = create_worktree_for_session("from default", &cwd, None, Some(&from_default), None)
+            let local = create_worktree_for_session("from default", &cwd, Some(&from_default), None)
                 .await
                 .unwrap();
             assert_eq!(local.branch, format!("{}/from_default", user_slug()));
             assert_eq!(local.head, local_main);
             assert_eq!(local.base_ref.as_deref(), Some("main"));
             let from_origin = settings(Some(BranchFrom::Origin), Some("feat/{name}"));
-            let fetched = create_worktree_for_session("from origin", &cwd, None, Some(&from_origin), None)
+            let fetched = create_worktree_for_session("from origin", &cwd, Some(&from_origin), None)
                 .await
                 .unwrap();
             assert_eq!(fetched.branch, "feat/from_origin");
@@ -513,19 +514,19 @@ mod tests {
                 ""
             );
             // Reuse: an existing worktree path is reused as before, without a base.
-            let reused = create_worktree_for_session("from origin", &cwd, None, Some(&from_origin), None)
+            let reused = create_worktree_for_session("from origin", &cwd, Some(&from_origin), None)
                 .await
                 .unwrap();
             assert_eq!(reused.origin, WorktreeOrigin::Existing);
             assert_eq!(reused.base_ref, None);
             let bad = settings(None, Some("{name}..x"));
-            let error = create_worktree_for_session("bad", &cwd, None, Some(&bad), None)
+            let error = create_worktree_for_session("bad", &cwd, Some(&bad), None)
                 .await
                 .unwrap_err();
             assert!(error.to_string().contains("Invalid branch name"), "{error}");
             tgit(&cwd, &["remote", "set-url", "origin", &at(&home, "missing.git")]);
             let offline = settings(Some(BranchFrom::Origin), None);
-            let error = create_worktree_for_session("offline", &cwd, None, Some(&offline), None)
+            let error = create_worktree_for_session("offline", &cwd, Some(&offline), None)
                 .await
                 .unwrap_err();
             assert!(error.to_string().contains("git fetch origin main failed"), "{error}");

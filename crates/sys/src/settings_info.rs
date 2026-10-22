@@ -27,8 +27,8 @@ use crate::agent_path::hook_command;
 use crate::config::load_project_config;
 use crate::config_document::read_config_targets;
 use crate::git::{
-    BranchWhere, GitOptions, RepoContext, git, optional_git, resolve_create_script, resolve_default_branch,
-    resolve_repo_context, worktree_template_vars,
+    BranchWhere, GitOptions, RepoContext, git, optional_git, resolve_default_branch, resolve_repo_context,
+    worktree_template_vars,
 };
 use crate::paths;
 use crate::proc::{self, ExecOptions};
@@ -353,7 +353,7 @@ pub async fn read_settings_info(cwd: &str) -> Result<SettingsInfo> {
     };
     let mut project: Option<LoadedProject> = None;
     if let Some(context) = &context {
-        match load_project_config(cwd, Some(&user), Some(context)).await {
+        match load_project_config(cwd, Some(context)).await {
             Ok(loaded) => project = Some(loaded),
             Err(caught) => error = Some(caught.to_string()),
         }
@@ -363,17 +363,6 @@ pub async fn read_settings_info(cwd: &str) -> Result<SettingsInfo> {
         .map(|context| context.main_root.clone().unwrap_or_else(|| context.root.clone()));
     let main_root = context.as_ref().and_then(|context| context.main_root.clone());
 
-    let hook_file = async {
-        match (&project, &context) {
-            (Some(project), _) => project
-                .creation_hook
-                .as_ref()
-                .map(|hook| hook.file.clone())
-                .or_else(|| project.disabled_hook.as_ref().map(|hook| hook.file.clone())),
-            (None, Some(context)) => resolve_create_script(&context.root, context.main_root.as_deref()).await,
-            (None, None) => None,
-        }
-    };
     let vars = async {
         match &context {
             Some(_) => worktree_template_vars("<name>", cwd).await.ok(),
@@ -400,14 +389,8 @@ pub async fn read_settings_info(cwd: &str) -> Result<SettingsInfo> {
             None => None,
         }
     };
-    let (hook_file, vars, targets, inside_ignored, default_branch, remotes) = tokio::join!(
-        hook_file,
-        vars,
-        read_config_targets(cwd),
-        inside_ignored,
-        default_branch,
-        remotes
-    );
+    let (vars, targets, inside_ignored, default_branch, remotes) =
+        tokio::join!(vars, read_config_targets(cwd), inside_ignored, default_branch, remotes);
     let codex_hooks = async {
         if user.agent_hooks == Some(true) {
             read_codex_hooks().await
@@ -431,7 +414,6 @@ pub async fn read_settings_info(cwd: &str) -> Result<SettingsInfo> {
         (Some(checkout), true) => resolve_default_branch(checkout, Some("origin"), BranchWhere::Remote).await,
         _ => None,
     };
-    let hook_file = hook_file.filter(|file| !file.is_empty());
     let config_dir = paths::config_dir().to_string_lossy().into_owned();
     let explanation = explain_settings(
         project.as_ref(),
@@ -439,7 +421,6 @@ pub async fn read_settings_info(cwd: &str) -> Result<SettingsInfo> {
         &ExplainContext {
             vars: vars.clone(),
             user: Some(user_slug()),
-            hook_file: hook_file.clone(),
             config_dir: config_dir.clone(),
             location_config_dir: None,
         },
@@ -474,7 +455,6 @@ pub async fn read_settings_info(cwd: &str) -> Result<SettingsInfo> {
         global_error: explanation.global_error.filter(|error| !error.is_empty()),
         rows: explanation.rows,
         targets,
-        hook_file,
         vars,
         default_location: path::join(&[&config_dir, "worktrees", "<name>"]),
         inside_ignored,
@@ -739,7 +719,7 @@ pub async fn read_worktree_candidates(cwd: &str) -> Result<WorktreeCandidates> {
     // Both layers as written, trusted or not: the picker edits files.
     let layers = Layers {
         global: global_worktree(&user),
-        repository: load_project_config(cwd, Some(&user), Some(&context))
+        repository: load_project_config(cwd, Some(&context))
             .await
             .ok()
             .and_then(|project| project.config.into_inner().worktree),

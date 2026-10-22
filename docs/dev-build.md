@@ -57,7 +57,7 @@ cd /path/to/a/disposable-repository
 /path/to/deckhand/scripts/deckhand-dev.sh
 ```
 
-**Isolation is not a filesystem or provider sandbox.** Choosing a real repository/no-worktree workspace can modify real files. Trusted custom scripts can write outside the dev directory; ensure custom creation hooks respect `DECKHAND_HOME`. Agents still use their normal credentials, native conversation stores, and subscriptions. Dev Codex launches require the advertised `--no-daemon` capability (even with lifecycle hooks disabled) rather than reusing a production native Codex daemon; unsupported versions are refused. Deckhand generates separate session identities; it does not copy or resume production Deckhand sessions. Prefer the default sandbox, avoid `deckhand setup` (which installs real global agent tools), and do not delete registered worktrees with `rm -rf`.
+**Isolation is not a filesystem or provider sandbox.** Choosing a real repository/no-worktree workspace can modify real files. Trusted repository commands (setup, Dev, actions) can write outside the dev directory. Agents still use their normal credentials, native conversation stores, and subscriptions. Dev Codex launches require the advertised `--no-daemon` capability (even with lifecycle hooks disabled) rather than reusing a production native Codex daemon; unsupported versions are refused. Deckhand generates separate session identities; it does not copy or resume production Deckhand sessions. Prefer the default sandbox, avoid `deckhand setup` (which installs real global agent tools), and do not delete registered worktrees with `rm -rf`.
 
 ## Automated checks
 

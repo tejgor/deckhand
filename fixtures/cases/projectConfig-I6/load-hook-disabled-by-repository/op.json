@@ -15,15 +15,9 @@
     "trustRoot": "$ROOT/main",
     "path": "$ROOT/main/deckhand.json",
     "config": {
-      "worktree": {
-        "hook": false
-      }
+      "worktree": {}
     },
     "exists": true,
-    "fingerprint": "6e7556b2a6ee7bb4f69ee99b937f013c8bad91a01227b78c1407040d51d76e99",
-    "disabledHook": {
-      "file": "$ROOT/main/.claude/scripts/create-worktree.sh",
-      "by": "repository"
-    }
+    "fingerprint": "6e7556b2a6ee7bb4f69ee99b937f013c8bad91a01227b78c1407040d51d76e99"
   }
 }

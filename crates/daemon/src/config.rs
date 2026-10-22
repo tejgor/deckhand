@@ -57,7 +57,7 @@ impl Daemon {
     /// version it replaces was).
     pub async fn handle_save_config(&self, request: &SaveConfig) -> Result<SavedConfigDocument> {
         // Saving never runs anything. A repository file saved here stays trusted when the version it replaces was
-        // trusted (or absent), never newly trusting a creation hook; see saved_project_trust.
+        // trusted (or absent); see saved_project_trust.
         // projectConfigDocument.ts checkDraft on what was sent: text first, then a revision that is null or a string.
         let Some(raw) = request.raw.as_deref() else {
             return Err(DhError::msg(format!(
@@ -128,14 +128,13 @@ impl Daemon {
     /// TS: handleRequest `project-info`.
     pub async fn handle_project_info(&self, request: &CwdRequest) -> Result<ProjectInfo> {
         let config = load_app_config().await?;
-        let project = load_project_config(&as_given(&request.cwd), Some(&config), None).await?;
+        let project = load_project_config(&as_given(&request.cwd), None).await?;
         project_info(project, &config)
     }
 
     /// TS: handleRequest `trust-project` (`Repository configuration changed; review it again before trusting`).
     pub async fn handle_trust_project(&self, request: &TrustProject) -> Result<ProjectInfo> {
-        let user = load_app_config().await?;
-        let project = load_project_config(&as_given(&request.cwd), Some(&user), None).await?;
+        let project = load_project_config(&as_given(&request.cwd), None).await?;
         if request.fingerprint.known() != Some(&project.fingerprint) {
             return Err(DhError::msg(
                 "Repository configuration changed; review it again before trusting",
@@ -153,12 +152,11 @@ impl Daemon {
         project_info(project, &config)
     }
 
-    /// TS: InkDaemon.listBranches: local branches, current and default branch, the configured branchFrom and whether
-    /// a trusted creation hook will create the worktree.
+    /// TS: InkDaemon.listBranches: local branches, current and default branch and the configured branchFrom.
     pub async fn list_branches(&self, cwd: Option<&str>) -> Result<BranchList> {
         let root = find_repo_root(cwd).await?;
         let app_config = load_app_config().await?;
-        let project = load_project_config(&root, Some(&app_config), None).await.ok();
+        let project = load_project_config(&root, None).await.ok();
         let branch_from = resolve_settings(project.as_ref(), &app_config, &config_dir())
             .ok()
             .and_then(|settings| settings.worktree.as_ref().and_then(|worktree| worktree.branch_from))
@@ -169,20 +167,11 @@ impl Daemon {
             resolve_default_branch(&root, None, BranchWhere::Local),
         );
         let current = current.unwrap_or_default();
-        let hook = project.as_ref().is_some_and(|project| {
-            project.creation_hook.is_some()
-                && is_project_trusted(
-                    &project.trust_root,
-                    &project.fingerprint,
-                    app_config.trusted_projects.as_ref(),
-                )
-        });
         Ok(BranchList {
             branches,
             current: (!current.is_empty()).then_some(current),
             default_branch: default_branch.filter(|name| !name.is_empty()),
             branch_from,
-            hook: hook.then_some(true),
         })
     }
 }
@@ -364,7 +353,6 @@ mod tests {
 
         let branches = block_on(daemon.list_branches(Some(&root))).unwrap();
         assert_eq!(branches.branch_from, BranchFrom::Default);
-        assert_eq!(branches.hook, None);
     }
 
     #[test]
@@ -385,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn list_branches_reports_branches_and_a_trusted_creation_hook() {
+    fn list_branches_reports_branches() {
         let home = Home::new();
         let (_dir, root) = repo();
         tgit(&root, &["branch", "feature"]);
@@ -397,20 +385,6 @@ mod tests {
         assert_eq!(branches.current.as_deref(), Some("main"));
         assert_eq!(branches.default_branch.as_deref(), Some("main"));
         assert_eq!(branches.branch_from, BranchFrom::Current);
-        assert_eq!(branches.hook, None);
-
-        let scripts = Path::new(&root).join(".claude").join("scripts");
-        std::fs::create_dir_all(&scripts).unwrap();
-        std::fs::write(scripts.join("create-worktree.sh"), "#!/bin/sh\necho /tmp/x\n").unwrap();
-        let info = block_on(daemon.handle_project_info(&cwd_request(&root))).unwrap();
-        assert!(info.project.creation_hook.is_some());
-        assert!(info.needs_review);
-        assert_eq!(block_on(daemon.list_branches(Some(&root))).unwrap().hook, None);
-        block_on(daemon.handle_trust_project(&trust_request(&root, &info.project.fingerprint))).unwrap();
-        let branches = block_on(daemon.list_branches(Some(&root))).unwrap();
-        assert_eq!(branches.hook, Some(true));
-        let value = serde_json::to_value(&branches).unwrap();
-        assert_eq!(value["hook"], json!(true));
 
         // A detached HEAD has no current branch.
         tgit(&root, &["checkout", "--detach"]);

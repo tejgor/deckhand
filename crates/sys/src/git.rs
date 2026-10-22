@@ -1,6 +1,6 @@
 //! Git plumbing for sessions and worktrees: bounded `git -C <cwd>` runs ([`git`], [`optional_git`]), repository
-//! context, the worktree list, creating a session's worktree (a trusted creation hook, or Deckhand's own `git worktree
-//! add` with worktree settings), removing and pruning worktrees, and merging a worktree into the launch checkout
+//! context, the worktree list, creating a session's worktree (`git worktree add` with worktree settings), removing and
+//! pruning worktrees, and merging a worktree into the launch checkout
 //! without committing.
 //!
 //! Errors: Git failures are [`ExecError`]s (Node's execFile error: `Command failed: git -C ...\n<stderr>`, with
@@ -16,14 +16,14 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use crate::paths;
-use crate::proc::{self, ExecError, ExecFailure, ExecOptions};
+use crate::proc::{self, ExecError, ExecOptions};
 use crate::worktree_links::{LinkOptions, apply_worktree_links, user_slug};
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{self, path};
 use deckhand_core::worktree_links::{BranchVars, branch_name_problem, expand_branch_name, worktree_location};
 use deckhand_protocol::data::{
-    BranchFrom, CommittedChanges, CreationHook, TargetOperation, TemplateVars, WorktreeCreator, WorktreeLinks,
-    WorktreeMergeMode, WorktreeMergeResult, WorktreeOrigin, WorktreeSettings,
+    BranchFrom, CommittedChanges, TargetOperation, TemplateVars, WorktreeCreator, WorktreeLinks, WorktreeMergeMode,
+    WorktreeMergeResult, WorktreeOrigin, WorktreeSettings,
 };
 use deckhand_protocol::{KeyOrder, Ordered};
 
@@ -81,9 +81,6 @@ impl GitOptions {
 
 /// TS: git.ts NON_INTERACTIVE_GIT (no credential prompts for fetches).
 pub const NON_INTERACTIVE_GIT: [(&str, &str); 2] = [("GIT_TERMINAL_PROMPT", "0"), ("GCM_INTERACTIVE", "never")];
-
-/// TS: git.ts CREATE_WORKTREE_SCRIPT (relative to a checkout).
-pub const CREATE_WORKTREE_SCRIPT: &str = ".claude/scripts/create-worktree.sh";
 
 /// TS: git.ts MAX_CONFLICT_PATHS (conflicted paths returned at most; the count is exact).
 pub const MAX_CONFLICT_PATHS: usize = 200;
@@ -165,7 +162,7 @@ pub struct CreatedWorktreeInfo {
     pub prunable: Option<bool>,
     /// `created` or `existing` (never `selected` here).
     pub origin: WorktreeOrigin,
-    /// `script` (the creation hook) or `fallback` (Deckhand's `git worktree add`).
+    /// Always `fallback` (Deckhand's `git worktree add`); `script` marks worktrees a creation script made before.
     pub creator: WorktreeCreator,
     pub name: String,
     /// Symlinks applied from worktree settings; only for a newly created worktree.
@@ -377,83 +374,6 @@ pub fn sanitize_worktree_name(title: &str) -> String {
     } else {
         trimmed.to_owned()
     }
-}
-
-/// `fs.stat(path)` is a regular file (symlinks followed).
-async fn file_exists(file: &str) -> bool {
-    tokio::fs::metadata(file)
-        .await
-        .map(|metadata| metadata.is_file())
-        .unwrap_or(false)
-}
-
-/// TS: git.ts resolveCreateScript (the current checkout's `.claude/scripts/create-worktree.sh`, else the main
-/// checkout's; regular files only).
-pub async fn resolve_create_script(current_worktree_root: &str, main_worktree_root: Option<&str>) -> Option<String> {
-    let mut candidates = vec![path::join(&[current_worktree_root, CREATE_WORKTREE_SCRIPT])];
-    if let Some(main) = main_worktree_root.filter(|main| !main.is_empty()) {
-        candidates.push(path::join(&[main, CREATE_WORKTREE_SCRIPT]));
-    }
-    let mut seen = HashSet::new();
-    for candidate in candidates {
-        let resolved = path::resolve(&candidate);
-        if !seen.insert(resolved.clone()) {
-            continue;
-        }
-        if file_exists(&resolved).await {
-            return Some(resolved);
-        }
-    }
-    None
-}
-
-/// TS: git.ts runCreateScript: runs the reviewed hook's exact bytes (`bash -c <content> <file>`) in `cwd` with
-/// `CLAUDE_PROJECT_DIR=<launch_cwd>` and `{name, cwd}` JSON on stdin, 60 s at most; its last stdout line must be an
-/// absolute path.
-pub async fn run_create_script(hook: &CreationHook, name: &str, cwd: &str, launch_cwd: &str) -> Result<String> {
-    let input = format!(
-        "{{\"name\":{},\"cwd\":{}}}\n",
-        jsstr::json_stringify_str(name),
-        jsstr::json_stringify_str(launch_cwd)
-    );
-    let options = ExecOptions::default()
-        .cwd(cwd)
-        .env("CLAUDE_PROJECT_DIR", launch_cwd)
-        .stdin(input)
-        .max_buffer(usize::MAX);
-    // Run the verified in-memory bytes; never let bash re-read a file that may have changed. $0 stays the script path.
-    let args = ["-c", hook.content.as_str(), hook.file.as_str()];
-    // Like the TS timer: the run is abandoned (and its process group signalled) at 60 s, whatever it does then.
-    let run = tokio::time::timeout(Duration::from_secs(60), proc::exec("bash", &args, &options)).await;
-    let stdout = match run {
-        Err(_) => return Err(DhError::msg("create-worktree.sh timed out after 60s")),
-        Ok(Ok(output)) => output.stdout,
-        Ok(Err(error)) => {
-            let code = match &error.failure {
-                ExecFailure::Exit { code } => code.to_string(),
-                ExecFailure::Signal { .. } => "null".to_owned(),
-                ExecFailure::Spawn { .. } | ExecFailure::MaxBuffer { .. } => return Err(error.into()),
-            };
-            return Err(DhError::msg(format!(
-                "create-worktree.sh failed with exit code {code}: {}",
-                jsstr::js_trim(&error.stderr)
-            )));
-        }
-    };
-    let returned = stdout
-        .split('\n')
-        .map(jsstr::js_trim)
-        .rfind(|line| !line.is_empty())
-        .map(str::to_owned);
-    let Some(returned) = returned else {
-        return Err(DhError::msg("create-worktree.sh did not print a worktree path"));
-    };
-    if !path::is_absolute(&returned) {
-        return Err(DhError::msg(format!(
-            "create-worktree.sh returned a non-absolute path: {returned}"
-        )));
-    }
-    Ok(returned)
 }
 
 /// TS: git.ts resolveDefaultBranch `where`: which refs must exist.
@@ -797,22 +717,16 @@ fn has_links(settings: Option<&WorktreeSettings>) -> bool {
     })
 }
 
-/// TS: git.ts createWorktreeForSession. `creation_hook` must be the trusted, verified hook (exactly its bytes run);
-/// otherwise `settings` place the worktree (default `<home>/worktrees/<name>`) and its branch; links apply only to a
-/// newly created worktree. A hook cannot be combined with `base_branch`.
+/// TS: git.ts createWorktreeForSession: `settings` place the worktree (default `<home>/worktrees/<name>`) and its
+/// branch; links apply only to a newly created worktree. A repository's `.claude/scripts/create-worktree.sh` is not
+/// run (Deckhand used to; its worktree settings cover what those scripts did).
 pub async fn create_worktree_for_session(
     title: &str,
     launch_cwd: &str,
-    creation_hook: Option<&CreationHook>,
     settings: Option<&WorktreeSettings>,
     base_branch: Option<&str>,
 ) -> Result<CreatedWorktreeInfo> {
     let base_branch = base_branch.filter(|base| !base.is_empty());
-    if creation_hook.is_some() && base_branch.is_some() {
-        return Err(DhError::msg(
-            "This repository's worktree creation hook decides where new worktrees start, so a base branch cannot be chosen; leave Base on its default",
-        ));
-    }
     let name = sanitize_worktree_name(title);
     let current_worktree_root = find_repo_root(Some(launch_cwd)).await?;
     let before: HashSet<String> = list_worktrees(&current_worktree_root)
@@ -820,11 +734,6 @@ pub async fn create_worktree_for_session(
         .iter()
         .map(|worktree| path::resolve(&worktree.path))
         .collect();
-    let creator = if creation_hook.is_some() {
-        WorktreeCreator::Script
-    } else {
-        WorktreeCreator::Fallback
-    };
     let location = settings
         .and_then(|settings| settings.location.as_deref())
         .filter(|location| !location.is_empty());
@@ -833,29 +742,21 @@ pub async fn create_worktree_for_session(
     } else {
         None
     };
-    let (worktree_path, base_ref) = match creation_hook {
-        Some(hook) => (
-            run_create_script(hook, &name, &current_worktree_root, launch_cwd).await?,
-            None,
-        ),
-        None => {
-            let target = match (location, &vars) {
-                (Some(location), Some(vars)) => worktree_location(location, vars)?,
-                _ => path::join(&[&paths::config_dir().to_string_lossy(), "worktrees", &name]),
-            };
-            let created = fallback_create_worktree(
-                &target,
-                &name,
-                &current_worktree_root,
-                launch_cwd,
-                settings,
-                base_branch,
-            )
-            .await?;
-            (created.path, created.base_ref)
-        }
+    let target = match (location, &vars) {
+        (Some(location), Some(vars)) => worktree_location(location, vars)?,
+        _ => path::join(&[&paths::config_dir().to_string_lossy(), "worktrees", &name]),
     };
-    let resolved = path::resolve(&worktree_path);
+    let created = fallback_create_worktree(
+        &target,
+        &name,
+        &current_worktree_root,
+        launch_cwd,
+        settings,
+        base_branch,
+    )
+    .await?;
+    let base_ref = created.base_ref;
+    let resolved = path::resolve(&created.path);
     let absolute_path = realpath(&resolved)
         .await
         .map_err(|error| DhError::io(&error, "realpath", &resolved))?;
@@ -893,7 +794,7 @@ pub async fn create_worktree_for_session(
         locked: metadata.locked,
         prunable: metadata.prunable,
         origin,
-        creator,
+        creator: WorktreeCreator::Fallback,
         name,
         links,
         base_ref,
@@ -1402,7 +1303,7 @@ pub fn error_output(error: &ExecError) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_testkit::{Case, DirOp, Outcome, dir_cases, replay, replay_dir, tags};
+    use deckhand_testkit::{Case, replay};
     use std::path::Path;
     use std::process::Command;
 
@@ -1896,7 +1797,7 @@ mod tests {
             location: Some(format!("{place}/{{repo}}-{{name}}")),
             ..WorktreeSettings::default()
         };
-        let created = create_worktree_for_session("My Feature!", root, None, Some(&settings), None)
+        let created = create_worktree_for_session("My Feature!", root, Some(&settings), None)
             .await
             .unwrap();
         let expected = format!("{place}/{}-my_feature", path::basename(root));
@@ -1908,24 +1809,11 @@ mod tests {
         assert_eq!(created.base_ref.as_deref(), Some("main"));
         assert_eq!(created.links, None);
         // Again: the existing worktree is reused.
-        let again = create_worktree_for_session("My Feature!", root, None, Some(&settings), None)
+        let again = create_worktree_for_session("My Feature!", root, Some(&settings), None)
             .await
             .unwrap();
         assert_eq!(again.origin, WorktreeOrigin::Existing);
         assert_eq!(again.base_ref, None);
-        let hook = CreationHook {
-            file: "/x/create-worktree.sh".into(),
-            content: String::new(),
-            fingerprint: String::new(),
-        };
-        let error = create_worktree_for_session("x", root, Some(&hook), None, Some("main"))
-            .await
-            .unwrap_err()
-            .to_string();
-        assert!(
-            error.starts_with("This repository's worktree creation hook decides"),
-            "{error}"
-        );
         prune_worktrees(root).await.unwrap();
         // removeWorktree reads Deckhand's own worktree root: only with an isolated DECKHAND_HOME.
         if std::env::var_os("DECKHAND_HOME").is_some_and(|home| !home.is_empty()) {
@@ -1933,70 +1821,6 @@ mod tests {
             assert!(!Path::new(&expected).exists());
             assert_eq!(list_worktrees(root).await.unwrap().len(), 1);
         }
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn creation_hook_runs_the_reviewed_bytes() {
-        let fx = Fixture::new();
-        let root = fx.root.as_str();
-        let target = fx.parent.path().join("hooked").to_string_lossy().into_owned();
-        let content = format!(
-            "read -r input\necho \"$input\" > \"{target}.stdin\"\necho \"dir=$CLAUDE_PROJECT_DIR\" > \"{target}.project\"\ngit worktree add -q -b hooked \"{target}\" >&2\necho noise\necho \"{target}\"\n"
-        );
-        let hook = CreationHook {
-            file: "/reviewed/create-worktree.sh".into(),
-            content,
-            fingerprint: "f".into(),
-        };
-        let created = create_worktree_for_session("Hooked", root, Some(&hook), None, None)
-            .await
-            .unwrap();
-        assert_eq!(created.creator, WorktreeCreator::Script);
-        assert_eq!(created.origin, WorktreeOrigin::Created);
-        assert_eq!(created.path, real(Path::new(&target)));
-        assert_eq!(created.base_ref, None);
-        assert_eq!(
-            std::fs::read_to_string(format!("{target}.stdin")).unwrap(),
-            format!("{{\"name\":\"hooked\",\"cwd\":\"{root}\"}}\n")
-        );
-        assert_eq!(
-            std::fs::read_to_string(format!("{target}.project")).unwrap(),
-            format!("dir={root}\n")
-        );
-
-        let failing = CreationHook {
-            content: "echo oops >&2; exit 3".into(),
-            ..hook.clone()
-        };
-        assert_eq!(
-            run_create_script(&failing, "n", root, root)
-                .await
-                .unwrap_err()
-                .to_string(),
-            "create-worktree.sh failed with exit code 3: oops"
-        );
-        let silent = CreationHook {
-            content: "true".into(),
-            ..hook.clone()
-        };
-        assert_eq!(
-            run_create_script(&silent, "n", root, root)
-                .await
-                .unwrap_err()
-                .to_string(),
-            "create-worktree.sh did not print a worktree path"
-        );
-        let relative = CreationHook {
-            content: "echo rel/path".into(),
-            ..hook
-        };
-        assert_eq!(
-            run_create_script(&relative, "n", root, root)
-                .await
-                .unwrap_err()
-                .to_string(),
-            "create-worktree.sh returned a non-absolute path: rel/path"
-        );
     }
 
     #[test]
@@ -2050,58 +1874,5 @@ mod tests {
         replay("git/operationProblem", |case: &Case| {
             Ok::<_, String>(target_problem(case.arg_as::<TargetOperation>(0)?))
         });
-    }
-
-    fn resolve_script_case(op: &DirOp) -> std::result::Result<Outcome, String> {
-        if op.fn_name != "resolveCreateScript" {
-            return Err(format!("unexpected fn {}", op.fn_name));
-        }
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|error| error.to_string())?;
-        let current = op.arg_str(0)?.to_owned();
-        let main = if op.arg_is_undefined(1) {
-            None
-        } else {
-            Some(op.arg_str(1)?.to_owned())
-        };
-        let found = runtime.block_on(resolve_create_script(&current, main.as_deref()));
-        Ok(Outcome::ret(match found {
-            Some(found) => serde_json::Value::String(found),
-            None => tags::undefined(),
-        }))
-    }
-
-    #[test]
-    fn resolve_create_script_parity() {
-        let cases = dir_cases("git");
-        assert_eq!(cases.len(), 11);
-        for case in cases {
-            replay_dir(&case, |_root: &Path, op: &DirOp| {
-                resolve_script_case(op).unwrap_or_else(Outcome::throws)
-            });
-        }
-    }
-
-    /// Committed fixture paths stay ASCII, so the TS-recorded case `resolveCreateScript("$ROOT/日本 😀")` ->
-    /// `"$ROOT/日本 😀/.claude/scripts/create-worktree.sh"` is built at runtime here.
-    #[test]
-    fn resolve_create_script_non_ascii_dir() {
-        let temp = tempfile::tempdir().unwrap();
-        let root = std::fs::canonicalize(temp.path()).unwrap();
-        let current = root.join("日本 😀");
-        let script = current.join(CREATE_WORKTREE_SCRIPT);
-        std::fs::create_dir_all(script.parent().unwrap()).unwrap();
-        std::fs::write(&script, "#!/bin/bash\n").unwrap();
-        let current = current.to_str().unwrap().to_owned();
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let found = runtime.block_on(resolve_create_script(&current, None));
-        assert_eq!(found, Some(format!("{current}/.claude/scripts/create-worktree.sh")));
-        let missing = runtime.block_on(resolve_create_script(&format!("{current}/nope"), None));
-        assert_eq!(missing, None);
     }
 }

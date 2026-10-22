@@ -1,42 +1,34 @@
 {"args":["","global","created"],"ret":"Saved action  to global defaults · run it with e on a session"}
-{"args":["","global","hook"],"ret":"Saved action  to global defaults · run it with e on a session"}
 {"args":["","global","kept"],"ret":"Saved action  to global defaults · run it with e on a session"}
 {"args":["","global","unreviewed"],"ret":"Saved action  to global defaults · run it with e on a session"}
 {"args":["","global"],"ret":"Saved action  to global defaults · run it with e on a session"}
 {"args":["","repository","created"],"ret":"Saved action  to this repo · created and trusted · run it with e on a session"}
-{"args":["","repository","hook"],"ret":"Saved action  to this repo · review required (the creation hook hasn't been reviewed) · run it with e on a session"}
 {"args":["","repository","kept"],"ret":"Saved action  to this repo · still trusted · run it with e on a session"}
 {"args":["","repository","unreviewed"],"ret":"Saved action  to this repo · review required (the file had changes you haven't reviewed) · run it with e on a session"}
 {"args":["","repository"],"ret":"Saved action  to this repo · reviewed before anything from it runs · run it with e on a session"}
 {"args":["Dev command","global","created"],"ret":"Saved action Dev command to global defaults · run it with e on a session"}
-{"args":["Dev command","global","hook"],"ret":"Saved action Dev command to global defaults · run it with e on a session"}
 {"args":["Dev command","global","kept"],"ret":"Saved action Dev command to global defaults · run it with e on a session"}
 {"args":["Dev command","global","unreviewed"],"ret":"Saved action Dev command to global defaults · run it with e on a session"}
 {"args":["Dev command","global"],"ret":"Saved action Dev command to global defaults · run it with e on a session"}
 {"args":["Dev command","repository","created"],"ret":"Saved action Dev command to this repo · created and trusted · run it with e on a session"}
-{"args":["Dev command","repository","hook"],"ret":"Saved action Dev command to this repo · review required (the creation hook hasn't been reviewed) · run it with e on a session"}
 {"args":["Dev command","repository","kept"],"ret":"Saved action Dev command to this repo · still trusted · run it with e on a session"}
 {"args":["Dev command","repository","unreviewed"],"ret":"Saved action Dev command to this repo · review required (the file had changes you haven't reviewed) · run it with e on a session"}
 {"args":["Dev command","repository"],"ret":"Saved action Dev command to this repo · reviewed before anything from it runs · run it with e on a session"}
 {"args":["a\nb","global","created"],"ret":"Saved action a\nb to global defaults · run it with e on a session"}
-{"args":["a\nb","global","hook"],"ret":"Saved action a\nb to global defaults · run it with e on a session"}
 {"args":["a\nb","global","kept"],"ret":"Saved action a\nb to global defaults · run it with e on a session"}
 {"args":["a\nb","global","unreviewed"],"ret":"Saved action a\nb to global defaults · run it with e on a session"}
 {"args":["a\nb","global"],"ret":"Saved action a\nb to global defaults · run it with e on a session"}
 {"args":["a\nb","repository","created"],"ret":"Saved action a\nb to this repo · created and trusted · run it with e on a session"}
-{"args":["a\nb","repository","hook"],"ret":"Saved action a\nb to this repo · review required (the creation hook hasn't been reviewed) · run it with e on a session"}
 {"args":["a\nb","repository","kept"],"ret":"Saved action a\nb to this repo · still trusted · run it with e on a session"}
 {"args":["a\nb","repository","unreviewed"],"ret":"Saved action a\nb to this repo · review required (the file had changes you haven't reviewed) · run it with e on a session"}
 {"args":["a\nb","repository"],"ret":"Saved action a\nb to this repo · reviewed before anything from it runs · run it with e on a session"}
 {"args":["lint frontend","repository","kept"],"ret":"Saved action lint frontend to this repo · still trusted · run it with e on a session"}
 {"args":["lint","global"],"ret":"Saved action lint to global defaults · run it with e on a session"}
 {"args":["日本語 😀","global","created"],"ret":"Saved action 日本語 😀 to global defaults · run it with e on a session"}
-{"args":["日本語 😀","global","hook"],"ret":"Saved action 日本語 😀 to global defaults · run it with e on a session"}
 {"args":["日本語 😀","global","kept"],"ret":"Saved action 日本語 😀 to global defaults · run it with e on a session"}
 {"args":["日本語 😀","global","unreviewed"],"ret":"Saved action 日本語 😀 to global defaults · run it with e on a session"}
 {"args":["日本語 😀","global"],"ret":"Saved action 日本語 😀 to global defaults · run it with e on a session"}
 {"args":["日本語 😀","repository","created"],"ret":"Saved action 日本語 😀 to this repo · created and trusted · run it with e on a session"}
-{"args":["日本語 😀","repository","hook"],"ret":"Saved action 日本語 😀 to this repo · review required (the creation hook hasn't been reviewed) · run it with e on a session"}
 {"args":["日本語 😀","repository","kept"],"ret":"Saved action 日本語 😀 to this repo · still trusted · run it with e on a session"}
 {"args":["日本語 😀","repository","unreviewed"],"ret":"Saved action 日本語 😀 to this repo · review required (the file had changes you haven't reviewed) · run it with e on a session"}
 {"args":["日本語 😀","repository"],"ret":"Saved action 日本語 😀 to this repo · reviewed before anything from it runs · run it with e on a session"}

@@ -394,7 +394,7 @@ mod tests {
                 saved.document.raw,
                 std::fs::read_to_string(&saved.document.path).unwrap()
             );
-            let project = load_project_config(&cwd, None, None).await.unwrap();
+            let project = load_project_config(&cwd, None).await.unwrap();
             assert_eq!(
                 project.config.default_workspace,
                 Some(deckhand_protocol::data::WorktreeMode::New)
@@ -425,7 +425,7 @@ mod tests {
             save_project_config_document(&cwd, "{\"actions\":{}}\n", revision, options)
                 .await
                 .unwrap();
-            let project = load_project_config(&cwd, None, None).await.unwrap();
+            let project = load_project_config(&cwd, None).await.unwrap();
             assert_eq!(project.config.actions, Some(indexmap::IndexMap::new()));
         });
     }
@@ -516,7 +516,7 @@ mod tests {
             )
             .await
             .unwrap();
-            let project = load_project_config(&worktree, None, None).await.unwrap();
+            let project = load_project_config(&worktree, None).await.unwrap();
             assert_eq!(project.config.dev_command_text(), Some("printf shared"));
         });
         assert_eq!(
@@ -555,7 +555,7 @@ mod tests {
     /// Whether the project at `cwd` is trusted by the stored user config.
     async fn trusted(cwd: &str) -> bool {
         let user = load_app_config().await.unwrap();
-        let project = load_project_config(cwd, Some(&user), None).await.unwrap();
+        let project = load_project_config(cwd, None).await.unwrap();
         is_project_trusted(
             &project.trust_root,
             &project.fingerprint,
@@ -574,9 +574,7 @@ mod tests {
     }
 
     async fn trust_now(cwd: &str) {
-        let project = load_project_config(cwd, Some(&load_app_config().await.unwrap()), None)
-            .await
-            .unwrap();
+        let project = load_project_config(cwd, None).await.unwrap();
         update_app_config(move |mut config| {
             config.trusted_projects = Some(trust_project_config(
                 &project.trust_root,
@@ -647,48 +645,22 @@ mod tests {
                 .unwrap();
             assert_eq!(saved.trust, None);
 
-            // Creation hook. Trusted without the hook (hook: false), a save that enables the hook needs review.
+            // A leftover creation script is not part of the trust: saves keep a trusted file trusted.
             let hook = Path::new(&cwd).join(".claude/scripts/create-worktree.sh");
             std::fs::create_dir_all(hook.parent().unwrap()).unwrap();
             std::fs::write(&hook, "#!/bin/bash\necho one\n").unwrap();
-            let revision = read_project_config_document(&cwd).await.unwrap().revision;
-            save_project_config_document(
-                &cwd,
-                "{\"worktree\":{\"hook\":false}}\n",
-                revision.as_deref(),
-                SaveDocumentOptions::default(),
-            )
-            .await
-            .unwrap();
-            trust_now(&cwd).await;
-            assert!(trusted(&cwd).await);
-            assert_eq!(
-                save_over(&cwd, "{\"devCommand\":\"hooked\"}\n").await,
-                Some(SaveTrust::Hook)
-            );
-            assert!(!trusted(&cwd).await);
-            // Once the file and hook are trusted together, settings saves keep them trusted (the hook's bytes are
-            // unchanged).
             trust_now(&cwd).await;
             assert_eq!(
-                save_over(&cwd, "{\"devCommand\":\"four\"}\n").await,
+                save_over(&cwd, "{\"worktree\":{\"hook\":true}}\n").await,
                 Some(SaveTrust::Kept)
             );
             assert!(trusted(&cwd).await);
-            // The hook edited since that trust: the bundle needs review, and a settings save never trusts the new hook.
-            std::fs::write(&hook, "#!/bin/bash\necho changed\n").unwrap();
-            assert_eq!(
-                save_over(&cwd, "{\"devCommand\":\"five\"}\n").await,
-                Some(SaveTrust::Unreviewed)
-            );
-            assert!(!trusted(&cwd).await);
-            // No file yet but an untrusted hook: creating the file does not trust the hook.
             let other_hook = Path::new(&other).join(".claude/scripts/create-worktree.sh");
             std::fs::create_dir_all(other_hook.parent().unwrap()).unwrap();
             std::fs::write(&other_hook, "echo x\n").unwrap();
             let saved = save_project_config_document(&other, "{}\n", None, keep).await.unwrap();
-            assert_eq!(saved.trust, Some(SaveTrust::Hook));
-            assert!(!trusted(&other).await);
+            assert_eq!(saved.trust, Some(SaveTrust::Created));
+            assert!(trusted(&other).await);
         });
     }
 

@@ -9,7 +9,7 @@
 {"args":[{"defaults":{"setupCommand":""}}],"throws":"Invalid \"defaults\" in /deckhand-home/config.json: Invalid command: setupCommand. Repair it with C (Settings): ← to the Global column, then E for the raw JSON."}
 {"args":[{"defaults":{"setupCommand":"gs"},"trustedProjects":{"/r":["f"]}}],"ret":{"setupCommand":"gs"}}
 {"args":[{"defaults":{"worktree":{"branchName":"{user}/{name}","symlink":["node_modules","a"],"files":{"x":"/g/x","y":"/g/y"},"location":"/g/{name}"},"actions":{"lint":"g lint"}}}],"ret":{"worktree":{"branchName":"{user}/{name}","symlink":["node_modules","a"],"files":{"x":"/g/x","y":"/g/y"},"location":"/g/{name}"},"actions":{"lint":"g lint"}}}
-{"args":[{"defaults":{"worktree":{"hook":false}}}],"ret":{"worktree":{"hook":false}}}
+{"args":[{"defaults":{"worktree":{"hook":false}}}],"ret":{"worktree":{}}}
 {"args":[{"defaults":{}}],"ret":{}}
 {"args":[{"dev_command":"  "}],"ret":{}}
 {"args":[{"dev_command":" leg "}],"ret":{"devCommand":"leg"}}

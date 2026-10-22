@@ -7,9 +7,7 @@ use serde_with::skip_serializing_none;
 
 use indexmap::IndexMap;
 
-use deckhand_protocol::data::{
-    CleanupFileState, CleanupInspection, ConfigTargetKind, ProjectInfo, WorkspaceSummary, WorktreeLinks,
-};
+use deckhand_protocol::data::{CleanupFileState, CleanupInspection, ProjectInfo, WorkspaceSummary, WorktreeLinks};
 
 /// TS: cleanupView.tsx CLEANUP_FILE_LEGEND.
 pub const CLEANUP_FILE_LEGEND: &str = "M changed · ? untracked · ! ignored";
@@ -42,11 +40,11 @@ pub fn lost_file_count(inspection: &CleanupInspection) -> i64 {
 /// TS: detailTexts.ts trustReviewText (`purpose`: what is about to run or be created from the repository).
 pub fn trust_review_text(project: &ProjectInfo, purpose: Option<&str>) -> String {
     let status = if project.needs_review {
-        "Not trusted: until you trust it, its commands, creation hook and worktree settings do not apply (your global defaults do; its agent/workspace suggestions only preselect the new-session picker)."
+        "Not trusted: until you trust it, its commands and worktree settings do not apply (your global defaults do; its agent/workspace suggestions only preselect the new-session picker)."
     } else if project.trusted {
         "Trusted: these exact bytes are in effect on top of your global defaults."
     } else {
-        "Nothing to trust: no repository config or creation hook. Global defaults apply."
+        "Nothing to trust: no repository config. Global defaults apply."
     };
     let loaded = &project.project;
     let config = match loaded.path.as_deref().filter(|path| !path.is_empty()) {
@@ -62,30 +60,12 @@ pub fn trust_review_text(project: &ProjectInfo, purpose: Option<&str>) -> String
         Some(path) => format!("{path}\n\n(no deckhand.json in the main checkout)"),
         None => "Bare repository: no main checkout, so no repository deckhand.json.".to_owned(),
     };
-    let hook = if let Some(hook) = &loaded.creation_hook {
-        format!(
-            "\n\nCreation hook: {}\nSHA-256: {}\n\n{}",
-            hook.file, hook.fingerprint, hook.content
-        )
-    } else if let Some(disabled) = &loaded.disabled_hook {
-        let by = if disabled.by == ConfigTargetKind::Global {
-            "global defaults"
-        } else {
-            "deckhand.json"
-        };
-        format!(
-            "\n\nCreation hook {} is switched off by worktree.hook: false ({by}): it is not reviewed and never runs.",
-            disabled.file
-        )
-    } else {
-        "\n\nNo custom creation hook. Git fallback will be used.".to_owned()
-    };
     let purpose = purpose
         .filter(|purpose| !purpose.is_empty())
         .map(|purpose| format!("{purpose}\n\n"))
         .unwrap_or_default();
     format!(
-        "{purpose}{status}\n\nTrusting lets this repository's commands (setup, Dev, actions, creation hook) execute as you. Changed bytes need another review, except edits you save in Deckhand while it is trusted.\n\n{config}{hook}\n\nTrust covers these bytes, not everything commands may execute."
+        "{purpose}{status}\n\nTrusting lets this repository's commands (setup, Dev, actions) execute as you. Changed bytes need another review, except edits you save in Deckhand while it is trusted.\n\n{config}\n\nTrust covers these bytes, not everything commands may execute."
     )
 }
 

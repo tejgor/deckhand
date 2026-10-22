@@ -1,13 +1,13 @@
 ⟦magenta⟧╭──────────────────────────────────────────────────────────────────────────────╮
 ⟦magenta⟧│ ⟦magenta bold⟧Settings · mono                                   ⟦yellow⟧deckhand.json: needs trust ⟦magenta⟧│
 ⟦magenta⟧│                        ⟦magenta bold⟧Global (all repos)          ⟦gray⟧This repo                 ⟦magenta⟧│
-⟦magenta⟧│   ⟦gray⟧↑ 7 more                                                                   ⟦magenta⟧│
+⟦magenta⟧│   ⟦gray⟧↑ 6 more                                                                   ⟦magenta⟧│
+⟦magenta⟧│   ⟦⟧Actions              ⟦gray⟧—                           ⟦yellow⟧test ⚠ needs trust        ⟦magenta⟧│
 ⟦magenta⟧│  ⟦magentaBright bold⟧Worktrees                                                                   ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Location           ⟦cyan bold⟧● ⟦gray italic⟧/state/worktrees/<name>     ⟦yellow⟧/dev/worktrees/<name> ⚠   ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Branch from        ⟦cyan bold⟧● ⟦bold⟧origin (no remote found)    ⟦gray⟧—                         ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Branch name        ⟦cyan bold⟧● ⟦gray italic⟧{name} (built-in)           ⟦gray⟧—                         ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Linked items       ⟦cyan bold⟧● ⟦bold⟧1 item                      ⟦yellow⟧1 item ⚠ needs trust      ⟦magenta⟧│
-⟦magenta⟧│   ⟦⟧Creation hook      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)               ⟦gray⟧—                         ⟦magenta⟧│
 ⟦magenta⟧│  ⟦magentaBright bold⟧Agents                                                                      ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Agent signals      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)                                         ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Notifications      ⟦cyan bold⟧● ⟦gray italic⟧off (built-in)                                        ⟦magenta⟧│

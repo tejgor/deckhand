@@ -1,8 +1,7 @@
 //! Project config files: reading and writing them (the pure parts are in deckhand_core::project_config).
 //!
 //! Reading the repository override (the main checkout's live deckhand.json; copies inside linked worktrees are
-//! ignored) together with the creation hook, which are trusted together, and the trust decision for a deckhand.json
-//! saved through Deckhand. Validation, fingerprints and effective settings are pure and live in
+//! ignored) and the trust decision for a deckhand.json saved through Deckhand. Validation, fingerprints and effective settings are pure and live in
 //! `deckhand_core::project_config`.
 
 use std::io::Read;
@@ -13,13 +12,12 @@ use deckhand_core::config_draft::MAX_CONFIG_BYTES;
 use deckhand_core::error::{DhError, Result, errno_code, errno_description};
 use deckhand_core::jsstr::path;
 use deckhand_core::project_config::{
-    PROJECT_CONFIG_FILE, UserSettings, hook_setting, is_project_trusted, parse_project_config, project_fingerprint,
-    sha256,
+    PROJECT_CONFIG_FILE, UserSettings, is_project_trusted, parse_project_config, project_fingerprint,
 };
 use deckhand_protocol::Ordered;
-use deckhand_protocol::data::{CreationHook, DisabledHook, LoadedProject, ProjectConfig, SaveTrust};
+use deckhand_protocol::data::{LoadedProject, ProjectConfig, SaveTrust};
 
-use crate::git::{RepoContext, resolve_create_script, resolve_repo_context};
+use crate::git::{RepoContext, resolve_repo_context};
 
 /// TS: projectConfig.ts readBoundedUtf8 result.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -115,21 +113,14 @@ pub async fn read_bounded_utf8(file: &Path, options: ReadBounded) -> Result<Boun
         .map_err(|error| DhError::msg(error.to_string()))?
 }
 
+#[cfg(test)]
 fn bounded(max: usize) -> ReadBounded {
     ReadBounded { no_follow: false, max }
 }
 
-/// TS: projectConfig.ts loadProjectConfig: the main checkout's deckhand.json (errors prefixed `<file>: `) and the
-/// creation hook (enabled unless `worktree.hook: false` in the file or the global defaults; read, fingerprinted).
-/// `user` is the user config (default empty): every caller that compares fingerprints must pass the same one.
+/// TS: projectConfig.ts loadProjectConfig: the main checkout's deckhand.json (errors prefixed `<file>: `).
 /// `context`: the repository context when the caller has it (else resolved from `cwd`).
-pub async fn load_project_config(
-    cwd: &str,
-    user: Option<&UserSettings>,
-    context: Option<&RepoContext>,
-) -> Result<LoadedProject> {
-    let default_user = UserSettings::default();
-    let user = user.unwrap_or(&default_user);
+pub async fn load_project_config(cwd: &str, context: Option<&RepoContext>) -> Result<LoadedProject> {
     let context = match context {
         Some(context) => context.clone(),
         None => resolve_repo_context(cwd).await?,
@@ -165,24 +156,7 @@ pub async fn load_project_config(
     } else {
         Ordered::default()
     };
-    let hook_path = resolve_create_script(&root, main_root.as_deref()).await;
-    let mut creation_hook = None;
-    let mut disabled_hook = None;
-    if let Some(hook_path) = hook_path {
-        let setting = hook_setting(&config, user);
-        match setting.by {
-            Some(by) if !setting.enabled => disabled_hook = Some(DisabledHook { file: hook_path, by }),
-            _ => {
-                let read = read_bounded_utf8(Path::new(&hook_path), bounded(MAX_CONFIG_BYTES)).await?;
-                creation_hook = Some(CreationHook {
-                    file: hook_path,
-                    content: read.text,
-                    fingerprint: sha256(&read.bytes),
-                });
-            }
-        }
-    }
-    let fingerprint = project_fingerprint(&raw, creation_hook.as_ref().map(|hook| hook.fingerprint.as_str()));
+    let fingerprint = project_fingerprint(&raw);
     Ok(LoadedProject {
         root,
         trust_root,
@@ -190,8 +164,6 @@ pub async fn load_project_config(
         config,
         exists,
         fingerprint,
-        creation_hook,
-        disabled_hook,
     })
 }
 
@@ -210,66 +182,31 @@ pub struct SavedTrust {
     pub fingerprint: Option<String>,
 }
 
-/// TS: projectConfig.ts savedProjectTrust (self-edits keep trust only when the whole previous bundle was trusted and
-/// the creation hook does not join the bundle through this save).
-///
-/// The new bytes are trusted only when (1) `previous` together with the creation hook as it is now (enabled or not
-/// per `previous` and the global defaults) was trusted, and (2) `next` does not enable a hook `previous` did not: a
-/// hook is only ever trusted through the review.
+/// TS: projectConfig.ts savedProjectTrust: a self-edit keeps trust only when the bytes it replaced (exactly what the
+/// user edited from) were trusted; a new file is trusted, since there was nothing to review.
 pub async fn saved_project_trust(
     context: &RepoContext,
     previous: &PreviousDocument,
     next: &str,
     user: &UserSettings,
 ) -> Result<SavedTrust> {
-    let hook = match resolve_create_script(&context.root, context.main_root.as_deref()).await {
-        Some(hook_path) => Some(sha256(
-            &read_bounded_utf8(Path::new(&hook_path), bounded(MAX_CONFIG_BYTES))
-                .await?
-                .bytes,
-        )),
-        None => None,
+    let unreviewed = SavedTrust {
+        trust: SaveTrust::Unreviewed,
+        fingerprint: None,
     };
-    let before = if previous.exists {
-        match parse_project_config(&previous.raw, None) {
-            Ok(config) => config,
-            // Never loadable, so never trusted.
-            Err(_) => {
-                return Ok(SavedTrust {
-                    trust: SaveTrust::Unreviewed,
-                    fingerprint: None,
-                });
-            }
-        }
-    } else {
-        Ordered::default()
-    };
-    let enabled = |config: &ProjectConfig| hook.is_some() && hook_setting(config, user).enabled;
-    let hook_before = enabled(&before);
-    let hook_after = enabled(&*parse_project_config(next, None)?);
-    let trusted = if !previous.exists && !hook_before {
-        true
-    } else {
-        let raw = if previous.exists { previous.raw.as_str() } else { "" };
-        let fingerprint = project_fingerprint(raw, if hook_before { hook.as_deref() } else { None });
-        is_project_trusted(&context.trust_root, &fingerprint, user.trusted_projects.as_ref())
-    };
-    if !trusted {
-        let trust = if previous.exists {
-            SaveTrust::Unreviewed
-        } else {
-            SaveTrust::Hook
-        };
-        return Ok(SavedTrust {
-            trust,
-            fingerprint: None,
-        });
+    // Never loadable, so never trusted.
+    if previous.exists && parse_project_config(&previous.raw, None).is_err() {
+        return Ok(unreviewed);
     }
-    if hook_after && !hook_before {
-        return Ok(SavedTrust {
-            trust: SaveTrust::Hook,
-            fingerprint: None,
-        });
+    parse_project_config(next, None)?;
+    if previous.exists
+        && !is_project_trusted(
+            &context.trust_root,
+            &project_fingerprint(&previous.raw),
+            user.trusted_projects.as_ref(),
+        )
+    {
+        return Ok(unreviewed);
     }
     Ok(SavedTrust {
         trust: if previous.exists {
@@ -277,10 +214,7 @@ pub async fn saved_project_trust(
         } else {
             SaveTrust::Created
         },
-        fingerprint: Some(project_fingerprint(
-            next,
-            if hook_after { hook.as_deref() } else { None },
-        )),
+        fingerprint: Some(project_fingerprint(next)),
     })
 }
 
@@ -289,8 +223,8 @@ pub(crate) mod tests {
     use super::*;
     use crate::git::create_worktree_for_session;
     use crate::storage::tests::{Home, block_on};
-    use deckhand_core::project_config::{project_needs_review, resolve_settings, trust_project_config};
-    use deckhand_protocol::data::{ConfigTargetKind, WorktreeCreator};
+    use deckhand_core::project_config::{project_needs_review, trust_project_config};
+    use deckhand_protocol::data::WorktreeCreator;
     use deckhand_testkit::{DirOp, Outcome, Replay, dir_cases, tags};
     use serde_json::{Value, json};
     use std::process::Command;
@@ -385,9 +319,9 @@ pub(crate) mod tests {
                     .map(|read| json!({"bytes": tags::bytes(&read.bytes), "text": read.text, "mode": read.mode}))
             }
             "loadProjectConfig" => {
-                let user = user_arg(op, 1)?;
+                // The recorded user config (argument 1) only switched a creation hook on or off.
                 let context = context_arg(op.arg(2));
-                block_on(load_project_config(op.arg_str(0)?, Some(&user), Some(&context)))
+                block_on(load_project_config(op.arg_str(0)?, Some(&context)))
                     .map(|project| serde_json::to_value(project).unwrap_or(Value::Null))
             }
             "savedProjectTrust" => {
@@ -429,129 +363,34 @@ pub(crate) mod tests {
         assert_eq!(error.to_string(), "deckhand.json must be a regular file");
     }
 
-    const HOOK_SCRIPT: &str = "#!/bin/bash\ntouch \"$CLAUDE_PROJECT_DIR/hook-ran\"\nexit 1\n";
-
     #[test]
-    fn legacy_creation_hooks_are_content_trusted() {
+    fn a_leftover_creation_script_is_neither_reviewed_nor_run() {
         let (_dir, cwd) = repo();
-        let home = tempfile::Builder::new()
-            .prefix("deckhand-hook-trust-")
-            .tempdir()
-            .unwrap();
+        let home = tempfile::Builder::new().prefix("deckhand-old-hook-").tempdir().unwrap();
         let _home = Home::set(home.path());
         block_on(async {
+            let bare = load_project_config(&cwd, None).await.unwrap();
             let file = Path::new(&cwd).join(".claude/scripts/create-worktree.sh");
             std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-            std::fs::write(&file, HOOK_SCRIPT).unwrap();
-            let project = load_project_config(&cwd, None, None).await.unwrap();
-            assert!(project.creation_hook.as_ref().unwrap().content.contains("hook-ran"));
-            let trusted = trust_project_config(&project.trust_root, &project.fingerprint, None);
-            let worktree = create_worktree_for_session("untrusted", &cwd, None, None, None)
-                .await
-                .unwrap();
-            assert_eq!(worktree.creator, WorktreeCreator::Fallback);
-            assert!(worktree.path.starts_with(&real(home.path())), "{}", worktree.path);
+            std::fs::write(&file, "#!/bin/bash\ntouch \"$CLAUDE_PROJECT_DIR/hook-ran\"\nexit 1\n").unwrap();
+            let project = load_project_config(&cwd, None).await.unwrap();
+            assert_eq!(project.fingerprint, bare.fingerprint);
+            assert!(!project_needs_review(&project, None));
+            let created = create_worktree_for_session("no hook", &cwd, None, None).await.unwrap();
+            assert_eq!(created.creator, WorktreeCreator::Fallback);
+            assert!(created.path.starts_with(&real(home.path())), "{}", created.path);
             assert!(!exists(&Path::new(&cwd).join("hook-ran")));
-            let error = create_worktree_for_session("approved", &cwd, project.creation_hook.as_ref(), None, None)
-                .await
-                .unwrap_err();
-            assert!(error.to_string().contains("failed with exit code"), "{error}");
-            assert!(exists(&Path::new(&cwd).join("hook-ran")));
-            std::fs::remove_file(Path::new(&cwd).join("hook-ran")).unwrap();
-            // Swapping the file after review invalidates trust and cannot change what runs: only the reviewed bytes
-            // execute.
-            std::fs::write(&file, "#!/bin/bash\ntouch \"$CLAUDE_PROJECT_DIR/swapped\"\nexit 1\n").unwrap();
-            let swapped = load_project_config(&cwd, None, None).await.unwrap();
-            assert!(!is_project_trusted(
-                &swapped.trust_root,
-                &swapped.fingerprint,
-                Some(&trusted)
-            ));
-            let error = create_worktree_for_session("verified", &cwd, project.creation_hook.as_ref(), None, None)
-                .await
-                .unwrap_err();
-            assert!(error.to_string().contains("failed with exit code"), "{error}");
-            assert!(exists(&Path::new(&cwd).join("hook-ran")));
-            assert!(!exists(&Path::new(&cwd).join("swapped")));
-            std::fs::remove_file(Path::new(&cwd).join("hook-ran")).unwrap();
+            // A file that still switches it on or off reads as before; the setting does nothing.
+            for raw in ["{\"worktree\":{\"hook\":false}}", "{\"worktree\":{\"hook\":true}}"] {
+                std::fs::write(Path::new(&cwd).join("deckhand.json"), raw).unwrap();
+                let project = load_project_config(&cwd, None).await.unwrap();
+                assert!(project.exists && project_needs_review(&project, None));
+            }
         });
     }
 
     fn user(value: Value) -> UserSettings {
         serde_json::from_value(value).unwrap()
-    }
-
-    #[test]
-    fn worktree_hook_false_disables_the_hook() {
-        let (_dir, cwd) = repo();
-        let home = tempfile::Builder::new().prefix("deckhand-hook-off-").tempdir().unwrap();
-        let _home = Home::set(home.path());
-        let config_dir = real(home.path());
-        block_on(async {
-            let bare = load_project_config(&cwd, None, None).await.unwrap();
-            let file = Path::new(&cwd).join(".claude/scripts/create-worktree.sh");
-            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-            std::fs::write(&file, HOOK_SCRIPT).unwrap();
-            let empty = UserSettings::default();
-            let loaded = load_project_config(&cwd, None, None).await.unwrap();
-            assert!(project_needs_review(&loaded, None));
-            // Global defaults switch it off: nothing to trust, the same fingerprint as no hook, and creation falls back.
-            let off = user(json!({"defaults": {"worktree": {"hook": false}}}));
-            let global_off = load_project_config(&cwd, Some(&off), None).await.unwrap();
-            assert_eq!(global_off.creation_hook, None);
-            assert_eq!(
-                global_off.disabled_hook,
-                Some(DisabledHook {
-                    file: real(&file),
-                    by: ConfigTargetKind::Global
-                })
-            );
-            assert_eq!(global_off.fingerprint, bare.fingerprint);
-            assert!(!project_needs_review(&global_off, off.trusted_projects.as_ref()));
-            let created = create_worktree_for_session("no hook", &cwd, global_off.creation_hook.as_ref(), None, None)
-                .await
-                .unwrap();
-            assert_eq!(created.creator, WorktreeCreator::Fallback);
-            assert!(!exists(&Path::new(&cwd).join("hook-ran")));
-            // An untrusted repository may switch it off...
-            std::fs::write(Path::new(&cwd).join("deckhand.json"), "{\"worktree\":{\"hook\":false}}").unwrap();
-            let repo_off = load_project_config(&cwd, None, None).await.unwrap();
-            assert_eq!(repo_off.creation_hook, None);
-            assert_eq!(
-                repo_off.disabled_hook.as_ref().map(|hook| hook.by),
-                Some(ConfigTargetKind::Repository)
-            );
-            assert!(!is_project_trusted(&repo_off.trust_root, &repo_off.fingerprint, None));
-            let settings = resolve_settings(Some(&repo_off), &empty, &config_dir).unwrap();
-            assert_eq!(
-                settings.worktree.as_ref().and_then(|worktree| worktree.hook),
-                Some(false)
-            );
-            // ...but never on: with global false, an untrusted hook: true is reviewed with the hook and not effective
-            // until trusted.
-            std::fs::write(Path::new(&cwd).join("deckhand.json"), "{\"worktree\":{\"hook\":true}}").unwrap();
-            let repo_on = load_project_config(&cwd, Some(&off), None).await.unwrap();
-            assert!(repo_on.creation_hook.is_some());
-            assert!(project_needs_review(&repo_on, off.trusted_projects.as_ref()));
-            let settings = resolve_settings(Some(&repo_on), &off, &config_dir).unwrap();
-            assert_eq!(
-                settings.worktree.as_ref().and_then(|worktree| worktree.hook),
-                Some(false)
-            );
-            let trusted = UserSettings {
-                trusted_projects: Some(trust_project_config(
-                    &repo_on.trust_root,
-                    &repo_on.fingerprint,
-                    off.trusted_projects.as_ref(),
-                )),
-                ..off.clone()
-            };
-            let settings = resolve_settings(Some(&repo_on), &trusted, &config_dir).unwrap();
-            assert_eq!(
-                settings.worktree.as_ref().and_then(|worktree| worktree.hook),
-                Some(true)
-            );
-        });
     }
 
     /// `trustProjectConfig(project, config)` on a user config.
@@ -587,7 +426,7 @@ pub(crate) mod tests {
             let empty = UserSettings::default();
             // Nothing to trust.
             assert!(!project_needs_review(
-                &load_project_config(&other, None, None).await.unwrap(),
+                &load_project_config(&other, None).await.unwrap(),
                 None
             ));
             let raw = "{\"devCommand\":\"touch DO_NOT_EXECUTE\",\"defaultWorkspace\":\"new\"}";
@@ -597,7 +436,7 @@ pub(crate) mod tests {
             tgit(&cwd, &["commit", "-m", "project config"]);
             let worktree = Path::new(&cwd).join("linked").to_string_lossy().into_owned();
             tgit(&cwd, &["worktree", "add", "-b", "linked", &worktree]);
-            let project = load_project_config(&worktree, None, None).await.unwrap();
+            let project = load_project_config(&worktree, None).await.unwrap();
             assert_eq!(
                 project.path,
                 Some(path::join(&[&real(Path::new(&cwd)), "deckhand.json"]))
@@ -608,21 +447,15 @@ pub(crate) mod tests {
             let config = trusting(&project, &global);
             assert_eq!(dev(&project, &config), "touch DO_NOT_EXECUTE");
             // Same repository from any checkout.
-            assert!(trusted_by(
-                &load_project_config(&cwd, None, None).await.unwrap(),
-                &config
-            ));
-            assert!(!trusted_by(
-                &load_project_config(&other, None, None).await.unwrap(),
-                &config
-            ));
+            assert!(trusted_by(&load_project_config(&cwd, None).await.unwrap(), &config));
+            assert!(!trusted_by(&load_project_config(&other, None).await.unwrap(), &config));
             std::fs::write(
                 Path::new(&worktree).join("deckhand.json"),
                 "{\"devCommand\":\"printf worktree-copy\"}",
             )
             .unwrap();
             assert_eq!(
-                load_project_config(&worktree, None, None).await.unwrap().fingerprint,
+                load_project_config(&worktree, None).await.unwrap().fingerprint,
                 project.fingerprint
             );
             // An uncommitted edit in the main checkout applies to worktree sessions at once, and needs a fresh review.
@@ -631,7 +464,7 @@ pub(crate) mod tests {
                 "{\"devCommand\":\"printf live\"}",
             )
             .unwrap();
-            let live = load_project_config(&worktree, None, None).await.unwrap();
+            let live = load_project_config(&worktree, None).await.unwrap();
             assert_eq!(live.config.dev_command_text(), Some("printf live"));
             assert!(project_needs_review(&live, config.trusted_projects.as_ref()));
             assert_eq!(dev(&live, &trusting(&live, &config)), "printf live");
@@ -643,10 +476,10 @@ pub(crate) mod tests {
     fn trust_keeps_several_fingerprints() {
         let (_dir, cwd) = repo();
         block_on(async {
-            let first = load_project_config(&cwd, None, None).await.unwrap();
+            let first = load_project_config(&cwd, None).await.unwrap();
             let mut config = trusting(&first, &UserSettings::default());
             std::fs::write(Path::new(&cwd).join("deckhand.json"), "{}").unwrap();
-            let second = load_project_config(&cwd, None, None).await.unwrap();
+            let second = load_project_config(&cwd, None).await.unwrap();
             config = trusting(&second, &trusting(&first, &config));
             assert!(trusted_by(&first, &config) && trusted_by(&second, &config));
             assert_eq!(
@@ -687,13 +520,13 @@ pub(crate) mod tests {
         tgit(&outer, &["clone", "--bare", &inner, &bare]);
         tgit(&bare, &["worktree", "add", "-b", "linked", &linked]);
         block_on(async {
-            let submodule = load_project_config(&sub, None, None).await.unwrap();
+            let submodule = load_project_config(&sub, None).await.unwrap();
             assert_eq!(submodule.trust_root, real(Path::new(&sub)));
             assert_ne!(
                 submodule.trust_root,
-                load_project_config(&outer, None, None).await.unwrap().trust_root
+                load_project_config(&outer, None).await.unwrap().trust_root
             );
-            let project = load_project_config(&linked, None, None).await.unwrap();
+            let project = load_project_config(&linked, None).await.unwrap();
             assert_eq!(project.trust_root, real(Path::new(&bare)));
             assert_eq!(project.root, real(Path::new(&linked)));
             assert_eq!(project.path, None);
@@ -709,7 +542,7 @@ pub(crate) mod tests {
     fn config_errors_are_not_hidden() {
         let (_dir, cwd) = repo();
         let file = Path::new(&cwd).join("deckhand.json");
-        let load = || block_on(load_project_config(&cwd, None, None)).unwrap_err().to_string();
+        let load = || block_on(load_project_config(&cwd, None)).unwrap_err().to_string();
         std::fs::write(&file, "{").unwrap();
         assert!(load().contains("deckhand.json"));
         std::fs::write(&file, " ".repeat(70000)).unwrap();

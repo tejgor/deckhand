@@ -13,7 +13,6 @@
 ⟦magenta⟧│   ⟦⟧Branch from        ⟦cyan bold⟧● ⟦bold⟧origin (no remote found)              ⟦gray⟧—                                   ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Branch name        ⟦cyan bold⟧● ⟦gray italic⟧{name} (built-in)                     ⟦gray⟧—                                   ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Linked items       ⟦cyan bold⟧● ⟦bold⟧1 item                                ⟦yellow⟧1 item ⚠ needs trust                ⟦magenta⟧│
-⟦magenta⟧│   ⟦⟧Creation hook      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)                         ⟦gray⟧—                                   ⟦magenta⟧│
 ⟦magenta⟧│  ⟦magentaBright bold⟧Agents                                                                                          ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Agent signals      ⟦cyan bold⟧● ⟦gray italic⟧on (built-in)                                                             ⟦magenta⟧│
 ⟦magenta⟧│   ⟦⟧Notifications      ⟦cyan bold⟧● ⟦gray italic⟧off (built-in)                                                            ⟦magenta⟧│
@@ -21,6 +20,7 @@
 ⟦magenta⟧│ ⟦gray⟧╭──────────────────────────────────────────────────────────────────────────────────────────────╮ ⟦magenta⟧│
 ⟦magenta⟧│ ⟦gray⟧│ ⟦green bold⟧This repo ⟦gray⟧· ⟦yellow⟧Applies once trusted — you'll be asked the first time it runs (or press T)       ⟦gray⟧│ ⟦magenta⟧│
 ⟦magenta⟧│ ⟦gray⟧╰──────────────────────────────────────────────────────────────────────────────────────────────╯ ⟦magenta⟧│
+⟦magenta⟧│                                                                                                  │
 ⟦magenta⟧│                                                                                                  │
 ⟦magenta⟧│                                                                                                  │
 ⟦magenta⟧│                                                                                                  │

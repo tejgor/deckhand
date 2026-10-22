@@ -2045,8 +2045,7 @@ mod tests {
             "rows": [
                 {"key": "defaultAgent", "value": "claude", "source": "built-in default"},
                 {"key": "devCommand", "value": "dev", "source": "built-in default"},
-                {"key": "actions", "entry": "test", "value": "global test", "source": "global", "raw": "global test"},
-                {"key": "worktree.hook", "value": "on", "source": "built-in default"}
+                {"key": "actions", "entry": "test", "value": "global test", "source": "global", "raw": "global test"}
             ],
             "targets": {
                 "global": {"kind": "global", "root": "/r", "path": "/home/me/.deckhand/config.json",

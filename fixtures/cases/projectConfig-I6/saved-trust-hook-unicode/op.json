@@ -25,7 +25,6 @@
   ],
   "async": true,
   "ret": {
-    "trust": "kept",
-    "fingerprint": "dabc4e4c6133b14a0bdc13f2db29de6221782227a8da0fe0c3cbbd0b954fb693"
+    "trust": "unreviewed"
   }
 }

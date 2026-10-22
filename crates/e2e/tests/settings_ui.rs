@@ -145,8 +145,6 @@ fn settings_grid_global_and_repo_columns() {
     ui.press("k");
     ui.screen("❯ Agent signals");
     ui.press("k");
-    ui.screen("❯ Creation hook");
-    ui.press("k");
     ui.screen("❯ Linked items");
     ui.press("\r");
     ui.screen("Settings › Linked items · This repo");
@@ -229,7 +227,7 @@ fn settings_grid_global_and_repo_columns() {
     ui.screen("Codex hooks not set up: scripts/deckhand-dev.sh hooks codex >");
     assert_eq!(read_json(&config)["agent_hooks"], json!(true));
     ui.press("k");
-    ui.screen("❯ Creation hook");
+    ui.screen("❯ Linked items");
     ui.screen("This repo · ");
     ui.press("\x1b");
     ui.screen("C settings");

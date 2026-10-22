@@ -34,10 +34,6 @@
 {"args":["worktree.branchName","a.b"],"ret":["worktree","branchName"]}
 {"args":["worktree.branchName","test"],"ret":["worktree","branchName"]}
 {"args":["worktree.branchName"],"ret":["worktree","branchName"]}
-{"args":["worktree.hook",""],"ret":["worktree","hook"]}
-{"args":["worktree.hook","a.b"],"ret":["worktree","hook"]}
-{"args":["worktree.hook","test"],"ret":["worktree","hook"]}
-{"args":["worktree.hook"],"ret":["worktree","hook"]}
 {"args":["worktree.links",""],"ret":["worktree","symlink"]}
 {"args":["worktree.links","a.b"],"ret":["worktree","symlink"]}
 {"args":["worktree.links","test"],"ret":["worktree","symlink"]}

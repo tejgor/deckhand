@@ -234,23 +234,10 @@ pub fn parts_line(parts: Vec<DetailPart>) -> DetailLine {
 
 /// TS: settingsPane.tsx repositoryState: the header's right side (deckhand.json's trust state) and its color.
 pub fn repository_state(info: &SettingsInfo) -> (String, Color) {
-    let hook = info.needs_review && info.repository.state != RepositoryState::Untrusted;
     let (text, shade) = match info.repository.state {
-        RepositoryState::Trusted => {
-            if hook {
-                ("deckhand.json: trusted ✓ · hook needs review", THEME.warn)
-            } else {
-                ("deckhand.json: trusted ✓", THEME.success)
-            }
-        }
+        RepositoryState::Trusted => ("deckhand.json: trusted ✓", THEME.success),
         RepositoryState::Untrusted => ("deckhand.json: needs trust", THEME.warn),
-        RepositoryState::Absent => {
-            if hook {
-                ("creation hook needs review", THEME.warn)
-            } else {
-                ("deckhand.json: not present", THEME.muted)
-            }
-        }
+        RepositoryState::Absent => ("deckhand.json: not present", THEME.muted),
         RepositoryState::Invalid => ("deckhand.json: invalid", THEME.error),
         RepositoryState::Bare => ("bare repo: global defaults only", THEME.muted),
         RepositoryState::None => ("not a Git repo: global defaults only", THEME.warn),
@@ -2297,8 +2284,6 @@ mod scenario_tests {
             ),
             exists: repo_raw.is_some(),
             fingerprint: "scenario".to_owned(),
-            creation_hook: None,
-            disabled_hook: None,
         };
         let mut user = UserSettings {
             defaults: Some(defaults.clone()),
@@ -2315,7 +2300,6 @@ mod scenario_tests {
                 user: Some("me".to_owned()),
                 config_dir: "/state".to_owned(),
                 location_config_dir: Some("/state".to_owned()),
-                ..ExplainContext::default()
             },
         )
         .rows;
@@ -2351,7 +2335,6 @@ mod scenario_tests {
                 repository: Some(document(ConfigTargetKind::Repository, repo_raw.map(str::to_owned))),
                 ..ConfigTargets::default()
             },
-            hook_file: None,
             vars: Some(vars),
             default_location: "/state/worktrees/<name>".to_owned(),
             inside_ignored: false,
