@@ -81,6 +81,9 @@ fn steps_checklist_under_its_task_on_the_board_and_a_sends_open_items() {
     ui.press("Write tests");
     ui.screen("Write tests");
     ui.press("\x1b");
+    // Wait for editing to end, not only for the file (the debounced save may already have written it): a key sent
+    // in the same read as the Esc would arrive as Alt+key.
+    ui.screen("enter edit notes");
     wait_for(&worktree_note, |text| text.contains("- [ ] Write tests"), UI_WAIT);
 
     // The board: the steps under the task, counted; space on one ticks it in the note.
