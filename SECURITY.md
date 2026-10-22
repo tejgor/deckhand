@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes go into the latest release of Deckhand 3 (the Rust version). Deckhand 2, the TypeScript version on npm, no longer gets fixes: upgrade as described in the [README](README.md#upgrading-from-v2-npm).
+Security fixes go into the latest release of Deckhand 3 (the Rust version). Deckhand 2, the TypeScript version on npm, no longer gets fixes: upgrade as described in [Installing Deckhand](docs/install.md#upgrading-from-deckhand-2-npm).
 
 ## Reporting a vulnerability
 

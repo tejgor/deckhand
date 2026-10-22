@@ -8,6 +8,7 @@ publish = false
 description = "A lightweight agent workbench for your IDE terminal: Claude Code, Codex and Pi sessions in git worktrees"
 readme = "../../README.md"
 repository.workspace = true
+homepage.workspace = true
 keywords = ["terminal", "tui", "agents", "worktree"]
 categories = ["command-line-utilities", "development-tools"]
 

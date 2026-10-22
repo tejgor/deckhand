@@ -87,4 +87,4 @@ The Rust workspace lives in `crates/`. Lower crates never depend on higher ones:
 | `crates/testkit` | Test-only: replays the recorded cases in `fixtures/cases`, text snapshots, shared proptest strategies |
 | `crates/e2e` | Test-only: drives the built binary with a real daemon, fake agents and the dev launcher |
 
-To build and test, see the README's Development section and [the isolated dev build](dev-build.md).
+To build and test, see [CONTRIBUTING.md](../CONTRIBUTING.md) and [the isolated dev build](dev-build.md).
