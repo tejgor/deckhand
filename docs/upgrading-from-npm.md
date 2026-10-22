@@ -25,19 +25,21 @@ Before you start:
 3. **Install the native binary** (one of):
 
    ```sh
-   curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tejgor/deckhand/releases/latest/download/deckhand-installer.sh | sh
+   curl --proto '=https' --tlsv1.2 -LsSf \
+     https://github.com/tejgor/deckhand/releases/latest/download/deckhand-installer.sh \
+     | sh
    cargo install --path crates/deckhand                      # from the checkout
    cargo install --git https://github.com/tejgor/deckhand deckhand
    # or download the release archive, check it against sha256.sum, and install the binary on your PATH
    ```
 
-   The installer puts the binary in `~/.cargo/bin`, as `cargo install` does.
+   The installer puts the binary in `~/.local/bin` (`$XDG_BIN_HOME` when set); `cargo install` puts it in `~/.cargo/bin`. Keep only one of them: if you tried a `cargo install` build earlier and now use the installer, run `cargo uninstall deckhand`.
 
-   Remove the old install so the shell cannot find it first (nvm's `bin` usually comes before `~/.cargo/bin` on PATH):
+   Remove the old install so the shell cannot find it first (nvm's `bin` usually comes before `~/.local/bin` and `~/.cargo/bin` on PATH):
    - **registry install:** `npm uninstall -g @tejgor/deckhand`
    - **`npm link` of a checkout:** check with `ls -l "$(npm root -g)" | grep deckhand`, then run `npm rm -g deckhand`. This removes only the symlinks; the checkout is untouched.
 
-   Then run `hash -r` and check `which deckhand` (expect `~/.cargo/bin/deckhand`) and `deckhand --version` (expect `deckhand 3.0.0`).
+   Then run `hash -r` and check `which deckhand` (expect `~/.local/bin/deckhand` with the installer, `~/.cargo/bin/deckhand` with cargo) and `deckhand --version` (expect `deckhand 3.0.0`).
 
 4. **Run it** from a repository: `deckhand`. Expected: a new daemon starts, your previous sessions appear as exited with their notes, tasks and ordering, and `s` resumes them.
 

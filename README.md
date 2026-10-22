@@ -53,10 +53,12 @@ More in [docs/architecture.md](docs/architecture.md).
   - `npm` for the agent update check on the Agents screen (`U`).
   - On Linux, `notify-send` for desktop notifications.
 
-**With the installer** (macOS and Linux): it downloads the latest release's binary for your platform into `~/.cargo/bin` (`$CARGO_HOME/bin`) and tells you if that directory still needs to go on your `PATH`:
+**With the installer** (macOS and Linux; no Rust needed): it downloads the latest release's binary for your platform into `~/.local/bin` (`$XDG_BIN_HOME` when set) and adds that directory to your `PATH` if it isn't there yet:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tejgor/deckhand/releases/latest/download/deckhand-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf \
+  https://github.com/tejgor/deckhand/releases/latest/download/deckhand-installer.sh \
+  | sh
 ```
 
 **From a release archive**: download the archive for your platform and `sha256.sum` from the [releases page](https://github.com/tejgor/deckhand/releases). In the folder you downloaded them to, check the archive and put the binary on your `PATH` (here `~/.local/bin`, which must be on your `PATH`):
