@@ -257,9 +257,15 @@ words that were approved, and the traps.
 - **Shown as:** the brand logo, the tagline in big type, the install command typed out (its cursor blinking, because it's
   a prompt), then "Free and open source" and the GitHub address.
 - **Approved taglines:** "Run more agents. Watch fewer tabs." "Run as many agents as you like. Deckhand makes them easy to
-  manage." "A lightweight agent workbench for your IDE terminal."
+  manage." "A lightweight agent workbench for your IDE terminal." "Run Claude Code, Codex and Pi side by side, each in
+  its own worktree." (the walkthrough's; it matches the README)
+- **Other ways in:** a line under the command says what the viewer will find and where, not just an address: "No
+  Homebrew? The README has a one-line installer: github.com/tejgor/deckhand".
+- **Kept current:** the close shows the README's install as it is now. When the README's install changes, update every
+  close that shows it.
 - **Traps:** a long hold on "Free and open source" alone; closers about keeping agents working; anything mentioning a
-  specific number of agents.
+  specific number of agents; the rewrite ("Rust", "no Node.js", "Deckhand 3") in an evergreen piece (see
+  [Formats](#11-formats)).
 
 ---
 
@@ -592,6 +598,17 @@ Each of these was heard in a draft and fixed. Check for them before anyone liste
   - every line on screen;
   - text larger relative to the frame.
 - Keep the story, words and timing the same across formats so one score serves both.
+- **Evergreen or announcement.** A walkthrough, or anything meant to outlive one release, presents Deckhand as the
+  project: what it does and how to get it. It leaves out the rewrite ("Rust", "no Node.js") and the version number.
+  Those belong to release announcements, such as the first cut and the race.
+- **The README video** is uploaded to GitHub, which takes at most 10 MB per video on a free plan. Render the master, then
+  re-encode a web copy and check a frame of it before uploading. These settings took the three-minute walkthrough to
+  7.7 MB with sharp text:
+
+  ```sh
+  ffmpeg -i master.mp4 -c:v libx264 -preset veryslow -tune animation -crf 27 -pix_fmt yuv420p \
+    -c:a aac -b:a 128k -movflags +faststart web.mp4
+  ```
 - Past full pieces ran from about 60 to 90 seconds. Shorter pieces can take a single movement of the arc: the attention
   beat on its own, for example, or the worktree and merge beats, or the reveal and the close.
 
@@ -669,6 +686,7 @@ Then look and listen:
 - Does each feature answer something the viewer has seen?
 - Are Claude Code, Codex and Pi named by their real names, and not more often than needed?
 - Is every claim true: background, not computer-off; staged, not committed; you decide?
+- Does the close show the README's current install? In an evergreen piece, does it leave out the rewrite and the version?
 - Are the words plain and specific, with no puns on the name, slogans, AI-speak or arbitrary numbers?
 - Are the terms right: session, worktree, flagged, merge, staged?
 - Is the interface drawn accurately, in the right state, and whole in every held shot?
@@ -711,4 +729,6 @@ Logo:        magenta anchor + one-cell shadow, magenta banner + dim edges, side 
 Cursor:      while typing; blinking only at prompts
 Never:       puns on the name, "every coding agent", numbers as claims, "handles the rest",
              "runs while your computer is off", the quiet version of the design system
+Evergreen:   a walkthrough presents the project: no "Rust", "no Node.js" or version · the close matches the README
+README cut:  under 10 MB for GitHub: re-encode the master (-tune animation -crf 27, AAC 128k)
 ```
