@@ -299,6 +299,8 @@ pub struct RepoData {
 pub struct Messages {
     pub error: Option<String>,
     pub status_message: Option<String>,
+    /// The status message when it is a notice ([`crate::app::App::show_notice`]): the next key hides it too.
+    pub notice: Option<String>,
     /// While set, keys other than Ctrl+C are ignored.
     pub busy: bool,
     pub error_timer: Option<Timer>,

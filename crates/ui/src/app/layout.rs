@@ -321,7 +321,13 @@ fn footer_messages_for(app: &App, selected: Option<&SessionRecord>) -> Vec<Foote
         ));
     }
     if let Some(status) = app.messages.status_message.as_ref().filter(|status| !status.is_empty()) {
-        messages.push(message(status.clone(), THEME.success));
+        // A notice is a heads-up, not a success.
+        let color = if app.messages.notice.as_ref() == Some(status) {
+            THEME.warn
+        } else {
+            THEME.success
+        };
+        messages.push(message(status.clone(), color));
     }
     if let Some(cleanup) = selected
         .and_then(|session| session.cleanup_error.as_ref())
@@ -1349,6 +1355,60 @@ mod tests {
         app.browse.session_query = "zz".to_owned();
         let [hint, _] = footer_rows(&app);
         assert_eq!(row_text(&hint), "Search: /zz • enter keep • esc clear");
+    }
+
+    /// `body` on a current-thread runtime whose clock is paused (it jumps to the next timer when idle) in a LocalSet.
+    fn paused_local(body: impl std::future::Future<Output = ()>) {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .start_paused(true)
+            .build()
+            .unwrap_or_else(|error| panic!("{error}"));
+        tokio::task::LocalSet::new().block_on(&runtime, body);
+    }
+
+    const NOTICE: &str = "Daemon 3.0.0 is still running (this is 3.0.1) · restart when convenient: deckhand restart";
+
+    #[test]
+    fn the_daemon_notice_shows_in_the_footer_and_hides_by_itself() {
+        paused_local(async {
+            let (mut app, mut rx) = app(AppProps::default());
+            app.show_notice(NOTICE.to_owned());
+            crate::app::effects::run_effects(&mut app);
+            let [_, messages] = footer_rows(&app);
+            assert_eq!(row_text(&messages), NOTICE);
+            assert_eq!(footer_messages(&app)[0].color, THEME.warn);
+            let shown = tokio::time::Instant::now();
+            let update = rx.recv().await.unwrap_or_else(|| panic!("the hide timer"));
+            assert!(shown.elapsed() >= std::time::Duration::from_millis(crate::app::STATUS_MESSAGE_AUTO_HIDE_MS));
+            update(&mut app);
+            let [_, messages] = footer_rows(&app);
+            assert_eq!(row_text(&messages), " ");
+        });
+    }
+
+    #[test]
+    fn the_next_key_hides_the_daemon_notice_and_still_acts() {
+        paused_local(async {
+            let (mut app, _rx) = app(AppProps::default());
+            app.show_notice(NOTICE.to_owned());
+            crate::app::effects::run_effects(&mut app);
+            app.handle_input(&deckhand_core::key::Input::key("?", deckhand_core::key::Key::NONE));
+            assert_eq!(app.messages.status_message, None);
+            let [_, messages] = footer_rows(&app);
+            assert_eq!(row_text(&messages), " ");
+            // The key did what it does (? opens the help).
+            assert_eq!(app.mode, Mode::Help);
+            // An ordinary status message is not hidden by a key, and a later message survives the notice's key.
+            app.set_mode(Mode::Browse);
+            app.set_status(Some("saved".to_owned()));
+            app.handle_input(&deckhand_core::key::Input::key("j", deckhand_core::key::Key::NONE));
+            assert_eq!(app.messages.status_message.as_deref(), Some("saved"));
+            app.show_notice(NOTICE.to_owned());
+            app.set_status(Some("copied".to_owned()));
+            app.handle_input(&deckhand_core::key::Input::key("j", deckhand_core::key::Key::NONE));
+            assert_eq!(app.messages.status_message.as_deref(), Some("copied"));
+        });
     }
 
     #[test]

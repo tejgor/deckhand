@@ -846,6 +846,22 @@ impl App {
         self.messages.status_message = status;
     }
 
+    /// A notice that changes nothing (an older daemon still runs): shown in the status slot, so it hides after
+    /// STATUS_MESSAGE_AUTO_HIDE_MS like any status message, and also on the next key.
+    pub fn show_notice(&mut self, notice: String) {
+        self.messages.status_message = Some(notice.clone());
+        self.messages.notice = Some(notice);
+    }
+
+    /// The next key hides the notice, if it still shows; the key itself is handled as usual.
+    fn dismiss_notice(&mut self) {
+        if let Some(notice) = self.messages.notice.take()
+            && self.messages.status_message.as_deref() == Some(notice.as_str())
+        {
+            self.messages.status_message = None;
+        }
+    }
+
     /// TS `setBusy`.
     pub fn set_busy(&mut self, busy: bool) {
         self.messages.busy = busy;
@@ -1212,6 +1228,7 @@ impl App {
             action_picker, browse, confirm, create, filter, preview_focus, review, search, workspace_info,
         };
         let key = &input.key;
+        self.dismiss_notice();
         // Ink's exitOnCtrlC is off (cli.ts) so a first Ctrl+C acts like Esc while a Settings edit or JSON draft is
         // open (asking before discarding it). Ctrl+C at the discard prompt, while a save is in flight, or anywhere
         // else quits like q.
