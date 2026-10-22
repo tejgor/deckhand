@@ -1,0 +1,2 @@
+# Every pull request into main needs the maintainer's review (the "Protect main" ruleset requires code owner review).
+* @tejgor
