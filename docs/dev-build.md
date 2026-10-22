@@ -28,6 +28,7 @@ The script sets `DECKHAND_HOME` to the dev namespace and `DECKHAND_CHANNEL=dev` 
 scripts/deckhand-dev.sh status   # is the dev daemon running (and which protocol)?
 scripts/deckhand-dev.sh stop     # stops ONLY the dev daemon and its agents/auxiliary PTYs
 cargo build -p deckhand && scripts/deckhand-dev.sh stop && scripts/deckhand-dev.sh --sandbox   # after daemon/worker changes
+scripts/deckhand-dev.sh restart  # or: replace the dev daemon with this build (asks while its sessions run)
 ```
 
 `q` closes only the UI. Reopening reconnects to the dev daemon. A rebuild does not replace an already-running daemon or its workers: stop the **dev** daemon before testing updated daemon/worker code (a daemon speaking another protocol version is refused, not replaced). Dev status/stop never start a daemon, and refuse to control a daemon that is not a dev-channel daemon for this exact namespace (compared by real path).
