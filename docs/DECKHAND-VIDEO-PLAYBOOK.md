@@ -67,10 +67,11 @@ So: accessible to someone running their second agent, without patronising someon
   preview).
 - Sessions belong to a **background process,** not the window. Quit Deckhand (`q`), or let your terminal close or your
   editor restart, and the agents keep working. Open it again and they're all still there.
-- **Free and open source.** Deckhand 3 is one native binary (Rust, no Node.js), downloaded from a release
-  (`github.com/tejgor/deckhand/releases`, macOS and Linux) or installed with
-  `cargo install --git https://github.com/tejgor/deckhand deckhand`. Recommend the release: cargo needs Rust first.
-  (Deckhand 2 was `npm install -g @tejgor/deckhand`.) Code at `github.com/tejgor/deckhand`.
+- **Free and open source.** Deckhand 3 is one native binary (Rust, no Node.js) for macOS and Linux. Show the README's
+  installer first, as a command at a prompt (break it after `-LsSf` with `\` so it reads at video size):
+  `curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tejgor/deckhand/releases/latest/download/deckhand-installer.sh | sh`.
+  Then, if there's room, a release download (`github.com/tejgor/deckhand/releases`); `cargo install` needs Rust first,
+  so leave it to the README. (Deckhand 2 was `npm install -g @tejgor/deckhand`.) Code at `github.com/tejgor/deckhand`.
 
 ### What never to claim
 
@@ -699,8 +700,9 @@ What it is:  "A workbench for running coding agents in parallel."
              "A lightweight agent workbench for your IDE terminal."
 Taglines:    "Run more agents. Watch fewer tabs."
              "Run as many agents as you like. Deckhand makes them easy to manage."
-Install:     download a release: github.com/tejgor/deckhand/releases (macOS, Linux)
-             or with Rust: cargo install --git https://github.com/tejgor/deckhand deckhand · Free and open source
+Install:     curl --proto '=https' --tlsv1.2 -LsSf \
+               https://github.com/tejgor/deckhand/releases/latest/download/deckhand-installer.sh | sh
+             or download a release: github.com/tejgor/deckhand/releases · Free and open source
 Sync:        picture in bars and beats on the music's grid · scene changes on bar lines
              every arrival makes a sound, in time and in key · the checks pass before anyone listens
 Colours:     magenta brand · yellow needs you · green working/done · cyan selection
