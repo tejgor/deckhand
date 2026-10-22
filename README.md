@@ -11,12 +11,10 @@
   <a href="LICENSE"><img alt="Licence: MIT" src="https://img.shields.io/github/license/tejgor/deckhand?style=flat-square&labelColor=363c46&color=f7a8f0"></a>
 </p>
 
-<p align="center">
-  <img src="assets/screenshot.png" width="100%" alt="Deckhand in a terminal: a sidebar of five Claude Code, Codex and Pi sessions, one waiting for input, beside a live preview of a Claude Code session fixing a flaky test">
-</p>
+https://github.com/user-attachments/assets/02462231-7c46-40bd-b523-be7153ff593e
 
 > [!NOTE]
-> Deckhand v3 is a rewrite in Rust: one native binary, no Node.js. It is still young, so behaviour and saved state can change between releases. [Watch a demo](https://github.com/user-attachments/assets/89ceed64-18c0-4006-bd9e-7500204ca02a) (recorded on v2).
+> Deckhand v3 is a rewrite in Rust: one native binary, no Node.js. It is still young, so behaviour and saved state can change between releases.
 
 ## Why Deckhand
 
@@ -225,7 +223,7 @@ cargo fmt --all --check
 
 `scripts/deckhand-dev.sh --sandbox` runs this checkout's build against its own state in `~/.deckhand-dev`, beside your real Deckhand. See [docs/dev-build.md](docs/dev-build.md). Tests use temporary homes and fake agents; they never touch `~/.deckhand` or start a real agent. [Testing](docs/testing.md) describes behavior tests, snapshots, compatibility fixtures and focused runs.
 
-Issues and pull requests are welcome. For larger changes, please open an issue first. Before sending a pull request, run the checks above and confirm the sandbox build launches.
+Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues privately, as [SECURITY.md](SECURITY.md) describes.
 
 Related projects: [claude-squad](https://github.com/smtg-ai/claude-squad) and [agent-deck](https://github.com/asheshgoplani/agent-deck).
 

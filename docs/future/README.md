@@ -8,6 +8,7 @@ Each doc starts with its status. When something here ships, move the lasting par
 |---|---|---|
 | [agent-signals-roadmap.md](agent-signals-roadmap.md) | Items 1–2 shipped (protocol v43); 3–7 planned | What Deckhand builds on agent hooks: the waiting queue, live activity, plans → notes/tasks, turn summaries, answering without attaching, and smaller open items |
 | [codex-app-server.md](codex-app-server.md) | Researched; needs a live experiment before any build | Replacing Codex hooks with a private Codex app-server per session that the TUI and Deckhand both connect to; why Claude stays on hooks |
+| [community-files.md](community-files.md) | Deferred 2026-10-22; nothing built | Repository extras left out when the protections went in: Dependabot version updates, issue and pull request templates, a code of conduct |
 | [deckhand-mcp-cli.md](deckhand-mcp-cli.md) | Idea, not started | A scriptable `deckhand` CLI and a `deckhand mcp` server so agents can create, drive and watch sessions ("spin up 5 sessions for these tasks") |
 | [ideas-from-orca.md](ideas-from-orca.md) | Reviewed 2026-10-20; nothing built | What Orca (an agent workbench in Electron) does that Deckhand could adopt: unread state, CLI shape, agent checkpoints, a phone companion, diff notes to agents, hibernation, fan-out, usage limits, and what not to copy |
 
