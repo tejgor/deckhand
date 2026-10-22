@@ -1,0 +1,27 @@
+[?1034h$ ls -G
+archive.tar.gz       file.txt             [34m[42mother dir[39;49m[0m
+[1m[36mbroken-link[39;49m[0m          [1m[36mlink-to-dir[39;49m[0m          [1m[32mrun.sh[39;49m[0m
+[1m[34mdirectory[39;49m[0m            name with spaces.txt
+$ ls -G -a -1
+[1m[34m.[39;49m[0m
+[1m[34m..[39;49m[0m
+.hidden
+archive.tar.gz
+[1m[36mbroken-link[39;49m[0m
+[1m[34mdirectory[39;49m[0m
+file.txt
+[1m[36mlink-to-dir[39;49m[0m
+name with spaces.txt
+[34m[42mother dir[39;49m[0m
+[1m[32mrun.sh[39;49m[0m
+$ ls -G -F -C
+archive.tar.gz        file.txt              [34m[42mother dir[39;49m[0m/
+[1m[36mbroken-link[39;49m[0m@          [1m[36mlink-to-dir[39;49m[0m@          [1m[32mrun.sh[39;49m[0m*
+[1m[34mdirectory[39;49m[0m/            name with spaces.txt
+$ clear
+[3J[H[2J$ ls -G -1 | head -3
+archive.tar.gz
+[1m[36mbroken-link[39;49m[0m
+[1m[34mdirectory[39;49m[0m
+$ exit
+exit

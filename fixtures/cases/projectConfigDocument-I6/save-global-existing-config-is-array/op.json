@@ -1,0 +1,9 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "{}",
+    null
+  ],
+  "async": true,
+  "throws": "$ROOT/config.json must contain a JSON object"
+}

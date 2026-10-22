@@ -1,0 +1,48 @@
+{
+  "before": [
+    {
+      "path": "a",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a/tool",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/gone"
+    },
+    {
+      "path": "b",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "b/tool",
+      "type": "file",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "a",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "a/tool",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/gone"
+    },
+    {
+      "path": "b",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "b/tool",
+      "type": "file",
+      "mode": "0755"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "fn": "readBoundedUtf8",
+  "args": [
+    "$ROOT/é.json",
+    {
+      "max": 2048
+    }
+  ],
+  "async": true,
+  "throws": "é.json must be a regular file"
+}

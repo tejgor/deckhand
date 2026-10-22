@@ -1,0 +1,80 @@
+{
+  "before": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/data.json",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "launch/😀.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "data.json"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/data.json",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "launch/😀.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "data.json"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/é",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/é/ü.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/launch/data.json"
+    },
+    {
+      "path": "wt/設定",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/設定/😀.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/launch/data.json"
+    }
+  ]
+}

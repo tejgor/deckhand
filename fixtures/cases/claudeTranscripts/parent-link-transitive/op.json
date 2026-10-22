@@ -1,0 +1,14 @@
+{
+  "fn": "latestClaudeConversation",
+  "args": [
+    "a",
+    {
+      "projectsDir": "$ROOT/projects",
+      "cwdHints": [
+        "/work/repo"
+      ]
+    }
+  ],
+  "async": true,
+  "ret": "c"
+}

@@ -1,0 +1,38 @@
+{
+  "before": [
+    {
+      "path": "main",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main/deckhand.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "gone.json"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "main",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "main/deckhand.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "gone.json"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+
+
+
+
+
+
+
+
+                   ╭──────────────────────────────────────────────────────────╮
+                   │                                                          │
+                   │ Kill "beta"?                                             │
+                   │ <TMP>/home/worktrees/beta                                │
+                   │                                                          │
+                   │ Worktree deletion is blocked:                            │
+                   │   worktree is in use by session "beta / gamma"           │
+                   │                                                          │
+                   │ ❯ Kill only, keep worktree (restartable)                 │
+                   │   Cancel                                                 │
+                   │                                                          │
+                   │ enter choose • esc cancel                                │
+                   │                                                          │
+                   ╰──────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+

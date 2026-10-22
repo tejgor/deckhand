@@ -1,0 +1,27 @@
+name: ci
+on:
+  push:
+    branches: [main, rust-port]
+  pull_request:
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@nextest
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: tests
+        run: scripts/test.sh --no-fail-fast
+        env:
+          DECKHAND_TEST_BIN: ${{ github.workspace }}/target/debug/deckhand

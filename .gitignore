@@ -1,5 +1,5 @@
-node_modules
-dist/
+/target
+/target-*/
 
 .DS_Store
 

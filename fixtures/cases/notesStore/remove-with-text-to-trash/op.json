@@ -1,0 +1,19 @@
+{
+  "fn": "NotesStore.remove",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "session",
+      "id": "11111111-2222-4333-8444-555555555555"
+    },
+    "School doc upload / prompt-audit"
+  ],
+  "async": true,
+  "ret": {
+    "get": {
+      "text": "",
+      "revision": "e3b0c44298fc1c14"
+    },
+    "entries": []
+  }
+}

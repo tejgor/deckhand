@@ -1,0 +1,88 @@
+{"args":["",{"$u":1}],"ret":""}
+{"args":["",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"invalid: worktree.location must expand to an absolute path: "}
+{"args":["",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: "}
+{"args":["",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: "}
+{"args":["-😀/-é-😀é中é",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: -😀/-é-😀é中é"}
+{"args":["-😀‍",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: -😀‍"}
+{"args":["../{name}",{"$u":1}],"ret":"../{name}"}
+{"args":["../{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"invalid: worktree.location must expand to an absolute path: ../<name>"}
+{"args":["../{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: ../<name>"}
+{"args":["../{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: ../<name>"}
+{"args":[".ab",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: .ab"}
+{"args":["/",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"/"}
+{"args":["/_‍é中/b",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"/_‍é中/b"}
+{"args":["/_😀a‍.Zéé/",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"/_😀a‍.Zéé"}
+{"args":["/abs/{name}",{"$u":1}],"ret":"/abs/{name}"}
+{"args":["/abs/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"/abs/<name>"}
+{"args":["/abs/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"/abs/<name>"}
+{"args":["/abs/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"/abs/<name>"}
+{"args":["/home/me",{"$u":1}],"ret":"/home/me"}
+{"args":["/home/me",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"/home/me"}
+{"args":["/home/me",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"~"}
+{"args":["/home/me",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"~"}
+{"args":["/home/me/{name}",{"$u":1}],"ret":"/home/me/{name}"}
+{"args":["/home/me/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"/home/me/<name>"}
+{"args":["/home/me/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"~/<name>"}
+{"args":["/home/me/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"~/<name>"}
+{"args":["/‍\tZ/\n-é/é",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"/‍\tZ/\n-é/é"}
+{"args":["\n ‍0b\t中ß.é",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: \n ‍0b\t中ß.é"}
+{"args":["\n",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: \n"}
+{"args":["_ß",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: _ß"}
+{"args":["_‍ 中b 0",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: _‍ 中b 0"}
+{"args":["a",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: a"}
+{"args":["a/‍ \n 0Z",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: a/‍ \n 0Z"}
+{"args":["a_é",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: a_é"}
+{"args":["abé.‍😀",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: abé.‍😀"}
+{"args":["a‍\n\t-ß/.Z",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: a‍\n\t-ß/.Z"}
+{"args":["a😀",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: a😀"}
+{"args":["b\t0",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: b\t0"}
+{"args":["bé\tßZ0\nßé",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: bé\tßZ0\nßé"}
+{"args":["b中a中é\t",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: b中a中é\t"}
+{"args":["é/é",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: é/é"}
+{"args":["é😀 ",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: é😀 "}
+{"args":["no placeholders",{"$u":1}],"ret":"no placeholders"}
+{"args":["no placeholders",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"invalid: worktree.location must expand to an absolute path: no placeholders"}
+{"args":["no placeholders",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: no placeholders"}
+{"args":["no placeholders",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: no placeholders"}
+{"args":["{name",{"$u":1}],"ret":"{name"}
+{"args":["{name",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"invalid: Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: Unbalanced braces in \"{name\""}
+{"args":["{name",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"invalid: Unbalanced braces in \"{name\""}
+{"args":["{name}",{"$u":1}],"ret":"{name}"}
+{"args":["{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"invalid: worktree.location must expand to an absolute path: <name>"}
+{"args":["{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: <name>"}
+{"args":["{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: <name>"}
+{"args":["{nope}",{"$u":1}],"ret":"{nope}"}
+{"args":["{nope}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"invalid: Unknown placeholder {nope} in \"{nope}\""}
+{"args":["{nope}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: Unknown placeholder {nope} in \"{nope}\""}
+{"args":["{nope}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"invalid: Unknown placeholder {nope} in \"{nope}\""}
+{"args":["{repoParent}/worktrees/{name}",{"$u":1}],"ret":"{repoParent}/worktrees/{name}"}
+{"args":["{repoParent}/worktrees/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"~/worktrees/<name>"}
+{"args":["{repoParent}/worktrees/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"/dev/worktrees/<name>"}
+{"args":["{repoParent}/worktrees/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"/dev/worktrees/<name>"}
+{"args":["{repoRoot}/.worktrees/{name}",{"$u":1}],"ret":"{repoRoot}/.worktrees/{name}"}
+{"args":["{repoRoot}/.worktrees/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"~/mono/.worktrees/<name>"}
+{"args":["{repoRoot}/.worktrees/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"/dev/mono/.worktrees/<name>"}
+{"args":["{repoRoot}/.worktrees/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"/dev/日本 😀/.worktrees/<name>"}
+{"args":["{repo}-{name}",{"$u":1}],"ret":"{repo}-{name}"}
+{"args":["{repo}-{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"invalid: worktree.location must expand to an absolute path: mono-<name>"}
+{"args":["{repo}-{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: mono-<name>"}
+{"args":["{repo}-{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: mono-<name>"}
+{"args":["~/x/{name}",{"$u":1}],"ret":"~/x/{name}"}
+{"args":["~/x/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"~/x/<name>"}
+{"args":["~/x/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"~/x/<name>"}
+{"args":["~/x/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"~/x/<name>"}
+{"args":["ß‍中éß",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: ß‍中éß"}
+{"args":["é",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: é"}
+{"args":["é0中 0.中😀\t",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: é0中 0.中😀\t"}
+{"args":["‍-\t_中0😀",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: ‍-\t_中0😀"}
+{"args":["‍-ß\n😀//",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: ‍-ß\n😀//"}
+{"args":["‍ß😀‍ ",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: ‍ß😀‍ "}
+{"args":["中/",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: 中/"}
+{"args":["中0 😀béé中é",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: 中0 😀béé中é"}
+{"args":["日本語/{name}",{"$u":1}],"ret":"日本語/{name}"}
+{"args":["日本語/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/dev"}],"ret":"invalid: worktree.location must expand to an absolute path: 日本語/<name>"}
+{"args":["日本語/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: 日本語/<name>"}
+{"args":["日本語/{name}",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/日本 😀","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: 日本語/<name>"}
+{"args":["😀\t_\n/.-_",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: 😀\t_\n/.-_"}
+{"args":["😀_/\t‍bß‍ ",{"name":"<name>","repo":"mono","repoParent":"/dev","repoRoot":"/dev/mono","home":"/home/me"}],"ret":"invalid: worktree.location must expand to an absolute path: 😀_/\t‍bß‍ "}

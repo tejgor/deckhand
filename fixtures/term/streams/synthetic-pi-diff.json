@@ -1,0 +1,107 @@
+{
+  "name": "synthetic-pi-diff",
+  "source": "synthetic",
+  "description": "Imitates pi (pi-tui): first frame in full, later frames repainted from the first changed line (cursor up/down + CR + 2K per line, J when shorter), full clear (3J 2J H) when the change is above the viewport, DEC 2026 around every frame, a resize forcing a full repaint.",
+  "cols": 80,
+  "rows": 20,
+  "chunks": [
+    31,
+    737,
+    384,
+    385,
+    386,
+    387,
+    388,
+    389,
+    390,
+    391,
+    392,
+    393,
+    394,
+    395,
+    396,
+    686,
+    657,
+    660,
+    664,
+    672,
+    678,
+    685,
+    689,
+    698,
+    703,
+    712,
+    716,
+    725,
+    656,
+    662,
+    670,
+    676,
+    681,
+    685,
+    693,
+    700,
+    706,
+    715,
+    719,
+    727,
+    653,
+    657,
+    667,
+    673,
+    677,
+    721,
+    715,
+    715,
+    715,
+    716,
+    716,
+    716,
+    716,
+    1471,
+    653,
+    1072,
+    16
+  ],
+  "events": [
+    {
+      "at": 768,
+      "type": "checkpoint",
+      "label": "first-frame"
+    },
+    {
+      "at": 5838,
+      "type": "checkpoint",
+      "label": "typed"
+    },
+    {
+      "at": 32130,
+      "type": "checkpoint",
+      "label": "grown-past-screen"
+    },
+    {
+      "at": 33601,
+      "type": "checkpoint",
+      "label": "full-repaint"
+    },
+    {
+      "at": 34254,
+      "type": "checkpoint",
+      "label": "shrunk"
+    },
+    {
+      "at": 34254,
+      "type": "resize",
+      "cols": 64,
+      "rows": 14
+    },
+    {
+      "at": 35326,
+      "type": "checkpoint",
+      "label": "after-resize"
+    }
+  ],
+  "recording": {
+    "generator": "parity/gen/streams/synthetic.ts"
+  }
+}

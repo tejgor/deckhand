@@ -1,0 +1,16 @@
+{
+  "name": "synthetic-c1-controls",
+  "source": "synthetic",
+  "description": "C1 control code points arriving as UTF-8 (U+009B CSI, U+009D OSC, U+0085 NEL, U+0090 DCS) next to their 7-bit forms; kept separate so a terminal that treats them as printable diverges in one fixture only.",
+  "cols": 30,
+  "rows": 6,
+  "chunks": [
+    17,
+    19,
+    9
+  ],
+  "events": [],
+  "recording": {
+    "generator": "parity/gen/streams/synthetic.ts"
+  }
+}

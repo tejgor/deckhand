@@ -1,0 +1,1515 @@
+{
+  "name": "synthetic-utf8-split",
+  "source": "synthetic",
+  "description": "UTF-8 split across chunks at every byte position (2-, 3- and 4-byte sequences, ZWJ emoji, combining marks), escape sequences split mid-CSI/mid-OSC, invalid bytes (lone continuation, overlong, surrogate, 0xFF) and a truncated sequence at EOF (flushed as U+FFFD by the decoder).",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 40,
+  "rows": 10,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 40,
+      "rows": 10
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 1
+    },
+    {
+      "op": "write",
+      "from": 1,
+      "to": 2,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 2,
+      "to": 3
+    },
+    {
+      "op": "write",
+      "from": 3,
+      "to": 4
+    },
+    {
+      "op": "write",
+      "from": 4,
+      "to": 5
+    },
+    {
+      "op": "write",
+      "from": 5,
+      "to": 6
+    },
+    {
+      "op": "write",
+      "from": 6,
+      "to": 7
+    },
+    {
+      "op": "write",
+      "from": 7,
+      "to": 8
+    },
+    {
+      "op": "write",
+      "from": 8,
+      "to": 9,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 9,
+      "to": 10
+    },
+    {
+      "op": "write",
+      "from": 10,
+      "to": 11
+    },
+    {
+      "op": "write",
+      "from": 11,
+      "to": 12
+    },
+    {
+      "op": "write",
+      "from": 12,
+      "to": 13
+    },
+    {
+      "op": "write",
+      "from": 13,
+      "to": 14
+    },
+    {
+      "op": "write",
+      "from": 14,
+      "to": 15,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 15,
+      "to": 16,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 16,
+      "to": 17
+    },
+    {
+      "op": "write",
+      "from": 17,
+      "to": 18
+    },
+    {
+      "op": "write",
+      "from": 18,
+      "to": 19,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 19,
+      "to": 20,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 20,
+      "to": 21
+    },
+    {
+      "op": "write",
+      "from": 21,
+      "to": 22,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 22,
+      "to": 23,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 23,
+      "to": 24
+    },
+    {
+      "op": "write",
+      "from": 24,
+      "to": 25,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 25,
+      "to": 26,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 26,
+      "to": 27
+    },
+    {
+      "op": "write",
+      "from": 27,
+      "to": 28,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 28,
+      "to": 29,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 29,
+      "to": 30
+    },
+    {
+      "op": "write",
+      "from": 30,
+      "to": 31,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 31,
+      "to": 32,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 32,
+      "to": 33
+    },
+    {
+      "op": "write",
+      "from": 33,
+      "to": 34,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 34,
+      "to": 35,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 35,
+      "to": 36
+    },
+    {
+      "op": "write",
+      "from": 36,
+      "to": 37,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 37,
+      "to": 38,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 38,
+      "to": 39
+    },
+    {
+      "op": "write",
+      "from": 39,
+      "to": 40
+    },
+    {
+      "op": "write",
+      "from": 40,
+      "to": 41,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 41,
+      "to": 42,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 42,
+      "to": 43,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 43,
+      "to": 44
+    },
+    {
+      "op": "write",
+      "from": 44,
+      "to": 45
+    },
+    {
+      "op": "write",
+      "from": 45,
+      "to": 46,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 46,
+      "to": 47,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 47,
+      "to": 48,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 48,
+      "to": 49
+    },
+    {
+      "op": "write",
+      "from": 49,
+      "to": 50,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 50,
+      "to": 51,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 51,
+      "to": 52
+    },
+    {
+      "op": "write",
+      "from": 52,
+      "to": 53,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 53,
+      "to": 54,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 54,
+      "to": 55,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 55,
+      "to": 56
+    },
+    {
+      "op": "write",
+      "from": 56,
+      "to": 57
+    },
+    {
+      "op": "write",
+      "from": 57,
+      "to": 58
+    },
+    {
+      "op": "write",
+      "from": 58,
+      "to": 59,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 59,
+      "to": 60
+    },
+    {
+      "op": "write",
+      "from": 60,
+      "to": 61
+    },
+    {
+      "op": "write",
+      "from": 61,
+      "to": 62,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 62,
+      "to": 63
+    },
+    {
+      "op": "write",
+      "from": 63,
+      "to": 64,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 64,
+      "to": 65
+    },
+    {
+      "op": "write",
+      "from": 65,
+      "to": 66
+    },
+    {
+      "op": "write",
+      "from": 66,
+      "to": 67
+    },
+    {
+      "op": "checkpoint",
+      "label": "one-byte-chunks",
+      "at": 67,
+      "screen": {
+        "cols": 40,
+        "rows": 10,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 1
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 10,
+        "lines": ["héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {
+          "0": [14, 16, 18, 20, 22, 24, 26]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[2;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 67,
+      "to": 69
+    },
+    {
+      "op": "write",
+      "from": 69,
+      "to": 71
+    },
+    {
+      "op": "write",
+      "from": 71,
+      "to": 73
+    },
+    {
+      "op": "write",
+      "from": 73,
+      "to": 75
+    },
+    {
+      "op": "write",
+      "from": 75,
+      "to": 77
+    },
+    {
+      "op": "write",
+      "from": 77,
+      "to": 79
+    },
+    {
+      "op": "write",
+      "from": 79,
+      "to": 81
+    },
+    {
+      "op": "write",
+      "from": 81,
+      "to": 83,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 83,
+      "to": 85
+    },
+    {
+      "op": "write",
+      "from": 85,
+      "to": 87,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 87,
+      "to": 89
+    },
+    {
+      "op": "write",
+      "from": 89,
+      "to": 91
+    },
+    {
+      "op": "write",
+      "from": 91,
+      "to": 93,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 93,
+      "to": 95
+    },
+    {
+      "op": "write",
+      "from": 95,
+      "to": 97
+    },
+    {
+      "op": "write",
+      "from": 97,
+      "to": 99,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 99,
+      "to": 101
+    },
+    {
+      "op": "write",
+      "from": 101,
+      "to": 103
+    },
+    {
+      "op": "write",
+      "from": 103,
+      "to": 105,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 105,
+      "to": 107
+    },
+    {
+      "op": "write",
+      "from": 107,
+      "to": 109,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 109,
+      "to": 111
+    },
+    {
+      "op": "write",
+      "from": 111,
+      "to": 113
+    },
+    {
+      "op": "write",
+      "from": 113,
+      "to": 115,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 115,
+      "to": 117
+    },
+    {
+      "op": "write",
+      "from": 117,
+      "to": 119
+    },
+    {
+      "op": "write",
+      "from": 119,
+      "to": 121,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 121,
+      "to": 123
+    },
+    {
+      "op": "write",
+      "from": 123,
+      "to": 125
+    },
+    {
+      "op": "write",
+      "from": 125,
+      "to": 127
+    },
+    {
+      "op": "write",
+      "from": 127,
+      "to": 129
+    },
+    {
+      "op": "write",
+      "from": 129,
+      "to": 131
+    },
+    {
+      "op": "write",
+      "from": 131,
+      "to": 133
+    },
+    {
+      "op": "write",
+      "from": 133,
+      "to": 134
+    },
+    {
+      "op": "write",
+      "from": 134,
+      "to": 137
+    },
+    {
+      "op": "write",
+      "from": 137,
+      "to": 140
+    },
+    {
+      "op": "write",
+      "from": 140,
+      "to": 143
+    },
+    {
+      "op": "write",
+      "from": 143,
+      "to": 146
+    },
+    {
+      "op": "write",
+      "from": 146,
+      "to": 149
+    },
+    {
+      "op": "write",
+      "from": 149,
+      "to": 152
+    },
+    {
+      "op": "write",
+      "from": 152,
+      "to": 155
+    },
+    {
+      "op": "write",
+      "from": 155,
+      "to": 158
+    },
+    {
+      "op": "write",
+      "from": 158,
+      "to": 161
+    },
+    {
+      "op": "write",
+      "from": 161,
+      "to": 164
+    },
+    {
+      "op": "write",
+      "from": 164,
+      "to": 167
+    },
+    {
+      "op": "write",
+      "from": 167,
+      "to": 170
+    },
+    {
+      "op": "write",
+      "from": 170,
+      "to": 173
+    },
+    {
+      "op": "write",
+      "from": 173,
+      "to": 176
+    },
+    {
+      "op": "write",
+      "from": 176,
+      "to": 179
+    },
+    {
+      "op": "write",
+      "from": 179,
+      "to": 182,
+      "empty": true
+    },
+    {
+      "op": "write",
+      "from": 182,
+      "to": 185
+    },
+    {
+      "op": "write",
+      "from": 185,
+      "to": 188
+    },
+    {
+      "op": "write",
+      "from": 188,
+      "to": 191
+    },
+    {
+      "op": "write",
+      "from": 191,
+      "to": 194
+    },
+    {
+      "op": "write",
+      "from": 194,
+      "to": 197
+    },
+    {
+      "op": "write",
+      "from": 197,
+      "to": 200
+    },
+    {
+      "op": "write",
+      "from": 200,
+      "to": 201
+    },
+    {
+      "op": "checkpoint",
+      "label": "two-and-three-byte-chunks",
+      "at": 201,
+      "screen": {
+        "cols": 40,
+        "rows": 10,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 3
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 10,
+        "lines": ["héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {
+          "0": [14, 16, 18, 20, 22, 24, 26],
+          "1": [14, 16, 18, 20, 22, 24, 26],
+          "2": [14, 16, 18, 20, 22, 24, 26]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[2;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[3;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[4;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 201,
+      "to": 203
+    },
+    {
+      "op": "write",
+      "from": 203,
+      "to": 207
+    },
+    {
+      "op": "write",
+      "from": 207,
+      "to": 210
+    },
+    {
+      "op": "write",
+      "from": 210,
+      "to": 213
+    },
+    {
+      "op": "write",
+      "from": 213,
+      "to": 217
+    },
+    {
+      "op": "write",
+      "from": 217,
+      "to": 219
+    },
+    {
+      "op": "write",
+      "from": 219,
+      "to": 221
+    },
+    {
+      "op": "write",
+      "from": 221,
+      "to": 223
+    },
+    {
+      "op": "write",
+      "from": 223,
+      "to": 224
+    },
+    {
+      "op": "write",
+      "from": 224,
+      "to": 225
+    },
+    {
+      "op": "write",
+      "from": 225,
+      "to": 233
+    },
+    {
+      "op": "write",
+      "from": 233,
+      "to": 235
+    },
+    {
+      "op": "write",
+      "from": 235,
+      "to": 241
+    },
+    {
+      "op": "write",
+      "from": 241,
+      "to": 257
+    },
+    {
+      "op": "checkpoint",
+      "label": "split-sequences",
+      "at": 257,
+      "screen": {
+        "cols": 40,
+        "rows": 10,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 5
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 10,
+        "lines": ["héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "A🎉BA🎉BA🎉B", "red after", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "4": [[0, 3, "p16:1", "d", ""]]
+        },
+        "wide": {
+          "0": [14, 16, 18, 20, 22, 24, 26],
+          "1": [14, 16, 18, 20, 22, 24, 26],
+          "2": [14, 16, 18, 20, 22, 24, 26]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "split title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[2;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[3;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[4;1HA🎉BA🎉BA🎉B\u001b[5;1Hred after\u001b[6;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 257,
+      "to": 272
+    },
+    {
+      "op": "write",
+      "from": 272,
+      "to": 276
+    },
+    {
+      "op": "write",
+      "from": 276,
+      "to": 279
+    },
+    {
+      "op": "checkpoint",
+      "label": "invalid-bytes",
+      "at": 279,
+      "screen": {
+        "cols": 40,
+        "rows": 10,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 7
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 10,
+        "lines": ["héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "A🎉BA🎉BA🎉B", "red after", "A�B��C���D��E", "�F�G", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "4": [[0, 3, "p16:1", "d", ""]]
+        },
+        "wide": {
+          "0": [14, 16, 18, 20, 22, 24, 26],
+          "1": [14, 16, 18, 20, 22, 24, 26],
+          "2": [14, 16, 18, 20, 22, 24, 26]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "split title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[2;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[3;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[4;1HA🎉BA🎉BA🎉B\u001b[5;1Hred after\u001b[6;1HA�B��C���D��E\u001b[7;1H�F�G\u001b[8;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 279,
+      "to": 285
+    },
+    {
+      "op": "write",
+      "from": 285,
+      "to": 288,
+      "empty": true
+    },
+    {
+      "op": "eof"
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 288,
+      "screen": {
+        "cols": 40,
+        "rows": 10,
+        "buffer": "normal",
+        "cursor": {
+          "x": 7,
+          "y": 7
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 10,
+        "lines": ["héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃", "A🎉BA🎉BA🎉B", "red after", "A�B��C���D��E", "�F�G", "tail: �", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "4": [[0, 3, "p16:1", "d", ""]]
+        },
+        "wide": {
+          "0": [14, 16, 18, 20, 22, 24, 26],
+          "1": [14, 16, 18, 20, 22, 24, 26],
+          "2": [14, 16, 18, 20, 22, 24, 26]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "split title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[2;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[3;1Hhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\u001b[4;1HA🎉BA🎉BA🎉B\u001b[5;1Hred after\u001b[6;1HA�B��C���D��E\u001b[7;1H�F�G\u001b[8;1Htail: �\u001b[8;8H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G\ntail: �"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G\ntail: �"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G\ntail: �"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G\ntail: �"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G\ntail: �"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G\ntail: �"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G\ntail: �"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G\ntail: �"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "héllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nhéllo wörld — 日本語テキスト 🎉 👩‍💻 é ñ̃\nA🎉BA🎉BA🎉B\nred after\nA�B��C���D��E\n�F�G\ntail: �"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    }
+  ]
+}

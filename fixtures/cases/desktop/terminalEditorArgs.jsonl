@@ -1,0 +1,176 @@
+{"args":[{"command":"/usr/bin/vim","args":[],"label":"vim"},"","x"],"ret":["","-S","x"]}
+{"args":[{"command":"/usr/bin/vim","args":[],"label":"vim"},"/notes/a.md","/dh/notes.vim"],"ret":["/notes/a.md","-S","/dh/notes.vim"]}
+{"args":[{"command":"/usr/bin/vim","args":[],"label":"vim"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["/notes/日本 😀.md","-S","/dh/notes.vim"]}
+{"args":[{"command":"/usr/bin/vim","args":[],"label":"vim"},"n.md",""],"ret":["n.md"]}
+{"args":[{"command":"/usr/bin/vim","args":[],"label":"vim"},"n.md","s.vim"],"ret":["n.md","-S","s.vim"]}
+{"args":[{"command":"/usr/bin/vim","args":[],"label":"vim"},"n.md",{"$u":1}],"ret":["n.md"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"}," ‍-","_中é"],"ret":["-a"," ‍-"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"",""],"ret":["-a",""]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"","/é😀0é"],"ret":["-a",""]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"/ Z","é\ta..ß"],"ret":["-a","/ Z"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"/\t","é"],"ret":["-a","/\t"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"0ß_0",{"$u":1}],"ret":["-a","0ß_0"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"0‍\n\tZ\n ß_","\nZé中-😀"],"ret":["-a","0‍\n\tZ\n ß_"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"\n.","\té😀/"],"ret":["-a","\n."]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"\n\n",{"$u":1}],"ret":["-a","\n\n"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"\nß中ééß\n",{"$u":1}],"ret":["-a","\nß中ééß\n"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"\t- \t","-a"],"ret":["-a","\t- \t"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"_","中 b_/ ZZ "],"ret":["-a","_"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"a_ß\t\n0ß/","_中é.😀b0😀a"],"ret":["-a","a_ß\t\n0ß/"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"a中ß‍\t-","é-/"],"ret":["-a","a中ß‍\t-"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"é","中Z\n"],"ret":["-a","é"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"éZ\né‍/0‍a0","ß Z"],"ret":["-a","éZ\né‍/0‍a0"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"ß--b 😀","\n"],"ret":["-a","ß--b 😀"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"ß-ß","a😀_é"],"ret":["-a","ß-ß"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"ßéé-‍a","a‍ß"],"ret":["-a","ßéé-‍a"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"‍",".‍😀b/ß"],"ret":["-a","‍"]}
+{"args":[{"command":"code","args":["-a"],"label":"code"},"中\ta\n-‍.\t","ß中é"],"ret":["-a","中\ta\n-‍.\t"]}
+{"args":[{"command":"gvim","args":[],"label":"gvim"},"","x"],"ret":[""]}
+{"args":[{"command":"gvim","args":[],"label":"gvim"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["/notes/日本 😀.md"]}
+{"args":[{"command":"gvim","args":[],"label":"gvim"},"n.md",""],"ret":["n.md"]}
+{"args":[{"command":"gvim","args":[],"label":"gvim"},"n.md","s.vim"],"ret":["n.md"]}
+{"args":[{"command":"gvim","args":[],"label":"gvim"},"n.md",{"$u":1}],"ret":["n.md"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"","-"],"ret":["-a",""]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"","\tß‍"],"ret":["-a",""]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"//\t\n中é._-.","é\t😀"],"ret":["-a","//\t\n中é._-."]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"/\n",{"$u":1}],"ret":["-a","/\n"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"Z.bb\n-a😀 ",""],"ret":["-a","Z.bb\n-a😀 "]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"Zßaéß.\n\n Z",{"$u":1}],"ret":["-a","Zßaéß.\n\n Z"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"bZ /\n","/-_-"],"ret":["-a","bZ /\n"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"béé0.","-\n中é\t\t éß"],"ret":["-a","béé0."]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"é",{"$u":1}],"ret":["-a","é"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"é-aéß\t","Z‍ß/😀-0é/\t"],"ret":["-a","é-aéß\t"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"é‍","_aZ-‍_é\t"],"ret":["-a","é‍"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"ß\t\tZ","."],"ret":["-a","ß\t\tZ"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"é","-b"],"ret":["-a","é"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"é_é‍😀-\n0",""],"ret":["-a","é_é‍😀-\n0"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"‍-.a\t0.ßb",{"$u":1}],"ret":["-a","‍-.a\t0.ßb"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"‍-éßZ😀0a ","\n 中😀\n_/0Zß"],"ret":["-a","‍-éßZ😀0a "]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"‍0\t","a0\n.aé_é"],"ret":["-a","‍0\t"]}
+{"args":[{"command":"nano","args":["-a"],"label":"nano"},"中",".\nb"],"ret":["-a","中"]}
+{"args":[{"command":"nano","args":["-l"],"label":"nano"},"","x"],"ret":["-l",""]}
+{"args":[{"command":"nano","args":["-l"],"label":"nano"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["-l","/notes/日本 😀.md"]}
+{"args":[{"command":"nano","args":["-l"],"label":"nano"},"n.md",""],"ret":["-l","n.md"]}
+{"args":[{"command":"nano","args":["-l"],"label":"nano"},"n.md","s.vim"],"ret":["-l","n.md"]}
+{"args":[{"command":"nano","args":["-l"],"label":"nano"},"n.md",{"$u":1}],"ret":["-l","n.md"]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"}," ","ZZ"],"ret":["-a"," "]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"/\tb/中","\n.\t "],"ret":["-a","/\tb/中"]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"/‍\t‍0ß\t","😀"],"ret":["-a","/‍\t‍0ß\t"]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"0\té中é\n","éa0"],"ret":["-a","0\té中é\n"]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"Z é中 😀\n/ ","_b\téb\nß"],"ret":["-a","Z é中 😀\n/ "]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"Z😀-é‍中é",""],"ret":["-a","Z😀-é‍中é"]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"a‍中-- é0 ",{"$u":1}],"ret":["-a","a‍中-- é0 "]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"é\n","‍ß_"],"ret":["-a","é\n"]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"é\t‍\né‍/","bb//é\n 中"],"ret":["-a","é\t‍\né‍/"]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"é","/😀-/\t\n\t😀a中"],"ret":["-a","é"]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"é0é-Z中0ß","/é中\t"],"ret":["-a","é0é-Z中0ß"]}
+{"args":[{"command":"nvi","args":["-a"],"label":"nvi"},"中 中\n‍a.","0\n😀é0.中é"],"ret":["-a","中 中\n‍a."]}
+{"args":[{"command":"nvim","args":["--clean"],"label":"nvim"},"","x"],"ret":["--clean","","-S","x"]}
+{"args":[{"command":"nvim","args":["--clean"],"label":"nvim"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["--clean","/notes/日本 😀.md","-S","/dh/notes.vim"]}
+{"args":[{"command":"nvim","args":["--clean"],"label":"nvim"},"n.md",""],"ret":["--clean","n.md"]}
+{"args":[{"command":"nvim","args":["--clean"],"label":"nvim"},"n.md","s.vim"],"ret":["--clean","n.md","-S","s.vim"]}
+{"args":[{"command":"nvim","args":["--clean"],"label":"nvim"},"n.md",{"$u":1}],"ret":["--clean","n.md"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"","\t‍ /é/ß"],"ret":["-a","","-S","\t‍ /é/ß"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"","aé-b"],"ret":["-a","","-S","aé-b"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"-中 /","‍/ééaa"],"ret":["-a","-中 /","-S","‍/ééaa"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"0",""],"ret":["-a","0"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"0..‍😀",{"$u":1}],"ret":["-a","0..‍😀"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"\n00-\n",""],"ret":["-a","\n00-\n"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"_","\né😀"],"ret":["-a","_","-S","\né😀"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"aß","é‍é 😀é"],"ret":["-a","aß","-S","é‍é 😀é"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"ß_ß0/","é.😀\téßé\ta"],"ret":["-a","ß_ß0/","-S","é.😀\téßé\ta"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"ßbb0_ bZbß","ß😀bb"],"ret":["-a","ßbb0_ bZbß","-S","ß😀bb"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"‍_-é中 ",{"$u":1}],"ret":["-a","‍_-é中 "]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"😀","_/"],"ret":["-a","😀","-S","_/"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"😀a0b_","b0ßé\n"],"ret":["-a","😀a0b_","-S","b0ßé\n"]}
+{"args":[{"command":"nvim","args":["-a"],"label":"nvim"},"😀é00","b_Z"],"ret":["-a","😀é00","-S","b_Z"]}
+{"args":[{"command":"nvim","args":[],"label":"nvim"},"n.md"],"ret":["n.md"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"}," - ","b_ßZ"],"ret":["-a"," - ","-S","b_ßZ"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"}," 中",{"$u":1}],"ret":["-a"," 中"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"-Zé./_é_aa","中‍"],"ret":["-a","-Zé./_é_aa","-S","中‍"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"-b\n😀_😀","ébé"],"ret":["-a","-b\n😀_😀","-S","ébé"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},".-😀 Z/\té/","é0中‍_.😀é.0"],"ret":["-a",".-😀 Z/\té/","-S","é0中‍_.😀é.0"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"\n. ",""],"ret":["-a","\n. "]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"\nébab‍_\t",{"$u":1}],"ret":["-a","\nébab‍_\t"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"_",{"$u":1}],"ret":["-a","_"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"_é_\té/‍aZ","0/"],"ret":["-a","_é_\té/‍aZ","-S","0/"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"b","_-"],"ret":["-a","b","-S","_-"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"ß Zb",{"$u":1}],"ret":["-a","ß Zb"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"ß\t中 ‍/","Z中-ZaéZ‍-"],"ret":["-a","ß\t中 ‍/","-S","Z中-ZaéZ‍-"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"ßé-_éß ß",{"$u":1}],"ret":["-a","ßé-_éß ß"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"ß‍-\té😀😀","b_"],"ret":["-a","ß‍-\té😀😀","-S","b_"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"中ßé00\n  "," _-b "],"ret":["-a","中ßé00\n  ","-S"," _-b "]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"中‍😀/","\néß中\nbéé.Z"],"ret":["-a","中‍😀/","-S","\néß中\nbéé.Z"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"中😀b0._0\na","‍_"],"ret":["-a","中😀b0._0\na","-S","‍_"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"😀_é",""],"ret":["-a","😀_é"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"😀ß\né",". ‍中é\n\t-"],"ret":["-a","😀ß\né","-S",". ‍中é\n\t-"]}
+{"args":[{"command":"vi","args":["-a"],"label":"vi"},"😀éb中aé","Z\nbé\t😀0-_"],"ret":["-a","😀éb中aé","-S","Z\nbé\t😀0-_"]}
+{"args":[{"command":"vi","args":[],"label":"vi"},"","x"],"ret":["","-S","x"]}
+{"args":[{"command":"vi","args":[],"label":"vi"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["/notes/日本 😀.md","-S","/dh/notes.vim"]}
+{"args":[{"command":"vi","args":[],"label":"vi"},"n.md",""],"ret":["n.md"]}
+{"args":[{"command":"vi","args":[],"label":"vi"},"n.md","s.vim"],"ret":["n.md","-S","s.vim"]}
+{"args":[{"command":"vi","args":[],"label":"vi"},"n.md",{"$u":1}],"ret":["n.md"]}
+{"args":[{"command":"view","args":["+1","-n"],"label":"vi"},"","x"],"ret":["+1","-n","","-S","x"]}
+{"args":[{"command":"view","args":["+1","-n"],"label":"vi"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["+1","-n","/notes/日本 😀.md","-S","/dh/notes.vim"]}
+{"args":[{"command":"view","args":["+1","-n"],"label":"vi"},"n.md",""],"ret":["+1","-n","n.md"]}
+{"args":[{"command":"view","args":["+1","-n"],"label":"vi"},"n.md","s.vim"],"ret":["+1","-n","n.md","-S","s.vim"]}
+{"args":[{"command":"view","args":["+1","-n"],"label":"vi"},"n.md",{"$u":1}],"ret":["+1","-n","n.md"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"}," é","\t0中ß"],"ret":["-a"," é","-S","\t0中ß"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"-😀b\n","a\n😀"],"ret":["-a","-😀b\n","-S","a\n😀"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"0ß","/😀0"],"ret":["-a","0ß","-S","/😀0"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"Zbß/é\néb","\t.ab.ßéé"],"ret":["-a","Zbß/é\néb","-S","\t.ab.ßéé"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"\t_😀中éa_-","中0é中Zb0Z\n"],"ret":["-a","\t_😀中éa_-","-S","中0é中Zb0Z\n"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"_",""],"ret":["-a","_"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"a😀"," _"],"ret":["-a","a😀","-S"," _"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"‍.Z","\t..éé中ab"],"ret":["-a","‍.Z","-S","\t..éé中ab"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"‍ßaéé",{"$u":1}],"ret":["-a","‍ßaéé"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"‍中a-‍😀😀","\tßé"],"ret":["-a","‍中a-‍😀😀","-S","\tßé"]}
+{"args":[{"command":"vim","args":["-a"],"label":"vim"},"😀/\tZ\t","_-_"],"ret":["-a","😀/\tZ\t","-S","_-_"]}
+{"args":[{"command":"vim","args":[],"label":"vim.basic"},"","x"],"ret":[""]}
+{"args":[{"command":"vim","args":[],"label":"vim.basic"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["/notes/日本 😀.md"]}
+{"args":[{"command":"vim","args":[],"label":"vim.basic"},"n.md",""],"ret":["n.md"]}
+{"args":[{"command":"vim","args":[],"label":"vim.basic"},"n.md","s.vim"],"ret":["n.md"]}
+{"args":[{"command":"vim","args":[],"label":"vim.basic"},"n.md",{"$u":1}],"ret":["n.md"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"}," aZ\n_é","/a0 é"],"ret":["-a"," aZ\n_é"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"",""],"ret":["-a",""]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"","a0aZ //"],"ret":["-a",""]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"","b"],"ret":["-a",""]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"-.éa‍ ß‍/","中-é-\n‍"],"ret":["-a","-.éa‍ ß‍/"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"-b_","_/é.a_0"],"ret":["-a","-b_"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},".éé😀"," 0.\t_é‍\t."],"ret":["-a",".éé😀"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"/\tbéé\n/",".😀\né 中\t/\t\n"],"ret":["-a","/\tbéé\n/"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"0-éé",{"$u":1}],"ret":["-a","0-éé"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"\n",""],"ret":["-a","\n"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"\t\t😀‍ß","-Z‍\t"],"ret":["-a","\t\t😀‍ß"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"\t‍é_","0‍b‍ 中‍"],"ret":["-a","\t‍é_"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"a",{"$u":1}],"ret":["-a","a"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"é","_/😀a_b."],"ret":["-a","é"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"é-","\téa😀\n-\t"],"ret":["-a","é-"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"éé‍aa-éé\n\t","0中 "],"ret":["-a","éé‍aa-éé\n\t"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"é‍Zß","\tZ"],"ret":["-a","é‍Zß"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"ß_😀",{"$u":1}],"ret":["-a","ß_😀"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"éé.b_\t0.b","\t"],"ret":["-a","éé.b_\t0.b"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"‍\n","a.-"],"ret":["-a","‍\n"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"中中éßZ中-é0"," \tßé_"],"ret":["-a","中中éßZ中-é0"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"😀‍\tßé中😀é\n-",{"$u":1}],"ret":["-a","😀‍\tßé中😀é\n-"]}
+{"args":[{"command":"vimx","args":["-a"],"label":"vimx"},"😀😀Z -","😀a-"],"ret":["-a","😀😀Z -"]}
+{"args":[{"command":"x","args":["--中"],"label":"Vim"},"","x"],"ret":["--中",""]}
+{"args":[{"command":"x","args":["--中"],"label":"Vim"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["--中","/notes/日本 😀.md"]}
+{"args":[{"command":"x","args":["--中"],"label":"Vim"},"n.md",""],"ret":["--中","n.md"]}
+{"args":[{"command":"x","args":["--中"],"label":"Vim"},"n.md","s.vim"],"ret":["--中","n.md"]}
+{"args":[{"command":"x","args":["--中"],"label":"Vim"},"n.md",{"$u":1}],"ret":["--中","n.md"]}
+{"args":[{"command":"x","args":[],"label":""},"","x"],"ret":[""]}
+{"args":[{"command":"x","args":[],"label":""},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["/notes/日本 😀.md"]}
+{"args":[{"command":"x","args":[],"label":""},"n.md",""],"ret":["n.md"]}
+{"args":[{"command":"x","args":[],"label":""},"n.md","s.vim"],"ret":["n.md"]}
+{"args":[{"command":"x","args":[],"label":""},"n.md",{"$u":1}],"ret":["n.md"]}
+{"args":[{"command":"x","args":[],"label":"ex"},"","x"],"ret":[""]}
+{"args":[{"command":"x","args":[],"label":"ex"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["/notes/日本 😀.md"]}
+{"args":[{"command":"x","args":[],"label":"ex"},"n.md",""],"ret":["n.md"]}
+{"args":[{"command":"x","args":[],"label":"ex"},"n.md","s.vim"],"ret":["n.md"]}
+{"args":[{"command":"x","args":[],"label":"ex"},"n.md",{"$u":1}],"ret":["n.md"]}
+{"args":[{"command":"x","args":[],"label":"nvim\n"},"","x"],"ret":[""]}
+{"args":[{"command":"x","args":[],"label":"nvim\n"},"/notes/日本 😀.md","/dh/notes.vim"],"ret":["/notes/日本 😀.md"]}
+{"args":[{"command":"x","args":[],"label":"nvim\n"},"n.md",""],"ret":["n.md"]}
+{"args":[{"command":"x","args":[],"label":"nvim\n"},"n.md","s.vim"],"ret":["n.md"]}
+{"args":[{"command":"x","args":[],"label":"nvim\n"},"n.md",{"$u":1}],"ret":["n.md"]}

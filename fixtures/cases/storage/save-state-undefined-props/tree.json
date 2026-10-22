@@ -1,0 +1,10 @@
+{
+  "before": [],
+  "after": [
+    {
+      "path": "state.json",
+      "type": "file",
+      "mode": "0600"
+    }
+  ]
+}

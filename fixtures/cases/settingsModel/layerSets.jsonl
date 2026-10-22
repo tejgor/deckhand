@@ -1,0 +1,367 @@
+{"args":[{"$u":1},"actions","a"],"ret":false}
+{"args":[{"$u":1},"actions","x.y"],"ret":false}
+{"args":[{"$u":1},"agentHooks","a"],"ret":false}
+{"args":[{"$u":1},"agentHooks","x.y"],"ret":false}
+{"args":[{"$u":1},"defaultAgent","a"],"ret":false}
+{"args":[{"$u":1},"defaultAgent","x.y"],"ret":false}
+{"args":[{"$u":1},"defaultWorkspace","a"],"ret":false}
+{"args":[{"$u":1},"defaultWorkspace","x.y"],"ret":false}
+{"args":[{"$u":1},"devCommand","a"],"ret":false}
+{"args":[{"$u":1},"devCommand","x.y"],"ret":false}
+{"args":[{"$u":1},"notifications","a"],"ret":false}
+{"args":[{"$u":1},"notifications","x.y"],"ret":false}
+{"args":[{"$u":1},"setupCommand","a"],"ret":false}
+{"args":[{"$u":1},"setupCommand","x.y"],"ret":false}
+{"args":[{"$u":1},"worktree.branchFrom","a"],"ret":false}
+{"args":[{"$u":1},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{"$u":1},"worktree.branchName","a"],"ret":false}
+{"args":[{"$u":1},"worktree.branchName"],"ret":false}
+{"args":[{"$u":1},"worktree.links","a"],"ret":false}
+{"args":[{"$u":1},"worktree.links"],"ret":false}
+{"args":[{"$u":1},"worktree.location","a"],"ret":false}
+{"args":[{"$u":1},"worktree.location"],"ret":false}
+{"args":[{"actions":"str"},"actions","a"],"ret":false}
+{"args":[{"actions":"str"},"actions"],"ret":true}
+{"args":[{"actions":"str"},"agentHooks","a"],"ret":false}
+{"args":[{"actions":"str"},"agentHooks"],"ret":false}
+{"args":[{"actions":"str"},"defaultAgent","a"],"ret":false}
+{"args":[{"actions":"str"},"defaultAgent"],"ret":false}
+{"args":[{"actions":"str"},"defaultWorkspace","a"],"ret":false}
+{"args":[{"actions":"str"},"defaultWorkspace"],"ret":false}
+{"args":[{"actions":"str"},"devCommand","a"],"ret":false}
+{"args":[{"actions":"str"},"devCommand"],"ret":false}
+{"args":[{"actions":"str"},"notifications","x.y"],"ret":false}
+{"args":[{"actions":"str"},"notifications"],"ret":false}
+{"args":[{"actions":"str"},"setupCommand","x.y"],"ret":false}
+{"args":[{"actions":"str"},"setupCommand"],"ret":false}
+{"args":[{"actions":"str"},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{"actions":"str"},"worktree.branchFrom"],"ret":false}
+{"args":[{"actions":"str"},"worktree.branchName","x.y"],"ret":false}
+{"args":[{"actions":"str"},"worktree.branchName"],"ret":false}
+{"args":[{"actions":"str"},"worktree.links","x.y"],"ret":false}
+{"args":[{"actions":"str"},"worktree.links"],"ret":false}
+{"args":[{"actions":"str"},"worktree.location","x.y"],"ret":false}
+{"args":[{"actions":"str"},"worktree.location"],"ret":false}
+{"args":[{"actions":[]},"actions","x.y"],"ret":false}
+{"args":[{"actions":[]},"actions"],"ret":true}
+{"args":[{"actions":[]},"agentHooks","x.y"],"ret":false}
+{"args":[{"actions":[]},"defaultAgent","a"],"ret":false}
+{"args":[{"actions":[]},"defaultAgent","x.y"],"ret":false}
+{"args":[{"actions":[]},"defaultWorkspace","a"],"ret":false}
+{"args":[{"actions":[]},"defaultWorkspace","x.y"],"ret":false}
+{"args":[{"actions":[]},"devCommand","a"],"ret":false}
+{"args":[{"actions":[]},"devCommand","x.y"],"ret":false}
+{"args":[{"actions":[]},"notifications","a"],"ret":false}
+{"args":[{"actions":[]},"notifications","x.y"],"ret":false}
+{"args":[{"actions":[]},"setupCommand","a"],"ret":false}
+{"args":[{"actions":[]},"setupCommand","x.y"],"ret":false}
+{"args":[{"actions":[]},"worktree.branchFrom","a"],"ret":false}
+{"args":[{"actions":[]},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{"actions":[]},"worktree.branchName","a"],"ret":false}
+{"args":[{"actions":[]},"worktree.branchName","x.y"],"ret":false}
+{"args":[{"actions":[]},"worktree.links","a"],"ret":false}
+{"args":[{"actions":[]},"worktree.links"],"ret":false}
+{"args":[{"actions":[]},"worktree.location","a"],"ret":false}
+{"args":[{"actions":[]},"worktree.location"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"actions","a"],"ret":true}
+{"args":[{"actions":{"a":"b"}},"actions"],"ret":true}
+{"args":[{"actions":{"a":"b"}},"agentHooks","a"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"agentHooks"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"defaultAgent","a"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"defaultAgent"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"defaultWorkspace","a"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"defaultWorkspace"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"devCommand","a"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"devCommand"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"notifications","a"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"notifications"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"setupCommand","a"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"setupCommand"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"worktree.branchFrom"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"worktree.branchName","x.y"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"worktree.branchName"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"worktree.links","x.y"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"worktree.links"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"worktree.location","x.y"],"ret":false}
+{"args":[{"actions":{"a":"b"}},"worktree.location"],"ret":false}
+{"args":[{"actions":{"test":"global test"}},"agentHooks"],"ret":false}
+{"args":[{"actions":{"test":"global test"}},"defaultAgent"],"ret":false}
+{"args":[{"actions":{"test":"global test"}},"devCommand"],"ret":false}
+{"args":[{"actions":{"test":"global test"}},"notifications"],"ret":false}
+{"args":[{"actions":{"test":"global test"}},"worktree.branchFrom"],"ret":false}
+{"args":[{"actions":{"test":"global test"}},"worktree.links"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"actions","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"actions","x.y"],"ret":true}
+{"args":[{"actions":{"x.y":1}},"agentHooks","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"agentHooks","x.y"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"defaultAgent","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"defaultAgent","x.y"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"defaultWorkspace","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"defaultWorkspace","x.y"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"devCommand","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"devCommand","x.y"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"notifications","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"notifications","x.y"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"setupCommand","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"setupCommand","x.y"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"worktree.branchFrom","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"worktree.branchFrom"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"worktree.branchName","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"worktree.branchName"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"worktree.links","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"worktree.links"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"worktree.location","a"],"ret":false}
+{"args":[{"actions":{"x.y":1}},"worktree.location"],"ret":false}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"actions"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"defaultAgent"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"defaultWorkspace"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"notifications"],"ret":false}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"setupCommand"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"worktree.branchName"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"worktree.location"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"agentHooks"],"ret":false}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"defaultAgent"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"devCommand"],"ret":false}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"notifications"],"ret":false}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"worktree.branchFrom"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"worktree.branchName"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"worktree.links"],"ret":true}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"worktree.location"],"ret":false}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"agentHooks"],"ret":false}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"defaultAgent"],"ret":true}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"devCommand"],"ret":false}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"notifications"],"ret":false}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"worktree.branchFrom"],"ret":true}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"worktree.branchName"],"ret":false}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"worktree.links"],"ret":true}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"worktree.location"],"ret":false}
+{"args":[{"defaultAgent":null},"actions","x.y"],"ret":false}
+{"args":[{"defaultAgent":null},"agentHooks","a"],"ret":false}
+{"args":[{"defaultAgent":null},"agentHooks","x.y"],"ret":false}
+{"args":[{"defaultAgent":null},"defaultAgent","a"],"ret":true}
+{"args":[{"defaultAgent":null},"defaultAgent","x.y"],"ret":true}
+{"args":[{"defaultAgent":null},"defaultWorkspace","a"],"ret":false}
+{"args":[{"defaultAgent":null},"defaultWorkspace","x.y"],"ret":false}
+{"args":[{"defaultAgent":null},"devCommand","a"],"ret":false}
+{"args":[{"defaultAgent":null},"devCommand","x.y"],"ret":false}
+{"args":[{"defaultAgent":null},"notifications","a"],"ret":false}
+{"args":[{"defaultAgent":null},"notifications","x.y"],"ret":false}
+{"args":[{"defaultAgent":null},"setupCommand","a"],"ret":false}
+{"args":[{"defaultAgent":null},"setupCommand","x.y"],"ret":false}
+{"args":[{"defaultAgent":null},"worktree.branchFrom","a"],"ret":false}
+{"args":[{"defaultAgent":null},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{"defaultAgent":null},"worktree.branchName","a"],"ret":false}
+{"args":[{"defaultAgent":null},"worktree.branchName","x.y"],"ret":false}
+{"args":[{"defaultAgent":null},"worktree.links","a"],"ret":false}
+{"args":[{"defaultAgent":null},"worktree.links"],"ret":false}
+{"args":[{"defaultAgent":null},"worktree.location","a"],"ret":false}
+{"args":[{"defaultAgent":null},"worktree.location"],"ret":false}
+{"args":[{"devCommand":"make dev"},"actions"],"ret":false}
+{"args":[{"devCommand":"make dev"},"defaultAgent"],"ret":false}
+{"args":[{"devCommand":"make dev"},"defaultWorkspace"],"ret":false}
+{"args":[{"devCommand":"make dev"},"notifications"],"ret":false}
+{"args":[{"devCommand":"make dev"},"setupCommand"],"ret":false}
+{"args":[{"devCommand":"make dev"},"worktree.branchName"],"ret":false}
+{"args":[{"devCommand":"make dev"},"worktree.location"],"ret":false}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"actions"],"ret":true}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"defaultAgent"],"ret":false}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"defaultWorkspace"],"ret":false}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"notifications"],"ret":false}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"worktree.branchFrom"],"ret":false}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"worktree.branchName"],"ret":false}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"worktree.links"],"ret":true}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"worktree.location"],"ret":true}
+{"args":[{"devCommand":"npm run dev"},"agentHooks"],"ret":false}
+{"args":[{"devCommand":"npm run dev"},"defaultAgent"],"ret":false}
+{"args":[{"devCommand":"npm run dev"},"devCommand"],"ret":true}
+{"args":[{"devCommand":"npm run dev"},"notifications"],"ret":false}
+{"args":[{"devCommand":"npm run dev"},"worktree.branchFrom"],"ret":false}
+{"args":[{"devCommand":"npm run dev"},"worktree.branchName"],"ret":false}
+{"args":[{"devCommand":"npm run dev"},"worktree.links"],"ret":false}
+{"args":[{"devCommand":"npm run dev"},"worktree.location"],"ret":false}
+{"args":[{"devCommand":"x"},"actions","x.y"],"ret":false}
+{"args":[{"devCommand":"x"},"actions"],"ret":false}
+{"args":[{"devCommand":"x"},"agentHooks","x.y"],"ret":false}
+{"args":[{"devCommand":"x"},"defaultAgent","a"],"ret":false}
+{"args":[{"devCommand":"x"},"defaultAgent","x.y"],"ret":false}
+{"args":[{"devCommand":"x"},"defaultWorkspace","a"],"ret":false}
+{"args":[{"devCommand":"x"},"defaultWorkspace","x.y"],"ret":false}
+{"args":[{"devCommand":"x"},"devCommand","a"],"ret":true}
+{"args":[{"devCommand":"x"},"devCommand","x.y"],"ret":true}
+{"args":[{"devCommand":"x"},"notifications","a"],"ret":false}
+{"args":[{"devCommand":"x"},"notifications","x.y"],"ret":false}
+{"args":[{"devCommand":"x"},"setupCommand","a"],"ret":false}
+{"args":[{"devCommand":"x"},"setupCommand","x.y"],"ret":false}
+{"args":[{"devCommand":"x"},"worktree.branchFrom","a"],"ret":false}
+{"args":[{"devCommand":"x"},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{"devCommand":"x"},"worktree.branchName","a"],"ret":false}
+{"args":[{"devCommand":"x"},"worktree.branchName","x.y"],"ret":false}
+{"args":[{"devCommand":"x"},"worktree.links","a"],"ret":false}
+{"args":[{"devCommand":"x"},"worktree.links"],"ret":false}
+{"args":[{"devCommand":"x"},"worktree.location","a"],"ret":false}
+{"args":[{"devCommand":"x"},"worktree.location"],"ret":false}
+{"args":[{"worktree":"str"},"actions","a"],"ret":false}
+{"args":[{"worktree":"str"},"actions"],"ret":false}
+{"args":[{"worktree":"str"},"agentHooks","a"],"ret":false}
+{"args":[{"worktree":"str"},"agentHooks"],"ret":false}
+{"args":[{"worktree":"str"},"defaultAgent","a"],"ret":false}
+{"args":[{"worktree":"str"},"defaultAgent"],"ret":false}
+{"args":[{"worktree":"str"},"defaultWorkspace","a"],"ret":false}
+{"args":[{"worktree":"str"},"defaultWorkspace"],"ret":false}
+{"args":[{"worktree":"str"},"devCommand","a"],"ret":false}
+{"args":[{"worktree":"str"},"devCommand"],"ret":false}
+{"args":[{"worktree":"str"},"notifications","a"],"ret":false}
+{"args":[{"worktree":"str"},"notifications"],"ret":false}
+{"args":[{"worktree":"str"},"setupCommand","a"],"ret":false}
+{"args":[{"worktree":"str"},"setupCommand"],"ret":false}
+{"args":[{"worktree":"str"},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{"worktree":"str"},"worktree.branchFrom"],"ret":false}
+{"args":[{"worktree":"str"},"worktree.branchName","x.y"],"ret":false}
+{"args":[{"worktree":"str"},"worktree.branchName"],"ret":false}
+{"args":[{"worktree":"str"},"worktree.links","x.y"],"ret":false}
+{"args":[{"worktree":"str"},"worktree.links"],"ret":false}
+{"args":[{"worktree":"str"},"worktree.location","x.y"],"ret":false}
+{"args":[{"worktree":"str"},"worktree.location"],"ret":false}
+{"args":[{"worktree":null},"actions","x.y"],"ret":false}
+{"args":[{"worktree":null},"actions"],"ret":false}
+{"args":[{"worktree":null},"agentHooks","x.y"],"ret":false}
+{"args":[{"worktree":null},"agentHooks"],"ret":false}
+{"args":[{"worktree":null},"defaultAgent","x.y"],"ret":false}
+{"args":[{"worktree":null},"defaultAgent"],"ret":false}
+{"args":[{"worktree":null},"defaultWorkspace","x.y"],"ret":false}
+{"args":[{"worktree":null},"devCommand","a"],"ret":false}
+{"args":[{"worktree":null},"devCommand","x.y"],"ret":false}
+{"args":[{"worktree":null},"notifications","a"],"ret":false}
+{"args":[{"worktree":null},"notifications","x.y"],"ret":false}
+{"args":[{"worktree":null},"setupCommand","a"],"ret":false}
+{"args":[{"worktree":null},"setupCommand","x.y"],"ret":false}
+{"args":[{"worktree":null},"worktree.branchFrom","a"],"ret":false}
+{"args":[{"worktree":null},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{"worktree":null},"worktree.branchName","a"],"ret":false}
+{"args":[{"worktree":null},"worktree.branchName","x.y"],"ret":false}
+{"args":[{"worktree":null},"worktree.links","a"],"ret":false}
+{"args":[{"worktree":null},"worktree.links","x.y"],"ret":false}
+{"args":[{"worktree":null},"worktree.location","a"],"ret":false}
+{"args":[{"worktree":null},"worktree.location","x.y"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"actions","a"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"actions"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"agentHooks","a"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"agentHooks"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"defaultAgent","a"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"defaultAgent"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"defaultWorkspace","a"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"defaultWorkspace"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"devCommand","a"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"devCommand"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"notifications","a"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"notifications"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"setupCommand","a"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"setupCommand"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchFrom","a"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchFrom"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchName","a"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchName"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.links","x.y"],"ret":true}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.links"],"ret":true}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.location","x.y"],"ret":false}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.location"],"ret":false}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"agentHooks"],"ret":false}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"defaultAgent"],"ret":false}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"devCommand"],"ret":false}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"notifications"],"ret":false}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"worktree.branchFrom"],"ret":false}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"worktree.branchName"],"ret":false}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"worktree.links"],"ret":false}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"worktree.location"],"ret":true}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"agentHooks"],"ret":false}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"defaultWorkspace"],"ret":false}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"devCommand"],"ret":false}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"setupCommand"],"ret":false}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"worktree.branchFrom"],"ret":false}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"worktree.links"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"actions"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"agentHooks"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"defaultWorkspace"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"devCommand"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"setupCommand"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"worktree.branchFrom"],"ret":true}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"worktree.links"],"ret":true}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"actions"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"agentHooks"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"defaultWorkspace"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"notifications"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"setupCommand"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"worktree.branchName"],"ret":false}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"worktree.location"],"ret":true}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"actions"],"ret":false}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"defaultAgent"],"ret":false}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"defaultWorkspace"],"ret":false}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"notifications"],"ret":false}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"setupCommand"],"ret":false}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"worktree.branchName"],"ret":false}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"worktree.location"],"ret":true}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"actions","a"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"actions"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"agentHooks","a"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"agentHooks"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"defaultAgent","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"defaultAgent"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"defaultWorkspace","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"defaultWorkspace"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"devCommand","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"devCommand"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"notifications","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"notifications"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"setupCommand","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"setupCommand"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchFrom"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchName","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchName"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.links","x.y"],"ret":true}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.location","a"],"ret":false}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.location","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"actions","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"actions","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"agentHooks","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"agentHooks","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"defaultAgent","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"defaultAgent","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"defaultWorkspace","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"defaultWorkspace","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"devCommand","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"devCommand","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"notifications","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"notifications","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"setupCommand","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"setupCommand","x.y"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.branchFrom","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.branchFrom"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.branchName","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.branchName"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.links","a"],"ret":true}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.links"],"ret":true}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.location","a"],"ret":false}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.location"],"ret":false}
+{"args":[{},"actions","a"],"ret":false}
+{"args":[{},"actions"],"ret":false}
+{"args":[{},"agentHooks","a"],"ret":false}
+{"args":[{},"agentHooks"],"ret":false}
+{"args":[{},"defaultAgent","a"],"ret":false}
+{"args":[{},"defaultAgent"],"ret":false}
+{"args":[{},"defaultWorkspace","a"],"ret":false}
+{"args":[{},"defaultWorkspace"],"ret":false}
+{"args":[{},"devCommand","x.y"],"ret":false}
+{"args":[{},"devCommand"],"ret":false}
+{"args":[{},"notifications","x.y"],"ret":false}
+{"args":[{},"notifications"],"ret":false}
+{"args":[{},"setupCommand","x.y"],"ret":false}
+{"args":[{},"setupCommand"],"ret":false}
+{"args":[{},"worktree.branchFrom","x.y"],"ret":false}
+{"args":[{},"worktree.branchFrom"],"ret":false}
+{"args":[{},"worktree.branchName","x.y"],"ret":false}
+{"args":[{},"worktree.branchName"],"ret":false}
+{"args":[{},"worktree.links","x.y"],"ret":false}
+{"args":[{},"worktree.links"],"ret":false}
+{"args":[{},"worktree.location","x.y"],"ret":false}

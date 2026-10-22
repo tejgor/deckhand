@@ -1,0 +1,21 @@
+{
+  "fn": "loadProjectConfig",
+  "args": [
+    "$ROOT/main",
+    {},
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "$ROOT/main"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "root": "$ROOT/main",
+    "trustRoot": "$ROOT/main",
+    "path": "$ROOT/main/deckhand.json",
+    "config": {},
+    "exists": false,
+    "fingerprint": "7fc7564777b407322c18f0bf012b2a3d134e3450b256f930ebd174127795d6db"
+  }
+}

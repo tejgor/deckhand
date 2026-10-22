@@ -1,0 +1,8 @@
+{
+  "fn": "loadState",
+  "args": [
+    "$ROOT"
+  ],
+  "async": true,
+  "throws": "Cannot read properties of null (reading 'sessions')"
+}

@@ -1,0 +1,233 @@
+{"args":[" ."],"ret":{"suggestion":"skip","reason":""}}
+{"args":[" ./\t中‍0-b"],"ret":{"suggestion":"skip","reason":""}}
+{"args":[" /"],"ret":{"suggestion":"skip","reason":""}}
+{"args":[" ééa /_"],"ret":{"suggestion":"skip","reason":""}}
+{"args":[""],"ret":{"suggestion":"skip","reason":""}}
+{"args":["./é__é_. "],"ret":{"suggestion":"skip","reason":""}}
+{"args":[".DS_Store"],"ret":{"suggestion":"skip","reason":"OS clutter"}}
+{"args":[".DS_Store/.env.x/toString/.next"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".DS_Store/.pytest_cache"],"ret":{"suggestion":"skip","reason":"OS clutter"}}
+{"args":[".DS_Store/.pytest_cache/.cache"],"ret":{"suggestion":"skip","reason":"OS clutter"}}
+{"args":[".DS_Store/dist"],"ret":{"suggestion":"skip","reason":"OS clutter"}}
+{"args":[".DS_Store/node_modules/.next"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".DS_Store/src/x.log"],"ret":{"suggestion":"skip","reason":"OS clutter"}}
+{"args":[".DS_Store/vendor/venv/.venv"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".cache"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":[".cache/.DS_Store/"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":[".cache/.pytest_cache/__pycache__"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":[".env"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env."],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env.local"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env.x"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env.x/.DS_Store"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env.x/.env//node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".env.x/.pytest_cache/.pytest_cache"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env.x/a.env/.next/node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".env/.env.x"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env/.next"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env/.vercel/__pycache__/__pycache__"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".env/__pycache__"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env/dist"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env/out/a.env/build"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env/toString"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".env/x.log/coverage/.next"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".envrc"],"ret":{"suggestion":"skip","reason":""}}
+{"args":[".log"],"ret":{"suggestion":"skip","reason":"log"}}
+{"args":[".next"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".next/.env.x/.vercel"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".next/__pycache__/x.log"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".next/build//.turbo"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".next/cache"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".next/coverage/build"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".next/x.log"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".next/😀"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".next/😀/build"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".pytest_cache"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":[".pytest_cache/.cache"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":[".pytest_cache/.env.x/.env"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":[".pytest_cache/build"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":[".turbo"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".turbo/dist"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".turbo/node_modules/build/__pycache__"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".turbo/toString/out/"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":[".venv"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".venv/.DS_Store/.venv"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".venv/.cache"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".venv/.next/.vercel"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".venv/中/src/node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".venv/😀"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".venv/😀/__pycache__"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel//.vercel/.pytest_cache"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel/build"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel/dist"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel/node_modules/😀"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel/output"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel/src"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel/src/.pytest_cache"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel/src/node_modules/venv"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel/venv"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":[".vercel/x.log/src"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["/"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["/.DS_Store/.cache/dist"],"ret":{"suggestion":"skip","reason":"OS clutter"}}
+{"args":["/.env"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["/.pytest_cache"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":["/0.éé‍ b"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["/Z../"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["/_"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["/dist/.env.x/.pytest_cache"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["/éßéaé0\nba"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["/node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["/src/.venv/.cache"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["0 \n abé"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["0/-éa0/a‍"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["00a_ _ß‍Z中"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["0\t\n中éZ\t‍\t😀"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["0b中ZZ中‍"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["Dist"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["NODE_MODULES"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["README.md"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["Z\nß"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["Z_/é\n"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["Za"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["ZbZ\nß.ß"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["Z中中é"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["\n"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["\n\t0\n_a‍"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["_"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["_\téb"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["__proto__"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["__pycache__"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":["__pycache__/x.log"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":["__pycache__/x.pyc"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":["_‍😀"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["_😀😀/./Zb"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["a 😀-中_"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["a.env"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.env/.cache"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.env/.env.x"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.env/.env.x/中/node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["a.env/.pytest_cache"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.env//.env/"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.env/b"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.env/out/.cache"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.env/out/toString"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.env/x.log/.next"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.env/中"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a.log.txt"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["a/"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["a/.DS_Store"],"ret":{"suggestion":"skip","reason":"OS clutter"}}
+{"args":["a/.env.production"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["a//b"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["a/b/"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["a/b/c.log"],"ret":{"suggestion":"skip","reason":"log"}}
+{"args":["a/node_modules/b"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["b--a.‍"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["bab"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["build"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["build.log"],"ret":{"suggestion":"skip","reason":"log"}}
+{"args":["build/dist/out"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["build/out"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["build/vendor"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["bß\t"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["constructor"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["coverage"],"ret":{"suggestion":"skip","reason":"coverage"}}
+{"args":["coverage.log"],"ret":{"suggestion":"skip","reason":"log"}}
+{"args":["coverage/lcov"],"ret":{"suggestion":"skip","reason":"coverage"}}
+{"args":["coverage/vendor/.env.x"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["debug.log"],"ret":{"suggestion":"skip","reason":"log"}}
+{"args":["dist"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["dist/.env"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["dist/.env/x.log/"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["dist/dist/.DS_Store"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["dist/node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["dist/中"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["env"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["é -_‍_\t"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["é-😀-ba/"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["é/"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["ééa"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["hasOwnProperty"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["log"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["logs"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["node_modules/.env.x/venv"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["node_modules/dist"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["node_modules/toString/vendor"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["node_modules/venv"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["node_modules/中/.env"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["out"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["out/.env"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["out/.env.x/.next/node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["out//.env.x/中"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["out/node_modules/node_modules/vendor"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["packages/x/node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["prod.env"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["src"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["src/.env.x/a.env"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["src/coverage"],"ret":{"suggestion":"skip","reason":"coverage"}}
+{"args":["src/main.rs"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["src/out"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["toString"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["toString/.cache"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":["toString/.pytest_cache/build/.env.x"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["toString/toString/out"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["toString/venv/venv/a.env"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["toString/😀/😀/__pycache__"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":["vendor"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["vendor/"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["vendor/.cache/node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["vendor/.turbo/.cache"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["vendor/.vercel/.vercel/.next"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["vendor/coverage"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["vendor/😀/.venv"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["venv"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["venv/.pytest_cache"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["venv/.pytest_cache/toString"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["venv/build/__pycache__"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["venv/coverage"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["venv/lib"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["venv/src/😀"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["venv/中/__pycache__/.DS_Store"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["x.environment"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["x.log"],"ret":{"suggestion":"skip","reason":"log"}}
+{"args":["x.log/.vercel/src"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["x.log/__pycache__"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":["x.log/a.env/.next"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["x.log/src"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["x.log/y"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["ß"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["ß-"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["ß/ ."],"ret":{"suggestion":"skip","reason":""}}
+{"args":["ßé.-0"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["é.\n .中"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["é.env"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["é//bééa\t.é"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["é\n"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["éé"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["‍"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["‍é中\t\t-ß"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["中"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["中/.next"],"ret":{"suggestion":"skip","reason":"build cache"}}
+{"args":["中/__pycache__"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":["中/dist/.pytest_cache/.DS_Store"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["中/vendor"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["中/venv/out"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["中/x.log/coverage/.env.x"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["中/中/x.log"],"ret":{"suggestion":"skip","reason":"log"}}
+{"args":["中/😀/.env.x/build"],"ret":{"suggestion":"link","reason":"env file"}}
+{"args":["中ß"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["中文/node_modules"],"ret":{"suggestion":"link","reason":"dependencies"}}
+{"args":["日本.log"],"ret":{"suggestion":"skip","reason":"log"}}
+{"args":["😀"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["😀-"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["😀/.DS_Store/build"],"ret":{"suggestion":"skip","reason":"OS clutter"}}
+{"args":["😀/.cache"],"ret":{"suggestion":"skip","reason":"cache"}}
+{"args":["😀//"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["😀/_"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["😀/dist"],"ret":{"suggestion":"skip","reason":"build output"}}
+{"args":["😀/src"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["😀/src/.DS_Store"],"ret":{"suggestion":"skip","reason":"OS clutter"}}
+{"args":["😀/toString"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["😀ß/é_\n/Z_"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["😀😀é\né😀._😀-"],"ret":{"suggestion":"skip","reason":""}}
+{"args":["ＤＩＳＴ"],"ret":{"suggestion":"skip","reason":""}}

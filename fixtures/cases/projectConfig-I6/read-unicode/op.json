@@ -1,0 +1,17 @@
+{
+  "fn": "readBoundedUtf8",
+  "args": [
+    "$ROOT/a.json",
+    {
+      "max": 1024
+    }
+  ],
+  "async": true,
+  "ret": {
+    "bytes": {
+      "$bytes": "eyLlkI3liY0iOiLml6XmnKzoqp4g8J+YgCDDqSBlzIEg8J+RqOKAjfCfkakifQo="
+    },
+    "text": "{\"名前\":\"日本語 😀 é é 👨‍👩\"}\n",
+    "mode": 420
+  }
+}

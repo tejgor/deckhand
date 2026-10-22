@@ -1,0 +1,19 @@
+{
+  "fn": "NotesStore.remove",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "repo",
+      "id": "a/b c"
+    },
+    "br"
+  ],
+  "async": true,
+  "ret": {
+    "get": {
+      "text": "",
+      "revision": "e3b0c44298fc1c14"
+    },
+    "entries": []
+  }
+}

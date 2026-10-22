@@ -1,0 +1,26 @@
+{
+  "fn": "NotesStore.modify",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "tasks",
+      "id": "repo1"
+    },
+    {
+      "$fn": "identity"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "result": "same",
+    "note": {
+      "text": "keep\n",
+      "revision": "f660a7996deacfbc"
+    },
+    "changed": true,
+    "get": {
+      "text": "keep\n",
+      "revision": "f660a7996deacfbc"
+    }
+  }
+}

@@ -1,0 +1,367 @@
+{"args":[{"$u":1},"actions","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"actions","x.y"],"ret":{"$u":1}}
+{"args":[{"$u":1},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"agentHooks","x.y"],"ret":{"$u":1}}
+{"args":[{"$u":1},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"defaultAgent","x.y"],"ret":{"$u":1}}
+{"args":[{"$u":1},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"defaultWorkspace","x.y"],"ret":{"$u":1}}
+{"args":[{"$u":1},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"devCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"$u":1},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{"$u":1},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"$u":1},"worktree.branchFrom","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{"$u":1},"worktree.branchName","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"$u":1},"worktree.links","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"$u":1},"worktree.location","a"],"ret":{"$u":1}}
+{"args":[{"$u":1},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"actions","a"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"actions"],"ret":"str"}
+{"args":[{"actions":"str"},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"devCommand"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"notifications"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"worktree.branchName","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"worktree.links","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"worktree.location","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":"str"},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"actions","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"actions"],"ret":[]}
+{"args":[{"actions":[]},"agentHooks","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"defaultAgent","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"defaultWorkspace","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"devCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"worktree.branchFrom","a"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"worktree.branchName","a"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"worktree.branchName","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"worktree.links","a"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"worktree.location","a"],"ret":{"$u":1}}
+{"args":[{"actions":[]},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"actions","a"],"ret":"b"}
+{"args":[{"actions":{"a":"b"}},"actions"],"ret":{"a":"b"}}
+{"args":[{"actions":{"a":"b"}},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"devCommand"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"notifications"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"worktree.branchName","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"worktree.links","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"worktree.location","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"a":"b"}},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"actions":{"test":"global test"}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"actions":{"test":"global test"}},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"actions":{"test":"global test"}},"devCommand"],"ret":{"$u":1}}
+{"args":[{"actions":{"test":"global test"}},"notifications"],"ret":{"$u":1}}
+{"args":[{"actions":{"test":"global test"}},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"actions":{"test":"global test"}},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"actions","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"actions","x.y"],"ret":1}
+{"args":[{"actions":{"x.y":1}},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"agentHooks","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"defaultAgent","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"defaultWorkspace","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"devCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"worktree.branchFrom","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"worktree.branchName","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"worktree.links","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"worktree.location","a"],"ret":{"$u":1}}
+{"args":[{"actions":{"x.y":1}},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"actions"],"ret":{"test":"yarn test","build":"yarn build"}}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"defaultAgent"],"ret":"codex"}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"defaultWorkspace"],"ret":"existing"}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"notifications"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"setupCommand"],"ret":"yarn"}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"worktree.branchName"],"ret":"{user}/{name}"}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"existing","devCommand":"yarn dev","setupCommand":"yarn","actions":{"test":"yarn test","build":"yarn build"},"worktree":{"location":"{repoParent}/wt/{name}","branchName":"{user}/{name}","branchFrom":"default","hook":false,"files":{"a.cfg":"/x/a.cfg"}}},"worktree.location"],"ret":"{repoParent}/wt/{name}"}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"defaultAgent"],"ret":"codex"}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"devCommand"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"notifications"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"worktree.branchFrom"],"ret":"default"}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"worktree.branchName"],"ret":"{user}/{name}"}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"worktree.links"],"ret":["node_modules","shared"]}
+{"args":[{"defaultAgent":"codex","defaultWorkspace":"new","setupCommand":"npm ci","actions":{"test":"npm t","lint frontend":"eslint .","db.migrate":"make m"},"worktree":{"branchFrom":"default","branchName":"{user}/{name}","symlink":["node_modules","shared"],"hook":false}},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"defaultAgent"],"ret":"pi"}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"devCommand"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"notifications"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"worktree.branchFrom"],"ret":"origin"}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"worktree.links"],"ret":["shared"]}
+{"args":[{"defaultAgent":"pi","worktree":{"symlink":["shared"],"branchFrom":"origin"}},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"actions","x.y"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"agentHooks","x.y"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"defaultAgent","a"],"ret":null}
+{"args":[{"defaultAgent":null},"defaultAgent","x.y"],"ret":null}
+{"args":[{"defaultAgent":null},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"defaultWorkspace","x.y"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"devCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"worktree.branchFrom","a"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"worktree.branchName","a"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"worktree.branchName","x.y"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"worktree.links","a"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"worktree.location","a"],"ret":{"$u":1}}
+{"args":[{"defaultAgent":null},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"devCommand":"make dev"},"actions"],"ret":{"$u":1}}
+{"args":[{"devCommand":"make dev"},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"devCommand":"make dev"},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"devCommand":"make dev"},"notifications"],"ret":{"$u":1}}
+{"args":[{"devCommand":"make dev"},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"devCommand":"make dev"},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"devCommand":"make dev"},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"actions"],"ret":{"test":"npm test"}}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"notifications"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev","actions":{"test":"npm test"},"worktree":{"location":"{repoParent}/worktrees/{name}","files":{"backend/.env":"{repoParent}/b.env"}}},"worktree.location"],"ret":"{repoParent}/worktrees/{name}"}
+{"args":[{"devCommand":"npm run dev"},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev"},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev"},"devCommand"],"ret":"npm run dev"}
+{"args":[{"devCommand":"npm run dev"},"notifications"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev"},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev"},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev"},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"devCommand":"npm run dev"},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"actions","x.y"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"actions"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"agentHooks","x.y"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"defaultAgent","x.y"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"defaultWorkspace","x.y"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"devCommand","a"],"ret":"x"}
+{"args":[{"devCommand":"x"},"devCommand","x.y"],"ret":"x"}
+{"args":[{"devCommand":"x"},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"worktree.branchFrom","a"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"worktree.branchName","a"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"worktree.branchName","x.y"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"worktree.links","a"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"worktree.location","a"],"ret":{"$u":1}}
+{"args":[{"devCommand":"x"},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"actions","a"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"actions"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"devCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"notifications"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"worktree.branchName","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"worktree.links","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"worktree.location","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":"str"},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"actions","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"actions"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"agentHooks","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"defaultAgent","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"defaultWorkspace","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"devCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"worktree.branchFrom","a"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"worktree.branchName","a"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"worktree.branchName","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"worktree.links","a"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"worktree.links","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"worktree.location","a"],"ret":{"$u":1}}
+{"args":[{"worktree":null},"worktree.location","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"actions","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"actions"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"devCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"notifications"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchFrom","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchName","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.links","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.location","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"files":{"a":"b"}}},"worktree.location"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"devCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"notifications"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/custom/{name}","hook":true}},"worktree.location"],"ret":"/custom/{name}"}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"devCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"/home/me/x/{name}"}},"worktree.links"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"actions"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"devCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"worktree.branchFrom"],"ret":"origin"}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","branchFrom":"origin","symlink":["a","b"]}},"worktree.links"],"ret":["a","b"]}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"actions"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"notifications"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"{repoRoot}/.worktrees/{name}","symlink":["node_modules"]}},"worktree.location"],"ret":"{repoRoot}/.worktrees/{name}"}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"actions"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"notifications"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"worktree":{"location":"~/wt/{name}"}},"worktree.location"],"ret":"~/wt/{name}"}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"actions","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"actions"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"agentHooks"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"defaultAgent","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"defaultWorkspace","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"devCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"devCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"notifications"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"setupCommand"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchName","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.links","x.y"],"ret":"str"}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.location","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":"str","files":[]}},"worktree.location","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"actions","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"actions","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"agentHooks","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"defaultAgent","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"defaultWorkspace","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"devCommand","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"devCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"notifications","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"setupCommand","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.branchFrom","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.branchName","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.links","a"],"ret":["a"]}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.links"],"ret":["a"]}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.location","a"],"ret":{"$u":1}}
+{"args":[{"worktree":{"symlink":["a"]}},"worktree.location"],"ret":{"$u":1}}
+{"args":[{},"actions","a"],"ret":{"$u":1}}
+{"args":[{},"actions"],"ret":{"$u":1}}
+{"args":[{},"agentHooks","a"],"ret":{"$u":1}}
+{"args":[{},"agentHooks"],"ret":{"$u":1}}
+{"args":[{},"defaultAgent","a"],"ret":{"$u":1}}
+{"args":[{},"defaultAgent"],"ret":{"$u":1}}
+{"args":[{},"defaultWorkspace","a"],"ret":{"$u":1}}
+{"args":[{},"defaultWorkspace"],"ret":{"$u":1}}
+{"args":[{},"devCommand","x.y"],"ret":{"$u":1}}
+{"args":[{},"devCommand"],"ret":{"$u":1}}
+{"args":[{},"notifications","x.y"],"ret":{"$u":1}}
+{"args":[{},"notifications"],"ret":{"$u":1}}
+{"args":[{},"setupCommand","x.y"],"ret":{"$u":1}}
+{"args":[{},"setupCommand"],"ret":{"$u":1}}
+{"args":[{},"worktree.branchFrom","x.y"],"ret":{"$u":1}}
+{"args":[{},"worktree.branchFrom"],"ret":{"$u":1}}
+{"args":[{},"worktree.branchName","x.y"],"ret":{"$u":1}}
+{"args":[{},"worktree.branchName"],"ret":{"$u":1}}
+{"args":[{},"worktree.links","x.y"],"ret":{"$u":1}}
+{"args":[{},"worktree.links"],"ret":{"$u":1}}
+{"args":[{},"worktree.location","x.y"],"ret":{"$u":1}}

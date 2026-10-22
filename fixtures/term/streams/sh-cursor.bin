@@ -1,0 +1,38 @@
+[?1034h$ printf '\033[2J\033[H0123456789\033[3;5Habc\033[2Aup\033[3 Bdown\033[4Cright\033[2Dleft\033[20Gcol20\033[8dvpa8\n'
+[2J[H0123456789[3;5Habc[2Aup[3Bdown[4Cright[2Dleft[20Gcol20[8dvpa8
+$ printf 'erase-me-to-the-end\033[9D\033[K|\nerase-the-start \033[6D\033[1K|\nwhole-line\033[2K|\n'
+erase-me-to-the-end[9D[K|
+erase-the-start[6D[1K|
+whole-line[2K|
+$ printf '\033[5;1Hfill\033[5;3H\033[J'; printf '\033[2;10H\ 033[1J\n'
+[5;1Hfill[5;3H[J[2;10H[1J
+$ printf '\033[2J\033[H'; i=1; while [ $i -le 14 ]; do print f 'row %s\n' $i; i=$((i+1)); done; printf '\033[3;8r\033[8;1 H'; i=1; while [ $i -le 4 ]; do printf '\nregion %s' $i; i=$ ((i+1)); done; printf '\033[3;1H\033M\033Mrev\033[r\033[15;1 H'
+[2J[Hrow 1
+row 2
+row 3
+row 4
+row 5
+row 6
+row 7
+row 8
+row 9
+row 10
+row 11
+row 12
+row 13
+row 14
+[3;8r[8;1H
+region 1
+region 2
+region 3
+region 4[3;1HMMrev[r[15;1H$ printf 'a\tb\tc\td\te\tf\tg\th\n12345678\t9\n\033[3g\033[5 G\033H\033[1Gx\ty\ty\n\033[3g'
+a	b	c	d	e	f	g	h
+12345678	9
+[3g[5GH[1Gx	y	y
+[3g$ printf 'abcdefgh\033[3D\033[2@++\033[2P\033[3X\n\0337\033[ 1;1HSAVED\0338restored \033[s\033[2;1Hcsi-saved\033[urestore d-csi\n'
+abcdefgh[3D[2@++[2P[3X
+7[1;1HSAVED8restored [s[2;1Hcsi-saved[urestored-csi
+$ printf '\033[2;1H\033[3L\033[6;1H\033[2M'
+[2;1H[3L[6;1H[2M$ clear
+[3J[H[2J$ exit
+exit

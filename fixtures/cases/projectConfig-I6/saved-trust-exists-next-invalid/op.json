@@ -1,0 +1,28 @@
+{
+  "fn": "savedProjectTrust",
+  "args": [
+    {
+      "root": "$ROOT/main",
+      "mainRoot": "$ROOT/main",
+      "trustRoot": "/trust/root 日本語 😀"
+    },
+    {
+      "raw": "{\n  \"defaultAgent\": \"claude\"\n}\n",
+      "exists": true
+    },
+    "{\"defaultAgent\":\"x\"}",
+    {
+      "trustedProjects": {
+        "/trust/root 日本語 😀": [
+          "31fb1cf81e152c1062ce1bfbe2af1be68fa275374e16aff584bd1110d713ff1e",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        "/other/root": [
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ]
+      }
+    }
+  ],
+  "async": true,
+  "throws": "Invalid defaultAgent"
+}

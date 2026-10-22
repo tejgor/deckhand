@@ -1,0 +1,30 @@
+{
+  "dev_command": "npm run dev:legacy",
+  "attach_scroll_sensitivity": 3,
+  "trustedProjects": {
+    "/tmp/deckhand-fixture/repos/app": "ec7fb0e9b35fba3595ead60dcbbbad937f359ea4d8b66bd856433987be1f62c6",
+    "/tmp/deckhand-fixture/repos/lib": [
+      "7fc7564777b407322c18f0bf012b2a3d134e3450b256f930ebd174127795d6db",
+      42,
+      "0000000000000000000000000000000000000000000000000000000000000000"
+    ],
+    "/tmp/deckhand-fixture/repos/gone": []
+  },
+  "agent_hooks": true,
+  "notifications": true,
+  "defaults": {
+    "defaultWorkspace": "new",
+    "actions": {
+      "test": "npm test"
+    },
+    "worktree": {
+      "branchFrom": "default",
+      "symlink": [
+        ".env.local"
+      ]
+    }
+  },
+  "futureConfigKey": {
+    "kept": "config.json is only rewritten key by key (updateAppConfig)"
+  }
+}

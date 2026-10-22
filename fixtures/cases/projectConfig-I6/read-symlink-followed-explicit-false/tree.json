@@ -1,0 +1,28 @@
+{
+  "before": [
+    {
+      "path": "a.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "real.json"
+    },
+    {
+      "path": "real.json",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "a.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "real.json"
+    },
+    {
+      "path": "real.json",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

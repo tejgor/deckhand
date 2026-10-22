@@ -1,0 +1,651 @@
+{"args":["      ",8],"ret":[""]}
+{"args":["    ",3],"ret":[""]}
+{"args":["    /longerword\tZlongerword -",2],"ret":["/l","on","ge","rw","or","d","Zl","on","ge","rw","or","d","-"]}
+{"args":["    /longerword\tZzlogerword -",2],"ret":["/l","on","ge","rw","or","d","Zz","lo","ge","rw","or","d","-"]}
+{"args":["    /longerword\tZzlongerword -",0],"ret":["/","l","o","n","g","e","r","w","o","r","d","Z","z","l","o","n","g","e","r","w","o","r","d","-"]}
+{"args":["    /longerword\tZzlongerword -",1],"ret":["/","l","o","n","g","e","r","w","o","r","d","Z","z","l","o","n","g","e","r","w","o","r","d","-"]}
+{"args":["    /longerword\tZzlongerword -",2],"ret":["/l","on","ge","rw","or","d","Zz","lo","ng","er","wo","rd","-"]}
+{"args":["    longerwordaa ",-1],"ret":["l","o","n","g","e","r","w","o","r","d","a","a"]}
+{"args":["    longerwordaa ",0],"ret":["l","o","n","g","e","r","w","o","r","d","a","a"]}
+{"args":["    longerwordaa ",14],"ret":["longerwordaa"]}
+{"args":["    longerwordaa ",15],"ret":["longerwordaa"]}
+{"args":["   ",-1],"ret":[""]}
+{"args":["   ",-2],"ret":[""]}
+{"args":["   ",0],"ret":[""]}
+{"args":["   ",10],"ret":[""]}
+{"args":["   ",11],"ret":[""]}
+{"args":["   ",1],"ret":[""]}
+{"args":["   ",20],"ret":[""]}
+{"args":["   ",2],"ret":[""]}
+{"args":["   ",3],"ret":[""]}
+{"args":["   ",4],"ret":[""]}
+{"args":["   ",5],"ret":[""]}
+{"args":["   ",7],"ret":[""]}
+{"args":["   ",80],"ret":[""]}
+{"args":["   ",8],"ret":[""]}
+{"args":["    . é\n- ",5],"ret":[". é -"]}
+{"args":["     é- ",5],"ret":["é-"]}
+{"args":["     é\n- ",15],"ret":["é -"]}
+{"args":["     é\n- ",16],"ret":["é -"]}
+{"args":["     é\n- ",32],"ret":["é -"]}
+{"args":["     é\n- ",5],"ret":["é -"]}
+{"args":["  ",-2],"ret":[""]}
+{"args":["  ",0],"ret":[""]}
+{"args":["  ",23],"ret":[""]}
+{"args":["  ",24],"ret":[""]}
+{"args":["  ",3],"ret":[""]}
+{"args":["  ",4],"ret":[""]}
+{"args":["  - /  - /",25],"ret":["- / - /"]}
+{"args":["  - /  - /",3],"ret":["- /","- /"]}
+{"args":["  - /",25],"ret":["- /"]}
+{"args":["  - /",3],"ret":["- /"]}
+{"args":["  -é /",3],"ret":["-é","/"]}
+{"args":["  -😀中\t😀",10],"ret":["-😀中 😀"]}
+{"args":["  -😀中\t😀",15],"ret":["-😀中 😀"]}
+{"args":["  -😀中\t😀",16],"ret":["-😀中 😀"]}
+{"args":["  -😀中\t😀",5],"ret":["-😀中","😀"]}
+{"args":["  \n  -  \t  \n  -  \t",16],"ret":["- -"]}
+{"args":["  \n  -  \t",16],"ret":["-"]}
+{"args":["  \n  -  \t",4],"ret":["-"]}
+{"args":["  \n  -  \t",5],"ret":["-"]}
+{"args":["  \n  -  \t",6],"ret":["-"]}
+{"args":["  \n  -  \t中",16],"ret":["- 中"]}
+{"args":["  \n aaZzé",22],"ret":["aaZzé"]}
+{"args":["  a b ",25],"ret":["a b"]}
+{"args":["  a😀blongerword-ZzZzé\n",20],"ret":["a😀blongerword-ZzZzé"]}
+{"args":["  a😀blongerword-ZzZzé\n",4],"ret":["a😀b","long","erwo","rd-Z","zZzé"]}
+{"args":["  a😀blongerword-ZzZzé\n",8],"ret":["a😀blong","erword-Z","zZzé"]}
+{"args":["  a😀blongerword-Z中zZzé\n",20],"ret":["a😀blongerword-Z中zZz","é"]}
+{"args":["  b",24],"ret":["b"]}
+{"args":["  b",4],"ret":["b"]}
+{"args":["  b",5],"ret":["b"]}
+{"args":["  b longerword",4],"ret":["b","long","erwo","rd"]}
+{"args":["  b longerword",5],"ret":["b","longe","rword"]}
+{"args":["  b longerword",6],"ret":["b","longer","word"]}
+{"args":["  b longerword",8],"ret":["b","longerwo","rd"]}
+{"args":["  leading and railing  ",8],"ret":["leading","and","railing"]}
+{"args":["  leading and trailing    leading and trailing  ",20],"ret":["leading and trailing","leading and trailing"]}
+{"args":["  leading and trailing    leading and trailing  ",2],"ret":["le","ad","in","g","an","d","tr","ai","li","ng","le","ad","in","g","an","d","tr","ai","li","ng"]}
+{"args":["  leading and trailing  ",-1],"ret":["l","e","a","d","i","n","g","a","n","d","t","r","a","i","l","i","n","g"]}
+{"args":["  leading and trailing  ",-2],"ret":["l","e","a","d","i","n","g","a","n","d","t","r","a","i","l","i","n","g"]}
+{"args":["  leading and trailing  ",-3],"ret":["l","e","a","d","i","n","g","a","n","d","t","r","a","i","l","i","n","g"]}
+{"args":["  leading and trailing  ",0],"ret":["l","e","a","d","i","n","g","a","n","d","t","r","a","i","l","i","n","g"]}
+{"args":["  leading and trailing  ",10],"ret":["leading","and","trailing"]}
+{"args":["  leading and trailing  ",11],"ret":["leading and","trailing"]}
+{"args":["  leading and trailing  ",160],"ret":["leading and trailing"]}
+{"args":["  leading and trailing  ",1],"ret":["l","e","a","d","i","n","g","a","n","d","t","r","a","i","l","i","n","g"]}
+{"args":["  leading and trailing  ",20],"ret":["leading and trailing"]}
+{"args":["  leading and trailing  ",2],"ret":["le","ad","in","g","an","d","tr","ai","li","ng"]}
+{"args":["  leading and trailing  ",3],"ret":["lea","din","g","and","tra","ili","ng"]}
+{"args":["  leading and trailing  ",4],"ret":["lead","ing","and","trai","ling"]}
+{"args":["  leading and trailing  ",5],"ret":["leadi","ng","and","trail","ing"]}
+{"args":["  leading and trailing  ",7],"ret":["leading","and","trailin","g"]}
+{"args":["  leading and trailing  ",80],"ret":["leading and trailing"]}
+{"args":["  leading and trailing  ",8],"ret":["leading","and","trailing"]}
+{"args":["  leading\n and trailing  ",20],"ret":["leading and trailing"]}
+{"args":["  leadingand trailing  ",10],"ret":["leadingand","trailing"]}
+{"args":["  lo\tngerword😀 \t",4],"ret":["lo","nger","word","😀"]}
+{"args":["  longerword😀 \t",3],"ret":["lon","ger","wor","d😀"]}
+{"args":["  longerword😀 \t",4],"ret":["long","erwo","rd😀"]}
+{"args":["  word  😀  longerword  word  😀  longerword",3],"ret":["wor","d","😀","lon","ger","wor","d","wor","d","😀","lon","ger","wor","d"]}
+{"args":["  word  😀  longerword",24],"ret":["word 😀 longerword"]}
+{"args":["  word  😀  longerword",3],"ret":["wor","d","😀","lon","ger","wor","d"]}
+{"args":["  word  😀  longerword",48],"ret":["word 😀 longerword"]}
+{"args":["  word  😀  longerword",6],"ret":["word","😀","longer","word"]}
+{"args":["  wordéword中  ",4],"ret":["word","éwor","d中"]}
+{"args":["  wordéword中  ",5],"ret":["wordé","word中"]}
+{"args":["  wordéword中  ",6],"ret":["wordéw","ord中"]}
+{"args":["    wordZz a",0],"ret":["w","o","r","d","Z","z","a"]}
+{"args":["    wordZz a",1],"ret":["w","o","r","d","Z","z","a"]}
+{"args":["    wordZz a",25],"ret":["wordZz a"]}
+{"args":["    wordZz a",2],"ret":["wo","rd","Zz","a"]}
+{"args":["    wordZz a",50],"ret":["wordZz a"]}
+{"args":["   aaZz",14],"ret":["aaZz"]}
+{"args":["   aaZzé   aaZzé",14],"ret":["aaZzé aaZzé"]}
+{"args":["   aaZzé   aaZzé",22],"ret":["aaZzé aaZzé"]}
+{"args":["   aaZzé",14],"ret":["aaZzé"]}
+{"args":["   aaZzé",22],"ret":["aaZzé"]}
+{"args":["  é",0],"ret":["é"]}
+{"args":["  é",23],"ret":["é"]}
+{"args":["  é",24],"ret":["é"]}
+{"args":["  é",25],"ret":["é"]}
+{"args":["  é",4],"ret":["é"]}
+{"args":["  éZz- alongerword     éZz- alongerword   ",9],"ret":["éZz-","alongerwo","rd éZz-","alongerwo","rd"]}
+{"args":["  éZz- alongerword   ",4],"ret":["éZz-","alon","gerw","ord"]}
+{"args":["  éZz- alongerword   ",5],"ret":["éZz-","along","erwor","d"]}
+{"args":["  éZz- alongerword   ",8],"ret":["éZz-","alongerw","ord"]}
+{"args":["  éZz- alongerword   ",9],"ret":["éZz-","alongerwo","rd"]}
+{"args":["  éa",0],"ret":["é","a"]}
+{"args":["  éa",25],"ret":["éa"]}
+{"args":["  éa",26],"ret":["éa"]}
+{"args":["  éa",3],"ret":["éa"]}
+{"args":["  é  éélongerwordZz ",0],"ret":["é","é","é","l","o","n","g","e","r","w","o","r","d","Z","z"]}
+{"args":["  é  éélongerwordZz ",20],"ret":["é éélongerwordZz"]}
+{"args":["  é  éélongerwordZz ",21],"ret":["é éélongerwordZz"]}
+{"args":["  é  éélongerwordZz ",22],"ret":["é éélongerwordZz"]}
+{"args":["  é  éélongerwßordZz ",20],"ret":["é éélongerwßordZz"]}
+{"args":["  é‍",4],"ret":["é‍"]}
+{"args":["   ",0],"ret":[""]}
+{"args":["   ",24],"ret":[""]}
+{"args":["   ",25],"ret":[""]}
+{"args":["   ",4],"ret":[""]}
+{"args":["   b ",25],"ret":["b"]}
+{"args":["   b ",2],"ret":["b"]}
+{"args":["   b ",3],"ret":["b"]}
+{"args":["   b ",50],"ret":["b"]}
+{"args":["   b ",6],"ret":["b"]}
+{"args":["  😀- /",25],"ret":["😀- /"]}
+{"args":["  😀leading and trailing  ",2],"ret":["😀","le","ad","in","g","an","d","tr","ai","li","ng"]}
+{"args":[" ",-1],"ret":[""]}
+{"args":[" ",-2],"ret":[""]}
+{"args":[" ",0],"ret":[""]}
+{"args":[" ",10],"ret":[""]}
+{"args":[" ",160],"ret":[""]}
+{"args":[" ",19],"ret":[""]}
+{"args":[" ",1],"ret":[""]}
+{"args":[" ",20],"ret":[""]}
+{"args":[" ",21],"ret":[""]}
+{"args":[" ",2],"ret":[""]}
+{"args":[" ",3],"ret":[""]}
+{"args":[" ",4],"ret":[""]}
+{"args":[" ",5],"ret":[""]}
+{"args":[" ",6],"ret":[""]}
+{"args":[" ",79],"ret":[""]}
+{"args":[" ",80],"ret":[""]}
+{"args":[" ",8],"ret":[""]}
+{"args":[" ",9],"ret":[""]}
+{"args":[" / /",3],"ret":["/ /"]}
+{"args":[" /",0],"ret":["/"]}
+{"args":[" /",24],"ret":["/"]}
+{"args":[" /",3],"ret":["/"]}
+{"args":[" /word\na中 a",13],"ret":["/word a中 a"]}
+{"args":[" /worda中 a",0],"ret":["/","w","o","r","d","a","中","a"]}
+{"args":[" /worda中 a",13],"ret":["/worda中 a"]}
+{"args":[" /worda中 a",22],"ret":["/worda中 a"]}
+{"args":[" /worda中 a",23],"ret":["/worda中 a"]}
+{"args":[" /中/😀  ",14],"ret":["/中/😀"]}
+{"args":[" /中/😀  ",22],"ret":["/中/😀"]}
+{"args":[" /中/😀  é",14],"ret":["/中/😀 é"]}
+{"args":[" \n  ",-2],"ret":[""]}
+{"args":[" \nb   éword",1],"ret":["b","é","w","o","r","d"]}
+{"args":[" \nb   éword",2],"ret":["b","éw","or","d"]}
+{"args":[" \nb   éword",3],"ret":["b","éwo","rd"]}
+{"args":[" \nb   éword",4],"ret":["b","éwor","d"]}
+{"args":[" \t",10],"ret":[""]}
+{"args":[" \t😀-",25],"ret":["😀-"]}
+{"args":[" \t😀-",3],"ret":["😀-"]}
+{"args":[" a\n 中 \t  ",16],"ret":["a 中"]}
+{"args":[" a\n 中 \t  ",5],"ret":["a 中"]}
+{"args":[" a - \n",0],"ret":["a","-"]}
+{"args":[" a - \n",4],"ret":["a -"]}
+{"args":[" b",24],"ret":["b"]}
+{"args":[" b/中",25],"ret":["b/中"]}
+{"args":[" b/中",3],"ret":["b/中"]}
+{"args":[" b\t\n   \t- ",13],"ret":["b -"]}
+{"args":[" b\t\n   \t- ",22],"ret":["b -"]}
+{"args":[" b😀word",14],"ret":["b😀word"]}
+{"args":[" b😀word",22],"ret":["b😀word"]}
+{"args":[" longerword/中 /é\tlongerword ",22],"ret":["longerword/中 /é","longerword"]}
+{"args":[" longerword/中 /é\tlongerword ",2],"ret":["lo","ng","er","wo","rd","/中","/é","lo","ng","er","wo","rd"]}
+{"args":[" longerword😀 \t",3],"ret":["lon","ger","wor","d😀"]}
+{"args":[" wordbaé\n  ",2],"ret":["wo","rd","ba","é"]}
+{"args":[" wordbaé\n  ",3],"ret":["wor","dba","é"]}
+{"args":[" wordéword中  ",5],"ret":["wordé","word中"]}
+{"args":["  \n\t😀 Zz",16],"ret":["😀 Zz"]}
+{"args":["  \n\t😀 Zz",5],"ret":["😀 Zz"]}
+{"args":["   -longerword",4],"ret":["-lon","gerw","ord"]}
+{"args":["   -longerword",5],"ret":["-long","erwor","d"]}
+{"args":[" é   -élongerword",0],"ret":["é","-","é","l","o","n","g","e","r","w","o","r","d"]}
+{"args":[" é   -élongerword",14],"ret":["é -élongerword"]}
+{"args":[" é",-2],"ret":["é"]}
+{"args":[" éZza😀 ",14],"ret":["éZza😀"]}
+{"args":[" éZza😀 ",22],"ret":["éZza😀"]}
+{"args":[" éword-a/ \n",2],"ret":["éw","or","d-","a/"]}
+{"args":[" éword-a/ \n",3],"ret":["éwo","rd-","a/"]}
+{"args":[" é 😀a\nb",14],"ret":["é 😀a b"]}
+{"args":[" é 😀a\nb",22],"ret":["é 😀a b"]}
+{"args":["  -- word",16],"ret":["-- word"]}
+{"args":["  -- word",5],"ret":["--","word"]}
+{"args":["  b😀",25],"ret":["b😀"]}
+{"args":["  b😀",3],"ret":["b😀"]}
+{"args":[" 中 longerword",0],"ret":["中","l","o","n","g","e","r","w","o","r","d"]}
+{"args":[" 中 longerword",24],"ret":["中 longerword"]}
+{"args":[" 中longerword 😀",25],"ret":["中longerword 😀"]}
+{"args":["",-2],"ret":[""]}
+{"args":["",0],"ret":[""]}
+{"args":["",10],"ret":[""]}
+{"args":["",14],"ret":[""]}
+{"args":["",16],"ret":[""]}
+{"args":["",1],"ret":[""]}
+{"args":["",20],"ret":[""]}
+{"args":["",22],"ret":[""]}
+{"args":["",24],"ret":[""]}
+{"args":["",25],"ret":[""]}
+{"args":["",2],"ret":[""]}
+{"args":["",3],"ret":[""]}
+{"args":["",4],"ret":[""]}
+{"args":["",5],"ret":[""]}
+{"args":["",6],"ret":[""]}
+{"args":["",80],"ret":[""]}
+{"args":["",8],"ret":[""]}
+{"args":["- ",8],"ret":["-"]}
+{"args":["-",0],"ret":["-"]}
+{"args":["-",6],"ret":["-"]}
+{"args":["--Zza",25],"ret":["--Zza"]}
+{"args":["--Zza",3],"ret":["--Z","za"]}
+{"args":["-- longerwordé中word  ",4],"ret":["--","long","erwo","rdé中","word"]}
+{"args":["-- longerwordé中word  ",9],"ret":["--","longerwor","dé中word"]}
+{"args":["-/é",24],"ret":["-/é"]}
+{"args":["-/é",4],"ret":["-/é"]}
+{"args":["-\nb \té  a中",13],"ret":["- b é a中"]}
+{"args":["-\nb \té  a中",22],"ret":["- b é a中"]}
+{"args":["-\t   longerwordlongerword",11],"ret":["-","longerwordl","ongerword"]}
+{"args":["-\t   longerwordlongerword",23],"ret":["- longerwordlongerword"]}
+{"args":["-\t",24],"ret":["-"]}
+{"args":["-\t",3],"ret":["-"]}
+{"args":["-\tZzéélongerwordZz ",2],"ret":["-","Zz","éé","lo","ng","er","wo","rd","Zz"]}
+{"args":["-\tZzéélongerwordZz ",9],"ret":["-","Zzéélonge","rwordZz"]}
+{"args":["-a😀b",25],"ret":["-a😀b"]}
+{"args":["-worda ",1],"ret":["-","w","o","r","d","a"]}
+{"args":["-worda ",22],"ret":["-worda"]}
+{"args":["- ",24],"ret":["-"]}
+{"args":["- ",3],"ret":["-"]}
+{"args":[".   ",20],"ret":["."]}
+{"args":["/    /    ",13],"ret":["/ /"]}
+{"args":["/    /    ",22],"ret":["/ /"]}
+{"args":["/  longerwordlongerwordb/wordwordlongerword  ",1],"ret":["/","l","o","n","g","e","r","w","o","r","d","l","o","n","g","e","r","w","o","r","d","b","/","w","o","r","d","w","o","r","d","l","o","n","g","e","r","w","o","r","d"]}
+{"args":["/  longerwordlongerwordb/wordwordlongerword  ",24],"ret":["/","longerwordlongerwordb/wo","rdwordlongerword"]}
+{"args":["/  longerword Zz",3],"ret":["/","lon","ger","wor","d","Zz"]}
+{"args":["/  longerword Zz",4],"ret":["/","long","erwo","rd","Zz"]}
+{"args":["/ ",24],"ret":["/"]}
+{"args":["/ ",3],"ret":["/"]}
+{"args":["/ \n  中wordéé ",0],"ret":["/","中","w","o","r","d","é","é"]}
+{"args":["/ \n  中wordéé ",24],"ret":["/ 中wordéé"]}
+{"args":["/  é   ",1],"ret":["/","é"]}
+{"args":["/  é   ",22],"ret":["/ é"]}
+{"args":["/ 中é  a😀 ",13],"ret":["/ 中é a😀"]}
+{"args":["/ 中é  a😀 ",22],"ret":["/ 中é a😀"]}
+{"args":["/",0],"ret":["/"]}
+{"args":["/",6],"ret":["/"]}
+{"args":["/-longerword/ ",4],"ret":["/-lo","nger","word","/"]}
+{"args":["/-longerword/ ",5],"ret":["/-lon","gerwo","rd/"]}
+{"args":["/\t  /  Zzé",13],"ret":["/ / Zzé"]}
+{"args":["/\t  /  Zzé",22],"ret":["/ / Zzé"]}
+{"args":["/\t /😀a ",14],"ret":["/ /😀a"]}
+{"args":["/\t /😀a ",22],"ret":["/ /😀a"]}
+{"args":["/aword\n\t longerwordb",20],"ret":["/aword longerwordb"]}
+{"args":["/aword\n\t longerwordb",21],"ret":["/aword longerwordb"]}
+{"args":["/b \n",25],"ret":["/b"]}
+{"args":["/b \n",3],"ret":["/b"]}
+{"args":["/longerwordba 😀😀",25],"ret":["/longerwordba 😀😀"]}
+{"args":["/ Zz",25],"ret":["/ Zz"]}
+{"args":["/ Zz",3],"ret":["/","Zz"]}
+{"args":["Applies to every repository and never needs trust.",-2],"ret":["A","p","p","l","i","e","s","t","o","e","v","e","r","y","r","e","p","o","s","i","t","o","r","y","a","n","d","n","e","v","e","r","n","e","e","d","s","t","r","u","s","t","."]}
+{"args":["Applies to every repository and never needs trust.",0],"ret":["A","p","p","l","i","e","s","t","o","e","v","e","r","y","r","e","p","o","s","i","t","o","r","y","a","n","d","n","e","v","e","r","n","e","e","d","s","t","r","u","s","t","."]}
+{"args":["Applies to every repository and never needs trust.",10],"ret":["Applies to","every","repository","and never","needs","trust."]}
+{"args":["Applies to every repository and never needs trust.",1],"ret":["A","p","p","l","i","e","s","t","o","e","v","e","r","y","r","e","p","o","s","i","t","o","r","y","a","n","d","n","e","v","e","r","n","e","e","d","s","t","r","u","s","t","."]}
+{"args":["Applies to every repository and never needs trust.",20],"ret":["Applies to every","repository and never","needs trust."]}
+{"args":["Applies to every repository and never needs trust.",2],"ret":["Ap","pl","ie","s","to","ev","er","y","re","po","si","to","ry","an","d","ne","ve","r","ne","ed","s","tr","us","t."]}
+{"args":["Applies to every repository and never needs trust.",3],"ret":["App","lie","s","to","eve","ry","rep","osi","tor","y","and","nev","er","nee","ds","tru","st."]}
+{"args":["Applies to every repository and never needs trust.",5],"ret":["Appli","es to","every","repos","itory","and","never","needs","trust","."]}
+{"args":["Applies to every repository and never needs trust.",80],"ret":["Applies to every repository and never needs trust."]}
+{"args":["Applies to every repository and never needs trust.",8],"ret":["Applies","to every","reposito","ry and","never","needs","trust."]}
+{"args":["Zz  中  word 中word\t",1],"ret":["Z","z","中","w","o","r","d","中","w","o","r","d"]}
+{"args":["Zz  中  word 中word\t",25],"ret":["Zz 中 word 中word"]}
+{"args":["Zz ",24],"ret":["Zz"]}
+{"args":["Zz ",4],"ret":["Zz"]}
+{"args":["Zz /",25],"ret":["Zz /"]}
+{"args":["Zz /",3],"ret":["Zz","/"]}
+{"args":["Zz é  ",0],"ret":["Z","z","é"]}
+{"args":["Zz é  ",4],"ret":["Zz é"]}
+{"args":["Zz 中aa中",1],"ret":["Z","z","中","a","a","中"]}
+{"args":["Zz 中aa中",22],"ret":["Zz 中aa中"]}
+{"args":["Zz",24],"ret":["Zz"]}
+{"args":["Zz",3],"ret":["Zz"]}
+{"args":["Zz-/ ",25],"ret":["Zz-/"]}
+{"args":["Zz-/ ",3],"ret":["Zz-","/"]}
+{"args":["ZzZzZz",0],"ret":["Z","z","Z","z","Z","z"]}
+{"args":["ZzZzZz",4],"ret":["ZzZz","Zz"]}
+{"args":["ZzZz\n😀longerword",14],"ret":["ZzZz","😀longerword"]}
+{"args":["ZzZz   Zz中 Zz   ",3],"ret":["ZzZ","z","Zz中","Zz"]}
+{"args":["ZzZz   Zz中 Zz   ",4],"ret":["ZzZz","Zz中","Zz"]}
+{"args":["Zz\n",24],"ret":["Zz"]}
+{"args":["Zz\n",4],"ret":["Zz"]}
+{"args":["Zza ",25],"ret":["Zza"]}
+{"args":["Zza ",3],"ret":["Zza"]}
+{"args":["ZzwordaZz\nlongerword 中  中",11],"ret":["ZzwordaZz","longerword","中 中"]}
+{"args":["ZzwordaZz\nlongerword 中  中",23],"ret":["ZzwordaZz longerword 中","中"]}
+{"args":["\n  😀 中word",2],"ret":["😀","中w","or","d"]}
+{"args":["\n  😀 中word",3],"ret":["😀","中wo","rd"]}
+{"args":["\n /word  ",16],"ret":["/word"]}
+{"args":["\n /word  ",5],"ret":["/word"]}
+{"args":["\n  ",24],"ret":[""]}
+{"args":["\n  ",4],"ret":[""]}
+{"args":["\n",0],"ret":[""]}
+{"args":["\n",6],"ret":[""]}
+{"args":["\n/ longerwordZzZz中",1],"ret":["/","l","o","n","g","e","r","w","o","r","d","Z","z","Z","z","中"]}
+{"args":["\n/ longerwordZzZz中",25],"ret":["/ longerwordZzZz中"]}
+{"args":["\n/-Zz😀😀longerword/ ",4],"ret":["/-Zz","😀😀","long","erwo","rd/"]}
+{"args":["\n/-Zz😀😀longerword/ ",9],"ret":["/-Zz😀😀l","ongerword","/"]}
+{"args":["\n/é😀\n",4],"ret":["/é😀"]}
+{"args":["\nZzZz  bZz \na",0],"ret":["Z","z","Z","z","b","Z","z","a"]}
+{"args":["\nZzZz  bZz \na",24],"ret":["ZzZz bZz a"]}
+{"args":["\nZzéword \tword",4],"ret":["Zzéw","ord","word"]}
+{"args":["\nZzéword \tword",5],"ret":["Zzéwo","rd","word"]}
+{"args":["\n\nb😀 \tb  ",13],"ret":["b😀 b"]}
+{"args":["\n\nb😀 \tb  ",22],"ret":["b😀 b"]}
+{"args":["\n\t  ",25],"ret":[""]}
+{"args":["\n\t  ",3],"ret":[""]}
+{"args":["\nbword- ",14],"ret":["bword-"]}
+{"args":["\nbword- ",22],"ret":["bword-"]}
+{"args":["\nlongerwordZz Zz",3],"ret":["lon","ger","wor","dZz","Zz"]}
+{"args":["\nlongerwordZz Zz",4],"ret":["long","erwo","rdZz","Zz"]}
+{"args":["\n longerwordZz-",1],"ret":["l","o","n","g","e","r","w","o","r","d","Z","z","-"]}
+{"args":["\n longerwordZz-",25],"ret":["longerwordZz-"]}
+{"args":["\n中-",24],"ret":["中-"]}
+{"args":["\n中-",4],"ret":["中-"]}
+{"args":["\t /worda中 a",13],"ret":["/worda中 a"]}
+{"args":["\t Zz\n 😀Zz",13],"ret":["Zz 😀Zz"]}
+{"args":["\t Zz\n 😀Zz",22],"ret":["Zz 😀Zz"]}
+{"args":["\t longerwordaword 中wordlongerword",18],"ret":["longerwordaword","中wordlongerword"]}
+{"args":["\t longerwordaword 中wordlongerword",25],"ret":["longerwordaword","中wordlongerword"]}
+{"args":["\t 😀-",25],"ret":["😀-"]}
+{"args":["\t 😀-",3],"ret":["😀-"]}
+{"args":["\tZz   ",0],"ret":["Z","z"]}
+{"args":["\tZz   ",4],"ret":["Zz"]}
+{"args":["\taZz ",25],"ret":["aZz"]}
+{"args":["\taZz ",3],"ret":["aZz"]}
+{"args":["\tb /word",14],"ret":["b /word"]}
+{"args":["\tb /word",22],"ret":["b /word"]}
+{"args":["\tword   ",14],"ret":["word"]}
+{"args":["\tword   ",22],"ret":["word"]}
+{"args":["\té",24],"ret":["é"]}
+{"args":["\té",3],"ret":["é"]}
+{"args":["\t longerword\tb-b😀 ",9],"ret":["longerwor","d b-b😀"]}
+{"args":["\t中",24],"ret":["中"]}
+{"args":["\t中",3],"ret":["中"]}
+{"args":["a   b/ ",1],"ret":["a","b","/"]}
+{"args":["a   b/ ",22],"ret":["a b/"]}
+{"args":["a \té-é  ",14],"ret":["a é-é"]}
+{"args":["a \té-é  ",22],"ret":["a é-é"]}
+{"args":["a bcdefghij k",-2],"ret":["a","b","c","d","e","f","g","h","i","j","k"]}
+{"args":["a bcdefghij k",0],"ret":["a","b","c","d","e","f","g","h","i","j","k"]}
+{"args":["a bcdefghij k",10],"ret":["a","bcdefghij","k"]}
+{"args":["a bcdefghij k",1],"ret":["a","b","c","d","e","f","g","h","i","j","k"]}
+{"args":["a bcdefghij k",20],"ret":["a bcdefghij k"]}
+{"args":["a bcdefghij k",2],"ret":["a","bc","de","fg","hi","j","k"]}
+{"args":["a bcdefghij k",3],"ret":["a","bcd","efg","hij","k"]}
+{"args":["a bcdefghij k",5],"ret":["a","bcdef","ghij","k"]}
+{"args":["a bcdefghij k",80],"ret":["a bcdefghij k"]}
+{"args":["a bcdefghij k",8],"ret":["a","bcdefghi","j k"]}
+{"args":["a-",24],"ret":["a-"]}
+{"args":["a-",3],"ret":["a-"]}
+{"args":["a/  -  /\na",13],"ret":["a/ - / a"]}
+{"args":["a/  -  /\na",22],"ret":["a/ - / a"]}
+{"args":["a/é\tZzword",13],"ret":["a/é Zzword"]}
+{"args":["a/é\tZzword",22],"ret":["a/é Zzword"]}
+{"args":["aba/b Zz-",16],"ret":["aba/b Zz-"]}
+{"args":["aba/b Zz-",5],"ret":["aba/b","Zz-"]}
+{"args":["abcdefgh",3],"ret":["abc","def","gh"]}
+{"args":["abcdefghij",-2],"ret":["a","b","c","d","e","f","g","h","i","j"]}
+{"args":["abcdefghij",0],"ret":["a","b","c","d","e","f","g","h","i","j"]}
+{"args":["abcdefghij",10],"ret":["abcdefghij"]}
+{"args":["abcdefghij",1],"ret":["a","b","c","d","e","f","g","h","i","j"]}
+{"args":["abcdefghij",20],"ret":["abcdefghij"]}
+{"args":["abcdefghij",2],"ret":["ab","cd","ef","gh","ij"]}
+{"args":["abcdefghij",3],"ret":["abc","def","ghi","j"]}
+{"args":["abcdefghij",5],"ret":["abcde","fghij"]}
+{"args":["abcdefghij",80],"ret":["abcdefghij"]}
+{"args":["abcdefghij",8],"ret":["abcdefgh","ij"]}
+{"args":["aword  ",1],"ret":["a","w","o","r","d"]}
+{"args":["aword  ",22],"ret":["aword"]}
+{"args":["aword",25],"ret":["aword"]}
+{"args":["aword",3],"ret":["awo","rd"]}
+{"args":["a b c d",-2],"ret":["a","b","c","d"]}
+{"args":["a b c d",0],"ret":["a","b","c","d"]}
+{"args":["a b c d",10],"ret":["a b c d"]}
+{"args":["a b c d",1],"ret":["a","b","c","d"]}
+{"args":["a b c d",20],"ret":["a b c d"]}
+{"args":["a b c d",2],"ret":["a","b","c","d"]}
+{"args":["a b c d",3],"ret":["a b","c d"]}
+{"args":["a b c d",5],"ret":["a b c","d"]}
+{"args":["a b c d",80],"ret":["a b c d"]}
+{"args":["a b c d",8],"ret":["a b c d"]}
+{"args":["aé--a\tb\n",14],"ret":["aé--a b"]}
+{"args":["aé--a\tb\n",22],"ret":["aé--a b"]}
+{"args":["aéa   😀a\t",13],"ret":["aéa 😀a"]}
+{"args":["aéa   😀a\t",22],"ret":["aéa 😀a"]}
+{"args":["a中Zz\t",25],"ret":["a中Zz"]}
+{"args":["a中Zz\t",3],"ret":["a中Z","z"]}
+{"args":["b  \n",25],"ret":["b"]}
+{"args":["b  \n",3],"ret":["b"]}
+{"args":["b",0],"ret":["b"]}
+{"args":["b",6],"ret":["b"]}
+{"args":["b-/ 中\na",1],"ret":["b","-","/","中","a"]}
+{"args":["b-/ 中\na",22],"ret":["b-/ 中 a"]}
+{"args":["b-/\t /  blongerword",2],"ret":["b-","/","/","bl","on","ge","rw","or","d"]}
+{"args":["b-/\t /  blongerword",9],"ret":["b-/ /","blongerwo","rd"]}
+{"args":["baZz中",25],"ret":["baZz中"]}
+{"args":["baZz中",3],"ret":["baZ","z中"]}
+{"args":["bb😀/\n ",22],"ret":["bb😀/"]}
+{"args":["blongerword/ ",0],"ret":["b","l","o","n","g","e","r","w","o","r","d","/"]}
+{"args":["blongerword/ ",24],"ret":["blongerword/"]}
+{"args":["bwordé b - ",2],"ret":["bw","or","dé","b","-"]}
+{"args":["bwordé b - ",3],"ret":["bwo","rdé","b -"]}
+{"args":["béa",24],"ret":["béa"]}
+{"args":["béa",4],"ret":["béa"]}
+{"args":["b wordZzZz",13],"ret":["b wordZzZz"]}
+{"args":["b wordZzZz",22],"ret":["b wordZzZz"]}
+{"args":["b😀word\n😀中 -é",4],"ret":["b😀w","ord","😀中","-é"]}
+{"args":["b😀word\n😀中 -é",5],"ret":["b😀wo","rd","😀中","-é"]}
+{"args":["line\n\nbreak",-2],"ret":["l","i","n","e","b","r","e","a","k"]}
+{"args":["line\n\nbreak",0],"ret":["l","i","n","e","b","r","e","a","k"]}
+{"args":["line\n\nbreak",10],"ret":["line break"]}
+{"args":["line\n\nbreak",1],"ret":["l","i","n","e","b","r","e","a","k"]}
+{"args":["line\n\nbreak",20],"ret":["line break"]}
+{"args":["line\n\nbreak",2],"ret":["li","ne","br","ea","k"]}
+{"args":["line\n\nbreak",3],"ret":["lin","e","bre","ak"]}
+{"args":["line\n\nbreak",5],"ret":["line","break"]}
+{"args":["line\n\nbreak",80],"ret":["line break"]}
+{"args":["line\n\nbreak",8],"ret":["line","break"]}
+{"args":["longerword    中 😀  ",20],"ret":["longerword 中 😀"]}
+{"args":["longerword    中 😀  ",21],"ret":["longerword 中 😀"]}
+{"args":["longerword  \n",0],"ret":["l","o","n","g","e","r","w","o","r","d"]}
+{"args":["longerword  \n",24],"ret":["longerword"]}
+{"args":["longerword",13],"ret":["longerword"]}
+{"args":["longerword",22],"ret":["longerword"]}
+{"args":["longerword/中中é/\n中",0],"ret":["l","o","n","g","e","r","w","o","r","d","/","中","中","é","/","中"]}
+{"args":["longerword/中中é/\n中",14],"ret":["longerword/中中é","/ 中"]}
+{"args":["longerword\n 中é \n\n\n ",2],"ret":["lo","ng","er","wo","rd","中é"]}
+{"args":["longerword\n 中é \n\n\n ",9],"ret":["longerwor","d 中é"]}
+{"args":["longerwordlongerword",20],"ret":["longerwordlongerword"]}
+{"args":["longerwordlongerword",21],"ret":["longerwordlongerword"]}
+{"args":["longerword wordlongerword éé",22],"ret":["longerword","wordlongerword éé"]}
+{"args":["longerword wordlongerword éé",2],"ret":["lo","ng","er","wo","rd","wo","rd","lo","ng","er","wo","rd","éé"]}
+{"args":["longerword中\té ",4],"ret":["long","erwo","rd中","é"]}
+{"args":["longerword中\té ",5],"ret":["longe","rword","中 é"]}
+{"args":["longword longword longword longword longword longword ",-2],"ret":["l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d"]}
+{"args":["longword longword longword longword longword longword ",0],"ret":["l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d"]}
+{"args":["longword longword longword longword longword longword ",10],"ret":["longword","longword","longword","longword","longword","longword"]}
+{"args":["longword longword longword longword longword longword ",1],"ret":["l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d","l","o","n","g","w","o","r","d"]}
+{"args":["longword longword longword longword longword longword ",20],"ret":["longword longword","longword longword","longword longword"]}
+{"args":["longword longword longword longword longword longword ",2],"ret":["lo","ng","wo","rd","lo","ng","wo","rd","lo","ng","wo","rd","lo","ng","wo","rd","lo","ng","wo","rd","lo","ng","wo","rd"]}
+{"args":["longword longword longword longword longword longword ",3],"ret":["lon","gwo","rd","lon","gwo","rd","lon","gwo","rd","lon","gwo","rd","lon","gwo","rd","lon","gwo","rd"]}
+{"args":["longword longword longword longword longword longword ",5],"ret":["longw","ord","longw","ord","longw","ord","longw","ord","longw","ord","longw","ord"]}
+{"args":["longword longword longword longword longword longword ",80],"ret":["longword longword longword longword longword longword"]}
+{"args":["longword longword longword longword longword longword ",8],"ret":["longword","longword","longword","longword","longword","longword"]}
+{"args":["one  two\tthree\nfour",-2],"ret":["o","n","e","t","w","o","t","h","r","e","e","f","o","u","r"]}
+{"args":["one  two\tthree\nfour",0],"ret":["o","n","e","t","w","o","t","h","r","e","e","f","o","u","r"]}
+{"args":["one  two\tthree\nfour",10],"ret":["one two","three four"]}
+{"args":["one  two\tthree\nfour",1],"ret":["o","n","e","t","w","o","t","h","r","e","e","f","o","u","r"]}
+{"args":["one  two\tthree\nfour",20],"ret":["one two three four"]}
+{"args":["one  two\tthree\nfour",2],"ret":["on","e","tw","o","th","re","e","fo","ur"]}
+{"args":["one  two\tthree\nfour",3],"ret":["one","two","thr","ee","fou","r"]}
+{"args":["one  two\tthree\nfour",5],"ret":["one","two","three","four"]}
+{"args":["one  two\tthree\nfour",80],"ret":["one two three four"]}
+{"args":["one  two\tthree\nfour",8],"ret":["one two","three","four"]}
+{"args":["one two",-2],"ret":["o","n","e","t","w","o"]}
+{"args":["one two",0],"ret":["o","n","e","t","w","o"]}
+{"args":["one two",10],"ret":["one two"]}
+{"args":["one two",1],"ret":["o","n","e","t","w","o"]}
+{"args":["one two",20],"ret":["one two"]}
+{"args":["one two",2],"ret":["on","e","tw","o"]}
+{"args":["one two",3],"ret":["one","two"]}
+{"args":["one two",5],"ret":["one","two"]}
+{"args":["one two",80],"ret":["one two"]}
+{"args":["one two",8],"ret":["one two"]}
+{"args":["one",-2],"ret":["o","n","e"]}
+{"args":["one",0],"ret":["o","n","e"]}
+{"args":["one",10],"ret":["one"]}
+{"args":["one",1],"ret":["o","n","e"]}
+{"args":["one",20],"ret":["one"]}
+{"args":["one",2],"ret":["on","e"]}
+{"args":["one",3],"ret":["one"]}
+{"args":["one",5],"ret":["one"]}
+{"args":["one",80],"ret":["one"]}
+{"args":["one",8],"ret":["one"]}
+{"args":["word    bwordlongerword",20],"ret":["word bwordlongerword"]}
+{"args":["word    bwordlongerword",4],"ret":["word","bwor","dlon","gerw","ord"]}
+{"args":["word  ",0],"ret":["w","o","r","d"]}
+{"args":["word  ",4],"ret":["word"]}
+{"args":["word",25],"ret":["word"]}
+{"args":["word",3],"ret":["wor","d"]}
+{"args":["word-aZz-\ta ",25],"ret":["word-aZz- a"]}
+{"args":["word-aZz-\ta ",2],"ret":["wo","rd","-a","Zz","-","a"]}
+{"args":["word\n- ",1],"ret":["w","o","r","d","-"]}
+{"args":["word\n- ",22],"ret":["word -"]}
+{"args":["wordb",25],"ret":["wordb"]}
+{"args":["wordb",3],"ret":["wor","db"]}
+{"args":["word é",0],"ret":["w","o","r","d","é"]}
+{"args":["word é",4],"ret":["word","é"]}
+{"args":["wordé  bZz\n- ",0],"ret":["w","o","r","d","é","b","Z","z","-"]}
+{"args":["wordé  bZz\n- ",24],"ret":["wordé bZz -"]}
+{"args":["word😀   ",16],"ret":["word😀"]}
+{"args":["word😀  中",16],"ret":["word😀 中"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",-2],"ret":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",0],"ret":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",10],"ret":["xxxxxxxxxx","xxxxxxxxxx","xxxxxxxxxx"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",1],"ret":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",20],"ret":["xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxx"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",2],"ret":["xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",3],"ret":["xxx","xxx","xxx","xxx","xxx","xxx","xxx","xxx","xxx","xxx"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",5],"ret":["xxxxx","xxxxx","xxxxx","xxxxx","xxxxx","xxxxx"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",80],"ret":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",8],"ret":["xxxxxxxx","xxxxxxxx","xxxxxxxx","xxxxxx"]}
+{"args":["    \n ",0],"ret":[""]}
+{"args":["    \n ",4],"ret":[""]}
+{"args":["  \t",24],"ret":[""]}
+{"args":["  \t",4],"ret":[""]}
+{"args":["  a😀",25],"ret":["a😀"]}
+{"args":["  a😀",3],"ret":["a😀"]}
+{"args":["  longerword",25],"ret":["longerword"]}
+{"args":["  longerword",2],"ret":["lo","ng","er","wo","rd"]}
+{"args":[" ",0],"ret":[""]}
+{"args":[" ",6],"ret":[""]}
+{"args":[" /\n Zzlongerword Zz 中",4],"ret":["/","Zzlo","nger","word","Zz 中"]}
+{"args":[" /\n Zzlongerword Zz 中",9],"ret":["/","Zzlongerw","ord Zz 中"]}
+{"args":[" ZzéZz - b",13],"ret":["ZzéZz - b"]}
+{"args":[" ZzéZz - b",22],"ret":["ZzéZz - b"]}
+{"args":[" \n 中",25],"ret":["中"]}
+{"args":[" \n 中",3],"ret":["中"]}
+{"args":[" \nZz/  ",1],"ret":["Z","z","/"]}
+{"args":[" \nZz/  ",22],"ret":["Zz/"]}
+{"args":[" \t\tZzé",0],"ret":["Z","z","é"]}
+{"args":[" \t\tZzé",4],"ret":["Zzé"]}
+{"args":["  b ",25],"ret":["b"]}
+{"args":["  b ",3],"ret":["b"]}
+{"args":["      Zzb\n😀",25],"ret":["Zzb 😀"]}
+{"args":["      Zzb\n😀",2],"ret":["Zz","b","😀"]}
+{"args":[" 中word  Zz",13],"ret":["中word Zz"]}
+{"args":[" 中word  Zz",22],"ret":["中word Zz"]}
+{"args":[" 中😀 Zz\t/b Zz",24],"ret":["中😀 Zz /b Zz"]}
+{"args":[" 😀  ",25],"ret":["😀"]}
+{"args":[" 😀  ",3],"ret":["😀"]}
+{"args":[" 😀 longerworda",25],"ret":["😀 longerworda"]}
+{"args":["é ",24],"ret":["é"]}
+{"args":["é ",3],"ret":["é"]}
+{"args":["é word-\n  ",13],"ret":["é word-"]}
+{"args":["é word-\n  ",22],"ret":["é word-"]}
+{"args":["é",0],"ret":["é"]}
+{"args":["é",6],"ret":["é"]}
+{"args":["é/     -longerword-é",20],"ret":["é/ -longerword-é"]}
+{"args":["é/     -longerword-é",21],"ret":["é/ -longerword-é"]}
+{"args":["é/\n\n",25],"ret":["é/"]}
+{"args":["é/\n\n",3],"ret":["é/"]}
+{"args":["éa😀  😀   \n ",24],"ret":["éa😀 😀"]}
+{"args":["éb ",24],"ret":["éb"]}
+{"args":["éb ",4],"ret":["éb"]}
+{"args":["élongerword",2],"ret":["él","on","ge","rw","or","d"]}
+{"args":["élongerword",3],"ret":["élo","nge","rwo","rd"]}
+{"args":["ééa",24],"ret":["ééa"]}
+{"args":["ééa",4],"ret":["ééa"]}
+{"args":["   \t😀 中 \n",13],"ret":["😀 中"]}
+{"args":["   \t😀 中 \n",22],"ret":["😀 中"]}
+{"args":[" ",0],"ret":[""]}
+{"args":[" ",6],"ret":[""]}
+{"args":[" Zz  /  Zz ",2],"ret":["Zz","/","Zz"]}
+{"args":[" Zz  /  Zz ",3],"ret":["Zz","/","Zz"]}
+{"args":[" \tlongerwordb é ",3],"ret":["lon","ger","wor","db","é"]}
+{"args":[" \tlongerwordb é ",4],"ret":["long","erwo","rdb","é"]}
+{"args":[" b  😀",4],"ret":["b 😀"]}
+{"args":[" b\nZz 😀longerword-word",20],"ret":["b Zz","😀longerword-word"]}
+{"args":[" b\nZz 😀longerword-word",4],"ret":["b Zz","😀lo","nger","word","-wor","d"]}
+{"args":[" word b Zz",13],"ret":["word b Zz"]}
+{"args":[" word b Zz",22],"ret":["word b Zz"]}
+{"args":[" é  longerwordZza 😀",20],"ret":["é longerwordZza 😀"]}
+{"args":[" é  longerwordZza 😀",21],"ret":["é longerwordZza 😀"]}
+{"args":[" é",24],"ret":["é"]}
+{"args":[" é",3],"ret":["é"]}
+{"args":[" 中   -",0],"ret":["中","-"]}
+{"args":[" 中   -",4],"ret":["中 -"]}
+{"args":["中  / /b  ZzZz",0],"ret":["中","/","/","b","Z","z","Z","z"]}
+{"args":["中  / /b  ZzZz",24],"ret":["中 / /b ZzZz"]}
+{"args":["中 ",24],"ret":["中"]}
+{"args":["中 ",3],"ret":["中"]}
+{"args":["中 longerword\t  Zz😀 ",20],"ret":["中 longerword Zz😀"]}
+{"args":["中 longerword\t  Zz😀 ",21],"ret":["中 longerword Zz😀"]}
+{"args":["中",0],"ret":["中"]}
+{"args":["中",6],"ret":["中"]}
+{"args":["中/ \n",25],"ret":["中/"]}
+{"args":["中/ \n",3],"ret":["中/"]}
+{"args":["中Zz     é😀  ",24],"ret":["中Zz é😀"]}
+{"args":["中\n 😀a😀longerword",25],"ret":["中 😀a😀longerword"]}
+{"args":["中bélongerword\n \t\na",1],"ret":["中","b","é","l","o","n","g","e","r","w","o","r","d","a"]}
+{"args":["中bélongerword\n \t\na",25],"ret":["中bélongerword a"]}
+{"args":["中 ",24],"ret":["中"]}
+{"args":["中 ",3],"ret":["中"]}
+{"args":["中 é中b longerwordZzword",24],"ret":["中 é中b longerwordZzword"]}
+{"args":["中 é中b longerwordZzword",3],"ret":["中","é中b","lon","ger","wor","dZz","wor","d"]}
+{"args":["中   b ",0],"ret":["中","b"]}
+{"args":["中   b ",4],"ret":["中 b"]}
+{"args":["中文 中文字符 词",-2],"ret":["中","文","中","文","字","符","词"]}
+{"args":["中文 中文字符 词",0],"ret":["中","文","中","文","字","符","词"]}
+{"args":["中文 中文字符 词",10],"ret":["中文 中文字符 词"]}
+{"args":["中文 中文字符 词",1],"ret":["中","文","中","文","字","符","词"]}
+{"args":["中文 中文字符 词",20],"ret":["中文 中文字符 词"]}
+{"args":["中文 中文字符 词",2],"ret":["中文","中文","字符","词"]}
+{"args":["中文 中文字符 词",3],"ret":["中文","中文字","符 词"]}
+{"args":["中文 中文字符 词",5],"ret":["中文","中文字符","词"]}
+{"args":["中文 中文字符 词",80],"ret":["中文 中文字符 词"]}
+{"args":["中文 中文字符 词",8],"ret":["中文 中文字符","词"]}
+{"args":["中😀",24],"ret":["中😀"]}
+{"args":["中😀",4],"ret":["中😀"]}
+{"args":["😀 é / ",22],"ret":["😀 é /"]}
+{"args":["😀",24],"ret":["😀"]}
+{"args":["😀",3],"ret":["😀"]}
+{"args":["😀Zz /é",22],"ret":["😀Zz /é"]}
+{"args":["😀Zzlongerword",4],"ret":["😀Zz","long","erwo","rd"]}
+{"args":["😀Zzlongerword",5],"ret":["😀Zzl","onger","word"]}
+{"args":["😀longerword",25],"ret":["😀longerword"]}
+{"args":["😀longerword",2],"ret":["😀","lo","ng","er","wo","rd"]}
+{"args":["😀word\tab     ",4],"ret":["😀wo","rd","ab"]}
+{"args":["😀word\tab     ",5],"ret":["😀wor","d ab"]}
+{"args":["😀 ",24],"ret":["😀"]}
+{"args":["😀 ",4],"ret":["😀"]}
+{"args":["😀中/Zz 😀é ",2],"ret":["😀","中/","Zz","😀","é"]}
+{"args":["😀中/Zz 😀é ",3],"ret":["😀中","/Zz","😀é"]}
+{"args":["😀😀😀 😀",10],"ret":["😀😀😀 😀"]}
+{"args":["😀😀😀 😀",20],"ret":["😀😀😀 😀"]}
+{"args":["😀😀😀 😀",2],"ret":["😀","😀","😀","😀"]}
+{"args":["😀😀😀 😀",80],"ret":["😀😀😀 😀"]}
+{"args":["😀😀😀 😀",8],"ret":["😀😀😀","😀"]}

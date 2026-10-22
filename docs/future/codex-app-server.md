@@ -1,10 +1,10 @@
 # Codex via the app-server (replacing Codex hooks)
 
-**Status:** researched 2026-10-10 against `codex-cli 0.160.1` (the shared daemon on the same machine ran 0.162.1). The mechanism is confirmed from docs, source and a read-only local probe; the one behaviour that decides it (the TUI's prompt closing when Deckhand answers) still needs the live experiment below. Nothing is built.
+**Status:** researched 2026-10-10 against `codex-cli 0.160.1` (the shared daemon on the same machine ran 0.162.1); 0.163.0 is installed as of 2026-10-20, so re-check the flags and schema before building. The mechanism is confirmed from docs, source and a read-only local probe; the one behaviour that decides it (the TUI's prompt closing when Deckhand answers) still needs the live experiment below. Nothing is built.
 
 ## The idea
 
-Today Codex sessions run the TUI in a PTY with `--no-daemon`, and status comes from hooks the user installs by hand in `~/.codex/hooks.json` (see `docs/no-brainers.md`, *Lifecycle signals and notifications*). Instead:
+Today Codex sessions run the TUI in a PTY with `--no-daemon`, and status comes from hooks the user installs by hand in `~/.codex/hooks.json` (see `docs/features.md`, *Lifecycle signals and notifications*). Instead:
 
 1. Each Codex session's worker starts its own private app-server: `codex app-server --listen unix://<short path>`.
 2. The native TUI still runs in the PTY, as `codex --remote unix://<short path>` (also `codex resume <id> --remote …`). Attaching works exactly as today.
@@ -20,7 +20,7 @@ Codex hooks would no longer be needed. Claude keeps hooks (see *Claude* below); 
 | Failure / rate limit | Not reported (no failure event) | `error` with typed info (usage limit, rate limit, server overloaded, `willRetry`); `account/rateLimits/updated` | Medium |
 | The question and its options | `request_user_input` payload shape unverified | `item/tool/requestUserInput`: questions with id, header, text, options (label, description) | Medium |
 | Approval details | Command or file only | Command, cwd, parsed actions, reason, network host; file changes as separate requests | Small–medium |
-| Setup | Manual `hooks.json`, then trust in `/hooks`; redo when Node or the repo path changes | None: Deckhand passes the flags | Medium (friction) |
+| Setup | Manual `hooks.json`, then trust in `/hooks`; redo when the deckhand binary moves (an old `node … cli.js hook` entry is stale since the native port) | None: Deckhand passes the flags | Medium (friction) |
 | Answering without attaching | Not possible | Respond to the request; the server sends each request to every subscribed client, the first answer wins, and the others get `serverRequest/resolved` | **Large** |
 | Orchestration (see `deckhand-mcp-cli.md`) | Typing into the PTY | Start threads and turns, read results | **Large** |
 | Conversation ID | SessionStart hook or the exit hint | `thread/started` | Small |
@@ -66,17 +66,17 @@ Claude's hooks already cover most of what the app-server gives Codex, documented
 
 1. `codex app-server --listen unix:///tmp/dh-test.sock` (keep the socket path under 104 bytes; a long path failed silently).
 2. In another terminal: `codex --remote unix:///tmp/dh-test.sock`.
-3. A small Node `ws` client on `ws+unix:///tmp/dh-test.sock:/`: send `initialize`, then `initialized`, then `thread/loaded/list`, then `thread/resume {threadId, excludeTurns: true}`; log every message.
+3. A small WebSocket client over the Unix socket (e.g. `websocat ws+unix:///tmp/dh-test.sock`, or a throwaway Rust binary with `tokio-tungstenite`): send `initialize`, then `initialized`, then `thread/loaded/list`, then `thread/resume {threadId, excludeTurns: true}`; log every message.
 4. In the TUI, ask for a command that needs approval; answer it from the script. Check the TUI's prompt closes and the turn continues.
 5. Repeat for a question in plan mode (`request_user_input`), Ctrl-C (`turn/completed` interrupted), `codex resume <id> --remote …`, `codex fork`, and exiting the TUI (then `thread/unsubscribe`, or the server keeps the thread loaded for about 30 minutes).
 6. Check whether the standalone server's connection to chatgpt.com (seen in `RUST_LOG=info`) can be turned off by config.
 
 ## How it would plug into Deckhand
 
-- `src/agents.ts`, `agentSignals.integrationArgs`: for Codex, `--remote unix://<sock>` instead of `--no-daemon`, only when `--remote` appears in `codex --help`.
-- `src/sessionWorker.ts`: start and own the app-server child next to the PTY (about 60 ms to `initialize`), remove the socket on exit.
-- New `src/codexAppServer.ts`: the client and a `normalizeAppServer()` producing the existing `AgentSignal`: `turn/started` → working; `waitingOnApproval` / `waitingOnUserInput` → needs-input with the reason from the request; `turn/completed` → response-ended (last agent message), failed or limited; `serverRequest/resolved` → working; `thread/started` → the conversation ID.
-- `src/daemon.ts`: feed those signals into the existing attention and notification pipeline; later an "answer request" call (roadmap item 7) and the MCP.
+- `integration_args` (`crates/sys/src/agent_path.rs`): for Codex, `--remote unix://<sock>` instead of `--no-daemon`, only when `--remote` appears in `codex --help`.
+- The session worker (`crates/worker/src/session.rs`): start and own the app-server child next to the PTY (about 60 ms to `initialize`), remove the socket on exit.
+- A new `codex_app_server` module (the WebSocket client in `crates/worker`, the pure event mapping in `crates/core`): a `normalize_app_server()` producing the existing `AgentSignal`: `turn/started` → working; `waitingOnApproval` / `waitingOnUserInput` → needs-input with the reason from the request; `turn/completed` → response-ended (last agent message), failed or limited; `serverRequest/resolved` → working; `thread/started` → the conversation ID.
+- The daemon (`crates/daemon/src/hooks.rs`): feed those signals into the existing attention and notification pipeline; later an "answer request" call (roadmap item 7) and the MCP.
 - Settings and docs: retire the "⚠ Codex hooks" setup.
 - Optionally generate types per Codex version with `codex app-server generate-ts`.
 

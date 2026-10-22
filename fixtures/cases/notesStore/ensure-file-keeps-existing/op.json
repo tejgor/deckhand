@@ -1,0 +1,12 @@
+{
+  "fn": "NotesStore.ensureFile",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "session",
+      "id": "11111111-2222-4333-8444-555555555555"
+    }
+  ],
+  "async": true,
+  "ret": "$ROOT/notes/sessions/11111111-2222-4333-8444-555555555555.md"
+}

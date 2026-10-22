@@ -1,0 +1,15 @@
+{
+  "fn": "NotesStore.modify",
+  "args": [
+    "$ROOT",
+    {
+      "kind": "tasks",
+      "id": "repo1"
+    },
+    {
+      "$fn": "throw-boom"
+    }
+  ],
+  "async": true,
+  "throws": "boom"
+}

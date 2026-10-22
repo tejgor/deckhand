@@ -1,0 +1,2 @@
+{"type":"user","uuid":"c-1","parentUuid":"b-2","timestamp":"2026-01-01T12:09:00.000Z"}
+{"type":"assistant","uuid":"c-2","parentUuid":"c-1","timestamp":"2026-01-01T12:12:00.000Z"}

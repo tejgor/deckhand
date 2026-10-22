@@ -1,0 +1,2690 @@
+{
+  "name": "sh-unicode",
+  "source": "sh",
+  "description": "/bin/sh: wide CJK, emoji (ZWJ, flags, variation selectors), combining marks, wrapping exactly at the last column and wide chars at the edge, then resizes that reflow the wrapped lines.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 40,
+  "rows": 12,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 40,
+      "rows": 12
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 10
+    },
+    {
+      "op": "write",
+      "from": 10,
+      "to": 15
+    },
+    {
+      "op": "write",
+      "from": 15,
+      "to": 27
+    },
+    {
+      "op": "write",
+      "from": 27,
+      "to": 33
+    },
+    {
+      "op": "write",
+      "from": 33,
+      "to": 36
+    },
+    {
+      "op": "write",
+      "from": 36,
+      "to": 42
+    },
+    {
+      "op": "write",
+      "from": 42,
+      "to": 50
+    },
+    {
+      "op": "write",
+      "from": 50,
+      "to": 53
+    },
+    {
+      "op": "write",
+      "from": 53,
+      "to": 56
+    },
+    {
+      "op": "write",
+      "from": 56,
+      "to": 59
+    },
+    {
+      "op": "write",
+      "from": 59,
+      "to": 60
+    },
+    {
+      "op": "write",
+      "from": 60,
+      "to": 64
+    },
+    {
+      "op": "write",
+      "from": 64,
+      "to": 66
+    },
+    {
+      "op": "write",
+      "from": 66,
+      "to": 109
+    },
+    {
+      "op": "write",
+      "from": 109,
+      "to": 111
+    },
+    {
+      "op": "checkpoint",
+      "label": "cjk",
+      "at": 111,
+      "screen": {
+        "cols": 40,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 3
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 12,
+        "lines": ["$ printf '日本語のテキスト 中文 한국어\\n", "'", "日本語のテキスト 中文 한국어", "$ ", "", "", "", "", "", "", "", ""],
+        "wrapped": [1],
+        "attrs": {},
+        "wide": {
+          "0": [10, 12, 14, 16, 18, 20, 22, 24, 27, 29, 32, 34, 36],
+          "2": [0, 2, 4, 6, 8, 10, 12, 14, 17, 19, 22, 24, 26]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf '日本語のテキスト 中文 한국어\\n\u001b[2;1H'\u001b[3;1H日本語のテキスト 中文 한국어\u001b[4;1H$ \u001b[4;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 111,
+      "to": 119
+    },
+    {
+      "op": "write",
+      "from": 119,
+      "to": 128
+    },
+    {
+      "op": "write",
+      "from": 128,
+      "to": 131
+    },
+    {
+      "op": "write",
+      "from": 131,
+      "to": 135
+    },
+    {
+      "op": "write",
+      "from": 135,
+      "to": 136
+    },
+    {
+      "op": "write",
+      "from": 136,
+      "to": 140
+    },
+    {
+      "op": "write",
+      "from": 140,
+      "to": 154
+    },
+    {
+      "op": "write",
+      "from": 154,
+      "to": 177
+    },
+    {
+      "op": "write",
+      "from": 177,
+      "to": 179
+    },
+    {
+      "op": "write",
+      "from": 179,
+      "to": 182
+    },
+    {
+      "op": "write",
+      "from": 182,
+      "to": 186
+    },
+    {
+      "op": "write",
+      "from": 186,
+      "to": 190
+    },
+    {
+      "op": "write",
+      "from": 190,
+      "to": 199
+    },
+    {
+      "op": "write",
+      "from": 199,
+      "to": 271
+    },
+    {
+      "op": "write",
+      "from": 271,
+      "to": 273
+    },
+    {
+      "op": "checkpoint",
+      "label": "emoji",
+      "at": 273,
+      "screen": {
+        "cols": 40,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 4
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 12,
+        "lines": ["$ printf '日本語のテキスト 中文 한국어\\n", "'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' ", "$ ", "", "", "", "", "", "", ""],
+        "wrapped": [1],
+        "attrs": {},
+        "wide": {
+          "0": [10, 12, 14, 16, 18, 20, 22, 24, 27, 29, 32, 34, 36],
+          "2": [0, 2, 4, 6, 8, 10, 12, 14, 17, 19, 22, 24, 26]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf '日本語のテキスト 中文 한국어\\n\u001b[2;1H'\u001b[3;1H日本語のテキスト 中文 한국어\u001b[4;1H🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \u001b[5;1H$ \u001b[5;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 273,
+      "to": 279
+    },
+    {
+      "op": "write",
+      "from": 279,
+      "to": 297
+    },
+    {
+      "op": "write",
+      "from": 297,
+      "to": 307
+    },
+    {
+      "op": "write",
+      "from": 307,
+      "to": 308
+    },
+    {
+      "op": "write",
+      "from": 308,
+      "to": 313
+    },
+    {
+      "op": "write",
+      "from": 313,
+      "to": 316
+    },
+    {
+      "op": "write",
+      "from": 316,
+      "to": 325
+    },
+    {
+      "op": "write",
+      "from": 325,
+      "to": 328
+    },
+    {
+      "op": "write",
+      "from": 328,
+      "to": 333
+    },
+    {
+      "op": "write",
+      "from": 333,
+      "to": 334
+    },
+    {
+      "op": "write",
+      "from": 334,
+      "to": 337
+    },
+    {
+      "op": "write",
+      "from": 337,
+      "to": 343
+    },
+    {
+      "op": "write",
+      "from": 343,
+      "to": 364
+    },
+    {
+      "op": "write",
+      "from": 364,
+      "to": 366
+    },
+    {
+      "op": "checkpoint",
+      "label": "combining",
+      "at": 366,
+      "screen": {
+        "cols": 40,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 7
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 12,
+        "lines": ["$ printf '日本語のテキスト 中文 한국어\\n", "'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' ", "$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\", "314\\203 Z\\315\\221\\315\\222\\n'", "é ạ̈ ñ Z͑͒", "$ ", "", "", "", ""],
+        "wrapped": [1, 5],
+        "attrs": {},
+        "wide": {
+          "0": [10, 12, 14, 16, 18, 20, 22, 24, 27, 29, 32, 34, 36],
+          "2": [0, 2, 4, 6, 8, 10, 12, 14, 17, 19, 22, 24, 26]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf '日本語のテキスト 中文 한국어\\n\u001b[2;1H'\u001b[3;1H日本語のテキスト 中文 한국어\u001b[4;1H🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \u001b[5;1H$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\u001b[6;1H314\\203 Z\\315\\221\\315\\222\\n'\u001b[7;1Hé ạ̈ ñ Z͑͒\u001b[8;1H$ \u001b[8;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 366,
+      "to": 377
+    },
+    {
+      "op": "write",
+      "from": 377,
+      "to": 396
+    },
+    {
+      "op": "write",
+      "from": 396,
+      "to": 403
+    },
+    {
+      "op": "write",
+      "from": 403,
+      "to": 407
+    },
+    {
+      "op": "write",
+      "from": 407,
+      "to": 409
+    },
+    {
+      "op": "write",
+      "from": 409,
+      "to": 410
+    },
+    {
+      "op": "write",
+      "from": 410,
+      "to": 412
+    },
+    {
+      "op": "write",
+      "from": 412,
+      "to": 413
+    },
+    {
+      "op": "write",
+      "from": 413,
+      "to": 415
+    },
+    {
+      "op": "write",
+      "from": 415,
+      "to": 416
+    },
+    {
+      "op": "write",
+      "from": 416,
+      "to": 417
+    },
+    {
+      "op": "write",
+      "from": 417,
+      "to": 418
+    },
+    {
+      "op": "write",
+      "from": 418,
+      "to": 420
+    },
+    {
+      "op": "write",
+      "from": 420,
+      "to": 422
+    },
+    {
+      "op": "write",
+      "from": 422,
+      "to": 424
+    },
+    {
+      "op": "write",
+      "from": 424,
+      "to": 425
+    },
+    {
+      "op": "write",
+      "from": 425,
+      "to": 426
+    },
+    {
+      "op": "write",
+      "from": 426,
+      "to": 429
+    },
+    {
+      "op": "write",
+      "from": 429,
+      "to": 477
+    },
+    {
+      "op": "write",
+      "from": 477,
+      "to": 479
+    },
+    {
+      "op": "checkpoint",
+      "label": "exact-width",
+      "at": 479,
+      "screen": {
+        "cols": 40,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 11
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 12,
+        "lines": ["$ printf '日本語のテキスト 中文 한국어\\n", "'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' ", "$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\", "314\\203 Z\\315\\221\\315\\222\\n'", "é ạ̈ ñ Z͑͒", "$ printf '%s\\n' 123456789012345678901234", "5678901234567890 next", "1234567890123456789012345678901234567890", "next", "$ "],
+        "wrapped": [1, 5, 8],
+        "attrs": {},
+        "wide": {
+          "0": [10, 12, 14, 16, 18, 20, 22, 24, 27, 29, 32, 34, 36],
+          "2": [0, 2, 4, 6, 8, 10, 12, 14, 17, 19, 22, 24, 26]
+        },
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf '日本語のテキスト 中文 한국어\\n\u001b[2;1H'\u001b[3;1H日本語のテキスト 中文 한국어\u001b[4;1H🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \u001b[5;1H$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\u001b[6;1H314\\203 Z\\315\\221\\315\\222\\n'\u001b[7;1Hé ạ̈ ñ Z͑͒\u001b[8;1H$ printf '%s\\n' 123456789012345678901234\u001b[9;1H5678901234567890 next\u001b[10;1H1234567890123456789012345678901234567890\u001b[11;1Hnext\u001b[12;1H$ \u001b[12;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 479,
+      "to": 481
+    },
+    {
+      "op": "write",
+      "from": 481,
+      "to": 495
+    },
+    {
+      "op": "write",
+      "from": 495,
+      "to": 497
+    },
+    {
+      "op": "write",
+      "from": 497,
+      "to": 499
+    },
+    {
+      "op": "write",
+      "from": 499,
+      "to": 501
+    },
+    {
+      "op": "write",
+      "from": 501,
+      "to": 502
+    },
+    {
+      "op": "write",
+      "from": 502,
+      "to": 503
+    },
+    {
+      "op": "write",
+      "from": 503,
+      "to": 504
+    },
+    {
+      "op": "write",
+      "from": 504,
+      "to": 506
+    },
+    {
+      "op": "write",
+      "from": 506,
+      "to": 508
+    },
+    {
+      "op": "write",
+      "from": 508,
+      "to": 509
+    },
+    {
+      "op": "write",
+      "from": 509,
+      "to": 511
+    },
+    {
+      "op": "write",
+      "from": 511,
+      "to": 512
+    },
+    {
+      "op": "write",
+      "from": 512,
+      "to": 514
+    },
+    {
+      "op": "write",
+      "from": 514,
+      "to": 515
+    },
+    {
+      "op": "write",
+      "from": 515,
+      "to": 516
+    },
+    {
+      "op": "write",
+      "from": 516,
+      "to": 520
+    },
+    {
+      "op": "write",
+      "from": 520,
+      "to": 521
+    },
+    {
+      "op": "write",
+      "from": 521,
+      "to": 522
+    },
+    {
+      "op": "write",
+      "from": 522,
+      "to": 524
+    },
+    {
+      "op": "write",
+      "from": 524,
+      "to": 525
+    },
+    {
+      "op": "write",
+      "from": 525,
+      "to": 527
+    },
+    {
+      "op": "write",
+      "from": 527,
+      "to": 530
+    },
+    {
+      "op": "write",
+      "from": 530,
+      "to": 533
+    },
+    {
+      "op": "write",
+      "from": 533,
+      "to": 535
+    },
+    {
+      "op": "write",
+      "from": 535,
+      "to": 540
+    },
+    {
+      "op": "write",
+      "from": 540,
+      "to": 542
+    },
+    {
+      "op": "write",
+      "from": 542,
+      "to": 543
+    },
+    {
+      "op": "write",
+      "from": 543,
+      "to": 545
+    },
+    {
+      "op": "write",
+      "from": 545,
+      "to": 546
+    },
+    {
+      "op": "write",
+      "from": 546,
+      "to": 547
+    },
+    {
+      "op": "write",
+      "from": 547,
+      "to": 548
+    },
+    {
+      "op": "write",
+      "from": 548,
+      "to": 549
+    },
+    {
+      "op": "write",
+      "from": 549,
+      "to": 550
+    },
+    {
+      "op": "write",
+      "from": 550,
+      "to": 551
+    },
+    {
+      "op": "write",
+      "from": 551,
+      "to": 552
+    },
+    {
+      "op": "write",
+      "from": 552,
+      "to": 553
+    },
+    {
+      "op": "write",
+      "from": 553,
+      "to": 554
+    },
+    {
+      "op": "write",
+      "from": 554,
+      "to": 555
+    },
+    {
+      "op": "write",
+      "from": 555,
+      "to": 556
+    },
+    {
+      "op": "write",
+      "from": 556,
+      "to": 557
+    },
+    {
+      "op": "write",
+      "from": 557,
+      "to": 558
+    },
+    {
+      "op": "write",
+      "from": 558,
+      "to": 559
+    },
+    {
+      "op": "write",
+      "from": 559,
+      "to": 560
+    },
+    {
+      "op": "write",
+      "from": 560,
+      "to": 563
+    },
+    {
+      "op": "write",
+      "from": 563,
+      "to": 564
+    },
+    {
+      "op": "write",
+      "from": 564,
+      "to": 565
+    },
+    {
+      "op": "write",
+      "from": 565,
+      "to": 566
+    },
+    {
+      "op": "write",
+      "from": 566,
+      "to": 567
+    },
+    {
+      "op": "write",
+      "from": 567,
+      "to": 568
+    },
+    {
+      "op": "write",
+      "from": 568,
+      "to": 570
+    },
+    {
+      "op": "write",
+      "from": 570,
+      "to": 571
+    },
+    {
+      "op": "write",
+      "from": 571,
+      "to": 573
+    },
+    {
+      "op": "write",
+      "from": 573,
+      "to": 575
+    },
+    {
+      "op": "write",
+      "from": 575,
+      "to": 576
+    },
+    {
+      "op": "write",
+      "from": 576,
+      "to": 580
+    },
+    {
+      "op": "write",
+      "from": 580,
+      "to": 581
+    },
+    {
+      "op": "write",
+      "from": 581,
+      "to": 584
+    },
+    {
+      "op": "write",
+      "from": 584,
+      "to": 674
+    },
+    {
+      "op": "write",
+      "from": 674,
+      "to": 676
+    },
+    {
+      "op": "checkpoint",
+      "label": "wide-at-edge",
+      "at": 676,
+      "screen": {
+        "cols": 40,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 11
+        },
+        "baseY": 7,
+        "viewportY": 7,
+        "length": 19,
+        "lines": ["$ printf '%s\\n' 123456789012345678901234", "5678901234567890 next", "1234567890123456789012345678901234567890", "next", "$ printf '123456789012345678901234567890", "12345678日本\\n12345678901234567890123456", "7890123456789日\\n'", "12345678901234567890123456789012345678日", "本", "123456789012345678901234567890123456789", "日", "$ "],
+        "wrapped": [1, 5, 6, 8, 10],
+        "attrs": {},
+        "wide": {
+          "5": [8, 10],
+          "6": [13],
+          "7": [38],
+          "8": [0],
+          "10": [0]
+        },
+        "scrollback": ["$ printf '日本語のテキスト 中文 한국어\\n", "'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' ", "$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\", "314\\203 Z\\315\\221\\315\\222\\n'", "é ạ̈ ñ Z͑͒"],
+        "scrollbackWrapped": [1, 5],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf '%s\\n' 123456789012345678901234\u001b[2;1H5678901234567890 next\u001b[3;1H1234567890123456789012345678901234567890\u001b[4;1Hnext\u001b[5;1H$ printf '123456789012345678901234567890\u001b[6;1H12345678日本\\n12345678901234567890123456\u001b[7;1H7890123456789日\\n'\u001b[8;1H12345678901234567890123456789012345678日\u001b[9;1H本\u001b[10;1H123456789012345678901234567890123456789\u001b[11;1H日\u001b[12;1H$ \u001b[12;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890\n12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890\n12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "é ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890\n12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890\n12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890\n12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890\n12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 676,
+      "to": 687
+    },
+    {
+      "op": "write",
+      "from": 687,
+      "to": 697
+    },
+    {
+      "op": "write",
+      "from": 697,
+      "to": 698
+    },
+    {
+      "op": "write",
+      "from": 698,
+      "to": 699
+    },
+    {
+      "op": "write",
+      "from": 699,
+      "to": 701
+    },
+    {
+      "op": "write",
+      "from": 701,
+      "to": 702
+    },
+    {
+      "op": "write",
+      "from": 702,
+      "to": 703
+    },
+    {
+      "op": "write",
+      "from": 703,
+      "to": 704
+    },
+    {
+      "op": "write",
+      "from": 704,
+      "to": 705
+    },
+    {
+      "op": "write",
+      "from": 705,
+      "to": 706
+    },
+    {
+      "op": "write",
+      "from": 706,
+      "to": 707
+    },
+    {
+      "op": "write",
+      "from": 707,
+      "to": 708
+    },
+    {
+      "op": "write",
+      "from": 708,
+      "to": 709
+    },
+    {
+      "op": "write",
+      "from": 709,
+      "to": 710
+    },
+    {
+      "op": "write",
+      "from": 710,
+      "to": 711
+    },
+    {
+      "op": "write",
+      "from": 711,
+      "to": 712
+    },
+    {
+      "op": "write",
+      "from": 712,
+      "to": 717
+    },
+    {
+      "op": "write",
+      "from": 717,
+      "to": 721
+    },
+    {
+      "op": "write",
+      "from": 721,
+      "to": 722
+    },
+    {
+      "op": "write",
+      "from": 722,
+      "to": 723
+    },
+    {
+      "op": "write",
+      "from": 723,
+      "to": 724
+    },
+    {
+      "op": "write",
+      "from": 724,
+      "to": 726
+    },
+    {
+      "op": "write",
+      "from": 726,
+      "to": 727
+    },
+    {
+      "op": "write",
+      "from": 727,
+      "to": 728
+    },
+    {
+      "op": "write",
+      "from": 728,
+      "to": 729
+    },
+    {
+      "op": "write",
+      "from": 729,
+      "to": 731
+    },
+    {
+      "op": "write",
+      "from": 731,
+      "to": 733
+    },
+    {
+      "op": "write",
+      "from": 733,
+      "to": 734
+    },
+    {
+      "op": "write",
+      "from": 734,
+      "to": 736
+    },
+    {
+      "op": "write",
+      "from": 736,
+      "to": 737
+    },
+    {
+      "op": "write",
+      "from": 737,
+      "to": 739
+    },
+    {
+      "op": "write",
+      "from": 739,
+      "to": 741
+    },
+    {
+      "op": "write",
+      "from": 741,
+      "to": 742
+    },
+    {
+      "op": "write",
+      "from": 742,
+      "to": 743
+    },
+    {
+      "op": "write",
+      "from": 743,
+      "to": 744
+    },
+    {
+      "op": "write",
+      "from": 744,
+      "to": 745
+    },
+    {
+      "op": "write",
+      "from": 745,
+      "to": 746
+    },
+    {
+      "op": "write",
+      "from": 746,
+      "to": 747
+    },
+    {
+      "op": "write",
+      "from": 747,
+      "to": 748
+    },
+    {
+      "op": "write",
+      "from": 748,
+      "to": 749
+    },
+    {
+      "op": "write",
+      "from": 749,
+      "to": 750
+    },
+    {
+      "op": "write",
+      "from": 750,
+      "to": 751
+    },
+    {
+      "op": "write",
+      "from": 751,
+      "to": 752
+    },
+    {
+      "op": "write",
+      "from": 752,
+      "to": 753
+    },
+    {
+      "op": "write",
+      "from": 753,
+      "to": 754
+    },
+    {
+      "op": "write",
+      "from": 754,
+      "to": 755
+    },
+    {
+      "op": "write",
+      "from": 755,
+      "to": 759
+    },
+    {
+      "op": "write",
+      "from": 759,
+      "to": 760
+    },
+    {
+      "op": "write",
+      "from": 760,
+      "to": 763
+    },
+    {
+      "op": "write",
+      "from": 763,
+      "to": 766
+    },
+    {
+      "op": "write",
+      "from": 766,
+      "to": 770
+    },
+    {
+      "op": "write",
+      "from": 770,
+      "to": 775
+    },
+    {
+      "op": "write",
+      "from": 775,
+      "to": 776
+    },
+    {
+      "op": "write",
+      "from": 776,
+      "to": 777
+    },
+    {
+      "op": "write",
+      "from": 777,
+      "to": 778
+    },
+    {
+      "op": "write",
+      "from": 778,
+      "to": 779
+    },
+    {
+      "op": "write",
+      "from": 779,
+      "to": 780
+    },
+    {
+      "op": "write",
+      "from": 780,
+      "to": 781
+    },
+    {
+      "op": "write",
+      "from": 781,
+      "to": 784
+    },
+    {
+      "op": "write",
+      "from": 784,
+      "to": 877
+    },
+    {
+      "op": "write",
+      "from": 877,
+      "to": 879
+    },
+    {
+      "op": "checkpoint",
+      "label": "wrapped",
+      "at": 879,
+      "screen": {
+        "cols": 40,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 11
+        },
+        "baseY": 13,
+        "viewportY": 13,
+        "length": 25,
+        "lines": ["7890123456789日\\n'", "12345678901234567890123456789012345678日", "本", "123456789012345678901234567890123456789", "日", "$ printf 'a long line that wraps around ", "the forty column terminal more than once", ": 日本語 🎉 done\\n'", "a long line that wraps around the forty ", "column terminal more than once: 日本語 🎉", " done", "$ "],
+        "wrapped": [0, 2, 4, 6, 7, 9, 10],
+        "attrs": {},
+        "wide": {
+          "0": [13],
+          "1": [38],
+          "2": [0],
+          "4": [0],
+          "7": [2, 4, 6],
+          "9": [32, 34, 36]
+        },
+        "scrollback": ["$ printf '日本語のテキスト 中文 한국어\\n", "'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' ", "$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\", "314\\203 Z\\315\\221\\315\\222\\n'", "é ạ̈ ñ Z͑͒", "$ printf '%s\\n' 123456789012345678901234", "5678901234567890 next", "1234567890123456789012345678901234567890", "next", "$ printf '123456789012345678901234567890", "12345678日本\\n12345678901234567890123456"],
+        "scrollbackWrapped": [1, 5, 8, 12],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890\n12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H7890123456789日\\n'\u001b[2;1H12345678901234567890123456789012345678日\u001b[3;1H本\u001b[4;1H123456789012345678901234567890123456789\u001b[5;1H日\u001b[6;1H$ printf 'a long line that wraps around \u001b[7;1Hthe forty column terminal more than once\u001b[8;1H: 日本語 🎉 done\\n'\u001b[9;1Ha long line that wraps around the forty \u001b[10;1Hcolumn terminal more than once: 日本語 🎉\u001b[11;1H done\u001b[12;1H$ \u001b[12;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ printf 'a long line that wraps around \nthe forty column terminal more than once\n: 日本語 🎉 done\\n'\na long line that wraps around the forty \ncolumn terminal more than once: 日本語 🎉\n done\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ printf 'a long line that wraps around \nthe forty column terminal more than once\n: 日本語 🎉 done\\n'\na long line that wraps around the forty \ncolumn terminal more than once: 日本語 🎉\n done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 13
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ printf 'a long line that wraps around \nthe forty column terminal more than once\n: 日本語 🎉 done\\n'\na long line that wraps around the forty \ncolumn terminal more than once: 日本語 🎉\n done"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 13
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf '123456789012345678901234567890\n12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ printf 'a long line that wraps around \nthe forty column terminal more than once\n: 日本語 🎉 done\\n'\na long line that wraps around the forty \ncolumn terminal more than once: 日本語 🎉"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 13
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "é ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890\n12345678日本\\n12345678901234567890123456\n7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 13
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ printf 'a long line that wraps around \nthe forty column terminal more than once\n: 日本語 🎉 done\\n'\na long line that wraps around the forty \ncolumn terminal more than once: 日本語 🎉\n done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 13
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 13,
+            "maxScrollOffset": 13
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\\n314\\203 Z\\315\\221\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234\n5678901234567890 next\n1234567890123456789012345678901234567890\nnext\n$ printf '123456789012345678901234567890"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ printf 'a long line that wraps around \nthe forty column terminal more than once\n: 日本語 🎉 done\\n'\na long line that wraps around the forty \ncolumn terminal more than once: 日本語 🎉\n done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 13
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 30,
+      "rows": 12
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-30x12",
+      "at": 879,
+      "screen": {
+        "cols": 30,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 11
+        },
+        "baseY": 19,
+        "viewportY": 19,
+        "length": 31,
+        "lines": ["123456789012345678901234567890", "12345678日本", "123456789012345678901234567890", "123456789日", "$ printf 'a long line that wra", "ps around the forty column ter", "minal more than once: 日本語 🎉", " done\\n'", "a long line that wraps around ", "the forty column terminal more", " than once: 日本語 🎉 done", "$ "],
+        "wrapped": [1, 3, 5, 6, 7, 9, 10],
+        "attrs": {},
+        "wide": {
+          "1": [8, 10],
+          "3": [9],
+          "6": [22, 24, 26],
+          "10": [12, 14, 16]
+        },
+        "scrollback": ["$ printf '日本語のテキスト 中", "文 한국어\\n'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ en", "d\\n' ", "$ printf 'e\\314\\201 a\\314\\210\\", "314\\243 n\\314\\203 Z\\315\\221\\31", "5\\222\\n'", "é ạ̈ ñ Z͑͒", "$ printf '%s\\n' 12345678901234", "56789012345678901234567890 nex", "t", "123456789012345678901234567890", "1234567890", "next", "$ printf '12345678901234567890", "123456789012345678日本\\n123456", "789012345678901234567890123456", "789日\\n'"],
+        "scrollbackWrapped": [1, 4, 6, 7, 10, 11, 13, 16, 17, 18],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "7890123456789日\\n'\n12345678901234567890123456789012345678日\n本\n123456789012345678901234567890123456789\n日\n$ printf 'a long line that wraps around \nthe forty column terminal more than once\n: 日本語 🎉 done\\n'\na long line that wraps around the forty \ncolumn terminal more than once: 日本語 🎉\n done\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H123456789012345678901234567890\u001b[2;1H12345678日本\u001b[3;1H123456789012345678901234567890\u001b[4;1H123456789日\u001b[5;1H$ printf 'a long line that wra\u001b[6;1Hps around the forty column ter\u001b[7;1Hminal more than once: 日本語 🎉\u001b[8;1H done\\n'\u001b[9;1Ha long line that wraps around \u001b[10;1Hthe forty column terminal more\u001b[11;1H than once: 日本語 🎉 done\u001b[12;1H$ \u001b[12;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "789日\\n'\n123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "789012345678901234567890123456\n789日\\n'\n123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "123456789012345678901234567890\n1234567890\nnext\n$ printf '12345678901234567890\n123456789012345678日本\\n123456\n789012345678901234567890123456\n789日\\n'\n123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中\n文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ en\nd\\n' \n$ printf 'e\\314\\201 a\\314\\210\\\n314\\243 n\\314\\203 Z\\315\\221\\31\n5\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 12345678901234\n56789012345678901234567890 nex\nt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 19,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中\n文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ en\nd\\n' \n$ printf 'e\\314\\201 a\\314\\210\\\n314\\243 n\\314\\203 Z\\315\\221\\31\n5\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 12345678901234\n56789012345678901234567890 nex\nt"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 19
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 879,
+      "to": 885
+    },
+    {
+      "op": "checkpoint",
+      "label": "resized-30",
+      "at": 885,
+      "screen": {
+        "cols": 30,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 11
+        },
+        "baseY": 19,
+        "viewportY": 19,
+        "length": 31,
+        "lines": ["123456789012345678901234567890", "12345678日本", "123456789012345678901234567890", "123456789日", "$ printf 'a long line that wra", "ps around the forty column ter", "minal more than once: 日本語 🎉", " done\\n'", "a long line that wraps around ", "the forty column terminal more", " than once: 日本語 🎉 done", "$ "],
+        "wrapped": [1, 3, 5, 6, 7, 9, 10],
+        "attrs": {},
+        "wide": {
+          "1": [8, 10],
+          "3": [9],
+          "6": [22, 24, 26],
+          "10": [12, 14, 16]
+        },
+        "scrollback": ["$ printf '日本語のテキスト 中", "文 한국어\\n'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ en", "d\\n' ", "$ printf 'e\\314\\201 a\\314\\210\\", "314\\243 n\\314\\203 Z\\315\\221\\31", "5\\222\\n'", "é ạ̈ ñ Z͑͒", "$ printf '%s\\n' 12345678901234", "56789012345678901234567890 nex", "t", "123456789012345678901234567890", "1234567890", "next", "$ printf '12345678901234567890", "123456789012345678日本\\n123456", "789012345678901234567890123456", "789日\\n'"],
+        "scrollbackWrapped": [1, 4, 6, 7, 10, 11, 13, 16, 17, 18],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H123456789012345678901234567890\u001b[2;1H12345678日本\u001b[3;1H123456789012345678901234567890\u001b[4;1H123456789日\u001b[5;1H$ printf 'a long line that wra\u001b[6;1Hps around the forty column ter\u001b[7;1Hminal more than once: 日本語 🎉\u001b[8;1H done\\n'\u001b[9;1Ha long line that wraps around \u001b[10;1Hthe forty column terminal more\u001b[11;1H than once: 日本語 🎉 done\u001b[12;1H$ \u001b[12;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "789日\\n'\n123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "789012345678901234567890123456\n789日\\n'\n123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "123456789012345678901234567890\n1234567890\nnext\n$ printf '12345678901234567890\n123456789012345678日本\\n123456\n789012345678901234567890123456\n789日\\n'\n123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中\n文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ en\nd\\n' \n$ printf 'e\\314\\201 a\\314\\210\\\n314\\243 n\\314\\203 Z\\315\\221\\31\n5\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 12345678901234\n56789012345678901234567890 nex\nt"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 19,
+            "maxScrollOffset": 19
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中\n文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ en\nd\\n' \n$ printf 'e\\314\\201 a\\314\\210\\\n314\\243 n\\314\\203 Z\\315\\221\\31\n5\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 12345678901234\n56789012345678901234567890 nex\nt"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 19
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 55,
+      "rows": 12
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-55x12",
+      "at": 885,
+      "screen": {
+        "cols": 55,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 11
+        },
+        "baseY": 7,
+        "viewportY": 7,
+        "length": 19,
+        "lines": ["0 next", "1234567890123456789012345678901234567890", "next", "$ printf '12345678901234567890123456789012345678日本\\n1", "23456789012345678901234567890123456789日\\n'", "12345678901234567890123456789012345678日本", "123456789012345678901234567890123456789日", "$ printf 'a long line that wraps around the forty colum", "n terminal more than once: 日本語 🎉 done\\n'", "a long line that wraps around the forty column terminal", " more than once: 日本語 🎉 done", "$ "],
+        "wrapped": [0, 4, 8, 10],
+        "attrs": {},
+        "wide": {
+          "3": [48, 50],
+          "4": [38],
+          "5": [38, 40],
+          "6": [39],
+          "8": [27, 29, 31],
+          "10": [17, 19, 21]
+        },
+        "scrollback": ["$ printf '日本語のテキスト 中文 한국어\\n'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' ", "$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2", "21\\315\\222\\n'", "é ạ̈ ñ Z͑͒", "$ printf '%s\\n' 123456789012345678901234567890123456789"],
+        "scrollbackWrapped": [4],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "123456789012345678901234567890\n12345678日本\n123456789012345678901234567890\n123456789日\n$ printf 'a long line that wra\nps around the forty column ter\nminal more than once: 日本語 🎉\n done\\n'\na long line that wraps around \nthe forty column terminal more\n than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H0 next\u001b[2;1H1234567890123456789012345678901234567890\u001b[3;1Hnext\u001b[4;1H$ printf '12345678901234567890123456789012345678日本\\n1\u001b[5;1H23456789012345678901234567890123456789日\\n'\u001b[6;1H12345678901234567890123456789012345678日本\u001b[7;1H123456789012345678901234567890123456789日\u001b[8;1H$ printf 'a long line that wraps around the forty colum\u001b[9;1Hn terminal more than once: 日本語 🎉 done\\n'\u001b[10;1Ha long line that wraps around the forty column terminal\u001b[11;1H more than once: 日本語 🎉 done\u001b[12;1H$ \u001b[12;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "é ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2\n21\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2\n21\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2\n21\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        }
+      ]
+    },
+    {
+      "op": "checkpoint",
+      "label": "resized-55",
+      "at": 885,
+      "screen": {
+        "cols": 55,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 11
+        },
+        "baseY": 7,
+        "viewportY": 7,
+        "length": 19,
+        "lines": ["0 next", "1234567890123456789012345678901234567890", "next", "$ printf '12345678901234567890123456789012345678日本\\n1", "23456789012345678901234567890123456789日\\n'", "12345678901234567890123456789012345678日本", "123456789012345678901234567890123456789日", "$ printf 'a long line that wraps around the forty colum", "n terminal more than once: 日本語 🎉 done\\n'", "a long line that wraps around the forty column terminal", " more than once: 日本語 🎉 done", "$ "],
+        "wrapped": [0, 4, 8, 10],
+        "attrs": {},
+        "wide": {
+          "3": [48, 50],
+          "4": [38],
+          "5": [38, 40],
+          "6": [39],
+          "8": [27, 29, 31],
+          "10": [17, 19, 21]
+        },
+        "scrollback": ["$ printf '日本語のテキスト 中文 한국어\\n'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' ", "$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2", "21\\315\\222\\n'", "é ạ̈ ñ Z͑͒", "$ printf '%s\\n' 123456789012345678901234567890123456789"],
+        "scrollbackWrapped": [4],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H0 next\u001b[2;1H1234567890123456789012345678901234567890\u001b[3;1Hnext\u001b[4;1H$ printf '12345678901234567890123456789012345678日本\\n1\u001b[5;1H23456789012345678901234567890123456789日\\n'\u001b[6;1H12345678901234567890123456789012345678日本\u001b[7;1H123456789012345678901234567890123456789日\u001b[8;1H$ printf 'a long line that wraps around the forty colum\u001b[9;1Hn terminal more than once: 日本語 🎉 done\\n'\u001b[10;1Ha long line that wraps around the forty column terminal\u001b[11;1H more than once: 日本語 🎉 done\u001b[12;1H$ \u001b[12;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "é ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2\n21\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2\n21\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 7
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2\n21\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 7
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 885,
+      "to": 891
+    },
+    {
+      "op": "write",
+      "from": 891,
+      "to": 892
+    },
+    {
+      "op": "write",
+      "from": 892,
+      "to": 893
+    },
+    {
+      "op": "write",
+      "from": 893,
+      "to": 894
+    },
+    {
+      "op": "write",
+      "from": 894,
+      "to": 896
+    },
+    {
+      "op": "write",
+      "from": 896,
+      "to": 898
+    },
+    {
+      "op": "write",
+      "from": 898,
+      "to": 900
+    },
+    {
+      "op": "write",
+      "from": 900,
+      "to": 902
+    },
+    {
+      "op": "write",
+      "from": 902,
+      "to": 903
+    },
+    {
+      "op": "write",
+      "from": 903,
+      "to": 904
+    },
+    {
+      "op": "write",
+      "from": 904,
+      "to": 906
+    },
+    {
+      "op": "write",
+      "from": 906,
+      "to": 907
+    },
+    {
+      "op": "write",
+      "from": 907,
+      "to": 908
+    },
+    {
+      "op": "write",
+      "from": 908,
+      "to": 910
+    },
+    {
+      "op": "write",
+      "from": 910,
+      "to": 912
+    },
+    {
+      "op": "write",
+      "from": 912,
+      "to": 923
+    },
+    {
+      "op": "write",
+      "from": 923,
+      "to": 926
+    },
+    {
+      "op": "write",
+      "from": 926,
+      "to": 928
+    },
+    {
+      "op": "write",
+      "from": 928,
+      "to": 954
+    },
+    {
+      "op": "write",
+      "from": 954,
+      "to": 956
+    },
+    {
+      "op": "write",
+      "from": 956,
+      "to": 962
+    },
+    {
+      "op": "write",
+      "from": 962,
+      "to": 968
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 968,
+      "screen": {
+        "cols": 55,
+        "rows": 12,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 11
+        },
+        "baseY": 11,
+        "viewportY": 11,
+        "length": 23,
+        "lines": ["23456789012345678901234567890123456789日\\n'", "12345678901234567890123456789012345678日本", "123456789012345678901234567890123456789日", "$ printf 'a long line that wraps around the forty colum", "n terminal more than once: 日本語 🎉 done\\n'", "a long line that wraps around the forty column terminal", " more than once: 日本語 🎉 done", "$ printf 'after resize 日本 🎉\\n'", "after resize 日本 🎉", "$ exit", "exit", ""],
+        "wrapped": [0, 4, 6],
+        "attrs": {},
+        "wide": {
+          "0": [38],
+          "1": [38, 40],
+          "2": [39],
+          "4": [27, 29, 31],
+          "6": [17, 19, 21],
+          "7": [23, 25],
+          "8": [13, 15]
+        },
+        "scrollback": ["$ printf '日本語のテキスト 中文 한국어\\n'", "日本語のテキスト 中文 한국어", "🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' ", "$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2", "21\\315\\222\\n'", "é ạ̈ ñ Z͑͒", "$ printf '%s\\n' 123456789012345678901234567890123456789", "0 next", "1234567890123456789012345678901234567890", "next", "$ printf '12345678901234567890123456789012345678日本\\n1"],
+        "scrollbackWrapped": [4, 7],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H23456789012345678901234567890123456789日\\n'\u001b[2;1H12345678901234567890123456789012345678日本\u001b[3;1H123456789012345678901234567890123456789日\u001b[4;1H$ printf 'a long line that wraps around the forty colum\u001b[5;1Hn terminal more than once: 日本語 🎉 done\\n'\u001b[6;1Ha long line that wraps around the forty column terminal\u001b[7;1H more than once: 日本語 🎉 done\u001b[8;1H$ printf 'after resize 日本 🎉\\n'\u001b[9;1Hafter resize 日本 🎉\u001b[10;1H$ exit\u001b[11;1Hexit\u001b[12;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ printf 'after resize 日本 🎉\\n'\nafter resize 日本 🎉\n$ exit\nexit"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ printf 'after resize 日本 🎉\\n'\nafter resize 日本 🎉\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 11
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ printf 'after resize 日本 🎉\\n'\nafter resize 日本 🎉\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 11
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "next\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ printf 'after resize 日本 🎉\\n'\nafter resize 日本 🎉\n$ exit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 11
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "21\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 7,
+            "maxScrollOffset": 11
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ printf 'after resize 日本 🎉\\n'\nafter resize 日本 🎉\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 11
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2\n21\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 11,
+            "maxScrollOffset": 11
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf '日本語のテキスト 中文 한국어\\n'\n日本語のテキスト 中文 한국어\n🎉 👩‍💻 👨‍👩‍👧 🇯🇵 ❤️ ☺︎ 1️⃣ end ❤️ ☺︎ 1️⃣ end\\n' \n$ printf 'e\\314\\201 a\\314\\210\\314\\243 n\\314\\203 Z\\315\\2\n21\\315\\222\\n'\né ạ̈ ñ Z͑͒\n$ printf '%s\\n' 123456789012345678901234567890123456789\n0 next\n1234567890123456789012345678901234567890\nnext\n$ printf '12345678901234567890123456789012345678日本\\n1\n23456789012345678901234567890123456789日\\n'"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "23456789012345678901234567890123456789日\\n'\n12345678901234567890123456789012345678日本\n123456789012345678901234567890123456789日\n$ printf 'a long line that wraps around the forty colum\nn terminal more than once: 日本語 🎉 done\\n'\na long line that wraps around the forty column terminal\n more than once: 日本語 🎉 done\n$ printf 'after resize 日本 🎉\\n'\nafter resize 日本 🎉\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 11
+          }
+        }
+      ]
+    }
+  ]
+}

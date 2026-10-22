@@ -1,0 +1,46 @@
+{
+  "before": [
+    {
+      "path": "projects",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/-work-repo",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/-work-repo/old.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/-work-repo/plan.jsonl",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "projects",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/-work-repo",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/-work-repo/old.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/-work-repo/plan.jsonl",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

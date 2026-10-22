@@ -1,0 +1,136 @@
+{
+  "name": "synthetic-scrollback-reflow",
+  "source": "synthetic",
+  "description": "Scrollback and reflow: wrapped long lines, styled runs crossing the wrap, resizes narrower/wider/shorter/taller in the normal buffer (lines move between scrollback and screen), a resize inside the alternate screen, and scroll offsets across the scrollback.",
+  "cols": 30,
+  "rows": 8,
+  "chunks": [
+    45,
+    10,
+    10,
+    27,
+    60,
+    10,
+    27,
+    10,
+    92,
+    27,
+    10,
+    10,
+    69,
+    10,
+    10,
+    27,
+    84,
+    10,
+    27,
+    10,
+    44,
+    27,
+    10,
+    10,
+    93,
+    10,
+    10,
+    27,
+    36,
+    10,
+    27,
+    10,
+    68,
+    27,
+    10,
+    10,
+    45,
+    10,
+    10,
+    27,
+    2,
+    38,
+    8,
+    19
+  ],
+  "events": [
+    {
+      "at": 1108,
+      "type": "checkpoint",
+      "label": "filled"
+    },
+    {
+      "at": 1108,
+      "type": "resize",
+      "cols": 20,
+      "rows": 8
+    },
+    {
+      "at": 1108,
+      "type": "checkpoint",
+      "label": "narrower"
+    },
+    {
+      "at": 1108,
+      "type": "resize",
+      "cols": 45,
+      "rows": 8
+    },
+    {
+      "at": 1108,
+      "type": "checkpoint",
+      "label": "wider"
+    },
+    {
+      "at": 1108,
+      "type": "resize",
+      "cols": 45,
+      "rows": 4
+    },
+    {
+      "at": 1108,
+      "type": "checkpoint",
+      "label": "shorter"
+    },
+    {
+      "at": 1108,
+      "type": "resize",
+      "cols": 45,
+      "rows": 12
+    },
+    {
+      "at": 1108,
+      "type": "checkpoint",
+      "label": "taller"
+    },
+    {
+      "at": 1146,
+      "type": "checkpoint",
+      "label": "alt"
+    },
+    {
+      "at": 1146,
+      "type": "resize",
+      "cols": 25,
+      "rows": 6
+    },
+    {
+      "at": 1146,
+      "type": "checkpoint",
+      "label": "alt-resized"
+    },
+    {
+      "at": 1154,
+      "type": "checkpoint",
+      "label": "normal-again"
+    }
+  ],
+  "scrollOffsets": [
+    0,
+    1,
+    4,
+    10,
+    25,
+    1000
+  ],
+  "recording": {
+    "generator": "parity/gen/streams/synthetic.ts"
+  }
+}

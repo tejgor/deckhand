@@ -1,0 +1,14 @@
+{
+  "fn": "updateAppConfig",
+  "args": [
+    "$ROOT",
+    {
+      "notifications": true
+    }
+  ],
+  "async": true,
+  "ret": {
+    "trustedProjects": {},
+    "notifications": true
+  }
+}

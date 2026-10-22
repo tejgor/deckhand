@@ -1,0 +1,76 @@
+{
+  "before": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/dir",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/dir/f",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/dir",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/dir/g",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/dir",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/dir/f",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/dir",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/dir/g",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

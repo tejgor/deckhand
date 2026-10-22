@@ -1,0 +1,23 @@
+{"args":[""],"ret":{"$map":[]}}
+{"args":["-\t-\tbin.png\u0000"],"ret":{"$map":[["bin.png",{"binary":true}]]}}
+{"args":["-\t2\tmixed\u0000"],"ret":{"$map":[["mixed",{"binary":true}]]}}
+{"args":["01\t002\tz\u0000"],"ret":{"$map":[["z",{"additions":1,"deletions":2}]]}}
+{"args":["1\t2\t\u0000"],"ret":{"$map":[["",{"additions":1,"deletions":2}]]}}
+{"args":["1\t2\t\u0000a\u0000b\u00007\t8\tafter\u0000"],"ret":{"$map":[["b",{"additions":1,"deletions":2}],["after",{"additions":7,"deletions":8}]]}}
+{"args":["1\t2\t\u0000old\u0000"],"ret":{"$map":[["",{"additions":1,"deletions":2}]]}}
+{"args":["1\t2\t\u0000old\u0000new\u0000"],"ret":{"$map":[["new",{"additions":1,"deletions":2}]]}}
+{"args":["1\t2\ta\tb\nc\u0000"],"ret":{"$map":[["a\tb\nc",{"additions":1,"deletions":2}]]}}
+{"args":["1\t2\ta\u0000 3\t4\ta\u0000"],"ret":{"$map":[["a",{"additions":1,"deletions":2}]]}}
+{"args":["1\t2\ta\u00005\t6\ta\u0000"],"ret":{"$map":[["a",{"additions":5,"deletions":6}]]}}
+{"args":["1\t2\tdir/名前😀.ts\u0000"],"ret":{"$map":[["dir/名前😀.ts",{"additions":1,"deletions":2}]]}}
+{"args":["1\t2\tfile\u0000"],"ret":{"$map":[["file",{"additions":1,"deletions":2}]]}}
+{"args":["2\t0\tsrc/app.ts\u00000\t0\tboth.txt\u00005\t2\tboth.txt\u00000\t0\tintent.txt"],"ret":{"$map":[["src/app.ts",{"additions":2,"deletions":0}],["both.txt",{"additions":5,"deletions":2}],["intent.txt",{"additions":0,"deletions":0}]]}}
+{"args":["2\t0\tsrc/app.ts\u00000\t0\tboth.txt\u00005\t2\tboth.txt\u00000\t0\tintent.txt\u0000"],"ret":{"$map":[["src/app.ts",{"additions":2,"deletions":0}],["both.txt",{"additions":5,"deletions":2}],["intent.txt",{"additions":0,"deletions":0}]]}}
+{"args":["2\t0\tsrc/app.ts\u00000\t0\tboth.txt\u00005\t2\tboth.txt\u00000\t0\tintent.txt\u00002\t0\tsrc/app.ts\u00000\t0\tboth.txt\u00005\t2\tboth.txt\u00000\t0\tintent.txt\u0000"],"ret":{"$map":[["src/app.ts",{"additions":2,"deletions":0}],["both.txt",{"additions":5,"deletions":2}],["intent.txt",{"additions":0,"deletions":0}]]}}
+{"args":["3\t1\tsrc/app.ts\u000000\t\u0000docs/old name.md\u0000docs/new name.md\u00000\t4\tgone.txt\u0000"],"ret":{"$map":[["src/app.ts",{"additions":3,"deletions":1}],["gone.txt",{"additions":0,"deletions":4}]]}}
+{"args":["3\t1\tsrc/app.ts\u00000\t0\t\u0000docs/old name.md\u0000docs/new name.md\u00000\t4\tgone.txt\u0000"],"ret":{"$map":[["src/app.ts",{"additions":3,"deletions":1}],["docs/new name.md",{"additions":0,"deletions":0}],["gone.txt",{"additions":0,"deletions":4}]]}}
+{"args":["3\t1\tsrc/app.ts\u00000\t0\t\u0000docs/oldname.md\u0000docs/new name.md\u00000\t4\tgone.txt\u0000"],"ret":{"$map":[["src/app.ts",{"additions":3,"deletions":1}],["docs/new name.md",{"additions":0,"deletions":0}],["gone.txt",{"additions":0,"deletions":4}]]}}
+{"args":["3\t1src/app.ts\u00000\t0\t\u0000docs/old name.md\u0000docs/new name.md\u00000\t4\tgone.txt\u0000"],"ret":{"$map":[["docs/new name.md",{"additions":0,"deletions":0}],["gone.txt",{"additions":0,"deletions":4}]]}}
+{"args":["3\t4\ta\u0000 5\t6\tb\u0000"],"ret":{"$map":[["a",{"additions":3,"deletions":4}]]}}
+{"args":["\u0000"],"ret":{"$map":[]}}
+{"args":["x\ty\tz\u0000"],"ret":{"$map":[]}}

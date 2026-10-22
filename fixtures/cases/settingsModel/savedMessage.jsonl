@@ -1,0 +1,98 @@
+{"args":["","global",{"cleared":false,"trust":"created"}],"ret":"Saved  to global defaults"}
+{"args":["","global",{"cleared":false,"trust":"kept"}],"ret":"Saved  to global defaults"}
+{"args":["","global",{"cleared":false,"trust":"unreviewed"}],"ret":"Saved  to global defaults"}
+{"args":["","global",{"cleared":false}],"ret":"Saved  to global defaults"}
+{"args":["","global",{"cleared":true,"trust":"created"}],"ret":"Cleared  in global defaults"}
+{"args":["","global",{"cleared":true,"trust":"kept"}],"ret":"Cleared  in global defaults"}
+{"args":["","global",{"cleared":true,"trust":"unreviewed"}],"ret":"Cleared  in global defaults"}
+{"args":["","global",{"cleared":true}],"ret":"Cleared  in global defaults"}
+{"args":["","global",{"trust":"created"}],"ret":"Saved  to global defaults"}
+{"args":["","global",{"trust":"kept"}],"ret":"Saved  to global defaults"}
+{"args":["","global",{"trust":"unreviewed"}],"ret":"Saved  to global defaults"}
+{"args":["","global"],"ret":"Saved  to global defaults"}
+{"args":["","repository",{"cleared":false,"trust":"created"}],"ret":"Saved  to this repo · created and trusted"}
+{"args":["","repository",{"cleared":false,"trust":"kept"}],"ret":"Saved  to this repo · still trusted"}
+{"args":["","repository",{"cleared":false,"trust":"unreviewed"}],"ret":"Saved  to this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["","repository",{"cleared":false}],"ret":"Saved  to this repo · reviewed before anything from it runs"}
+{"args":["","repository",{"cleared":true,"trust":"created"}],"ret":"Cleared  in this repo · created and trusted"}
+{"args":["","repository",{"cleared":true,"trust":"kept"}],"ret":"Cleared  in this repo · still trusted"}
+{"args":["","repository",{"cleared":true,"trust":"unreviewed"}],"ret":"Cleared  in this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["","repository",{"cleared":true}],"ret":"Cleared  in this repo · reviewed before anything from it runs"}
+{"args":["","repository",{"trust":"created"}],"ret":"Saved  to this repo · created and trusted"}
+{"args":["","repository",{"trust":"kept"}],"ret":"Saved  to this repo · still trusted"}
+{"args":["","repository",{"trust":"unreviewed"}],"ret":"Saved  to this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["","repository"],"ret":"Saved  to this repo · reviewed before anything from it runs"}
+{"args":["Default agent","repository",{"cleared":true,"trust":"kept"}],"ret":"Cleared Default agent in this repo · still trusted"}
+{"args":["Dev command","global",{"cleared":false,"trust":"created"}],"ret":"Saved Dev command to global defaults"}
+{"args":["Dev command","global",{"cleared":false,"trust":"kept"}],"ret":"Saved Dev command to global defaults"}
+{"args":["Dev command","global",{"cleared":false,"trust":"unreviewed"}],"ret":"Saved Dev command to global defaults"}
+{"args":["Dev command","global",{"cleared":false}],"ret":"Saved Dev command to global defaults"}
+{"args":["Dev command","global",{"cleared":true,"trust":"created"}],"ret":"Cleared Dev command in global defaults"}
+{"args":["Dev command","global",{"cleared":true,"trust":"kept"}],"ret":"Cleared Dev command in global defaults"}
+{"args":["Dev command","global",{"cleared":true,"trust":"unreviewed"}],"ret":"Cleared Dev command in global defaults"}
+{"args":["Dev command","global",{"cleared":true}],"ret":"Cleared Dev command in global defaults"}
+{"args":["Dev command","global",{"trust":"created"}],"ret":"Saved Dev command to global defaults"}
+{"args":["Dev command","global",{"trust":"kept"}],"ret":"Saved Dev command to global defaults"}
+{"args":["Dev command","global",{"trust":"unreviewed"}],"ret":"Saved Dev command to global defaults"}
+{"args":["Dev command","global"],"ret":"Saved Dev command to global defaults"}
+{"args":["Dev command","repository",{"cleared":false,"trust":"created"}],"ret":"Saved Dev command to this repo · created and trusted"}
+{"args":["Dev command","repository",{"cleared":false,"trust":"kept"}],"ret":"Saved Dev command to this repo · still trusted"}
+{"args":["Dev command","repository",{"cleared":false,"trust":"unreviewed"}],"ret":"Saved Dev command to this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["Dev command","repository",{"cleared":false}],"ret":"Saved Dev command to this repo · reviewed before anything from it runs"}
+{"args":["Dev command","repository",{"cleared":true,"trust":"created"}],"ret":"Cleared Dev command in this repo · created and trusted"}
+{"args":["Dev command","repository",{"cleared":true,"trust":"kept"}],"ret":"Cleared Dev command in this repo · still trusted"}
+{"args":["Dev command","repository",{"cleared":true,"trust":"unreviewed"}],"ret":"Cleared Dev command in this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["Dev command","repository",{"cleared":true}],"ret":"Cleared Dev command in this repo · reviewed before anything from it runs"}
+{"args":["Dev command","repository",{"trust":"created"}],"ret":"Saved Dev command to this repo · created and trusted"}
+{"args":["Dev command","repository",{"trust":"kept"}],"ret":"Saved Dev command to this repo · still trusted"}
+{"args":["Dev command","repository",{"trust":"unreviewed"}],"ret":"Saved Dev command to this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["Dev command","repository"],"ret":"Saved Dev command to this repo · reviewed before anything from it runs"}
+{"args":["Location","repository",{"trust":"kept"}],"ret":"Saved Location to this repo · still trusted"}
+{"args":["a\nb","global",{"cleared":false,"trust":"created"}],"ret":"Saved a\nb to global defaults"}
+{"args":["a\nb","global",{"cleared":false,"trust":"kept"}],"ret":"Saved a\nb to global defaults"}
+{"args":["a\nb","global",{"cleared":false,"trust":"unreviewed"}],"ret":"Saved a\nb to global defaults"}
+{"args":["a\nb","global",{"cleared":false}],"ret":"Saved a\nb to global defaults"}
+{"args":["a\nb","global",{"cleared":true,"trust":"created"}],"ret":"Cleared a\nb in global defaults"}
+{"args":["a\nb","global",{"cleared":true,"trust":"kept"}],"ret":"Cleared a\nb in global defaults"}
+{"args":["a\nb","global",{"cleared":true,"trust":"unreviewed"}],"ret":"Cleared a\nb in global defaults"}
+{"args":["a\nb","global",{"cleared":true}],"ret":"Cleared a\nb in global defaults"}
+{"args":["a\nb","global",{"trust":"created"}],"ret":"Saved a\nb to global defaults"}
+{"args":["a\nb","global",{"trust":"kept"}],"ret":"Saved a\nb to global defaults"}
+{"args":["a\nb","global",{"trust":"unreviewed"}],"ret":"Saved a\nb to global defaults"}
+{"args":["a\nb","global"],"ret":"Saved a\nb to global defaults"}
+{"args":["a\nb","repository",{"cleared":false,"trust":"created"}],"ret":"Saved a\nb to this repo · created and trusted"}
+{"args":["a\nb","repository",{"cleared":false,"trust":"kept"}],"ret":"Saved a\nb to this repo · still trusted"}
+{"args":["a\nb","repository",{"cleared":false,"trust":"unreviewed"}],"ret":"Saved a\nb to this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["a\nb","repository",{"cleared":false}],"ret":"Saved a\nb to this repo · reviewed before anything from it runs"}
+{"args":["a\nb","repository",{"cleared":true,"trust":"created"}],"ret":"Cleared a\nb in this repo · created and trusted"}
+{"args":["a\nb","repository",{"cleared":true,"trust":"kept"}],"ret":"Cleared a\nb in this repo · still trusted"}
+{"args":["a\nb","repository",{"cleared":true,"trust":"unreviewed"}],"ret":"Cleared a\nb in this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["a\nb","repository",{"cleared":true}],"ret":"Cleared a\nb in this repo · reviewed before anything from it runs"}
+{"args":["a\nb","repository",{"trust":"created"}],"ret":"Saved a\nb to this repo · created and trusted"}
+{"args":["a\nb","repository",{"trust":"kept"}],"ret":"Saved a\nb to this repo · still trusted"}
+{"args":["a\nb","repository",{"trust":"unreviewed"}],"ret":"Saved a\nb to this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["a\nb","repository"],"ret":"Saved a\nb to this repo · reviewed before anything from it runs"}
+{"args":["日本語 😀","global",{"cleared":false,"trust":"created"}],"ret":"Saved 日本語 😀 to global defaults"}
+{"args":["日本語 😀","global",{"cleared":false,"trust":"kept"}],"ret":"Saved 日本語 😀 to global defaults"}
+{"args":["日本語 😀","global",{"cleared":false,"trust":"unreviewed"}],"ret":"Saved 日本語 😀 to global defaults"}
+{"args":["日本語 😀","global",{"cleared":false}],"ret":"Saved 日本語 😀 to global defaults"}
+{"args":["日本語 😀","global",{"cleared":true,"trust":"created"}],"ret":"Cleared 日本語 😀 in global defaults"}
+{"args":["日本語 😀","global",{"cleared":true,"trust":"kept"}],"ret":"Cleared 日本語 😀 in global defaults"}
+{"args":["日本語 😀","global",{"cleared":true,"trust":"unreviewed"}],"ret":"Cleared 日本語 😀 in global defaults"}
+{"args":["日本語 😀","global",{"cleared":true}],"ret":"Cleared 日本語 😀 in global defaults"}
+{"args":["日本語 😀","global",{"trust":"created"}],"ret":"Saved 日本語 😀 to global defaults"}
+{"args":["日本語 😀","global",{"trust":"kept"}],"ret":"Saved 日本語 😀 to global defaults"}
+{"args":["日本語 😀","global",{"trust":"unreviewed"}],"ret":"Saved 日本語 😀 to global defaults"}
+{"args":["日本語 😀","global"],"ret":"Saved 日本語 😀 to global defaults"}
+{"args":["日本語 😀","repository",{"cleared":false,"trust":"created"}],"ret":"Saved 日本語 😀 to this repo · created and trusted"}
+{"args":["日本語 😀","repository",{"cleared":false,"trust":"kept"}],"ret":"Saved 日本語 😀 to this repo · still trusted"}
+{"args":["日本語 😀","repository",{"cleared":false,"trust":"unreviewed"}],"ret":"Saved 日本語 😀 to this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["日本語 😀","repository",{"cleared":false}],"ret":"Saved 日本語 😀 to this repo · reviewed before anything from it runs"}
+{"args":["日本語 😀","repository",{"cleared":true,"trust":"created"}],"ret":"Cleared 日本語 😀 in this repo · created and trusted"}
+{"args":["日本語 😀","repository",{"cleared":true,"trust":"kept"}],"ret":"Cleared 日本語 😀 in this repo · still trusted"}
+{"args":["日本語 😀","repository",{"cleared":true,"trust":"unreviewed"}],"ret":"Cleared 日本語 😀 in this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["日本語 😀","repository",{"cleared":true}],"ret":"Cleared 日本語 😀 in this repo · reviewed before anything from it runs"}
+{"args":["日本語 😀","repository",{"trust":"created"}],"ret":"Saved 日本語 😀 to this repo · created and trusted"}
+{"args":["日本語 😀","repository",{"trust":"kept"}],"ret":"Saved 日本語 😀 to this repo · still trusted"}
+{"args":["日本語 😀","repository",{"trust":"unreviewed"}],"ret":"Saved 日本語 😀 to this repo · review required (the file had changes you haven't reviewed)"}
+{"args":["日本語 😀","repository"],"ret":"Saved 日本語 😀 to this repo · reviewed before anything from it runs"}

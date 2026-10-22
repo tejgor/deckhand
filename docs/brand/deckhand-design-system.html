@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deckhand Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Martian+Mono:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* ===== Tokens ===== */
+:root {
+	/* surfaces */
+	--ground: #4a5260; --surface: #3c434f; --term: #363c46; --box: #3f4651; --chrome: #424955;
+	/* ink and lines */
+	--ink: #f4f2ec; --muted: #c3c8d0; --dim: #848c99; --rule: #59616e; --edge: #9aa2ae; --faint: #555d6b; --ink-dark: #2a2f38;
+	/* accents and states */
+	--magenta: #f7a8f0; --magenta-2: #fbcdf6; --cyan: #86e2ee; --green: #b8e69c; --yellow: #f6d47e; --red: #ffa29b; --orange: #ffb98f;
+	--shadow: #3a414c; --magenta-shade: #ce8dc9; --scrim: rgba(54, 60, 70, 0.8);
+	/* type */
+	--mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+	--disp: 'Martian Mono', var(--mono);
+	color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+	background-color: var(--ground);
+	background-image: radial-gradient(circle at 0.5px 0.5px, var(--faint) 1px, transparent 1.2px);
+	background-size: 24px 48px;
+	color: var(--ink); font: 450 16px/24px var(--mono); -webkit-font-smoothing: antialiased;
+}
+main { max-width: 1080px; margin: 0 auto; padding: 48px 16px 96px; }
+@media (min-width: 720px) { main { padding: 72px 48px 120px; } }
+em { font-style: normal; color: var(--magenta); }
+code { font-family: var(--mono); color: var(--magenta-2); }
+.mu { color: var(--muted); } .dim { color: var(--dim); } .ma { color: var(--magenta); } .cy { color: var(--cyan); }
+.gr { color: var(--green); } .ye { color: var(--yellow); } .re { color: var(--red); } .or { color: var(--orange); } .b { font-weight: 700; }
+.cur { display: inline-block; width: 0.6em; height: 1.15em; vertical-align: -0.18em; background: var(--magenta); margin-left: 0.08em; }
+.blink { animation: blink 1.06s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ===== page furniture ===== */
+.mast { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 28px; }
+#anchor { width: 84px; height: auto; display: block; }
+#banner { width: min(100%, 560px); height: auto; display: block; }
+.lede { margin-top: 32px; font: 700 clamp(28px, 5.4vw, 52px)/1.35 var(--disp); }
+.sub { margin-top: 16px; max-width: 64ch; color: var(--muted); }
+.toc { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; }
+.toc a { color: var(--muted); text-decoration: none; } .toc a span { color: var(--magenta); }
+section { margin-top: 96px; scroll-margin-top: 24px; }
+.sec { display: flex; align-items: baseline; gap: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--dim); margin-bottom: 28px; }
+.sec .n { color: var(--magenta); font-weight: 700; }
+.sec h2 { margin: 0; font: 700 clamp(22px, 3.4vw, 30px)/1.3 var(--disp); }
+h3 { font: 700 18px/24px var(--mono); margin: 44px 0 12px; }
+p { margin: 0 0 12px; max-width: 70ch; }
+.note { color: var(--dim); font-size: 14px; line-height: 20px; margin-top: 10px; max-width: 72ch; }
+ul.rules { margin: 0; padding: 0; list-style: none; max-width: 76ch; }
+ul.rules li { padding-left: 2ch; text-indent: -2ch; margin-bottom: 8px; }
+ul.rules li::before { content: '─ '; color: var(--dim); }
+.grid2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.grid3 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.card { background: var(--surface); border: 1.5px solid var(--dim); border-radius: 8px; padding: 20px; min-width: 0; }
+.card.plain { background: var(--ground); }
+.card .cap { color: var(--dim); font-size: 13px; line-height: 19px; margin-top: 14px; }
+.card .cap b { color: var(--muted); }
+.wide { grid-column: 1 / -1; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { color: var(--dim); font-weight: 500; }
+td.g { font-size: 22px; white-space: nowrap; }
+.tw { overflow-x: auto; }
+ol.pr { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+ol.pr li { background: var(--surface); border: 1.5px solid var(--dim); border-radius: 8px; padding: 16px; }
+ol.pr li b { display: block; margin-bottom: 4px; } ol.pr li i { font-style: normal; color: var(--magenta); margin-right: 1ch; }
+ol.pr li span { color: var(--muted); }
+
+/* swatches */
+.sw { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.sw > div { border: 1.5px solid var(--edge); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.sw .swc { height: 64px; border-bottom: 1.5px solid var(--edge); }
+.sw .meta { padding: 10px 12px; font-size: 14px; line-height: 20px; }
+.sw .meta b { display: block; } .sw .meta span { color: var(--muted); }
+
+/* type specimens */
+.spec { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); }
+.spec .row { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); }
+.spec .row > * { min-width: 0; overflow-wrap: anywhere; }
+.spec .sl { color: var(--dim); font-size: 13px; }
+.t-k6 { font: 700 clamp(44px, 9.5vw, 102.9px)/1.4 var(--disp); }
+.t-k5 { font: 700 clamp(38px, 7.9vw, 85.7px)/1.4 var(--disp); }
+.t-k4 { font: 700 clamp(32px, 6.4vw, 68.6px)/1.4 var(--disp); }
+.t-k3 { font: 600 clamp(26px, 4.8vw, 51.4px)/1.4 var(--disp); }
+.t-k2 { font: 700 clamp(22px, 3.7vw, 40px)/1.2 var(--mono); }
+.t-k2.reg { font-weight: 450; }
+.t-k1 { font: 450 20px/24px var(--mono); }
+
+/* grid figure */
+.cells { position: relative; width: 100%; max-width: 360px; aspect-ratio: 360 / 240;
+	background-image: linear-gradient(var(--faint) 1px, transparent 1px), linear-gradient(90deg, var(--faint) 1px, transparent 1px);
+	background-size: 10% 30%; border: 1.5px solid var(--dim); }
+.cells i { position: absolute; display: block; }
+.cells .t { position: absolute; font-size: 13px; }
+.fmt { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin-top: 8px; }
+.fmt div { border: 1.5px dashed var(--dim); display: grid; place-items: center; font-size: 12px; color: var(--muted); position: relative; }
+.fmt div::after { content: ''; position: absolute; inset: 8%; border: 1px solid var(--magenta); opacity: 0.6; }
+
+/* ===== components ===== */
+.glyphs { font: 500 clamp(22px, 3.4vw, 32px)/1.5 var(--mono); letter-spacing: 0.25em; word-break: break-all; }
+.panel { background: var(--ground); padding: 8px 14px; display: inline-block; }
+.box { border: 1.5px solid var(--edge); border-radius: 8px; background: var(--box); padding: 0.9em 1ch 0.6em; position: relative; }
+.box.on { border-color: var(--magenta); }
+.box > .bt { position: absolute; top: -0.75em; left: 1.2ch; background: var(--box); padding: 0 0.6ch; color: var(--magenta); font-weight: 700; }
+.box > .br { position: absolute; top: -0.75em; right: 1.2ch; background: var(--box); padding: 0 0.6ch; color: var(--muted); }
+.win { position: relative; border: 1.5px solid var(--edge); border-radius: 10px; overflow: hidden; background: var(--term);
+	font: 450 clamp(11px, 2.15vw, 17px)/1.6 var(--mono); }
+.win .bar { height: 2.1em; display: flex; align-items: center; justify-content: center; position: relative; background: var(--chrome);
+	border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 0.85em; }
+.win .bar .dots { position: absolute; left: 1em; display: flex; gap: 0.45em; }
+.win .bar .dots i { width: 0.7em; height: 0.7em; border-radius: 50%; border: 1.5px solid var(--edge); }
+.win .body { padding: 1.2em 1em 0.8em; position: relative; }
+.rows { display: grid; }
+.r { white-space: pre; display: flex; gap: 1ch; padding: 0 0.5ch; }
+.r > :first-child { min-width: 1ch; }
+.r .t { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.r.sel { background: var(--cyan); color: var(--ink-dark); }
+.r.sel * { color: var(--ink-dark) !important; }
+.tabs { white-space: pre; overflow: hidden; }
+.tabs u { text-decoration-thickness: 1.5px; text-underline-offset: 0.22em; }
+.hints { color: var(--dim); white-space: pre; overflow: hidden; text-overflow: ellipsis; margin-top: 0.8em; }
+.spin::before { content: '⠹'; animation: spin 0.8s steps(1) infinite; }
+@keyframes spin { 0% { content: '⠋'; } 12.5% { content: '⠙'; } 25% { content: '⠹'; } 37.5% { content: '⠸'; } 50% { content: '⠼'; } 62.5% { content: '⠴'; } 75% { content: '⠦'; } 87.5% { content: '⠧'; } }
+.keys { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.key { height: 48px; min-width: 48px; padding: 0 12px; display: grid; place-items: center; border: 2px solid var(--ink); border-radius: 6px;
+	background: var(--surface); font: 700 26px/1 var(--mono); }
+.key.down { background: var(--ink); color: var(--ink-dark); } .key.wide { font-size: 22px; }
+.keycap-lab { font: 450 20px/48px var(--mono); }
+.label { display: inline-block; white-space: pre; background: var(--ink-dark); color: var(--yellow); border: 2px solid var(--yellow); border-radius: 6px;
+	padding: 6px 12px; font: 700 clamp(20px, 3vw, 30px)/1.3 var(--mono); }
+.chip { display: inline-block; font: 700 clamp(20px, 3vw, 30px)/1.3 var(--mono); padding: 0 12px; color: var(--ink-dark); }
+.chip.ma { background: var(--magenta); } .chip.cy { background: var(--cyan); } .chip.ye { background: var(--yellow); }
+.tag { display: inline-block; font: 700 16px/24px var(--mono); padding: 0 1ch; color: var(--ink-dark); }
+.cmd { display: inline-block; max-width: 100%; border: 2px solid var(--dim); border-radius: 10px; padding: 10px 18px; font: 500 clamp(12px, 3vw, 24px)/1.4 var(--mono); white-space: nowrap; }
+.pbar { font: 500 clamp(14px, 2.4vw, 22px)/1.4 var(--mono); white-space: pre; overflow: hidden; }
+.code { font: 450 clamp(12px, 2vw, 16px)/1.6 var(--mono); background: var(--term); border-radius: 8px; padding: 12px 14px; white-space: pre; overflow: hidden; }
+.code .add { background: rgba(184, 230, 156, 0.2); display: block; }
+.code .del { background: rgba(255, 162, 155, 0.2); display: block; }
+.giant { display: flex; gap: 14px; flex-wrap: wrap; }
+.giant div { width: 104px; height: 104px; display: grid; place-items: center; background: var(--surface); border: 1.5px solid var(--dim); border-radius: 8px; font: 700 68px/1 var(--mono); }
+.giant .kc { width: 70px; height: 70px; border: 5px solid var(--magenta); border-radius: 14px; display: grid; place-items: center; font-size: 46px; color: var(--magenta); }
+/* the macOS icon template: the mark fills a rounded square, the anchor's 14 cells span 672 of its 824 px */
+.appicon { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
+.appicon div { display: grid; place-items: center; background: var(--magenta); border-radius: 22.5%; }
+.appicon svg { width: 81.6%; height: auto; display: block; }
+/* annotation demo */
+.anno { position: relative; }
+.anno .hole { position: absolute; border-radius: 3px; box-shadow: 0 0 0 200em var(--scrim); pointer-events: none; }
+.anno .label { position: absolute; z-index: 3; font-size: 1.25em; padding: 0.15em 0.5em; }
+.lead { position: absolute; z-index: 2; background: var(--yellow); }
+.lead.h { height: 4px; } .lead.v { width: 4px; }
+.arrow { position: absolute; z-index: 2; width: 0; height: 0; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-right: 11px solid var(--yellow); }
+.ring { position: absolute; border: 2px solid var(--yellow); border-radius: 6px; pointer-events: none; }
+
+/* ===== motion demos (each loops over 4 s: reveal, hold, reset) ===== */
+.mdemo { background: var(--ground); border: 1.5px solid var(--dim); border-radius: 8px; padding: 20px 20px 16px; min-width: 0; overflow: hidden; }
+.mdemo .stage { height: 96px; display: flex; align-items: center; font: 700 clamp(24px, 3.6vw, 34px)/1.4 var(--disp); position: relative; }
+.mdemo .what { color: var(--yellow); font-weight: 700; margin-top: 8px; }
+.mdemo .how { color: var(--muted); font-size: 14px; line-height: 20px; }
+.m-type .txt { display: inline-block; overflow: hidden; white-space: pre; width: 0; vertical-align: bottom; animation: type 4s steps(1) infinite; }
+@keyframes type { 0% { width: 0ch; } 4% { width: 1ch; } 8% { width: 2ch; } 12% { width: 3ch; } 16% { width: 4ch; } 20% { width: 5ch; } 24% { width: 6ch; } 28% { width: 7ch; } 32% { width: 8ch; } 36% { width: 9ch; } 40%, 92% { width: 10ch; } 96% { width: 0; } }
+.m-stamp .txt { animation: stamp 4s steps(1) infinite; }
+@keyframes stamp { 0%, 9% { opacity: 0; transform: none; } 10% { opacity: 1; transform: translate(-12px, -24px); } 13%, 92% { opacity: 1; transform: none; } 93%, 100% { opacity: 0; } }
+.m-drop .w { display: inline-block; opacity: 0; animation: drop 4s steps(1) infinite; margin-right: 0.6ch; }
+.m-drop .w:nth-child(2) { animation-delay: 0.5s; } .m-drop .w:nth-child(3) { animation-delay: 1s; }
+@keyframes drop { 0% { opacity: 0; } 1% { opacity: 1; transform: translateY(-72px); } 3% { transform: translateY(-48px); } 5% { transform: translateY(-24px); } 7%, 80% { opacity: 1; transform: none; } 81%, 100% { opacity: 0; } }
+.m-scan .txt { position: relative; animation: scan 4s steps(1) infinite; }
+@keyframes scan { 0% { clip-path: inset(0 0 100% 0); } 10% { clip-path: inset(0 0 80% 0); } 12% { clip-path: inset(0 0 60% 0); } 14% { clip-path: inset(0 0 40% 0); } 16% { clip-path: inset(0 0 20% 0); } 18%, 92% { clip-path: inset(0 0 0 0); } 93%, 100% { clip-path: inset(0 0 100% 0); } }
+.m-scan .bar { position: absolute; left: 0; width: 5.6em; height: 0.28em; background: var(--magenta); animation: scanbar 4s steps(1) infinite; opacity: 0; }
+@keyframes scanbar { 0%, 9% { opacity: 0; } 10% { opacity: 1; top: 18%; } 12% { top: 34%; } 14% { top: 50%; } 16% { top: 66%; } 18%, 100% { opacity: 0; } }
+.m-inv .txt { position: relative; }
+.m-inv .sel { position: absolute; inset: -0.05em -0.3ch; background: var(--cyan); color: var(--ink-dark); padding: 0 0.3ch; animation: inv 4s steps(1) infinite; white-space: pre; }
+@keyframes inv { 0%, 9% { clip-path: inset(0 100% 0 0); } 10%, 30% { clip-path: inset(0 0 0 0); } 33% { clip-path: inset(0 0 0 20%); } 36% { clip-path: inset(0 0 0 40%); } 39% { clip-path: inset(0 0 0 60%); } 42% { clip-path: inset(0 0 0 80%); } 45%, 100% { clip-path: inset(0 0 0 100%); } }
+.m-inv .plain { animation: invt 4s steps(1) infinite; }
+@keyframes invt { 0%, 9% { opacity: 0; } 10%, 92% { opacity: 1; } 93%, 100% { opacity: 0; } }
+.m-tick .txt { position: relative; }
+.m-tick .bx { position: absolute; top: 0.05em; width: 0.7em; height: 1.3em; display: grid; place-items: center; background: var(--ground);
+	font: 500 0.9em/1 var(--mono); color: var(--muted); animation: tick 4s steps(1) infinite; }
+@keyframes tick { 0%, 9% { opacity: 1; color: var(--muted); } 10% { color: var(--green); } 14%, 92% { opacity: 0; } 93%, 100% { opacity: 1; color: var(--muted); } }
+.m-tick .bx::before { content: '☐'; animation: tickc 4s steps(1) infinite; animation-delay: inherit; }
+@keyframes tickc { 0%, 9% { content: '☐'; } 10%, 92% { content: '☑'; } 93%, 100% { content: '☐'; } }
+.m-flap .f { display: inline-block; width: 1.05em; text-align: center; background: var(--surface); margin-right: 3px; position: relative; }
+.m-flap .f::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--ground); }
+.m-flap .f span { display: inline-block; animation: flap 4s steps(1) infinite; }
+@keyframes flap { 0%, 4% { content: ''; opacity: 0; } 5% { opacity: 1; } }
+.m-print .lines { font: 450 18px/28px var(--mono); }
+.m-print .ln { opacity: 0; animation: prt 4s steps(1) infinite; }
+.m-print .ln:nth-child(2) { animation-delay: 0.5s; } .m-print .ln:nth-child(3) { animation-delay: 1s; }
+@keyframes prt { 0% { opacity: 0; } 1%, 80% { opacity: 1; } 81%, 100% { opacity: 0; } }
+.m-clear .lines { font: 450 18px/28px var(--mono); }
+.m-clear .ln { animation: clr 4s steps(1) infinite; }
+.m-clear .ln:nth-child(2) { animation-delay: 0.08s; } .m-clear .ln:nth-child(3) { animation-delay: 0.16s; }
+@keyframes clr { 0%, 59% { opacity: 1; } 60%, 90% { opacity: 0; } 91%, 100% { opacity: 1; } }
+.m-draw .bx { position: relative; width: 12em; height: 3.2em; font-size: 18px; }
+.m-draw .bx i { position: absolute; background: var(--edge); display: block; }
+.m-draw .e1 { left: 0; top: 0; height: 2px; animation: e1 4s steps(8) infinite; }
+.m-draw .e2 { right: 0; top: 0; width: 2px; animation: e2 4s steps(3) infinite; }
+.m-draw .e3 { left: 0; top: 0; width: 2px; animation: e2 4s steps(3) infinite; }
+.m-draw .e4 { left: 0; bottom: 0; height: 2px; animation: e4 4s steps(8) infinite; }
+@keyframes e1 { 0% { width: 0; } 20%, 90% { width: 100%; } 91%, 100% { width: 0; } }
+@keyframes e2 { 0%, 20% { height: 0; } 32%, 90% { height: 100%; } 91%, 100% { height: 0; } }
+@keyframes e4 { 0%, 32% { width: 0; } 50%, 90% { width: 100%; } 91%, 100% { width: 0; } }
+.m-draw .tx { position: absolute; left: 1ch; top: 0.9em; font: 500 18px/1 var(--mono); opacity: 0; animation: dtx 4s steps(1) infinite; }
+@keyframes dtx { 0%, 52% { opacity: 0; } 53%, 90% { opacity: 1; } 91%, 100% { opacity: 0; } }
+.m-zoom .zz { font: 500 16px/1 var(--mono); transform-origin: 0 50%; animation: zoom 4s steps(1) infinite; white-space: pre; }
+@keyframes zoom { 0%, 15% { transform: scale(1); } 17.5% { transform: scale(1.09); } 20% { transform: scale(1.19); } 22.5% { transform: scale(1.3); } 25% { transform: scale(1.41); } 27.5% { transform: scale(1.54); } 30% { transform: scale(1.68); } 32.5% { transform: scale(1.83); } 35% { transform: scale(2); } 70% { transform: scale(2); } 72.5% { transform: scale(1.83); } 75% { transform: scale(1.68); } 77.5% { transform: scale(1.54); } 80% { transform: scale(1.41); } 82.5% { transform: scale(1.3); } 85% { transform: scale(1.19); } 87.5% { transform: scale(1.09); } 90% { transform: scale(1); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { animation: none !important; }
+	.m-type .txt { width: 10ch; } .m-drop .w, .m-print .ln, .m-inv .plain, .m-draw .tx { opacity: 1; }
+	.m-inv .sel, .m-scan .bar, .m-tick .bx { display: none; }
+	.m-draw .e1, .m-draw .e4 { width: 100%; } .m-draw .e2, .m-draw .e3 { height: 100%; }
+}
+
+pre.tok { background: var(--term); border: 1.5px solid var(--dim); border-radius: 8px; padding: 16px; overflow-x: auto; font: 450 13px/20px var(--mono); color: var(--muted); }
+footer { margin-top: 96px; color: var(--dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+	<div class="mast">
+		<svg id="anchor" aria-label="Deckhand anchor"></svg>
+		<svg id="banner" aria-label="DECKHAND"></svg>
+	</div>
+	<div class="lede">Terminal Native, <em>dusk.</em><span class="cur blink"></span></div>
+	<p class="sub">Deckhand's design system for motion and marketing: the look, plus tokens, components and motion ideas to start from. A foundation to build on, not a rulebook.</p>
+	<nav class="toc"><a href="#essence"><span>01</span> Essence</a><a href="#colour"><span>02</span> Colour</a><a href="#grid"><span>03</span> Grid</a><a href="#type"><span>04</span> Type</a><a href="#glyphs"><span>05</span> Glyphs</a><a href="#components"><span>06</span> Components</a><a href="#motion"><span>07</span> Motion</a><a href="#voice"><span>08</span> Voice</a><a href="#tokens"><span>09</span> Tokens</a></nav>
+</header>
+
+<section id="essence">
+	<div class="sec"><span class="n">01</span><h2>Essence</h2></div>
+	<p><b>The look comes from the terminal</b>: a character grid, flat ANSI colours on a mid-tone slate, monospaced type, box drawing and Deckhand's own glyphs. The product can be drawn in the same cells as the words around it, so it belongs to the frame.</p>
+	<p>The feeling is a <b>quiet, competent tool</b>: clear, plain, confident, a little playful for people who live in terminals, and understandable by someone who has never opened one.</p>
+	<h3>Signature ingredients</h3>
+	<ol class="pr" style="margin-top:12px">
+		<li><b>The character grid</b><span>A 12 × 24 px cell, with faint dots on the ground.</span></li>
+		<li><b>The dusk palette</b><span>Mid-tone slate with flat ANSI accents: magenta brand, cyan selection, yellow attention.</span></li>
+		<li><b>Monospaced type</b><span>Martian Mono headlines with a magenta block cursor; JetBrains Mono for the rest.</span></li>
+		<li><b>Box drawing and blocks</b><span>Round-cornered boxes, and half-block pixel art for the anchor and banner.</span></li>
+		<li><b>Deckhand's glyphs</b><span>⠋ ● ? ✓ ☐ ☑ ◆ ⎇ ✶ ◇ π ❯, with their product meanings.</span></li>
+		<li><b>Yellow annotation</b><span>Plain-language labels with leaders, and the real Deckhand UI.</span></li>
+	</ol>
+</section>
+
+<section id="colour">
+	<div class="sec"><span class="n">02</span><h2>Colour</h2></div>
+	<h3 style="margin-top:0">Surfaces</h3><div class="sw" id="sw-surf"></div>
+	<h3>Ink and lines</h3><div class="sw" id="sw-ink"></div>
+	<h3>Accents and states</h3><div class="sw" id="sw-acc"></div>
+	<h3>Typical use</h3>
+	<ul class="rules">
+		<li><span class="ma b">Magenta</span> is the brand: the logo, the cursor and one or two accent words in a headline.</li>
+		<li><span class="ye b">Yellow</span> is attention and annotation: labels, leaders, rings, the "needs you" state.</li>
+		<li><span class="cy b">Cyan</span> is selection. <span class="gr">Green</span>, <span class="re">red</span> and <span class="or">orange</span> keep their product meanings.</li>
+		<li>The logo carries a one-cell drop shadow. The app icon reverses it: ink-dark on a magenta tile, with a magenta-shade shadow.</li>
+	</ul>
+</section>
+
+<section id="grid">
+	<div class="sec"><span class="n">03</span><h2>Grid</h2></div>
+	<div class="grid2">
+		<div>
+			<div class="cells" aria-label="cell grid">
+				<i style="left:10%;top:30%;width:10%;height:30%;background:var(--magenta)"></i>
+				<i style="left:40%;top:0;width:20%;height:60%;background:var(--cyan)"></i>
+				<span class="t" style="left:10%;top:63%">k1 · 12 × 24</span>
+				<span class="t" style="left:40%;top:63%">k2 · 24 × 48</span>
+			</div>
+		</div>
+		<ul class="rules">
+			<li><b>The cell</b> is 12 × 24 px, the unit for sizing and placing type and UI.</li>
+			<li><b>Grid dots:</b> a 1 px faint dot every 2 cells across the ground.</li>
+			<li><b>Scales</b> are whole multiples of the cell: k1, k2, k3 …</li>
+			<li><b>Safe area:</b> 4 cells (48 px) from every edge.</li>
+			<li><b>Gutters:</b> 2 cells across, 1 row down, between blocks.</li>
+		</ul>
+	</div>
+	<h3>Formats</h3>
+	<div class="fmt" aria-label="frame formats">
+		<div style="width:192px;height:108px">16:9 · 160 × 45</div>
+		<div style="width:108px;height:108px">1:1 · 90 × 45</div>
+		<div style="width:68px;height:120px;font-size:11px;text-align:center">9:16<br>90 × 80</div>
+	</div>
+	<p class="note">Magenta inset: the 4-cell safe area. 1920 × 1080, 1080 × 1080 and 1080 × 1920 px.</p>
+</section>
+
+<section id="type">
+	<div class="sec"><span class="n">04</span><h2>Type</h2></div>
+	<div class="spec">
+		<div class="row"><span class="sl">DISPLAY · Martian Mono 700 · k6 · 102.9 / 144</span><div class="t-k6">Display<span class="cur blink"></span></div></div>
+		<div class="row"><span class="sl">HEADLINE · Martian Mono 700 · k5 · 85.7 / 120</span><div class="t-k5">A short headline, <em>one accent.</em></div></div>
+		<div class="row"><span class="sl">HEADLINE S · Martian Mono 700 · k4 · 68.6 / 96</span><div class="t-k4">Smaller headline.</div></div>
+		<div class="row"><span class="sl">TITLE · Martian Mono 600 · k3 · 51.4 / 72</span><div class="t-k3">A title line</div></div>
+		<div class="row"><span class="sl">LABEL · JetBrains Mono 700 · k2 · 40 / 48</span><div class="t-k2 ye">what it means</div></div>
+		<div class="row"><span class="sl">SUB · JetBrains Mono 450 · k2 · 40 / 48</span><div class="t-k2 reg mu">A supporting line in muted ink.</div></div>
+		<div class="row"><span class="sl">BODY / UI · JetBrains Mono 450 · k1 · 20 / 24</span><div class="t-k1">Body and interface text. <span class="mu">Small print in muted.</span></div></div>
+	</div>
+	<h3>Notes</h3>
+	<ul class="rules">
+		<li>One glyph is exactly k cells wide: Martian Mono at k × 12 / 0.7 px, JetBrains Mono at k × 12 / 0.6 px.</li>
+		<li>Headlines are ink with magenta accent words, and end in a magenta block cursor while they're the active line.</li>
+		<li>Legibility reference (phone viewing, at the delivered size): headlines read well from ~72 px, other text from ~26 px; short lines, a solid panel behind text over busy imagery and about 2 s of stillness after text lands all help.</li>
+	</ul>
+</section>
+
+<section id="glyphs">
+	<div class="sec"><span class="n">05</span><h2>Glyphs</h2></div>
+	<p class="mu">Box drawing and blocks are drawn per cell so lines always join; any missing glyph is forced into one cell. Deckhand's boxes have round corners.</p>
+	<div class="glyphs mu">─│╭╮╰╯├┤┬┴┼━┃╸═║╔╗╚╝ <span class="ma">█▀▄▌▐░▒▓</span></div>
+	<h3>The product's vocabulary</h3>
+	<div class="tw"><table>
+		<tr><th>Glyph</th><th>Meaning</th><th>Colour</th></tr>
+		<tr><td class="g gr"><span class="spin"></span></td><td>working</td><td>green</td></tr>
+		<tr><td class="g gr">●</td><td>idle / finished</td><td>green</td></tr>
+		<tr><td class="g dim">○ ◌</td><td>exited / unknown</td><td>dim</td></tr>
+		<tr><td class="g ye b">?</td><td>needs you</td><td>yellow</td></tr>
+		<tr><td class="g ye b">!</td><td>failed / attention</td><td>yellow · red</td></tr>
+		<tr><td class="g dim">✓</td><td>merged / done</td><td>dim (green when emphasised)</td></tr>
+		<tr><td class="g">☐ <span class="gr">☑</span></td><td>checklist open / done</td><td>ink · green</td></tr>
+		<tr><td class="g ma">◆</td><td>task</td><td>magenta</td></tr>
+		<tr><td class="g gr">▶</td><td>dev server running</td><td>green</td></tr>
+		<tr><td class="g ma">⎇</td><td>branch</td><td>magenta</td></tr>
+		<tr><td class="g dim">▾ ▸ ↳ ⑂</td><td>tree: expanded, collapsed, child, fork</td><td>dim</td></tr>
+		<tr><td class="g">✶ ◇ π</td><td>Claude Code · Codex · Pi</td><td>ink</td></tr>
+		<tr><td class="g cy">❯</td><td>prompt / selected option</td><td>cyan</td></tr>
+	</table></div>
+</section>
+
+<section id="components">
+	<div class="sec"><span class="n">06</span><h2>Components</h2></div>
+	<p class="mu">A starting kit built from cells and tokens; extend, combine or replace freely. Content is placeholder.</p>
+
+	<h3>Text</h3>
+	<div class="grid2">
+		<div class="card plain"><div class="t-k4" style="font-size:clamp(28px,4.4vw,44px)">Headline, <em>accent.</em><span class="cur blink"></span></div><div class="cap"><b>HEADLINE</b> · Martian 700, accent words magenta, cursor on the active line.</div></div>
+		<div class="card"><span class="panel t-k2" style="font-size:clamp(20px,3vw,30px)">Words over a picture</span><div class="cap"><b>PANEL</b> · a solid ground rectangle on whole cells, e.g. behind text over a picture.</div></div>
+	</div>
+
+	<h3>Containers</h3>
+	<div class="grid2">
+		<div class="card plain">
+			<div class="win"><div class="bar"><span class="dots"><i></i><i></i><i></i></span>window title</div><div class="body"><span class="ma b">app</span> <span class="mu">~/path/to/project</span><br><br><span class="mu">Any terminal content sits here, on the</span><br><span class="mu">terminal ground.</span></div></div>
+			<div class="cap"><b>WINDOW</b> · outlined dots, centred mono title, 1.5 px edge, 10 px radius.</div>
+		</div>
+		<div class="card plain">
+			<div class="win"><div class="body" style="padding-top:1.4em"><div class="box on"><span class="bt">Title</span><span class="br">3 · ! 1</span>Box content, one cell per row.<br><span class="mu">The title sits in the top border.</span></div><div class="box" style="margin-top:1.2em"><span class="bt" style="color:var(--muted);font-weight:450">Unfocused</span>Edge-coloured border.</div></div></div>
+			<div class="cap"><b>BOX</b> · round corners, title in the border, magenta border when focused.</div>
+		</div>
+	</div>
+
+	<h3>Interface parts</h3>
+	<div class="grid2">
+		<div class="card plain">
+			<div class="win"><div class="body">
+				<div class="tabs"><span class="cy">◈ <u>p:First</u></span>  <span class="mu">s:Second  t:Third</span></div>
+				<div class="rows" style="margin-top:0.8em">
+					<div class="r"><span></span><span>1</span><span class="spin gr"></span><span class="t">an item that is working</span><span>✶</span></div>
+					<div class="r sel"><span>›</span><span>2</span><span>●</span><span class="t">the selected item</span><span>◇</span></div>
+					<div class="r"><span></span><span>3</span><span class="ye b">?</span><span class="t">an item waiting for you</span><span>π</span></div>
+					<div class="r"><span></span><span>4</span><span class="gr">●</span><span class="t">a finished item</span><span class="dim">✓</span></div>
+				</div>
+				<div class="hints">? help · n new · o open · q quit</div>
+			</div></div>
+			<div class="cap"><b>TABS · LIST ROWS · SELECTION BAR · KEY HINTS</b> · status glyph first, trailing glyphs right; the selection is a full-width cyan bar with dark text.</div>
+		</div>
+		<div class="card plain">
+			<div class="keys"><span class="key">n</span><span class="key down">o</span><span class="key wide">ctrl</span><span class="key">]</span><span class="keycap-lab">caption</span></div>
+			<div class="cap"><b>KEYCAPS</b> · 2 rows tall, inverted when pressed, combos side by side.</div>
+			<div style="margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span class="chip ma">NEW</span><span class="chip cy">ACTIVE</span><span class="chip ye">NOTE</span><span class="tag" style="background:var(--green)">ok</span><span class="tag" style="background:var(--red)">error</span></div>
+			<div class="cap"><b>CHIPS · TAGS</b> · solid fill, dark text. Magenta for brand, cyan for active, yellow for attention.</div>
+		</div>
+	</div>
+
+	<h3>Annotation</h3>
+	<div class="grid2">
+		<div class="card plain">
+			<div class="win anno" id="anno"><div class="body">
+				<div class="rows">
+					<div class="r"><span></span><span>1</span><span class="spin gr"></span><span class="t">an item that is working</span><span>✶</span></div>
+					<div class="r" data-focus><span></span><span>2</span><span class="ye b">?</span><span class="t">an item waiting for you</span><span>◇</span></div>
+					<div class="r"><span></span><span>3</span><span class="gr">●</span><span class="t">a finished item</span><span>π</span></div>
+					<div class="r"><span></span><span>4</span><span class="spin gr"></span><span class="t">another working item</span><span>✶</span></div>
+				</div>
+				<div style="height:4.2em"></div>
+			</div><div class="hole"></div><div class="lead h"></div><div class="lead v"></div><div class="arrow"></div><span class="label">what it means</span></div>
+			<div class="cap"><b>FOCUS + LABEL + LEADER</b> · a flat scrim dims everything outside the focused cells; a yellow label with a 4 px right-angled leader ending on the element.</div>
+		</div>
+		<div class="card plain">
+			<span class="label">plain words</span>
+			<div class="cap"><b>LABEL</b> · yellow 700 on ink-dark, 2 px yellow frame. Works well as a plain-language explanation.</div>
+			<div style="margin-top:22px;position:relative;display:inline-block;padding:6px 10px;font:500 18px/1 var(--mono)">a ringed element<span class="ring" style="inset:0"></span></div>
+			<div class="cap"><b>RING</b> · 2 px yellow frame. Quieter than a label.</div>
+			<div style="margin-top:22px;font:500 clamp(13px,2vw,17px)/1.5 var(--mono);white-space:pre;overflow:hidden"><span class="ye">label text ──────┼──▶</span> <span class="mu">│ target</span></div>
+			<div class="cap"><b>BOX-DRAWN LEADER</b> · variant that crosses a box edge with ┼ and ends in ▶.</div>
+		</div>
+	</div>
+
+	<h3>Data shapes</h3>
+	<div class="grid3">
+		<div class="card plain"><div class="pbar"><span class="ma">━━━━━━━━╸</span><span class="dim">──────────</span></div><div class="cap"><b>PROGRESS</b> · whole cells; done magenta, rest dim.</div></div>
+		<div class="card plain"><div class="code">☑ <span class="gr">first item</span>
+☐ second item
+☐ third item   <span class="mu">1/3</span></div><div class="cap"><b>CHECKLIST</b> · done items green, count muted.</div></div>
+		<div class="card plain"><div class="code"><span class="add"><span class="gr">+ an added line</span></span><span class="add"><span class="gr">+ another addition</span></span><span class="del"><span class="re">− a removed line</span></span>  unchanged context</div><div class="cap"><b>DIFF</b> · green additions, red removals, 20 % row tint.</div></div>
+		<div class="card plain"><div class="code"><span class="ma">⎇ main</span>
+<span class="dim">├─</span> <span class="ma">⎇ branch-one</span>
+<span class="dim">├─</span> <span class="ma">⎇ branch-two</span>
+<span class="dim">└─</span> <span class="ma">⎇ branch-three</span></div><div class="cap"><b>TREE</b> · dim connectors, branch names magenta.</div></div>
+		<div class="card plain wide"><span class="cmd"><span class="ma">❯</span> npm install -g @tejgor/deckhand</span><div class="cap"><b>COMMAND LINE</b> · magenta prompt, ink command, optional round-cornered dim box.</div></div>
+	</div>
+
+	<h3>Marks</h3>
+	<div class="grid2">
+		<div class="card plain"><div class="giant"><div class="ye">?</div><div class="ma">⎇</div><div><span class="kc">k</span></div><div class="gr">✓</div></div><div class="cap"><b>GIANT GLYPH</b> · a vocabulary glyph at huge scale, in its own colour; it reads as the product's own glyph.</div></div>
+		<div class="card plain"><div style="display:flex;align-items:center;gap:14px"><svg id="anchor-s" style="width:56px;height:auto"></svg><span class="ma b" style="font-size:22px">deckhand</span></div><div class="cap"><b>LOGO</b> · the half-block anchor (flat magenta, one-cell shadow) with the ANSI-shadow DECKHAND banner (see the top of this page); small use: anchor + <span class="ma">deckhand</span> in bold mono.</div></div>
+		<div class="card plain"><div class="appicon"><div style="width:104px;height:104px"><svg id="anchor-icon"></svg></div><div style="width:36px;height:36px"><svg id="anchor-icon-s"></svg></div></div><div class="cap"><b>APP ICON</b> · the same anchor reversed for small square icons (the macOS app, notifications): ink-dark on a magenta tile, one-cell shadow in magenta shade. Built from <code>assets/deckhand.png</code>.</div></div>
+	</div>
+</section>
+
+<section id="motion">
+	<div class="sec"><span class="n">07</span><h2>Motion</h2></div>
+	<p class="mu" style="margin-bottom:24px">A vocabulary of moves that feel native to the terminal, to mix, extend or go beyond. Stepped moves give the terminal feel; small steps keep a move easy to follow.</p>
+	<div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+		<div class="mdemo m-type"><div class="stage"><span class="txt">Typed line</span><span class="cur blink"></span></div><div class="what">Type</div><div class="how">Characters appear behind the block cursor, 30–45 a second.</div></div>
+		<div class="mdemo m-stamp"><div class="stage"><span class="txt">Stamped.</span></div><div class="what">Stamp</div><div class="how">Lands whole, a cell up for two frames, then down.</div></div>
+		<div class="mdemo m-drop"><div class="stage"><span class="w">One</span><span class="w">by</span><span class="w"><em>one.</em></span></div><div class="what">Word drop</div><div class="how">Each word falls a few rows into place, one after another.</div></div>
+		<div class="mdemo m-scan"><div class="stage"><span class="txt">Scanned.</span><span class="bar"></span></div><div class="what">Scan</div><div class="how">Redrawn top to bottom, a cell row at a time, behind a bright bar.</div></div>
+		<div class="mdemo m-inv"><div class="stage"><span class="txt"><span class="plain">Selected</span><span class="sel">Selected</span></span></div><div class="what">Inverse</div><div class="how">Appears as a selection bar that clears cell by cell to plain text.</div></div>
+		<div class="mdemo m-tick"><div class="stage"><span class="txt" id="tickTxt">Ticked</span></div><div class="what">Tick</div><div class="how">Checkboxes over the words tick ☐ → ☑ and vanish, uncovering them.</div></div>
+		<div class="mdemo m-flap"><div class="stage" id="flap"></div><div class="what">Split-flap</div><div class="how">Letters flip cell by cell into place.</div></div>
+		<div class="mdemo m-print"><div class="stage"><div class="lines"><div class="ln">First printed line</div><div class="ln mu">Second line</div><div class="ln mu">Third line</div></div></div><div class="what">Print</div><div class="how">Whole lines appear one after another.</div></div>
+		<div class="mdemo m-clear"><div class="stage"><div class="lines"><div class="ln">Rows wipe away</div><div class="ln mu">top to bottom,</div><div class="ln mu">like clear.</div></div></div><div class="what">Clear</div><div class="how">Rows wipe from the top down, one every few frames.</div></div>
+		<div class="mdemo m-draw"><div class="stage"><div class="bx"><i class="e1"></i><i class="e2"></i><i class="e3"></i><i class="e4"></i><span class="tx">content</span></div></div><div class="what">Draw</div><div class="how">Boxes and leaders draw themselves: corner first, then edges cell by cell.</div></div>
+		<div class="mdemo m-zoom"><div class="stage"><span class="zz"><span class="ye b">?</span> an item</span></div><div class="what">Step zoom</div><div class="how">The view zooms in small discrete steps; 6–8 steps of about ×1.1 read clearly.</div></div>
+		<div class="mdemo"><div class="stage" style="gap:10px"><span style="font:700 48px/1 var(--mono);color:var(--yellow)">?</span><span class="dim" style="font:500 18px/1 var(--mono)">→ → →</span><span style="font:700 18px/1 var(--mono);color:var(--yellow)">?</span><span style="font:450 18px/1 var(--mono)"> an item</span></div><div class="what">Match by scale</div><div class="how">A giant glyph steps down until it is the product's glyph, in place.</div></div>
+	</div>
+</section>
+
+<section id="voice">
+	<div class="sec"><span class="n">08</span><h2>Voice</h2></div>
+	<ul class="rules">
+		<li>Plain, practical, confident.</li>
+		<li>Agents are referred to as agents, not people.</li>
+		<li>The real terms (worktree, branch, merge), explained in plain words where it helps.</li>
+		<li>Claims match what the product does.</li>
+	</ul>
+</section>
+
+<section id="tokens">
+	<div class="sec"><span class="n">09</span><h2>Tokens</h2></div>
+	<p class="mu">Copy into any page or renderer.</p>
+<pre class="tok" id="tokdump"></pre>
+</section>
+
+<footer>Deckhand · Terminal Native, dusk · design system</footer>
+</main>
+
+<script>
+(function () {
+	'use strict';
+	const cs = getComputedStyle(document.documentElement);
+	const v = n => cs.getPropertyValue(n).trim();
+
+	// ---- swatches ----
+	const groups = {
+		'sw-surf': [['--ground', 'Ground', 'The page; everything sits on it'], ['--surface', 'Surface', 'Panels and cards'], ['--term', 'Terminal', 'Inside a terminal window'],
+			['--box', 'Box', 'Boxes inside the terminal'], ['--chrome', 'Chrome', 'Title bars, tab strips']],
+		'sw-ink': [['--ink', 'Ink', 'Headlines, body text'], ['--muted', 'Muted', 'Secondary text'], ['--dim', 'Dim', 'Rules, borders, hints'],
+			['--rule', 'Rule', 'Thin rules in chrome'], ['--edge', 'Edge', 'Window outlines'], ['--faint', 'Faint', 'Grid dots'], ['--ink-dark', 'Ink dark', 'Text on fills; label backs']],
+		'sw-acc': [['--magenta', 'Magenta', 'Brand: logo, accents, cursor'], ['--magenta-2', 'Magenta bright', 'Brand titles in the product'], ['--cyan', 'Cyan', 'Active / selected'],
+			['--green', 'Green', 'Success: working, done, additions'], ['--yellow', 'Yellow', 'Attention and annotation'], ['--red', 'Red', 'Error: failures, deletions'],
+			['--orange', 'Orange', 'Third-party marks'], ['--shadow', 'Shadow', "The logo's one-cell shadow"], ['--magenta-shade', 'Magenta shade', "The app icon's one-cell shadow"], ['--scrim', 'Scrim', 'Dims outside a focus']],
+	};
+	for (const [id, list] of Object.entries(groups)) {
+		document.getElementById(id).innerHTML = list.map(([t, n, r]) => {
+			const hex = t === '--scrim' ? '#363c46 · 80%' : v(t);
+			return `<div><div class="swc" style="background:var(${t})"></div><div class="meta"><b>${n} <span class="dim">${hex}</span></b><span>${r}</span><br><code>${t}</code></div></div>`;
+		}).join('');
+	}
+	// ---- token dump ----
+	const all = Object.values(groups).flat().map(([t]) => t);
+	document.getElementById('tokdump').textContent = ':root {\n' + all.map(t => `  ${t}: ${v(t)};`).join('\n') +
+		"\n  --mono: 'JetBrains Mono', monospace;  /* k1 20/24, k2 40/48 */\n  --disp: 'Martian Mono', monospace;    /* k3 51.4/72, k4 68.6/96, k5 85.7/120, k6 102.9/144 */\n  --cell-w: 12px;\n  --cell-h: 24px;\n  --safe: 48px;\n  --radius-s: 6px;\n  --radius-m: 10px;\n  --border: 1.5px;\n  --leader: 4px;\n}";
+
+	// ---- the half-block anchor ----
+	function anchor(el, ink = v('--magenta'), shade = v('--shadow'), w = 14, h2 = 14, stroke = 10, pad = 2) {
+		const S = 8, cv = document.createElement('canvas'); cv.width = w * S; cv.height = h2 * S;
+		const ctx = cv.getContext('2d');
+		const box = 100 + pad * 2, sc = Math.min(cv.width, cv.height) / box;
+		ctx.translate((cv.width - box * sc) / 2, (cv.height - box * sc) / 2); ctx.scale(sc, sc); ctx.translate(pad, pad);
+		ctx.lineWidth = stroke; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000';
+		ctx.beginPath(); ctx.arc(50, 15, 8.5, 0, Math.PI * 2); ctx.stroke();
+		for (const d of ['M50 24 V90', 'M33 38 H67', 'M15 60 C 18 79 33 90 50 90 C 67 90 82 79 85 60', 'M8 67 L15 58 L24 64', 'M92 67 L85 58 L76 64']) ctx.stroke(new Path2D(d));
+		const data = ctx.getImageData(0, 0, cv.width, cv.height).data;
+		const on = (x, y) => {
+			if (x < 0 || y < 0 || x >= w || y >= h2) return false;
+			let a = 0;
+			for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) a += data[((y * S + j) * cv.width + x * S + i) * 4 + 3];
+			return a / (S * S * 255) > 0.42;
+		};
+		let out = '';
+		for (let y = 0; y < h2; y++) for (let x = 0; x < w; x++) {
+			if (on(x, y)) out += `<rect x="${x * 12}" y="${y * 12}" width="12" height="12" fill="${ink}"/>`;
+			else if (on(x - 1, y - 2)) out += `<rect x="${x * 12}" y="${y * 12}" width="12" height="12" fill="${shade}"/>`;
+		}
+		el.setAttribute('viewBox', `0 0 ${w * 12} ${h2 * 12}`); el.setAttribute('shape-rendering', 'crispEdges'); el.innerHTML = out;
+	}
+	anchor(document.getElementById('anchor'));
+	anchor(document.getElementById('anchor-s'));
+	for (const id of ['anchor-icon', 'anchor-icon-s']) anchor(document.getElementById(id), v('--ink-dark'), v('--magenta-shade'));
+
+	// ---- the DECKHAND banner (figlet ANSI Shadow, drawn per cell) ----
+	(function banner() {
+		const L = ['██████╗ ███████╗ ██████╗██╗  ██╗██╗  ██╗ █████╗ ███╗   ██╗██████╗ ',
+			'██╔══██╗██╔════╝██╔════╝██║ ██╔╝██║  ██║██╔══██╗████╗  ██║██╔══██╗',
+			'██║  ██║█████╗  ██║     █████╔╝ ███████║███████║██╔██╗ ██║██║  ██║',
+			'██║  ██║██╔══╝  ██║     ██╔═██╗ ██╔══██║██╔══██║██║╚██╗██║██║  ██║',
+			'██████╔╝███████╗╚██████╗██║  ██╗██║  ██║██║  ██║██║ ╚████║██████╔╝',
+			'╚═════╝ ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝ '];
+		const d = 2, ma = v('--magenta'), dim = v('--dim');
+		const G = {
+			'═': `M0 ${12 - d}H12M0 ${12 + d}H12`, '║': `M${6 - d} 0V24M${6 + d} 0V24`,
+			'╔': `M12 ${12 - d}H${6 - d}V24M12 ${12 + d}H${6 + d}V24`, '╗': `M0 ${12 - d}H${6 + d}V24M0 ${12 + d}H${6 - d}V24`,
+			'╚': `M12 ${12 + d}H${6 - d}V0M12 ${12 - d}H${6 + d}V0`, '╝': `M0 ${12 + d}H${6 + d}V0M0 ${12 - d}H${6 - d}V0`,
+		};
+		let out = '';
+		L.forEach((ln, r) => [...ln].forEach((c, i) => {
+			const x = i * 12, y = r * 24;
+			if (c === '█') out += `<rect x="${x}" y="${y}" width="12" height="24" fill="${ma}"/>`;
+			else if (G[c]) out += `<path transform="translate(${x} ${y})" d="${G[c]}" stroke="${dim}" stroke-width="1.5" fill="none"/>`;
+		}));
+		const el = document.getElementById('banner');
+		el.setAttribute('viewBox', `0 0 ${L[0].length * 12} ${L.length * 24}`); el.setAttribute('shape-rendering', 'crispEdges'); el.innerHTML = out;
+	})();
+
+	// ---- annotation demo: hole round the focused row, label below right, leader to the row's end ----
+	const an = document.getElementById('anno');
+	function placeAnno() {
+		const wr = an.getBoundingClientRect(), row = an.querySelector('[data-focus]').getBoundingClientRect();
+		const hole = an.querySelector('.hole'), lab = an.querySelector('.label'), lh = an.querySelector('.lead.h'), lv = an.querySelector('.lead.v'), ar = an.querySelector('.arrow');
+		const x = row.left - wr.left - 3, y = row.top - wr.top - 2, w = row.width + 6, h = row.height + 4;
+		Object.assign(hole.style, {left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px`});
+		const lw = lab.offsetWidth, lhh = lab.offsetHeight;
+		const lx = Math.max(12, Math.min(wr.width - lw - 12, x + w - lw)), ly = wr.height - lhh - 14;
+		Object.assign(lab.style, {left: `${lx}px`, top: `${ly}px`});
+		// the leader leaves the label's top, runs up to the row's bottom edge under its status glyph area, arrow up
+		const tx = Math.min(x + w - 24, lx + lw - 20);
+		Object.assign(lv.style, {left: `${tx - 2}px`, top: `${y + h + 11}px`, height: `${Math.max(0, ly - (y + h + 11))}px`});
+		Object.assign(lh.style, {display: 'none'});
+		Object.assign(ar.style, {left: `${tx - 7}px`, top: `${y + h}px`, transform: 'rotate(90deg)'});
+	}
+	addEventListener('resize', placeAnno);
+	(document.fonts ? document.fonts.ready : Promise.resolve()).then(placeAnno);
+	placeAnno();
+
+	// ---- motion demos needing per-letter elements ----
+	const tick = document.getElementById('tickTxt'), word = tick.textContent;
+	tick.innerHTML = word + [...word].map((_, i) => `<span class="bx" style="left:${i * 0.7}em;animation-delay:${i * 0.12}s"></span>`).join('');
+	document.getElementById('flap').innerHTML = [...'FLAPS'].map((c, i) => `<span class="f"><span style="animation-delay:${i * 0.12}s">${c}</span></span>`).join('');
+})();
+</script>
+</body>
+</html>

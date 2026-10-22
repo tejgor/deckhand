@@ -1,0 +1,15 @@
+{
+  "$ROOT/repo": {
+    "activeTab": "zzz",
+    "sessionFilter": "bad",
+    "sidebarWidth": "wide",
+    "collapsedSessionIds": [
+      1,
+      "a"
+    ],
+    "sessionTabs": {
+      "a": "git",
+      "b": "bad"
+    }
+  }
+}

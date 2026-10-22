@@ -1,0 +1,52 @@
+[package]
+name = "deckhand"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+description = "A lightweight agent workbench for your IDE terminal: Claude Code, Codex and Pi sessions in git worktrees"
+readme = "../../README.md"
+repository.workspace = true
+keywords = ["terminal", "tui", "agents", "worktree"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "deckhand"
+path = "src/main.rs"
+
+# Released with dist (GitHub releases + shell installer) even though it is not published to crates.io.
+[package.metadata.dist]
+dist = true
+
+[lints]
+workspace = true
+
+[dependencies]
+deckhand-protocol = { workspace = true }
+deckhand-core = { workspace = true }
+deckhand-sys = { workspace = true }
+deckhand-term = { workspace = true }
+deckhand-worker = { workspace = true }
+deckhand-daemon = { workspace = true }
+deckhand-client = { workspace = true }
+deckhand-ui = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+nix = { workspace = true }
+libc = { workspace = true }
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-user-notifications = { workspace = true }
+block2 = { workspace = true }
+
+[dev-dependencies]
+deckhand-testkit = { workspace = true }
+tempfile = { workspace = true }

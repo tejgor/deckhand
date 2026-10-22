@@ -1,0 +1,92 @@
+{
+  "name": "synthetic-claude-ink",
+  "source": "synthetic",
+  "description": "Imitates claude (Ink): DEC 2026 frames redrawn in place with eraseLines (2K + cursor-up), static history written above the live frame, a frame taller than the screen, clear-and-rerender on resize, terminal modes on start/exit.",
+  "cols": 80,
+  "rows": 24,
+  "chunks": [
+    47,
+    1581,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1676,
+    1816,
+    850,
+    850,
+    851,
+    850,
+    851,
+    851,
+    851,
+    851,
+    851,
+    851,
+    851,
+    1879,
+    2199,
+    2132,
+    1073,
+    27,
+    1251,
+    570,
+    580,
+    33
+  ],
+  "events": [
+    {
+      "at": 1628,
+      "type": "checkpoint",
+      "label": "welcome"
+    },
+    {
+      "at": 25092,
+      "type": "checkpoint",
+      "label": "typed"
+    },
+    {
+      "at": 36266,
+      "type": "checkpoint",
+      "label": "thinking"
+    },
+    {
+      "at": 38145,
+      "type": "checkpoint",
+      "label": "tool-output"
+    },
+    {
+      "at": 42476,
+      "type": "checkpoint",
+      "label": "taller-than-screen"
+    },
+    {
+      "at": 43549,
+      "type": "checkpoint",
+      "label": "reply"
+    },
+    {
+      "at": 43549,
+      "type": "resize",
+      "cols": 60,
+      "rows": 18
+    },
+    {
+      "at": 44827,
+      "type": "checkpoint",
+      "label": "after-resize"
+    }
+  ],
+  "recording": {
+    "generator": "parity/gen/streams/synthetic.ts"
+  }
+}

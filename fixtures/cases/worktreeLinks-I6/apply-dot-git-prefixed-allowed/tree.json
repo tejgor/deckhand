@@ -1,0 +1,82 @@
+{
+  "before": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/.github",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/.github/workflows",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/.github/workflows/ci.yml",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/.github",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/.github/workflows",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/.github/workflows/ci.yml",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/.github",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/.github/workflows",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/.github/workflows/ci.yml",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/launch/.github/workflows/ci.yml"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "future_setting": 1,
+  "defaults": {
+    "setupCommand": "npm ci",
+    "actions": {
+      "test": "npm test"
+    }
+  }
+}

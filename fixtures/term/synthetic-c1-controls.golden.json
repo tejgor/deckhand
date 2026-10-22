@@ -1,0 +1,180 @@
+{
+  "name": "synthetic-c1-controls",
+  "source": "synthetic",
+  "description": "C1 control code points arriving as UTF-8 (U+009B CSI, U+009D OSC, U+0085 NEL, U+0090 DCS) next to their 7-bit forms; kept separate so a terminal that treats them as printable diverges in one fixture only.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 30,
+  "rows": 6,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 30,
+      "rows": 6
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 17
+    },
+    {
+      "op": "write",
+      "from": 17,
+      "to": 36
+    },
+    {
+      "op": "write",
+      "from": 36,
+      "to": 45
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 45,
+      "screen": {
+        "cols": 30,
+        "rows": 6,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 4
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 6,
+        "lines": ["ared b", "c", "d", " e", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[1, 3, "p16:1", "d", ""]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "c1 title"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hared b\u001b[2;1Hc\u001b[3;1Hd\u001b[4;1H e\u001b[5;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "ared b\nc\nd\n e"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "ared b\nc\nd\n e"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "ared b\nc\nd\n e"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "ared b\nc\nd\n e"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "ared b\nc\nd\n e"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "ared b\nc\nd\n e"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "ared b\nc\nd\n e"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "ared b\nc\nd\n e"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "ared b\nc\nd\n e"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    }
+  ]
+}

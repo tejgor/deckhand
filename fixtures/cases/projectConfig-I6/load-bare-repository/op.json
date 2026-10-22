@@ -1,0 +1,19 @@
+{
+  "fn": "loadProjectConfig",
+  "args": [
+    "$ROOT/main",
+    {},
+    {
+      "root": "$ROOT/wt",
+      "trustRoot": "$ROOT/wt"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "root": "$ROOT/wt",
+    "trustRoot": "$ROOT/wt",
+    "config": {},
+    "exists": false,
+    "fingerprint": "7fc7564777b407322c18f0bf012b2a3d134e3450b256f930ebd174127795d6db"
+  }
+}

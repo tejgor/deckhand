@@ -1,0 +1,388 @@
+{"args":["  ",24,10],"ret":{"lines":["  "],"rows":6,"max":0}}
+{"args":[" ",-1,-1],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",-1,-2],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",0,0],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",0,1],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",0,27],"ret":{"lines":[" "],"rows":23,"max":0}}
+{"args":[" ",0,4],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",0,5],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",10,5],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",12,6],"ret":{"lines":[" "],"rows":2,"max":0}}
+{"args":[" ",24,10],"ret":{"lines":[" "],"rows":6,"max":0}}
+{"args":[" ",3,29],"ret":{"lines":[" "],"rows":25,"max":0}}
+{"args":[" ",3,40],"ret":{"lines":[" "],"rows":36,"max":0}}
+{"args":[" ",4,4],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",4,5],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",5,5],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":[" ",6,40],"ret":{"lines":[" "],"rows":36,"max":0}}
+{"args":[" ",6,6],"ret":{"lines":[" "],"rows":2,"max":0}}
+{"args":[" ",80,24],"ret":{"lines":[" "],"rows":20,"max":0}}
+{"args":[" ",80,25],"ret":{"lines":[" "],"rows":21,"max":0}}
+{"args":[" .",35,2],"ret":{"lines":[" ."],"rows":1,"max":0}}
+{"args":[" .-Z",26,3],"ret":{"lines":[" .-Z"],"rows":1,"max":0}}
+{"args":[" ./\t中‍0-b",25,23],"ret":{"lines":[" ./    中<U+200D>0-b"],"rows":19,"max":0}}
+{"args":[" .\ta\t-ß_é",36,19],"ret":{"lines":[" .    a    -ß_é"],"rows":15,"max":0}}
+{"args":[" /",12,24],"ret":{"lines":[" /"],"rows":20,"max":0}}
+{"args":[" /é_‍0",40,4],"ret":{"lines":[" /é_<U+200D>0"],"rows":1,"max":0}}
+{"args":[" /‍‍ßb-ß",36,24],"ret":{"lines":[" /<U+200D><U+200D>ßb-ß"],"rows":20,"max":0}}
+{"args":[" 0éab",0,5],"ret":{"lines":[" ","0","e","́","a","b"],"rows":1,"max":5}}
+{"args":[" \t😀b_ 中‍中\n",24,4],"ret":{"lines":["     😀b_ 中<U+200D>中"," "],"rows":1,"max":1}}
+{"args":[" ééa /_",6,0],"ret":{"lines":[" é","éa"," /","_"],"rows":1,"max":3}}
+{"args":[" 😀",3,12],"ret":{"lines":[" ","😀"],"rows":8,"max":0}}
+{"args":["",-1,-1],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":["",0,0],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":["",0,24],"ret":{"lines":[" "],"rows":20,"max":0}}
+{"args":["",0,6],"ret":{"lines":[" "],"rows":2,"max":0}}
+{"args":["",10,5],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":["",14,26],"ret":{"lines":[" "],"rows":22,"max":0}}
+{"args":["",14,2],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":["",17,12],"ret":{"lines":[" "],"rows":8,"max":0}}
+{"args":["",18,3],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":["",19,27],"ret":{"lines":[" "],"rows":23,"max":0}}
+{"args":["",2,3],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":["",24,10],"ret":{"lines":[" "],"rows":6,"max":0}}
+{"args":["",24,19],"ret":{"lines":[" "],"rows":15,"max":0}}
+{"args":["",24,6],"ret":{"lines":[" "],"rows":2,"max":0}}
+{"args":["",27,26],"ret":{"lines":[" "],"rows":22,"max":0}}
+{"args":["",29,30],"ret":{"lines":[" "],"rows":26,"max":0}}
+{"args":["",3,19],"ret":{"lines":[" "],"rows":15,"max":0}}
+{"args":["",3,40],"ret":{"lines":[" "],"rows":36,"max":0}}
+{"args":["",4,40],"ret":{"lines":[" "],"rows":36,"max":0}}
+{"args":["",4,4],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":["",4,8],"ret":{"lines":[" "],"rows":4,"max":0}}
+{"args":["",5,0],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":["",5,27],"ret":{"lines":[" "],"rows":23,"max":0}}
+{"args":["",5,5],"ret":{"lines":[" "],"rows":1,"max":0}}
+{"args":["",6,6],"ret":{"lines":[" "],"rows":2,"max":0}}
+{"args":["",80,24],"ret":{"lines":[" "],"rows":20,"max":0}}
+{"args":["- 😀 ",24,29],"ret":{"lines":["- 😀 "],"rows":25,"max":0}}
+{"args":["-",0,0],"ret":{"lines":["-"],"rows":1,"max":0}}
+{"args":["-\t.",2,2],"ret":{"lines":["-"," "," "," "," ","."],"rows":1,"max":5}}
+{"args":["-é ",25,29],"ret":{"lines":["-é "],"rows":25,"max":0}}
+{"args":[".",5,5],"ret":{"lines":["."],"rows":1,"max":0}}
+{"args":["./é__é_. ",33,28],"ret":{"lines":["./é__é_. "],"rows":24,"max":0}}
+{"args":[".0-b\n",2,20],"ret":{"lines":[".","0","-","b"," "],"rows":16,"max":0}}
+{"args":[".Z\t😀‍",30,20],"ret":{"lines":[".Z    😀<U+200D>"],"rows":16,"max":0}}
+{"args":["/-\n/中\t中Z‍.",39,10],"ret":{"lines":["/-","/中    中Z<U+200D>."],"rows":6,"max":0}}
+{"args":["/-b中.",13,4],"ret":{"lines":["/-b中."],"rows":1,"max":0}}
+{"args":["/0.éé‍ b",12,10],"ret":{"lines":["/0.éé<U","+200D> b"],"rows":6,"max":0}}
+{"args":["/00\t\t.",16,22],"ret":{"lines":["/00        ."],"rows":18,"max":0}}
+{"args":["/Z../",8,19],"ret":{"lines":["/Z..","/"],"rows":15,"max":0}}
+{"args":["/_",23,27],"ret":{"lines":["/_"],"rows":23,"max":0}}
+{"args":["/_\t0.",26,0],"ret":{"lines":["/_    0."],"rows":1,"max":0}}
+{"args":["/éßéaé0\nba",40,26],"ret":{"lines":["/éßéaé0","ba"],"rows":22,"max":0}}
+{"args":["0 \n abé",7,14],"ret":{"lines":["0 "," ab","é"],"rows":10,"max":0}}
+{"args":["0",1,30],"ret":{"lines":["0"],"rows":26,"max":0}}
+{"args":["0/-éa0/a‍",23,29],"ret":{"lines":["0/-éa0/a<U+200D>"],"rows":25,"max":0}}
+{"args":["0/_",33,3],"ret":{"lines":["0/_"],"rows":1,"max":0}}
+{"args":["00a_ _ß‍Z中",2,6],"ret":{"lines":["0","0","a","_"," ","_","ß","<","U","+","2","0","0","D",">","Z","中"],"rows":2,"max":15}}
+{"args":["0\t\n中éZ\t‍\t😀",38,18],"ret":{"lines":["0    ","中éZ    <U+200D>    😀"],"rows":14,"max":0}}
+{"args":["0_‍",20,19],"ret":{"lines":["0_<U+200D>"],"rows":15,"max":0}}
+{"args":["0b中ZZ中‍",16,28],"ret":{"lines":["0b中ZZ中<U+200","D>"],"rows":24,"max":0}}
+{"args":["Z",3,24],"ret":{"lines":["Z"],"rows":20,"max":0}}
+{"args":["Z/é/‍",3,12],"ret":{"lines":["Z","/","é","/","<","U","+","2","0","0","D",">"],"rows":8,"max":4}}
+{"args":["Z\nß",5,4],"ret":{"lines":["Z","ß"],"rows":1,"max":1}}
+{"args":["Z_/é\n",4,3],"ret":{"lines":["Z","_","/","é"," "],"rows":1,"max":4}}
+{"args":["Za",2,3],"ret":{"lines":["Z","a"],"rows":1,"max":1}}
+{"args":["ZbZ\nß.ß",3,3],"ret":{"lines":["Z","b","Z","ß",".","ß"],"rows":1,"max":5}}
+{"args":["Z中中é",0,14],"ret":{"lines":["Z","中","中","e","́"],"rows":10,"max":0}}
+{"args":["\n -  \t\té-",2,10],"ret":{"lines":[" "," ","-"," "," "," "," "," "," "," "," "," "," ","é","-"],"rows":6,"max":9}}
+{"args":["\n",-1,-1],"ret":{"lines":[" "," "],"rows":1,"max":1}}
+{"args":["\n",-1,0],"ret":{"lines":[" "," "],"rows":1,"max":1}}
+{"args":["\n",0,0],"ret":{"lines":[" "," "],"rows":1,"max":1}}
+{"args":["\n",0,6],"ret":{"lines":[" "," "],"rows":2,"max":0}}
+{"args":["\n",10,5],"ret":{"lines":[" "," "],"rows":1,"max":1}}
+{"args":["\n",11,5],"ret":{"lines":[" "," "],"rows":1,"max":1}}
+{"args":["\n",24,10],"ret":{"lines":[" "," "],"rows":6,"max":0}}
+{"args":["\n",24,9],"ret":{"lines":[" "," "],"rows":5,"max":0}}
+{"args":["\n",3,40],"ret":{"lines":[" "," "],"rows":36,"max":0}}
+{"args":["\n",3,4],"ret":{"lines":[" "," "],"rows":1,"max":1}}
+{"args":["\n",37,9],"ret":{"lines":[" "," "],"rows":5,"max":0}}
+{"args":["\n",4,4],"ret":{"lines":[" "," "],"rows":1,"max":1}}
+{"args":["\n",5,10],"ret":{"lines":[" "," "],"rows":6,"max":0}}
+{"args":["\n",5,5],"ret":{"lines":[" "," "],"rows":1,"max":1}}
+{"args":["\n",6,6],"ret":{"lines":[" "," "],"rows":2,"max":0}}
+{"args":["\n",79,24],"ret":{"lines":[" "," "],"rows":20,"max":0}}
+{"args":["\n",80,24],"ret":{"lines":[" "," "],"rows":20,"max":0}}
+{"args":["\n.\n",24,10],"ret":{"lines":[" ","."," "],"rows":6,"max":0}}
+{"args":["\n/b a",40,11],"ret":{"lines":[" ","/b a"],"rows":7,"max":0}}
+{"args":["\nZ‍a-/",10,24],"ret":{"lines":[" ","Z<U+20","0D>a-/"],"rows":20,"max":0}}
+{"args":["\n\n",-1,-1],"ret":{"lines":[" "," "," "],"rows":1,"max":2}}
+{"args":["\n\n",0,-1],"ret":{"lines":[" "," "," "],"rows":1,"max":2}}
+{"args":["\n\n",0,0],"ret":{"lines":[" "," "," "],"rows":1,"max":2}}
+{"args":["\n\n",10,5],"ret":{"lines":[" "," "," "],"rows":1,"max":2}}
+{"args":["\n\n",20,5],"ret":{"lines":[" "," "," "],"rows":1,"max":2}}
+{"args":["\n\n",24,10],"ret":{"lines":[" "," "," "],"rows":6,"max":0}}
+{"args":["\n\n",3,40],"ret":{"lines":[" "," "," "],"rows":36,"max":0}}
+{"args":["\n\n",4,3],"ret":{"lines":[" "," "," "],"rows":1,"max":2}}
+{"args":["\n\n",4,4],"ret":{"lines":[" "," "," "],"rows":1,"max":2}}
+{"args":["\n\n",5,0],"ret":{"lines":[" "," "," "],"rows":1,"max":2}}
+{"args":["\n\n",5,5],"ret":{"lines":[" "," "," "],"rows":1,"max":2}}
+{"args":["\n\n",6,6],"ret":{"lines":[" "," "," "],"rows":2,"max":1}}
+{"args":["\n\n",80,24],"ret":{"lines":[" "," "," "],"rows":20,"max":0}}
+{"args":["\n\n",80,25],"ret":{"lines":[" "," "," "],"rows":21,"max":0}}
+{"args":["\n\n\n\n",6,6],"ret":{"lines":[" "," "," "," "," "],"rows":2,"max":3}}
+{"args":["\n\t0\n_a‍",3,4],"ret":{"lines":[" "," "," "," "," ","0","_","a","<","U","+","2","0","0","D",">"],"rows":1,"max":15}}
+{"args":["\na.",36,27],"ret":{"lines":[" ","a."],"rows":23,"max":0}}
+{"args":["\né_0\n😀",5,11],"ret":{"lines":[" ","e","́","_","0","😀"],"rows":7,"max":0}}
+{"args":["\nß._",32,19],"ret":{"lines":[" ","ß._"],"rows":15,"max":0}}
+{"args":["\né.ß",7,1],"ret":{"lines":[" ","é.ß"],"rows":1,"max":1}}
+{"args":["\n😀é 😀Z_",5,18],"ret":{"lines":[" ","😀","e","́"," ","😀","Z","_"],"rows":14,"max":0}}
+{"args":["\n😀ß",11,26],"ret":{"lines":[" ","😀ß"],"rows":22,"max":0}}
+{"args":["\n😀é中é😀\t _",3,26],"ret":{"lines":[" ","😀","é","中","e","́","😀"," "," "," "," "," ","_"],"rows":22,"max":0}}
+{"args":["\t",-1,-1],"ret":{"lines":[" "," "," "," "],"rows":1,"max":3}}
+{"args":["\t",-2,-1],"ret":{"lines":[" "," "," "," "],"rows":1,"max":3}}
+{"args":["\t",0,0],"ret":{"lines":[" "," "," "," "],"rows":1,"max":3}}
+{"args":["\t",10,0],"ret":{"lines":["    "],"rows":1,"max":0}}
+{"args":["\t",10,5],"ret":{"lines":["    "],"rows":1,"max":0}}
+{"args":["\t",24,10],"ret":{"lines":["    "],"rows":6,"max":0}}
+{"args":["\t",3,40],"ret":{"lines":[" "," "," "," "],"rows":36,"max":0}}
+{"args":["\t",4,4],"ret":{"lines":[" "," "," "," "],"rows":1,"max":3}}
+{"args":["\t",5,4],"ret":{"lines":[" "," "," "," "],"rows":1,"max":3}}
+{"args":["\t",5,5],"ret":{"lines":[" "," "," "," "],"rows":1,"max":3}}
+{"args":["\t",6,6],"ret":{"lines":["  ","  "],"rows":2,"max":0}}
+{"args":["\t",80,24],"ret":{"lines":["    "],"rows":20,"max":0}}
+{"args":["\t",80,48],"ret":{"lines":["    "],"rows":44,"max":0}}
+{"args":["\t\t",24,10],"ret":{"lines":["        "],"rows":6,"max":0}}
+{"args":["\té",3,40],"ret":{"lines":[" "," "," "," ","é"],"rows":36,"max":0}}
+{"args":["\t😀_éé中-",4,13],"ret":{"lines":[" "," "," "," ","😀","_","e","́","é","中","-"],"rows":9,"max":2}}
+{"args":["_ _",12,8],"ret":{"lines":["_ _"],"rows":4,"max":0}}
+{"args":["_ é",27,4],"ret":{"lines":["_ é"],"rows":1,"max":0}}
+{"args":["_",10,30],"ret":{"lines":["_"],"rows":26,"max":0}}
+{"args":["_",2,4],"ret":{"lines":["_"],"rows":1,"max":0}}
+{"args":["_",8,3],"ret":{"lines":["_"],"rows":1,"max":0}}
+{"args":["_\téb",28,15],"ret":{"lines":["_    éb"],"rows":11,"max":0}}
+{"args":["__b\t.",7,13],"ret":{"lines":["__b","   "," ."],"rows":9,"max":0}}
+{"args":["_é‍__0éZéZ",23,23],"ret":{"lines":["_é<U+200D>__0éZéZ"],"rows":19,"max":0}}
+{"args":["_‍😀",37,3],"ret":{"lines":["_<U+200D>😀"],"rows":1,"max":0}}
+{"args":["_😀éß‍aéß",35,3],"ret":{"lines":["_😀éß<U+200D>aéß"],"rows":1,"max":0}}
+{"args":["_😀😀/./Zb",9,2],"ret":{"lines":["_😀😀/.","/Zb"],"rows":1,"max":1}}
+{"args":["a 😀-中_",26,29],"ret":{"lines":["a 😀-中_"],"rows":25,"max":0}}
+{"args":["a",-1,-1],"ret":{"lines":["a"],"rows":1,"max":0}}
+{"args":["a",38,26],"ret":{"lines":["a"],"rows":22,"max":0}}
+{"args":["a\t",80,24],"ret":{"lines":["a    "],"rows":20,"max":0}}
+{"args":["a\tb",-1,-1],"ret":{"lines":["a"," "," "," "," ","b"],"rows":1,"max":5}}
+{"args":["a\tb",0,0],"ret":{"lines":["a"," "," "," "," ","b"],"rows":1,"max":5}}
+{"args":["a\tb",10,5],"ret":{"lines":["a    b"],"rows":1,"max":0}}
+{"args":["a\tb",10,6],"ret":{"lines":["a    b"],"rows":2,"max":0}}
+{"args":["a\tb",24,10],"ret":{"lines":["a    b"],"rows":6,"max":0}}
+{"args":["a\tb",24,9],"ret":{"lines":["a    b"],"rows":5,"max":0}}
+{"args":["a\tb",3,40],"ret":{"lines":["a"," "," "," "," ","b"],"rows":36,"max":0}}
+{"args":["a\tb",4,4],"ret":{"lines":["a"," "," "," "," ","b"],"rows":1,"max":5}}
+{"args":["a\tb",5,10],"ret":{"lines":["a"," "," "," "," ","b"],"rows":6,"max":0}}
+{"args":["a\tb",5,5],"ret":{"lines":["a"," "," "," "," ","b"],"rows":1,"max":5}}
+{"args":["a\tb",6,0],"ret":{"lines":["a ","  "," b"],"rows":1,"max":2}}
+{"args":["a\tb",6,6],"ret":{"lines":["a ","  "," b"],"rows":2,"max":1}}
+{"args":["a\tb",80,24],"ret":{"lines":["a    b"],"rows":20,"max":0}}
+{"args":["a\tba\tb",-1,-1],"ret":{"lines":["a"," "," "," "," ","b","a"," "," "," "," ","b"],"rows":1,"max":11}}
+{"args":["a\tb中",0,0],"ret":{"lines":["a"," "," "," "," ","b","中"],"rows":1,"max":6}}
+{"args":["a\tb中",4,4],"ret":{"lines":["a"," "," "," "," ","b","中"],"rows":1,"max":6}}
+{"args":["aé-a\t \t",3,4],"ret":{"lines":["a","e","́","-","a"," "," "," "," "," "," "," "," "," "],"rows":1,"max":13}}
+{"args":["b--a.‍",3,21],"ret":{"lines":["b","-","-","a",".","<","U","+","2","0","0","D",">"],"rows":17,"max":0}}
+{"args":["b0",5,29],"ret":{"lines":["b","0"],"rows":25,"max":0}}
+{"args":["b\t中",21,15],"ret":{"lines":["b    中"],"rows":11,"max":0}}
+{"args":["bab",5,29],"ret":{"lines":["b","a","b"],"rows":25,"max":0}}
+{"args":["bb ",11,1],"ret":{"lines":["bb "],"rows":1,"max":0}}
+{"args":["bß\t",9,28],"ret":{"lines":["bß   "," "],"rows":24,"max":0}}
+{"args":["bßß ZZ--/",5,2],"ret":{"lines":["b","ß","ß"," ","Z","Z","-","-","/"],"rows":1,"max":8}}
+{"args":["é -_‍_\t",26,15],"ret":{"lines":["é -_<U+200D>_    "],"rows":11,"max":0}}
+{"args":["é",10,5],"ret":{"lines":["é"],"rows":1,"max":0}}
+{"args":["é",11,3],"ret":{"lines":["é"],"rows":1,"max":0}}
+{"args":["é",24,10],"ret":{"lines":["é"],"rows":6,"max":0}}
+{"args":["é-ZZ_ß b/",17,2],"ret":{"lines":["é-ZZ_ß b/"],"rows":1,"max":0}}
+{"args":["é-😀-ba/",0,3],"ret":{"lines":["e","́","-","😀","-","b","a","/"],"rows":1,"max":7}}
+{"args":["é/",29,26],"ret":{"lines":["é/"],"rows":22,"max":0}}
+{"args":["é_\n_éa0中ßa",2,2],"ret":{"lines":["e","́","_","_","é","a","0","中","ß","a"],"rows":1,"max":9}}
+{"args":["ébb0ab0\t",0,25],"ret":{"lines":["e","́","b","b","0","a","b","0"," "," "," "," "],"rows":21,"max":0}}
+{"args":["ééa",31,15],"ret":{"lines":["ééa"],"rows":11,"max":0}}
+{"args":["é́x",-1,-1],"ret":{"lines":["e","́","́","x"],"rows":1,"max":3}}
+{"args":["é́x",0,-1],"ret":{"lines":["e","́","́","x"],"rows":1,"max":3}}
+{"args":["é́x",0,0],"ret":{"lines":["e","́","́","x"],"rows":1,"max":3}}
+{"args":["é́x",1,0],"ret":{"lines":["e","́","́","x"],"rows":1,"max":3}}
+{"args":["é́x",10,10],"ret":{"lines":["é́x"],"rows":6,"max":0}}
+{"args":["é́x",10,5],"ret":{"lines":["é́x"],"rows":1,"max":0}}
+{"args":["é́x",24,10],"ret":{"lines":["é́x"],"rows":6,"max":0}}
+{"args":["é́x",24,11],"ret":{"lines":["é́x"],"rows":7,"max":0}}
+{"args":["é́x",3,40],"ret":{"lines":["e","́","́","x"],"rows":36,"max":0}}
+{"args":["é́x",4,40],"ret":{"lines":["e","́","́","x"],"rows":36,"max":0}}
+{"args":["é́x",4,4],"ret":{"lines":["e","́","́","x"],"rows":1,"max":3}}
+{"args":["é́x",4,8],"ret":{"lines":["e","́","́","x"],"rows":4,"max":0}}
+{"args":["é́x",5,5],"ret":{"lines":["e","́","́","x"],"rows":1,"max":3}}
+{"args":["é́x",6,5],"ret":{"lines":["é","́x"],"rows":1,"max":1}}
+{"args":["é́x",6,6],"ret":{"lines":["é","́x"],"rows":2,"max":0}}
+{"args":["é́x",6,7],"ret":{"lines":["é","́x"],"rows":3,"max":0}}
+{"args":["é́x",80,23],"ret":{"lines":["é́x"],"rows":19,"max":0}}
+{"args":["é́x",80,24],"ret":{"lines":["é́x"],"rows":20,"max":0}}
+{"args":["line1\nline2\n",-1,-1],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":1,"max":10}}
+{"args":["line1\nline2\n",-1,0],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":1,"max":10}}
+{"args":["line1\nline2\n",0,0],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":1,"max":10}}
+{"args":["line1\nline2\n",1,0],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":1,"max":10}}
+{"args":["line1\nline2\n",10,5],"ret":{"lines":["line1","line2"," "],"rows":1,"max":2}}
+{"args":["line1\nline2\n",20,5],"ret":{"lines":["line1","line2"," "],"rows":1,"max":2}}
+{"args":["line1\nline2\n",24,10],"ret":{"lines":["line1","line2"," "],"rows":6,"max":0}}
+{"args":["line1\nline2\n",3,40],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":36,"max":0}}
+{"args":["line1\nline2\n",3,41],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":37,"max":0}}
+{"args":["line1\nline2\n",4,0],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":1,"max":10}}
+{"args":["line1\nline2\n",4,4],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":1,"max":10}}
+{"args":["line1\nline2\n",5,4],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":1,"max":10}}
+{"args":["line1\nline2\n",5,5],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":1,"max":10}}
+{"args":["line1\nline2\n",5,6],"ret":{"lines":["l","i","n","e","1","l","i","n","e","2"," "],"rows":2,"max":9}}
+{"args":["line1\nline2\n",6,6],"ret":{"lines":["li","ne","1","li","ne","2"," "],"rows":2,"max":5}}
+{"args":["line1\nline2\n",80,24],"ret":{"lines":["line1","line2"," "],"rows":20,"max":0}}
+{"args":["line1中\nline2\n",80,24],"ret":{"lines":["line1中","line2"," "],"rows":20,"max":0}}
+{"args":["line\nline2\n",24,10],"ret":{"lines":["line","line2"," "],"rows":6,"max":0}}
+{"args":["plai",24,10],"ret":{"lines":["plai"],"rows":6,"max":0}}
+{"args":["plaibn",0,0],"ret":{"lines":["p","l","a","i","b","n"],"rows":1,"max":5}}
+{"args":["plain",-1,-1],"ret":{"lines":["p","l","a","i","n"],"rows":1,"max":4}}
+{"args":["plain",-2,-1],"ret":{"lines":["p","l","a","i","n"],"rows":1,"max":4}}
+{"args":["plain",0,0],"ret":{"lines":["p","l","a","i","n"],"rows":1,"max":4}}
+{"args":["plain",0,24],"ret":{"lines":["p","l","a","i","n"],"rows":20,"max":0}}
+{"args":["plain",10,5],"ret":{"lines":["plain"],"rows":1,"max":0}}
+{"args":["plain",24,10],"ret":{"lines":["plain"],"rows":6,"max":0}}
+{"args":["plain",3,39],"ret":{"lines":["p","l","a","i","n"],"rows":35,"max":0}}
+{"args":["plain",3,40],"ret":{"lines":["p","l","a","i","n"],"rows":36,"max":0}}
+{"args":["plain",4,4],"ret":{"lines":["p","l","a","i","n"],"rows":1,"max":4}}
+{"args":["plain",4,8],"ret":{"lines":["p","l","a","i","n"],"rows":4,"max":1}}
+{"args":["plain",5,10],"ret":{"lines":["p","l","a","i","n"],"rows":6,"max":0}}
+{"args":["plain",5,5],"ret":{"lines":["p","l","a","i","n"],"rows":1,"max":4}}
+{"args":["plain",6,12],"ret":{"lines":["pl","ai","n"],"rows":8,"max":0}}
+{"args":["plain",6,6],"ret":{"lines":["pl","ai","n"],"rows":2,"max":1}}
+{"args":["plain",80,24],"ret":{"lines":["plain"],"rows":20,"max":0}}
+{"args":["plainplain",10,5],"ret":{"lines":["plainp","lain"],"rows":1,"max":1}}
+{"args":["tab\t\tand\nnewline",24,10],"ret":{"lines":["tab        and","newline"],"rows":6,"max":0}}
+{"args":["tab\tand\nnewlin",-1,-1],"ret":{"lines":["t","a","b"," "," "," "," ","a","n","d","n","e","w","l","i","n"],"rows":1,"max":15}}
+{"args":["tab\tand\nnewline",-1,-1],"ret":{"lines":["t","a","b"," "," "," "," ","a","n","d","n","e","w","l","i","n","e"],"rows":1,"max":16}}
+{"args":["tab\tand\nnewline",0,0],"ret":{"lines":["t","a","b"," "," "," "," ","a","n","d","n","e","w","l","i","n","e"],"rows":1,"max":16}}
+{"args":["tab\tand\nnewline",10,5],"ret":{"lines":["tab   "," and","newlin","e"],"rows":1,"max":3}}
+{"args":["tab\tand\nnewline",12,6],"ret":{"lines":["tab    a","nd","newline"],"rows":2,"max":1}}
+{"args":["tab\tand\nnewline",24,10],"ret":{"lines":["tab    and","newline"],"rows":6,"max":0}}
+{"args":["tab\tand\nnewline",3,40],"ret":{"lines":["t","a","b"," "," "," "," ","a","n","d","n","e","w","l","i","n","e"],"rows":36,"max":0}}
+{"args":["tab\tand\nnewline",4,4],"ret":{"lines":["t","a","b"," "," "," "," ","a","n","d","n","e","w","l","i","n","e"],"rows":1,"max":16}}
+{"args":["tab\tand\nnewline",5,5],"ret":{"lines":["t","a","b"," "," "," "," ","a","n","d","n","e","w","l","i","n","e"],"rows":1,"max":16}}
+{"args":["tab\tand\nnewline",6,6],"ret":{"lines":["ta","b ","  "," a","nd","ne","wl","in","e"],"rows":2,"max":7}}
+{"args":["tab\tand\nnewline",80,24],"ret":{"lines":["tab    and","newline"],"rows":20,"max":0}}
+{"args":["tab\tand\nnewlinetab\tand\nnewline",80,24],"ret":{"lines":["tab    and","newlinetab    and","newline"],"rows":20,"max":0}}
+{"args":["tb\tand\nnewline",10,5],"ret":{"lines":["tb    ","and","newlin","e"],"rows":1,"max":3}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",24,10],"ret":{"lines":["xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxx"],"rows":6,"max":4}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",80,24],"ret":{"lines":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"],"rows":20,"max":0}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",-1,-1],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":1,"max":199}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",-1,0],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":1,"max":199}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",0,0],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":1,"max":199}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",0,1],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":1,"max":199}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",10,5],"ret":{"lines":["xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xx"],"rows":1,"max":33}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",10,6],"ret":{"lines":["xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xxxxxx","xx"],"rows":2,"max":32}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",24,10],"ret":{"lines":["xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxx"],"rows":6,"max":4}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",3,0],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":1,"max":199}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",3,40],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":36,"max":164}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",4,4],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":1,"max":199}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",4,8],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":4,"max":196}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",5,4],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":1,"max":199}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",5,5],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":1,"max":199}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",5,6],"ret":{"lines":["x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x","x"],"rows":2,"max":198}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",6,6],"ret":{"lines":["xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx","xx"],"rows":2,"max":98}}
+{"args":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",80,24],"ret":{"lines":["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"],"rows":20,"max":0}}
+{"args":["ß",1,13],"ret":{"lines":["ß"],"rows":9,"max":0}}
+{"args":["ß",32,4],"ret":{"lines":["ß"],"rows":1,"max":0}}
+{"args":["ß",39,2],"ret":{"lines":["ß"],"rows":1,"max":0}}
+{"args":["ß",40,26],"ret":{"lines":["ß"],"rows":22,"max":0}}
+{"args":["ß-",3,25],"ret":{"lines":["ß","-"],"rows":21,"max":0}}
+{"args":["ß/ .",33,0],"ret":{"lines":["ß/ ."],"rows":1,"max":0}}
+{"args":["ß\ta",15,21],"ret":{"lines":["ß    a"],"rows":17,"max":0}}
+{"args":["ßa",30,3],"ret":{"lines":["ßa"],"rows":1,"max":0}}
+{"args":["ßa.0é\nbZa",40,1],"ret":{"lines":["ßa.0é","bZa"],"rows":1,"max":1}}
+{"args":["ßß😀.中b中.-",40,11],"ret":{"lines":["ßß😀.中b中.-"],"rows":7,"max":0}}
+{"args":["ßß😀/",38,3],"ret":{"lines":["ßß😀/"],"rows":1,"max":0}}
+{"args":["ßé.-0",30,16],"ret":{"lines":["ßé.-0"],"rows":12,"max":0}}
+{"args":["ß😀\n-é\n",5,17],"ret":{"lines":["ß","😀","-","e","́"," "],"rows":13,"max":0}}
+{"args":["é",8,8],"ret":{"lines":["é"],"rows":4,"max":0}}
+{"args":["é.\n .中",15,4],"ret":{"lines":["é."," .中"],"rows":1,"max":1}}
+{"args":["é//bééa\t.é",1,16],"ret":{"lines":["é","/","/","b","e","́","é","a"," "," "," "," ",".","é"],"rows":12,"max":2}}
+{"args":["é0ééé-\n",39,3],"ret":{"lines":["é0ééé-"," "],"rows":1,"max":1}}
+{"args":["é0中é0",39,3],"ret":{"lines":["é0中é0"],"rows":1,"max":0}}
+{"args":["éZ_ ß-_0ßß",3,10],"ret":{"lines":["é","Z","_"," ","ß","-","_","0","ß","ß"],"rows":6,"max":4}}
+{"args":["é\n",22,22],"ret":{"lines":["é"," "],"rows":18,"max":0}}
+{"args":["é\ńe",24,10],"ret":{"lines":["é","́e"],"rows":6,"max":0}}
+{"args":["é\ta\né0ßb\t",4,3],"ret":{"lines":["é"," "," "," "," ","a","é","0","ß","b"," "," "," "," "],"rows":1,"max":13}}
+{"args":["éb",10,1],"ret":{"lines":["éb"],"rows":1,"max":0}}
+{"args":["éb",5,20],"ret":{"lines":["é","b"],"rows":16,"max":0}}
+{"args":["éß😀\ta",11,26],"ret":{"lines":["éß😀    ","a"],"rows":22,"max":0}}
+{"args":["éé",20,24],"ret":{"lines":["éé"],"rows":20,"max":0}}
+{"args":["é́e",-1,-1],"ret":{"lines":["é","́","e"],"rows":1,"max":2}}
+{"args":["é́e",0,-1],"ret":{"lines":["é","́","e"],"rows":1,"max":2}}
+{"args":["é́e",0,0],"ret":{"lines":["é","́","e"],"rows":1,"max":2}}
+{"args":["é́e",0,5],"ret":{"lines":["é","́","e"],"rows":1,"max":2}}
+{"args":["é́e",10,0],"ret":{"lines":["é́e"],"rows":1,"max":0}}
+{"args":["é́e",10,5],"ret":{"lines":["é́e"],"rows":1,"max":0}}
+{"args":["é́e",12,6],"ret":{"lines":["é́e"],"rows":2,"max":0}}
+{"args":["é́e",24,10],"ret":{"lines":["é́e"],"rows":6,"max":0}}
+{"args":["é́e",3,40],"ret":{"lines":["é","́","e"],"rows":36,"max":0}}
+{"args":["é́e",3,41],"ret":{"lines":["é","́","e"],"rows":37,"max":0}}
+{"args":["é́e",4,3],"ret":{"lines":["é","́","e"],"rows":1,"max":2}}
+{"args":["é́e",4,4],"ret":{"lines":["é","́","e"],"rows":1,"max":2}}
+{"args":["é́e",5,5],"ret":{"lines":["é","́","e"],"rows":1,"max":2}}
+{"args":["é́e",6,6],"ret":{"lines":["é́","e"],"rows":2,"max":0}}
+{"args":["é́e",80,24],"ret":{"lines":["é́e"],"rows":20,"max":0}}
+{"args":["é́eé",80,24],"ret":{"lines":["é́eé"],"rows":20,"max":0}}
+{"args":["é😀‍.é",8,1],"ret":{"lines":["é😀<U","+200","D>.e","́"],"rows":1,"max":3}}
+{"args":["é😀中😀中",36,1],"ret":{"lines":["é😀中😀中"],"rows":1,"max":0}}
+{"args":["‍",3,2],"ret":{"lines":["<","U","+","2","0","0","D",">"],"rows":1,"max":7}}
+{"args":["‍_",21,3],"ret":{"lines":["<U+200D>_"],"rows":1,"max":0}}
+{"args":["‍é",2,5],"ret":{"lines":["<","U","+","2","0","0","D",">","é"],"rows":1,"max":8}}
+{"args":["‍é中\t\t-ß",27,3],"ret":{"lines":["<U+200D>é中        -ß"],"rows":1,"max":0}}
+{"args":["‍‍_.ß_中Zß",32,28],"ret":{"lines":["<U+200D><U+200D>_.ß_中Zß"],"rows":24,"max":0}}
+{"args":["‍😀Za",0,2],"ret":{"lines":["<","U","+","2","0","0","D",">","😀","Z","a"],"rows":1,"max":10}}
+{"args":["中/\tba‍é/é0",3,9],"ret":{"lines":["中","/"," "," "," "," ","b","a","<","U","+","2","0","0","D",">","é","/","é","0"],"rows":5,"max":15}}
+{"args":["中_中a",0,14],"ret":{"lines":["中","_","中","a"],"rows":10,"max":0}}
+{"args":["中b 中😀/‍-",1,24],"ret":{"lines":["中","b"," ","中","😀","/","<","U","+","2","0","0","D",">","-"],"rows":20,"max":0}}
+{"args":["中b",34,7],"ret":{"lines":["中b"],"rows":3,"max":0}}
+{"args":["中b😀ß",9,21],"ret":{"lines":["中b😀ß"],"rows":17,"max":0}}
+{"args":["中ß",36,3],"ret":{"lines":["中ß"],"rows":1,"max":0}}
+{"args":["中文字符测",0,0],"ret":{"lines":["中","文","字","符","测"],"rows":1,"max":4}}
+{"args":["中文字符测试",-1,-1],"ret":{"lines":["中","文","字","符","测","试"],"rows":1,"max":5}}
+{"args":["中文字符测试",-1,0],"ret":{"lines":["中","文","字","符","测","试"],"rows":1,"max":5}}
+{"args":["中文字符测试",0,0],"ret":{"lines":["中","文","字","符","测","试"],"rows":1,"max":5}}
+{"args":["中文字符测试",0,40],"ret":{"lines":["中","文","字","符","测","试"],"rows":36,"max":0}}
+{"args":["中文字符测试",0,6],"ret":{"lines":["中","文","字","符","测","试"],"rows":2,"max":4}}
+{"args":["中文字符测试",10,5],"ret":{"lines":["中文字符测试"],"rows":1,"max":0}}
+{"args":["中文字符测试",24,10],"ret":{"lines":["中文字符测试"],"rows":6,"max":0}}
+{"args":["中文字符测试",25,10],"ret":{"lines":["中文字符测试"],"rows":6,"max":0}}
+{"args":["中文字符测试",3,40],"ret":{"lines":["中","文","字","符","测","试"],"rows":36,"max":0}}
+{"args":["中文字符测试",4,0],"ret":{"lines":["中","文","字","符","测","试"],"rows":1,"max":5}}
+{"args":["中文字符测试",4,4],"ret":{"lines":["中","文","字","符","测","试"],"rows":1,"max":5}}
+{"args":["中文字符测试",5,0],"ret":{"lines":["中","文","字","符","测","试"],"rows":1,"max":5}}
+{"args":["中文字符测试",5,5],"ret":{"lines":["中","文","字","符","测","试"],"rows":1,"max":5}}
+{"args":["中文字符测试",6,6],"ret":{"lines":["中文","字符","测试"],"rows":2,"max":1}}
+{"args":["中文字符测试",80,24],"ret":{"lines":["中文字符测试"],"rows":20,"max":0}}
+{"args":["中文字符测试中文字符测试",10,5],"ret":{"lines":["中文字符测试","中文字符测试"],"rows":1,"max":1}}
+{"args":["中文字符测试中文字符测试",80,24],"ret":{"lines":["中文字符测试中文字符测试"],"rows":20,"max":0}}
+{"args":["😀",15,8],"ret":{"lines":["😀"],"rows":4,"max":0}}
+{"args":["😀-",2,4],"ret":{"lines":["😀","-"],"rows":1,"max":1}}
+{"args":["😀-Z",24,1],"ret":{"lines":["😀-Z"],"rows":1,"max":0}}
+{"args":["😀.b",12,6],"ret":{"lines":["😀.b"],"rows":2,"max":0}}
+{"args":["😀/",2,18],"ret":{"lines":["😀","/"],"rows":14,"max":0}}
+{"args":["😀//",38,27],"ret":{"lines":["😀//"],"rows":23,"max":0}}
+{"args":["😀/\né",35,29],"ret":{"lines":["😀/","é"],"rows":25,"max":0}}
+{"args":["😀/_",37,29],"ret":{"lines":["😀/_"],"rows":25,"max":0}}
+{"args":["😀0aZ😀😀",11,15],"ret":{"lines":["😀0aZ😀😀"],"rows":11,"max":0}}
+{"args":["😀\t‍😀é\t/",1,14],"ret":{"lines":["😀"," "," "," "," ","<","U","+","2","0","0","D",">","😀","é"," "," "," "," ","/"],"rows":10,"max":10}}
+{"args":["😀éb",37,2],"ret":{"lines":["😀éb"],"rows":1,"max":0}}
+{"args":["😀é😀0é",29,13],"ret":{"lines":["😀é😀0é"],"rows":9,"max":0}}
+{"args":["😀ß/é_\n/Z_",4,12],"ret":{"lines":["😀","ß","/","é","_","/","Z","_"],"rows":8,"max":0}}
+{"args":["😀😀é\né😀._😀-",2,27],"ret":{"lines":["😀","😀","é","é","😀",".","_","😀","-"],"rows":23,"max":0}}
+{"args":["😀😀😀😀😀😀😀",-1,-1],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀"],"rows":1,"max":6}}
+{"args":["😀😀😀😀😀😀😀",0,0],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀"],"rows":1,"max":6}}
+{"args":["😀😀😀😀😀😀😀",0,10],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀"],"rows":6,"max":1}}
+{"args":["😀😀😀😀😀😀😀",10,5],"ret":{"lines":["😀😀😀😀😀😀","😀"],"rows":1,"max":1}}
+{"args":["😀😀😀😀😀😀😀",10,6],"ret":{"lines":["😀😀😀😀😀😀","😀"],"rows":2,"max":0}}
+{"args":["😀😀😀😀😀😀😀",24,10],"ret":{"lines":["😀😀😀😀😀😀😀"],"rows":6,"max":0}}
+{"args":["😀😀😀😀😀😀😀",3,40],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀"],"rows":36,"max":0}}
+{"args":["😀😀😀😀😀😀😀",3,80],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀"],"rows":76,"max":0}}
+{"args":["😀😀😀😀😀😀😀",4,4],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀"],"rows":1,"max":6}}
+{"args":["😀😀😀😀😀😀😀",4,5],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀"],"rows":1,"max":6}}
+{"args":["😀😀😀😀😀😀😀",5,5],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀"],"rows":1,"max":6}}
+{"args":["😀😀😀😀😀😀😀",6,6],"ret":{"lines":["😀😀","😀😀","😀😀","😀"],"rows":2,"max":2}}
+{"args":["😀😀😀😀😀😀😀",7,6],"ret":{"lines":["😀😀😀","😀😀😀","😀"],"rows":2,"max":1}}
+{"args":["😀😀😀😀😀😀😀",8,4],"ret":{"lines":["😀😀😀😀","😀😀😀"],"rows":1,"max":1}}
+{"args":["😀😀😀😀😀😀😀",80,24],"ret":{"lines":["😀😀😀😀😀😀😀"],"rows":20,"max":0}}
+{"args":["😀😀😀😀😀😀😀😀😀😀😀😀😀😀",-1,-1],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀","😀","😀","😀","😀","😀","😀","😀"],"rows":1,"max":13}}
+{"args":["😀😀😀😀😀😀😀😀😀😀😀😀😀😀",0,0],"ret":{"lines":["😀","😀","😀","😀","😀","😀","😀","😀","😀","😀","😀","😀","😀","😀"],"rows":1,"max":13}}

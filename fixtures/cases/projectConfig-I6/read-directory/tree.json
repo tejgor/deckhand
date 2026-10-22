@@ -1,0 +1,16 @@
+{
+  "before": [
+    {
+      "path": "a.json",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "a.json",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ]
+}

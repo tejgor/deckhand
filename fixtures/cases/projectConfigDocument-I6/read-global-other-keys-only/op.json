@@ -1,0 +1,13 @@
+{
+  "fn": "readGlobalDefaultsDocument",
+  "args": [],
+  "async": true,
+  "ret": {
+    "kind": "global",
+    "root": "$ROOT",
+    "path": "$ROOT/config.json",
+    "raw": "{\n  \"defaultAgent\": \"claude\",\n  \"defaultWorkspace\": \"new\",\n  \"actions\": {}\n}\n",
+    "revision": null,
+    "exists": false
+  }
+}

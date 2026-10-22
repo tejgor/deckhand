@@ -1,0 +1,72 @@
+{
+  "before": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/node_modules",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/node_modules/pkg",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/node_modules/pkg/index.js",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/node_modules",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/node_modules/pkg",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/node_modules/pkg/index.js",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "wt/node_modules",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "$ROOT/launch/node_modules"
+    }
+  ]
+}

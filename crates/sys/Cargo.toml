@@ -1,0 +1,34 @@
+[package]
+name = "deckhand-sys"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+deckhand-protocol = { workspace = true }
+deckhand-core = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+indexmap = { workspace = true }
+thiserror = { workspace = true }
+nix = { workspace = true }
+libc = { workspace = true }
+notify = { workspace = true }
+sha2 = { workspace = true }
+uuid = { workspace = true }
+regex = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+# test-util: tokio::time::pause for the async_util tests.
+tokio = { workspace = true, features = ["test-util"] }
+deckhand-testkit = { workspace = true }
+tempfile = { workspace = true }

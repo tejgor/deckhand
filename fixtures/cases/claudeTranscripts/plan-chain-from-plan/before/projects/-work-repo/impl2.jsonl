@@ -1,0 +1,3 @@
+{"type":"custom-title","customTitle":"dh-task-1234"}
+{"type":"user","uuid":"impl2-1","parentUuid":"impl-2","timestamp":"2026-01-01T12:31:00.000Z"}
+{"type":"assistant","uuid":"impl2-2","parentUuid":"impl2-1","timestamp":"2026-01-01T12:40:00.000Z"}

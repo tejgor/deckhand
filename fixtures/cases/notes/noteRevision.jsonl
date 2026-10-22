@@ -1,0 +1,163 @@
+{"args":[" "],"ret":"36a9e7f1c95b82ff"}
+{"args":[" . ."],"ret":"232114b7b20e22f4"}
+{"args":[" ."],"ret":"23813bf6fd5b0b9f"}
+{"args":[" ./\t中‍0-"],"ret":"dc7fc69c404f569a"}
+{"args":[" ./\t中‍0-b ./\t中‍0-b"],"ret":"177137c6982b5db2"}
+{"args":[" ./\t中‍0-b"],"ret":"8af9c1928e0de7ae"}
+{"args":[" /"],"ret":"3be065a4a96aa0ff"}
+{"args":[" 0éab"],"ret":"a17044a7b8d5e783"}
+{"args":[" éab"],"ret":"3f5ebc18da5bcc8d"}
+{"args":[" ééa /_ ééa /_"],"ret":"a45f8313884f0d21"}
+{"args":[" ééa /_"],"ret":"48991490041920b3"}
+{"args":[" ééa /_é"],"ret":"fc5f34811d552631"}
+{"args":[""],"ret":"e3b0c44298fc1c14"}
+{"args":["-é "],"ret":"ab5589f1e58293f9"}
+{"args":["-é -é "],"ret":"bcab0b93787b7b0b"}
+{"args":[".-é "],"ret":"ee71ba293d993208"}
+{"args":["./é__é_. "],"ret":"7ead76dc2f101eab"}
+{"args":["./é__é_. ./é__é_. "],"ret":"c3566a174a0b3d88"}
+{"args":["./é__é_. Z"],"ret":"62a0c6b13d751ada"}
+{"args":[".0"],"ret":"ce5829e1a023d49c"}
+{"args":["/"],"ret":"8a5edab282632443"}
+{"args":["/0.éé b"],"ret":"d8b1b4ba9426c0a8"}
+{"args":["/0.éé‍ b"],"ret":"738e30fa5cdc85ce"}
+{"args":["/Z../"],"ret":"1124870f6895f79f"}
+{"args":["/Z..//Z../"],"ret":"4e5bd1356afc0864"}
+{"args":["/_"],"ret":"5d9402dbd875ee3b"}
+{"args":["/éßéaé0\nb"],"ret":"4dbaff778f9883dd"}
+{"args":["/éßéaé0\nba"],"ret":"12dea8635ad52c86"}
+{"args":["/éßéaé0\nba/éßéaé0\nba"],"ret":"f0db3655d9430e44"}
+{"args":["/hello\n"],"ret":"4504aff59e9c42df"}
+{"args":["0 \n abé"],"ret":"2e3bad124838eb08"}
+{"args":["0 \n abé0 \n abé"],"ret":"4ccda0453d0da91c"}
+{"args":["0 \n aé"],"ret":"05564175883bb23d"}
+{"args":["0"],"ret":"5feceb66ffc86f38"}
+{"args":["0/-éa0/a‍"],"ret":"05f6a33fd027693d"}
+{"args":["0/-éa0/a‍0/-éa0/a‍"],"ret":"2a882afeb6b9fb63"}
+{"args":["0/_"],"ret":"d1230e5099936177"}
+{"args":["0/_0/_"],"ret":"b87bae7ddf0d03d2"}
+{"args":["0/é_"],"ret":"f477ce80d23b60f3"}
+{"args":["00a_ _ß‍Z中"],"ret":"b3a2ca174359f633"}
+{"args":["00a__ß‍Z中"],"ret":"9d1bc7ede56a5911"}
+{"args":["0\t\n中éZ\t‍\t😀"],"ret":"222bcbe0c985c9cb"}
+{"args":["0\t\n中éZ\t‍\t😀0\t\n中éZ\t‍\t😀"],"ret":"ed659c950629d57c"}
+{"args":["0b中ZZ中‍"],"ret":"5c1164ecb7454ac3"}
+{"args":["0éab"],"ret":"c92d16b79a167f35"}
+{"args":["Z/é/"],"ret":"78e4c3534f420fd6"}
+{"args":["Z/é/‍"],"ret":"c0802f6eb08078c5"}
+{"args":["Z\nß"],"ret":"82d86a8ce32e8992"}
+{"args":["Z\nß中"],"ret":"d8de0091af95d4db"}
+{"args":["Z_/é\n"],"ret":"b59df6ef6c9fdfd8"}
+{"args":["Z_/é\nZ_/é\n"],"ret":"9e24cb48c9e1af5c"}
+{"args":["Z_\n/é\n"],"ret":"dafd3d7e62ec413b"}
+{"args":["Za"],"ret":"31b18bdf7a9ca945"}
+{"args":["ZaZa"],"ret":"13133e41c5b4cf99"}
+{"args":["ZbZ\nß.ß"],"ret":"377f8e36fb909611"}
+{"args":["Z中中e"],"ret":"a2db0f857bffb015"}
+{"args":["Z中中é"],"ret":"70dca37441c59bc1"}
+{"args":["Z中中éZ中中é"],"ret":"1a48b46e21ff7eef"}
+{"args":["\n -  \t\té-"],"ret":"89ac8a431da06534"}
+{"args":["\n - \t\té-"],"ret":"e654becd0508c661"}
+{"args":["\n"],"ret":"01ba4719c80b6fe9"}
+{"args":["\n\t0\n\n_a‍"],"ret":"8c42bd3c3365d87e"}
+{"args":["\n\t0\n_a‍"],"ret":"833c8aa53bd3a61b"}
+{"args":["\n\t0\n_a‍\n\t0\n_a‍"],"ret":"25d8c8297fdec18f"}
+{"args":["\na."],"ret":"207673e4c9ad6bd0"}
+{"args":["\na.\na."],"ret":"633f9b7e2316714f"}
+{"args":["\n😀é 😀Z"],"ret":"19d9ef7b88bb89de"}
+{"args":["\n😀é 😀Z_"],"ret":"024655e8aeeb251b"}
+{"args":["\n😀ß"],"ret":"0af40adddfb0210a"}
+{"args":["\t_"],"ret":"40fed8a4e7a57f35"}
+{"args":["\t😀_\néé中-"],"ret":"646821ddb07aa66a"}
+{"args":["\t😀_éé中-"],"ret":"924dee764a88fa3e"}
+{"args":["\t😀_é中-"],"ret":"27f3d19fc1255570"}
+{"args":["_"],"ret":"d2e2adf7177b7a8a"}
+{"args":["_\téb"],"ret":"7e428d2ef5a822c4"}
+{"args":["__"],"ret":"9911f4d2b18457c4"}
+{"args":["_‍😀"],"ret":"05724c39db527b45"}
+{"args":["_‍😀_‍😀"],"ret":"2eadb56fdecb8c80"}
+{"args":["_😀😀/./Zb"],"ret":"a306d1ed05becd4e"}
+{"args":["_😀😀/./Zb_"],"ret":"e2ef669e96ca616c"}
+{"args":["_😀😀/./😀Zb"],"ret":"a02129a50b9b0699"}
+{"args":["a 😀-中_"],"ret":"b9b278b0c8d49608"}
+{"args":["a 😀-中_a 😀-中_"],"ret":"b58e230d33d532b2"}
+{"args":["a"],"ret":"ca978112ca1bbdca"}
+{"args":["a\r\nb"],"ret":"18745f36a05e2907"}
+{"args":["a\r\nba\r\nb"],"ret":"7a9763c345a65a02"}
+{"args":["aa"],"ret":"961b6dd3ede3cb8e"}
+{"args":["aé-a\t \t"],"ret":"07b353a468c01f93"}
+{"args":["á-a\t \t"],"ret":"9ec17c7f7c24eb37"}
+{"args":["b--a.‍"],"ret":"ab3587e7f1560c27"}
+{"args":["b--a‍"],"ret":"73d04a4b9d043baa"}
+{"args":["b\t中"],"ret":"3d465dfbd28fc84e"}
+{"args":["bab"],"ret":"ecdd97405c79b408"}
+{"args":["bß\t"],"ret":"75dad99ea92d8900"}
+{"args":["bß\tbß\t"],"ret":"5c8190f29ddce86f"}
+{"args":["eé́ -_‍_\t"],"ret":"82c817361d9080a7"}
+{"args":["é -_‍_\t"],"ret":"7f1ad54f926bea3c"}
+{"args":["é -_‍_\té -_‍_\t"],"ret":"e37557df331842f1"}
+{"args":["é"],"ret":"bf12767b0f2a56b2"}
+{"args":["é-😀-ba/"],"ret":"31faba1110df33bc"}
+{"args":["é-😀-ba/é-😀-ba/"],"ret":"50d8246d3481e99e"}
+{"args":["é/"],"ret":"91a1a8d857c0cf37"}
+{"args":["ébb0ab0\t"],"ret":"efd0dc15ac6f11c9"}
+{"args":["ébb0ab0\tébb0ab0\t"],"ret":"bc597fb842622ecf"}
+{"args":["ébba0ab0\t"],"ret":"d843b8853e188fa1"}
+{"args":["ééa"],"ret":"3746146f3e810c30"}
+{"args":["hell_o\n"],"ret":"97bad7da72de3c1b"}
+{"args":["hello\n"],"ret":"5891b5b522d5df08"}
+{"args":["ß"],"ret":"cd3a7e92a9114307"}
+{"args":["ß-"],"ret":"825fe8bb9cb84491"}
+{"args":["ß-ß-"],"ret":"212ec24f91e698a9"}
+{"args":["ß/ ."],"ret":"be72030c2b35d522"}
+{"args":["ß/ .中"],"ret":"7f88939e8e45ea70"}
+{"args":["ß\t"],"ret":"a820019aa7ea7dd4"}
+{"args":["ßß"],"ret":"aa0a4e5abe0674d3"}
+{"args":["ßé.-0"],"ret":"69c9e438e2984a8b"}
+{"args":["ßé.-0."],"ret":"501fc261da014973"}
+{"args":["ßé.-0ßé.-0"],"ret":"fde426f9655638bc"}
+{"args":["ß😀"],"ret":"43cb8b1d2cc6c028"}
+{"args":["ß😀/_"],"ret":"8f93e6540ddbb516"}
+{"args":["é \n"],"ret":"0c47c609aebee4cd"}
+{"args":["é. .中"],"ret":"17619372757348bc"}
+{"args":["é.\n .中"],"ret":"da07d6536f7d3a85"}
+{"args":["é.\n .中é.\n .中"],"ret":"c7166f02c2bd87fc"}
+{"args":["é//bééa.é"],"ret":"8feb4df59df7c0c0"}
+{"args":["é//bééa\t.é"],"ret":"220dbef461b199f3"}
+{"args":["é0ééé-\n"],"ret":"683127eaf0167016"}
+{"args":["é\n"],"ret":"edd3a863872a0423"}
+{"args":["é\né\n"],"ret":"f8d436dc1ae1d1cd"}
+{"args":["éb"],"ret":"6a0930c3a2c1cff1"}
+{"args":["ébab"],"ret":"6827d57a20958717"}
+{"args":["ébéb"],"ret":"816dfdc9e542269e"}
+{"args":["éßa😀\ta"],"ret":"f414d8adb82dc2bd"}
+{"args":["éß😀\ta"],"ret":"e40554ad86bd209f"}
+{"args":["éé"],"ret":"f13c007a1d8e6e13"}
+{"args":["éééé-\n"],"ret":"84ed217e19b215d9"}
+{"args":["éééé"],"ret":"14cde7c9ad35de5a"}
+{"args":["́/"],"ret":"376e26f4a389b2f4"}
+{"args":["‍"],"ret":"b34b7a15cf631544"}
+{"args":["‍é"],"ret":"3fbed2eb6a4c7ff7"}
+{"args":["‍é中\t\t-ß"],"ret":"362caf21bfcdffa8"}
+{"args":["‍😀ß/é_\n/Z_"],"ret":"700e912bb5dd9d8b"}
+{"args":["中Zb"],"ret":"502aede6c4c5127f"}
+{"args":["中b"],"ret":"a5bf2e4144bd57fa"}
+{"args":["中ß"],"ret":"ed0d24b7668fc024"}
+{"args":["中ßé"],"ret":"b49cbfd6794bf9f0"}
+{"args":["中文😀"],"ret":"e973a1c1b41c5c9f"}
+{"args":["😀"],"ret":"f0443a342c5ef547"}
+{"args":["😀-"],"ret":"8db677c9a73ddb3a"}
+{"args":["😀-😀-"],"ret":"f24dcaf709a8e0d3"}
+{"args":["😀/"],"ret":"d310831c3151f8ad"}
+{"args":["😀//"],"ret":"ca64817c85c3abce"}
+{"args":["😀/_"],"ret":"7c3f5a34687a7b89"}
+{"args":["😀\na."],"ret":"c5c0069e1480281a"}
+{"args":["😀_"],"ret":"86bc4900a109c53e"}
+{"args":["😀é😀0é"],"ret":"afeed3927845998d"}
+{"args":["😀é😀0é😀é😀0é"],"ret":"1f55311ab457c998"}
+{"args":["😀ß/é_\n/Z_"],"ret":"5c401bc65e47b712"}
+{"args":["😀ß/é_\n/Z_😀ß/é_\n/Z_"],"ret":"a40c089b5dbff8fc"}
+{"args":["😀😀é\né😀._-"],"ret":"818db638aaba0aeb"}
+{"args":["😀😀é\né😀._😀-"],"ret":"71ee80a2fe9915eb"}
+{"args":[{"$utf16":[47,55296]}],"ret":"e5658034a9ce60a6"}
+{"args":[{"$utf16":[55296]}],"ret":"83d544ccc223c057"}

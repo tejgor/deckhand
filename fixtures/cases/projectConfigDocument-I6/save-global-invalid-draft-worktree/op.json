@@ -1,0 +1,9 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "{\"worktree\":{\"location\":\"rel/{name}\"}}",
+    null
+  ],
+  "async": true,
+  "throws": "worktree.location must be absolute (start with /, ~/, {home}, {repoParent} or {repoRoot})"
+}

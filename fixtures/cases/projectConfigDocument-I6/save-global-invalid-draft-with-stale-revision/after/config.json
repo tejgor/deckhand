@@ -1,0 +1,18 @@
+{
+  "defaults": {
+    "defaultAgent": "claude",
+    "defaultWorkspace": "new",
+    "devCommand": "npm run dev",
+    "actions": {
+      "Test": "npm test"
+    },
+    "worktree": {
+      "location": "~/wt/{name}",
+      "symlink": [
+        "node_modules"
+      ],
+      "branchFrom": "default",
+      "hook": false
+    }
+  }
+}

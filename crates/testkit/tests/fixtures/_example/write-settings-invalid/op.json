@@ -1,0 +1,11 @@
+{
+  "fn": "writeSettings",
+  "args": [
+    "$ROOT",
+    {
+      "theme": "dark"
+    }
+  ],
+  "async": true,
+  "throws": "settings.name is required"
+}

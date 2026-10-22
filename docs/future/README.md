@@ -1,13 +1,42 @@
 # Future work
 
-Proposals, research and plans for work that is **not built yet**. Nothing here describes current behaviour: for that, see `README.md`, `docs/no-brainers.md` (user-facing) and `HANDOFF.md` (implementation).
+Proposals, research and plans for work that is **not built yet**. Nothing here describes current behaviour: for that, see `README.md`, `docs/features.md` (user-facing) and `HANDOFF.md` (implementation).
 
-Each doc starts with its status. When something here ships, move the lasting parts into `HANDOFF.md` / `docs/no-brainers.md`, then trim the doc to what is still open (or delete it).
+Each doc starts with its status. When something here ships, move the lasting parts into `HANDOFF.md` / `docs/features.md`, then trim the doc to what is still open (or delete it).
 
 | Doc | Status | What it covers |
 |---|---|---|
 | [agent-signals-roadmap.md](agent-signals-roadmap.md) | Items 1–2 shipped (protocol v43); 3–7 planned | What Deckhand builds on agent hooks: the waiting queue, live activity, plans → notes/tasks, turn summaries, answering without attaching, and smaller open items |
 | [codex-app-server.md](codex-app-server.md) | Researched; needs a live experiment before any build | Replacing Codex hooks with a private Codex app-server per session that the TUI and Deckhand both connect to; why Claude stays on hooks |
+| [community-files.md](community-files.md) | Deferred 2026-10-22; nothing built | Repository extras left out when the protections went in: Dependabot version updates, issue and pull request templates, a code of conduct |
 | [deckhand-mcp-cli.md](deckhand-mcp-cli.md) | Idea, not started | A scriptable `deckhand` CLI and a `deckhand mcp` server so agents can create, drive and watch sessions ("spin up 5 sessions for these tasks") |
+| [ideas-from-orca.md](ideas-from-orca.md) | Reviewed 2026-10-20; nothing built | What Orca (an agent workbench in Electron) does that Deckhand could adopt: unread state, CLI shape, agent checkpoints, a phone companion, diff notes to agents, hibernation, fan-out, usage limits, and what not to copy |
+
+## Suggested order
+
+Assessed 2026-10-20 against the Rust code, including ideas from Orca (`ideas-from-orca.md`). Effort: **S** means one area of code with no protocol change; **M** means several crates or a protocol bump; **L** means a new subsystem or an outside dependency that is still moving.
+
+| # | Feature | Effort | Why this position |
+|---|---|---|---|
+| 1 | **Waiting queue** (roadmap 3): every session waiting on you, by urgency then wait time; Enter attaches. Orca's Needs You / Working / Done columns are the model | **S.** UI only: `urgency()` and `attention` already exist; no daemon or protocol change. Needs a key and help entries (the keymap↔help test enforces both). | Most value for the least work. |
+| 1b | **Hook health and the late `working` signal** (roadmap, *Also outstanding*) | **S.** Daemon plus the details line. | Cheap. Fits in the same change as 1. |
+| 1c | **Phone push notifications** (`ideas-from-orca.md`, *Phone*): an optional ntfy topic or webhook next to the desktop notification | **S.** One more target in the daemon's `notify`, a global setting, opt-in because the reason text leaves the machine. | Useful on its own, and step one of the phone companion. |
+| 2 | **Scriptable CLI** (`deckhand-mcp-cli.md` step 1), shaped after Orca's: `ls / new / send / status / wait / read --screen`, `--json` on every command, selectors (`id:`, `branch:`, `name:`) | **M.** `crates/client` already has `request()`, and `first_message_args` already sends a prompt at launch. `wait` needs a subscription loop with a timeout. No daemon change. | Cheap now that Deckhand is one binary. Agents can use it from Bash at once, and it is the base for everything agent- or phone-driven below. |
+| 2b | **Agent checkpoints and a skill** (Orca): `deckhand status --set "…"` from inside a session; `deckhand skill` prints the CLI guide for agents | **S** on top of 2. Authenticated by the session's hook token; the skill is static text in the binary. | Lets agents report progress and learn the CLI without MCP setup. |
+| 3 | **Turn-end summaries + unread** (roadmap 6, Orca's unread): "ended · 5 files changed · 'Implemented X'"; unread (bold) until you open the session | **M.** `read_changes` at `Stop`, kept in memory; the unread flag is roadmap 6's "reviewed". Protocol change. | Turns the queue into a review inbox. |
+| 4 | **Live activity** (roadmap 4): `working: Run test suite · 2 subagents`, plus the agent's checkpoint text | **M.** One more bounded field through the hook bridge, `SubagentStart`/`SubagentStop`, updates throttled to one a second and kept in memory. New event type, protocol bump. | Ship with 3 under one protocol bump and one daemon restart. |
+| 5 | **Answering without attaching** (roadmap 7), Claude first: question options and permission Yes / No sent as keystrokes, only when the expected dialog is on screen | **M.** The options are already in `attention.reason`; checking the screen before typing is the careful part. Codex comes with 12. | Moved up: it is the core of the phone companion, and handy in the queue too. |
+| 6 | **Phone companion page** (`ideas-from-orca.md`, *Phone*): `deckhand serve`, a phone-first page with the queue, last lines and answer buttons | **M–L.** A small HTTP server in the daemon over the primitives of 2 and 5. The work is security: private network only, a revocable token per device, viewing and answering only at first. | What Orca's mobile app gives, without a native app. Needs 2 and 5. |
+| 7 | **Diff notes to an agent** (Orca): comment on lines in the Changes diff, send the batch to the session as one prompt | **M.** Line comments stored next to the session's note, one composing step, sent through the existing draft/typing path. UI-heavy. | Closes the review loop that 3 opens: read the diff, tell the agent what to fix. |
+| 8 | **Hibernation** (Orca): stop idle, finished sessions' agent processes; resume on attach | **M.** Daemon timer over facts it already has (attention, last input/output, conversation ID); attach triggers the existing resume. Off by default. | Saves memory and CPU with many sessions; builds only on what exists. |
+| 9 | **Plans become notes and tasks** (roadmap 5) | **M.** Read the full plan from `planFilePath`, a Notes tab banner, top-level list items become tasks through `task-op`. | Useful, but you can live without it. |
+| 10 | **Fan out and pick a winner** (Orca's parallel-agents recipe): one prompt to N agents in N worktrees, compare, merge one, delete the rest | **M.** Creation, merge and safe deletion exist; new are the form, a grouped comparison (state, files, +/−, turn summary) and "merge this, delete the others". | Needs 2 and 3 to be worth it; the CLI/MCP gets it too. |
+| 11 | **`deckhand mcp`** (`deckhand-mcp-cli.md` step 2), with Orca's orchestration ideas (workers report done once, questions routed to the coordinator) for a later phase | **M–L.** Wrapping the CLI as MCP tools is easy; the safety rules are the work: nesting and concurrency caps, caller identity, no destructive tools. | Big payoff for "spin up 5 sessions", once 2, 3 and 10 make status and results reliable. |
+| 12 | **Codex via its app-server** (`codex-app-server.md`) | **L.** A private app-server per session run by the worker, a WebSocket client over a Unix socket, its events mapped to `AgentSignal`, the manual Codex hook setup retired. Experimental protocol that changes every few days. | Gated on the live experiment in that doc. Worth it if Codex is used heavily: it answers Codex requests natively (5, 6) and drives Codex for 11. |
+| 13 | **Usage and rate limits** (Orca): Codex windows in the status line, warning from 80% | **S** once 12 exists (`account/rateLimits/read` and `…/updated`). Claude has no supported source (Orca reads its OAuth token from the Keychain), so it stays out. | Small add-on to 12. |
+| — | Later, from Orca: session history browser (resume conversations Deckhand didn't start), GitHub checks per worktree with "send failures to the agent", a trust-reviewed removal hook, accounts per launch (`CODEX_HOME` / `CLAUDE_CONFIG_DIR`), scheduled runs with a precheck | **S–M each** (scheduled runs **L**) | Each is self-contained; pick by need. |
+| — | Pi extension; confirming Codex's `request_user_input` payload | **S–M** | Only if you use Pi or Codex questions much; 12 would make the Codex check unnecessary. |
+
+Suggested batches: 1, 1b and 1c; then 2 with 2b; then 3 and 4 together under one protocol bump; then 5 and 6 (the phone). Everything from 7 on depends on how Deckhand ends up being used. Not adopted from Orca, and why, is at the end of `ideas-from-orca.md`.
 
 Research artifacts made while writing these (generated protocol types, probe scripts) lived in a temporary scratchpad and are not kept; each doc says how to regenerate what it relies on.

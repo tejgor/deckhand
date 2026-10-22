@@ -1,0 +1,15 @@
+{
+  "fn": "updateAppConfig",
+  "args": [
+    "$ROOT",
+    {
+      "dev_command": "😀 中文 é x"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "dev_command": "😀 中文 é x",
+    "trustedProjects": {},
+    "notifications": false
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "fn": "NotesStore.migrate",
+  "args": [
+    "$ROOT",
+    [
+      {
+        "id": "a1",
+        "notes": ""
+      },
+      {
+        "id": "b2",
+        "notes": 5
+      },
+      {
+        "id": "c3",
+        "notes": null
+      },
+      {
+        "id": "d4",
+        "notes": [
+          "x"
+        ]
+      }
+    ]
+  ],
+  "async": true,
+  "ret": true
+}

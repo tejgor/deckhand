@@ -1,0 +1,162 @@
+{
+  "name": "lazygit",
+  "source": "lazygit",
+  "description": "lazygit in a throwaway repository (temp HOME and XDG dirs, startup popups and update checks off): start, move between panels, open a commit, the keybindings menu, a resize, quit.",
+  "cols": 100,
+  "rows": 30,
+  "chunks": [
+    109,
+    80,
+    1024,
+    1024,
+    1024,
+    1024,
+    671,
+    851,
+    862,
+    862,
+    890,
+    897,
+    897,
+    897,
+    1024,
+    38,
+    1024,
+    688,
+    1024,
+    752,
+    1024,
+    830,
+    1024,
+    830,
+    1024,
+    872,
+    1024,
+    872,
+    1024,
+    872,
+    1024,
+    819,
+    1024,
+    867,
+    1024,
+    1024,
+    1024,
+    195,
+    1024,
+    229,
+    1024,
+    1024,
+    809,
+    1024,
+    334,
+    1024,
+    307
+  ],
+  "events": [
+    {
+      "at": 28792,
+      "type": "checkpoint",
+      "label": "started"
+    },
+    {
+      "at": 28792,
+      "type": "checkpoint",
+      "label": "files"
+    },
+    {
+      "at": 28792,
+      "type": "checkpoint",
+      "label": "commit-files"
+    },
+    {
+      "at": 28792,
+      "type": "checkpoint",
+      "label": "keybindings"
+    },
+    {
+      "at": 28792,
+      "type": "resize",
+      "cols": 80,
+      "rows": 24
+    },
+    {
+      "at": 28792,
+      "type": "checkpoint",
+      "label": "resized"
+    }
+  ],
+  "recording": {
+    "command": "lazygit",
+    "environment": {
+      "HOME": "$SANDBOX/home",
+      "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+      "TERM": "xterm-256color",
+      "LANG": "en_US.UTF-8",
+      "LC_ALL": "en_US.UTF-8",
+      "SHELL": "/bin/sh",
+      "PS1": "$ ",
+      "PS2": "> ",
+      "TZ": "UTC",
+      "BASH_SILENCE_DEPRECATION_WARNING": "1",
+      "XDG_CONFIG_HOME": "$SANDBOX/home/.config",
+      "XDG_STATE_HOME": "$SANDBOX/home/.local/state",
+      "XDG_CACHE_HOME": "$SANDBOX/home/.cache",
+      "XDG_DATA_HOME": "$SANDBOX/home/.local/share",
+      "GIT_CONFIG_GLOBAL": "/dev/null",
+      "GIT_CONFIG_NOSYSTEM": "1",
+      "LG_CONFIG_FILE": "$SANDBOX/home/.config/lazygit/config.yml"
+    },
+    "steps": [
+      {
+        "wait": 1500
+      },
+      {
+        "checkpoint": "started"
+      },
+      {
+        "send": "2"
+      },
+      {
+        "send": "j"
+      },
+      {
+        "checkpoint": "files"
+      },
+      {
+        "send": "4"
+      },
+      {
+        "send": "j"
+      },
+      {
+        "send": "\r"
+      },
+      {
+        "checkpoint": "commit-files"
+      },
+      {
+        "send": "\u001b"
+      },
+      {
+        "send": "?"
+      },
+      {
+        "checkpoint": "keybindings"
+      },
+      {
+        "send": "\u001b"
+      },
+      {
+        "resize": [
+          80,
+          24
+        ]
+      },
+      {
+        "checkpoint": "resized"
+      }
+    ],
+    "exit": "q"
+  }
+}

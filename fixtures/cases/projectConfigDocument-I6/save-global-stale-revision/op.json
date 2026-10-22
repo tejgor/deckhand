@@ -1,0 +1,9 @@
+{
+  "fn": "saveGlobalDefaultsDocument",
+  "args": [
+    "{\n  \"defaultAgent\": \"codex\"\n}\n",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  ],
+  "async": true,
+  "throws": "Global defaults changed on disk. Your draft is kept; close and reopen the editor before saving."
+}

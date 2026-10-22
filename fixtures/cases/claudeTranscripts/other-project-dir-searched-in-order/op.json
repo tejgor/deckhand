@@ -1,0 +1,13 @@
+{
+  "fn": "latestClaudeConversation",
+  "args": [
+    "plan",
+    {
+      "projectsDir": "$ROOT/projects"
+    }
+  ],
+  "async": true,
+  "ret": {
+    "$u": 1
+  }
+}

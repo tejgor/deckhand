@@ -12,8 +12,8 @@
 
 ## Plan
 
-1. **Scriptable CLI first**, over the existing client (`src/client.ts`): `deckhand ls`, `deckhand new --agent claude --worktree --task <id> --prompt …`, `deckhand send <id> "…"`, `deckhand status <id>`, `deckhand wait <id> [--timeout]`, `deckhand tasks`. JSON output with `--json`. Useful by hand and in scripts, and agents can call it from Bash without any MCP setup.
-2. **Then `deckhand mcp`** (stdio), a thin wrapper over the same client code, shipped in the same package so it always shares `PROTOCOL_VERSION` (bumped often; a separate package would break on every bump). Typed tools for Claude and Codex; Pi may not support MCP, the CLI covers it.
+1. **Scriptable CLI first**, over the existing client (`crates/client`: `request()`, `LiveClient`): `deckhand ls`, `deckhand new --agent claude --worktree --task <id> --prompt …`, `deckhand send <id> "…"`, `deckhand status <id>`, `deckhand wait <id> [--timeout]`, `deckhand tasks`. JSON output with `--json`. Useful by hand and in scripts, and agents can call it from Bash without any MCP setup.
+2. **Then `deckhand mcp`** (stdio), a thin wrapper over the same client code, a subcommand of the same `deckhand` binary so it always shares `PROTOCOL_VERSION` (bumped often; a separate binary would break on every bump). Typed tools for Claude and Codex; Pi may not support MCP, the CLI covers it.
 
 ### First tool set
 
@@ -33,7 +33,7 @@ Left out at first, or behind a confirmation: `kill`, `remove`, `delete-worktree`
 1. **Submitting a prompt: send by default when an agent creates the session.** Starting from a task in the UI types the task into the agent's input without sending it, on purpose: a task's title and body are usually a reminder, not a full brief, and the user adds detail before sending. An orchestrating agent is in a different position: it composes a complete prompt (context, constraints, what "done" means) from the task and its own understanding, so holding that prompt for editing only stalls the session.
    - `create_session` / `deckhand new` take a `prompt` and send it by default (`submit: true`); `submit: false` keeps today's typed draft, for "prepare sessions for me to review".
    - With a `taskId`, the task is still linked (worktree, ticking on merge or done); the orchestrator's prompt replaces the raw `<title>: <body>` text as what the agent receives.
-   - Send through the first-message argv path (`firstMessageArgs` in `src/daemon.ts`, as handoff children use), not paste + Enter. That also lifts the draft's one-line limit (Claude collapses a multi-line paste into an uneditable placeholder): a prompt passed at launch can be long and structured.
+   - Send through the first-message argv path (`first_message_args` in `crates/daemon/src/launch.rs`, as handoff children use), not paste + Enter. That also lifts the draft's one-line limit (Claude collapses a multi-line paste into an uneditable placeholder): a prompt passed at launch can be long and structured.
 2. **Knowing a session is finished.** Use agent signals: `response-ended` with the `said: …` reason, `needs-input` with the question or permission. Screen-idle alone can't tell finished from waiting. Pi has no signals (see `agent-signals-roadmap.md`).
 3. **Reading results.** The preview is a lossy scrape. Point the orchestrator at durable results: the `said:` line, the session's notes file, commits / the Changes view, or the agent's transcript.
 4. **Answering questions.** For orchestrated sessions, answering programmatically is reasonable: Claude through a `PreToolUse` hook returning the answers, Codex through the app-server (`codex-app-server.md`). See roadmap item 7.

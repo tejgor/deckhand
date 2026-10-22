@@ -1,0 +1,12 @@
+{
+  "fn": "latestClaudeConversation",
+  "args": [
+    "plan",
+    {
+      "projectsDir": "$ROOT/projects",
+      "cwdHints": []
+    }
+  ],
+  "async": true,
+  "ret": "impl2"
+}

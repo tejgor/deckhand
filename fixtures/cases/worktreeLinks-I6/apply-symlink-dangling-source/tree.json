@@ -1,0 +1,48 @@
+{
+  "before": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/dangling",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "gone"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ],
+  "after": [
+    {
+      "path": "home",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "launch/dangling",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "gone"
+    },
+    {
+      "path": "wt",
+      "type": "dir",
+      "mode": "0755"
+    }
+  ]
+}

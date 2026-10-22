@@ -1,0 +1,28 @@
+{
+  "/repo/a": {
+    "selectedId": "s1",
+    "activeTab": "git",
+    "sessionFilter": "running",
+    "sessionQuery": "fix",
+    "sidebarWidth": 34,
+    "sessionTabs": {
+      "s1": "git",
+      "s2": "notes"
+    },
+    "collapsedSessionIds": [
+      "s3"
+    ],
+    "hiddenExitedSessionIds": [],
+    "readReplies": {
+      "s1": "2026-01-01T00:00:00.000Z"
+    }
+  },
+  "/repo/b": {
+    "sessionFilter": "active",
+    "sessionQuery": "",
+    "sessionTabs": {},
+    "collapsedSessionIds": [],
+    "hiddenExitedSessionIds": [],
+    "readReplies": {}
+  }
+}

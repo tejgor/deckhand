@@ -1,0 +1,3 @@
+{"args":[["a","b"],"a"],"ret":false}
+{"args":[["a"],"b"],"argsAfter":[["a","b"],"b"],"ret":true}
+{"args":[[],"x"],"argsAfter":[["x"],"x"],"ret":true}

@@ -1,0 +1,2660 @@
+{
+  "name": "sh-modes",
+  "source": "sh",
+  "description": "/bin/sh: alternate screen (1049, 47, 1047 and tput smcup/rmcup), DEC 2026 synchronized output, bracketed paste and mouse/focus/app-cursor toggles, cursor visibility, OSC 0/2 titles and OSC 8 hyperlinks.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 80,
+  "rows": 24,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 80,
+      "rows": 24
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 10
+    },
+    {
+      "op": "write",
+      "from": 10,
+      "to": 15
+    },
+    {
+      "op": "write",
+      "from": 15,
+      "to": 33
+    },
+    {
+      "op": "write",
+      "from": 33,
+      "to": 45
+    },
+    {
+      "op": "write",
+      "from": 45,
+      "to": 47
+    },
+    {
+      "op": "write",
+      "from": 47,
+      "to": 51
+    },
+    {
+      "op": "write",
+      "from": 51,
+      "to": 68
+    },
+    {
+      "op": "write",
+      "from": 68,
+      "to": 72
+    },
+    {
+      "op": "write",
+      "from": 72,
+      "to": 82
+    },
+    {
+      "op": "write",
+      "from": 82,
+      "to": 84
+    },
+    {
+      "op": "write",
+      "from": 84,
+      "to": 86
+    },
+    {
+      "op": "write",
+      "from": 86,
+      "to": 87
+    },
+    {
+      "op": "write",
+      "from": 87,
+      "to": 88
+    },
+    {
+      "op": "write",
+      "from": 88,
+      "to": 89
+    },
+    {
+      "op": "write",
+      "from": 89,
+      "to": 90
+    },
+    {
+      "op": "write",
+      "from": 90,
+      "to": 91
+    },
+    {
+      "op": "write",
+      "from": 91,
+      "to": 92
+    },
+    {
+      "op": "write",
+      "from": 92,
+      "to": 93
+    },
+    {
+      "op": "write",
+      "from": 93,
+      "to": 94
+    },
+    {
+      "op": "write",
+      "from": 94,
+      "to": 97
+    },
+    {
+      "op": "write",
+      "from": 97,
+      "to": 100
+    },
+    {
+      "op": "write",
+      "from": 100,
+      "to": 101
+    },
+    {
+      "op": "write",
+      "from": 101,
+      "to": 102
+    },
+    {
+      "op": "write",
+      "from": 102,
+      "to": 103
+    },
+    {
+      "op": "write",
+      "from": 103,
+      "to": 106
+    },
+    {
+      "op": "write",
+      "from": 106,
+      "to": 109
+    },
+    {
+      "op": "write",
+      "from": 109,
+      "to": 148
+    },
+    {
+      "op": "write",
+      "from": 148,
+      "to": 150
+    },
+    {
+      "op": "checkpoint",
+      "label": "alt-1049",
+      "at": 150,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "alternate",
+        "cursor": {
+          "x": 17,
+          "y": 4
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["inside 1049", "", "", "", "         middle$ ", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hinside 1049\u001b[5;1H         middle$ \u001b[5;18H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 150,
+      "to": 152
+    },
+    {
+      "op": "write",
+      "from": 152,
+      "to": 166
+    },
+    {
+      "op": "write",
+      "from": 166,
+      "to": 169
+    },
+    {
+      "op": "write",
+      "from": 169,
+      "to": 170
+    },
+    {
+      "op": "write",
+      "from": 170,
+      "to": 172
+    },
+    {
+      "op": "write",
+      "from": 172,
+      "to": 180
+    },
+    {
+      "op": "write",
+      "from": 180,
+      "to": 182
+    },
+    {
+      "op": "checkpoint",
+      "label": "alt-1049-left",
+      "at": 182,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 3
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ printf 'before alt\\n'", "before alt", "$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'", "$ ", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "inside 1049\n\n\n\n         middle$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf 'before alt\\n'\u001b[2;1Hbefore alt\u001b[3;1H$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\u001b[4;1H$ \u001b[4;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 182,
+      "to": 184
+    },
+    {
+      "op": "write",
+      "from": 184,
+      "to": 202
+    },
+    {
+      "op": "write",
+      "from": 202,
+      "to": 204
+    },
+    {
+      "op": "write",
+      "from": 204,
+      "to": 206
+    },
+    {
+      "op": "write",
+      "from": 206,
+      "to": 207
+    },
+    {
+      "op": "write",
+      "from": 207,
+      "to": 209
+    },
+    {
+      "op": "write",
+      "from": 209,
+      "to": 210
+    },
+    {
+      "op": "write",
+      "from": 210,
+      "to": 211
+    },
+    {
+      "op": "write",
+      "from": 211,
+      "to": 212
+    },
+    {
+      "op": "write",
+      "from": 212,
+      "to": 213
+    },
+    {
+      "op": "write",
+      "from": 213,
+      "to": 214
+    },
+    {
+      "op": "write",
+      "from": 214,
+      "to": 216
+    },
+    {
+      "op": "write",
+      "from": 216,
+      "to": 220
+    },
+    {
+      "op": "write",
+      "from": 220,
+      "to": 227
+    },
+    {
+      "op": "write",
+      "from": 227,
+      "to": 228
+    },
+    {
+      "op": "write",
+      "from": 228,
+      "to": 230
+    },
+    {
+      "op": "write",
+      "from": 230,
+      "to": 231
+    },
+    {
+      "op": "write",
+      "from": 231,
+      "to": 233
+    },
+    {
+      "op": "write",
+      "from": 233,
+      "to": 234
+    },
+    {
+      "op": "write",
+      "from": 234,
+      "to": 235
+    },
+    {
+      "op": "write",
+      "from": 235,
+      "to": 236
+    },
+    {
+      "op": "write",
+      "from": 236,
+      "to": 237
+    },
+    {
+      "op": "write",
+      "from": 237,
+      "to": 238
+    },
+    {
+      "op": "write",
+      "from": 238,
+      "to": 239
+    },
+    {
+      "op": "write",
+      "from": 239,
+      "to": 240
+    },
+    {
+      "op": "write",
+      "from": 240,
+      "to": 242
+    },
+    {
+      "op": "write",
+      "from": 242,
+      "to": 243
+    },
+    {
+      "op": "write",
+      "from": 243,
+      "to": 244
+    },
+    {
+      "op": "write",
+      "from": 244,
+      "to": 245
+    },
+    {
+      "op": "write",
+      "from": 245,
+      "to": 246
+    },
+    {
+      "op": "write",
+      "from": 246,
+      "to": 249
+    },
+    {
+      "op": "write",
+      "from": 249,
+      "to": 250
+    },
+    {
+      "op": "write",
+      "from": 250,
+      "to": 251
+    },
+    {
+      "op": "write",
+      "from": 251,
+      "to": 252
+    },
+    {
+      "op": "write",
+      "from": 252,
+      "to": 253
+    },
+    {
+      "op": "write",
+      "from": 253,
+      "to": 256
+    },
+    {
+      "op": "write",
+      "from": 256,
+      "to": 307
+    },
+    {
+      "op": "write",
+      "from": 307,
+      "to": 309
+    },
+    {
+      "op": "write",
+      "from": 309,
+      "to": 314
+    },
+    {
+      "op": "write",
+      "from": 314,
+      "to": 329
+    },
+    {
+      "op": "write",
+      "from": 329,
+      "to": 331
+    },
+    {
+      "op": "write",
+      "from": 331,
+      "to": 332
+    },
+    {
+      "op": "write",
+      "from": 332,
+      "to": 334
+    },
+    {
+      "op": "write",
+      "from": 334,
+      "to": 335
+    },
+    {
+      "op": "write",
+      "from": 335,
+      "to": 336
+    },
+    {
+      "op": "write",
+      "from": 336,
+      "to": 337
+    },
+    {
+      "op": "write",
+      "from": 337,
+      "to": 338
+    },
+    {
+      "op": "write",
+      "from": 338,
+      "to": 340
+    },
+    {
+      "op": "write",
+      "from": 340,
+      "to": 342
+    },
+    {
+      "op": "write",
+      "from": 342,
+      "to": 350
+    },
+    {
+      "op": "write",
+      "from": 350,
+      "to": 360
+    },
+    {
+      "op": "write",
+      "from": 360,
+      "to": 362
+    },
+    {
+      "op": "checkpoint",
+      "label": "tput-smcup",
+      "at": 362,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "alternate",
+        "cursor": {
+          "x": 2,
+          "y": 7
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["", "", "", "", "", "", "tput alt", "$ ", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[7;1Htput alt\u001b[8;1H$ \u001b[8;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 362,
+      "to": 364
+    },
+    {
+      "op": "write",
+      "from": 364,
+      "to": 372
+    },
+    {
+      "op": "write",
+      "from": 372,
+      "to": 374
+    },
+    {
+      "op": "write",
+      "from": 374,
+      "to": 382
+    },
+    {
+      "op": "write",
+      "from": 382,
+      "to": 384
+    },
+    {
+      "op": "checkpoint",
+      "label": "tput-rmcup",
+      "at": 384,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 6
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ printf 'before alt\\n'", "before alt", "$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'", "$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'", "          ", "$ tput smcup; printf \"tput alt\\n\"", "$ ", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "\n\n\n\n\n\ntput alt\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf 'before alt\\n'\u001b[2;1Hbefore alt\u001b[3;1H$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\u001b[4;1H$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\u001b[5;1H          \u001b[6;1H$ tput smcup; printf \"tput alt\\n\"\u001b[7;1H$ \u001b[7;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 384,
+      "to": 406
+    },
+    {
+      "op": "write",
+      "from": 406,
+      "to": 430
+    },
+    {
+      "op": "write",
+      "from": 430,
+      "to": 442
+    },
+    {
+      "op": "write",
+      "from": 442,
+      "to": 445
+    },
+    {
+      "op": "write",
+      "from": 445,
+      "to": 486
+    },
+    {
+      "op": "write",
+      "from": 486,
+      "to": 488
+    },
+    {
+      "op": "checkpoint",
+      "label": "sync",
+      "at": 488,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 2
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ printf 'before alt\\n'", "framee alt", "$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'", "$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'", "          ", "$ tput smcup; printf \"tput alt\\n\"", "$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'", "synchronized", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nbefore alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf 'before alt\\n'\u001b[2;1Hframee alt\u001b[3;1H$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\u001b[4;1H$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\u001b[5;1H          \u001b[6;1H$ tput smcup; printf \"tput alt\\n\"\u001b[7;1H$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\u001b[8;1Hsynchronized\u001b[3;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 488,
+      "to": 505
+    },
+    {
+      "op": "write",
+      "from": 505,
+      "to": 515
+    },
+    {
+      "op": "write",
+      "from": 515,
+      "to": 517
+    },
+    {
+      "op": "write",
+      "from": 517,
+      "to": 518
+    },
+    {
+      "op": "write",
+      "from": 518,
+      "to": 519
+    },
+    {
+      "op": "write",
+      "from": 519,
+      "to": 520
+    },
+    {
+      "op": "write",
+      "from": 520,
+      "to": 523
+    },
+    {
+      "op": "write",
+      "from": 523,
+      "to": 535
+    },
+    {
+      "op": "write",
+      "from": 535,
+      "to": 556
+    },
+    {
+      "op": "write",
+      "from": 556,
+      "to": 565
+    },
+    {
+      "op": "write",
+      "from": 565,
+      "to": 569
+    },
+    {
+      "op": "write",
+      "from": 569,
+      "to": 572
+    },
+    {
+      "op": "write",
+      "from": 572,
+      "to": 574
+    },
+    {
+      "op": "write",
+      "from": 574,
+      "to": 577
+    },
+    {
+      "op": "write",
+      "from": 577,
+      "to": 634
+    },
+    {
+      "op": "checkpoint",
+      "label": "modes-on",
+      "at": 634,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 5
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ printf 'before alt\\n'", "framee alt", "$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode", "s on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'", "modes on  ", "$ tput smcup; printf \"tput alt\\n\"", "$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'", "synchronized", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [3],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": true,
+          "applicationKeypadMode": true,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "vt200",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": true,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?1049h\\033[H\\033[2Jinside 1049\\033[5;10Hmiddle'\n$ printf '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\n          \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf 'before alt\\n'\u001b[2;1Hframee alt\u001b[3;1H$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\u001b[4;1Hs on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\u001b[5;1Hmodes on  \u001b[6;1H$ tput smcup; printf \"tput alt\\n\"\u001b[7;1H$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\u001b[8;1Hsynchronized\u001b[6;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 634,
+      "to": 638
+    },
+    {
+      "op": "write",
+      "from": 638,
+      "to": 651
+    },
+    {
+      "op": "write",
+      "from": 651,
+      "to": 653
+    },
+    {
+      "op": "write",
+      "from": 653,
+      "to": 655
+    },
+    {
+      "op": "write",
+      "from": 655,
+      "to": 656
+    },
+    {
+      "op": "write",
+      "from": 656,
+      "to": 658
+    },
+    {
+      "op": "write",
+      "from": 658,
+      "to": 659
+    },
+    {
+      "op": "write",
+      "from": 659,
+      "to": 660
+    },
+    {
+      "op": "write",
+      "from": 660,
+      "to": 662
+    },
+    {
+      "op": "write",
+      "from": 662,
+      "to": 667
+    },
+    {
+      "op": "write",
+      "from": 667,
+      "to": 673
+    },
+    {
+      "op": "write",
+      "from": 673,
+      "to": 675
+    },
+    {
+      "op": "write",
+      "from": 675,
+      "to": 677
+    },
+    {
+      "op": "write",
+      "from": 677,
+      "to": 678
+    },
+    {
+      "op": "write",
+      "from": 678,
+      "to": 679
+    },
+    {
+      "op": "write",
+      "from": 679,
+      "to": 680
+    },
+    {
+      "op": "write",
+      "from": 680,
+      "to": 681
+    },
+    {
+      "op": "write",
+      "from": 681,
+      "to": 682
+    },
+    {
+      "op": "write",
+      "from": 682,
+      "to": 684
+    },
+    {
+      "op": "write",
+      "from": 684,
+      "to": 685
+    },
+    {
+      "op": "write",
+      "from": 685,
+      "to": 686
+    },
+    {
+      "op": "write",
+      "from": 686,
+      "to": 687
+    },
+    {
+      "op": "write",
+      "from": 687,
+      "to": 688
+    },
+    {
+      "op": "write",
+      "from": 688,
+      "to": 689
+    },
+    {
+      "op": "write",
+      "from": 689,
+      "to": 690
+    },
+    {
+      "op": "write",
+      "from": 690,
+      "to": 691
+    },
+    {
+      "op": "write",
+      "from": 691,
+      "to": 692
+    },
+    {
+      "op": "write",
+      "from": 692,
+      "to": 693
+    },
+    {
+      "op": "write",
+      "from": 693,
+      "to": 694
+    },
+    {
+      "op": "write",
+      "from": 694,
+      "to": 695
+    },
+    {
+      "op": "write",
+      "from": 695,
+      "to": 696
+    },
+    {
+      "op": "write",
+      "from": 696,
+      "to": 697
+    },
+    {
+      "op": "write",
+      "from": 697,
+      "to": 698
+    },
+    {
+      "op": "write",
+      "from": 698,
+      "to": 699
+    },
+    {
+      "op": "write",
+      "from": 699,
+      "to": 700
+    },
+    {
+      "op": "write",
+      "from": 700,
+      "to": 701
+    },
+    {
+      "op": "write",
+      "from": 701,
+      "to": 702
+    },
+    {
+      "op": "write",
+      "from": 702,
+      "to": 704
+    },
+    {
+      "op": "write",
+      "from": 704,
+      "to": 705
+    },
+    {
+      "op": "write",
+      "from": 705,
+      "to": 706
+    },
+    {
+      "op": "write",
+      "from": 706,
+      "to": 707
+    },
+    {
+      "op": "write",
+      "from": 707,
+      "to": 708
+    },
+    {
+      "op": "write",
+      "from": 708,
+      "to": 709
+    },
+    {
+      "op": "write",
+      "from": 709,
+      "to": 710
+    },
+    {
+      "op": "write",
+      "from": 710,
+      "to": 711
+    },
+    {
+      "op": "write",
+      "from": 711,
+      "to": 714
+    },
+    {
+      "op": "write",
+      "from": 714,
+      "to": 717
+    },
+    {
+      "op": "write",
+      "from": 717,
+      "to": 719
+    },
+    {
+      "op": "write",
+      "from": 719,
+      "to": 720
+    },
+    {
+      "op": "write",
+      "from": 720,
+      "to": 722
+    },
+    {
+      "op": "write",
+      "from": 722,
+      "to": 724
+    },
+    {
+      "op": "write",
+      "from": 724,
+      "to": 780
+    },
+    {
+      "op": "write",
+      "from": 780,
+      "to": 782
+    },
+    {
+      "op": "checkpoint",
+      "label": "modes-off",
+      "at": 782,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 8
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ printf 'before alt\\n'", "framee alt", "$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode", "s on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'", "modes on  ", "$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode", "s off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'", "modes offzed", "$ ", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [3, 6],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": null
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ tput smcup; printf \"tput alt\\n\"\n$ printf '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nsynchronized"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf 'before alt\\n'\u001b[2;1Hframee alt\u001b[3;1H$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\u001b[4;1Hs on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\u001b[5;1Hmodes on  \u001b[6;1H$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\u001b[7;1Hs off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\u001b[8;1Hmodes offzed\u001b[9;1H$ \u001b[9;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 782,
+      "to": 783
+    },
+    {
+      "op": "write",
+      "from": 783,
+      "to": 797
+    },
+    {
+      "op": "write",
+      "from": 797,
+      "to": 800
+    },
+    {
+      "op": "write",
+      "from": 800,
+      "to": 802
+    },
+    {
+      "op": "write",
+      "from": 802,
+      "to": 803
+    },
+    {
+      "op": "write",
+      "from": 803,
+      "to": 805
+    },
+    {
+      "op": "write",
+      "from": 805,
+      "to": 806
+    },
+    {
+      "op": "write",
+      "from": 806,
+      "to": 807
+    },
+    {
+      "op": "write",
+      "from": 807,
+      "to": 809
+    },
+    {
+      "op": "write",
+      "from": 809,
+      "to": 810
+    },
+    {
+      "op": "write",
+      "from": 810,
+      "to": 811
+    },
+    {
+      "op": "write",
+      "from": 811,
+      "to": 812
+    },
+    {
+      "op": "write",
+      "from": 812,
+      "to": 813
+    },
+    {
+      "op": "write",
+      "from": 813,
+      "to": 814
+    },
+    {
+      "op": "write",
+      "from": 814,
+      "to": 815
+    },
+    {
+      "op": "write",
+      "from": 815,
+      "to": 816
+    },
+    {
+      "op": "write",
+      "from": 816,
+      "to": 817
+    },
+    {
+      "op": "write",
+      "from": 817,
+      "to": 818
+    },
+    {
+      "op": "write",
+      "from": 818,
+      "to": 819
+    },
+    {
+      "op": "write",
+      "from": 819,
+      "to": 820
+    },
+    {
+      "op": "write",
+      "from": 820,
+      "to": 821
+    },
+    {
+      "op": "write",
+      "from": 821,
+      "to": 822
+    },
+    {
+      "op": "write",
+      "from": 822,
+      "to": 823
+    },
+    {
+      "op": "write",
+      "from": 823,
+      "to": 824
+    },
+    {
+      "op": "write",
+      "from": 824,
+      "to": 825
+    },
+    {
+      "op": "write",
+      "from": 825,
+      "to": 826
+    },
+    {
+      "op": "write",
+      "from": 826,
+      "to": 827
+    },
+    {
+      "op": "write",
+      "from": 827,
+      "to": 828
+    },
+    {
+      "op": "write",
+      "from": 828,
+      "to": 832
+    },
+    {
+      "op": "write",
+      "from": 832,
+      "to": 844
+    },
+    {
+      "op": "write",
+      "from": 844,
+      "to": 882
+    },
+    {
+      "op": "write",
+      "from": 882,
+      "to": 884
+    },
+    {
+      "op": "checkpoint",
+      "label": "titles",
+      "at": 884,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 10
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ printf 'before alt\\n'", "framee alt", "$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode", "s on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'", "modes on  ", "$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode", "s off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'", "modes offzed", "$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'", "titled", "$ ", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [3, 6],
+        "attrs": {},
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "title two"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf 'before alt\\n'\u001b[2;1Hframee alt\u001b[3;1H$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\u001b[4;1Hs on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\u001b[5;1Hmodes on  \u001b[6;1H$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\u001b[7;1Hs off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\u001b[8;1Hmodes offzed\u001b[9;1H$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\u001b[10;1Htitled\u001b[11;1H$ \u001b[11;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 884,
+      "to": 900
+    },
+    {
+      "op": "write",
+      "from": 900,
+      "to": 911
+    },
+    {
+      "op": "write",
+      "from": 911,
+      "to": 913
+    },
+    {
+      "op": "write",
+      "from": 913,
+      "to": 917
+    },
+    {
+      "op": "write",
+      "from": 917,
+      "to": 919
+    },
+    {
+      "op": "write",
+      "from": 919,
+      "to": 921
+    },
+    {
+      "op": "write",
+      "from": 921,
+      "to": 922
+    },
+    {
+      "op": "write",
+      "from": 922,
+      "to": 923
+    },
+    {
+      "op": "write",
+      "from": 923,
+      "to": 924
+    },
+    {
+      "op": "write",
+      "from": 924,
+      "to": 925
+    },
+    {
+      "op": "write",
+      "from": 925,
+      "to": 927
+    },
+    {
+      "op": "write",
+      "from": 927,
+      "to": 929
+    },
+    {
+      "op": "write",
+      "from": 929,
+      "to": 945
+    },
+    {
+      "op": "write",
+      "from": 945,
+      "to": 949
+    },
+    {
+      "op": "write",
+      "from": 949,
+      "to": 951
+    },
+    {
+      "op": "write",
+      "from": 951,
+      "to": 952
+    },
+    {
+      "op": "write",
+      "from": 952,
+      "to": 953
+    },
+    {
+      "op": "write",
+      "from": 953,
+      "to": 956
+    },
+    {
+      "op": "write",
+      "from": 956,
+      "to": 967
+    },
+    {
+      "op": "write",
+      "from": 967,
+      "to": 969
+    },
+    {
+      "op": "write",
+      "from": 969,
+      "to": 971
+    },
+    {
+      "op": "write",
+      "from": 971,
+      "to": 972
+    },
+    {
+      "op": "write",
+      "from": 972,
+      "to": 973
+    },
+    {
+      "op": "write",
+      "from": 973,
+      "to": 974
+    },
+    {
+      "op": "write",
+      "from": 974,
+      "to": 976
+    },
+    {
+      "op": "write",
+      "from": 976,
+      "to": 978
+    },
+    {
+      "op": "write",
+      "from": 978,
+      "to": 980
+    },
+    {
+      "op": "write",
+      "from": 980,
+      "to": 982
+    },
+    {
+      "op": "write",
+      "from": 982,
+      "to": 988
+    },
+    {
+      "op": "write",
+      "from": 988,
+      "to": 995
+    },
+    {
+      "op": "write",
+      "from": 995,
+      "to": 997
+    },
+    {
+      "op": "write",
+      "from": 997,
+      "to": 998
+    },
+    {
+      "op": "write",
+      "from": 998,
+      "to": 999
+    },
+    {
+      "op": "write",
+      "from": 999,
+      "to": 1000
+    },
+    {
+      "op": "write",
+      "from": 1000,
+      "to": 1001
+    },
+    {
+      "op": "write",
+      "from": 1001,
+      "to": 1002
+    },
+    {
+      "op": "write",
+      "from": 1002,
+      "to": 1003
+    },
+    {
+      "op": "write",
+      "from": 1003,
+      "to": 1004
+    },
+    {
+      "op": "write",
+      "from": 1004,
+      "to": 1008
+    },
+    {
+      "op": "write",
+      "from": 1008,
+      "to": 1014
+    },
+    {
+      "op": "write",
+      "from": 1014,
+      "to": 1105
+    },
+    {
+      "op": "write",
+      "from": 1105,
+      "to": 1107
+    },
+    {
+      "op": "checkpoint",
+      "label": "hyperlinks",
+      "at": 1107,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 2,
+          "y": 13
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ printf 'before alt\\n'", "framee alt", "$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode", "s on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'", "modes on  ", "$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode", "s off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'", "modes offzed", "$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'", "titled", "$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03", "3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'", "a link and another", "$ ", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [3, 6, 11],
+        "attrs": {
+          "12": [[0, 6, "d", "d", "u"], [11, 7, "d", "d", "u"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "title two"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf 'before alt\\n'\u001b[2;1Hframee alt\u001b[3;1H$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\u001b[4;1Hs on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\u001b[5;1Hmodes on  \u001b[6;1H$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\u001b[7;1Hs off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\u001b[8;1Hmodes offzed\u001b[9;1H$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\u001b[10;1Htitled\u001b[11;1H$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\u001b[12;1H3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\u001b[13;1Ha link and another\u001b[14;1H$ \u001b[14;3H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 1107,
+      "to": 1109
+    },
+    {
+      "op": "write",
+      "from": 1109,
+      "to": 1113
+    },
+    {
+      "op": "write",
+      "from": 1113,
+      "to": 1119
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 1119,
+      "screen": {
+        "cols": 80,
+        "rows": 24,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 15
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 24,
+        "lines": ["$ printf 'before alt\\n'", "framee alt", "$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode", "s on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'", "modes on  ", "$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode", "s off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'", "modes offzed", "$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'", "titled", "$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03", "3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'", "a link and another", "$ exit", "exit", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [3, 6, 11],
+        "attrs": {
+          "12": [[0, 6, "d", "d", "u"], [11, 7, "d", "d", "u"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "title two"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ "
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1H$ printf 'before alt\\n'\u001b[2;1Hframee alt\u001b[3;1H$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\u001b[4;1Hs on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\u001b[5;1Hmodes on  \u001b[6;1H$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\u001b[7;1Hs off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\u001b[8;1Hmodes offzed\u001b[9;1H$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\u001b[10;1Htitled\u001b[11;1H$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\u001b[12;1H3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\u001b[13;1Ha link and another\u001b[14;1H$ exit\u001b[15;1Hexit\u001b[16;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ exit\nexit"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ exit\nexit"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "$ printf 'before alt\\n'\nframee alt\n$ printf '\\033[?2004h\\033[?1000h\\033[?1006h\\033[?1004h\\033[?1h\\033=\\033[?25lmode\ns on\\n'f '\\033[?47hinside 47\\033[?47l \\033[?1047hinside 1047\\033[?1047l\\n'\nmodes on  \n$ printf '\\033[?2004l\\033[?1000l\\033[?1006l\\033[?1004l\\033[?1l\\033>\\033[?25hmode\ns off\\n' '\\033[?2026hsynchronized\\033[2;1Hframe\\033[?2026l\\n'\nmodes offzed\n$ printf '\\033]0;title zero\\007\\033]2;title two\\033\\\\titled\\n'\ntitled\n$ printf '\\033]8;;https://example.invalid/page\\033\\\\a link\\033]8;;\\033\\\\ and \\03\n3]8;id=x;file:///tmp/f\\007another\\033]8;;\\007\\n'\na link and another\n$ exit\nexit"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    }
+  ]
+}

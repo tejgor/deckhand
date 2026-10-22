@@ -1,0 +1,18 @@
+{
+  "before": [
+    {
+      "path": "a.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "gone.json"
+    }
+  ],
+  "after": [
+    {
+      "path": "a.json",
+      "type": "symlink",
+      "mode": "0755",
+      "target": "gone.json"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "fn": "readBoundedUtf8",
+  "args": [
+    "$ROOT/a.json",
+    {
+      "max": 2
+    }
+  ],
+  "async": true,
+  "throws": "a.json exceeds 0 KiB"
+}

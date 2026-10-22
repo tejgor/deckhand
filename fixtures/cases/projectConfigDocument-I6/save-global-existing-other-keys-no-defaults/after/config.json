@@ -1,0 +1,20 @@
+{
+  "dev_command": "legacy",
+  "attach_scroll_sensitivity": 3,
+  "trustedProjects": {
+    "/repo": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  },
+  "agent_hooks": true,
+  "notifications": true,
+  "custom_key": {
+    "nested": [
+      1,
+      2
+    ]
+  },
+  "defaults": {
+    "devCommand": "make"
+  }
+}

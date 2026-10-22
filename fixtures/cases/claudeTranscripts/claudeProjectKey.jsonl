@@ -1,0 +1,12 @@
+{"args":["/"],"ret":"-"}
+{"args":["/UPPER/lower/0123456789"],"ret":"-UPPER-lower-0123456789"}
+{"args":["/Users/me/.deckhand/worktrees/a_b"],"ret":"-Users-me--deckhand-worktrees-a-b"}
+{"args":["/Users/me/a-b_c.d"],"ret":"-Users-me-a-b-c-d"}
+{"args":["/a//b/./c/"],"ret":"-a-b-c"}
+{"args":["/a/b/../c"],"ret":"-a-c"}
+{"args":["/new\nline"],"ret":"-new-line"}
+{"args":["/tab\there"],"ret":"-tab-here"}
+{"args":["/with space/日本語/😀"],"ret":"-with-space-------"}
+{"args":["/work/repo"],"ret":"-work-repo"}
+{"args":["/x/longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong"],"ret":"-x-longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong"}
+{"args":["/é/é/ß"],"ret":"------"}

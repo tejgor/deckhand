@@ -1,0 +1,69 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "3.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/tejgor/deckhand"
+rust-version = "1.88"
+
+[workspace.dependencies]
+deckhand-protocol = { path = "crates/protocol" }
+deckhand-core = { path = "crates/core" }
+deckhand-sys = { path = "crates/sys" }
+deckhand-term = { path = "crates/term" }
+deckhand-worker = { path = "crates/worker" }
+deckhand-daemon = { path = "crates/daemon" }
+deckhand-client = { path = "crates/client" }
+deckhand-ui = { path = "crates/ui" }
+deckhand-testkit = { path = "crates/testkit" }
+
+tokio = { version = "1", features = ["rt", "net", "io-util", "time", "process", "signal", "macros", "sync", "fs"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+serde_with = "3"
+indexmap = { version = "2", features = ["serde"] }
+thiserror = "2"
+nix = { version = "0.29", features = ["term", "process", "signal", "fs", "socket", "ioctl", "user", "uio", "poll"] }
+libc = "0.2"
+notify = "8"
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+regex = "1"
+unicode-width = "0.2"
+unicode-segmentation = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+url = "2.5"
+ratatui = "0.29"
+crossterm = "0.28"
+alacritty_terminal = "0.25"
+vt100 = "0.15"
+tempfile = "3"
+proptest = { version = "1", default-features = false, features = ["std"] }
+# macOS notifications from Deckhand.app (crates/deckhand/src/notifier.rs).
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-user-notifications = "0.3"
+block2 = "0.6"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+await_holding_refcell_ref = "deny"
+await_holding_lock = "deny"
+dbg_macro = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

@@ -1,0 +1,1529 @@
+{
+  "name": "synthetic-pi-diff",
+  "source": "synthetic",
+  "description": "Imitates pi (pi-tui): first frame in full, later frames repainted from the first changed line (cursor up/down + CR + 2K per line, J when shorter), full clear (3J 2J H) when the change is above the viewport, DEC 2026 around every frame, a resize forcing a full repaint.",
+  "oracle": {
+    "terminalPreview": "src/terminalPreview.ts",
+    "xtermHeadless": "5.5.0",
+    "scrollback": 10000,
+    "decoder": "string_decoder utf8"
+  },
+  "cols": 80,
+  "rows": 20,
+  "scrollOffsets": [0, 1, 2.5, 7, -3, 1000000],
+  "ops": [
+    {
+      "op": "new",
+      "cols": 80,
+      "rows": 20
+    },
+    {
+      "op": "write",
+      "from": 0,
+      "to": 31
+    },
+    {
+      "op": "write",
+      "from": 31,
+      "to": 768
+    },
+    {
+      "op": "checkpoint",
+      "label": "first-frame",
+      "at": 768,
+      "screen": {
+        "cols": 80,
+        "rows": 20,
+        "buffer": "normal",
+        "cursor": {
+          "x": 70,
+          "y": 6
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 20,
+        "lines": ["pi v0.0.0-fixture", "escape to interrupt · ctrl+c to clear · / for commands", "", "────────────────────────────────────────────────────────────────────────────────", " ", "────────────────────────────────────────────────────────────────────────────────", "~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 2, "d", "d", "b"], [3, 14, "d", "d", "d"]],
+          "1": [[0, 54, "d", "d", "d"]],
+          "3": [[0, 80, "p256:240", "d", ""]],
+          "4": [[0, 1, "d", "d", "r"]],
+          "5": [[0, 80, "p256:240", "d", ""]],
+          "6": [[0, 70, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "π - fixture"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": ""
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hpi v0.0.0-fixture\u001b[2;1Hescape to interrupt · ctrl+c to clear · / for commands\u001b[4;1H────────────────────────────────────────────────────────────────────────────────\u001b[5;1H \u001b[6;1H────────────────────────────────────────────────────────────────────────────────\u001b[7;1H~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet\u001b[7;71H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 768,
+      "to": 1152
+    },
+    {
+      "op": "write",
+      "from": 1152,
+      "to": 1537
+    },
+    {
+      "op": "write",
+      "from": 1537,
+      "to": 1923
+    },
+    {
+      "op": "write",
+      "from": 1923,
+      "to": 2310
+    },
+    {
+      "op": "write",
+      "from": 2310,
+      "to": 2698
+    },
+    {
+      "op": "write",
+      "from": 2698,
+      "to": 3087
+    },
+    {
+      "op": "write",
+      "from": 3087,
+      "to": 3477
+    },
+    {
+      "op": "write",
+      "from": 3477,
+      "to": 3868
+    },
+    {
+      "op": "write",
+      "from": 3868,
+      "to": 4260
+    },
+    {
+      "op": "write",
+      "from": 4260,
+      "to": 4653
+    },
+    {
+      "op": "write",
+      "from": 4653,
+      "to": 5047
+    },
+    {
+      "op": "write",
+      "from": 5047,
+      "to": 5442
+    },
+    {
+      "op": "write",
+      "from": 5442,
+      "to": 5838
+    },
+    {
+      "op": "checkpoint",
+      "label": "typed",
+      "at": 5838,
+      "screen": {
+        "cols": 80,
+        "rows": 20,
+        "buffer": "normal",
+        "cursor": {
+          "x": 70,
+          "y": 6
+        },
+        "baseY": 0,
+        "viewportY": 0,
+        "length": 20,
+        "lines": ["pi v0.0.0-fixture", "escape to interrupt · ctrl+c to clear · / for commands", "", "────────────────────────────────────────────────────────────────────────────────", "fix the tests ", "────────────────────────────────────────────────────────────────────────────────", "~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 2, "d", "d", "b"], [3, 14, "d", "d", "d"]],
+          "1": [[0, 54, "d", "d", "d"]],
+          "3": [[0, 80, "p256:240", "d", ""]],
+          "4": [[13, 1, "d", "d", "r"]],
+          "5": [[0, 80, "p256:240", "d", ""]],
+          "6": [[0, 70, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": [],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "π - fixture"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hpi v0.0.0-fixture\u001b[2;1Hescape to interrupt · ctrl+c to clear · / for commands\u001b[4;1H────────────────────────────────────────────────────────────────────────────────\u001b[5;1Hfix the tests \u001b[6;1H────────────────────────────────────────────────────────────────────────────────\u001b[7;1H~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet\u001b[7;71H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 0
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 5838,
+      "to": 6524
+    },
+    {
+      "op": "write",
+      "from": 6524,
+      "to": 7181
+    },
+    {
+      "op": "write",
+      "from": 7181,
+      "to": 7841
+    },
+    {
+      "op": "write",
+      "from": 7841,
+      "to": 8505
+    },
+    {
+      "op": "write",
+      "from": 8505,
+      "to": 9177
+    },
+    {
+      "op": "write",
+      "from": 9177,
+      "to": 9855
+    },
+    {
+      "op": "write",
+      "from": 9855,
+      "to": 10540
+    },
+    {
+      "op": "write",
+      "from": 10540,
+      "to": 11229
+    },
+    {
+      "op": "write",
+      "from": 11229,
+      "to": 11927
+    },
+    {
+      "op": "write",
+      "from": 11927,
+      "to": 12630
+    },
+    {
+      "op": "write",
+      "from": 12630,
+      "to": 13342
+    },
+    {
+      "op": "write",
+      "from": 13342,
+      "to": 14058
+    },
+    {
+      "op": "write",
+      "from": 14058,
+      "to": 14783
+    },
+    {
+      "op": "write",
+      "from": 14783,
+      "to": 15439
+    },
+    {
+      "op": "write",
+      "from": 15439,
+      "to": 16101
+    },
+    {
+      "op": "write",
+      "from": 16101,
+      "to": 16771
+    },
+    {
+      "op": "write",
+      "from": 16771,
+      "to": 17447
+    },
+    {
+      "op": "write",
+      "from": 17447,
+      "to": 18128
+    },
+    {
+      "op": "write",
+      "from": 18128,
+      "to": 18813
+    },
+    {
+      "op": "write",
+      "from": 18813,
+      "to": 19506
+    },
+    {
+      "op": "write",
+      "from": 19506,
+      "to": 20206
+    },
+    {
+      "op": "write",
+      "from": 20206,
+      "to": 20912
+    },
+    {
+      "op": "write",
+      "from": 20912,
+      "to": 21627
+    },
+    {
+      "op": "write",
+      "from": 21627,
+      "to": 22346
+    },
+    {
+      "op": "write",
+      "from": 22346,
+      "to": 23073
+    },
+    {
+      "op": "write",
+      "from": 23073,
+      "to": 23726
+    },
+    {
+      "op": "write",
+      "from": 23726,
+      "to": 24383
+    },
+    {
+      "op": "write",
+      "from": 24383,
+      "to": 25050
+    },
+    {
+      "op": "write",
+      "from": 25050,
+      "to": 25723
+    },
+    {
+      "op": "write",
+      "from": 25723,
+      "to": 26400
+    },
+    {
+      "op": "write",
+      "from": 26400,
+      "to": 27121
+    },
+    {
+      "op": "write",
+      "from": 27121,
+      "to": 27836
+    },
+    {
+      "op": "write",
+      "from": 27836,
+      "to": 28551
+    },
+    {
+      "op": "write",
+      "from": 28551,
+      "to": 29266
+    },
+    {
+      "op": "write",
+      "from": 29266,
+      "to": 29982
+    },
+    {
+      "op": "write",
+      "from": 29982,
+      "to": 30698
+    },
+    {
+      "op": "write",
+      "from": 30698,
+      "to": 31414
+    },
+    {
+      "op": "write",
+      "from": 31414,
+      "to": 32130
+    },
+    {
+      "op": "checkpoint",
+      "label": "grown-past-screen",
+      "at": 32130,
+      "screen": {
+        "cols": 80,
+        "rows": 20,
+        "buffer": "normal",
+        "cursor": {
+          "x": 70,
+          "y": 19
+        },
+        "baseY": 1,
+        "viewportY": 1,
+        "length": 21,
+        "lines": ["escape to interrupt · ctrl+c to clear · / for commands", "", " fix the tests ", "", "Looking at the failing suite first. The snapshot test compares the rendered", "header which changed width when the version string grew; updating the fixture", "and the assertion fixes it.", "", "✓ edit tests/fixture-0.test.ts (+0 -0)", "✓ edit tests/fixture-1.test.ts (+3 -1)", "✓ edit tests/fixture-2.test.ts (+6 -2)", "✓ edit tests/fixture-3.test.ts (+9 -3)", "✓ edit tests/fixture-4.test.ts (+12 -4)", "✓ edit tests/fixture-5.test.ts (+15 -5)", "✓ edit tests/fixture-6.test.ts (+18 -6)", "✓ edit tests/fixture-7.test.ts (+21 -7)", "────────────────────────────────────────────────────────────────────────────────", " ", "────────────────────────────────────────────────────────────────────────────────", "~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 54, "d", "d", "d"]],
+          "2": [[0, 15, "d", "p256:236", ""]],
+          "8": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "9": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "10": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "11": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "12": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 8, "d", "d", "d"]],
+          "13": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 8, "d", "d", "d"]],
+          "14": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 8, "d", "d", "d"]],
+          "15": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 8, "d", "d", "d"]],
+          "16": [[0, 80, "p256:240", "d", ""]],
+          "17": [[0, 1, "d", "d", "r"]],
+          "18": [[0, 80, "p256:240", "d", ""]],
+          "19": [[0, 70, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": ["pi v0.0.0-fixture"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "π - fixture"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n────────────────────────────────────────────────────────────────────────────────\nfix the tests \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hescape to interrupt · ctrl+c to clear · / for commands\u001b[3;1H fix the tests \u001b[5;1HLooking at the failing suite first. The snapshot test compares the rendered\u001b[6;1Hheader which changed width when the version string grew; updating the fixture\u001b[7;1Hand the assertion fixes it.\u001b[9;1H✓ edit tests/fixture-0.test.ts (+0 -0)\u001b[10;1H✓ edit tests/fixture-1.test.ts (+3 -1)\u001b[11;1H✓ edit tests/fixture-2.test.ts (+6 -2)\u001b[12;1H✓ edit tests/fixture-3.test.ts (+9 -3)\u001b[13;1H✓ edit tests/fixture-4.test.ts (+12 -4)\u001b[14;1H✓ edit tests/fixture-5.test.ts (+15 -5)\u001b[15;1H✓ edit tests/fixture-6.test.ts (+18 -6)\u001b[16;1H✓ edit tests/fixture-7.test.ts (+21 -7)\u001b[17;1H────────────────────────────────────────────────────────────────────────────────\u001b[18;1H \u001b[19;1H────────────────────────────────────────────────────────────────────────────────\u001b[20;1H~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet\u001b[20;71H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 1
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 32130,
+      "to": 33601
+    },
+    {
+      "op": "checkpoint",
+      "label": "full-repaint",
+      "at": 33601,
+      "screen": {
+        "cols": 80,
+        "rows": 20,
+        "buffer": "normal",
+        "cursor": {
+          "x": 70,
+          "y": 19
+        },
+        "baseY": 1,
+        "viewportY": 1,
+        "length": 21,
+        "lines": ["escape to interrupt · ctrl+c to clear · / for commands", "", " fix the tests (edited) ", "", "Looking at the failing suite first. The snapshot test compares the rendered", "header which changed width when the version string grew; updating the fixture", "and the assertion fixes it.", "", "✓ edit tests/fixture-0.test.ts (+0 -0)", "✓ edit tests/fixture-1.test.ts (+3 -1)", "✓ edit tests/fixture-2.test.ts (+6 -2)", "✓ edit tests/fixture-3.test.ts (+9 -3)", "✓ edit tests/fixture-4.test.ts (+12 -4)", "✓ edit tests/fixture-5.test.ts (+15 -5)", "✓ edit tests/fixture-6.test.ts (+18 -6)", "✓ edit tests/fixture-7.test.ts (+21 -7)", "────────────────────────────────────────────────────────────────────────────────", " ", "────────────────────────────────────────────────────────────────────────────────", "~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 54, "d", "d", "d"]],
+          "2": [[0, 24, "d", "p256:236", ""]],
+          "8": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "9": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "10": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "11": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "12": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 8, "d", "d", "d"]],
+          "13": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 8, "d", "d", "d"]],
+          "14": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 8, "d", "d", "d"]],
+          "15": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 8, "d", "d", "d"]],
+          "16": [[0, 80, "p256:240", "d", ""]],
+          "17": [[0, 1, "d", "d", "r"]],
+          "18": [[0, 80, "p256:240", "d", ""]],
+          "19": [[0, 70, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": ["pi v0.0.0-fixture"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "π - fixture"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hescape to interrupt · ctrl+c to clear · / for commands\u001b[3;1H fix the tests (edited) \u001b[5;1HLooking at the failing suite first. The snapshot test compares the rendered\u001b[6;1Hheader which changed width when the version string grew; updating the fixture\u001b[7;1Hand the assertion fixes it.\u001b[9;1H✓ edit tests/fixture-0.test.ts (+0 -0)\u001b[10;1H✓ edit tests/fixture-1.test.ts (+3 -1)\u001b[11;1H✓ edit tests/fixture-2.test.ts (+6 -2)\u001b[12;1H✓ edit tests/fixture-3.test.ts (+9 -3)\u001b[13;1H✓ edit tests/fixture-4.test.ts (+12 -4)\u001b[14;1H✓ edit tests/fixture-5.test.ts (+15 -5)\u001b[15;1H✓ edit tests/fixture-6.test.ts (+18 -6)\u001b[16;1H✓ edit tests/fixture-7.test.ts (+21 -7)\u001b[17;1H────────────────────────────────────────────────────────────────────────────────\u001b[18;1H \u001b[19;1H────────────────────────────────────────────────────────────────────────────────\u001b[20;1H~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet\u001b[20;71H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 1
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 33601,
+      "to": 34254
+    },
+    {
+      "op": "checkpoint",
+      "label": "shrunk",
+      "at": 34254,
+      "screen": {
+        "cols": 80,
+        "rows": 20,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 14
+        },
+        "baseY": 1,
+        "viewportY": 1,
+        "length": 21,
+        "lines": ["escape to interrupt · ctrl+c to clear · / for commands", "", " fix the tests (edited) ", "", "Looking at the failing suite first. The snapshot test compares the rendered", "header which changed width when the version string grew; updating the fixture", "and the assertion fixes it.", "", "✓ edit tests/fixture-0.test.ts (+0 -0)", "✓ edit tests/fixture-1.test.ts (+3 -1)", "✓ edit tests/fixture-2.test.ts (+6 -2)", "────────────────────────────────────────────────────────────────────────────────", " ", "────────────────────────────────────────────────────────────────────────────────", "~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet", "", "", "", "", ""],
+        "wrapped": [],
+        "attrs": {
+          "0": [[0, 54, "d", "d", "d"]],
+          "2": [[0, 24, "d", "p256:236", ""]],
+          "8": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "9": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "10": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "11": [[0, 80, "p256:240", "d", ""]],
+          "12": [[0, 1, "d", "d", "r"]],
+          "13": [[0, 80, "p256:240", "d", ""]],
+          "14": [[0, 70, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": ["pi v0.0.0-fixture"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "π - fixture"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n✓ edit tests/fixture-3.test.ts (+9 -3)\n✓ edit tests/fixture-4.test.ts (+12 -4)\n✓ edit tests/fixture-5.test.ts (+15 -5)\n✓ edit tests/fixture-6.test.ts (+18 -6)\n✓ edit tests/fixture-7.test.ts (+21 -7)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hescape to interrupt · ctrl+c to clear · / for commands\u001b[3;1H fix the tests (edited) \u001b[5;1HLooking at the failing suite first. The snapshot test compares the rendered\u001b[6;1Hheader which changed width when the version string grew; updating the fixture\u001b[7;1Hand the assertion fixes it.\u001b[9;1H✓ edit tests/fixture-0.test.ts (+0 -0)\u001b[10;1H✓ edit tests/fixture-1.test.ts (+3 -1)\u001b[11;1H✓ edit tests/fixture-2.test.ts (+6 -2)\u001b[12;1H────────────────────────────────────────────────────────────────────────────────\u001b[13;1H \u001b[14;1H────────────────────────────────────────────────────────────────────────────────\u001b[15;1H~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet\u001b[15;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 1
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 1
+          }
+        }
+      ]
+    },
+    {
+      "op": "resize",
+      "cols": 64,
+      "rows": 14
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize-64x14",
+      "at": 34254,
+      "screen": {
+        "cols": 64,
+        "rows": 14,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 13
+        },
+        "baseY": 6,
+        "viewportY": 6,
+        "length": 20,
+        "lines": ["he rendered", "header which changed width when the version string grew; updatin", "g the fixture", "and the assertion fixes it.", "", "✓ edit tests/fixture-0.test.ts (+0 -0)", "✓ edit tests/fixture-1.test.ts (+3 -1)", "✓ edit tests/fixture-2.test.ts (+6 -2)", "────────────────────────────────────────────────────────────────", "────────────────", " ", "────────────────────────────────────────────────────────────────", "────────────────", "~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-"],
+        "wrapped": [0, 2, 9, 12],
+        "attrs": {
+          "5": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "6": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "7": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "8": [[0, 64, "p256:240", "d", ""]],
+          "9": [[0, 16, "p256:240", "d", ""]],
+          "10": [[0, 1, "d", "d", "r"]],
+          "11": [[0, 64, "p256:240", "d", ""]],
+          "12": [[0, 16, "p256:240", "d", ""]],
+          "13": [[0, 64, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": ["pi v0.0.0-fixture", "escape to interrupt · ctrl+c to clear · / for commands", "", " fix the tests (edited) ", "", "Looking at the failing suite first. The snapshot test compares t"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "π - fixture"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "escape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares the rendered\nheader which changed width when the version string grew; updating the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-sonnet"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hhe rendered\u001b[2;1Hheader which changed width when the version string grew; updatin\u001b[3;1Hg the fixture\u001b[4;1Hand the assertion fixes it.\u001b[6;1H✓ edit tests/fixture-0.test.ts (+0 -0)\u001b[7;1H✓ edit tests/fixture-1.test.ts (+3 -1)\u001b[8;1H✓ edit tests/fixture-2.test.ts (+6 -2)\u001b[9;1H────────────────────────────────────────────────────────────────\u001b[10;1H────────────────\u001b[11;1H \u001b[12;1H────────────────────────────────────────────────────────────────\u001b[13;1H────────────────\u001b[14;1H~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\u001b[14;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "he rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n────────────────\n \n────────────────────────────────────────────────────────────────\n────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "he rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n────────────────\n \n────────────────────────────────────────────────────────────────\n────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "Looking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n────────────────\n \n────────────────────────────────────────────────────────────────\n────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n────────────────\n \n────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 6,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "he rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n────────────────\n \n────────────────────────────────────────────────────────────────\n────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 6,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "he rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n────────────────\n \n────────────────────────────────────────────────────────────────\n────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 34254,
+      "to": 35326
+    },
+    {
+      "op": "checkpoint",
+      "label": "after-resize",
+      "at": 35326,
+      "screen": {
+        "cols": 64,
+        "rows": 14,
+        "buffer": "normal",
+        "cursor": {
+          "x": 6,
+          "y": 13
+        },
+        "baseY": 5,
+        "viewportY": 5,
+        "length": 19,
+        "lines": ["Looking at the failing suite first. The snapshot test compares t", "he rendered", "header which changed width when the version string grew; updatin", "g the fixture", "and the assertion fixes it.", "", "✓ edit tests/fixture-0.test.ts (+0 -0)", "✓ edit tests/fixture-1.test.ts (+3 -1)", "✓ edit tests/fixture-2.test.ts (+6 -2)", "────────────────────────────────────────────────────────────────", " ", "────────────────────────────────────────────────────────────────", "~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-", "sonnet"],
+        "wrapped": [1, 3, 13],
+        "attrs": {
+          "6": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "7": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "8": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "9": [[0, 64, "p256:240", "d", ""]],
+          "10": [[0, 1, "d", "d", "r"]],
+          "11": [[0, 64, "p256:240", "d", ""]],
+          "12": [[0, 64, "d", "d", "d"]],
+          "13": [[0, 6, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": ["pi v0.0.0-fixture", "escape to interrupt · ctrl+c to clear · / for commands", "", " fix the tests (edited) ", ""],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": true,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "π - fixture"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "he rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n────────────────\n \n────────────────────────────────────────────────────────────────\n────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1HLooking at the failing suite first. The snapshot test compares t\u001b[2;1Hhe rendered\u001b[3;1Hheader which changed width when the version string grew; updatin\u001b[4;1Hg the fixture\u001b[5;1Hand the assertion fixes it.\u001b[7;1H✓ edit tests/fixture-0.test.ts (+0 -0)\u001b[8;1H✓ edit tests/fixture-1.test.ts (+3 -1)\u001b[9;1H✓ edit tests/fixture-2.test.ts (+6 -2)\u001b[10;1H────────────────────────────────────────────────────────────────\u001b[11;1H \u001b[12;1H────────────────────────────────────────────────────────────────\u001b[13;1H~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\u001b[14;1Hsonnet\u001b[14;7H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "Looking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "Looking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 5
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 5
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": " fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 5
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 5,
+            "maxScrollOffset": 5
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "Looking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 5
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 5,
+            "maxScrollOffset": 5
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "Looking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 5
+          }
+        }
+      ]
+    },
+    {
+      "op": "write",
+      "from": 35326,
+      "to": 35342
+    },
+    {
+      "op": "checkpoint",
+      "label": "end",
+      "at": 35342,
+      "screen": {
+        "cols": 64,
+        "rows": 14,
+        "buffer": "normal",
+        "cursor": {
+          "x": 0,
+          "y": 13
+        },
+        "baseY": 6,
+        "viewportY": 6,
+        "length": 20,
+        "lines": ["he rendered", "header which changed width when the version string grew; updatin", "g the fixture", "and the assertion fixes it.", "", "✓ edit tests/fixture-0.test.ts (+0 -0)", "✓ edit tests/fixture-1.test.ts (+3 -1)", "✓ edit tests/fixture-2.test.ts (+6 -2)", "────────────────────────────────────────────────────────────────", " ", "────────────────────────────────────────────────────────────────", "~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-", "sonnet", ""],
+        "wrapped": [0, 2, 12],
+        "attrs": {
+          "5": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "6": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "7": [[0, 1, "p16:2", "d", ""], [2, 4, "d", "d", "d"], [31, 7, "d", "d", "d"]],
+          "8": [[0, 64, "p256:240", "d", ""]],
+          "9": [[0, 1, "d", "d", "r"]],
+          "10": [[0, 64, "p256:240", "d", ""]],
+          "11": [[0, 64, "d", "d", "d"]],
+          "12": [[0, 6, "d", "d", "d"]]
+        },
+        "wide": {},
+        "scrollback": ["pi v0.0.0-fixture", "escape to interrupt · ctrl+c to clear · / for commands", "", " fix the tests (edited) ", "", "Looking at the failing suite first. The snapshot test compares t"],
+        "scrollbackWrapped": [],
+        "modes": {
+          "applicationCursorKeysMode": false,
+          "applicationKeypadMode": false,
+          "bracketedPasteMode": false,
+          "insertMode": false,
+          "mouseTrackingMode": "none",
+          "originMode": false,
+          "reverseWraparoundMode": false,
+          "sendFocusMode": false,
+          "wraparoundMode": true
+        },
+        "title": "π - fixture"
+      },
+      "calls": [
+        {
+          "fn": "getCachedSnapshot",
+          "result": "Looking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getAnsiFrame",
+          "result": "\u001b[2J\u001b[H\u001b[1;1Hhe rendered\u001b[2;1Hheader which changed width when the version string grew; updatin\u001b[3;1Hg the fixture\u001b[4;1Hand the assertion fixes it.\u001b[6;1H✓ edit tests/fixture-0.test.ts (+0 -0)\u001b[7;1H✓ edit tests/fixture-1.test.ts (+3 -1)\u001b[8;1H✓ edit tests/fixture-2.test.ts (+6 -2)\u001b[9;1H────────────────────────────────────────────────────────────────\u001b[10;1H \u001b[11;1H────────────────────────────────────────────────────────────────\u001b[12;1H~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\u001b[13;1Hsonnet\u001b[14;1H"
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "he rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [0],
+          "result": "he rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [0],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1],
+          "result": "Looking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1],
+          "result": {
+            "scrollOffset": 1,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [2.5],
+          "result": "\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [2.5],
+          "result": {
+            "scrollOffset": 2,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [7],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [7],
+          "result": {
+            "scrollOffset": 6,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [-3],
+          "result": "he rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [-3],
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getSnapshot",
+          "args": [1000000],
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)"
+        },
+        {
+          "fn": "getScrollInfo",
+          "args": [1000000],
+          "result": {
+            "scrollOffset": 6,
+            "maxScrollOffset": 6
+          }
+        },
+        {
+          "fn": "getCachedSnapshot",
+          "result": "pi v0.0.0-fixture\nescape to interrupt · ctrl+c to clear · / for commands\n\n fix the tests (edited) \n\nLooking at the failing suite first. The snapshot test compares t\nhe rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)"
+        },
+        {
+          "fn": "getSnapshot",
+          "result": "he rendered\nheader which changed width when the version string grew; updatin\ng the fixture\nand the assertion fixes it.\n\n✓ edit tests/fixture-0.test.ts (+0 -0)\n✓ edit tests/fixture-1.test.ts (+3 -1)\n✓ edit tests/fixture-2.test.ts (+6 -2)\n────────────────────────────────────────────────────────────────\n \n────────────────────────────────────────────────────────────────\n~/project (main)        ↑1.2k ↓300 $0.012 12.3%/200k     claude-\nsonnet"
+        },
+        {
+          "fn": "getScrollInfo",
+          "result": {
+            "scrollOffset": 0,
+            "maxScrollOffset": 6
+          }
+        }
+      ]
+    }
+  ]
+}

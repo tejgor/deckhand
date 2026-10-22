@@ -1,0 +1,66 @@
+{
+  "before": [
+    {
+      "path": "projects",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/aaa",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/aaa/plan.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/zzz",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/zzz/impl.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/zzz/plan.jsonl",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "projects",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/aaa",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/aaa/plan.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/zzz",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "projects/zzz/impl.jsonl",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "projects/zzz/plan.jsonl",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "before": [
+    {
+      "path": "cache",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "keep.json",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "stale.txt",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "cache",
+      "type": "dir",
+      "mode": "0755"
+    },
+    {
+      "path": "keep.json",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "stale.txt",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

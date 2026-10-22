@@ -1,0 +1,233 @@
+{"args":[[" Z-.ß/"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[" Z0"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[" é Zb"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[" éZ-é/bZ\t\t"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[" éé"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[" ßb-0😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[""],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],""],"ret":"missing"}
+{"args":[["'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":{"$u":1}}
+{"args":[["'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"deckhand hook"],"ret":"missing"}
+{"args":[["-"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["."],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[".aé"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[".ß0\t.a ß"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["/Users/中/deckhand/dist/cli.js hook"],""],"ret":"other"}
+{"args":[["/Users/中/deckhand/dist/cli.js hook"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["/Users/中/deckhand/dist/cli.js hook"],"deckhand hook"],"ret":"other"}
+{"args":[["/aZZ"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["/😀😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["00aß.Z"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["0‍.\n. ‍0😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["0😀‍"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["DECKHAND\thook"],""],"ret":"other"}
+{"args":[["DECKHAND\thook"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["DECKHAND\thook"],"deckhand hook"],"ret":"other"}
+{"args":[["Deckhand hook"],""],"ret":"other"}
+{"args":[["Deckhand hook"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["Deckhand hook"],"deckhand hook"],"ret":"other"}
+{"args":[["Z-"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["Z.a\t"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["Z.é中"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["ZßZ"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["Z😀\t_0\t"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["Z😀‍中0😀‍ a"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["_"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["_-0ß 0 0"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["_0中_\nb"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["_é-aéé😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["_😀😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["aZ"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["a中éb😀中‍0中"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["bé‍\na"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand  Z-.ß/ hook"," Z-.ß/"]," Z-.ß/"],"ret":{"$u":1}}
+{"args":[["deckhand  Z-.ß/hook Z"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand  Z0 hook"," Z0"]," Z0"],"ret":{"$u":1}}
+{"args":[["deckhand  Z0hook Z"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand  é Zb hook"," é Zb"]," é Zb"],"ret":{"$u":1}}
+{"args":[["deckhand  é Zbhook e"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand  éZ-é/bZ\t\t hook"," éZ-é/bZ\t\t"]," éZ-é/bZ\t\t"],"ret":{"$u":1}}
+{"args":[["deckhand  éZ-é/bZ\t\thook e"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand  éé hook"," éé"]," éé"],"ret":{"$u":1}}
+{"args":[["deckhand  ééhook e"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand  hook",""],""],"ret":{"$u":1}}
+{"args":[["deckhand  ßb-0😀 hook"," ßb-0😀"]," ßb-0😀"],"ret":{"$u":1}}
+{"args":[["deckhand  ßb-0😀hook ß"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 'hook"],""],"ret":"other"}
+{"args":[["deckhand 'hook"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["deckhand 'hook"],"deckhand hook"],"ret":"other"}
+{"args":[["deckhand - hook","-"],"-"],"ret":{"$u":1}}
+{"args":[["deckhand -hook-"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand . hook","."],"."],"ret":{"$u":1}}
+{"args":[["deckhand .aé hook",".aé"],".aé"],"ret":{"$u":1}}
+{"args":[["deckhand .aéhook.a"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand .hook."],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand .ß0\t.a ß hook",".ß0\t.a ß"],".ß0\t.a ß"],"ret":{"$u":1}}
+{"args":[["deckhand .ß0\t.a ßhook.ß"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand /aZZ hook","/aZZ"],"/aZZ"],"ret":{"$u":1}}
+{"args":[["deckhand /aZZhook/a"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand /😀😀 hook","/😀😀"],"/😀😀"],"ret":{"$u":1}}
+{"args":[["deckhand 00aß.Z hook","00aß.Z"],"00aß.Z"],"ret":{"$u":1}}
+{"args":[["deckhand 00aß.Zhook00"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 0‍.\n. ‍0😀 hook","0‍.\n. ‍0😀"],"0‍.\n. ‍0😀"],"ret":{"$u":1}}
+{"args":[["deckhand 0‍.\n. ‍0😀hook0‍"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 0😀‍ hook","0😀‍"],"0😀‍"],"ret":{"$u":1}}
+{"args":[["deckhand Z- hook","Z-"],"Z-"],"ret":{"$u":1}}
+{"args":[["deckhand Z-hookZ-"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand Z.a\t hook","Z.a\t"],"Z.a\t"],"ret":{"$u":1}}
+{"args":[["deckhand Z.a\thookZ."],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand Z.é中 hook","Z.é中"],"Z.é中"],"ret":{"$u":1}}
+{"args":[["deckhand Z.é中hookZ."],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ZßZ hook","ZßZ"],"ZßZ"],"ret":{"$u":1}}
+{"args":[["deckhand ZßZhookZß"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand Z😀\t_0\t hook","Z😀\t_0\t"],"Z😀\t_0\t"],"ret":{"$u":1}}
+{"args":[["deckhand Z😀‍中0😀‍ a hook","Z😀‍中0😀‍ a"],"Z😀‍中0😀‍ a"],"ret":{"$u":1}}
+{"args":[["deckhand _ hook","_"],"_"],"ret":{"$u":1}}
+{"args":[["deckhand _-0ß 0 0 hook","_-0ß 0 0"],"_-0ß 0 0"],"ret":{"$u":1}}
+{"args":[["deckhand _-0ß 0 0hook_-"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand _0中_\nb hook","_0中_\nb"],"_0中_\nb"],"ret":{"$u":1}}
+{"args":[["deckhand _0中_\nbhook_0"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand _é-aéé😀 hook","_é-aéé😀"],"_é-aéé😀"],"ret":{"$u":1}}
+{"args":[["deckhand _é-aéé😀hook_e"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand _hook_"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand _😀😀 hook","_😀😀"],"_😀😀"],"ret":{"$u":1}}
+{"args":[["deckhand aZ hook","aZ"],"aZ"],"ret":{"$u":1}}
+{"args":[["deckhand aZhookaZ"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand a中éb😀中‍0中 hook","a中éb😀中‍0中"],"a中éb😀中‍0中"],"ret":{"$u":1}}
+{"args":[["deckhand a中éb😀中‍0中hooka中"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand bé‍\na hook","bé‍\na"],"bé‍\na"],"ret":{"$u":1}}
+{"args":[["deckhand bé‍\nahookbé"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand é  hook","é "],"é "],"ret":{"$u":1}}
+{"args":[["deckhand é 0\nß\n hook","é 0\nß\n"],"é 0\nß\n"],"ret":{"$u":1}}
+{"args":[["deckhand é 0\nß\nhooké"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand é hook","é"],"é"],"ret":{"$u":1}}
+{"args":[["deckhand é hooké"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand é_中bß a hook","é_中bß a"],"é_中bß a"],"ret":{"$u":1}}
+{"args":[["deckhand é_中bß ahooké"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand éé😀ß hook","éé😀ß"],"éé😀ß"],"ret":{"$u":1}}
+{"args":[["deckhand éé😀ßhooké"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand éhooké"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand hook codex"],""],"ret":"missing"}
+{"args":[["deckhand hook codex"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand hook codex"],"deckhand hook"],"ret":"missing"}
+{"args":[["deckhand hook"],""],"ret":"other"}
+{"args":[["deckhand hook"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["deckhand hook"],"deckhand hook"],"ret":{"$u":1}}
+{"args":[["deckhand hook'"],""],"ret":"other"}
+{"args":[["deckhand hook'"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["deckhand hook'"],"deckhand hook"],"ret":"other"}
+{"args":[["deckhand hook\n"],""],"ret":"other"}
+{"args":[["deckhand hook\n"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["deckhand hook\n"],"deckhand hook"],"ret":"other"}
+{"args":[["deckhand hook\nmore"],""],"ret":"missing"}
+{"args":[["deckhand hook\nmore"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand hook\nmore"],"deckhand hook"],"ret":"missing"}
+{"args":[["deckhand hooks codex"],""],"ret":"missing"}
+{"args":[["deckhand hooks codex"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand hooks codex"],"deckhand hook"],"ret":"missing"}
+{"args":[["deckhand hookx"],""],"ret":"missing"}
+{"args":[["deckhand hookx"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand hookx"],"deckhand hook"],"ret":"missing"}
+{"args":[["deckhand ß hook","ß"],"ß"],"ret":{"$u":1}}
+{"args":[["deckhand ß.0 hook","ß.0"],"ß.0"],"ret":{"$u":1}}
+{"args":[["deckhand ß.0hookß."],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ß/\n_aa😀Z hook","ß/\n_aa😀Z"],"ß/\n_aa😀Z"],"ret":{"$u":1}}
+{"args":[["deckhand ß/\n_aa😀Zhookß/"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ß\té/_‍ hook","ß\té/_‍"],"ß\té/_‍"],"ret":{"$u":1}}
+{"args":[["deckhand ß\té/_‍hookß\t"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ß\té\nbéZ_Z‍ hook","ß\té\nbéZ_Z‍"],"ß\té\nbéZ_Z‍"],"ret":{"$u":1}}
+{"args":[["deckhand ß\té\nbéZ_Z‍hookß\t"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ß_/‍.😀😀 hook","ß_/‍.😀😀"],"ß_/‍.😀😀"],"ret":{"$u":1}}
+{"args":[["deckhand ß_/‍.😀😀hookß_"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ßa hook","ßa"],"ßa"],"ret":{"$u":1}}
+{"args":[["deckhand ßahookßa"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ßhookß"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand é/‍_ a hook","é/‍_ a"],"é/‍_ a"],"ret":{"$u":1}}
+{"args":[["deckhand é/‍_ ahooké/"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand éa ‍   b\t hook","éa ‍   b\t"],"éa ‍   b\t"],"ret":{"$u":1}}
+{"args":[["deckhand éa ‍   b\thookéa"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand éaé\n‍b/ß/é hook","éaé\n‍b/ß/é"],"éaé\n‍b/ß/é"],"ret":{"$u":1}}
+{"args":[["deckhand éaé\n‍b/ß/éhookéa"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ‍/ hook","‍/"],"‍/"],"ret":{"$u":1}}
+{"args":[["deckhand ‍/hook‍/"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ‍0😀/é hook","‍0😀/é"],"‍0😀/é"],"ret":{"$u":1}}
+{"args":[["deckhand ‍0😀/éhook‍0"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ‍\t- hook","‍\t-"],"‍\t-"],"ret":{"$u":1}}
+{"args":[["deckhand ‍\t-hook‍\t"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand ‍é-éa\t hook","‍é-éa\t"],"‍é-éa\t"],"ret":{"$u":1}}
+{"args":[["deckhand ‍é-éa\thook‍e"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 中 hook","中"],"中"],"ret":{"$u":1}}
+{"args":[["deckhand 中a_\tß\n. hook","中a_\tß\n."],"中a_\tß\n."],"ret":{"$u":1}}
+{"args":[["deckhand 中a_\tß\n.hook中a"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 中bbéß.😀 hook","中bbéß.😀"],"中bbéß.😀"],"ret":{"$u":1}}
+{"args":[["deckhand 中bbéß.😀hook中b"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 中bé hook","中bé"],"中bé"],"ret":{"$u":1}}
+{"args":[["deckhand 中béhook中b"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 中hook中"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 😀- ß hook","😀- ß"],"😀- ß"],"ret":{"$u":1}}
+{"args":[["deckhand 😀- ßhook😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 😀0ß \ta\t😀\n中 hook","😀0ß \ta\t😀\n中"],"😀0ß \ta\t😀\n中"],"ret":{"$u":1}}
+{"args":[["deckhand 😀0ß \ta\t😀\n中hook😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand 😀éa😀.\n‍éé hook","😀éa😀.\n‍éé"],"😀éa😀.\n‍éé"],"ret":{"$u":1}}
+{"args":[["deckhand 😀éa😀.\n‍ééhook😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["deckhand-hook"],""],"ret":"other"}
+{"args":[["deckhand-hook"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["deckhand-hook"],"deckhand hook"],"ret":"other"}
+{"args":[["é "],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["é 0\nß\n"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["é"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["é_中bß a"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["éé😀ß"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["hook"],""],"ret":"missing"}
+{"args":[["hook"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["hook"],"deckhand hook"],"ret":"missing"}
+{"args":[["my-deckhand hook","other"],""],"ret":"other"}
+{"args":[["my-deckhand hook","other"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["my-deckhand hook","other"],"deckhand hook"],"ret":"other"}
+{"args":[["node /a/deckhand/cli.js 'hook'"],""],"ret":"other"}
+{"args":[["node /a/deckhand/cli.js 'hook'"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["node /a/deckhand/cli.js 'hook'"],"deckhand hook"],"ret":"other"}
+{"args":[["node /a/deckhand/cli.js hook   "],""],"ret":"other"}
+{"args":[["node /a/deckhand/cli.js hook   "],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["node /a/deckhand/cli.js hook   "],"deckhand hook"],"ret":"other"}
+{"args":[["node /a/deckhand/cli.js hook'"],""],"ret":"other"}
+{"args":[["node /a/deckhand/cli.js hook'"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["node /a/deckhand/cli.js hook'"],"deckhand hook"],"ret":"other"}
+{"args":[["unrelated"],""],"ret":"missing"}
+{"args":[["unrelated"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["unrelated"],"deckhand hook"],"ret":"missing"}
+{"args":[["x","'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],""],"ret":"missing"}
+{"args":[["x","'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":{"$u":1}}
+{"args":[["x","'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"deckhand hook"],"ret":"missing"}
+{"args":[["x","deckhand hook"],""],"ret":"other"}
+{"args":[["x","deckhand hook"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"other"}
+{"args":[["x","deckhand hook"],"deckhand hook"],"ret":{"$u":1}}
+{"args":[["ß"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["ß.0"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["ß/\n_aa😀Z"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["ß\té/_‍"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["ß\té\nbéZ_Z‍"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["ß_/‍.😀😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["ßa"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["é/‍_ a"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["éa ‍   b\t"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["éaé\n‍b/ß/é"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["‍/"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["‍0😀/é"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["‍\t-"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["‍é-éa\t"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["中"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["中a_\tß\n."],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["中bbéß.😀"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["中bé"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["😀- ß"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["😀0ß \ta\t😀\n中"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[["😀éa😀.\n‍éé"],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[],""],"ret":"missing"}
+{"args":[[],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[],"deckhand hook"],"ret":"missing"}
+{"args":[[{"$utf16":[100,101,99,107,104,97,110,100,32,47,55357,56832,55357,56832,104,111,111,107,47,55357]}],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[{"$utf16":[100,101,99,107,104,97,110,100,32,48,55357,56832,8205,104,111,111,107,48,55357]}],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[{"$utf16":[100,101,99,107,104,97,110,100,32,90,55357,56832,8205,20013,48,55357,56832,8205,32,97,104,111,111,107,90,55357]}],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[{"$utf16":[100,101,99,107,104,97,110,100,32,90,55357,56832,9,95,48,9,104,111,111,107,90,55357]}],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}
+{"args":[[{"$utf16":[100,101,99,107,104,97,110,100,32,95,55357,56832,55357,56832,104,111,111,107,95,55357]}],"'/usr/local/bin/node' '/x/dist/cli.js' 'hook'"],"ret":"missing"}

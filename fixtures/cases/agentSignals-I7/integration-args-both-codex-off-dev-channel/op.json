@@ -1,0 +1,12 @@
+{
+  "fn": "integrationArgsDevChannel",
+  "args": [
+    "codex",
+    "$ROOT/agent",
+    false
+  ],
+  "async": true,
+  "ret": [
+    "--no-daemon"
+  ]
+}

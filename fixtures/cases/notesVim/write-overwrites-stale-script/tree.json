@@ -1,0 +1,26 @@
+{
+  "before": [
+    {
+      "path": "keep.txt",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes.vim",
+      "type": "file",
+      "mode": "0644"
+    }
+  ],
+  "after": [
+    {
+      "path": "keep.txt",
+      "type": "file",
+      "mode": "0644"
+    },
+    {
+      "path": "notes.vim",
+      "type": "file",
+      "mode": "0644"
+    }
+  ]
+}

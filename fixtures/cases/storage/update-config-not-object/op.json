@@ -1,0 +1,11 @@
+{
+  "fn": "updateAppConfig",
+  "args": [
+    "$ROOT",
+    {
+      "dev_command": "x"
+    }
+  ],
+  "async": true,
+  "throws": "$ROOT/config.json must contain a JSON object"
+}

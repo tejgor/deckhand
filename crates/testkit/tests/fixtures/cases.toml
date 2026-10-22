@@ -1,0 +1,7 @@
+# Settings for the _example fixtures beside this file, used only by example_replay.rs (the app's are in
+# fixtures/cases/cases.toml).
+
+# wordLeft(text, cursor) -> cursor: both offsets index args.0 (UTF-16 in the recording, bytes in Rust).
+[utf16_fields]
+"_example/wordLeft" = { "args.1" = "args.0", "ret" = "args.0" }
+"_example/wordRight" = { "args.1" = "args.0", "ret" = "args.0" }

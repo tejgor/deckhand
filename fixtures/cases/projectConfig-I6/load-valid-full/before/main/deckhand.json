@@ -1,0 +1,23 @@
+{
+  "defaultAgent": "codex",
+  "defaultWorkspace": "existing",
+  "devCommand": "npm run dev",
+  "setupCommand": "npm i",
+  "actions": {
+    "Test": "npm test",
+    "build 1.x": "make"
+  },
+  "worktree": {
+    "location": "~/wt/{name}",
+    "symlink": [
+      "node_modules",
+      "a/b"
+    ],
+    "files": {
+      ".secrets": "{repoRoot}/.secrets"
+    },
+    "branchFrom": "origin",
+    "branchName": "u/{name}",
+    "hook": true
+  }
+}

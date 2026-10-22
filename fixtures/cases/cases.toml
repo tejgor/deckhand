@@ -1,0 +1,156 @@
+# Settings for the replayed fixtures in this directory (see README.md).
+
+# Offset fields that hold UTF-16 string indices (the fixtures were recorded from JavaScript): per fixture, offset path
+# -> the string it indexes. The replay converts them to byte offsets for the code and back when blessing.
+[utf16_fields]
+"configEditorPane/render" = { "args.0.state.cursor" = "args.0.state.text" }
+"notes/continueChecklist" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" }
+"notes/insertChecklistItem" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" }
+"notes/toggleChecklist" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" }
+"notesPane/notesLayout" = { "args.0.shared.editing.cursor" = "args.0.shared.text", "args.0.session.editing.cursor" = "args.0.session.text" }
+"textEditor/editText" = { "args.0.cursor" = "args.0.text", "ret.cursor" = "ret.text" }
+"textEditor/editorLines" = { "args.0.cursor" = "args.0.text" }
+"textEditor/lineEnd" = { "args.1" = "args.0", "ret" = "args.0" }
+"textEditor/lineStart" = { "args.1" = "args.0", "ret" = "args.0" }
+"textEditor/moveVisual" = { "args.1" = "args.0", "ret" = "args.0" }
+"textEditor/replaceRange" = { "args.0.cursor" = "args.0.text", "args.1" = "args.0.text", "args.2" = "args.0.text", "ret.cursor" = "ret.text" }
+"textEditor/wordLeft" = { "args.1" = "args.0", "ret" = "args.0" }
+"textEditor/wordRight" = { "args.1" = "args.0", "ret" = "args.0" }
+"textEditor/wrapRows" = { "ret.*.start" = "args.0", "ret.*.end" = "args.0" }
+"textEditor/wrappedEditorLines" = { "args.0.cursor" = "args.0.text" }
+
+# Cases the code cannot be judged on (an input its types cannot represent): they may fail, and are never blessed.
+[[allowlist]]
+fixture = "agents/exitRef"
+case = 27
+reason = "security fix (argv injection): a Claude resume hint whose value starts with '-' is skipped (TS returned it as a Name ref that launch_args turned into a --resume flag)"
+
+[[allowlist]]
+fixture = "changesModel/changeKey"
+case = 131
+reason = "mutated group 'unstagedunstaged' is outside the ChangeGroup union; the Rust enum (protocol wire type) rejects it at deserialization"
+
+[[allowlist]]
+fixture = "changesModel/groupOffset"
+case = 265
+reason = "mutated group 'unstage' is outside the ChangeGroup union; unrepresentable in the Rust enum"
+
+[[allowlist]]
+fixture = "changesModel/groupOffset"
+case = 268
+reason = "mutated group 'unstagedunstaged' is outside the ChangeGroup union; unrepresentable in the Rust enum"
+
+[[allowlist]]
+fixture = "changesModel/groupOffset"
+case = 309
+reason = "mutated group 'nstaged' is outside the ChangeGroup union; unrepresentable in the Rust enum"
+
+[[allowlist]]
+fixture = "changesModel/groupOffset"
+case = 311
+reason = "mutated group 'unsaged' is outside the ChangeGroup union; unrepresentable in the Rust enum"
+
+[[allowlist]]
+fixture = "changesModel/reselect"
+case = 326
+reason = "mutated group '' is outside the ChangeGroup union; unrepresentable in the Rust enum"
+
+[[allowlist]]
+fixture = "changesModel/stageMode"
+case = 0
+reason = "mutated group '.untracked' is outside the ChangeGroup union; unrepresentable in the Rust enum"
+
+[[allowlist]]
+fixture = "changesModel/stageMode"
+case = 122
+reason = "mutated group 'un\\nstaged' is outside the ChangeGroup union; unrepresentable in the Rust enum"
+
+[[allowlist]]
+fixture = "changesModel/stageMode"
+case = 143
+reason = "mutated group 'unstagéed' is outside the ChangeGroup union; unrepresentable in the Rust enum"
+
+[[allowlist]]
+fixture = "notes/toggleChecklist"
+case = 351
+reason = "cursor -1 is not a byte offset: EditorState.cursor is usize, so the replay passes 0 and the cursor moves past the inserted marker (6) instead of staying -1"
+
+[[allowlist]]
+fixture = "projectConfig-P10/parseProjectConfig"
+case = 36
+reason = "a lone surrogate escape (\\ud83d) cannot live in a Rust String; it becomes U+FFFD, what Node writes for it as UTF-8"
+
+[[allowlist]]
+fixture = "projectConfig-P10/parseProjectConfig"
+case = 37
+reason = "a lone surrogate escape (\\ud83d) cannot live in a Rust String; it becomes U+FFFD, what Node writes for it as UTF-8"
+
+[[allowlist]]
+fixture = "settingsInfo/codexHookCommands"
+case = 77
+reason = "JSON escape \\ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD)"
+
+[[allowlist]]
+fixture = "settingsInfo/codexHookCommands"
+case = 78
+reason = "JSON escape \\ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD)"
+
+[[allowlist]]
+fixture = "settingsInfo/codexHookCommands"
+case = 79
+reason = "JSON escape \\ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD)"
+
+[[allowlist]]
+fixture = "settingsInfo/codexHookCommands"
+case = 80
+reason = "JSON escape \\ud83d without its pair: V8 keeps a lone surrogate, Rust strings cannot hold one (read as U+FFFD)"
+
+[[allowlist]]
+fixture = "tasks/applyTaskOp"
+case = 152
+reason = "op type outside the TaskOp union (fixture mutation): the typed Rust TaskOp cannot represent it; TS falls through the switch as a no-op"
+
+[[allowlist]]
+fixture = "tasks/applyTaskOp"
+case = 154
+reason = "auto value outside the 'merge' | 'done' union (fixture mutation): the typed Rust TaskAuto cannot represent it"
+
+[[allowlist]]
+fixture = "tasks/applyTaskOp"
+case = 210
+reason = "op type outside the TaskOp union (fixture mutation): the typed Rust TaskOp cannot represent it; TS falls through the switch as a no-op"
+
+[[allowlist]]
+fixture = "tasks/applyTaskOp"
+case = 252
+reason = "op type outside the TaskOp union (fixture mutation): the typed Rust TaskOp cannot represent it; TS falls through the switch as a no-op"
+
+[[allowlist]]
+fixture = "tasks/applyTaskOp"
+case = 277
+reason = "op type outside the TaskOp union (fixture mutation): the typed Rust TaskOp cannot represent it; TS falls through the switch as a no-op"
+
+[[allowlist]]
+fixture = "tasks/cleanTaskTitle"
+case = 258
+reason = "slice(0, 300) cuts a surrogate pair: TS returns a lone surrogate, which a Rust String cannot hold (it becomes U+FFFD, as Node writes it to disk)"
+
+[[allowlist]]
+fixture = "tasks/cleanTaskTitle"
+case = 259
+reason = "slice(0, 300) cuts a surrogate pair: TS returns a lone surrogate, which a Rust String cannot hold (it becomes U+FFFD, as Node writes it to disk)"
+
+[[allowlist]]
+fixture = "textEditor/wordLeft"
+case = 95
+reason = "mutated cursor -1: a negative UTF-16 offset has no byte-offset (usize) form in the Rust API"
+
+[[allowlist]]
+fixture = "textEditor/wordRight"
+case = 94
+reason = "mutated cursor -1: a negative UTF-16 offset has no byte-offset (usize) form in the Rust API"
+
+[[allowlist]]
+fixture = "worktreeLinks-P2/validateWorktreeSettings"
+case = 89
+reason = "recording artifact: the TS input {files: JSON.parse('{\"__proto__\": \"a\"}')} has an own __proto__ key the fixture encoder writes as {files: {}}; the Rust rejection of that key is checked by worktree_links::tests::files_destination_proto_is_rejected"

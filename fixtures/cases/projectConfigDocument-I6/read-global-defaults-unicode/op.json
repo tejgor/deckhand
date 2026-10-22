@@ -1,0 +1,13 @@
+{
+  "fn": "readGlobalDefaultsDocument",
+  "args": [],
+  "async": true,
+  "ret": {
+    "kind": "global",
+    "root": "$ROOT",
+    "path": "$ROOT/config.json",
+    "raw": "{\n  \"devCommand\": \"echo 日本語 😀 é é\",\n  \"actions\": {\n    \"Unicode\": \"echo 👨‍👩\"\n  }\n}\n",
+    "revision": "a9f3eeafe2bdfd6827c18259d907c352595f81b06e3ae96e8602a28dce7c4d59",
+    "exists": true
+  }
+}

@@ -1,0 +1,2 @@
+{"args":[[]],"ret":{"done":0,"total":0}}
+{"args":[[{"line":1,"text":"a","done":true},{"line":2,"text":"b","done":false}]],"ret":{"done":1,"total":2}}

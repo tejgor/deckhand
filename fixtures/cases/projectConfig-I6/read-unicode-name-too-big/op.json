@@ -1,0 +1,11 @@
+{
+  "fn": "readBoundedUtf8",
+  "args": [
+    "$ROOT/设置😀.json",
+    {
+      "max": 2048
+    }
+  ],
+  "async": true,
+  "throws": "设置😀.json exceeds 2 KiB"
+}

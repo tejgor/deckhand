@@ -1,0 +1,9 @@
+{
+  "fn": "findOnPath",
+  "args": [
+    "sub/tool",
+    "$ROOT/a"
+  ],
+  "async": true,
+  "ret": "$ROOT/a/sub/tool"
+}

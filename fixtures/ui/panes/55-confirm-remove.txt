@@ -1,0 +1,31 @@
+
+
+
+
+
+
+
+
+
+
+                ╭───────────────────────────────────────────────────────────────╮
+                │                                                               │
+                │ Remove “alpha” for good?                                      │
+                │                                                               │
+                │ It cannot be resumed afterwards; its notes go to notes/trash. │
+                │                                                               │
+                │                                                               │
+                │ enter remove • esc keep it                                    │
+                │                                                               │
+                ╰───────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+
+
+
