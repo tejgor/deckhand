@@ -20,7 +20,7 @@ scripts/deckhand-dev.sh --sandbox
 
 The sandbox runs your build against its own state in `~/.deckhand-dev` and a disposable repository, beside your real Deckhand. Never point a development build at `~/.deckhand`: debug builds refuse it. See [docs/dev-build.md](docs/dev-build.md).
 
-The promo videos live in their own repository, [tejgor/deckhand-promo](https://github.com/tejgor/deckhand-promo), as the `promo` submodule. A clone leaves `promo/` empty; to work on them, run `git submodule update --init promo`.
+The promo videos live in a private repository, linked as the `promo` submodule. A clone leaves `promo/` empty, and nothing in Deckhand needs it.
 
 ## Make your change
 
