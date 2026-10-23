@@ -194,8 +194,15 @@ pub fn create(socket: &Path, root: &str, title: &str, mode: &str, extra: Value) 
     try_create(socket, root, title, mode, extra).unwrap_or_else(|e| panic!("create {title}: {e}"))
 }
 
+/// Waits for the session to run; one that exits instead will never run, so this fails at once with its record (its
+/// `lastPreview` says why).
 pub fn running(socket: &Path, id: &str) -> Value {
-    wait_for_default(|| state(socket, id), |item| item["status"] == "running")
+    let item = wait_for_default(
+        || state(socket, id),
+        |item| item["status"] == "running" || item["status"] == "exited",
+    );
+    assert_eq!(item["status"], "running", "session exited instead of running: {item}");
+    item
 }
 
 /// Git that may fail: (success, trimmed-end stdout).

@@ -342,7 +342,8 @@ impl Daemon {
         })
     }
 
-    /// TS: InkDaemon.assertWorkspaceAvailable (`Workspace cleanup is in progress`).
+    /// TS: InkDaemon.assertWorkspaceAvailable (`Workspace cleanup is in progress`; not in the TS: naming the folder
+    /// being cleaned up).
     pub fn assert_workspace_available(&self, cwd: &str) -> Result<()> {
         let root = path::resolve(cwd);
         let cleaning = self
@@ -350,9 +351,10 @@ impl Daemon {
             .borrow()
             .cleanup
             .iter()
-            .any(|target| is_path_inside(target, &root));
-        if cleaning {
-            return Err(DhError::msg("Workspace cleanup is in progress"));
+            .find(|target| is_path_inside(target, &root))
+            .cloned();
+        if let Some(target) = cleaning {
+            return Err(DhError::msg(format!("Workspace cleanup is in progress: {target}")));
         }
         Ok(())
     }
@@ -1485,7 +1487,7 @@ mod tests {
         for cwd in ["/r/wt", "/r/wt/src/.."] {
             assert_eq!(
                 daemon.assert_workspace_available(cwd).unwrap_err().to_string(),
-                "Workspace cleanup is in progress"
+                "Workspace cleanup is in progress: /r/wt"
             );
         }
         assert!(daemon.assert_workspace_available("/r/wt2").is_ok());
@@ -1500,7 +1502,7 @@ mod tests {
             );
             assert_eq!(
                 daemon.open_workspace("/r/wt").await.err().unwrap().to_string(),
-                "Workspace cleanup is in progress"
+                "Workspace cleanup is in progress: /r/wt"
             );
         });
     }

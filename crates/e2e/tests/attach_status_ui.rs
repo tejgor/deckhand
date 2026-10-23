@@ -96,9 +96,16 @@ fn the_status_line_holds_its_rows_for_every_agent_and_pane() {
         ui.screen(&format!("Name: {name}"));
         ui.press("\r");
         ui.screen("tick");
+        // The agent's output reaches the preview before the session is Running (that waits on the state write), and
+        // Enter attaches only to a running session: wait until the details no longer say it is starting.
         wait_for(
             || ui.screen_text(),
-            |frame| frame.contains("q quit") && !frame.contains("Working…"),
+            |frame| {
+                frame.contains("q quit")
+                    && !frame.contains("Working…")
+                    && !frame.contains("starting")
+                    && !frame.contains("preparing workspace")
+            },
             Duration::from_secs(10),
         );
         ui.press("\r");

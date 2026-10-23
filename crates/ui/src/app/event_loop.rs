@@ -741,6 +741,8 @@ mod tests {
         texts: Vec<String>,
         sizes: Vec<(u16, u16)>,
         effects: usize,
+        /// `counter` each time the effects ran.
+        effects_saw: Vec<i32>,
         renders: usize,
         quit: Option<&'static str>,
         counter: i32,
@@ -774,6 +776,7 @@ mod tests {
 
         fn after_update(&mut self) {
             self.effects += 1;
+            self.effects_saw.push(self.counter);
         }
 
         fn render(&mut self, frame: &mut Frame<'_>) {
@@ -1015,9 +1018,11 @@ mod tests {
                     .await
                     .expect("loop runs");
                 assert_eq!(end, LoopEnd::Exit("done"));
-                // The leading frame, then one trailing frame with all three updates; every batch ran its effects.
+                // The leading frame, then one trailing frame with all three updates. Effects run after every batch,
+                // but a loaded machine can deliver the timers in fewer batches: so check they ran after the last one.
                 assert_eq!(model.renders, 2);
-                assert!(model.effects >= 4);
+                assert_eq!(model.effects_saw.first(), Some(&0));
+                assert_eq!(model.effects_saw.last(), Some(&3));
                 assert_eq!(rows(&terminal)[0], "count 3     ");
             })
             .await;

@@ -440,6 +440,17 @@ fn terminate_pid(pid: Option<i32>) {
 
 impl Drop for Sandbox {
     fn drop(&mut self) {
+        // A failing test shows what its daemons logged, before the directory goes.
+        if std::thread::panicking() {
+            for home in [self.home(), self.dev_home()] {
+                let log = home.join("daemon.log");
+                if let Ok(text) = fs::read_to_string(&log) {
+                    let lines: Vec<&str> = text.lines().collect();
+                    let tail = lines[lines.len().saturating_sub(80)..].join("\n");
+                    eprintln!("--- {} (last {} lines) ---\n{tail}", log.display(), lines.len().min(80));
+                }
+            }
+        }
         // Daemons first (they own the sessions), so nothing rewrites files while the directory is removed.
         self.stop_dev_daemon();
         let daemon = read_pid(&self.home().join("daemon.pid"));
