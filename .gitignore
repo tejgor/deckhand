@@ -4,3 +4,6 @@
 .DS_Store
 
 /demo
+
+# The promo videos: their own private repository (tejgor/deckhand-promo), cloned here by those who work on them
+/promo/
