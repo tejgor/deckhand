@@ -25,7 +25,9 @@ use deckhand_core::sidebar_model::{ms_until_age_changes, status_since};
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::BUILD_VERSION;
 use deckhand_protocol::data::PingResult;
-use deckhand_protocol::data::{AgentActivityStatus, AttentionState, RightPaneTab, SessionRecord, SessionStatus};
+use deckhand_protocol::data::{
+    AgentActivityStatus, AttentionState, DevRecord, RightPaneTab, SessionRecord, SessionStatus,
+};
 use deckhand_protocol::records::SessionFilter;
 use deckhand_sys::async_util::{Task, spawn};
 use deckhand_sys::storage::load_app_config;
@@ -683,16 +685,7 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
             });
         })),
         on_dev_updated: Some(Box::new(move |next| {
-            dev_updated.update(move |app: &mut App| {
-                let selected = app.selected_id_ref();
-                if next.session_id.is_some() && next.session_id != selected {
-                    return;
-                }
-                if next.session_id.is_none() && selected.is_some() {
-                    return;
-                }
-                app.panes.dev = next;
-            });
+            dev_updated.update(move |app: &mut App| apply_dev_update(app, next));
         })),
         on_action_updated: Some(Box::new(move |next| {
             action_updated.update(move |app: &mut App| {
@@ -964,6 +957,20 @@ fn watch_changes(app: &mut App, deps: PaneWatchDeps) {
         }
     });
     app.effects.changes.task = Some(task);
+}
+
+/// A `dev-updated` event: the selected session's Dev pane (or the repository's, with none selected), counted so a start
+/// reply already in flight knows it is older (`keep_newer_dev`).
+pub(crate) fn apply_dev_update(app: &mut App, next: DevRecord) {
+    let selected = app.selected_id_ref();
+    if next.session_id.is_some() && next.session_id != selected {
+        return;
+    }
+    if next.session_id.is_none() && selected.is_some() {
+        return;
+    }
+    app.panes.dev = next;
+    app.panes.dev_updates += 1;
 }
 
 fn watch_dev(app: &mut App, deps: PaneWatchDeps) {

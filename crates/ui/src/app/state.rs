@@ -278,6 +278,9 @@ pub struct PaneRecords {
     /// TS `changesWatchedRef`: this UI asked the daemon to watch a workspace's changes.
     pub changes_watched: bool,
     pub dev: DevRecord,
+    /// Not in the TS: how many `dev-updated` events have replaced `dev`. A start reply is a snapshot taken when Dev
+    /// started; an update counted after its request went out is newer (a quick command may already have exited).
+    pub dev_updates: u64,
     /// Not in the TS: the Dev process selected in the split (v switches, enter attaches it), by name.
     pub dev_process: Option<String>,
     /// The workspace's last action (Terminal tab, v).
@@ -644,6 +647,7 @@ impl App {
                 changes: deckhand_core::changes_model::empty_changes(),
                 changes_watched: false,
                 dev: empty_pane(),
+                dev_updates: 0,
                 dev_process: props.initial_dev_process.clone(),
                 action: empty_pane(),
                 terminal_view: props.initial_terminal_view.unwrap_or_default(),

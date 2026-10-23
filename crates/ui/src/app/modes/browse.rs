@@ -15,7 +15,7 @@ use deckhand_core::tasks_board::work_key_of;
 use deckhand_core::workspace::{no_workspace_reason, workspace_key};
 use deckhand_protocol::data::JsNumber;
 use deckhand_protocol::data::{
-    AttachTarget, MoveDirection, ProjectInfo, RestartMode, RightPaneTab, SessionRecord, SessionStatus,
+    AttachTarget, DevRecord, MoveDirection, ProjectInfo, RestartMode, RightPaneTab, SessionRecord, SessionStatus,
     SessionWorktreeMode, SetupState, WorktreeMode,
 };
 use deckhand_protocol::records::{AppConfig, SessionFilter};
@@ -932,6 +932,7 @@ pub fn toggle_dev_selected(app: &mut App) {
     }
     let layout = app.layout();
     let elsewhere = dev_elsewhere(app, &session);
+    let updates = app.panes.dev_updates;
     let reply = client.start_dev(
         &session.id,
         i64::from(layout.preview_cols),
@@ -951,7 +952,7 @@ pub fn toggle_dev_selected(app: &mut App) {
                     ),
                     None => next.command.clone().filter(|command| !command.is_empty()),
                 };
-                app.panes.dev = next;
+                let live = keep_newer_dev(app, next, updates).unwrap_or(live);
                 upsert_dev_running(app, &session, live);
                 app.set_active_tab(RightPaneTab::Dev);
                 // d on the Dev tab starts it, so a quick second d says plainly what it did.
@@ -965,6 +966,17 @@ pub fn toggle_dev_selected(app: &mut App) {
         }
         app.set_busy(false);
     }));
+}
+
+/// Not in the TS: a Dev start reply's record, unless a `dev-updated` arrived after the request (`updates` was the count
+/// then): the reply is the snapshot from when Dev started, the update is newer, and a quick command may already have
+/// exited with its output. Returns the newer record's `live` when the reply is dropped.
+pub(crate) fn keep_newer_dev(app: &mut App, reply: DevRecord, updates: u64) -> Option<bool> {
+    if app.panes.dev_updates == updates {
+        app.panes.dev = reply;
+        return None;
+    }
+    Some(app.panes.dev.live)
 }
 
 /// Not in the TS: the sessions (one per worktree) whose Dev the daemon stops when Dev starts for `session`: Dev runs
@@ -2233,6 +2245,42 @@ pub(crate) mod tests {
             assert!(!app.panes.dev.live);
             assert_eq!(app.panes.dev.session_id.as_deref(), Some("s0"));
             assert_eq!(app.panes.dev.cwd.as_deref(), Some("/repo"));
+        });
+    }
+
+    #[test]
+    fn a_dev_update_newer_than_the_start_reply_is_kept() {
+        // A quick command prints and exits before the start reply arrives. The reply is the snapshot from when Dev
+        // started, so it must not replace the newer output with an empty, live pane.
+        local(async {
+            let (mut app, mut rx) = with_sessions(1);
+            let mut daemon = Daemon::connect(&mut app);
+            handle_browse(&mut app, &text("dd"));
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "project-info");
+            let project = json!({
+                "root": "/repo", "trustRoot": "/repo", "config": {"devCommand": "echo hi"}, "exists": true,
+                "fingerprint": "fp", "trusted": true, "needsReview": false, "effective": {"devCommand": "echo hi"}
+            });
+            daemon.ok(&request, project).await;
+            apply(&mut app, &mut rx).await;
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "start-dev");
+            let exited = json!({"content": "hi", "live": false, "command": "echo hi", "sessionId": "s0"});
+            crate::app::effects::apply_dev_update(
+                &mut app,
+                serde_json::from_value(exited).unwrap_or_else(|error| panic!("{error}")),
+            );
+            daemon
+                .ok(
+                    &request,
+                    json!({"content": "", "live": true, "command": "echo hi", "sessionId": "s0"}),
+                )
+                .await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(app.panes.dev.content, "hi");
+            assert!(!app.panes.dev.live);
+            assert_eq!(app.data.repo_sessions[0].dev_running, Some(false));
         });
     }
 

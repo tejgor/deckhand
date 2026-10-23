@@ -612,14 +612,22 @@ impl AgentVersionChecker {
 
     /// TS: AgentVersionChecker.update (the agent's own update command, then the installed version read again; a
     /// second request while one runs gets the same result; `<Label> is not installed; run deckhand setup to install
-    /// it`). `on_start` runs once the update has started.
+    /// it`). `on_start` runs once the update has started, also for a request that joins one already running: which of
+    /// two concurrent requests starts it depends on whose version read returns first (the TS's microtasks fixed that
+    /// order).
     pub async fn update(&self, program: ProgramKey, on_start: Option<Box<dyn FnOnce()>>) -> Result<UpdateOutcome> {
         let spec = agent_spec(program);
         if let Some(running) = self.inner.updates.get(&program) {
+            if let Some(on_start) = on_start {
+                on_start();
+            }
             return running.await;
         }
         let before = self.installed(program).await;
         if let Some(started) = self.inner.updates.get(&program) {
+            if let Some(on_start) = on_start {
+                on_start();
+            }
             return started.await;
         }
         let Some(path) = before.path.clone() else {

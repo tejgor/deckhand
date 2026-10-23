@@ -17,7 +17,7 @@ use deckhand_core::jsstr::js_trim;
 use deckhand_core::key::Input;
 use deckhand_protocol::data::{ActionRecord, ProjectInfo, RightPaneTab};
 
-use crate::app::modes::browse::{dev_elsewhere, run_dev, stopped_elsewhere, upsert_dev_running};
+use crate::app::modes::browse::{dev_elsewhere, keep_newer_dev, run_dev, stopped_elsewhere, upsert_dev_running};
 use crate::app::state::{ActionProject, App, AppAction, AppCallback, Mode, ReviewLabels, ReviewSkip};
 use crate::app::{ProjectFn, ReviewOptions, hint_short, truthy};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
@@ -143,13 +143,14 @@ fn start_dev_process(app: &mut App, name: &str, running: bool, count: usize) {
     app.set_error(None);
     let (cols, rows) = dev_size(app, count);
     let elsewhere = dev_elsewhere(app, &session);
+    let updates = app.panes.dev_updates;
     let reply = client.start_dev_process(&session.id, Some(name), running, i64::from(cols), i64::from(rows));
     let name = name.to_owned();
     let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
         match result {
             Ok(next) => {
                 let live = next.live;
-                app.panes.dev = next;
+                let live = keep_newer_dev(app, next, updates).unwrap_or(live);
                 app.panes.dev_process = Some(name.clone());
                 upsert_dev_running(app, &session, live);
                 app.set_active_tab(RightPaneTab::Dev);
