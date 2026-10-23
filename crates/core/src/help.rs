@@ -312,8 +312,8 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Tick or reopen (a step: in its note) / delete (x twice)",
             },
             HelpLine::Key {
-                keys: "o  J K",
-                text: "Open the session doing it / reorder (j k, g G move)",
+                keys: "o  J K  c",
+                text: "Open the session doing it / reorder (j k, g G move) / hide or show its steps (▸ 2/5)",
             },
             HelpLine::Key {
                 keys: "Tab  E",

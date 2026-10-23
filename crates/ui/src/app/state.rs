@@ -192,6 +192,8 @@ pub struct AppCallbacks {
     pub on_collapsed_session_ids_change: Option<IdsListener>,
     pub on_hidden_exited_session_ids_change: Option<IdsListener>,
     pub on_session_visibility_change: Option<VisibilityListener>,
+    /// Not in the TS: the tasks whose steps the Tasks view hides.
+    pub on_collapsed_task_steps_change: Option<IdsListener>,
 }
 
 impl std::fmt::Debug for AppCallbacks {
@@ -219,6 +221,8 @@ pub struct AppProps {
     pub initial_terminal_view: Option<TerminalView>,
     /// Not in the TS: the selected Dev process (by name), kept across attaches by the caller.
     pub initial_dev_process: Option<String>,
+    /// Not in the TS: the tasks whose steps the Tasks view hides (c), kept across attaches by the caller.
+    pub initial_collapsed_task_steps: Option<Vec<String>>,
     pub callbacks: AppCallbacks,
 }
 
@@ -674,7 +678,13 @@ impl App {
                 branch_list: None,
                 base_index: 0,
             },
-            flows: Flows::default(),
+            flows: Flows {
+                tasks: TasksFlow {
+                    collapsed_steps: props.initial_collapsed_task_steps.clone().unwrap_or_default(),
+                    ..TasksFlow::default()
+                },
+                ..Flows::default()
+            },
             timers: AppTimers::default(),
             effects: EffectState::default(),
             props,

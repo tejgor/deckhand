@@ -123,6 +123,7 @@ pub struct EffectState {
     pub visibility: Option<(SessionFilter, String)>,
     pub collapsed: Option<Vec<String>>,
     pub hidden_exited: Option<Vec<String>>,
+    pub collapsed_task_steps: Option<Vec<String>>,
     pub selected_session: Option<SelectedSessionDeps>,
     /// TS `shouldAnimateStatus` at the last run (the spinner interval).
     pub animating: Option<bool>,
@@ -182,6 +183,12 @@ pub fn session_animates(status: SessionStatus, session: &SessionRecord) -> bool 
             && (attention == Some(AttentionState::Working)
                 || (matches!(attention, None | Some(AttentionState::Unknown))
                     && session.agent_status == Some(AgentActivityStatus::Active))))
+}
+
+/// Not in the TS: whether any session the daemon sent works, not only this checkout's: the Tasks and Worktrees views
+/// show every checkout's sessions, and a spinner drawn there for another checkout's session never moved.
+fn animates(app: &App) -> bool {
+    should_animate_status(&app.data.repo_sessions)
 }
 
 /// Counts an effect run.
@@ -249,7 +256,7 @@ fn effect_pass(app: &mut App) {
         sync_terminal_modes(app, &mut std::io::sink());
         sync_terminal_title(app, &mut std::io::sink());
     }
-    spinner_effect(app, &derived);
+    spinner_effect(app);
     sidebar_fit_effect(app, &derived);
     connection_effect(app);
     selection_effect(app, &derived);
@@ -385,7 +392,8 @@ fn selected_id_effect(app: &mut App) {
     }
 }
 
-/// TS: the `[collapsedSessionIds]` and `[hiddenExitedSessionIds]` effects (reported to cli.ts).
+/// TS: the `[collapsedSessionIds]` and `[hiddenExitedSessionIds]` effects (reported to cli.ts), and the collapsed task
+/// steps.
 fn collapsed_effect(app: &mut App) {
     let collapsed: Vec<String> = app.browse.collapsed_session_ids.iter().cloned().collect();
     if app.effects.collapsed.as_ref() != Some(&collapsed) {
@@ -402,6 +410,15 @@ fn collapsed_effect(app: &mut App) {
             listener(&hidden);
         }
         app.effects.hidden_exited = Some(hidden);
+    }
+    // Not in the TS: the tasks whose steps the Tasks view hides, kept across attaches.
+    let steps = app.flows.tasks.collapsed_steps.clone();
+    if app.effects.collapsed_task_steps.as_ref() != Some(&steps) {
+        ran(app);
+        if let Some(listener) = &app.props.callbacks.on_collapsed_task_steps_change {
+            listener(&steps);
+        }
+        app.effects.collapsed_task_steps = Some(steps);
     }
 }
 
@@ -448,8 +465,8 @@ fn active_tab_effect(app: &mut App) {
 }
 
 /// TS: `[shouldAnimateStatus]`: the spinner advances every 120 ms while a session works.
-fn spinner_effect(app: &mut App, derived: &Derived) {
-    let animate = should_animate_status(&derived.sessions);
+fn spinner_effect(app: &mut App) {
+    let animate = animates(app);
     if app.effects.animating == Some(animate) {
         return;
     }
@@ -1028,7 +1045,7 @@ pub fn sync_timers(app: &mut App) {
     let derived = app.derived();
     status_message_effect(app);
     error_effect(app);
-    spinner_effect(app, &derived);
+    spinner_effect(app);
     numeric_selection_effect(app);
     clock_effect(app, &derived);
 }
@@ -1065,7 +1082,7 @@ fn clock_effect(app: &mut App, derived: &Derived) {
     let selected = derived.selected.as_ref();
     let since = selected.and_then(status_since).map(str::to_owned);
     let done_at = selected.and_then(|session| session.done_at.clone());
-    let animate = should_animate_status(&derived.sessions);
+    let animate = animates(app);
     let deps = (since.clone(), done_at.clone(), app.browse.clock_tick, animate);
     if app.effects.clock.as_ref() == Some(&deps) {
         return;
@@ -1600,6 +1617,27 @@ mod tests {
             assert!(app.timers.spinner.is_some());
             unmount(&mut app);
             assert!(app.timers.spinner.is_none());
+        });
+    }
+
+    #[test]
+    fn the_spinner_runs_for_another_checkouts_working_session() {
+        // The Tasks view drew this session's spinner, which never moved: the sidebar does not list it.
+        local(async {
+            let (mut app, _rx) = app(AppProps {
+                repo_root: "/repos/main".into(),
+                ..AppProps::default()
+            });
+            let mut other = session("a", "A", SessionStatus::Running);
+            other.repo_root = "/repos/clone".into();
+            other.cwd = "/repos/clone".into();
+            other.attention = Some(attention(AttentionState::Working));
+            app.data.repo_sessions = vec![other];
+            app.data.sessions_loaded = true;
+            run_effects(&mut app);
+            assert!(app.sessions().is_empty());
+            assert!(app.timers.spinner.is_some());
+            unmount(&mut app);
         });
     }
 

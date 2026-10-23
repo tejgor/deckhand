@@ -3,8 +3,8 @@
 //! The UI process loop: run the ratatui app until it exits with a [`UiExitResult`], then either quit, hand the
 //! terminal to an attached session pane (`deckhand_client::attach::attach_session`) or to the terminal editor for a
 //! note, and come back to the UI. The UI preferences (`UiState`) live across those round trips in this loop and are
-//! saved debounced while the UI runs and once more when it exits. The Terminal tab's view (shell or last action)
-//! survives attach/detach, not restarts.
+//! saved debounced while the UI runs and once more when it exits. The Terminal tab's view (shell or last action) and
+//! the tasks whose steps the Tasks view hides survive attach/detach, not restarts.
 
 use std::cell::{Cell, RefCell};
 use std::io::{IsTerminal, Write};
@@ -105,11 +105,20 @@ impl SaveScheduler {
     }
 }
 
+/// What the UI keeps across attach round trips, not restarts (nor saved in `UiState`).
+#[derive(Default)]
+pub struct RoundTrip {
+    /// The Terminal tab's view (TS: cli.ts `terminalView`).
+    pub terminal_view: Rc<Cell<TerminalView>>,
+    /// Not in the TS: the tasks whose steps the Tasks view hides.
+    pub collapsed_task_steps: Rc<RefCell<Vec<String>>>,
+}
+
 /// TS: cli.ts the App props: `ui_state`'s initial values, and callbacks that update it and schedule its save.
 fn app_props(
     repo_root: &str,
     ui_state: &Rc<RefCell<UiState>>,
-    terminal_view: &Rc<Cell<TerminalView>>,
+    round_trip: &RoundTrip,
     saver: &SaveScheduler,
 ) -> AppProps {
     let state = ui_state.borrow();
@@ -119,7 +128,8 @@ fn app_props(
     let on_session_tab = saver.clone();
     let on_collapsed = saver.clone();
     let on_hidden = saver.clone();
-    let view = Rc::clone(terminal_view);
+    let view = Rc::clone(&round_trip.terminal_view);
+    let collapsed_steps = Rc::clone(&round_trip.collapsed_task_steps);
     AppProps {
         repo_root: repo_root.to_owned(),
         cwd: repo_root.to_owned(),
@@ -131,8 +141,9 @@ fn app_props(
         read_replies: Some(state.read_replies.clone()),
         initial_session_filter: Some(state.session_filter),
         initial_session_query: Some(state.session_query.clone()),
-        initial_terminal_view: Some(terminal_view.get()),
+        initial_terminal_view: Some(round_trip.terminal_view.get()),
         initial_dev_process: None,
+        initial_collapsed_task_steps: Some(round_trip.collapsed_task_steps.borrow().clone()),
         callbacks: AppCallbacks {
             on_terminal_view_change: Some(Box::new(move |next| view.set(next))),
             on_session_visibility_change: Some(Box::new(move |filter, query| {
@@ -158,6 +169,9 @@ fn app_props(
             on_hidden_exited_session_ids_change: Some(Box::new(move |session_ids| {
                 on_hidden.update(|state| state.hidden_exited_session_ids = session_ids.to_vec());
             })),
+            on_collapsed_task_steps_change: Some(Box::new(move |task_ids| {
+                *collapsed_steps.borrow_mut() = task_ids.to_vec();
+            })),
         },
     }
 }
@@ -169,7 +183,7 @@ fn app_props(
 pub async fn run_ui(
     repo_root: &str,
     ui_state: &Rc<RefCell<UiState>>,
-    terminal_view: &Rc<Cell<TerminalView>>,
+    round_trip: &RoundTrip,
     dev_process: Option<String>,
 ) -> Result<Option<UiExitResult>, DhError> {
     let saver = SaveScheduler {
@@ -177,7 +191,7 @@ pub async fn run_ui(
         ui_state: Rc::clone(ui_state),
         timer: Rc::default(),
     };
-    let mut props = app_props(repo_root, ui_state, terminal_view, &saver);
+    let mut props = app_props(repo_root, ui_state, round_trip, &saver);
     props.initial_dev_process = dev_process;
     deckhand_ui::theme::set_mode(configured_theme_mode().await);
     enter_alternate_screen();
@@ -257,13 +271,13 @@ pub async fn run_ui_loop() -> Result<(), DhError> {
     let _terminal = UiTerminal::start(stdin_fd());
     let repo_root = ensure_git_repo(None).await?;
     let ui_state = Rc::new(RefCell::new(load_ui_state(&repo_root).await));
-    let terminal_view = Rc::new(Cell::new(TerminalView::Shell));
+    let round_trip = RoundTrip::default();
     // The Dev process last attached, selected again when the UI comes back.
     let mut dev_process: Option<String> = None;
     loop {
         // TS: runUi resolves the repository again on every round trip.
         let repo_root = ensure_git_repo(None).await?;
-        let result = run_ui(&repo_root, &ui_state, &terminal_view, dev_process.clone()).await?;
+        let result = run_ui(&repo_root, &ui_state, &round_trip, dev_process.clone()).await?;
         match result {
             None | Some(UiExitResult::Quit) => return Ok(()),
             Some(UiExitResult::Attach {
@@ -594,23 +608,30 @@ mod tests {
             let ui_state = Rc::new(RefCell::new(UiState::default()));
             ui_state.borrow_mut().selected_id = Some("a".to_owned());
             ui_state.borrow_mut().sidebar_width = Some(JsNumber(30.7));
-            let view = Rc::new(Cell::new(TerminalView::Action));
+            let round_trip = RoundTrip::default();
+            round_trip.terminal_view.set(TerminalView::Action);
+            round_trip.collapsed_task_steps.borrow_mut().push("t1".to_owned());
             let saver = SaveScheduler {
                 repo_root: Rc::from("/repo"),
                 ui_state: Rc::clone(&ui_state),
                 timer: Rc::default(),
             };
-            let props = app_props("/repo", &ui_state, &view, &saver);
+            let props = app_props("/repo", &ui_state, &round_trip, &saver);
             assert_eq!(props.initial_selected_id.as_deref(), Some("a"));
             assert_eq!(props.initial_terminal_view, Some(TerminalView::Action));
+            assert_eq!(props.initial_collapsed_task_steps, Some(vec!["t1".to_owned()]));
             if let Some(listener) = &props.callbacks.on_active_tab_change {
                 listener(RightPaneTab::Dev);
             }
             if let Some(listener) = &props.callbacks.on_terminal_view_change {
                 listener(TerminalView::Shell);
             }
+            if let Some(listener) = &props.callbacks.on_collapsed_task_steps_change {
+                listener(&["t2".to_owned()]);
+            }
             assert_eq!(ui_state.borrow().active_tab, Some(RightPaneTab::Dev));
-            assert_eq!(view.get(), TerminalView::Shell);
+            assert_eq!(round_trip.terminal_view.get(), TerminalView::Shell);
+            assert_eq!(*round_trip.collapsed_task_steps.borrow(), ["t2"]);
             assert!(saver.timer.borrow().as_ref().is_some_and(Timer::is_pending));
             saver.cancel();
             assert!(saver.timer.borrow().is_none());

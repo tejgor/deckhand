@@ -189,14 +189,16 @@ fn marker(selected: bool) -> &'static str {
     if selected { "›" } else { " " }
 }
 
-/// TS: tasksFlow.tsx BoardLine: one board row.
+/// TS: tasksFlow.tsx BoardLine: one board row (`steps_hidden`: a task's steps are hidden, ▸ before their count).
 pub fn board_line(
     row: &BoardRow,
     selected: bool,
     width: usize,
     sessions: &[&SessionRecord],
     spinner_frame: &str,
+    steps_hidden: bool,
 ) -> Row {
+    let fold = if steps_hidden { "▸ " } else { "" };
     let mark = marker(selected);
     // A nested Text's color when not selected (selected rows take the bar's).
     let unless_selected = |name: Option<Color>| TextStyle::default().color(if selected { None } else { name });
@@ -316,7 +318,7 @@ pub fn board_line(
                 // and the steps.
                 let work = work_state(section, sessions, spinner_frame, None);
                 let state = format!("{} {}", work.glyph, work.text);
-                let steps = steps.map_or(String::new(), |steps| format!("  {}/{}", steps.done, steps.total));
+                let steps = steps.map_or(String::new(), |steps| format!("  {fold}{}/{}", steps.done, steps.total));
                 let label = truncate(
                     &work_label(section, sessions),
                     minus(width / 2, js_len(&state) + js_len(&steps) + 2).max(4),
@@ -347,7 +349,7 @@ pub fn board_line(
                 (state.glyph.clone(), ink(state.color))
             };
             let right = if in_work {
-                steps.map_or(String::new(), |steps| format!("{}/{}", steps.done, steps.total))
+                steps.map_or(String::new(), |steps| format!("{fold}{}/{}", steps.done, steps.total))
             } else {
                 let parts: Vec<&str> = [state.where_.as_deref().unwrap_or(""), state.text.as_str()]
                     .into_iter()
@@ -623,6 +625,8 @@ pub struct TasksFlow {
     pub busy: bool,
     /// The editor body's wrap width at the last render (TS `bodyWidth`, 40 before one).
     pub body_width: usize,
+    /// Not in the TS: the tasks whose steps are hidden (c), kept across attaches by the app's caller.
+    pub collapsed_steps: Vec<String>,
 }
 
 impl Default for TasksFlow {
@@ -640,6 +644,7 @@ impl Default for TasksFlow {
             top: 0,
             busy: false,
             body_width: 40,
+            collapsed_steps: Vec::new(),
         }
     }
 }
@@ -672,6 +677,7 @@ pub static KEYMAP: Keymap = &[
     board_key(&[KeySpec::Char("x")], "delete (twice)"),
     board_key(&[KeySpec::Char("J"), KeySpec::Char("K")], "reorder"),
     board_key(&[KeySpec::Char(" ")], "tick or reopen"),
+    board_key(&[KeySpec::Char("c")], "hide or show its steps"),
     board_key(&[KeySpec::Named(NamedKey::Return)], "edit it / open the note"),
     board_key(&[KeySpec::Named(NamedKey::Tab)], "the notes view / back to tasks"),
     board_key(&[KeySpec::Named(NamedKey::Escape)], "back"),
@@ -729,6 +735,11 @@ impl TasksFlow {
         }
     }
 
+    /// Whether the task's steps are hidden (c).
+    fn steps_hidden(&self, task_id: &str) -> bool {
+        self.collapsed_steps.iter().any(|id| id == task_id)
+    }
+
     /// v's work while the board is narrowed to it.
     fn scoped_to(&self) -> Option<&str> {
         if self.scoped { self.scope.as_deref() } else { None }
@@ -755,13 +766,15 @@ impl TasksFlow {
                     let note = work_note(section, props.sessions);
                     note_steps(note.as_ref().map(|note| note.text.as_str()))
                 };
-                board_rows(
+                let mut rows = board_rows(
                     props.tasks,
                     self.show_older,
                     date::now_ms(),
                     self.scoped_to(),
                     Some(&steps_of),
-                )
+                );
+                rows.retain(|row| !matches!(row, BoardRow::Step { task_id, .. } if self.steps_hidden(task_id)));
+                rows
             }
         }
     }
@@ -1776,6 +1789,27 @@ impl Flow<App> for TasksFlow {
             self.open_list_in_editor(props, cx);
             return;
         }
+        // c: the task's steps hidden or shown (on a step, its task's, which takes the selection).
+        if text == "c" {
+            let task_id = match current_row {
+                Some(BoardRow::Task {
+                    task, steps: Some(_), ..
+                }) => &task.id,
+                Some(BoardRow::Step { task_id, .. }) => task_id,
+                Some(BoardRow::Task { .. }) => {
+                    cx.set_status(Some("That task has no steps to hide".to_owned()));
+                    return;
+                }
+                _ => return,
+            };
+            if self.steps_hidden(task_id) {
+                self.collapsed_steps.retain(|id| id != task_id);
+            } else {
+                self.collapsed_steps.push(task_id.clone());
+            }
+            self.selected = RowSelection::task(task_id);
+            return;
+        }
         if matches!(current_row, Some(BoardRow::Older { .. })) && (key.return_ || text == " ") {
             self.show_older = !self.show_older;
             return;
@@ -2029,6 +2063,7 @@ impl Flow<App> for TasksFlow {
                     inner,
                     props.sessions,
                     props.spinner_frame,
+                    matches!(row, BoardRow::Task { task, .. } if self.steps_hidden(&task.id)),
                 )),
                 None => column.blank(),
             }
@@ -2152,6 +2187,17 @@ impl Flow<App> for TasksFlow {
         parts.push(hint("w move to a worktree", Some("w move"), None));
         parts.push(hint("enter edit", None, Some(1)));
         parts.push(hint("space done", Some("space ✓"), None));
+        if let Some(BoardRow::Task {
+            task, steps: Some(_), ..
+        }) = current_row
+        {
+            let (text, short) = if self.steps_hidden(&task.id) {
+                ("c show steps", "c show")
+            } else {
+                ("c hide steps", "c hide")
+            };
+            parts.push(hint(text, Some(short), Some(2)));
+        }
         if has_scope {
             parts.push(hint(
                 if self.scoped { "v all tasks" } else { "v this worktree" },
@@ -3100,6 +3146,81 @@ mod tests {
         );
         let banner: Vec<String> = banner.iter().map(|row| row_text(row).trim_end().to_owned()).collect();
         assert_eq!(banner, TS_BANNER);
+    }
+
+    #[test]
+    fn c_hides_and_shows_a_tasks_steps() {
+        let sessions: Vec<SessionRecord> = serde_json::from_str(TS_SESSIONS).unwrap_or_else(|error| panic!("{error}"));
+        let refs: Vec<&SessionRecord> = sessions.iter().collect();
+        let tasks = deckhand_core::tasks::parse_tasks(TS_TASKS);
+        let props = props(&tasks, &refs);
+        let mut flow = TasksFlow::default();
+        let mut cx = cx();
+        let steps_under = |flow: &TasksFlow, title: &str| -> Vec<String> {
+            let rows = flow.rows(&props);
+            let at = rows
+                .iter()
+                .position(|row| matches!(row, BoardRow::Task { task, .. } if task.title == title))
+                .unwrap_or_else(|| panic!("{title}"));
+            rows[at + 1..]
+                .iter()
+                .map_while(|row| match row {
+                    BoardRow::Step { step, .. } => Some(step.text.clone()),
+                    _ => None,
+                })
+                .collect()
+        };
+        let selected_title = |flow: &TasksFlow| -> String {
+            let rows = flow.rows(&props);
+            match flow.current(&rows).and_then(|index| rows.get(index)) {
+                Some(BoardRow::Task { task, .. }) => task.title.clone(),
+                Some(BoardRow::Step { step, .. }) => format!("step {}", step.text),
+                other => panic!("{other:?}"),
+            }
+        };
+        assert_eq!(
+            steps_under(&flow, "Ship the feature"),
+            ["step one", "step two", "ship it"]
+        );
+        assert!(flow.hint(&props, 200).contains("c hide steps"));
+
+        // On a task: its steps go, its count says so, and the hint offers them back.
+        typed(&mut flow, &props, &mut cx, "c");
+        assert!(steps_under(&flow, "Ship the feature").is_empty());
+        assert_eq!(selected_title(&flow), "Ship the feature");
+        let rows = buffer_rows(&render(&mut flow, &props));
+        assert!(
+            rows.iter()
+                .any(|row| row.contains("◆ Ship the feature") && row.contains("▸ 1/3"))
+        );
+        assert!(flow.hint(&props, 200).contains("c show steps"));
+
+        // On a step: its task's steps go, and the selection moves up to the task.
+        typed(&mut flow, &props, &mut cx, "j");
+        typed(&mut flow, &props, &mut cx, "j");
+        assert_eq!(selected_title(&flow), "step check logs");
+        typed(&mut flow, &props, &mut cx, "c");
+        assert_eq!(selected_title(&flow), "Check the logs");
+        assert!(steps_under(&flow, "Check the logs").is_empty());
+
+        // Again: shown, the other task's still hidden.
+        typed(&mut flow, &props, &mut cx, "c");
+        assert_eq!(steps_under(&flow, "Check the logs").len(), 2);
+        assert!(steps_under(&flow, "Ship the feature").is_empty());
+        assert_eq!(flow.collapsed_steps, [tasks[0].id.clone()]);
+
+        // A task without steps has none to hide.
+        typed(&mut flow, &props, &mut cx, "j");
+        typed(&mut flow, &props, &mut cx, "j");
+        typed(&mut flow, &props, &mut cx, "j");
+        assert_eq!(selected_title(&flow), "Second for beta");
+        typed(&mut flow, &props, &mut cx, "c");
+        assert_eq!(flow.collapsed_steps.len(), 1);
+        assert!(
+            effects(&mut cx)
+                .iter()
+                .any(|effect| effect.contains("no steps to hide"))
+        );
     }
 
     // -----------------------------------------------------------------------------------------------------------
