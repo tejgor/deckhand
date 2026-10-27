@@ -109,6 +109,8 @@ The plan, in three parts:
 
    It is a remote client over the same building blocks as the scriptable CLI (read a screen, send text), so it comes after that CLI and after part 2.
 
+   herdr-remote, a herdr plugin, ships this page today; what it shows for Deckhand (notifications that open the reply box, origin checks, a live screen stream that never resizes the session) is in `ideas-from-herdr.md`.
+
 A native iOS or Android app is not planned. It would mean a separate codebase, store releases and a push relay server, and the page covers the same needs.
 
 ### Session history browser (later)

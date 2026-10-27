@@ -36,9 +36,11 @@ Left out at first, or behind a confirmation: `kill`, `remove`, `delete-worktree`
    - Send through the first-message argv path (`first_message_args` in `crates/daemon/src/launch.rs`, as handoff children use), not paste + Enter. That also lifts the draft's one-line limit (Claude collapses a multi-line paste into an uneditable placeholder): a prompt passed at launch can be long and structured.
 2. **Knowing a session is finished.** Use agent signals: `response-ended` with the `said: …` reason, `needs-input` with the question or permission. Screen-idle alone can't tell finished from waiting. Pi has no signals (see `agent-signals-roadmap.md`).
 3. **Reading results.** The preview is a lossy scrape. Point the orchestrator at durable results: the `said:` line, the session's notes file, commits / the Changes view, or the agent's transcript.
-4. **Answering questions.** For orchestrated sessions, answering programmatically is reasonable: Claude through a `PreToolUse` hook returning the answers, Codex through the app-server (`codex-app-server.md`). See roadmap item 7.
-5. **Runaway spawning.** A session that can create sessions can create sessions that create sessions. Cap nesting depth and concurrent sessions, and attribute every spawn to the calling session.
-6. **Trust.** The MCP server acts with the user's permissions; destructive tools stay out or need confirmation, and repository actions keep their existing trust checks.
+4. **Sending to a session that waits.** `send` refuses, sending nothing, when the session waits on a question or permission; otherwise the prompt is typed into the dialog. herdr's `agent prompt` does this (`agent_blocked`) and also fails when no work starts within 5 seconds (`agent_prompt_stalled`). `wait` takes `--until idle|ended|waiting` (`ideas-from-herdr.md`).
+5. **Waiting is not finished.** A worker that asks a question in plain words and stops looks exactly like one that finished. herdr-projects requires workers to report that they wait (`report --state blocked --kind question|permission|auth`) before stopping; Deckhand's version is `deckhand status --state waiting` (README 2b).
+6. **Answering questions.** For orchestrated sessions, answering programmatically is reasonable: Claude through a `PreToolUse` hook returning the answers, Codex through the app-server (`codex-app-server.md`). See roadmap item 7.
+7. **Runaway spawning.** A session that can create sessions can create sessions that create sessions. Cap nesting depth and concurrent sessions, and attribute every spawn to the calling session.
+8. **Trust.** The MCP server acts with the user's permissions; destructive tools stay out or need confirmation, and repository actions keep their existing trust checks.
 
 ## Codex note
 

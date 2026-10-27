@@ -40,10 +40,11 @@ Not yet checked against real agents: real question/permission payload wording, a
 - In the Preview pane, a waiting question lists its options; picking one sends keystrokes to the PTY (the option's number or arrows, then Enter). Depends on Claude's dialog layout: check the option labels are on screen first, refuse otherwise.
 - Structured alternative: a briefly waiting `PreToolUse` hook returning `permissionDecision: "allow"` with `updatedInput` (the original `questions` plus `answers`). Robust, but the dialog is hidden while it waits — better suited to orchestrated sessions (a Deckhand MCP, see `deckhand-mcp-cli.md`) than interactive use. For Codex, the app-server answers requests natively, with the TUI's prompt still visible (`codex-app-server.md`).
 - Permission prompts could get y/n the same way (keystrokes).
+- herdr-remote answers this way today; its lessons are in `ideas-from-herdr.md` (*Answering without attaching*). In short: the client sends back a fingerprint of the question text and option labels (not the whole screen: Claude's timer redraws it every second) and the daemon refuses if the dialog changed; a numbered menu takes the digit key, never text and Enter; a custom answer waits for the text field before typing; multi-select toggles then submits; keys go out at most once. Refuse multi-question dialogs at first.
 
 ## Also outstanding
 
-- **Hook health:** show when a session last received a signal, so a missing Codex setup is distinguishable from guessed activity.
+- **Hook health:** show when a session last received a signal, so a missing Codex setup is distinguishable from guessed activity. Show what set the current state too (hook or screen, and which signal), like herdr's `agent explain`.
 - **Codex:** log a real `request_user_input` payload to confirm its shape (the bridge forwards it, untested). Possibly moot: the app-server would replace Codex hooks altogether (`codex-app-server.md`).
 - **Pi:** a Deckhand extension loaded with `pi --extension`, using `agent_settled` (idle) and `tool_call` (activity); Pi has no question tool.
 - **Late `working` signal:** one that arrives after the screen already settled isn't caught by the idle fallback (it triggers only on the active→idle transition). Rare, since agents animate while working; a timer would close it.
