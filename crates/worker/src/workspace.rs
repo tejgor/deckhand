@@ -140,6 +140,7 @@ pub fn request_id(command: &WorkspaceWorkerCommand) -> Option<&str> {
         WorkspaceWorkerCommand::StartDev(start) => Some(&start.request_id),
         WorkspaceWorkerCommand::StartAction(start) => Some(&start.request_id),
         WorkspaceWorkerCommand::StopDev(request) => Some(&request.request_id),
+        WorkspaceWorkerCommand::RestartTerminal(restart) => Some(&restart.request_id),
         WorkspaceWorkerCommand::StopAction(request)
         | WorkspaceWorkerCommand::Idle(request)
         | WorkspaceWorkerCommand::Shutdown(request) => Some(&request.request_id),
@@ -288,6 +289,16 @@ impl PaneHost {
         let command = shell_command();
         let cwd = self.cwd()?;
         self.spawn_pane(PaneTarget::Terminal, &command, &[], &cwd, cols, rows, None)
+    }
+
+    /// Not in the TS: stops the shell as [`PaneHost::stop`] does (everything running in it included, SIGKILLed after
+    /// the grace period) and, once it is gone, starts a fresh `$SHELL`. A view meanwhile may have started one: that is
+    /// the fresh shell then. The attach ends with the old shell (the daemon detached its client), so the fresh one's
+    /// output is not forwarded until someone attaches again.
+    pub async fn restart_terminal(&self, cols: i64, rows: i64) -> Result<SharedRuntime, DhError> {
+        self.inner.attached.borrow_mut().remove(&PaneTarget::Terminal);
+        self.stop(PaneTarget::Terminal).await;
+        self.ensure_terminal(cols, rows).await
     }
 
     /// TS: PaneHost.ensureGit: the live lazygit (resized), the pending start, or a new one (resolving lazygit first).
@@ -1120,6 +1131,10 @@ impl WorkspaceWorker {
                 self.stop_pane(PaneTarget::Action);
                 channel.ok(&request.request_id, &IdleResult { idle: panes.is_idle() });
             }
+            WorkspaceWorkerCommand::RestartTerminal(restart) => {
+                let runtime = panes.restart_terminal(restart.cols, restart.rows).await?;
+                channel.ok(&restart.request_id, &panes.record_of(PaneTarget::Terminal, &runtime));
+            }
             WorkspaceWorkerCommand::Idle(request) => {
                 channel.ok(&request.request_id, &IdleResult { idle: panes.is_idle() });
             }
@@ -1352,6 +1367,7 @@ mod tests {
             json!({"type": "stop-dev", "requestId": "a"}),
             json!({"type": "start-action", "name": "n", "command": "c", "cols": 1, "rows": 1, "requestId": "a"}),
             json!({"type": "stop-action", "requestId": "a"}),
+            json!({"type": "restart-terminal", "cols": 1, "rows": 1, "requestId": "a"}),
             json!({"type": "idle", "requestId": "a"}),
             json!({"type": "shutdown", "requestId": "a"}),
         ];
@@ -1976,6 +1992,81 @@ mod tests {
                 .as_ref()
                 .is_some_and(Timer::is_pending);
             assert!(!pending);
+        });
+    }
+
+    #[test]
+    fn restarting_the_terminal_kills_what_is_stuck_in_it_and_starts_a_fresh_shell() {
+        run_local(async {
+            let mut daemon = Daemon::started().await;
+            let snapshot = json!({"type": "snapshot", "target": "terminal", "cols": 80, "rows": 24, "requestId": "s"});
+            assert_eq!(daemon.request(snapshot).await["data"]["live"], true);
+            let shell = daemon.pid(PaneTarget::Terminal);
+            // A foreground job that ignores ctrl+c and a closed terminal, as a hung command does.
+            daemon
+                .send(json!({"type": "input", "target": "terminal", "data": "sh -c 'trap \"\" HUP INT; echo stuck-$$; exec sleep 300'\r"}))
+                .await;
+            let mut seen = Vec::new();
+            let stuck = loop {
+                let update = daemon.until(|m| m["type"] == "terminal-updated", &mut seen).await;
+                let content = update["terminal"]["content"].as_str().expect("content");
+                let pid = content.split("stuck-").skip(1).find_map(|rest| {
+                    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+                    digits.parse::<i32>().ok()
+                });
+                if let Some(pid) = pid {
+                    break pid;
+                }
+            };
+            daemon
+                .send(json!({"type": "input", "target": "terminal", "data": "\u{3}"}))
+                .await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            assert!(pid_alive(stuck), "ctrl+c stopped it: nothing to restart for");
+
+            // Attached meanwhile: the attach ends with the old shell.
+            let attach = json!({"type": "attach", "target": "terminal", "cols": 80, "rows": 24, "requestId": "a"});
+            assert_eq!(daemon.request(attach).await["ok"], true);
+            let started = Instant::now();
+            let restarted = daemon
+                .request(json!({"type": "restart-terminal", "cols": 80, "rows": 24, "requestId": "r"}))
+                .await;
+            // Answered once the old shell and its job are gone, the job SIGKILLed after the grace period.
+            let waited = started.elapsed();
+            assert!(waited >= PANE_KILL_GRACE - Duration::from_millis(50), "{waited:?}");
+            assert_eq!(restarted["ok"], true, "{restarted}");
+            assert_eq!(keys(&restarted["data"]), ["content", "live", "cwd"]);
+            assert_eq!(restarted["data"]["live"], true);
+            assert!(wait_dead(stuck).await, "stuck job {stuck} survived the restart");
+            assert!(wait_dead(shell).await, "shell {shell} survived the restart");
+
+            // The fresh shell answers, and its screen starts empty.
+            let fresh = daemon.pid(PaneTarget::Terminal);
+            assert_ne!(fresh, shell);
+            daemon
+                .send(json!({"type": "input", "target": "terminal", "data": "echo fresh-$((40+2))\r"}))
+                .await;
+            let mut after = Vec::new();
+            let content = loop {
+                let update = daemon.until(|m| m["type"] == "terminal-updated", &mut after).await;
+                let content = update["terminal"]["content"].as_str().expect("content").to_owned();
+                if content.contains("fresh-42") {
+                    break content;
+                }
+            };
+            assert!(!content.contains("stuck-"), "{content}");
+            assert!(
+                after.iter().all(|m| m["type"] != "output"),
+                "still forwarded: {after:?}"
+            );
+
+            // A shell that never started (or exited) just starts.
+            daemon.worker.panes().stop(PaneTarget::Terminal).await;
+            let started = daemon
+                .request(json!({"type": "restart-terminal", "cols": 80, "rows": 24, "requestId": "r2"}))
+                .await;
+            assert_eq!(started["data"]["live"], true);
+            assert!(wait_dead(fresh).await);
         });
     }
 

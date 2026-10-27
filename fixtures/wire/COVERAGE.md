@@ -92,6 +92,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `resize` | 0 | 1 |
 | c2d | - | `resolve-merge` | 2 | 0 |
 | c2d | - | `restart` | 2 | 0 |
+| c2d | - | `restart-terminal` | 0 | 1 |
 | c2d | - | `return-task-to-note` | 2 | 0 |
 | c2d | - | `run-action` | 2 | 0 |
 | c2d | - | `save-config` | 4 | 0 |
@@ -183,6 +184,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `reorder-session` | 0 | 1 |
 | d2c | - | response `resolve-merge` | 3 | 0 |
 | d2c | - | response `restart` | 9 | 0 |
+| d2c | - | response `restart-terminal` | 0 | 1 |
 | d2c | - | response `return-task-to-note` | 1 | 0 |
 | d2c | - | response `run-action` | 1 | 0 |
 | d2c | - | response `save-config` | 2 | 0 |
@@ -223,6 +225,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2w | workspace | `idle` | 1 | 0 |
 | d2w | workspace | `input` | 1 | 0 |
 | d2w | workspace | `resize` | 0 | 1 |
+| d2w | workspace | `restart-terminal` | 0 | 1 |
 | d2w | workspace | `shutdown` | 1 | 0 |
 | d2w | workspace | `snapshot` | 1 | 0 |
 | d2w | workspace | `start-action` | 1 | 0 |
@@ -250,6 +253,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | w2d | workspace | response (failure) | 1 | 0 |
 | w2d | workspace | response `attach` | 1 | 1 |
 | w2d | workspace | response `idle` | 1 | 0 |
+| w2d | workspace | response `restart-terminal` | 0 | 1 |
 | w2d | workspace | response `shutdown` | 1 | 0 |
 | w2d | workspace | response `snapshot` | 4 | 0 |
 | w2d | workspace | response `start-action` | 1 | 0 |

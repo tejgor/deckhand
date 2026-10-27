@@ -609,7 +609,7 @@ pub struct ChangeStage {
     pub path: Loose<String>,
 }
 
-/// `start-dev`.
+/// `start-dev`; not in the TS: `restart-terminal` (without `process` and `restart`).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1025,6 +1025,8 @@ pub enum Request {
     StopDev(StopDevRequest),
     #[serde(rename = "stop-action")]
     StopAction(SessionRequest),
+    #[serde(rename = "restart-terminal")]
+    RestartTerminal(SessionSizeRequest),
     #[serde(rename = "save-note")]
     SaveNote(SaveNote),
     #[serde(rename = "open-note")]
@@ -1135,7 +1137,7 @@ request_table! {
     DeleteWorktree => "delete-worktree", WatchPreview => "watch-preview", WatchTerminal => "watch-terminal",
     WatchGit => "watch-git", WatchDev => "watch-dev", WatchAction => "watch-action", WatchChanges => "watch-changes",
     ChangesDiff => "changes-diff", ChangeStage => "change-stage", StartDev => "start-dev", StopDev => "stop-dev",
-    StopAction => "stop-action", SaveNote => "save-note", OpenNote => "open-note", WatchTasks => "watch-tasks",
+    StopAction => "stop-action", RestartTerminal => "restart-terminal", SaveNote => "save-note", OpenNote => "open-note", WatchTasks => "watch-tasks",
     TaskOp => "task-op", OpenTasks => "open-tasks", SendOpenItems => "send-open-items",
     PromoteNoteItem => "promote-note-item", ReturnTaskToNote => "return-task-to-note", TaskToNote => "task-to-note",
     ListBranches => "list-branches", Create => "create", ReorderSession => "reorder-session", Restart => "restart",
@@ -1186,7 +1188,7 @@ impl Request {
             R::WatchChanges(r) => &r.request_id,
             R::ChangesDiff(r) => &r.request_id,
             R::ChangeStage(r) => &r.request_id,
-            R::StartDev(r) => &r.request_id,
+            R::StartDev(r) | R::RestartTerminal(r) => &r.request_id,
             R::SaveNote(r) => &r.request_id,
             R::OpenNote(r) => &r.request_id,
             R::TaskOp(r) => &r.request_id,
@@ -1382,6 +1384,6 @@ mod tests {
         tags.sort_unstable();
         tags.dedup();
         assert_eq!(tags.len(), Request::TYPES.len());
-        assert_eq!(Request::TYPES.len(), 77);
+        assert_eq!(Request::TYPES.len(), 78);
     }
 }
