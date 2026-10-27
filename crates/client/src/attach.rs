@@ -51,6 +51,9 @@ pub struct AttachSessionOptions {
     pub theme: ThemeMode,
     /// Not in the TS: the Dev process to attach to (`devCommand` as a map); `None` is the first.
     pub dev_process: Option<String>,
+    /// Not in the TS: the Terminal's shell to attach to (by id) and its label on the status line (`shell 2`);
+    /// `None` is the first.
+    pub shell: Option<(i64, String)>,
     /// Not in the TS: the session's full title (a sub-session's `parent / child`) on the status line (default:
     /// `title`).
     pub status_title: Option<String>,
@@ -1024,6 +1027,14 @@ pub(crate) async fn run_attach<C: Console, S: AsyncRead + AsyncWrite + Unpin>(
             Some(match (status_pane_label(target), options.dev_process.as_deref()) {
                 // Which of Dev's named processes this is.
                 (Some(pane), Some(process)) if target == AttachTarget::Dev => line.on_pane(format!("{pane} {process}")),
+                // Which of the Terminal's shells this is.
+                (Some(_), _) if target == AttachTarget::Terminal && options.shell.is_some() => line.on_pane(
+                    options
+                        .shell
+                        .as_ref()
+                        .map(|(_, label)| label.clone())
+                        .unwrap_or_default(),
+                ),
                 (Some(pane), _) => line.on_pane(pane),
                 (None, _) => line,
             })
@@ -1077,6 +1088,9 @@ impl<C: Console> Proxy<'_, C> {
                 rows: Some(self.pty_rows()),
                 process: (self.target == AttachTarget::Dev)
                     .then(|| self.options.dev_process.clone())
+                    .flatten(),
+                shell: (self.target == AttachTarget::Terminal)
+                    .then(|| self.options.shell.as_ref().map(|(id, _)| *id))
                     .flatten(),
             },
         );
@@ -1238,6 +1252,7 @@ impl<C: Console> Proxy<'_, C> {
             Input {
                 session_id: self.session_id.to_owned(),
                 data: normalized.into(),
+                shell: None,
             },
         );
         self.outgoing.push(&message).err().map(Err)
@@ -1395,6 +1410,7 @@ mod tests {
                     cols: Some(80),
                     rows: Some(24),
                     process: None,
+                    shell: None,
                 },
             );
             assert_eq!(
@@ -1406,6 +1422,7 @@ mod tests {
                 Input {
                     session_id: "s".into(),
                     data: "x".into(),
+                    shell: None,
                 },
             );
             assert_eq!(serde_json::to_value(&input).unwrap()["type"], names.input);
@@ -1738,6 +1755,7 @@ mod tests {
             scroll_sensitivity: Some(1.0),
             theme: ThemeMode::Terminal,
             dev_process: None,
+            shell: None,
             status_title: Some(String::from("Parent / Fix bug")),
             status_scope: StatusScope::default(),
         };

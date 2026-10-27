@@ -49,7 +49,7 @@ use deckhand_sys::desktop::resolve_terminal_editor;
 
 use crate::app::event_loop::UiModel;
 use crate::app::layout::{AppLayout, app_layout};
-use crate::app::modes::action_picker::DevProcessRow;
+use crate::app::modes::action_picker::{DevProcessRow, ShellRow};
 use crate::app::state::{
     App, AppAction, AppCallback, AppProps, CleanupCheck, Mode, Review, ReviewLabels, ReviewSkip, WorkspaceInfo,
     empty_pane, empty_preview,
@@ -65,7 +65,7 @@ use crate::input::{KeyEvent, terminal_input};
 use crate::panes::details::{details_viewport, scroll_details};
 use crate::panes::dev::{dev_processes, selected_process_index};
 use crate::panes::help::HelpOutcome;
-use crate::panes::terminal::{TerminalView, has_action};
+use crate::panes::terminal::{TerminalView, has_action, shell_label, shells, shown_shell};
 use crate::theme::THEME;
 
 /// TS: app.tsx RIGHT_TABS (Tab / ] order).
@@ -765,6 +765,32 @@ impl App {
             .collect()
     }
 
+    /// Not in the TS: the run list's shell rows: the worktree's shells when the Terminal record shown is the
+    /// selected session's, else just the first.
+    pub fn run_list_shells(&self) -> Vec<ShellRow> {
+        if !self.run_list_has_dev() {
+            return Vec::new();
+        }
+        let selected = self.selected_id_ref();
+        let terminal = &self.panes.terminal;
+        if terminal.session_id.is_none() || terminal.session_id != selected {
+            return vec![ShellRow {
+                id: 0,
+                label: "Shell".to_owned(),
+            }];
+        }
+        shells(terminal)
+            .into_iter()
+            .map(|shell| {
+                let label = shell_label(terminal, shell.id);
+                ShellRow {
+                    id: shell.id,
+                    label: format!("S{}", &label[1..]),
+                }
+            })
+            .collect()
+    }
+
     /// TS `activePaneReadyForAttach`.
     pub fn active_pane_ready_for_attach(&self) -> bool {
         let Some(session) = self.selected_session() else {
@@ -920,6 +946,10 @@ impl App {
         let process = (target == AttachTarget::Dev)
             .then(|| self.selected_dev_process().map(|process| process.name.clone()))
             .flatten();
+        // Not in the TS: the Terminal attaches the shell shown (the first one sends nothing new).
+        let shell = (target == AttachTarget::Terminal)
+            .then(|| shown_shell(&self.panes.terminal, self.panes.terminal_view))
+            .filter(|shell| *shell != 0);
         self.exit_with(UiExitResult::Attach {
             session_id: session.id.clone(),
             target,
@@ -927,6 +957,8 @@ impl App {
             cwd: Some(session.cwd.clone()),
             program: Some(session.program),
             process,
+            shell,
+            shell_label: shell.map(|shell| shell_label(&self.panes.terminal, shell)),
             status_title: Some(session.title.clone()),
         });
     }
@@ -1275,8 +1307,8 @@ impl App {
                     self.set_mode(Mode::Browse);
                 }
             }
-            // Its keys go to the agent before they get here (`on_key`).
-            Mode::PreviewFocus => {}
+            // Their keys go to the agent or the shell before they get here (`on_key`).
+            Mode::PreviewFocus | Mode::TerminalFocus => {}
             Mode::Tasks => self.tasks_flow_call(|flow, props, cx| flow.handle_input(props, input, cx)),
             Mode::Worktrees => self.worktrees_flow_call(|flow, props, cx| flow.handle_input(props, input, cx)),
             Mode::ConfirmRemove => confirm::handle_confirm_remove(self, input),
@@ -1465,7 +1497,7 @@ impl UiModel for App {
     /// TS: useTerminalInput (releases dropped, the key normalised) → [`App::handle_input`]. In preview focus every key
     /// goes to the agent instead, before Ctrl+C or the busy gate see it.
     fn on_key(&mut self, event: &KeyEvent) {
-        if self.mode == Mode::PreviewFocus {
+        if self.mode.types_into_pane() {
             self.dismiss_notice();
             crate::app::modes::preview_focus::on_raw_key(self, event);
             return;
@@ -1496,7 +1528,7 @@ impl UiModel for App {
 
     /// Not in the TS: while you type to the agent its output is drawn at about 60 frames a second, not Ink's 30.
     fn render_throttle(&self) -> Option<std::time::Duration> {
-        (self.mode == Mode::PreviewFocus).then_some(PREVIEW_FOCUS_RENDER_THROTTLE)
+        self.mode.types_into_pane().then_some(PREVIEW_FOCUS_RENDER_THROTTLE)
     }
 
     fn exit(&mut self) -> Option<UiExitResult> {
@@ -1835,6 +1867,8 @@ mod tests {
                 cwd: Some("/repo".to_owned()),
                 program: Some(ProgramKey::Claude),
                 process: None,
+                shell: None,
+                shell_label: None,
                 status_title: Some("Alpha".to_owned()),
             })
         );

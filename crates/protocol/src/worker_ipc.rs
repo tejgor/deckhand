@@ -42,6 +42,8 @@ pub struct PaneAttach {
     pub rows: i64,
     /// Not in the TS: the Dev process to attach to (by name); absent is the first.
     pub process: Option<String>,
+    /// Not in the TS: the shell to attach to (by id); absent is the first.
+    pub shell: Option<i64>,
     pub request_id: String,
 }
 
@@ -58,6 +60,8 @@ pub struct PaneDetach {
 pub struct PaneInput {
     pub target: AttachTarget,
     pub data: String,
+    /// Not in the TS: the shell typed into (by id); absent is the attached one, else the first.
+    pub shell: Option<i64>,
 }
 
 /// `resize`: the attached terminal's size (no response).
@@ -69,13 +73,15 @@ pub struct PaneResize {
     pub rows: i64,
 }
 
-/// Not in the TS: session worker `preview-mode` — whether preview broadcasts carry the styled `screen` and come at
-/// typing pace, while a UI types to the agent in its Preview (no response).
+/// Not in the TS: `preview-mode` — whether updates carry the styled `screen` and come at typing pace, while a UI
+/// types into the pane (no response). Session worker: the agent's Preview; workspace worker: one shell (`shell`, by
+/// id) of the Terminal.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PreviewMode {
     pub target: AttachTarget,
     pub styled: bool,
+    pub shell: Option<i64>,
 }
 
 /// Session worker `start`: spawn the agent PTY for `session` (answered with the session, now running).
@@ -188,14 +194,26 @@ pub struct StartAction {
     pub request_id: String,
 }
 
-/// Not in the TS: workspace worker `restart-terminal`: stops the shell and everything running in it, then starts a
-/// fresh `$SHELL` (answered with its record).
+/// Not in the TS: workspace worker `restart-terminal`: stops a shell (`shell`, by id; absent: the first) and
+/// everything running in it, then starts a fresh `$SHELL`; and `new-terminal` (no `shell`), another shell. Both are
+/// answered with the Terminal's record.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestartTerminal {
     pub cols: i64,
     pub rows: i64,
+    pub shell: Option<i64>,
+    pub request_id: String,
+}
+
+/// Not in the TS: workspace worker `close-terminal`: stops an extra shell (by id), answered with the Terminal's
+/// record.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloseTerminal {
+    pub shell: i64,
     pub request_id: String,
 }
 
@@ -233,6 +251,12 @@ pub enum WorkspaceWorkerCommand {
     StopAction(WorkerRequestOnly),
     #[serde(rename = "restart-terminal")]
     RestartTerminal(RestartTerminal),
+    #[serde(rename = "new-terminal")]
+    NewTerminal(RestartTerminal),
+    #[serde(rename = "close-terminal")]
+    CloseTerminal(CloseTerminal),
+    #[serde(rename = "preview-mode")]
+    PreviewMode(PreviewMode),
     #[serde(rename = "idle")]
     Idle(WorkerRequestOnly),
     #[serde(rename = "shutdown")]
@@ -252,6 +276,9 @@ impl WorkspaceWorkerCommand {
         "start-action",
         "stop-action",
         "restart-terminal",
+        "new-terminal",
+        "close-terminal",
+        "preview-mode",
         "idle",
         "shutdown",
     ];
@@ -410,7 +437,7 @@ pub enum WorkerResponseData {
     Idle(IdleResult),
     /// Agent `snapshot`.
     Preview(PreviewRecord),
-    /// Pane `snapshot`, `start-dev`, `start-action`, `restart-terminal`.
+    /// Pane `snapshot`, `start-dev`, `start-action`, `restart-terminal`, `new-terminal`, `close-terminal`.
     Pane(Ordered<PaneRecord>),
     /// `attach` (either kind).
     Attach(Box<Ordered<AttachSnapshot>>),
@@ -424,9 +451,10 @@ impl WorkerResponseData {
             (false, "start") => WorkerResponseData::Session(Box::new(from(data)?)),
             (false, "kill") | (true, "start" | "shutdown") => WorkerResponseData::Ok(from(data)?),
             (false, "snapshot") => WorkerResponseData::Preview(from(data)?),
-            (true, "snapshot" | "start-dev" | "start-action" | "restart-terminal") => {
-                WorkerResponseData::Pane(from(data)?)
-            }
+            (
+                true,
+                "snapshot" | "start-dev" | "start-action" | "restart-terminal" | "new-terminal" | "close-terminal",
+            ) => WorkerResponseData::Pane(from(data)?),
             (_, "attach") => WorkerResponseData::Attach(Box::new(from(data)?)),
             (true, "stop-dev" | "stop-action" | "idle") => WorkerResponseData::Idle(from(data)?),
             (_, other) => return Err(DecodeError::UnknownRequest(other.to_owned())),

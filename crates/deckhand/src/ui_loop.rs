@@ -285,6 +285,8 @@ pub async fn run_ui_loop() -> Result<(), DhError> {
                 target,
                 title,
                 process,
+                shell,
+                shell_label,
                 status_title,
                 ..
             }) => {
@@ -292,7 +294,11 @@ pub async fn run_ui_loop() -> Result<(), DhError> {
                     dev_process.clone_from(&process);
                 }
                 let title = title.as_deref();
-                hand_off_attach(&ui_state, &repo_root, &session_id, target, title, status_title, process).await;
+                let pane = AttachPane {
+                    process,
+                    shell: shell.map(|shell| (shell, shell_label.unwrap_or_default())),
+                };
+                hand_off_attach(&ui_state, &repo_root, &session_id, target, title, status_title, pane).await;
             }
             Some(UiExitResult::EditNote {
                 session_id,
@@ -347,6 +353,14 @@ fn write_stderr(text: &str) {
     let _ = stderr.flush();
 }
 
+/// Not in the TS: which part of a workspace pane an attach is on: one of Dev's named processes, or one of the
+/// Terminal's shells (by id, with its status-line label).
+#[derive(Clone, Debug, Default)]
+pub struct AttachPane {
+    pub process: Option<String>,
+    pub shell: Option<(i64, String)>,
+}
+
 /// TS: cli.ts the `attach` hand-off: records the selection, clears the screen, attaches with the configured scroll
 /// sensitivity; only attaching to the agent marks its reply read (in the daemon). A failure prints `\nattach failed: <message>\n`
 /// on stderr and pauses [`HAND_OFF_ERROR_PAUSE`]. Clears the screen again on the way back. The status line shows
@@ -359,7 +373,7 @@ pub async fn hand_off_attach(
     target: AttachTarget,
     title: Option<&str>,
     status_title: Option<String>,
-    process: Option<String>,
+    pane: AttachPane,
 ) {
     record_attach(&mut ui_state.borrow_mut(), session_id, target);
     clear_terminal_screen();
@@ -372,7 +386,8 @@ pub async fn hand_off_attach(
             title: title.map(str::to_owned),
             scroll_sensitivity: config.scroll_speed.map(|value| value.0),
             theme: theme_mode(config.theme.as_deref()),
-            dev_process: process,
+            dev_process: pane.process,
+            shell: pane.shell,
             status_title,
             status_scope,
         };
@@ -617,13 +632,13 @@ mod tests {
                 listener(RightPaneTab::Dev);
             }
             if let Some(listener) = &props.callbacks.on_terminal_view_change {
-                listener(TerminalView::Shell);
+                listener(TerminalView::Shell(0));
             }
             if let Some(listener) = &props.callbacks.on_collapsed_task_steps_change {
                 listener(&["t2".to_owned()]);
             }
             assert_eq!(ui_state.borrow().active_tab, Some(RightPaneTab::Dev));
-            assert_eq!(round_trip.terminal_view.get(), TerminalView::Shell);
+            assert_eq!(round_trip.terminal_view.get(), TerminalView::Shell(0));
             assert_eq!(*round_trip.collapsed_task_steps.borrow(), ["t2"]);
             assert!(saver.timer.borrow().as_ref().is_some_and(Timer::is_pending));
             saver.cancel();

@@ -1,6 +1,7 @@
 //! Preview focus (→ on a running session's Preview): typing to the agent in place. Every key goes to the agent as
 //! the terminal sent it, until Ctrl+] or Ctrl+Space; the mouse wheel scrolls the preview, or a fullscreen agent's
-//! own view. Also the changes-/notes-focus hand-off to their flows.
+//! own view. Terminal focus (→ on the Terminal tab) types into the shell shown the same way. Also the changes-/
+//! notes-focus hand-off to their flows.
 
 use std::time::Instant;
 
@@ -9,7 +10,8 @@ use deckhand_core::display::display_session_title;
 use deckhand_core::key::{Input, KeyEventType};
 use deckhand_core::session_features::session_has_unread_reply;
 use deckhand_core::terminal_keys::application_cursor_key;
-use deckhand_protocol::data::SessionStatus;
+use deckhand_protocol::data::{RightPaneTab, SessionStatus};
+use deckhand_protocol::screen::ScreenModes;
 
 use crate::app::event_loop::is_mouse_report;
 use crate::app::state::{App, Mode};
@@ -17,8 +19,9 @@ use crate::app::{WheelDirection, mouse_wheel_sequence, parse_mouse_wheel};
 use crate::flow::Flow;
 use crate::input::KeyEvent;
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap};
+use crate::panes::terminal::{TerminalView, shells, shown_shell};
 
-/// Preview focus keys: everything else goes to the agent.
+/// Preview and terminal focus keys: everything else goes to the agent or the shell.
 pub static KEYMAP: Keymap = &[Binding {
     keys: &[KeySpec::Ctrl("]")],
     action: "back to the session list",
@@ -29,22 +32,16 @@ pub static KEYMAP: Keymap = &[Binding {
 const PASTE_START: &str = "\x1b[200~";
 const PASTE_END: &str = "\x1b[201~";
 
-/// One key event in preview focus, before any of Deckhand's own key handling (Ctrl+C included goes to the agent):
-/// sent to the agent as the terminal sent it, one `input` per event, so the daemon sees a lone Esc, Enter or digit
-/// as an answer. Ctrl+] or Ctrl+Space (outside a paste) sends what came before it and leaves.
+/// One key event in preview or terminal focus, before any of Deckhand's own key handling (Ctrl+C included goes to
+/// the agent or shell): sent as the terminal sent it, one `input` per event, so the daemon sees a lone Esc, Enter or
+/// digit as an answer. Ctrl+] or Ctrl+Space (outside a paste) sends what came before it and leaves.
 pub fn on_raw_key(app: &mut App, event: &KeyEvent) {
     let sequence = event.sequence.as_str();
     // The wheel arrives through `on_mouse_data`; clicks and motion are not forwarded.
     if is_mouse_report(sequence) || event.input.key.event_type == Some(KeyEventType::Release) {
         return;
     }
-    let modes = app
-        .panes
-        .preview
-        .screen
-        .as_ref()
-        .map(|screen| screen.modes)
-        .unwrap_or_default();
+    let modes = typed_modes(app);
     if sequence == PASTE_START || sequence == PASTE_END {
         app.preview_focus.in_paste = sequence == PASTE_START;
         if modes.bracketed_paste {
@@ -71,11 +68,27 @@ pub fn on_raw_key(app: &mut App, event: &KeyEvent) {
     send_to_agent(app, data);
 }
 
-/// Keys for the focused agent: the preview follows the latest output again.
+/// The input modes of what the keys go to (the agent's screen, or the shell's).
+fn typed_modes(app: &App) -> ScreenModes {
+    let screen = match app.preview_focus.shell {
+        Some(id) if app.mode == Mode::TerminalFocus => shells(&app.panes.terminal)
+            .into_iter()
+            .find(|shell| shell.id == id)
+            .and_then(|shell| shell.screen),
+        _ => app.panes.preview.screen.as_ref(),
+    };
+    screen.map(|screen| screen.modes).unwrap_or_default()
+}
+
+/// Keys for the focused agent (the preview follows the latest output again) or shell.
 fn send_to_agent(app: &mut App, data: &str) {
     let (Some(client), Some(session_id)) = (app.client(), app.preview_focus.session_id.clone()) else {
         return;
     };
+    if app.mode == Mode::TerminalFocus {
+        client.send_shell_input(&session_id, app.preview_focus.shell.unwrap_or(0), data);
+        return;
+    }
     app.preview_focus.scroll_offset = 0;
     client.send_agent_input(&session_id, data);
 }
@@ -83,13 +96,16 @@ fn send_to_agent(app: &mut App, data: &str) {
 /// Back to the session list, with `status` if given. A reply the agent finished while you typed to it was read, as
 /// after detaching from it.
 pub fn leave_focus(app: &mut App, status: Option<String>) {
+    let typed_to_agent = app.mode == Mode::PreviewFocus;
     app.set_mode(Mode::Browse);
     app.preview_focus.in_paste = false;
+    app.preview_focus.shell = None;
     app.panes.preview.screen = None;
     if status.is_some() {
         app.set_status(status);
     }
-    let Some(session_id) = app.preview_focus.session_id.take() else {
+    let session_id = app.preview_focus.session_id.take();
+    let Some(session_id) = session_id.filter(|_| typed_to_agent) else {
         return;
     };
     let unread = app
@@ -107,9 +123,10 @@ pub fn leave_focus(app: &mut App, status: Option<String>) {
 }
 
 /// Not in the TS: preview focus ends by itself when its session stops running, the selection moves to another
-/// session, or the connection to the daemon goes (its error is shown already).
+/// session, or the connection to the daemon goes (its error is shown already); terminal focus when its shell is gone
+/// or no longer shown.
 pub fn interactive_focus_effect(app: &mut App) {
-    if app.mode != Mode::PreviewFocus {
+    if !app.mode.types_into_pane() {
         return;
     }
     if app.client().is_none() {
@@ -124,9 +141,33 @@ pub fn interactive_focus_effect(app: &mut App) {
         leave_focus(app, None);
         return;
     };
+    if app.mode == Mode::TerminalFocus {
+        shell_focus_effect(app);
+        return;
+    }
     if session.status != SessionStatus::Running {
         let title = display_session_title(&session, &app.sessions());
         leave_focus(app, Some(format!("{title} exited; back to the session list")));
+    }
+}
+
+/// [`interactive_focus_effect`] of terminal focus: its shell must still run and be the one shown.
+fn shell_focus_effect(app: &mut App) {
+    let id = app.preview_focus.shell.unwrap_or(0);
+    let terminal = &app.panes.terminal;
+    if app.browse.active_tab != RightPaneTab::Terminal || app.panes.terminal_view == TerminalView::Action {
+        leave_focus(app, None);
+        return;
+    }
+    let mine = terminal.session_id == app.preview_focus.session_id;
+    let running = shells(terminal).iter().any(|shell| shell.id == id && shell.live);
+    if mine && (!running || shown_shell(terminal, app.panes.terminal_view) != id) {
+        let status = if running {
+            None
+        } else {
+            Some("The shell exited; back to the session list".to_owned())
+        };
+        leave_focus(app, status);
     }
 }
 
@@ -206,7 +247,7 @@ pub(crate) mod tests {
     use std::sync::Mutex;
 
     use deckhand_core::wheel::WheelScaler;
-    use deckhand_protocol::data::{ProgramKey, SessionAttention, SessionStatus};
+    use deckhand_protocol::data::{ProgramKey, RightPaneTab, SessionAttention, SessionStatus};
     use deckhand_protocol::screen::{PreviewScreen, ScreenModes};
     use serde_json::json;
 
@@ -381,6 +422,83 @@ pub(crate) mod tests {
         let (mut app, _rx) = focused();
         interactive_focus_effect(&mut app);
         assert_eq!(app.mode, Mode::Browse);
+    }
+
+    /// An app typing into shell 2 of s0's worktree, on the Terminal tab.
+    fn typing_into_a_shell() -> (
+        App,
+        tokio::sync::mpsc::UnboundedReceiver<crate::app::event_loop::Update<App>>,
+    ) {
+        let (mut app, rx) = with_sessions(1);
+        app.set_active_tab(RightPaneTab::Terminal);
+        app.panes.terminal = serde_json::from_value(json!({
+            "content": "$ ", "live": true, "sessionId": "s0", "workspace": "/repo",
+            "shells": [
+                {"id": 0, "content": "$ ", "live": true},
+                {"id": 2, "content": "$ ", "live": true,
+                 "screen": {"lines": [], "modes": {"bracketedPaste": true, "applicationCursorKeys": false, "mouseTracking": false}}},
+            ],
+        }))
+        .unwrap_or_else(|error| panic!("{error}"));
+        app.panes.terminal_view = TerminalView::Shell(2);
+        app.set_mode(Mode::TerminalFocus);
+        app.preview_focus.session_id = Some("s0".to_owned());
+        app.preview_focus.shell = Some(2);
+        (app, rx)
+    }
+
+    #[test]
+    fn keys_typed_into_a_shell_go_to_it_and_leaving_reads_no_reply() {
+        local(async {
+            let (mut app, _rx) = typing_into_a_shell();
+            let mut daemon = Daemon::connect(&mut app);
+            reply_ended(&mut app);
+            for sequence in ["\x1b", "ls\r", "\x03"] {
+                key(&mut app, sequence);
+                assert_eq!(
+                    daemon.next().await,
+                    json!({"type": "terminal-input", "sessionId": "s0", "data": sequence, "shell": 2})
+                );
+            }
+            // The shell's own modes decide the paste markers.
+            key(&mut app, PASTE_START);
+            assert_eq!(daemon.next().await["data"], PASTE_START);
+            key(&mut app, PASTE_END);
+            daemon.next().await;
+            key(&mut app, "x\x1d");
+            assert_eq!(daemon.next().await["data"], "x");
+            assert_eq!(app.mode, Mode::Browse);
+            assert_eq!(app.preview_focus.shell, None);
+            // Typing into a shell reads no reply: nothing more was sent.
+            key(&mut app, "z");
+            app.client()
+                .unwrap_or_else(|| panic!("client"))
+                .send_agent_input("s0", "probe");
+            assert_eq!(daemon.next().await["data"], "probe");
+        });
+    }
+
+    #[test]
+    fn terminal_focus_ends_when_its_shell_goes_or_is_not_shown() {
+        local(async {
+            let (mut app, _rx) = typing_into_a_shell();
+            let _daemon = Daemon::connect(&mut app);
+            interactive_focus_effect(&mut app);
+            assert_eq!(app.mode, Mode::TerminalFocus);
+            app.panes.terminal.shells = None;
+            interactive_focus_effect(&mut app);
+            assert_eq!(app.mode, Mode::Browse);
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("The shell exited; back to the session list")
+            );
+
+            let (mut app, _rx) = typing_into_a_shell();
+            let _daemon = Daemon::connect(&mut app);
+            app.panes.terminal_view = TerminalView::Action;
+            interactive_focus_effect(&mut app);
+            assert_eq!(app.mode, Mode::Browse);
+        });
     }
 
     #[test]

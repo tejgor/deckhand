@@ -23,7 +23,8 @@ use tokio::sync::watch;
 
 use deckhand_core::error::DhError;
 use deckhand_core::jsstr::js_trim;
-use deckhand_protocol::data::{AttachSnapshot, AttachTarget, DevProcessRecord, OkResult, PaneRecord};
+use deckhand_protocol::data::{AttachSnapshot, AttachTarget, DevProcessRecord, OkResult, PaneRecord, ShellRecord};
+use deckhand_protocol::screen::PreviewScreen;
 use deckhand_protocol::worker_ipc::{
     DevProcessSpec, IdleResult, PaneAttach, PaneDetach, PaneInput, PaneResize, Snapshot, StartDev, WorkerActionUpdated,
     WorkerDevUpdated, WorkerGitUpdated, WorkerOutput, WorkerTerminalUpdated,
@@ -36,8 +37,8 @@ use deckhand_sys::storage::load_app_config;
 
 use crate::channel::{ChannelReader, WireRole, WorkerChannel};
 use crate::session::{
-    DEFAULT_COLS, DEFAULT_ROWS, EXIT_DELAY, PREVIEW_BROADCAST_DELAY, RuntimePty, SharedRuntime, pump_pty,
-    shell_command, signal_pty_process, size, spawn_pty, update_terminal_modes,
+    DEFAULT_COLS, DEFAULT_ROWS, EXIT_DELAY, RuntimePty, SharedRuntime, broadcast_delay, pump_pty, shell_command,
+    signal_pty_process, size, spawn_pty, update_terminal_modes,
 };
 
 /// TS: sessionWorker.ts PANE_KILL_GRACE_MS: SIGKILL follows a pane stop's SIGHUP after 2 s.
@@ -54,9 +55,12 @@ pub const LAZYGIT_MISSING: &str = "lazygit is not installed or not on PATH";
 ///
 /// Not in the TS: Dev carries the index of its process. A single Dev command is `Dev(0)`; named processes (`devCommand` as a map)
 /// are `Dev(0)`, `Dev(1)`, ... in their configured order, all shown and attached as the one Dev pane.
+///
+/// Not in the TS: Terminal carries the id of its shell. The first shell is `Terminal(0)`; extra ones (`new-terminal`)
+/// get the next unused id and keep it while they run, all shown and attached as the one Terminal pane.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PaneTarget {
-    Terminal,
+    Terminal(u8),
     Git,
     Dev(u8),
     Action,
@@ -66,7 +70,7 @@ impl PaneTarget {
     /// The attach target this pane is.
     pub fn attach_target(self) -> AttachTarget {
         match self {
-            PaneTarget::Terminal => AttachTarget::Terminal,
+            PaneTarget::Terminal(_) => AttachTarget::Terminal,
             PaneTarget::Git => AttachTarget::Git,
             PaneTarget::Dev(_) => AttachTarget::Dev,
             PaneTarget::Action => AttachTarget::Action,
@@ -78,11 +82,16 @@ impl PaneTarget {
         matches!(self, PaneTarget::Dev(_))
     }
 
+    /// Not in the TS: whether this is one of the Terminal's shells.
+    pub fn is_terminal(self) -> bool {
+        matches!(self, PaneTarget::Terminal(_))
+    }
+
     /// The pane an attach target names (`None` for `agent`).
     pub fn from_attach_target(target: AttachTarget) -> Option<PaneTarget> {
         match target {
             AttachTarget::Agent => None,
-            AttachTarget::Terminal => Some(PaneTarget::Terminal),
+            AttachTarget::Terminal => Some(PaneTarget::Terminal(0)),
             AttachTarget::Git => Some(PaneTarget::Git),
             AttachTarget::Dev => Some(PaneTarget::Dev(0)),
             AttachTarget::Action => Some(PaneTarget::Action),
@@ -98,7 +107,7 @@ impl PaneTarget {
 /// TS: sessionWorker.ts WORKSPACE_PANES: the companion panes a workspace worker hosts. `action` is the last action
 /// run (shown on the Terminal tab), a PTY of its own so it never touches the shell or Dev.
 pub const WORKSPACE_PANES: &[PaneTarget] = &[
-    PaneTarget::Terminal,
+    PaneTarget::Terminal(0),
     PaneTarget::Git,
     PaneTarget::Dev(0),
     PaneTarget::Action,
@@ -106,6 +115,12 @@ pub const WORKSPACE_PANES: &[PaneTarget] = &[
 
 /// Refused when Dev runs something else than what is asked for.
 const STOP_DEV_FIRST: &str = "Stop the current Dev command before starting another";
+
+/// Not in the TS: how many shells a worktree's Terminal runs at most (`new-terminal` refuses more).
+pub const MAX_SHELLS: usize = 4;
+
+/// Not in the TS: a request named an extra shell that is not running (any more).
+const SHELL_GONE: &str = "That shell is gone (it exited or was closed)";
 
 /// TS: sessionWorker.ts PaneCommand: the pane commands shared by both worker kinds.
 #[derive(Clone, Debug, PartialEq)]
@@ -140,13 +155,17 @@ pub fn request_id(command: &WorkspaceWorkerCommand) -> Option<&str> {
         WorkspaceWorkerCommand::StartDev(start) => Some(&start.request_id),
         WorkspaceWorkerCommand::StartAction(start) => Some(&start.request_id),
         WorkspaceWorkerCommand::StopDev(request) => Some(&request.request_id),
-        WorkspaceWorkerCommand::RestartTerminal(restart) => Some(&restart.request_id),
+        WorkspaceWorkerCommand::RestartTerminal(restart) | WorkspaceWorkerCommand::NewTerminal(restart) => {
+            Some(&restart.request_id)
+        }
+        WorkspaceWorkerCommand::CloseTerminal(close) => Some(&close.request_id),
         WorkspaceWorkerCommand::StopAction(request)
         | WorkspaceWorkerCommand::Idle(request)
         | WorkspaceWorkerCommand::Shutdown(request) => Some(&request.request_id),
-        WorkspaceWorkerCommand::Detach(_) | WorkspaceWorkerCommand::Input(_) | WorkspaceWorkerCommand::Resize(_) => {
-            None
-        }
+        WorkspaceWorkerCommand::Detach(_)
+        | WorkspaceWorkerCommand::Input(_)
+        | WorkspaceWorkerCommand::Resize(_)
+        | WorkspaceWorkerCommand::PreviewMode(_) => None,
     }
 }
 
@@ -169,7 +188,7 @@ pub async fn lazy_git_command() -> Result<String, DhError> {
 /// TS: sessionWorker.ts paneUpdated: `terminal-updated` / `git-updated` / `action-updated` / `dev-updated`.
 pub fn pane_updated(target: PaneTarget, record: Ordered<PaneRecord>) -> WorkerMessage {
     match target {
-        PaneTarget::Terminal => WorkerMessage::TerminalUpdated(WorkerTerminalUpdated { terminal: record }),
+        PaneTarget::Terminal(_) => WorkerMessage::TerminalUpdated(WorkerTerminalUpdated { terminal: record }),
         PaneTarget::Git => WorkerMessage::GitUpdated(WorkerGitUpdated { git: record }),
         PaneTarget::Action => WorkerMessage::ActionUpdated(WorkerActionUpdated { action: record }),
         PaneTarget::Dev(_) => WorkerMessage::DevUpdated(WorkerDevUpdated { dev: record }),
@@ -208,6 +227,12 @@ struct PaneHostInner {
     attached: RefCell<HashSet<PaneTarget>>,
     /// Not in the TS: the named Dev processes last started (`Dev(i)` runs the i-th); `None` for a single Dev command.
     dev_processes: RefCell<Option<Vec<DevProcessSpec>>>,
+    /// Not in the TS: the id the next extra shell gets (ids are not reused while the worker lives, so one names the
+    /// same shell for as long as it runs).
+    next_shell: Cell<u8>,
+    /// Not in the TS: the shells a UI types into (`preview-mode`): their updates carry the styled screen and come at
+    /// typing pace.
+    styled_shells: RefCell<HashSet<u8>>,
 }
 
 impl PaneHost {
@@ -229,6 +254,8 @@ impl PaneHost {
                 start_promises: KeyedSharedSlot::new(),
                 attached: RefCell::new(HashSet::new()),
                 dev_processes: RefCell::new(None),
+                next_shell: Cell::new(1),
+                styled_shells: RefCell::new(HashSet::new()),
             }),
         }
     }
@@ -282,23 +309,174 @@ impl PaneHost {
 
     /// TS: PaneHost.ensureTerminal: the live shell (resized), or a fresh `$SHELL` after stopping an exited one.
     pub async fn ensure_terminal(&self, cols: i64, rows: i64) -> Result<SharedRuntime, DhError> {
-        if let Some(existing) = self.live(PaneTarget::Terminal) {
+        if let Some(existing) = self.live(PaneTarget::Terminal(0)) {
             return Ok(PaneHost::resize_runtime(&existing, cols, rows));
         }
-        drop(self.stop(PaneTarget::Terminal));
-        let command = shell_command();
-        let cwd = self.cwd()?;
-        self.spawn_pane(PaneTarget::Terminal, &command, &[], &cwd, cols, rows, None)
+        drop(self.stop(PaneTarget::Terminal(0)));
+        self.spawn_shell(0, cols, rows)
     }
 
-    /// Not in the TS: stops the shell as [`PaneHost::stop`] does (everything running in it included, SIGKILLed after
-    /// the grace period) and, once it is gone, starts a fresh `$SHELL`. A view meanwhile may have started one: that is
-    /// the fresh shell then. The attach ends with the old shell (the daemon detached its client), so the fresh one's
-    /// output is not forwarded until someone attaches again.
-    pub async fn restart_terminal(&self, cols: i64, rows: i64) -> Result<SharedRuntime, DhError> {
-        self.inner.attached.borrow_mut().remove(&PaneTarget::Terminal);
-        self.stop(PaneTarget::Terminal).await;
-        self.ensure_terminal(cols, rows).await
+    /// Not in the TS: a fresh `$SHELL` as shell `id`.
+    fn spawn_shell(&self, id: u8, cols: i64, rows: i64) -> Result<SharedRuntime, DhError> {
+        let command = shell_command();
+        let cwd = self.cwd()?;
+        self.spawn_pane(PaneTarget::Terminal(id), &command, &[], &cwd, cols, rows, None)
+    }
+
+    /// Not in the TS: stops shell `id` as [`PaneHost::stop`] does (everything running in it included, SIGKILLed after
+    /// the grace period) and, once it is gone, starts a fresh `$SHELL` under the same id. A view meanwhile may have
+    /// started the first one again: that is the fresh shell then. The attach ends with the old shell (the daemon
+    /// detached its client), so the fresh one's output is not forwarded until someone attaches again.
+    pub async fn restart_terminal(&self, id: u8, cols: i64, rows: i64) -> Result<Ordered<PaneRecord>, DhError> {
+        let target = PaneTarget::Terminal(id);
+        if id != 0 && self.pane(target).is_none() {
+            return Err(DhError::msg(SHELL_GONE));
+        }
+        self.inner.attached.borrow_mut().remove(&target);
+        self.stop(target).await;
+        if id == 0 {
+            self.ensure_terminal(cols, rows).await?;
+        } else if self.live(target).is_none() {
+            self.spawn_shell(id, cols, rows)?;
+        }
+        Ok(self.terminal_record())
+    }
+
+    /// Not in the TS: another shell in the worktree (the first started too if it is not running), at most
+    /// [`MAX_SHELLS`].
+    pub async fn new_terminal(&self, cols: i64, rows: i64) -> Result<Ordered<PaneRecord>, DhError> {
+        self.hosted(AttachTarget::Terminal)?;
+        if self.shell_targets().len() >= MAX_SHELLS {
+            return Err(DhError::msg(format!(
+                "A worktree runs at most {MAX_SHELLS} shells: close one first (r, then x on it)"
+            )));
+        }
+        self.ensure_terminal(cols, rows).await?;
+        let id = self.take_shell_id()?;
+        self.spawn_shell(id, cols, rows)?;
+        Ok(self.terminal_record())
+    }
+
+    /// Not in the TS: the next unused shell id (from [`PaneHostInner::next_shell`], wrapping past 255).
+    fn take_shell_id(&self) -> Result<u8, DhError> {
+        let start = self.inner.next_shell.get().max(1);
+        let mut id = start;
+        loop {
+            if self.pane(PaneTarget::Terminal(id)).is_none() {
+                self.inner.next_shell.set(id.checked_add(1).unwrap_or(1));
+                return Ok(id);
+            }
+            id = id.checked_add(1).unwrap_or(1);
+            if id == start {
+                return Err(DhError::msg("No shell id is free"));
+            }
+        }
+    }
+
+    /// Not in the TS: stops extra shell `id` and everything running in it; it is gone (the first shell cannot be
+    /// closed: it restarts).
+    pub fn close_terminal(&self, id: u8) -> Result<Ordered<PaneRecord>, DhError> {
+        if id == 0 {
+            return Err(DhError::msg(
+                "The first shell restarts rather than closes (Enter on it)",
+            ));
+        }
+        let target = PaneTarget::Terminal(id);
+        if self.pane(target).is_none() {
+            return Err(DhError::msg(SHELL_GONE));
+        }
+        self.forget_shell(id);
+        drop(self.stop(target));
+        Ok(self.terminal_record())
+    }
+
+    /// Not in the TS: an extra shell's attach and styling end with it.
+    fn forget_shell(&self, id: u8) {
+        self.inner.attached.borrow_mut().remove(&PaneTarget::Terminal(id));
+        self.inner.styled_shells.borrow_mut().remove(&id);
+    }
+
+    /// Not in the TS: the shells that have a runtime, by id (the first first).
+    fn shell_targets(&self) -> Vec<PaneTarget> {
+        let mut targets: Vec<PaneTarget> = self
+            .inner
+            .panes
+            .borrow()
+            .keys()
+            .copied()
+            .filter(|target| target.is_terminal())
+            .collect();
+        targets.sort();
+        targets
+    }
+
+    /// Not in the TS: the shell a request names (`shell`), else the attached one, else the first.
+    fn shell_target(&self, shell: Option<i64>) -> PaneTarget {
+        if let Some(id) = shell.and_then(|id| u8::try_from(id).ok()) {
+            return PaneTarget::Terminal(id);
+        }
+        let attached = self
+            .inner
+            .attached
+            .borrow()
+            .iter()
+            .copied()
+            .find(|target| target.is_terminal());
+        attached.unwrap_or(PaneTarget::Terminal(0))
+    }
+
+    /// Not in the TS: `preview-mode` for a shell: its updates carry its styled screen (see [`PaneHost::record`]) and
+    /// come at typing pace.
+    pub fn set_shell_styled(&self, shell: Option<i64>, styled: bool) {
+        let Some(id) = u8::try_from(shell.unwrap_or(0)).ok() else {
+            return;
+        };
+        let mut styled_shells = self.inner.styled_shells.borrow_mut();
+        if styled {
+            styled_shells.insert(id);
+        } else {
+            styled_shells.remove(&id);
+        }
+    }
+
+    /// Not in the TS: the Terminal's record: the first shell's own, plus every shell (`shells`) once there are
+    /// several, and the styled screens of the shells a UI types into. With one shell nobody types into it is the TS
+    /// record.
+    pub fn terminal_record(&self) -> Ordered<PaneRecord> {
+        let styled = self.inner.styled_shells.borrow().clone();
+        let screen_of = |id: u8, runtime: &SharedRuntime| -> Option<PreviewScreen> {
+            styled
+                .contains(&id)
+                .then(|| runtime.borrow_mut().preview.get_screen(None))
+        };
+        let first = self.pane(PaneTarget::Terminal(0));
+        let mut record = {
+            let runtime = first.as_ref().map(|runtime| runtime.borrow());
+            self.record(PaneTarget::Terminal(0), runtime.as_deref())
+        };
+        record.screen = first.as_ref().and_then(|runtime| screen_of(0, runtime));
+        let targets = self.shell_targets();
+        if targets.iter().any(|target| *target != PaneTarget::Terminal(0)) {
+            let shells = targets
+                .into_iter()
+                .filter_map(|target| {
+                    let PaneTarget::Terminal(id) = target else {
+                        return None;
+                    };
+                    let runtime = self.pane(target)?;
+                    let screen = screen_of(id, &runtime);
+                    let current = runtime.borrow();
+                    Some(ShellRecord {
+                        id: i64::from(id),
+                        content: current.preview.get_cached_snapshot(),
+                        live: !current.exited,
+                        screen,
+                    })
+                })
+                .collect();
+            record.shells = Some(shells);
+        }
+        record
     }
 
     /// TS: PaneHost.ensureGit: the live lazygit (resized), the pending start, or a new one (resolving lazygit first).
@@ -524,6 +702,9 @@ impl PaneHost {
         if pane.is_dev() {
             return self.dev_target(None);
         }
+        if pane.is_terminal() {
+            return Ok(self.shell_target(None));
+        }
         Ok(pane)
     }
 
@@ -710,9 +891,24 @@ impl PaneHost {
             current.exit_code = Some(exit_code);
             current.exit_signal = Some(exit_signal);
         }
-        if self.is_current(target, runtime) {
-            self.schedule_broadcast(target, runtime);
+        if !self.is_current(target, runtime) {
+            return;
         }
+        // Not in the TS: an extra shell that exits is gone (the first one starts again on the next view).
+        if let PaneTarget::Terminal(id) = target
+            && id != 0
+        {
+            self.forget_shell(id);
+            self.inner.panes.borrow_mut().remove(&target);
+            if let Some(timer) = runtime.borrow_mut().broadcast_timer.as_mut() {
+                timer.clear();
+            }
+            self.inner
+                .channel
+                .post(&pane_updated(PaneTarget::Terminal(0), self.terminal_record()));
+            return;
+        }
+        self.schedule_broadcast(target, runtime);
     }
 
     /// TS: PaneHost.snapshot: Terminal and Git start on view; Dev and actions start only on request (viewing never
@@ -720,9 +916,17 @@ impl PaneHost {
     pub async fn snapshot(&self, target: AttachTarget, cols: i64, rows: i64) -> Result<Ordered<PaneRecord>, DhError> {
         let pane = self.hosted(target)?;
         match pane {
-            PaneTarget::Terminal => {
-                let runtime = self.ensure_terminal(cols, rows).await?;
-                Ok(self.record_of(pane, &runtime))
+            // Every shell is sized alike: the Terminal tab shows one at a time, in the same place.
+            PaneTarget::Terminal(_) => {
+                self.ensure_terminal(cols, rows).await?;
+                for target in self.shell_targets() {
+                    if target != PaneTarget::Terminal(0)
+                        && let Some(runtime) = self.pane(target)
+                    {
+                        PaneHost::resize_runtime(&runtime, cols, rows);
+                    }
+                }
+                Ok(self.terminal_record())
             }
             PaneTarget::Git => {
                 let runtime = self.ensure_git(cols, rows).await?;
@@ -758,6 +962,7 @@ impl PaneHost {
         cols: i64,
         rows: i64,
         process: Option<&str>,
+        shell: Option<i64>,
     ) -> Result<Ordered<AttachSnapshot>, DhError> {
         let mut pane = self.hosted(target)?;
         if pane.is_dev() {
@@ -768,10 +973,19 @@ impl PaneHost {
             let mut attached = self.inner.attached.borrow_mut();
             attached.retain(|target| !target.is_dev());
             attached.insert(pane);
+        } else if pane.is_terminal() {
+            // Not in the TS: one shell is attached at a time, the first unless `shell` names another.
+            pane = PaneTarget::Terminal(u8::try_from(shell.unwrap_or(0)).unwrap_or(u8::MAX));
+            if pane != PaneTarget::Terminal(0) && self.live(pane).is_none() {
+                return Err(DhError::msg(SHELL_GONE));
+            }
+            let mut attached = self.inner.attached.borrow_mut();
+            attached.retain(|target| !target.is_terminal());
+            attached.insert(pane);
         } else {
             self.inner.attached.borrow_mut().insert(pane);
         }
-        let record = if pane.is_dev() {
+        let record = if pane.is_dev() || (pane.is_terminal() && pane != PaneTarget::Terminal(0)) {
             match self.pane(pane) {
                 Some(runtime) => {
                     let runtime = PaneHost::resize_runtime(&runtime, cols, rows);
@@ -817,15 +1031,21 @@ impl PaneHost {
         let mut attached = self.inner.attached.borrow_mut();
         if pane.is_dev() {
             attached.retain(|target| !target.is_dev());
+        } else if pane.is_terminal() {
+            attached.retain(|target| !target.is_terminal());
         } else {
             attached.remove(&pane);
         }
         Ok(())
     }
 
-    /// TS: PaneHost.input (`term.write(data)` on the pane, if it has a runtime).
-    pub async fn input(&self, target: AttachTarget, data: &str) -> Result<(), DhError> {
-        let pane = self.routed(target)?;
+    /// TS: PaneHost.input (`term.write(data)` on the pane, if it has a runtime). Not in the TS: `shell` names the
+    /// Terminal's shell typed into.
+    pub async fn input(&self, target: AttachTarget, data: &str, shell: Option<i64>) -> Result<(), DhError> {
+        let mut pane = self.routed(target)?;
+        if pane.is_terminal() && shell.is_some() {
+            pane = self.shell_target(shell);
+        }
         let term = self.pane(pane).map(|runtime| Rc::clone(&runtime.borrow().term));
         if let Some(term) = term {
             // node-pty reports write failures on the socket, never to the caller.
@@ -915,7 +1135,7 @@ impl PaneHost {
     /// TS: PaneHost.stopAll: [`PaneHost::stop`] for every hosted target, resolving when all did.
     pub fn stop_all(&self) -> Task<()> {
         let mut targets = self.inner.targets.clone();
-        for target in self.dev_targets() {
+        for target in self.dev_targets().into_iter().chain(self.shell_targets()) {
             if !targets.contains(&target) {
                 targets.push(target);
             }
@@ -952,30 +1172,42 @@ impl PaneHost {
             exit_code: runtime.and_then(|runtime| runtime.exit_code),
             exit_signal: runtime.and_then(|runtime| runtime.exit_signal),
             processes: None,
+            shells: None,
+            screen: None,
             session_id: None,
             workspace: None,
         })
     }
 
     /// TS: PaneHost.scheduleBroadcast: at most one pending broadcast per runtime; after
-    /// [`crate::session::PREVIEW_BROADCAST_DELAY`] refreshes the snapshot and posts [`pane_updated`].
+    /// [`crate::session::PREVIEW_BROADCAST_DELAY`] refreshes the snapshot and posts [`pane_updated`]. Not in the TS:
+    /// a shell a UI types into broadcasts at typing pace ([`broadcast_delay`]).
     pub fn schedule_broadcast(&self, target: PaneTarget, runtime: &SharedRuntime) {
         if runtime.borrow().broadcast_timer.is_some() {
             return;
         }
+        let styled = matches!(target, PaneTarget::Terminal(id) if self.inner.styled_shells.borrow().contains(&id));
+        let attached = self.inner.attached.borrow().contains(&target);
         let host = self.clone();
         let captured = Rc::clone(runtime);
-        let timer = Timer::after(PREVIEW_BROADCAST_DELAY, move || {
+        let timer = Timer::after(broadcast_delay(styled, attached), move || {
             let record = {
                 let mut current = captured.borrow_mut();
                 if let Some(timer) = current.broadcast_timer.take() {
                     timer.detach();
                 }
                 current.preview.get_snapshot(None);
-                (!target.is_dev()).then(|| host.record(target, Some(&current)))
+                (!target.is_dev() && !target.is_terminal()).then(|| host.record(target, Some(&current)))
             };
-            // Dev's record covers every process, so it is built once this runtime's borrow is released.
-            let record = record.unwrap_or_else(|| host.dev_record());
+            // Dev's and the Terminal's records cover every process or shell, so they are built once this runtime's
+            // borrow is released.
+            let record = record.unwrap_or_else(|| {
+                if target.is_dev() {
+                    host.dev_record()
+                } else {
+                    host.terminal_record()
+                }
+            });
             host.inner.channel.post(&pane_updated(target, record));
         });
         runtime.borrow_mut().broadcast_timer = Some(timer);
@@ -991,12 +1223,18 @@ pub async fn handle_pane_command(host: &PaneHost, command: PaneCommand) -> Resul
         }
         PaneCommand::Attach(attach) => {
             let record = host
-                .attach(attach.target, attach.cols, attach.rows, attach.process.as_deref())
+                .attach(
+                    attach.target,
+                    attach.cols,
+                    attach.rows,
+                    attach.process.as_deref(),
+                    attach.shell,
+                )
                 .await?;
             host.inner.channel.ok(&attach.request_id, &record);
         }
         PaneCommand::Detach(detach) => host.detach(detach.target)?,
-        PaneCommand::Input(input) => host.input(input.target, &input.data).await?,
+        PaneCommand::Input(input) => host.input(input.target, &input.data, input.shell).await?,
         PaneCommand::Resize(resize) => host.resize(resize.target, resize.cols, resize.rows)?,
     }
     Ok(())
@@ -1132,8 +1370,23 @@ impl WorkspaceWorker {
                 channel.ok(&request.request_id, &IdleResult { idle: panes.is_idle() });
             }
             WorkspaceWorkerCommand::RestartTerminal(restart) => {
-                let runtime = panes.restart_terminal(restart.cols, restart.rows).await?;
-                channel.ok(&restart.request_id, &panes.record_of(PaneTarget::Terminal, &runtime));
+                let id = u8::try_from(restart.shell.unwrap_or(0)).map_err(|_| DhError::msg(SHELL_GONE))?;
+                let record = panes.restart_terminal(id, restart.cols, restart.rows).await?;
+                channel.ok(&restart.request_id, &record);
+            }
+            WorkspaceWorkerCommand::NewTerminal(request) => {
+                let record = panes.new_terminal(request.cols, request.rows).await?;
+                channel.ok(&request.request_id, &record);
+            }
+            WorkspaceWorkerCommand::CloseTerminal(request) => {
+                let id = u8::try_from(request.shell).map_err(|_| DhError::msg(SHELL_GONE))?;
+                let record = panes.close_terminal(id)?;
+                channel.ok(&request.request_id, &record);
+            }
+            WorkspaceWorkerCommand::PreviewMode(mode) => {
+                if mode.target == AttachTarget::Terminal {
+                    panes.set_shell_styled(mode.shell, mode.styled);
+                }
             }
             WorkspaceWorkerCommand::Idle(request) => {
                 channel.ok(&request.request_id, &IdleResult { idle: panes.is_idle() });
@@ -1353,7 +1606,7 @@ mod tests {
         }
         assert_eq!(PaneTarget::from_attach_target(AttachTarget::Agent), None);
         assert_eq!(PaneTarget::Action.as_str(), "action");
-        assert_eq!(PaneTarget::Terminal.as_str(), "terminal");
+        assert_eq!(PaneTarget::Terminal(0).as_str(), "terminal");
     }
 
     #[test]
@@ -1415,7 +1668,7 @@ mod tests {
         };
         let text = |target| serde_json::to_string(&pane_updated(target, record())).expect("json");
         assert_eq!(
-            text(PaneTarget::Terminal),
+            text(PaneTarget::Terminal(0)),
             r#"{"type":"terminal-updated","terminal":{"content":"x","live":false,"cwd":"/w"}}"#
         );
         assert_eq!(
@@ -1451,11 +1704,11 @@ mod tests {
             let cwd: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
             let owner = Rc::clone(&cwd);
             let host = PaneHost::new(
-                &[PaneTarget::Terminal, PaneTarget::Dev(0), PaneTarget::Dev(0)],
+                &[PaneTarget::Terminal(0), PaneTarget::Dev(0), PaneTarget::Dev(0)],
                 move || owner.borrow().clone(),
                 channel,
             );
-            assert_eq!(host.inner.targets, [PaneTarget::Terminal, PaneTarget::Dev(0)]);
+            assert_eq!(host.inner.targets, [PaneTarget::Terminal(0), PaneTarget::Dev(0)]);
             assert!(host.is_idle());
             assert_eq!(host.hosted(AttachTarget::Dev), Ok(PaneTarget::Dev(0)));
             assert_eq!(
@@ -1568,7 +1821,7 @@ mod tests {
             assert_eq!(update["terminal"]["live"], true);
 
             // The same shell answers the next view.
-            let pid = daemon.pid(PaneTarget::Terminal);
+            let pid = daemon.pid(PaneTarget::Terminal(0));
             daemon.send(json!({"type": "detach", "target": "terminal"})).await;
             daemon
                 .send(json!({"type": "resize", "target": "terminal", "cols": 60, "rows": 10}))
@@ -1582,7 +1835,7 @@ mod tests {
                     .expect("content")
                     .contains("pane-42 .")
             );
-            let runtime = daemon.worker.panes().pane(PaneTarget::Terminal).expect("terminal");
+            let runtime = daemon.worker.panes().pane(PaneTarget::Terminal(0)).expect("terminal");
             let term = Rc::clone(&runtime.borrow().term);
             assert_eq!((term.pid(), term.cols(), term.rows()), (pid, 60, 10));
 
@@ -1908,7 +2161,7 @@ mod tests {
             daemon
                 .request(json!({"type": "snapshot", "target": "terminal", "cols": 80, "rows": 24, "requestId": "t"}))
                 .await;
-            let pid = daemon.pid(PaneTarget::Terminal);
+            let pid = daemon.pid(PaneTarget::Terminal(0));
             daemon.send(json!({"type": "shutdown", "requestId": "bye"})).await;
             daemon.send(json!({"type": "idle", "requestId": "late"})).await;
             daemon.send(json!({"type": "detach", "target": "terminal"})).await;
@@ -2001,7 +2254,7 @@ mod tests {
             let mut daemon = Daemon::started().await;
             let snapshot = json!({"type": "snapshot", "target": "terminal", "cols": 80, "rows": 24, "requestId": "s"});
             assert_eq!(daemon.request(snapshot).await["data"]["live"], true);
-            let shell = daemon.pid(PaneTarget::Terminal);
+            let shell = daemon.pid(PaneTarget::Terminal(0));
             // A foreground job that ignores ctrl+c and a closed terminal, as a hung command does.
             daemon
                 .send(json!({"type": "input", "target": "terminal", "data": "sh -c 'trap \"\" HUP INT; echo stuck-$$; exec sleep 300'\r"}))
@@ -2041,7 +2294,7 @@ mod tests {
             assert!(wait_dead(shell).await, "shell {shell} survived the restart");
 
             // The fresh shell answers, and its screen starts empty.
-            let fresh = daemon.pid(PaneTarget::Terminal);
+            let fresh = daemon.pid(PaneTarget::Terminal(0));
             assert_ne!(fresh, shell);
             daemon
                 .send(json!({"type": "input", "target": "terminal", "data": "echo fresh-$((40+2))\r"}))
@@ -2061,12 +2314,110 @@ mod tests {
             );
 
             // A shell that never started (or exited) just starts.
-            daemon.worker.panes().stop(PaneTarget::Terminal).await;
+            daemon.worker.panes().stop(PaneTarget::Terminal(0)).await;
             let started = daemon
                 .request(json!({"type": "restart-terminal", "cols": 80, "rows": 24, "requestId": "r2"}))
                 .await;
             assert_eq!(started["data"]["live"], true);
             assert!(wait_dead(fresh).await);
+        });
+    }
+
+    /// The next `terminal-updated` whose record passes `pred`.
+    async fn terminal_update(daemon: &mut Daemon, pred: impl Fn(&Value) -> bool) -> Value {
+        let mut seen = Vec::new();
+        loop {
+            let update = daemon.until(|m| m["type"] == "terminal-updated", &mut seen).await;
+            if pred(&update["terminal"]) {
+                return update["terminal"].clone();
+            }
+        }
+    }
+
+    #[test]
+    fn extra_shells_run_beside_the_first_and_are_gone_once_closed_or_exited() {
+        run_local(async {
+            let mut daemon = Daemon::started().await;
+            let snapshot = json!({"type": "snapshot", "target": "terminal", "cols": 80, "rows": 24, "requestId": "s"});
+            let first = daemon.request(snapshot.clone()).await;
+            // One shell: the record is the TS one.
+            assert_eq!(keys(&first["data"]), ["content", "live", "cwd"]);
+
+            let opened = daemon
+                .request(json!({"type": "new-terminal", "cols": 80, "rows": 24, "requestId": "n"}))
+                .await;
+            assert_eq!(opened["ok"], true, "{opened}");
+            let shells = &opened["data"]["shells"];
+            assert_eq!(shells[0]["id"], 0);
+            assert_eq!(shells[1]["id"], 1);
+            assert_eq!(shells[1]["live"], true);
+            let second = daemon.pid(PaneTarget::Terminal(1));
+            assert_ne!(second, daemon.pid(PaneTarget::Terminal(0)));
+
+            // Keys go to the shell they name; the first keeps its own screen.
+            daemon
+                .send(json!({"type": "input", "target": "terminal", "shell": 1, "data": "echo two-$((1+1))\r"}))
+                .await;
+            let update = terminal_update(&mut daemon, |record| {
+                record["shells"][1]["content"]
+                    .as_str()
+                    .is_some_and(|text| text.contains("two-2"))
+            })
+            .await;
+            assert!(!update["content"].as_str().unwrap_or_default().contains("two-2"));
+
+            // Typed into: its updates carry its styled screen.
+            daemon
+                .send(json!({"type": "preview-mode", "target": "terminal", "styled": true, "shell": 1}))
+                .await;
+            daemon
+                .send(json!({"type": "input", "target": "terminal", "shell": 1, "data": "echo three\r"}))
+                .await;
+            let styled = terminal_update(&mut daemon, |record| record["shells"][1]["screen"].is_object()).await;
+            assert!(styled.get("screen").is_none(), "only the shell typed into: {styled}");
+
+            // Attaching names the shell; its snapshot is its own.
+            let attach =
+                json!({"type": "attach", "target": "terminal", "cols": 80, "rows": 24, "shell": 1, "requestId": "a"});
+            let attached = daemon.request(attach).await;
+            assert!(
+                attached["data"]["content"]
+                    .as_str()
+                    .is_some_and(|text| text.contains("two-2"))
+            );
+
+            // The first shell cannot be closed; an extra one can, and is gone.
+            let refused = daemon
+                .request(json!({"type": "close-terminal", "shell": 0, "requestId": "c0"}))
+                .await;
+            assert_eq!(refused["ok"], false);
+            let closed = daemon
+                .request(json!({"type": "close-terminal", "shell": 1, "requestId": "c1"}))
+                .await;
+            assert_eq!(closed["ok"], true, "{closed}");
+            assert!(closed["data"].get("shells").is_none(), "{closed}");
+            assert!(wait_dead(second).await);
+
+            // Ids are not reused; an extra shell that exits is gone too.
+            let reopened = daemon
+                .request(json!({"type": "new-terminal", "cols": 80, "rows": 24, "requestId": "n2"}))
+                .await;
+            assert_eq!(reopened["data"]["shells"][1]["id"], 2);
+            daemon
+                .send(json!({"type": "input", "target": "terminal", "shell": 2, "data": "exit\r"}))
+                .await;
+            terminal_update(&mut daemon, |record| record.get("shells").is_none()).await;
+            assert!(daemon.worker.panes().pane(PaneTarget::Terminal(2)).is_none());
+
+            // At most MAX_SHELLS.
+            for index in 1..MAX_SHELLS {
+                let request = json!({"type": "new-terminal", "cols": 80, "rows": 24, "requestId": format!("m{index}")});
+                assert_eq!(daemon.request(request).await["ok"], true);
+            }
+            let full = daemon
+                .request(json!({"type": "new-terminal", "cols": 80, "rows": 24, "requestId": "full"}))
+                .await;
+            assert_eq!(full["ok"], false, "{full}");
         });
     }
 

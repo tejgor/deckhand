@@ -713,8 +713,26 @@ pub struct PaneRecord {
     /// Not in the TS: Dev's named processes (`devCommand` as a map), one PTY each, in the configured order. Absent for a
     /// single Dev command, whose output is the record's own `content`.
     pub processes: Option<Vec<DevProcessRecord>>,
+    /// Not in the TS: the Terminal's shells, oldest first, while there is more than one. The first (id 0) is also
+    /// the record's own `content` and `live`. Absent with a single shell.
+    pub shells: Option<Vec<ShellRecord>>,
+    /// Not in the TS: the first shell's styled screen, while a UI types into it.
+    pub screen: Option<PreviewScreen>,
     pub session_id: Option<String>,
     pub workspace: Option<String>,
+}
+
+/// Not in the TS: one shell of a [`PaneRecord`] (the Terminal tab). Ids never change while it runs; the UI labels
+/// shells by position. An extra shell that exits is gone; the first starts again on the next view.
+#[skip_serializing_none]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellRecord {
+    pub id: i64,
+    pub content: String,
+    pub live: bool,
+    /// Its styled screen, while a UI types into it.
+    pub screen: Option<PreviewScreen>,
 }
 
 /// Not in the TS: one named Dev process of a [`PaneRecord`]. A configured process that is not running has no
@@ -1311,6 +1329,10 @@ pub enum UiExitResult {
         program: Option<ProgramKey>,
         /// Not in the TS: the Dev process to attach to (`devCommand` as a map).
         process: Option<String>,
+        /// Not in the TS: the Terminal's shell to attach to (by id) and its label (`shell 2`); absent is the first.
+        shell: Option<i64>,
+        #[serde(rename = "shellLabel")]
+        shell_label: Option<String>,
         /// Not in the TS: the session's full title (a sub-session's `parent / child`), for the status line under the
         /// attach.
         #[serde(rename = "statusTitle")]

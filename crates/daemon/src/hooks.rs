@@ -890,6 +890,7 @@ pub(crate) mod tests {
                 .handle_input(&deckhand_protocol::wire::Input {
                     session_id: "s".into(),
                     data: "\r".into(),
+                    shell: None,
                 })
                 .unwrap();
             assert!(worker.last_hook_at.get().is_some_and(|last| last >= before));

@@ -449,26 +449,62 @@ impl LiveClient {
         }))
     }
 
-    /// TS: LiveClient.watchTerminal.
-    pub fn watch_terminal(&self, session_id: Option<&str>, cols: i64, rows: i64) -> Reply<TerminalRecord> {
+    /// TS: LiveClient.watchTerminal. Not in the TS: `typing` names the shell the UI types into (its records then
+    /// carry its styled screen; written only when set).
+    pub fn watch_terminal(
+        &self,
+        session_id: Option<&str>,
+        cols: i64,
+        rows: i64,
+        typing: Option<i64>,
+    ) -> Reply<TerminalRecord> {
         self.request(Request::WatchTerminal(WatchPane {
             request_id: new_request_id(),
             session_id: session_id.map(str::to_owned),
             cols: Some(cols),
             rows: Some(rows),
+            interactive: typing.map(|_| true),
+            shell: typing.filter(|shell| *shell != 0),
         }))
     }
 
-    /// Not in the TS: stops the worktree's shell and everything running in it, then starts a fresh one
-    /// (`restart-terminal`).
-    pub fn restart_terminal(&self, session_id: &str, cols: i64, rows: i64) -> Reply<TerminalRecord> {
-        self.request(Request::RestartTerminal(SessionSizeRequest {
+    /// Not in the TS: stops one of the worktree's shells (`shell`; the first when `None`) and everything running in
+    /// it, then starts a fresh one (`restart-terminal`).
+    pub fn restart_terminal(
+        &self,
+        session_id: &str,
+        shell: Option<i64>,
+        cols: i64,
+        rows: i64,
+    ) -> Reply<TerminalRecord> {
+        self.terminal_request(session_id, shell, Some((cols, rows)), Request::RestartTerminal)
+    }
+
+    /// Not in the TS: another shell in the session's worktree (`new-terminal`).
+    pub fn new_terminal(&self, session_id: &str, cols: i64, rows: i64) -> Reply<TerminalRecord> {
+        self.terminal_request(session_id, None, Some((cols, rows)), Request::NewTerminal)
+    }
+
+    /// Not in the TS: stops an extra shell of the session's worktree (`close-terminal`).
+    pub fn close_terminal(&self, session_id: &str, shell: i64) -> Reply<TerminalRecord> {
+        self.terminal_request(session_id, Some(shell), None, Request::CloseTerminal)
+    }
+
+    fn terminal_request(
+        &self,
+        session_id: &str,
+        shell: Option<i64>,
+        size: Option<(i64, i64)>,
+        request: fn(SessionSizeRequest) -> Request,
+    ) -> Reply<TerminalRecord> {
+        self.request(request(SessionSizeRequest {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            cols: Some(cols),
-            rows: Some(rows),
+            cols: size.map(|(cols, _)| cols),
+            rows: size.map(|(_, rows)| rows),
             process: None,
             restart: None,
+            shell,
         }))
     }
 
@@ -517,6 +553,8 @@ impl LiveClient {
             session_id: session_id.map(str::to_owned),
             cols: Some(cols),
             rows: Some(rows),
+            interactive: None,
+            shell: None,
         }))
     }
 
@@ -541,6 +579,7 @@ impl LiveClient {
             rows: Some(rows),
             process: process.map(str::to_owned),
             restart: restart.then_some(true),
+            shell: None,
         }))
     }
 
@@ -967,6 +1006,8 @@ impl LiveClient {
             session_id: session_id.map(str::to_owned),
             cols: Some(cols),
             rows: Some(rows),
+            interactive: None,
+            shell: None,
         }))
     }
 
@@ -1006,6 +1047,23 @@ impl LiveClient {
         let message = Request::Input(Input {
             session_id: session_id.to_owned(),
             data: data.into(),
+            shell: None,
+        });
+        if let Ok(line) = frame_message(&message) {
+            let _ = self.outgoing.send(line);
+        }
+    }
+
+    /// Not in the TS: keys for one of the worktree's shells without attaching (`terminal-input`, no response);
+    /// dropped once closed.
+    pub fn send_shell_input(&self, session_id: &str, shell: i64, data: &str) {
+        if self.is_closed() {
+            return;
+        }
+        let message = Request::TerminalInput(Input {
+            session_id: session_id.to_owned(),
+            data: data.into(),
+            shell: Some(shell),
         });
         if let Ok(line) = frame_message(&message) {
             let _ = self.outgoing.send(line);

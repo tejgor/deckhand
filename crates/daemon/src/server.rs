@@ -113,6 +113,9 @@ pub struct ClientSubscription {
     pub tasks_key: Option<String>,
     pub watched_preview_session_id: Option<String>,
     pub watched_terminal_session_id: Option<String>,
+    /// Not in the TS: the shell (by id) the client types into on its watched Terminal, so its terminal records carry
+    /// the styled screens.
+    pub terminal_interactive_shell: Option<i64>,
     pub watched_git_session_id: Option<String>,
     pub watched_dev_session_id: Option<String>,
     pub watched_action_session_id: Option<String>,
@@ -141,6 +144,7 @@ impl Default for ClientSubscription {
             tasks_key: None,
             watched_preview_session_id: None,
             watched_terminal_session_id: None,
+            terminal_interactive_shell: None,
             watched_git_session_id: None,
             watched_dev_session_id: None,
             watched_action_session_id: None,
@@ -445,14 +449,21 @@ impl Daemon {
                 }
             }
         }
-        let watched = self
-            .server
-            .borrow_mut()
-            .clients
-            .shift_remove(&id)
-            .and_then(|client| client.subscription.watched_preview_session_id);
-        if let Some(session_id) = watched {
-            self.sync_preview_styled(&session_id);
+        let removed = self.server.borrow_mut().clients.shift_remove(&id);
+        let subscription = removed.map(|client| client.subscription);
+        if let Some(session_id) = subscription
+            .as_ref()
+            .and_then(|subscription| subscription.watched_preview_session_id.as_deref())
+        {
+            self.sync_preview_styled(session_id);
+        }
+        if let Some(key) = subscription
+            .as_ref()
+            .and_then(|subscription| subscription.watched_terminal_session_id.as_deref())
+            .and_then(|session_id| self.get_session(session_id))
+            .and_then(|session| self.workspace_key_of(&session))
+        {
+            self.sync_terminal_styled(&key);
         }
         self.sync_change_watches();
         self.log_soon("client disconnected".to_owned());

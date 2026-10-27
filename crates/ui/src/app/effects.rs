@@ -98,6 +98,8 @@ pub struct PaneWatchDeps {
     pub active: bool,
     /// Preview only (not in the TS): you type to the agent, so its previews carry the styled screen.
     pub interactive: bool,
+    /// Terminal only (not in the TS): the shell you type into, so its records carry its styled screen.
+    pub typing_shell: Option<i64>,
 }
 
 /// TS: the dependencies of the `[selectedSession]` effect (the pane records reset for a new selection).
@@ -461,6 +463,9 @@ fn active_tab_effect(app: &mut App) {
             app.mode = Mode::Browse;
         }
     }
+    if tab != RightPaneTab::Terminal && app.mode == Mode::TerminalFocus {
+        app.mode = Mode::Browse;
+    }
     if tab != RightPaneTab::Notes && app.mode == Mode::NotesFocus {
         app.mode = Mode::Browse;
     }
@@ -794,6 +799,7 @@ fn watch_effects(app: &mut App, derived: &Derived) {
         pane_scope: None,
         active: true,
         interactive: false,
+        typing_shell: None,
     };
     let scope = pane_scope(derived.selected.as_ref());
     let tab = app.browse.active_tab;
@@ -810,7 +816,15 @@ fn watch_effects(app: &mut App, derived: &Derived) {
         active: tab == RightPaneTab::Terminal,
         ..base.clone()
     };
-    watch_terminal(app, pane.clone());
+    watch_terminal(
+        app,
+        PaneWatchDeps {
+            typing_shell: (app.mode == Mode::TerminalFocus)
+                .then_some(app.preview_focus.shell)
+                .flatten(),
+            ..pane.clone()
+        },
+    );
     watch_action(app, pane);
     watch_changes(
         app,
@@ -883,7 +897,12 @@ fn watch_terminal(app: &mut App, deps: PaneWatchDeps) {
     let Some(client) = app.client().filter(|_| deps.active) else {
         return;
     };
-    let reply = client.watch_terminal(deps.session_id.as_deref(), i64::from(deps.cols), i64::from(deps.rows));
+    let reply = client.watch_terminal(
+        deps.session_id.as_deref(),
+        i64::from(deps.cols),
+        i64::from(deps.rows),
+        deps.typing_shell,
+    );
     let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
         if app.effects.terminal.generation != generation {
             return;
@@ -1183,7 +1202,7 @@ pub fn sync_terminal_modes(app: &mut App, out: &mut dyn std::io::Write) {
     ran(app);
     // React runs every cleanup before the new setups.
     let mut text = String::new();
-    let pastes = matches!(mode, Mode::NotesFocus | Mode::PreviewFocus);
+    let pastes = matches!(mode, Mode::NotesFocus | Mode::PreviewFocus | Mode::TerminalFocus);
     if app.effects.paste_on && !pastes {
         app.effects.paste_on = false;
         text.push_str(PASTE_OFF);

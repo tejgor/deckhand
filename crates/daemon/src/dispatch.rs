@@ -215,6 +215,8 @@ impl Daemon {
                 self.handle_stop_pane(&r, WorkspacePane::Action).await,
             ),
             Request::RestartTerminal(r) => reply(client, &r.request_id, self.handle_restart_terminal(&r).await),
+            Request::NewTerminal(r) => reply(client, &r.request_id, self.handle_new_terminal(&r).await),
+            Request::CloseTerminal(r) => reply(client, &r.request_id, self.handle_close_terminal(&r).await),
             Request::SaveNote(r) => reply(client, &r.request_id, self.save_note(&r).await),
             Request::OpenNote(r) => reply(client, &r.request_id, self.handle_open_note(&r).await),
             Request::WatchTasks(r) => reply(client, &r.request_id, self.handle_watch_tasks(conn, &r).await),
@@ -317,15 +319,8 @@ impl Daemon {
             // Attaches answer by themselves (the response, then `*attached` and the initial frame).
             Request::Attach(r) => self.handle_attach(conn, &r).await,
             Request::AttachTerminal(r) => {
-                self.attach_workspace_pane(
-                    client,
-                    &r.request_id,
-                    WorkspacePane::Terminal,
-                    &r.session_id,
-                    r.cols,
-                    r.rows,
-                )
-                .await
+                self.attach_workspace_shell(client, &r.request_id, &r.session_id, r.cols, r.rows, r.shell)
+                    .await
             }
             Request::AttachGit(r) => {
                 self.attach_workspace_pane(client, &r.request_id, WorkspacePane::Git, &r.session_id, r.cols, r.rows)

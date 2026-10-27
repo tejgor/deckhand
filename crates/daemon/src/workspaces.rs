@@ -6,7 +6,7 @@
 //! attach; Dev and actions only when started. A worker with nothing left in it is retired.
 
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -124,6 +124,10 @@ pub struct WorkspaceRuntime {
     pub records: RefCell<IndexMap<WorkspacePane, WorkspacePaneRecord>>,
     /// Pane requests in flight; an idle worker is retired only when none is pending.
     pub busy: Cell<u32>,
+    /// Not in the TS: the shell (by id) the Terminal attach is on.
+    pub attached_shell: Cell<i64>,
+    /// Not in the TS: the shells the worker was told some client types into (`preview-mode`).
+    pub styled_shells: RefCell<BTreeSet<i64>>,
 }
 
 impl WorkspaceRuntime {
@@ -135,6 +139,8 @@ impl WorkspaceRuntime {
             attached: RefCell::new(IndexMap::new()),
             records: RefCell::new(IndexMap::new()),
             busy: Cell::new(0),
+            attached_shell: Cell::new(0),
+            styled_shells: RefCell::new(BTreeSet::new()),
         }
     }
 }
@@ -229,6 +235,18 @@ fn stamped(record: &WorkspacePaneRecord, session_id: &str, key: &str) -> Workspa
     record.touch("workspace");
     record.workspace = Some(key.to_owned());
     record
+}
+
+/// Not in the TS: a terminal record without the styled screens, for a client that does not type into it.
+fn without_screens(record: &WorkspacePaneRecord) -> WorkspacePaneRecord {
+    let mut plain = record.clone();
+    plain.screen = None;
+    if let Some(shells) = plain.shells.as_mut() {
+        for shell in shells {
+            shell.screen = None;
+        }
+    }
+    plain
 }
 
 /// `{content, live: false, cwd, command, name}`: a pane's record once its worker is gone (Dev's named processes keep
@@ -583,11 +601,43 @@ impl Daemon {
             return Ok(());
         };
         workspace.records.borrow_mut().insert(pane, record.clone());
+        if pane == WorkspacePane::Terminal {
+            self.detach_from_gone_shell(workspace, &record);
+        }
         self.publish_workspace_pane(&workspace.key, pane, &record);
         if pane == WorkspacePane::Dev {
             self.sync_dev_running(&workspace.key).await?;
         }
         Ok(())
+    }
+
+    /// Not in the TS: a client attached to an extra shell that exited or was closed is detached
+    /// (`terminal-detached`), as when the worktree goes.
+    fn detach_from_gone_shell(&self, workspace: &WorkspaceRuntime, record: &PaneRecord) {
+        let shell = workspace.attached_shell.get();
+        let listed = record
+            .shells
+            .as_ref()
+            .is_some_and(|shells| shells.iter().any(|listed| listed.id == shell));
+        if shell == 0 || listed {
+            return;
+        }
+        self.detach_shell(workspace, shell);
+    }
+
+    /// Not in the TS: detaches the client attached to shell `shell` (if any).
+    fn detach_shell(&self, workspace: &WorkspaceRuntime, shell: i64) {
+        if workspace.attached_shell.get() != shell {
+            return;
+        }
+        let viewer = workspace.attached.borrow_mut().shift_remove(&WorkspacePane::Terminal);
+        workspace.attached_shell.set(0);
+        if let Some(viewer) = viewer.filter(|viewer| !viewer.client.is_destroyed()) {
+            send_message(
+                &viewer.client,
+                &pane_detached_message(WorkspacePane::Terminal, viewer.session_id),
+            );
+        }
     }
 
     /// TS: InkDaemon.handleWorkspaceExit: an unexpected exit leaves the panes' last output, marked stopped.
@@ -736,6 +786,29 @@ impl Daemon {
             .await
     }
 
+    /// [`Daemon::attach_workspace_pane`] of one shell of the Terminal (`shell`, by id; not in the TS). The Terminal
+    /// stays one attach: attaching another shell from elsewhere is refused like attaching the Terminal twice.
+    pub async fn attach_workspace_shell(
+        &self,
+        client: &ClientHandle,
+        request_id: &str,
+        session_id: &str,
+        cols: Option<i64>,
+        rows: Option<i64>,
+        shell: Option<i64>,
+    ) -> Result<()> {
+        self.attach_workspace_target(
+            client,
+            request_id,
+            WorkspacePane::Terminal,
+            session_id,
+            (cols, rows),
+            None,
+            shell.filter(|shell| *shell != 0),
+        )
+        .await
+    }
+
     /// [`Daemon::attach_workspace_pane`] of one Dev process (`process`, by name; not in the TS). Dev stays one attach:
     /// attaching another process from elsewhere is refused like attaching Dev twice.
     #[allow(clippy::too_many_arguments)]
@@ -748,6 +821,22 @@ impl Daemon {
         cols: Option<i64>,
         rows: Option<i64>,
         process: Option<&str>,
+    ) -> Result<()> {
+        self.attach_workspace_target(client, request_id, pane, session_id, (cols, rows), process, None)
+            .await
+    }
+
+    /// The attach of [`Daemon::attach_workspace_process`] and [`Daemon::attach_workspace_shell`].
+    #[allow(clippy::too_many_arguments)]
+    async fn attach_workspace_target(
+        &self,
+        client: &ClientHandle,
+        request_id: &str,
+        pane: WorkspacePane,
+        session_id: &str,
+        (cols, rows): (Option<i64>, Option<i64>),
+        process: Option<&str>,
+        shell: Option<i64>,
     ) -> Result<()> {
         let (session, key) = self.require_workspace(session_id, pane)?;
         let workspace = if starts_on_view(pane) {
@@ -780,8 +869,14 @@ impl Daemon {
         if let Some(process) = process {
             attach.insert("process".to_owned(), Value::String(process.to_owned()));
         }
+        if let Some(shell) = shell {
+            attach.insert("shell".to_owned(), Value::from(shell));
+        }
         let attach_data: Value = self.request_pane(&workspace, attach).await?;
         let attach_data = payload(attach_data);
+        if pane == WorkspacePane::Terminal {
+            workspace.attached_shell.set(shell.unwrap_or(0));
+        }
         workspace.attached.borrow_mut().insert(
             pane,
             PaneViewer {
@@ -928,7 +1023,7 @@ impl Daemon {
     /// TS: InkDaemon.publishWorkspacePane: every client watching a session of the workspace gets the pane, stamped
     /// with the session it watches.
     pub fn publish_workspace_pane(&self, key: &str, pane: WorkspacePane, record: &WorkspacePaneRecord) {
-        let clients: Vec<(ClientHandle, Option<String>)> = self
+        let clients: Vec<(ClientHandle, Option<String>, bool)> = self
             .server
             .borrow()
             .clients
@@ -941,14 +1036,21 @@ impl Daemon {
                     WorkspacePane::Action => &subscription.watched_action_session_id,
                     WorkspacePane::Dev => &subscription.watched_dev_session_id,
                 };
-                (client.handle.clone(), watched.clone())
+                let typing = pane == WorkspacePane::Terminal && subscription.terminal_interactive_shell.is_some();
+                (client.handle.clone(), watched.clone(), typing)
             })
             .collect();
-        for (handle, watched) in clients {
+        let plain = (pane == WorkspacePane::Terminal).then(|| without_screens(record));
+        for (handle, watched, typing) in clients {
             let Some(session) = watched.filter(|id| !id.is_empty()).and_then(|id| self.get_session(&id)) else {
                 continue;
             };
             if self.workspace_key_of(&session).as_deref() == Some(key) {
+                // Not in the TS: only a client typing into a shell gets the styled screens.
+                let record = match &plain {
+                    Some(plain) if !typing => plain,
+                    _ => record,
+                };
                 send_message(&handle, &pane_updated_message(pane, stamped(record, &session.id, key)));
             }
         }
@@ -1040,7 +1142,7 @@ impl Daemon {
         pane: WorkspacePane,
         request: &WatchPane,
     ) -> Result<WorkspacePaneRecord> {
-        let (cols, rows) = self.get_client(&conn.client, |client| {
+        let (previous, cols, rows) = self.get_client(&conn.client, |client| {
             let (watched, cols, rows) = match pane {
                 WorkspacePane::Terminal => (
                     &mut client.watched_terminal_session_id,
@@ -1063,13 +1165,84 @@ impl Daemon {
                     &mut client.action_rows,
                 ),
             };
-            watched.clone_from(&request.session_id);
+            let previous = std::mem::replace(watched, request.session_id.clone());
             *cols = clamp_size(request.cols, *cols);
             *rows = clamp_size(request.rows, *rows);
-            (*cols, *rows)
+            (previous, *cols, *rows)
         });
-        self.watch_workspace_pane(pane, request.session_id.as_deref(), cols, rows)
-            .await
+        if pane != WorkspacePane::Terminal {
+            return self
+                .watch_workspace_pane(pane, request.session_id.as_deref(), cols, rows)
+                .await;
+        }
+        // Not in the TS: the shell typed into gets its styled screen, sent at typing pace.
+        let interactive = (request.interactive == Some(true)).then(|| request.shell.unwrap_or(0));
+        self.get_client(&conn.client, |client| client.terminal_interactive_shell = interactive);
+        let keys: Vec<String> = [previous.as_deref(), request.session_id.as_deref()]
+            .into_iter()
+            .flatten()
+            .filter_map(|session_id| self.get_session(session_id))
+            .filter_map(|session| self.workspace_key_of(&session))
+            .collect();
+        for key in &keys {
+            self.sync_terminal_styled(key);
+        }
+        let record = self
+            .watch_workspace_pane(pane, request.session_id.as_deref(), cols, rows)
+            .await?;
+        // The watch may start the worker: tell the new one.
+        if let Some(key) = keys.last() {
+            self.sync_terminal_styled(key);
+        }
+        Ok(if interactive.is_some() {
+            record
+        } else {
+            without_screens(&record)
+        })
+    }
+
+    /// Not in the TS: tells the workspace's worker which shells to style (`preview-mode` per change): those that a
+    /// client watching a session of the workspace types into.
+    pub fn sync_terminal_styled(&self, key: &str) {
+        let Some(workspace) = self.running_workspace(key) else {
+            return;
+        };
+        let watching: Vec<(String, i64)> = self
+            .server
+            .borrow()
+            .clients
+            .values()
+            .filter_map(|client| {
+                let subscription = &client.subscription;
+                Some((
+                    subscription.watched_terminal_session_id.clone()?,
+                    subscription.terminal_interactive_shell?,
+                ))
+            })
+            .collect();
+        let wanted: BTreeSet<i64> = watching
+            .into_iter()
+            .filter(|(session_id, _)| {
+                self.get_session(session_id)
+                    .and_then(|session| self.workspace_key_of(&session))
+                    .as_deref()
+                    == Some(key)
+            })
+            .map(|(_, shell)| shell)
+            .collect();
+        let current = workspace.styled_shells.replace(wanted.clone());
+        for (shell, styled) in current
+            .difference(&wanted)
+            .map(|shell| (*shell, false))
+            .chain(wanted.difference(&current).map(|shell| (*shell, true)))
+        {
+            workspace.channel.send_event(payload(json!({
+                "type": "preview-mode",
+                "target": "terminal",
+                "styled": styled,
+                "shell": shell,
+            })));
+        }
     }
 
     /// TS: handleRequest `start-dev` (`process`, not in the TS: only that one of the named processes, `Dev runs a
@@ -1118,26 +1291,58 @@ impl Daemon {
     /// fresh one, answering its record once the old one is gone. A client attached to the shell is detached first
     /// (`terminal-detached`), as when the worktree is deleted: leaving the attach restores its terminal, which the
     /// stuck program may have left in another mode, and it sees the fresh shell on the Terminal tab.
+    ///
+    /// Not in the TS: `shell` names one of the worktree's shells (absent: the first); only an attach on that one ends.
     pub async fn handle_restart_terminal(&self, request: &SessionSizeRequest) -> Result<WorkspacePaneRecord> {
+        let shell = request.shell.unwrap_or(0);
+        self.terminal_request(request, "restart-terminal", Some(shell), true)
+            .await
+    }
+
+    /// Not in the TS: `new-terminal`: another shell in the worktree (the first one started too when it is not
+    /// running), answering the Terminal's record with it last in `shells`.
+    pub async fn handle_new_terminal(&self, request: &SessionSizeRequest) -> Result<WorkspacePaneRecord> {
+        self.terminal_request(request, "new-terminal", None, true).await
+    }
+
+    /// Not in the TS: `close-terminal`: stops an extra shell (`shell`) and everything running in it; a client
+    /// attached to it is detached.
+    pub async fn handle_close_terminal(&self, request: &SessionSizeRequest) -> Result<WorkspacePaneRecord> {
+        let shell = request.shell.unwrap_or(0);
+        self.terminal_request(request, "close-terminal", Some(shell), false)
+            .await
+    }
+
+    /// A Terminal request of `kind` to the worktree's worker: an attach on `shell` ends first, the answer is
+    /// published to every Terminal watcher.
+    async fn terminal_request(
+        &self,
+        request: &SessionSizeRequest,
+        kind: &str,
+        shell: Option<i64>,
+        sized: bool,
+    ) -> Result<WorkspacePaneRecord> {
         let (session, key) = self.require_workspace(&request.session_id, WorkspacePane::Terminal)?;
         let workspace = self.open_workspace(&key).await?;
-        let viewer = workspace.attached.borrow_mut().shift_remove(&WorkspacePane::Terminal);
-        if let Some(viewer) = viewer.filter(|viewer| !viewer.client.is_destroyed()) {
-            send_message(
-                &viewer.client,
-                &pane_detached_message(WorkspacePane::Terminal, viewer.session_id),
+        let mut message = payload(json!({"type": kind}));
+        if sized {
+            message.insert(
+                "cols".to_owned(),
+                Value::from(clamp_size(request.cols, DEFAULT_PREVIEW_COLS)),
+            );
+            message.insert(
+                "rows".to_owned(),
+                Value::from(clamp_size(request.rows, DEFAULT_PREVIEW_ROWS)),
             );
         }
-        let terminal: WorkspacePaneRecord = self
-            .request_pane(
-                &workspace,
-                payload(json!({
-                    "type": "restart-terminal",
-                    "cols": clamp_size(request.cols, DEFAULT_PREVIEW_COLS),
-                    "rows": clamp_size(request.rows, DEFAULT_PREVIEW_ROWS),
-                })),
-            )
-            .await?;
+        if let Some(shell) = shell {
+            // The first shell keeps the TS message (no `shell`).
+            if shell != 0 || kind != "restart-terminal" {
+                message.insert("shell".to_owned(), Value::from(shell));
+            }
+            self.detach_shell(&workspace, shell);
+        }
+        let terminal: WorkspacePaneRecord = self.request_pane(&workspace, message).await?;
         if self.is_current_workspace(&workspace) {
             workspace
                 .records
@@ -1145,7 +1350,7 @@ impl Daemon {
                 .insert(WorkspacePane::Terminal, terminal.clone());
             self.publish_workspace_pane(&key, WorkspacePane::Terminal, &terminal);
         }
-        Ok(stamped(&terminal, &session.id, &key))
+        Ok(without_screens(&stamped(&terminal, &session.id, &key)))
     }
 
     /// Not in the TS: `stop-dev`, of every Dev process or only `process`.
@@ -1174,6 +1379,10 @@ impl Daemon {
             let mut event = payload(json!({"type": "input", "target": pane.as_str()}));
             if let Some(data) = request.data.to_value() {
                 event.insert("data".to_owned(), data);
+            }
+            // Not in the TS: the shell typed into without attaching.
+            if let Some(shell) = request.shell.filter(|_| pane == WorkspacePane::Terminal) {
+                event.insert("shell".to_owned(), Value::from(shell));
             }
             workspace.channel.send_event(event);
         }
@@ -1557,6 +1766,8 @@ mod tests {
                 session_id: session_id.map(str::to_owned),
                 cols: Some(cols),
                 rows: Some(rows),
+                interactive: None,
+                shell: None,
             };
             let none = daemon
                 .handle_watch_pane(&conn, WorkspacePane::Dev, &watch(None, 0, -3))
@@ -1715,6 +1926,7 @@ mod tests {
             rows: None,
             process: None,
             restart: None,
+            shell: None,
         };
         local(async {
             assert_eq!(
@@ -1767,6 +1979,188 @@ mod tests {
             );
             assert!(workspace.records.borrow()[&WorkspacePane::Terminal].live);
             assert!(lines(&mut attached_rx).is_empty());
+        });
+    }
+
+    fn shell_request(session_id: &str, shell: Option<i64>) -> SessionSizeRequest {
+        SessionSizeRequest {
+            request_id: "r".into(),
+            session_id: session_id.into(),
+            cols: Some(90),
+            rows: Some(20),
+            process: None,
+            restart: None,
+            shell,
+        }
+    }
+
+    #[test]
+    fn extra_shells_open_close_and_end_their_attach() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = daemon(dir.path());
+        put(&daemon, session("s1", "/w", "/w"));
+        let (_b, mut b) = watcher(&daemon, 1, |sub| sub.watched_terminal_session_id = some("s1"));
+        let (attached, mut attached_rx) = test_client(2);
+        let two = json!({"content": "", "live": true, "cwd": "/w", "shells": [
+            {"id": 0, "content": "", "live": true}, {"id": 3, "content": "", "live": true}]});
+        let one = json!({"content": "", "live": true, "cwd": "/w"});
+        local(async {
+            let (workspace, mut fake) = fake_workspace(&daemon, "/w").await;
+            let opening = {
+                let daemon = daemon.clone();
+                spawn(async move { daemon.handle_new_terminal(&shell_request("s1", None)).await })
+            };
+            let request = fake.next().await;
+            assert_eq!(
+                (&request["type"], &request["cols"], &request["rows"]),
+                (&json!("new-terminal"), &json!(90), &json!(20))
+            );
+            assert!(request.get("shell").is_none());
+            fake.answer(&request, two.clone()).await;
+            assert_eq!(opening.await.unwrap().shells.as_ref().map(Vec::len), Some(2));
+            assert_eq!(lines(&mut b).len(), 1);
+
+            // Typed into and attached by id.
+            daemon
+                .handle_pane_input(
+                    WorkspacePane::Terminal,
+                    &Input {
+                        session_id: "s1".into(),
+                        data: "x".into(),
+                        shell: Some(3),
+                    },
+                )
+                .unwrap();
+            assert_eq!(
+                fake.next().await,
+                json!({"type": "input", "target": "terminal", "data": "x", "shell": 3})
+            );
+            let attaching = {
+                let daemon = daemon.clone();
+                let attached = attached.clone();
+                spawn(async move {
+                    daemon
+                        .attach_workspace_shell(&attached, "a", "s1", Some(80), Some(24), Some(3))
+                        .await
+                })
+            };
+            let request = fake.next().await;
+            assert_eq!((&request["type"], &request["shell"]), (&json!("attach"), &json!(3)));
+            fake.answer(&request, json!({"content": "", "live": true})).await;
+            attaching.await.unwrap();
+            assert_eq!(workspace.attached_shell.get(), 3);
+            lines(&mut attached_rx);
+
+            // Closing it ends that attach first.
+            let closing = {
+                let daemon = daemon.clone();
+                spawn(async move { daemon.handle_close_terminal(&shell_request("s1", Some(3))).await })
+            };
+            let request = fake.next().await;
+            assert_eq!(
+                (&request["type"], &request["shell"]),
+                (&json!("close-terminal"), &json!(3))
+            );
+            assert!(request.get("cols").is_none());
+            assert_eq!(
+                lines(&mut attached_rx),
+                [r#"{"type":"terminal-detached","sessionId":"s1"}"#]
+            );
+            fake.answer(&request, one.clone()).await;
+            closing.await.unwrap();
+
+            // A shell that exits by itself (gone from the worker's update) ends its attach too.
+            workspace.attached.borrow_mut().insert(
+                WorkspacePane::Terminal,
+                PaneViewer {
+                    client: attached.clone(),
+                    session_id: "s1".into(),
+                },
+            );
+            workspace.attached_shell.set(4);
+            fake.send(json!({"type": "terminal-updated", "terminal": one})).await;
+            let mut got = Vec::new();
+            until(|| {
+                got.extend(lines(&mut attached_rx));
+                !got.is_empty()
+            })
+            .await;
+            assert_eq!(got, [r#"{"type":"terminal-detached","sessionId":"s1"}"#]);
+            assert_eq!(workspace.attached_shell.get(), 0);
+        });
+    }
+
+    #[test]
+    fn typing_into_a_shell_styles_only_it_and_only_for_the_typing_client() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = daemon(dir.path());
+        put(&daemon, session("s1", "/w", "/w"));
+        put(&daemon, session("s2", "/w", "/w"));
+        let (typing, mut typing_rx) = test_client(1);
+        let typing = Connection::new(typing);
+        let (_plain, mut plain_rx) = watcher(&daemon, 2, |sub| sub.watched_terminal_session_id = some("s2"));
+        let watch = |session_id: &str, interactive: bool, shell: Option<i64>| WatchPane {
+            request_id: "w".into(),
+            session_id: Some(session_id.into()),
+            cols: Some(80),
+            rows: Some(24),
+            interactive: interactive.then_some(true),
+            shell,
+        };
+        let screen = json!({"lines": [], "modes": {"bracketedPaste": false, "applicationCursorKeys": false, "mouseTracking": false}});
+        local(async {
+            let (workspace, mut fake) = fake_workspace(&daemon, "/w").await;
+            let watching = {
+                let daemon = daemon.clone();
+                let typing = Rc::clone(&typing);
+                let request = watch("s1", true, Some(2));
+                spawn(async move {
+                    daemon
+                        .handle_watch_pane(&typing, WorkspacePane::Terminal, &request)
+                        .await
+                })
+            };
+            assert_eq!(
+                fake.next().await,
+                json!({"type": "preview-mode", "target": "terminal", "styled": true, "shell": 2})
+            );
+            let snapshot = fake.next().await;
+            assert_eq!(snapshot["type"], "snapshot");
+            let styled = json!({"content": "", "live": true, "shells": [
+                {"id": 0, "content": "", "live": true}, {"id": 2, "content": "", "live": true, "screen": screen}]});
+            fake.answer(&snapshot, styled.clone()).await;
+            let record = watching.await.unwrap();
+            assert!(record.shells.as_ref().is_some_and(|shells| shells[1].screen.is_some()));
+            assert_eq!(*workspace.styled_shells.borrow(), BTreeSet::from([2]));
+
+            // Updates: the typing client gets the screen, the other one the plain record.
+            fake.send(json!({"type": "terminal-updated", "terminal": styled})).await;
+            until(|| workspace.records.borrow().contains_key(&WorkspacePane::Terminal)).await;
+            settle().await;
+            let typed = lines(&mut typing_rx);
+            let plain = lines(&mut plain_rx);
+            assert!(typed[0].contains("\"screen\""), "{typed:?}");
+            assert!(!plain[0].contains("\"screen\""), "{plain:?}");
+
+            // Watching plainly again switches it off.
+            let unwatching = {
+                let daemon = daemon.clone();
+                let typing = Rc::clone(&typing);
+                let request = watch("s1", false, None);
+                spawn(async move {
+                    daemon
+                        .handle_watch_pane(&typing, WorkspacePane::Terminal, &request)
+                        .await
+                })
+            };
+            assert_eq!(
+                fake.next().await,
+                json!({"type": "preview-mode", "target": "terminal", "styled": false, "shell": 2})
+            );
+            let snapshot = fake.next().await;
+            fake.answer(&snapshot, json!({"content": "", "live": true})).await;
+            unwatching.await.unwrap();
+            assert!(workspace.styled_shells.borrow().is_empty());
         });
     }
 
@@ -1984,6 +2378,7 @@ mod tests {
                     &Input {
                         session_id: "s2".into(),
                         data: "x".into(),
+                        shell: None,
                     },
                 )
                 .unwrap();

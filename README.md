@@ -75,7 +75,7 @@ More in [docs/architecture.md](docs/architecture.md).
 ## Features
 
 - **[Worktree sessions](docs/features.md#sessions-and-sub-sessions)**: start an agent in a new worktree, an existing one or none. Sub-sessions (`N`) add a clean agent in the parent's worktree or fork the parent's conversation.
-- **[Shared worktree tabs](docs/features.md#terminal-git-and-dev-panes)**: sessions in one worktree share its shell, Git view and Dev command, which keep running after the agents exit.
+- **[Shared worktree tabs](docs/features.md#terminal-git-and-dev-panes)**: sessions in one worktree share its shells, Git view and Dev command, which keep running after the agents exit.
 - **[Agent signals](docs/features.md#lifecycle-signals-and-notifications)**: the sidebar shows when an agent is waiting for you, has finished or has failed, with optional desktop notifications.
 - **[Resume](docs/features.md#resume-and-handoffs)**: `s` reopens an exited session's conversation where it stopped. Deckhand never quietly starts a blank one instead.
 - **[Merge from the sidebar](docs/features.md#merging-and-done)**: preview the commits, then merge or squash-merge, staged for review. Worktrees merged elsewhere, such as through a pull request, are marked too.

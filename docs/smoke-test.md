@@ -44,12 +44,13 @@ Select `smoke claude` (`1`) and walk the tabs with `]` / `[` and the letters.
 | Keys | Expected |
 | --- | --- |
 | `p` | Preview: the agent's screen as plain text. `→` types to the agent: its colours and cursor appear, every key (Esc and Ctrl+C too) reaches it, the wheel scrolls; `Ctrl+]` leaves |
-| `t` | Terminal: a shell in the session's worktree (`pwd` shows `~/.deckhand-rust-dev/worktrees/...`). The shell starts the first time you view the tab |
+| `t` | Terminal: a shell in the session's worktree (`pwd` shows `~/.deckhand-rust-dev/worktrees/...`). The shell starts the first time you view the tab. `→` types into it (its colours and cursor appear); `Ctrl+]` leaves |
 | `g` | Git: sections Merge Conflicts / Staged / Changes / Untracked, empty at first. In another terminal run `echo x >> <worktree>/notes.txt`; within about 2 s `notes.txt` appears under Changes with `+1 -0`. `→` focuses it; `space` stages (moves to Staged); `space` again unstages; `J`/`K` scroll the diff |
 | `d` | Dev: shows "not running" or the empty pane. `d` `d` (twice quickly) starts the Dev command: output `dev up`, `▶` appears after the row title. `d` `d` again stops it |
 | `a` | Notes: the worktree's note. `Enter` edits |
 | `r` | Run list: **Dev** first, then `hello`. Choose `hello` and Enter: the Terminal tab switches to the action, header `hello ✓ exit 0`, output `hello from action`. `v` switches back to the shell |
-| `r` `G` | Run list, last row: **Shell**. First, on the Terminal tab, `o` and run `sh -c 'trap "" INT HUP; sleep 300'`, then `Ctrl+]` (`ctrl+c` won't stop it). `r`, `G`, Enter: after about 2 s the Terminal tab shows a fresh prompt and the footer says `Restarted the shell` |
+| `r` `G` `k` | Run list, the row before last: **Shell**. First, on the Terminal tab, `o` and run `sh -c 'trap "" INT HUP; sleep 300'`, then `Ctrl+]` (`ctrl+c` won't stop it). `r`, `G`, `k`, Enter: after about 2 s the Terminal tab shows a fresh prompt and the footer says `Restarted the shell` |
+| `r` `G` | Run list, last row: **+ New shell**. Enter: the Terminal header reads `shell 1 │ shell 2`, the second one shown. `→`, type `echo two` and Enter, `Ctrl+]`: its output stays there, and `v` shows the first shell without it. `r`, the **Shell 2** row, `x`: `Closed shell 2` |
 
 Also `<` / `>` narrow and widen the sidebar and `tab` / `shift+tab` cycle tabs. Select `smoke pi`: Terminal, Git, Dev and Notes are shared per worktree, so they show that worktree's own (not claude's) shell and changes.
 

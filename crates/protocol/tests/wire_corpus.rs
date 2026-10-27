@@ -224,6 +224,8 @@ fn the_corpus_covers_every_variant() {
         "stop-dev",
         "stop-action",
         "restart-terminal",
+        "new-terminal",
+        "close-terminal",
         "idle",
     ] {
         expected.push(format!("w2d workspace response {kind}"));

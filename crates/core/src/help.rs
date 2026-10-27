@@ -213,7 +213,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "→  l",
-                text: "Step into the pane: type to the agent (running), browse Git changes, edit the notes",
+                text: "Step into the pane: type to the agent (running) or the shell, browse Git changes, edit the notes",
             },
             HelpLine::Key {
                 keys: "←  h  Esc",
@@ -221,7 +221,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "v",
-                text: "On Terminal: switch between the shell and the last action",
+                text: "On Terminal: the next shell, then the last action",
             },
             HelpLine::Key {
                 keys: "v",
@@ -232,11 +232,11 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Open in Cursor / VS Code: the note on Notes, otherwise the session's folder",
             },
             HelpLine::Heading {
-                heading: "Typing to the agent (→ on Preview)",
+                heading: "Typing to the agent or a shell (→ on Preview or Terminal)",
             },
             HelpLine::Key {
                 keys: "Ctrl+]",
-                text: "Back (Ctrl+Space too); every other key goes to the agent, Esc and Ctrl+C included",
+                text: "Back (Ctrl+Space too); every other key goes to it, Esc and Ctrl+C included",
             },
             HelpLine::Note {
                 note: "Mouse wheel: Scroll speed in Settings (C); \"claude_scroll_override\": false in config.json keeps your own Claude scroll settings.",
@@ -427,11 +427,11 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
         lines: &[
             HelpLine::Key {
                 keys: "r",
-                text: "Run: Dev (start or stop it), your actions, then Shell (restart it); Enter runs the selected one",
+                text: "Run: Dev (start or stop it), your actions, the shells (restart one), + New shell (up to 4)",
             },
             HelpLine::Key {
                 keys: "x",
-                text: "In the run list: stop the running action (or Dev)",
+                text: "In the run list: stop the action (or Dev); close an extra shell",
             },
             HelpLine::Key {
                 keys: "r",
@@ -587,7 +587,7 @@ mod tests {
     #[test]
     fn guide_explains_typing_to_the_agent() {
         let panes = topic_text("Panes");
-        assert!(panes.contains("type to the agent (running)"));
+        assert!(panes.contains("type to the agent (running) or the shell"));
         assert!(panes.contains("Ctrl+] Back (Ctrl+Space too)"));
         assert!(panes.contains("Esc and Ctrl+C included"));
     }

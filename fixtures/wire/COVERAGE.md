@@ -55,11 +55,12 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `attach-action` | 0 | 1 |
 | c2d | - | `attach-dev` | 0 | 1 |
 | c2d | - | `attach-git` | 0 | 1 |
-| c2d | - | `attach-terminal` | 2 | 1 |
+| c2d | - | `attach-terminal` | 2 | 2 |
 | c2d | - | `attach` | 0 | 1 |
 | c2d | - | `cancel-start` | 1 | 0 |
 | c2d | - | `change-stage` | 3 | 0 |
 | c2d | - | `changes-diff` | 2 | 0 |
+| c2d | - | `close-terminal` | 0 | 1 |
 | c2d | - | `create-pr` | 2 | 0 |
 | c2d | - | `create` | 14 | 0 |
 | c2d | - | `delete-worktree` | 8 | 0 |
@@ -82,6 +83,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `mark-session-merged` | 1 | 0 |
 | c2d | - | `merge-preview` | 2 | 0 |
 | c2d | - | `merge-worktree` | 4 | 0 |
+| c2d | - | `new-terminal` | 0 | 1 |
 | c2d | - | `open-note` | 1 | 0 |
 | c2d | - | `open-tasks` | 0 | 1 |
 | c2d | - | `ping` | 1 | 0 |
@@ -92,7 +94,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `resize` | 0 | 1 |
 | c2d | - | `resolve-merge` | 2 | 0 |
 | c2d | - | `restart` | 2 | 0 |
-| c2d | - | `restart-terminal` | 0 | 1 |
+| c2d | - | `restart-terminal` | 0 | 2 |
 | c2d | - | `return-task-to-note` | 2 | 0 |
 | c2d | - | `run-action` | 2 | 0 |
 | c2d | - | `save-config` | 4 | 0 |
@@ -109,7 +111,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `task-op` | 10 | 0 |
 | c2d | - | `task-to-note` | 1 | 0 |
 | c2d | - | `terminal-detach` | 1 | 1 |
-| c2d | - | `terminal-input` | 1 | 1 |
+| c2d | - | `terminal-input` | 1 | 2 |
 | c2d | - | `terminal-resize` | 0 | 1 |
 | c2d | - | `trust-project` | 2 | 0 |
 | c2d | - | `update-agent` | 1 | 0 |
@@ -119,7 +121,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `watch-git` | 1 | 0 |
 | c2d | - | `watch-preview` | 2 | 1 |
 | c2d | - | `watch-tasks` | 2 | 0 |
-| c2d | - | `watch-terminal` | 2 | 0 |
+| c2d | - | `watch-terminal` | 2 | 1 |
 | c2d | - | `workspace-summary` | 2 | 0 |
 | c2d | - | `worktree-candidate-sizes` | 2 | 0 |
 | c2d | - | `worktree-candidates` | 2 | 0 |
@@ -148,7 +150,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | `terminal-attached` | 1 | 0 |
 | d2c | - | `terminal-detached` | 1 | 0 |
 | d2c | - | `terminal-output` | 1 | 0 |
-| d2c | - | `terminal-updated` | 1 | 0 |
+| d2c | - | `terminal-updated` | 1 | 1 |
 | d2c | - | response (failure) | 24 | 1 |
 | d2c | - | response `agent-hook` | 1 | 0 |
 | d2c | - | response `agent-versions` | 3 | 0 |
@@ -161,6 +163,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `cancel-start` | 1 | 0 |
 | d2c | - | response `change-stage` | 1 | 0 |
 | d2c | - | response `changes-diff` | 1 | 0 |
+| d2c | - | response `close-terminal` | 0 | 1 |
 | d2c | - | response `create-pr` | 1 | 0 |
 | d2c | - | response `create` | 5 | 0 |
 | d2c | - | response `delete-worktree` | 4 | 0 |
@@ -175,6 +178,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `mark-session-merged` | 5 | 0 |
 | d2c | - | response `merge-preview` | 4 | 0 |
 | d2c | - | response `merge-worktree` | 5 | 0 |
+| d2c | - | response `new-terminal` | 0 | 1 |
 | d2c | - | response `open-note` | 1 | 0 |
 | d2c | - | response `open-tasks` | 0 | 1 |
 | d2c | - | response `ping` | 1 | 0 |
@@ -208,7 +212,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `watch-git` | 1 | 0 |
 | d2c | - | response `watch-preview` | 2 | 1 |
 | d2c | - | response `watch-tasks` | 1 | 0 |
-| d2c | - | response `watch-terminal` | 2 | 0 |
+| d2c | - | response `watch-terminal` | 2 | 1 |
 | d2c | - | response `workspace-summary` | 2 | 0 |
 | d2c | - | response `worktree-candidate-sizes` | 1 | 0 |
 | d2c | - | response `worktree-candidates` | 1 | 0 |
@@ -221,12 +225,15 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2w | session | `resize` | 0 | 1 |
 | d2w | session | `snapshot` | 0 | 2 |
 | d2w | session | `start` | 22 | 0 |
-| d2w | workspace | `attach` | 1 | 0 |
+| d2w | workspace | `attach` | 1 | 1 |
+| d2w | workspace | `close-terminal` | 0 | 1 |
 | d2w | workspace | `detach` | 1 | 0 |
 | d2w | workspace | `idle` | 1 | 0 |
-| d2w | workspace | `input` | 1 | 0 |
+| d2w | workspace | `input` | 1 | 1 |
+| d2w | workspace | `new-terminal` | 0 | 1 |
+| d2w | workspace | `preview-mode` | 0 | 1 |
 | d2w | workspace | `resize` | 0 | 1 |
-| d2w | workspace | `restart-terminal` | 0 | 1 |
+| d2w | workspace | `restart-terminal` | 0 | 2 |
 | d2w | workspace | `shutdown` | 1 | 0 |
 | d2w | workspace | `snapshot` | 1 | 0 |
 | d2w | workspace | `start-action` | 1 | 0 |
@@ -250,10 +257,12 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | w2d | workspace | `git-updated` | 1 | 0 |
 | w2d | workspace | `hello` | 0 | 1 |
 | w2d | workspace | `output` | 1 | 0 |
-| w2d | workspace | `terminal-updated` | 1 | 0 |
+| w2d | workspace | `terminal-updated` | 1 | 1 |
 | w2d | workspace | response (failure) | 1 | 0 |
 | w2d | workspace | response `attach` | 1 | 1 |
+| w2d | workspace | response `close-terminal` | 0 | 1 |
 | w2d | workspace | response `idle` | 1 | 0 |
+| w2d | workspace | response `new-terminal` | 0 | 1 |
 | w2d | workspace | response `restart-terminal` | 0 | 1 |
 | w2d | workspace | response `shutdown` | 1 | 0 |
 | w2d | workspace | response `snapshot` | 4 | 0 |

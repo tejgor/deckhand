@@ -31,12 +31,12 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `d` | Show the Dev tab |
 | `d` `d` | Start or stop the worktree's Dev command (press `d` twice quickly); starting it stops Dev in the repository's other worktrees |
 | `a` | Show the Notes tab |
-| `→`, `l` | Step into the pane: [type to the agent](#typing-to-the-agent), browse [Git changes](#git-changes) or [edit the notes](#notes-editor) |
+| `→`, `l` | Step into the pane: [type to the agent or a shell](#typing-to-the-agent), browse [Git changes](#git-changes) or [edit the notes](#notes-editor) |
 | `←`, `h`, `esc` | Step back out to the session list |
 | `enter`, `o` | Open full screen what the tab shows: the agent, the shell or action, lazygit or Dev |
 | `enter` *(on Notes)* | Edit the note here |
 | `o` *(on Notes)* | Edit the note in your terminal editor ([in vim](features.md#notes)) |
-| `v` *(on Terminal)* | Switch between the shell and the worktree's last action |
+| `v` *(on Terminal)* | Show the next of the worktree's [shells](features.md#several-shells), then its last action |
 | `v` *(on Dev)* | Select the next [Dev process](features.md#several-dev-processes); `enter` opens the selected one |
 | `E` | Open the session's directory in Cursor or VS Code (on Notes: the note) |
 | `n` | New top-level session |
@@ -49,7 +49,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `U` | Mark the selected session's finished reply unread (`◆`), or read again ([unread replies](features.md#organizing-and-inspecting-sessions)) |
 | `m` | Merge the selected worktree into the current branch, uncommitted ([merging](features.md#merging-and-done)) |
 | `M` | Set or clear the worktree's merged marker without merging |
-| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes): `enter` starts or restarts it, `x` stops it), then your actions ([actions](features.md#setup-and-actions)), then **Shell**: `enter` restarts the worktree's shell, killing whatever is stuck in it ([restarting](features.md#terminal-git-and-dev-panes)). Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
+| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes): `enter` starts or restarts it, `x` stops it), then your actions ([actions](features.md#setup-and-actions)), then a row per shell (`enter` restarts it, killing whatever is stuck in it ([restarting](features.md#terminal-git-and-dev-panes)); `x` closes an extra one) and **+ New shell**, which opens [another](features.md#several-shells). Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
 | `A` | Archive or unarchive the selected session (it keeps running) |
 | `backspace` | Archive the selected exited session; on an archived one, remove it for good ([archiving](features.md#organizing-and-inspecting-sessions)) |
 | `H` | Export and open a handoff ([handoffs](features.md#resume-and-handoffs)) |
@@ -143,13 +143,13 @@ Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessio
 
 ## Typing to the agent
 
-`→` (or `l`) on the Preview tab of a running session types to the agent without attaching; [Typing to an agent in the Preview](features.md#typing-to-an-agent-in-the-preview) describes it.
+`→` (or `l`) on the Preview tab of a running session types to the agent without attaching; [Typing to an agent in the Preview](features.md#typing-to-an-agent-in-the-preview) describes it. On the Terminal tab, `→` types into the shell shown the same way.
 
 | Key | Action |
 | --- | --- |
 | `ctrl+]`, `ctrl+space` | Back to the session list |
-| any other key | Goes to the agent, `esc`, `ctrl+c` and the arrows included |
-| mouse wheel | Scroll the agent's view (or the preview's history); the [scroll speed](features.md#scroll-speed) is set in Settings |
+| any other key | Goes to the agent (or the shell), `esc`, `ctrl+c` and the arrows included |
+| mouse wheel | On Preview: scroll the agent's view (or the preview's history); the [scroll speed](features.md#scroll-speed) is set in Settings |
 
 ## Attach
 

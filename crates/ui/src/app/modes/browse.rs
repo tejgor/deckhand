@@ -30,7 +30,7 @@ use crate::app::state::{App, AppCallback, Mode, ReviewLabels};
 use crate::app::{DEV_DOUBLE_TAP_MS, RIGHT_TABS, ReviewOptions, hint_short, sort_sessions, truthy, upsert_session};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 use crate::panes::dev::dev_processes;
-use crate::panes::terminal::{TerminalView, has_action};
+use crate::panes::terminal::{TerminalView, has_action, shells, shown_shell};
 
 /// The browse view's keys (keysDocumented: every one in the ? guide).
 pub static KEYMAP: Keymap = &[
@@ -417,21 +417,36 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         }
         return;
     }
-    // The Terminal tab switches between the shell and the worktree's last action.
+    // The Terminal tab cycles through the worktree's shells and its last action.
     if text == "v"
         && app.browse.active_tab == RightPaneTab::Terminal
         && let Some(session) = selected.as_ref()
     {
-        if has_action(Some(session), &app.panes.action) {
-            let showing = app.showing_action();
-            app.panes.terminal_view = if app.panes.terminal_view == TerminalView::Action && showing {
-                TerminalView::Shell
-            } else {
-                TerminalView::Action
-            };
+        let with_action = has_action(Some(session), &app.panes.action);
+        let mine = app.panes.terminal.session_id.as_deref() == Some(session.id.as_str());
+        let ids: Vec<i64> = if mine {
+            shells(&app.panes.terminal).iter().map(|shell| shell.id).collect()
         } else {
-            app.set_error(Some("No action has run in this worktree yet; r runs one".to_owned()));
+            vec![0]
+        };
+        if ids.len() < 2 && !with_action {
+            app.set_error(Some(
+                "No action has run in this worktree yet, and it has one shell; r runs an action or opens a shell"
+                    .to_owned(),
+            ));
+            return;
         }
+        let mut views: Vec<TerminalView> = ids.into_iter().map(TerminalView::Shell).collect();
+        if with_action {
+            views.push(TerminalView::Action);
+        }
+        let current = if app.showing_action() {
+            TerminalView::Action
+        } else {
+            TerminalView::Shell(shown_shell(&app.panes.terminal, app.panes.terminal_view))
+        };
+        let at = views.iter().position(|view| *view == current).unwrap_or(0);
+        app.panes.terminal_view = views[(at + 1) % views.len()];
         return;
     }
     if text == "c" {
@@ -802,6 +817,7 @@ pub fn step_into_pane(app: &mut App) {
         RightPaneTab::Preview => {
             if session.status == SessionStatus::Running {
                 app.preview_focus.session_id = Some(session.id.clone());
+                app.preview_focus.shell = None;
                 app.preview_focus.in_paste = false;
                 // The plain text shows until the watch brings this focus's first styled screen.
                 app.panes.preview.screen = None;
@@ -827,15 +843,39 @@ pub fn step_into_pane(app: &mut App) {
             app.notes_flow_call(|flow, props, _cx| flow.focus(props));
             app.set_mode(Mode::NotesFocus);
         }
-        tab => app.set_status(Some(format!(
-            "Nothing to scroll here: Enter opens the {} full screen",
-            if tab == RightPaneTab::Dev {
-                "Dev command"
-            } else {
-                "shell"
-            }
-        ))),
+        RightPaneTab::Terminal => step_into_shell(app, &session),
+        RightPaneTab::Dev => app.set_status(Some(
+            "Nothing to scroll here: Enter opens the Dev command full screen".to_owned(),
+        )),
     }
+}
+
+/// Not in the TS: → on the Terminal tab types into the shell shown (terminal focus).
+fn step_into_shell(app: &mut App, session: &SessionRecord) {
+    if workspace_of(session).is_none() {
+        app.set_error(Some(format!(
+            "Terminal is unavailable: {}",
+            no_workspace_reason(session)
+        )));
+        return;
+    }
+    if app.showing_action() {
+        app.set_status(Some(
+            "→ types into a shell: v switches to one (Enter opens the action full screen)".to_owned(),
+        ));
+        return;
+    }
+    let terminal = &app.panes.terminal;
+    let shell = shown_shell(terminal, app.panes.terminal_view);
+    let running = shells(terminal).iter().any(|view| view.id == shell && view.live);
+    if terminal.session_id.as_deref() != Some(session.id.as_str()) || !running {
+        app.set_error(Some("The shell is still starting; try again in a moment".to_owned()));
+        return;
+    }
+    app.preview_focus.session_id = Some(session.id.clone());
+    app.preview_focus.shell = Some(shell);
+    app.preview_focus.in_paste = false;
+    app.set_mode(Mode::TerminalFocus);
 }
 
 /// TS `runDev`: start (after reviewing an untrusted repository devCommand) or stop the worktree's Dev; `back` is
@@ -1770,10 +1810,7 @@ pub(crate) mod tests {
         assert_eq!(app.messages.error, Some(format!("Git is unavailable: {reason}")));
         app.set_active_tab(RightPaneTab::Terminal);
         step_into_pane(&mut app);
-        assert_eq!(
-            app.messages.status_message.as_deref(),
-            Some("Nothing to scroll here: Enter opens the shell full screen")
-        );
+        assert_eq!(app.messages.error, Some(format!("Terminal is unavailable: {reason}")));
         app.set_active_tab(RightPaneTab::Dev);
         step_into_pane(&mut app);
         assert_eq!(
@@ -1894,7 +1931,7 @@ pub(crate) mod tests {
         handle_browse(&mut app, &text("v"));
         assert_eq!(
             app.messages.error.as_deref(),
-            Some("No action has run in this worktree yet; r runs one")
+            Some("No action has run in this worktree yet, and it has one shell; r runs an action or opens a shell")
         );
         app.panes.action.session_id = Some("s0".to_owned());
         app.panes.action.workspace = Some("/repo".to_owned());
@@ -1902,7 +1939,59 @@ pub(crate) mod tests {
         handle_browse(&mut app, &text("v"));
         assert_eq!(app.panes.terminal_view, TerminalView::Action);
         handle_browse(&mut app, &text("v"));
-        assert_eq!(app.panes.terminal_view, TerminalView::Shell);
+        assert_eq!(app.panes.terminal_view, TerminalView::Shell(0));
+        // Several shells: each in turn, then the action, then the first again.
+        app.panes.terminal = serde_json::from_value(json!({
+            "content": "", "live": true, "sessionId": "s0", "workspace": "/repo",
+            "shells": [{"id": 0, "content": "", "live": true}, {"id": 3, "content": "", "live": true}],
+        }))
+        .unwrap_or_else(|error| panic!("{error}"));
+        let mut seen = Vec::new();
+        for _ in 0..3 {
+            handle_browse(&mut app, &text("v"));
+            seen.push(app.panes.terminal_view);
+        }
+        assert_eq!(
+            seen,
+            [TerminalView::Shell(3), TerminalView::Action, TerminalView::Shell(0)]
+        );
+    }
+
+    #[test]
+    fn right_on_the_terminal_types_into_the_shell_shown() {
+        let (mut app, _rx) = with_sessions(1);
+        app.data.repo_sessions[0].worktree = Some(worktree("/repo/wt"));
+        app.set_active_tab(RightPaneTab::Terminal);
+        // Not watched yet: nothing to type into.
+        step_into_pane(&mut app);
+        assert_eq!(
+            app.messages.error.as_deref(),
+            Some("The shell is still starting; try again in a moment")
+        );
+        app.panes.terminal = serde_json::from_value(json!({
+            "content": "$ ", "live": true, "sessionId": "s0", "workspace": "/repo/wt",
+            "shells": [{"id": 0, "content": "$ ", "live": true}, {"id": 2, "content": "$ ", "live": true}],
+        }))
+        .unwrap_or_else(|error| panic!("{error}"));
+        app.panes.terminal_view = TerminalView::Shell(2);
+        step_into_pane(&mut app);
+        assert_eq!(app.mode, Mode::TerminalFocus);
+        assert_eq!(app.preview_focus.shell, Some(2));
+        assert_eq!(app.preview_focus.session_id.as_deref(), Some("s0"));
+        // The action shown: v switches to a shell first.
+        app.set_mode(Mode::Browse);
+        app.panes.action.session_id = Some("s0".to_owned());
+        app.panes.action.workspace = Some("/repo/wt".to_owned());
+        app.panes.action.command = Some("npm test".to_owned());
+        app.panes.terminal_view = TerminalView::Action;
+        step_into_pane(&mut app);
+        assert_eq!(app.mode, Mode::Browse);
+        assert!(
+            app.messages
+                .status_message
+                .as_deref()
+                .is_some_and(|status| status.starts_with("→ types into a shell: v switches to one"))
+        );
     }
 
     #[test]
@@ -2000,7 +2089,7 @@ pub(crate) mod tests {
             app.messages.error.as_deref(),
             Some("test has finished; r runs an action again (v shows the shell)")
         );
-        app.panes.terminal_view = TerminalView::Shell;
+        app.panes.terminal_view = TerminalView::Shell(0);
         handle_browse(&mut app, &enter);
         assert_eq!(
             app.messages.error.as_deref(),
@@ -2046,6 +2135,8 @@ pub(crate) mod tests {
                 cwd: Some("/repo".to_owned()),
                 program: Some(ProgramKey::Claude),
                 process: None,
+                shell: None,
+                shell_label: None,
                 status_title: Some("Session 0".to_owned()),
             })
         );

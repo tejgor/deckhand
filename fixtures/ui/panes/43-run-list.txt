@@ -2,15 +2,15 @@
 
 
 
-
   ╭────────────────────────────────────────────────────────────────────────────────────────────╮
   │                                                                                            │
   │ Run                                                                                        │
   │ "needs trust": from deckhand.json, reviewed first                                          │
   │                                                                                            │
-  │ ❯ Dev    dev                                                                     ○ stopped │
-  │   test   echo tests-ok                                                       · needs trust │
-  │   Shell  restart the worktree's shell                                                      │
+  │ ❯ Dev          dev                                                               ○ stopped │
+  │   test         echo tests-ok                                                 · needs trust │
+  │   Shell        restart the worktree's shell                                                │
+  │   + New shell  another shell in this worktree                                              │
   │                                                                                            │
   │ ╭────────────────────────────────────────────────────────────────────────────────────────╮ │
   │ │ Dev                                                                                    │ │

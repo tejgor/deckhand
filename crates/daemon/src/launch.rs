@@ -1680,6 +1680,7 @@ mod tests {
                 cols: Some(0),
                 rows: None,
                 process: None,
+                shell: None,
             };
             let not_running = daemon.handle_attach(&conn, &attach).await.unwrap_err();
             assert_eq!(not_running.to_string(), "session is not running");
@@ -1748,6 +1749,7 @@ mod tests {
                 .handle_input(&Input {
                     session_id: "s".into(),
                     data: "ls".into(),
+                    shell: None,
                 })
                 .unwrap();
             assert_eq!(

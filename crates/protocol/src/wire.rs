@@ -570,6 +570,13 @@ pub struct WatchPane {
     pub cols: Option<i64>,
     #[serde(default, deserialize_with = "lenient::size")]
     pub rows: Option<i64>,
+    /// Not in the TS (`watch-terminal`): the UI types into shell `shell`, so terminal records carry its styled
+    /// screen.
+    #[serde(default, deserialize_with = "lenient::truthy")]
+    pub interactive: Option<bool>,
+    /// Not in the TS (`watch-terminal` with `interactive`): the shell typed into (absent: the first, 0).
+    #[serde(default, deserialize_with = "lenient::size")]
+    pub shell: Option<i64>,
 }
 
 #[skip_serializing_none]
@@ -612,7 +619,8 @@ pub struct ChangeStage {
     pub path: Loose<String>,
 }
 
-/// `start-dev`; not in the TS: `restart-terminal` (without `process` and `restart`).
+/// `start-dev`; not in the TS: `restart-terminal` and `new-terminal` (without `process` and `restart`) and
+/// `close-terminal` (`shell` only).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -631,6 +639,9 @@ pub struct SessionSizeRequest {
     /// Not in the TS (`start-dev` with `process`): stop the process first if it runs.
     #[serde(default, deserialize_with = "lenient::truthy")]
     pub restart: Option<bool>,
+    /// Not in the TS (`restart-terminal`, `close-terminal`): the worktree's shell by id (absent: the first, 0).
+    #[serde(default, deserialize_with = "lenient::size")]
+    pub shell: Option<i64>,
 }
 
 /// Not in the TS: `stop-dev`, for every Dev process or only `process`.
@@ -916,6 +927,9 @@ pub struct Attach {
     /// Not in the TS (`attach-dev`): the Dev process to attach to (`devCommand` as a map); absent is the first.
     #[serde(default, deserialize_with = "lenient::opt_string")]
     pub process: Option<String>,
+    /// Not in the TS (`attach-terminal`): the worktree's shell by id; absent is the first (0).
+    #[serde(default, deserialize_with = "lenient::size")]
+    pub shell: Option<i64>,
 }
 
 /// Keys typed into an attached PTY (no response).
@@ -928,6 +942,9 @@ pub struct Input {
     /// Forwarded as sent; the agent's input case also reads it as text.
     #[serde(default, skip_serializing_if = "Loose::is_absent")]
     pub data: Loose<String>,
+    /// Not in the TS (`terminal-input`): the shell typed into by id; absent is the attached one, else the first.
+    #[serde(default, deserialize_with = "lenient::size")]
+    pub shell: Option<i64>,
 }
 
 /// An attached terminal's new size (no response; forwarded as sent, absent sizes omitted).
@@ -1030,6 +1047,10 @@ pub enum Request {
     StopAction(SessionRequest),
     #[serde(rename = "restart-terminal")]
     RestartTerminal(SessionSizeRequest),
+    #[serde(rename = "new-terminal")]
+    NewTerminal(SessionSizeRequest),
+    #[serde(rename = "close-terminal")]
+    CloseTerminal(SessionSizeRequest),
     #[serde(rename = "save-note")]
     SaveNote(SaveNote),
     #[serde(rename = "open-note")]
@@ -1140,7 +1161,8 @@ request_table! {
     DeleteWorktree => "delete-worktree", WatchPreview => "watch-preview", WatchTerminal => "watch-terminal",
     WatchGit => "watch-git", WatchDev => "watch-dev", WatchAction => "watch-action", WatchChanges => "watch-changes",
     ChangesDiff => "changes-diff", ChangeStage => "change-stage", StartDev => "start-dev", StopDev => "stop-dev",
-    StopAction => "stop-action", RestartTerminal => "restart-terminal", SaveNote => "save-note", OpenNote => "open-note", WatchTasks => "watch-tasks",
+    StopAction => "stop-action", RestartTerminal => "restart-terminal",
+    NewTerminal => "new-terminal", CloseTerminal => "close-terminal", SaveNote => "save-note", OpenNote => "open-note", WatchTasks => "watch-tasks",
     TaskOp => "task-op", OpenTasks => "open-tasks", SendOpenItems => "send-open-items",
     PromoteNoteItem => "promote-note-item", ReturnTaskToNote => "return-task-to-note", TaskToNote => "task-to-note",
     ListBranches => "list-branches", Create => "create", ReorderSession => "reorder-session", Restart => "restart",
@@ -1191,7 +1213,7 @@ impl Request {
             R::WatchChanges(r) => &r.request_id,
             R::ChangesDiff(r) => &r.request_id,
             R::ChangeStage(r) => &r.request_id,
-            R::StartDev(r) | R::RestartTerminal(r) => &r.request_id,
+            R::StartDev(r) | R::RestartTerminal(r) | R::NewTerminal(r) | R::CloseTerminal(r) => &r.request_id,
             R::SaveNote(r) => &r.request_id,
             R::OpenNote(r) => &r.request_id,
             R::TaskOp(r) => &r.request_id,
@@ -1387,6 +1409,6 @@ mod tests {
         tags.sort_unstable();
         tags.dedup();
         assert_eq!(tags.len(), Request::TYPES.len());
-        assert_eq!(Request::TYPES.len(), 78);
+        assert_eq!(Request::TYPES.len(), 80);
     }
 }

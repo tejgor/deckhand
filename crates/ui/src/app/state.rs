@@ -59,11 +59,13 @@ pub enum Mode {
     ConfirmRemove,
     PickFilter,
     Worktrees,
+    /// Not in the TS: → on the Terminal tab, typing into the shown shell.
+    TerminalFocus,
 }
 
 impl Mode {
-    /// Every mode, in the TS union's order.
-    pub const ALL: [Mode; 24] = [
+    /// Every mode, in the TS union's order (then the port's own).
+    pub const ALL: [Mode; 25] = [
         Mode::Browse,
         Mode::PreviewFocus,
         Mode::ChangesFocus,
@@ -88,6 +90,7 @@ impl Mode {
         Mode::ConfirmRemove,
         Mode::PickFilter,
         Mode::Worktrees,
+        Mode::TerminalFocus,
     ];
 
     /// The TS name (`'preview-focus'`, ...).
@@ -117,6 +120,7 @@ impl Mode {
             Mode::ConfirmRemove => "confirm-remove",
             Mode::PickFilter => "pick-filter",
             Mode::Worktrees => "worktrees",
+            Mode::TerminalFocus => "terminal-focus",
         }
     }
 
@@ -129,8 +133,19 @@ impl Mode {
     pub fn shows_tabs(self) -> bool {
         matches!(
             self,
-            Mode::Browse | Mode::PreviewFocus | Mode::ChangesFocus | Mode::NotesFocus | Mode::Search | Mode::PickFilter
+            Mode::Browse
+                | Mode::PreviewFocus
+                | Mode::TerminalFocus
+                | Mode::ChangesFocus
+                | Mode::NotesFocus
+                | Mode::Search
+                | Mode::PickFilter
         )
+    }
+
+    /// Not in the TS: every key goes to a PTY in the pane (the agent in its Preview, or a shell on the Terminal tab).
+    pub fn types_into_pane(self) -> bool {
+        matches!(self, Mode::PreviewFocus | Mode::TerminalFocus)
     }
 
     /// Not in the TS: a mode drawn as a dialog over the (faded) tabbed pane rather than in its place.
@@ -311,7 +326,8 @@ pub struct Messages {
     pub status_timer: Option<Timer>,
 }
 
-/// Preview focus (→ on a running session's Preview): typing to the agent, scrolling and the mouse wheel.
+/// Preview focus (→ on a running session's Preview): typing to the agent, scrolling and the mouse wheel. Not in the
+/// TS: also terminal focus (→ on the Terminal tab), typing into a shell (`shell`).
 #[derive(Debug)]
 pub struct PreviewFocusState {
     pub scroll_offset: i64,
@@ -320,6 +336,8 @@ pub struct PreviewFocusState {
     pub wheel: deckhand_core::wheel::WheelScaler,
     /// Not in the TS: the session the keys go to (set on stepping in).
     pub session_id: Option<String>,
+    /// Not in the TS: in terminal focus, the shell the keys go to (by id).
+    pub shell: Option<i64>,
     /// Not in the TS: between the terminal's paste markers, where a detach key is pasted text.
     pub in_paste: bool,
     /// Where the last frame drew the Preview's body (the agent's screen), for placing the cursor.
@@ -654,6 +672,7 @@ impl App {
                 scroll_sensitivity: DEFAULT_SCROLL_SENSITIVITY,
                 wheel: deckhand_core::wheel::WheelScaler::default(),
                 session_id: None,
+                shell: None,
                 in_paste: false,
                 body: None,
             },
@@ -737,7 +756,8 @@ mod tests {
                 "tasks",
                 "confirm-remove",
                 "pick-filter",
-                "worktrees"
+                "worktrees",
+                "terminal-focus"
             ]
         );
         for mode in Mode::ALL {

@@ -49,7 +49,9 @@ use crate::panes::dev::{DevPaneProps, render_dev_pane};
 use crate::panes::preview::{PreviewPaneProps, preview_body, render_preview_pane};
 use crate::panes::sidebar::{FilterMenu, SidebarProps, render_sidebar};
 use crate::panes::tabs::{TabBadges, open_note_count, render_tab_bar};
-use crate::panes::terminal::{TerminalPaneProps, action_status, has_action, render_terminal_pane};
+use crate::panes::terminal::{
+    TerminalPaneProps, action_status, has_action, render_terminal_pane, shell_label, shells, shown_shell, typed_screen,
+};
 use crate::primitives::{
     Border, Row, Seg, TextStyle, Wrap, bordered, clear_area, dim_area, draw_rows, row_text, row_width, space_between,
     string_width, truncate_row,
@@ -189,6 +191,8 @@ pub fn app_layout(size: TerminalSize, sidebar_width_override: Option<i64>) -> Ap
 pub struct TerminalActionHint {
     pub switch_hint: String,
     pub finished: bool,
+    /// Not in the TS: the tab shows a shell (→ types into it), not the action.
+    pub shows_shell: bool,
 }
 
 /// TS: app.tsx footerHint's arguments.
@@ -249,6 +253,11 @@ pub fn footer_hint(input: &FooterHintInput<'_>) -> String {
         | Mode::ConfirmRemove
         | Mode::Worktrees
         | Mode::Search => String::new(),
+        Mode::TerminalFocus => fit_hint(
+            &["ctrl+] back".into(), dropped("keys go to the shell", 1)],
+            width,
+            HINT_SEPARATOR,
+        ),
         Mode::PreviewFocus => fit_hint(
             &[
                 "ctrl+] back".into(),
@@ -395,17 +404,33 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
             let action = &app.panes.action;
             let showing = app.showing_action();
             let dev_switch = app.next_dev_process().map(|next| format!("v {next}"));
-            let terminal_action = has_action(selected, action).then(|| TerminalActionHint {
-                switch_hint: if showing {
-                    "v shell".to_owned()
-                } else {
-                    format!(
-                        "v {} {}",
-                        action.name.as_deref().unwrap_or("action"),
-                        action_status(action).text
-                    )
+            let terminal = &app.panes.terminal;
+            let mine = selected.is_some_and(|session| terminal.session_id.as_deref() == Some(session.id.as_str()));
+            let ids: Vec<i64> = if mine {
+                shells(terminal).iter().map(|shell| shell.id).collect()
+            } else {
+                vec![0]
+            };
+            let with_action = has_action(selected, action);
+            let shown = shown_shell(terminal, app.panes.terminal_view);
+            // What v shows next: the next shell, then the action, then the first shell again.
+            let next = ids.iter().position(|id| *id == shown).and_then(|at| ids.get(at + 1));
+            let action_hint = || {
+                format!(
+                    "v {} {}",
+                    action.name.as_deref().unwrap_or("action"),
+                    action_status(action).text
+                )
+            };
+            let terminal_action = (with_action || ids.len() > 1).then(|| TerminalActionHint {
+                switch_hint: match next {
+                    _ if showing => format!("v {}", shell_label(terminal, ids[0])),
+                    Some(id) => format!("v {}", shell_label(terminal, *id)),
+                    None if with_action => action_hint(),
+                    None => format!("v {}", shell_label(terminal, ids[0])),
                 },
                 finished: showing && !action.live,
+                shows_shell: !showing,
             });
             let notes_hint = if mode == Mode::NotesFocus {
                 flow_hint(app, derived, cols)
@@ -590,8 +615,8 @@ pub fn render_tabbed_pane(app: &mut App, buf: &mut Buffer, area: Rect) {
 fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: Rect) {
     let layout = app.layout();
     let selected = derived.selected.as_ref();
-    // Typing to the agent: the pane the keys go to is outlined.
-    let border = if app.mode == Mode::PreviewFocus {
+    // Typing to the agent or a shell: the pane the keys go to is outlined.
+    let border = if app.mode.types_into_pane() {
         THEME.border_active
     } else {
         THEME.border
@@ -630,8 +655,10 @@ fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, ar
                 terminal: &app.panes.terminal,
                 action: &app.panes.action,
                 view: app.panes.terminal_view,
+                focused: app.mode == Mode::TerminalFocus,
             };
             render_terminal_pane(&props, buf, pane);
+            app.preview_focus.body = Some(preview_body(pane));
         }
         RightPaneTab::Git => {
             with_props!(
@@ -797,11 +824,13 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 }),
             });
             let processes = app.run_list_processes();
+            let shells = app.run_list_shells();
             let props = ActionPickerPaneProps {
                 project: project.map(|project| &project.project),
                 running,
                 dev,
                 processes: &processes,
+                shells: &shells,
                 selected_index: app.action_picker.action_index,
             };
             render_action_picker_pane(&props, buf, right);
@@ -1001,17 +1030,29 @@ pub fn render_app(app: &mut App, frame: &mut Frame<'_>) {
     }
 }
 
-/// Not in the TS: while you type to the agent, the terminal's own cursor sits where the agent's is (so an input
-/// method composes there): only on the Preview tab, following the latest output, inside the drawn body.
+/// Not in the TS: while you type to the agent (or a shell), the terminal's own cursor sits where the agent's is (so
+/// an input method composes there): only on its tab, following the latest output, inside the drawn body.
 fn agent_cursor(app: &App) -> Option<Position> {
-    if app.mode != Mode::PreviewFocus
-        || app.browse.active_tab != RightPaneTab::Preview
-        || app.preview_focus.scroll_offset != 0
-    {
-        return None;
-    }
+    let screen = match app.mode {
+        Mode::PreviewFocus
+            if app.browse.active_tab == RightPaneTab::Preview && app.preview_focus.scroll_offset == 0 =>
+        {
+            app.panes.preview.screen.as_ref()
+        }
+        Mode::TerminalFocus if app.browse.active_tab == RightPaneTab::Terminal => {
+            let props = TerminalPaneProps {
+                session: None,
+                terminal: &app.panes.terminal,
+                action: &app.panes.action,
+                view: app.panes.terminal_view,
+                focused: true,
+            };
+            typed_screen(&props)
+        }
+        _ => None,
+    };
     let body = app.preview_focus.body?;
-    let cursor = app.panes.preview.screen.as_ref()?.cursor?;
+    let cursor = screen?.cursor?;
     let position = Position::new(body.x.checked_add(cursor.x)?, body.y.checked_add(cursor.y)?);
     body.contains(position).then_some(position)
 }
@@ -1034,9 +1075,14 @@ pub fn browse_hint_parts(input: &FooterHintInput<'_>) -> Vec<HintPart> {
             "loading…"
         }),
         // A finished action shown on the Terminal tab cannot be attached (not "loading": it will not become ready).
-        RightPaneTab::Terminal => {
-            (has_workspace && !finished).then_some(if ready { "enter open" } else { "loading…" })
-        }
+        // Not in the TS: → types into a shell shown.
+        RightPaneTab::Terminal => (has_workspace && !finished).then_some(if !ready {
+            "loading…"
+        } else if input.terminal_action.is_none_or(|action| action.shows_shell) {
+            "→ type • enter open"
+        } else {
+            "enter open"
+        }),
         RightPaneTab::Preview => running.then_some(if ready { "→ type • enter open" } else { "loading…" }),
         RightPaneTab::Notes => None,
     };
@@ -1370,6 +1416,25 @@ mod tests {
             browse(Some(&running), RightPaneTab::Preview, 40),
             "→ type • enter open • x stop • ? help"
         );
+        // The Terminal tab: → types into the shell shown, not into an action.
+        assert!(browse(Some(&running), RightPaneTab::Terminal, 200).starts_with("→ type • enter open • "));
+        let on_action = TerminalActionHint {
+            switch_hint: "v shell".to_owned(),
+            finished: false,
+            shows_shell: false,
+        };
+        let text = footer_hint(&FooterHintInput {
+            mode: Mode::Browse,
+            active_tab: RightPaneTab::Terminal,
+            width: 200,
+            session: Some(&running),
+            scroll_sensitivity: 0.12,
+            attach_ready: true,
+            notes_hint: None,
+            terminal_action: Some(&on_action),
+            dev_switch: None,
+        });
+        assert!(text.starts_with("enter open • v shell • "), "{text}");
     }
 
     #[test]
@@ -1390,6 +1455,10 @@ mod tests {
         assert_eq!(
             footer_hint(&input(Mode::PreviewFocus)),
             "ctrl+] back • keys go to the agent • wheel ×0.2"
+        );
+        assert_eq!(
+            footer_hint(&input(Mode::TerminalFocus)),
+            "ctrl+] back • keys go to the shell"
         );
         assert_eq!(
             footer_hint(&input(Mode::PickFilter)),
