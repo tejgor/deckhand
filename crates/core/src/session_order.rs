@@ -33,7 +33,7 @@ impl<T: SessionLike + ?Sized> SessionLike for &T {
 }
 
 /// A JS-truthy parent id (set and not empty).
-fn parent_of(session: &SessionRecord) -> Option<&str> {
+pub(crate) fn parent_of(session: &SessionRecord) -> Option<&str> {
     session.parent_session_id.as_deref().filter(|id| !id.is_empty())
 }
 
@@ -76,7 +76,7 @@ pub fn compare_session_order(a: &SessionRecord, b: &SessionRecord) -> Ordering {
 
 /// TS sortSessionsForSidebar's `visit`: `start`, then its unvisited descendants depth first (pre-order), iteratively
 /// so that a deep parent chain cannot overflow the stack.
-fn visit<'a, S: SessionLike>(
+pub(crate) fn visit<'a, S: SessionLike>(
     start: &'a S,
     children: &HashMap<&str, Vec<&'a S>>,
     visited: &mut HashSet<&'a str>,

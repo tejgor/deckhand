@@ -170,6 +170,14 @@ string_union!(
     }
 );
 
+string_union!(
+    /// Not in the TS: how the sidebar lists sessions: in sections by state (the default), or in your own order.
+    SessionView {
+        State = "state",
+        Order = "order",
+    }
+);
+
 /// uiState.ts UiState: one repository's UI preferences (normalizeUiState key order). Normalised on every read and
 /// write, so unknown keys are dropped as in TS.
 #[skip_serializing_none]
@@ -187,6 +195,8 @@ pub struct UiState {
     /// Session ID -> when you last detached from its agent. Legacy: kept as read and written back, but no longer
     /// recorded or consulted; the daemon keeps when a reply was read (the session's `replyReadAt`).
     pub read_replies: IndexMap<String, String>,
+    /// Not in the TS: the sidebar's view (`V`); `None` is the default, sections by state.
+    pub session_view: Option<SessionView>,
 }
 
 impl Default for UiState {
@@ -277,6 +287,10 @@ impl UiState {
             collapsed_session_ids: strings("collapsedSessionIds"),
             hidden_exited_session_ids: strings("hiddenExitedSessionIds"),
             read_replies: read.into_iter().skip(skip).collect(),
+            session_view: value
+                .get("sessionView")
+                .and_then(Value::as_str)
+                .and_then(|text| SessionView::ALL.iter().copied().find(|view| view.as_str() == text)),
         }
     }
 }

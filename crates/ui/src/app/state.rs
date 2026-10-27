@@ -17,7 +17,7 @@ use deckhand_protocol::data::{
     RightPaneTab, SessionCleanupInspection, SessionRecord, SubSessionKind, Task, TasksDoc, TerminalRecord,
     UiExitResult, WorkspaceSummary, WorktreeInfoRecord, WorktreeMergeResult, WorktreeMode,
 };
-use deckhand_protocol::records::SessionFilter;
+use deckhand_protocol::records::{SessionFilter, SessionView};
 use deckhand_sys::async_util::{Interval, Task as LocalTask, Timer};
 
 use crate::app::effects::EffectState;
@@ -207,6 +207,8 @@ pub struct AppCallbacks {
     pub on_collapsed_session_ids_change: Option<IdsListener>,
     pub on_hidden_exited_session_ids_change: Option<IdsListener>,
     pub on_session_visibility_change: Option<VisibilityListener>,
+    /// Not in the TS: the sidebar's view (`V`).
+    pub on_session_view_change: Option<Listener<SessionView>>,
     /// Not in the TS: the tasks whose steps the Tasks view hides.
     pub on_collapsed_task_steps_change: Option<IdsListener>,
 }
@@ -229,6 +231,8 @@ pub struct AppProps {
     pub initial_hidden_exited_session_ids: Option<Vec<String>>,
     pub initial_session_filter: Option<SessionFilter>,
     pub initial_session_query: Option<String>,
+    /// Not in the TS: the sidebar's view; `None` lists sessions in sections by state.
+    pub initial_session_view: Option<SessionView>,
     /// The Terminal tab's view, kept across attaches by the caller.
     pub initial_terminal_view: Option<TerminalView>,
     /// Not in the TS: the selected Dev process (by name), kept across attaches by the caller.
@@ -256,6 +260,8 @@ pub struct Connection {
 #[derive(Debug)]
 pub struct BrowseState {
     pub session_filter: SessionFilter,
+    /// Not in the TS: sections by state (the default) or your own order (`V`).
+    pub session_view: SessionView,
     pub session_query: String,
     pub collapsed_session_ids: IndexSet<String>,
     pub hidden_exited_session_ids: IndexSet<String>,
@@ -634,6 +640,7 @@ impl App {
             mode: Mode::Browse,
             browse: BrowseState {
                 session_filter: props.initial_session_filter.unwrap_or(SessionFilter::Active),
+                session_view: props.initial_session_view.unwrap_or(SessionView::State),
                 session_query: props.initial_session_query.clone().unwrap_or_default(),
                 collapsed_session_ids: props.initial_collapsed_session_ids.iter().flatten().cloned().collect(),
                 hidden_exited_session_ids: props

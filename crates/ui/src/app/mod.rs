@@ -36,6 +36,7 @@ use deckhand_core::key::{Input, Key};
 use deckhand_core::session_features::{TaskTitleOf, filter_session_list, with_reply_read};
 use deckhand_core::session_order::{filter_collapsed_sessions, sort_sessions_for_sidebar};
 use deckhand_core::session_scope::session_matches_scope;
+use deckhand_core::session_sections::order_by_section;
 use deckhand_core::tasks::parse_tasks;
 use deckhand_core::tasks_board::{OwnedTaskLinkLookup, linked_tasks, task_link_lookup};
 use deckhand_core::workspace::workspace_key;
@@ -44,7 +45,7 @@ use deckhand_protocol::data::{
     AttachTarget, BranchFrom, BranchList, DevProcessRecord, ProgramKey, ProjectInfo, SessionCleanupInspection,
     SessionRecord, SessionStatus, SessionWorktreeMode, SubSessionKind, TasksDoc, UiExitResult, WorktreeMode,
 };
-use deckhand_protocol::records::SessionFilter;
+use deckhand_protocol::records::{SessionFilter, SessionView};
 use deckhand_sys::desktop::resolve_terminal_editor;
 
 use crate::app::event_loop::UiModel;
@@ -580,9 +581,15 @@ impl App {
             .collect()
     }
 
-    /// TS `collapseApplied`: search and non-default filters reveal matches regardless of collapse state.
+    /// TS `collapseApplied`: search and non-default filters reveal matches regardless of collapse state. Not in the
+    /// TS: neither does the state view, where a sub-session can sit in another section than its parent.
     pub fn collapse_applied(&self) -> bool {
-        self.browse.session_query.is_empty() && self.browse.session_filter == SessionFilter::Active
+        self.browse.session_query.is_empty() && self.browse.session_filter == SessionFilter::Active && !self.sectioned()
+    }
+
+    /// Not in the TS: the sidebar lists sessions in sections by state (`V` switches to your own order).
+    pub fn sectioned(&self) -> bool {
+        self.browse.session_view == SessionView::State
     }
 
     /// The title of the tasks a session works on (TS filterSessionList's `taskTitle`).
@@ -605,6 +612,12 @@ impl App {
             &self.browse.session_query,
             Some(title),
         );
+        if self.sectioned() {
+            return order_by_section(&filtered)
+                .into_iter()
+                .map(|session| (**session).clone())
+                .collect();
+        }
         if !self.collapse_applied() {
             return filtered.into_iter().cloned().collect();
         }

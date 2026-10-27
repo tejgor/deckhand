@@ -17,9 +17,10 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `f` | Open the filter menu: `a` active, `r` running, `!` attention, `e` exited, `A` archived, `*` all |
 | `f` `f` | Go back to the active filter |
 | `!` | Select the next session that needs you, switching to the attention filter |
+| `V` | Switch the list between [sections by state](features.md#organizing-and-inspecting-sessions) (needs you, unread, working, idle, exited; the default) and your own order |
 | `J` | Move the selected session down among its siblings |
 | `K` | Move the selected session up among its siblings |
-| `c` | Cycle its sub-sessions: hide the exited ones, collapse, expand |
+| `c` | Cycle its sub-sessions: hide the exited ones, collapse, expand (in your own order) |
 | `<` | Narrow the sidebar: 2% less of the terminal, saved as your width for every repository ([sidebar width](features.md#organizing-and-inspecting-sessions)) |
 | `>` | Widen the sidebar: 2% more of the terminal, saved |
 | `=` | Fit the sidebar to the sessions again (forgets your width) |

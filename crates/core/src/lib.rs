@@ -19,6 +19,7 @@ pub mod project_config_document;
 pub mod session_features;
 pub mod session_order;
 pub mod session_scope;
+pub mod session_sections;
 pub mod settings_model;
 pub mod sidebar_model;
 pub mod tasks;

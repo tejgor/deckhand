@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/1cebcf63-9fed-4a9e-bbb1-283c77e789d6
 Running several coding agents on one repository brings three chores. Deckhand takes care of each:
 
 - **Keeping their work apart.** Two agents in one checkout edit the same files. Deckhand starts each session in its own git worktree: a separate checkout on its own branch, with its own shell, Git view, dev command and notes.
-- **Knowing which one needs you.** One sidebar shows every session as working, idle or waiting for you, beside a live preview. You attach to an agent only when it needs you.
+- **Knowing which one needs you.** One sidebar lists every session in sections: needs you, unread, working, idle and exited, beside a live preview. You attach to an agent only when it needs you.
 - **Landing the work and tidying up.** Merging shows the commits and diff first, then stages the result for you to review. The Worktrees screen shows which worktrees are merged and what deleting each one would lose.
 
 Deckhand lives in the terminal you already have open in your editor, so there is no separate app or window to keep track of. A background daemon keeps your agents running when you close it.

@@ -19,6 +19,7 @@ use crate::session_features::{
 use crate::session_order::{
     SessionLike, count_hidden_session_descendants, count_session_descendants, session_depth, session_has_children,
 };
+use crate::session_sections::{SessionSection, in_section, session_section};
 use crate::workspace::workspace_key;
 use deckhand_protocol::data::{
     AgentActivityStatus, AttentionReasonKind, AttentionState, ExitReason, SessionRecord, SessionStatus,
@@ -133,6 +134,9 @@ pub struct SidebarRowsInput<'a> {
     /// Not in the TS: `▶` on every row whose workspace's Dev runs, muted after the first (the TS marks the first
     /// only, which is easy to miss with many sessions in one checkout), and next to the agent glyph.
     pub shared_dev: bool,
+    /// Not in the TS: the state view's rows ([`crate::session_sections`]): a sub-session is indented under its parent
+    /// only when both are in the same section.
+    pub sectioned: bool,
 }
 
 /// UTF-16 length as a JS number (widths here go negative).
@@ -206,20 +210,33 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
     let mut dev_shown: HashSet<String> = HashSet::new();
     // ▾ ▸ and +N count the sub-sessions this view lists (an archived one is gone from the active view); depth and
     // titles still follow every ancestor.
-    let listed = filter_session_list(input.all_sessions, input.filter, "", None);
+    let listed: Vec<&SessionRecord> = filter_session_list(input.all_sessions, input.filter, "", None)
+        .into_iter()
+        .copied()
+        .collect();
+    let sections: HashMap<SessionSection, Vec<&SessionRecord>> = if input.sectioned {
+        SessionSection::ALL
+            .into_iter()
+            .map(|section| (section, in_section(&listed, section).into_iter().copied().collect()))
+            .collect()
+    } else {
+        HashMap::new()
+    };
     let mut out = Vec::with_capacity(input.rows.len());
     for (index, &session) in input.rows.iter().enumerate() {
         let selected = input.selected_id == Some(session.id.as_str());
         let key = key_of(&session.id);
         let shares_selected = !selected && selected_key.is_some() && key == selected_key;
-        // Indented under the parents the view lists (an archived sub-session of a live session is top level there).
-        let depth = session_depth(session, &listed);
-        let has_children = session_has_children(&session.id, &listed);
+        // Indented under the parents the view lists (an archived sub-session of a live session is top level there; in
+        // the state view, one whose parent is in another section).
+        let listed = sections.get(&session_section(session)).unwrap_or(&listed);
+        let depth = session_depth(session, listed);
+        let has_children = session_has_children(&session.id, listed);
         let collapsed = collapsed_ids.contains(&session.id);
         let child_count = if collapsed && has_children {
-            count_session_descendants(&session.id, &listed)
+            count_session_descendants(&session.id, listed)
         } else {
-            count_hidden_session_descendants(&session.id, &listed, hidden_ids)
+            count_hidden_session_descendants(&session.id, listed, hidden_ids)
         };
         let mut dev = None;
         if session.dev_running == Some(true) {
@@ -1121,6 +1138,7 @@ mod tests {
                     hidden_session_ids: hidden.as_ref(),
                     installed_versions: installed.as_ref(),
                     shared_dev: false,
+                    sectioned: false,
                 }))
             },
         );
@@ -1286,6 +1304,7 @@ mod tests {
         filter: Option<SessionFilter>,
         collapsed: Option<HashSet<String>>,
         shared_dev: bool,
+        sectioned: bool,
     }
 
     fn rows_of(rows: &[&SessionRecord], opts: Opts<'_>) -> Vec<SidebarRow> {
@@ -1302,6 +1321,7 @@ mod tests {
             hidden_session_ids: None,
             installed_versions: None,
             shared_dev: opts.shared_dev,
+            sectioned: opts.sectioned,
         })
     }
 
@@ -1485,6 +1505,7 @@ mod tests {
             &rows,
             Opts {
                 shared_dev: true,
+                sectioned: false,
                 ..Opts::default()
             },
         )
@@ -1619,6 +1640,74 @@ mod tests {
             location_text(&parent, &[&parent, &unarchived], None, None),
             "⎇ feat/auth ╎1"
         );
+    }
+
+    #[test]
+    fn sectioned_rows_nest_only_a_parent_and_child_in_one_section() {
+        let list = fixture();
+        let all = refs(&list);
+        let ordered: Vec<&SessionRecord> = crate::session_sections::order_by_section(&all)
+            .into_iter()
+            .copied()
+            .collect();
+        let tree = |rows: &[&SessionRecord]| -> Vec<(String, String)> {
+            rows_of(
+                rows,
+                Opts {
+                    all: Some(&all),
+                    sectioned: true,
+                    ..Opts::default()
+                },
+            )
+            .iter()
+            .map(|row| {
+                let part = |role| {
+                    row.parts
+                        .iter()
+                        .filter(|part| part.role == role)
+                        .map(|part| part.text.clone())
+                        .collect::<String>()
+                };
+                (part(RowRole::Title), part(RowRole::Tree))
+            })
+            .collect()
+        };
+        // a works, its clean child b is idle and its fork c exited: each listed at its section's top level, glyphs
+        // kept and no ▾.
+        let rows = tree(&ordered);
+        let of = |title: &str| {
+            rows.iter()
+                .find(|row| row.0.starts_with(title))
+                .map(|row| row.1.as_str())
+        };
+        assert_eq!(of("auth refactor").map(str::trim), Some(""));
+        assert_eq!(of("write tests"), Some("↳ "));
+        assert_eq!(of("try alt approach"), Some("⑂ "));
+        // Both idle: the child is indented under its parent as usual.
+        let parent = sess("p", json!({"title": "parent"}));
+        let child = sess(
+            "k",
+            json!({"title": "child", "parentSessionId": "p", "subSessionKind": "clean"}),
+        );
+        let both = [&parent, &child];
+        let rows = rows_of(
+            &both,
+            Opts {
+                sectioned: true,
+                ..Opts::default()
+            },
+        );
+        let trees: Vec<String> = rows
+            .iter()
+            .map(|row| {
+                row.parts
+                    .iter()
+                    .filter(|part| part.role == RowRole::Tree)
+                    .map(|part| part.text.clone())
+                    .collect()
+            })
+            .collect();
+        assert_eq!(trees, ["▾ ", "  ↳ "]);
     }
 
     #[test]

@@ -2,10 +2,10 @@ deckhand                                                                        
 <TMP>/demo
 ╭──────────────────────╮ ╭───────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Sessions           2 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                                │
-│› 1 ● auth refactor ✶ │ │                                                                                                       │
-│╎ 2 ○ write tests   ✶ │ │ <TMP>/demo                                                                                       idle │
-│                      │ │ agent output line 1                                                                                   │
-│                      │ │ agent output line 2                                                                                   │
+│  Idle 1 ──────────── │ │                                                                                                       │
+│› 1 ● auth refactor ✶ │ │ <TMP>/demo                                                                                       idle │
+│  Exited 1 ────────── │ │ agent output line 1                                                                                   │
+│╎ 2 ○ write tests   ✶ │ │ agent output line 2                                                                                   │
 │                      │ │ agent output line 3                                                                                   │
 │                      │ │ agent output line 4                                                                                   │
 │                      │ │ agent output line 5                                                                                   │

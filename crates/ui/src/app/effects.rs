@@ -28,7 +28,7 @@ use deckhand_protocol::data::PingResult;
 use deckhand_protocol::data::{
     AgentActivityStatus, AttentionState, DevRecord, RightPaneTab, SessionRecord, SessionStatus,
 };
-use deckhand_protocol::records::SessionFilter;
+use deckhand_protocol::records::{SessionFilter, SessionView};
 use deckhand_sys::async_util::{Task, spawn};
 use deckhand_sys::storage::load_app_config;
 
@@ -127,6 +127,7 @@ pub struct EffectState {
     pub mode: Option<Mode>,
     pub terminal_view: Option<TerminalView>,
     pub visibility: Option<(SessionFilter, String)>,
+    pub session_view: Option<SessionView>,
     pub collapsed: Option<Vec<String>>,
     pub hidden_exited: Option<Vec<String>>,
     pub collapsed_task_steps: Option<Vec<String>>,
@@ -246,6 +247,7 @@ fn effect_pass(app: &mut App) {
     let derived = app.derived();
     terminal_view_effect(app);
     visibility_effect(app);
+    session_view_effect(app);
     status_message_effect(app);
     error_effect(app);
     selected_id_effect(app);
@@ -324,6 +326,19 @@ fn visibility_effect(app: &mut App) {
     ran(app);
     if let Some(listener) = &app.props.callbacks.on_session_visibility_change {
         listener(app.browse.session_filter, &app.browse.session_query);
+    }
+}
+
+/// Not in the TS: reports the sidebar's view (`V`) to be saved.
+fn session_view_effect(app: &mut App) {
+    let view = app.browse.session_view;
+    if app.effects.session_view == Some(view) {
+        return;
+    }
+    app.effects.session_view = Some(view);
+    ran(app);
+    if let Some(listener) = &app.props.callbacks.on_session_view_change {
+        listener(view);
     }
 }
 
@@ -1262,6 +1277,7 @@ pub fn sync_terminal_title(app: &mut App, out: &mut dyn std::io::Write) {
 pub fn report_state(app: &mut App) {
     terminal_view_effect(app);
     visibility_effect(app);
+    session_view_effect(app);
     selected_id_effect(app);
     collapsed_effect(app);
     active_tab_effect(app);

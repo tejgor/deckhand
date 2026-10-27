@@ -20,7 +20,7 @@ use deckhand_protocol::data::{
     AttachTarget, AttentionState, DevRecord, MoveDirection, ProjectInfo, RestartMode, RightPaneTab, SessionRecord,
     SessionStatus, SessionWorktreeMode, SetupState, WorktreeMode,
 };
-use deckhand_protocol::records::{AppConfig, SessionFilter};
+use deckhand_protocol::records::{AppConfig, SessionFilter, SessionView};
 use deckhand_sys::desktop::open_in_editor;
 use deckhand_sys::storage::update_app_config;
 
@@ -154,6 +154,11 @@ pub static KEYMAP: Keymap = &[
         keys: &[KeySpec::Char("v")],
         action: "Terminal: the shell or the last action; Dev: the next process",
         help: HelpRef::Topic("Panes"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("V")],
+        action: "sections by state / your own order",
+        help: HelpRef::Topic("Find & organize"),
     },
     Binding {
         keys: &[KeySpec::Char("c")],
@@ -449,7 +454,17 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         app.panes.terminal_view = views[(at + 1) % views.len()];
         return;
     }
+    if text == "V" {
+        toggle_session_view(app);
+        return;
+    }
     if text == "c" {
+        if app.sectioned() {
+            app.set_error(Some(
+                "Sub-sessions collapse in your own order; V switches to it".to_owned(),
+            ));
+            return;
+        }
         toggle_selected_collapse(app);
         return;
     }
@@ -693,6 +708,26 @@ pub fn move_selection(app: &mut App, delta: isize) {
         let id = session.id.clone();
         app.set_selected_id(Some(id));
     }
+}
+
+/// Not in the TS: `V` switches the sidebar between sections by state and your own order. The selection stays.
+pub fn toggle_session_view(app: &mut App) {
+    let (view, status) = if app.sectioned() {
+        (
+            SessionView::Order,
+            "Sessions in your own order; V for sections by state",
+        )
+    } else {
+        (
+            SessionView::State,
+            "Sessions in sections by state; V for your own order",
+        )
+    };
+    app.browse.session_view = view;
+    // Rows indent differently in each view.
+    app.browse.sidebar_fit_pending = true;
+    app.set_error(None);
+    app.set_status(Some(status.to_owned()));
 }
 
 /// TS `toggleSelectedCollapse` (c): hide exited children → collapse → expand.
@@ -1401,6 +1436,7 @@ pub fn archive_or_remove(app: &mut App) {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use std::cell::RefCell;
     use std::rc::Rc;
 
     use serde_json::{Value, json};
@@ -1418,7 +1454,7 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::app::event_loop::{UiModel, Update};
-    use crate::app::state::AppProps;
+    use crate::app::state::{AppCallbacks, AppProps};
     use crate::app::test_support::{app, session};
     use crate::keymap::{undocumented_in_guide, unknown_topics};
 
@@ -1680,7 +1716,10 @@ pub(crate) mod tests {
 
     #[test]
     fn c_hides_exited_children_then_collapses_then_expands() {
-        let (mut app, _rx) = app(AppProps::default());
+        let (mut app, _rx) = app(AppProps {
+            initial_session_view: Some(SessionView::Order),
+            ..AppProps::default()
+        });
         let parent = session("p", "Parent", SessionStatus::Running);
         let mut live = session("c1", "Live child", SessionStatus::Running);
         live.parent_session_id = Some("p".to_owned());
@@ -1715,6 +1754,50 @@ pub(crate) mod tests {
         );
         assert!(app.browse.collapsed_session_ids.is_empty());
         assert!(app.browse.hidden_exited_session_ids.is_empty());
+    }
+
+    #[test]
+    fn v_switches_between_sections_by_state_and_your_own_order() {
+        crate::app::modes::workspace_info::fake_daemon::local(async {
+            let saved = Rc::new(RefCell::new(Vec::new()));
+            let record = Rc::clone(&saved);
+            let (mut app, _rx) = app(AppProps {
+                callbacks: AppCallbacks {
+                    on_session_view_change: Some(Box::new(move |view| record.borrow_mut().push(view))),
+                    ..AppCallbacks::default()
+                },
+                ..AppProps::default()
+            });
+            let parent = session("p", "Parent", SessionStatus::Running);
+            let mut child = session("c", "Child", SessionStatus::Running);
+            child.parent_session_id = Some("p".to_owned());
+            child.agent_status = Some(AgentActivityStatus::Active);
+            let gone = session("x", "Gone", SessionStatus::Exited);
+            let lone = session("l", "Lone", SessionStatus::Running);
+            app.data.repo_sessions = vec![parent, child, gone, lone];
+            let order = |app: &App| -> Vec<String> { app.visible_sessions().into_iter().map(|s| s.id).collect() };
+            // By default: working, idle, exited; the working child is listed apart from its idle parent.
+            assert_eq!(order(&app), ["c", "p", "l", "x"]);
+            app.set_selected_id(Some("p".to_owned()));
+            handle_browse(&mut app, &text("c"));
+            assert_eq!(
+                app.messages.error.as_deref(),
+                Some("Sub-sessions collapse in your own order; V switches to it")
+            );
+            handle_browse(&mut app, &text("V"));
+            assert_eq!(app.browse.session_view, SessionView::Order);
+            assert_eq!(order(&app), ["p", "c", "x", "l"]);
+            assert_eq!(app.browse.selected_id.as_deref(), Some("p"));
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("Sessions in your own order; V for sections by state")
+            );
+            crate::app::effects::run_effects(&mut app);
+            handle_browse(&mut app, &text("V"));
+            crate::app::effects::run_effects(&mut app);
+            assert_eq!(app.browse.session_view, SessionView::State);
+            assert_eq!(*saved.borrow(), [SessionView::Order, SessionView::State]);
+        });
     }
 
     #[test]

@@ -550,6 +550,7 @@ pub fn measure_sidebar(app: &mut App, derived: &Derived) {
         hidden_session_ids: Some(if applied { &hidden } else { &none }),
         installed_versions: Some(&versions),
         shared_dev: true,
+        sectioned: app.sectioned(),
     });
     app.browse.sidebar_content = widths.into_iter().max();
 }
@@ -602,6 +603,7 @@ fn render_sidebar_for(app: &App, derived: &Derived, buf: &mut Buffer, area: Rect
         installed_versions: Some(&versions),
         task_of: Some(task_of),
         filter_menu,
+        sectioned: app.sectioned(),
     };
     render_sidebar(&props, buf, area);
 }
@@ -1158,6 +1160,7 @@ mod tests {
     use crate::app::state::AppProps;
     use crate::app::test_support::{app, session};
     use crate::primitives::row_text;
+    use deckhand_protocol::records::SessionView;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
 
@@ -1251,6 +1254,7 @@ mod tests {
             hidden_session_ids: None,
             installed_versions: None,
             shared_dev: true,
+            sectioned: false,
         });
         assert_eq!(widths[1] - widths[0], 13);
         let rendered = sidebar_rows(&SidebarRowsInput {
@@ -1266,6 +1270,7 @@ mod tests {
             hidden_session_ids: None,
             installed_versions: None,
             shared_dev: true,
+            sectioned: false,
         });
         // At that width the longer title shows whole.
         assert!(
@@ -1311,7 +1316,10 @@ mod tests {
     // sidebar never shrinks below a row it shows.
     #[test]
     fn the_sidebar_measures_rows_with_their_counts() {
-        let (mut app, _rx) = app(AppProps::default());
+        let (mut app, _rx) = app(AppProps {
+            initial_session_view: Some(SessionView::Order),
+            ..AppProps::default()
+        });
         let parent = session("p", "conversation-testing-agent", SessionStatus::Running);
         let mut child = session("c", "x", SessionStatus::Exited);
         child.parent_session_id = Some("p".to_owned());
@@ -1344,6 +1352,7 @@ mod tests {
             hidden_session_ids: Some(&hidden),
             installed_versions: None,
             shared_dev: true,
+            sectioned: false,
         });
         let text: String = drawn[0].parts.iter().map(|part| part.text.as_str()).collect();
         assert!(

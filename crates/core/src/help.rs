@@ -187,12 +187,16 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Next session that needs attention: blocked ones first, then unread replies",
             },
             HelpLine::Key {
+                keys: "V",
+                text: "Sections by state (needs you, unread, working, idle, exited) / your own order",
+            },
+            HelpLine::Key {
                 keys: "J K",
                 text: "Move the session down / up among its siblings",
             },
             HelpLine::Key {
                 keys: "c",
-                text: "Hide exited children → collapse → expand",
+                text: "Hide exited children → collapse → expand (in your own order)",
             },
             HelpLine::Key {
                 keys: "< > =",

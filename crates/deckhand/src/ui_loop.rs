@@ -20,6 +20,7 @@ use deckhand_core::display::{ThemeMode, theme_mode};
 use deckhand_core::error::DhError;
 use deckhand_protocol::UiState;
 use deckhand_protocol::data::{AttachTarget, EditorCommand, RightPaneTab, UiExitResult};
+use deckhand_protocol::records::SessionView;
 use deckhand_protocol::wire::{Request, SetReplyRead};
 use deckhand_sys::async_util::Timer;
 use deckhand_sys::desktop::{is_vim_family, terminal_editor_args};
@@ -129,6 +130,7 @@ fn app_props(
     let on_session_tab = saver.clone();
     let on_collapsed = saver.clone();
     let on_hidden = saver.clone();
+    let on_view = saver.clone();
     let view = Rc::clone(&round_trip.terminal_view);
     let collapsed_steps = Rc::clone(&round_trip.collapsed_task_steps);
     AppProps {
@@ -141,6 +143,7 @@ fn app_props(
         initial_hidden_exited_session_ids: Some(state.hidden_exited_session_ids.clone()),
         initial_session_filter: Some(state.session_filter),
         initial_session_query: Some(state.session_query.clone()),
+        initial_session_view: state.session_view,
         initial_terminal_view: Some(round_trip.terminal_view.get()),
         initial_dev_process: None,
         initial_collapsed_task_steps: Some(round_trip.collapsed_task_steps.borrow().clone()),
@@ -151,6 +154,10 @@ fn app_props(
                     state.session_filter = filter;
                     state.session_query = query.to_owned();
                 });
+            })),
+            on_session_view_change: Some(Box::new(move |view| {
+                // The default (sections by state) is not written.
+                on_view.update(|state| state.session_view = (view != SessionView::State).then_some(view));
             })),
             on_selected_id_change: Some(Box::new(move |session_id| {
                 on_selected.update(|state| state.selected_id = session_id.map(str::to_owned));

@@ -11,6 +11,7 @@ use ratatui::style::Color;
 use deckhand_core::agent_versions::InstalledVersions;
 use deckhand_core::display::{THEME as INK_THEME, truncate};
 use deckhand_core::session_features::{SESSION_FILTERS, SessionFilterCounts, session_needs_attention};
+use deckhand_core::session_sections::{SessionSection, session_section};
 use deckhand_core::sidebar_model::{
     DetailLine, DetailTask, RowPart, RowRole, SidebarHeaderInput, SidebarRow, SidebarRowsInput, filter_menu_lines,
     session_details, sidebar_header, sidebar_rows,
@@ -60,6 +61,9 @@ pub struct SidebarProps<'a> {
     /// The task a session works on, for the details block.
     pub task_of: Option<TaskOf<'a>>,
     pub filter_menu: Option<FilterMenu>,
+    /// Not in the TS: the state view: `sessions` are in sections ([`deckhand_core::session_sections`]), each under a
+    /// header.
+    pub sectioned: bool,
 }
 
 /// TS: sidebar.tsx visibleSessions: the index range of the rows shown, `available_rows` around the selection.
@@ -71,6 +75,74 @@ pub fn visible_range(count: usize, selected_index: usize, available_rows: usize)
     let max_start = count.saturating_sub(available_rows);
     let start = selected_index.saturating_sub(half).min(max_start);
     start..start + available_rows
+}
+
+/// Not in the TS: one line of the list: a section's header (with how many sessions it lists) or a session (its index).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ListLine {
+    Header(SessionSection, usize),
+    Session(usize),
+}
+
+/// The list's lines: the sessions, each section headed in the state view (`sessions` are already grouped).
+pub fn list_lines(sessions: &[&SessionRecord], sectioned: bool) -> Vec<ListLine> {
+    let mut lines = Vec::with_capacity(sessions.len() + SessionSection::ALL.len());
+    let mut current = None;
+    for (index, session) in sessions.iter().enumerate() {
+        let section = session_section(session);
+        if sectioned && current != Some(section) {
+            current = Some(section);
+            let count = sessions[index..]
+                .iter()
+                .take_while(|session| session_section(session) == section)
+                .count();
+            lines.push(ListLine::Header(section, count));
+        }
+        lines.push(ListLine::Session(index));
+    }
+    lines
+}
+
+/// The lines shown in `range`. A window that starts inside a section shows its header first, in place of the
+/// window's first session (with at least three rows, so the selection, kept mid-window, stays shown).
+fn window_lines(lines: &[ListLine], sessions: &[&SessionRecord], range: std::ops::Range<usize>) -> Vec<ListLine> {
+    let mut shown = lines[range.clone()].to_vec();
+    if range.start > 0
+        && range.len() >= 3
+        && let Some(ListLine::Session(index)) = shown.first().copied()
+    {
+        let section = session_section(sessions[index]);
+        let header = lines[..range.start].iter().rev().find_map(|line| match line {
+            ListLine::Header(header, count) if *header == section => Some(ListLine::Header(*header, *count)),
+            _ => None,
+        });
+        if let Some(header) = header {
+            shown[0] = header;
+        }
+    }
+    shown
+}
+
+/// A section's header row: its name in the section's colour, the count, then a rule to the edge.
+fn section_header_row(section: SessionSection, count: usize, width: usize) -> Row {
+    let tone = match section {
+        SessionSection::NeedsYou => THEME.warn,
+        SessionSection::Unread => THEME.accent,
+        SessionSection::Working => THEME.success,
+        SessionSection::Idle | SessionSection::Exited => THEME.muted,
+    };
+    let label = format!("  {} ", section.label());
+    let count = count.to_string();
+    let used = label.chars().count() + count.chars().count() + 1;
+    let row = vec![
+        Seg::new(label, TextStyle::fg(tone).bold(true)),
+        Seg::new(count, TextStyle::fg(THEME.muted)),
+        Seg::new(
+            format!(" {}", "─".repeat(width.saturating_sub(used))),
+            TextStyle::fg(THEME.muted).dim(true),
+        ),
+    ];
+    truncate_row(&row, width, Wrap::TruncateEnd)
 }
 
 /// TS: sidebar.tsx emptyMessage: the title and hint of an empty list.
@@ -229,36 +301,48 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
     let task = selected.and_then(task_for);
     // As many rows as the largest details block of any listed session needs (at most DETAIL_ROWS), so the list keeps
     // its size while the selection moves; sessions with less leave the rest blank.
-    let detail_rows =
-        if sessions.len() + DETAIL_ROWS > rows_for_sessions && rows_for_sessions >= DETAIL_MIN_SIDEBAR_ROWS {
-            sessions
-                .iter()
-                .map(|session| {
-                    let task = task_for(session);
-                    session_details(
-                        Some(session),
-                        all_sessions,
-                        content_width,
-                        DETAIL_ROWS,
-                        props.now,
-                        props.installed_versions,
-                        task.as_ref(),
-                    )
-                    .len()
-                })
-                .max()
-                .unwrap_or(0)
-        } else {
-            0
-        };
+    let lines = list_lines(sessions, props.sectioned);
+    let detail_rows = if lines.len() + DETAIL_ROWS > rows_for_sessions && rows_for_sessions >= DETAIL_MIN_SIDEBAR_ROWS {
+        sessions
+            .iter()
+            .map(|session| {
+                let task = task_for(session);
+                session_details(
+                    Some(session),
+                    all_sessions,
+                    content_width,
+                    DETAIL_ROWS,
+                    props.now,
+                    props.installed_versions,
+                    task.as_ref(),
+                )
+                .len()
+            })
+            .max()
+            .unwrap_or(0)
+    } else {
+        0
+    };
     // A list that scrolls gets a line above and below it saying how many sessions are out of view (and how many of
     // those need you), kept even when empty so the rows don't jump as the selection moves.
     let free_rows = rows_for_sessions.saturating_sub(detail_rows);
-    let scrolls = sessions.len() > free_rows && free_rows >= 5;
+    let scrolls = lines.len() > free_rows && free_rows >= 5;
     let list_rows = free_rows.saturating_sub(if scrolls { 2 } else { 0 });
-    let range = visible_range(sessions.len(), selected_index, list_rows);
-    let visible = &sessions[range.clone()];
-    let visible_start = range.start;
+    let selected_line = lines
+        .iter()
+        .position(|line| *line == ListLine::Session(selected_index))
+        .unwrap_or(0);
+    let shown = window_lines(&lines, sessions, visible_range(lines.len(), selected_line, list_rows));
+    // The sessions shown are one run of the list; the headers between them are not sessions.
+    let shown_sessions = || {
+        shown.iter().filter_map(|line| match line {
+            ListLine::Session(index) => Some(*index),
+            ListLine::Header(..) => None,
+        })
+    };
+    let visible_start = shown_sessions().next().unwrap_or(0);
+    let visible_end = shown_sessions().next_back().map_or(visible_start, |index| index + 1);
+    let visible = &sessions[visible_start..visible_end];
     let (empty_title, empty_hint) = empty_message(all_sessions.len(), props.loaded);
     let header = sidebar_header(&SidebarHeaderInput {
         width: content_width,
@@ -282,6 +366,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         hidden_session_ids: Some(props.hidden_session_ids.unwrap_or(&no_ids)),
         installed_versions: props.installed_versions,
         shared_dev: true,
+        sectioned: props.sectioned,
     });
     // The details take the rows the list leaves free (the ones kept for them when it scrolls).
     let details = if sessions.is_empty() {
@@ -291,7 +376,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             selected,
             all_sessions,
             content_width,
-            rows_for_sessions.saturating_sub(visible.len() + if scrolls { 2 } else { 0 }),
+            rows_for_sessions.saturating_sub(shown.len() + if scrolls { 2 } else { 0 }),
             props.now,
             props.installed_versions,
             task.as_ref(),
@@ -348,21 +433,25 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             )),
         ]
     } else {
-        session_rows
+        let mut session_rows = session_rows.iter();
+        shown
             .iter()
-            .map(|row| {
-                let base = TextStyle {
-                    color: if row.selected { Some(THEME.active) } else { None },
-                    inverse: Some(row.selected),
-                    bold: Some(row.selected),
-                    ..TextStyle::default()
-                };
-                let segs = row
-                    .parts
-                    .iter()
-                    .map(|part| Seg::new(part.text.clone(), part_style(part, row)))
-                    .collect();
-                truncate_row(&with_base(segs, base), row_width, Wrap::TruncateEnd)
+            .filter_map(|line| match line {
+                ListLine::Header(section, count) => Some(section_header_row(*section, *count, row_width)),
+                ListLine::Session(_) => session_rows.next().map(|row| {
+                    let base = TextStyle {
+                        color: if row.selected { Some(THEME.active) } else { None },
+                        inverse: Some(row.selected),
+                        bold: Some(row.selected),
+                        ..TextStyle::default()
+                    };
+                    let segs = row
+                        .parts
+                        .iter()
+                        .map(|part| Seg::new(part.text.clone(), part_style(part, row)))
+                        .collect();
+                    truncate_row(&with_base(segs, base), row_width, Wrap::TruncateEnd)
+                }),
             })
             .collect()
     };
@@ -371,7 +460,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
     } else {
         (
             Some(more_line("↑", &sessions[..visible_start], content_width)),
-            Some(more_line("↓", &sessions[range.end..], content_width)),
+            Some(more_line("↓", &sessions[visible_end..], content_width)),
         )
     };
     SidebarLayout {
@@ -574,6 +663,7 @@ mod tests {
             installed_versions: None,
             task_of: None,
             filter_menu: None,
+            sectioned: false,
         }
     }
 
@@ -779,6 +869,57 @@ mod tests {
     }
 
     #[test]
+    fn the_state_view_heads_each_section_and_nests_only_within_one() {
+        let all = fixture();
+        let everyone = refs(&all);
+        let ordered: Vec<&SessionRecord> = deckhand_core::session_sections::order_by_section(&everyone)
+            .into_iter()
+            .copied()
+            .collect();
+        let mut props = props(&ordered, "d", SessionFilter::All);
+        props.all_sessions = &everyone;
+        props.sectioned = true;
+        let lines = render(&props, 34, 18);
+        assert_eq!(
+            lines[..13],
+            [
+                "╭────────────────────────────────╮",
+                "│ Sessions         all 7/7 · ! 2 │",
+                "│  Needs you 1 ───────────────── │",
+                "│› 1 ? fix flaky checkout e2e… ◇ │",
+                "│  Working 2 ─────────────────── │",
+                // a's sub-sessions are in other sections: no ▾, each at its section's top level with its glyph.
+                "│  2 ⠋ auth refactor         ▶ ✶ │",
+                "│  3 ⠋ bump deps               π │",
+                "│  Idle 1 ────────────────────── │",
+                "│  4 ↳ ● write tests         ▶ π │",
+                "│  Exited 3 ──────────────────── │",
+                "│  5 ⑂ ○ try alt approach    ▶ ✶ │",
+                "│  6 ! migrate billing webhoo… ✶ │",
+                "│  7 ○ docs cleanup        ▣ ✓ ✶ │",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_scrolled_state_view_keeps_the_selected_sessions_header_on_top() {
+        let list = many(40);
+        let sessions = refs(&list);
+        let mut props = props(&sessions, "s20", SessionFilter::All);
+        props.sectioned = true;
+        let lines = render(&props, 34, 24);
+        let list_rows: Vec<&String> = lines.iter().filter(|line| is_list_row(line)).collect();
+        // The window starts inside the Idle section: its header replaces the first session shown.
+        assert!(lines[3].contains("Idle 40 ───"), "{lines:#?}");
+        assert!(list_rows.iter().any(|line| line.contains("› 21 ● session number 20")));
+        let has = |text: &str| lines.iter().any(|line| line.contains(text));
+        // Of 15 rows the header takes one, so the session it replaced is counted above.
+        assert!(lines[4].contains("15 ● session number 14"), "{lines:#?}");
+        assert!(has("↑ 14 more"), "{lines:#?}");
+        assert!(has("↓ 12 more"), "{lines:#?}");
+    }
+
+    #[test]
     fn sidebar_with_more_sessions_than_fit_keeps_rows_for_the_details_and_scrolls_the_list() {
         let list = many(40);
         let sessions = refs(&list);
@@ -929,6 +1070,7 @@ mod tests {
                 hidden_session_ids: None,
                 installed_versions: versions,
                 shared_dev: false,
+                sectioned: false,
             })
         };
         let texts = |rows: Vec<SidebarRow>| -> Vec<String> {
