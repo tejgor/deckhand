@@ -58,7 +58,7 @@ Release archives, `cargo install`, optional tools, updating and uninstalling are
 1. Run `deckhand` inside a git repository. The first run starts the background daemon.
 2. Press `n` for a new session. Pick an agent with `↑`/`↓`, then type a name: it becomes the session's title and the new worktree's folder and branch. Press `tab` until the form says **new worktree**, then `enter`.
 3. Press `o` to attach to the agent and give it a task, as you would in the agent itself. Press `ctrl+]` to detach; the agent keeps working.
-4. Watch it on the Preview tab. When the agent needs you, such as a question or a permission prompt, the sidebar shows `?`: press `o` to answer, then `ctrl+]` again. Claude Code reports this out of the box and Codex after a [one-time setup](#configuration); with Pi, keep an eye on its preview.
+4. Watch it on the Preview tab. When the agent needs you, such as a question or a permission prompt, the sidebar shows `?`: press `→` to answer it right there (or `o` to open it full screen), then `ctrl+]` to go back. Claude Code reports this out of the box and Codex after a [one-time setup](#configuration); with Pi, keep an eye on its preview.
 5. When the work is done, press `m` to merge its worktree into the branch of the checkout you started `deckhand` in. The result is staged, not committed.
 6. Press `W` to see which worktrees are merged and safe to delete.
 

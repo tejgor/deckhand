@@ -31,7 +31,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `d` | Show the Dev tab |
 | `d` `d` | Start or stop the worktree's Dev command (press `d` twice quickly); starting it stops Dev in the repository's other worktrees |
 | `a` | Show the Notes tab |
-| `→`, `l` | Step into the pane: scroll the preview, browse [Git changes](#git-changes) or [edit the notes](#notes-editor) |
+| `→`, `l` | Step into the pane: [type to the agent](#typing-to-the-agent), browse [Git changes](#git-changes) or [edit the notes](#notes-editor) |
 | `←`, `h`, `esc` | Step back out to the session list |
 | `enter`, `o` | Open full screen what the tab shows: the agent, the shell or action, lazygit or Dev |
 | `enter` *(on Notes)* | Edit the note here |
@@ -61,20 +61,9 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `R` | Reload the session list (it updates live, so this is rarely needed) |
 | `?` | Open the in-app guide |
 | `q` | Quit the UI; running sessions continue in the daemon |
-| `ctrl+c` | Quit from any screen (in a Settings edit, the first press acts as `esc`) |
+| `ctrl+c` | Quit from any screen (in a Settings edit, the first press acts as `esc`; while [typing to the agent](#typing-to-the-agent) it goes to the agent) |
 
 `q` works only on the session list: every other screen closes with `esc`.
-
-**Scrolling the preview** (`→` on the Preview tab of a running session):
-
-| Key | Action |
-| --- | --- |
-| `j`, `↓` | Scroll down |
-| `k`, `↑` | Scroll up |
-| `J` / `K`, `pgdn` / `pgup` | Scroll a page |
-| `g` / `G` | Go to the top / bottom (a fullscreen agent gets Ctrl+Home / Ctrl+End) |
-| mouse wheel | Scroll |
-| `+` (or `=`) / `-` | Raise / lower the [scroll speed](features.md#scroll-speed) |
 
 **In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic (`g`/`G` the first or last), `/` searches every topic, `J`/`K` (or `pgdn`/`pgup`, `space`) scroll and `esc` closes.
 
@@ -151,6 +140,16 @@ The agent starts with no task: attach (`o`) and type it, or start the session fr
 | `☑2d` | Details: done 2 days ago |
 
 Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessions. Done rows have a muted title, while their markers and status stay readable. Below the branch, the details repeat the row's markers as glyphs (`╎N`, `▶`, `✓`, `☑2d`, `▣`), then `☐ N open` checklist items. A long branch is shortened to keep them. When `↑` shows, the details line names both versions, for example `✶ claude 2.1.287 · 2.1.290 installed`. In the app, `?` → Sidebar lists all of this.
+
+## Typing to the agent
+
+`→` (or `l`) on the Preview tab of a running session types to the agent without attaching; [Typing to an agent in the Preview](features.md#typing-to-an-agent-in-the-preview) describes it.
+
+| Key | Action |
+| --- | --- |
+| `ctrl+]`, `ctrl+space` | Back to the session list |
+| any other key | Goes to the agent, `esc`, `ctrl+c` and the arrows included |
+| mouse wheel | Scroll the agent's view (or the preview's history); the [scroll speed](features.md#scroll-speed) is set in Settings |
 
 ## Attach
 

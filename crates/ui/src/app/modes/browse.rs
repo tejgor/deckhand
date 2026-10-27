@@ -793,7 +793,7 @@ fn save_sidebar_percent(app: &mut App, percent: Option<f64>) {
     }));
 }
 
-/// TS `stepIntoPane` (→ / l): scroll the preview, browse the changes, edit the notes.
+/// TS `stepIntoPane` (→ / l): type to the agent in its Preview, browse the changes, edit the notes.
 pub fn step_into_pane(app: &mut App) {
     let Some(session) = app.selected_session() else {
         return;
@@ -801,10 +801,14 @@ pub fn step_into_pane(app: &mut App) {
     match app.browse.active_tab {
         RightPaneTab::Preview => {
             if session.status == SessionStatus::Running {
+                app.preview_focus.session_id = Some(session.id.clone());
+                app.preview_focus.in_paste = false;
+                // The plain text shows until the watch brings this focus's first styled screen.
+                app.panes.preview.screen = None;
                 app.set_mode(Mode::PreviewFocus);
             } else {
                 app.set_status(Some(
-                    "The agent is not running, so there is nothing to scroll: s resumes it".to_owned(),
+                    "The agent is not running, so there is nothing to type to: s resumes it".to_owned(),
                 ));
             }
         }
@@ -1747,7 +1751,7 @@ pub(crate) mod tests {
         assert_eq!(app.mode, Mode::Browse);
         assert_eq!(
             app.messages.status_message.as_deref(),
-            Some("The agent is not running, so there is nothing to scroll: s resumes it")
+            Some("The agent is not running, so there is nothing to type to: s resumes it")
         );
         app.set_active_tab(RightPaneTab::Git);
         step_into_pane(&mut app);

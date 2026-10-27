@@ -311,13 +311,19 @@ pub struct Messages {
     pub status_timer: Option<Timer>,
 }
 
-/// Preview focus (→ on a running session's Preview): scrolling and the mouse wheel.
+/// Preview focus (→ on a running session's Preview): typing to the agent, scrolling and the mouse wheel.
 #[derive(Debug)]
 pub struct PreviewFocusState {
     pub scroll_offset: i64,
     pub scroll_sensitivity: f64,
     /// TS `previewWheelAccumulatorRef`.
     pub wheel: deckhand_core::wheel::WheelScaler,
+    /// Not in the TS: the session the keys go to (set on stepping in).
+    pub session_id: Option<String>,
+    /// Not in the TS: between the terminal's paste markers, where a detach key is pasted text.
+    pub in_paste: bool,
+    /// Where the last frame drew the Preview's body (the agent's screen), for placing the cursor.
+    pub body: Option<ratatui::layout::Rect>,
 }
 
 /// TS: the filter menu's way back (f): the filter and selection it was opened on.
@@ -647,6 +653,9 @@ impl App {
                 scroll_offset: 0,
                 scroll_sensitivity: DEFAULT_SCROLL_SENSITIVITY,
                 wheel: deckhand_core::wheel::WheelScaler::default(),
+                session_id: None,
+                in_paste: false,
+                body: None,
             },
             filter: None,
             review: ReviewState::default(),

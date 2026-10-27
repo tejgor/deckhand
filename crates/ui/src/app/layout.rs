@@ -10,7 +10,7 @@ use std::sync::LazyLock;
 
 use ratatui::Frame;
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use ratatui::style::Color;
 use regex::Regex;
 
@@ -46,7 +46,7 @@ use crate::flows::tasks::{TaskBannerProps, TasksFlowProps, render_task_banner, t
 use crate::flows::worktrees::WorktreesFlowProps;
 use crate::panes::details::{DetailsPaneProps, render_details_pane};
 use crate::panes::dev::{DevPaneProps, render_dev_pane};
-use crate::panes::preview::{PreviewPaneProps, render_preview_pane};
+use crate::panes::preview::{PreviewPaneProps, preview_body, render_preview_pane};
 use crate::panes::sidebar::{FilterMenu, SidebarProps, render_sidebar};
 use crate::panes::tabs::{TabBadges, open_note_count, render_tab_bar};
 use crate::panes::terminal::{TerminalPaneProps, action_status, has_action, render_terminal_pane};
@@ -251,17 +251,12 @@ pub fn footer_hint(input: &FooterHintInput<'_>) -> String {
         | Mode::Search => String::new(),
         Mode::PreviewFocus => fit_hint(
             &[
-                hint_short("j/k ↑↓ J/K scroll", "j/k scroll"),
-                dropped("g/G top/bottom", 1),
-                dropped_short(
-                    &format!(
-                        "wheel ×{} (+/− speed)",
-                        format_scroll_sensitivity(input.scroll_sensitivity)
-                    ),
-                    "+/− wheel speed",
+                "ctrl+] back".into(),
+                dropped("keys go to the agent", 1),
+                dropped(
+                    &format!("wheel ×{}", format_scroll_sensitivity(input.scroll_sensitivity)),
                     2,
                 ),
-                "← back".into(),
             ],
             width,
             HINT_SEPARATOR,
@@ -595,7 +590,13 @@ pub fn render_tabbed_pane(app: &mut App, buf: &mut Buffer, area: Rect) {
 fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: Rect) {
     let layout = app.layout();
     let selected = derived.selected.as_ref();
-    let inner = bordered(buf, area, &Border::round(THEME.border), 1);
+    // Typing to the agent: the pane the keys go to is outlined.
+    let border = if app.mode == Mode::PreviewFocus {
+        THEME.border_active
+    } else {
+        THEME.border
+    };
+    let inner = bordered(buf, area, &Border::round(border), 1);
     let badges = TabBadges {
         dev_running: selected.is_some_and(|session| session.dev_running == Some(true)),
         open_notes: selected.map_or(0, open_note_count),
@@ -621,6 +622,7 @@ fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, ar
                 focused: app.mode == Mode::PreviewFocus,
             };
             render_preview_pane(&props, buf, pane);
+            app.preview_focus.body = Some(preview_body(pane));
         }
         RightPaneTab::Terminal => {
             let props = TerminalPaneProps {
@@ -953,6 +955,7 @@ pub fn render_app(app: &mut App, frame: &mut Frame<'_>) {
     let derived = app.derived();
     let layout = app.layout();
     let cols = app.browse.terminal_size.cols;
+    app.preview_focus.body = None;
     let footer_y = HEADER_ROWS.saturating_add(layout.content_height);
     let height = footer_y.saturating_add(FOOTER_ROWS);
     let mut canvas = Buffer::empty(Rect::new(0, 0, cols, height));
@@ -993,6 +996,24 @@ pub fn render_app(app: &mut App, frame: &mut Frame<'_>) {
         }
     }
     apply_dusk(buf, area, &THEME);
+    if let Some(cursor) = agent_cursor(app).filter(|cursor| area.contains(*cursor)) {
+        frame.set_cursor_position(cursor);
+    }
+}
+
+/// Not in the TS: while you type to the agent, the terminal's own cursor sits where the agent's is (so an input
+/// method composes there): only on the Preview tab, following the latest output, inside the drawn body.
+fn agent_cursor(app: &App) -> Option<Position> {
+    if app.mode != Mode::PreviewFocus
+        || app.browse.active_tab != RightPaneTab::Preview
+        || app.preview_focus.scroll_offset != 0
+    {
+        return None;
+    }
+    let body = app.preview_focus.body?;
+    let cursor = app.panes.preview.screen.as_ref()?.cursor?;
+    let position = Position::new(body.x.checked_add(cursor.x)?, body.y.checked_add(cursor.y)?);
+    body.contains(position).then_some(position)
 }
 
 /// The hint parts of the browse footer (TS footerHint's `browse` case), before fitting.
@@ -1016,11 +1037,7 @@ pub fn browse_hint_parts(input: &FooterHintInput<'_>) -> Vec<HintPart> {
         RightPaneTab::Terminal => {
             (has_workspace && !finished).then_some(if ready { "enter open" } else { "loading…" })
         }
-        RightPaneTab::Preview => running.then_some(if ready {
-            "→ scroll • enter open"
-        } else {
-            "loading…"
-        }),
+        RightPaneTab::Preview => running.then_some(if ready { "→ type • enter open" } else { "loading…" }),
         RightPaneTab::Notes => None,
     };
     let pane: Option<String> = match (tab, session) {
@@ -1097,6 +1114,52 @@ mod tests {
     use crate::primitives::row_text;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+
+    #[test]
+    fn the_terminal_cursor_sits_on_the_agents_cursor_while_typing() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap_or_else(|error| panic!("{error}"));
+        tokio::task::LocalSet::new().block_on(&runtime, async {
+            let (mut app, _rx) = app(AppProps::default());
+            app.data.repo_sessions = vec![crate::app::test_support::session("a", "A", SessionStatus::Running)];
+            app.set_selected_id(Some("a".to_owned()));
+            app.panes.preview = deckhand_protocol::data::PreviewRecord {
+                session_id: Some("a".to_owned()),
+                content: "> hi".to_owned(),
+                live: true,
+                screen: serde_json::from_value(serde_json::json!({
+                    "lines": [[[0, 4, "> hi", "d", "d", ""]]],
+                    "cursor": {"x": 4, "y": 0},
+                    "modes": {"bracketedPaste": false, "applicationCursorKeys": false, "mouseTracking": false},
+                }))
+                .ok(),
+                ..Default::default()
+            };
+            let mut terminal = Terminal::new(TestBackend::new(130, 36)).unwrap_or_else(|error| panic!("{error}"));
+            terminal
+                .draw(|frame| render_app(&mut app, frame))
+                .unwrap_or_else(|error| panic!("{error}"));
+            // Not typing: no cursor.
+            assert_eq!(agent_cursor(&app), None);
+            app.set_mode(Mode::PreviewFocus);
+            app.preview_focus.session_id = Some("a".to_owned());
+            terminal
+                .draw(|frame| render_app(&mut app, frame))
+                .unwrap_or_else(|error| panic!("{error}"));
+            let body = app.preview_focus.body.unwrap_or_else(|| panic!("the body was drawn"));
+            let expected = Position::new(body.x + 4, body.y);
+            assert_eq!(agent_cursor(&app), Some(expected));
+            terminal.backend_mut().assert_cursor_position(expected);
+            let buffer = terminal.backend().buffer();
+            let row: String = (body.x..body.x + 4).map(|x| buffer[(x, body.y)].symbol()).collect();
+            assert_eq!(row, "> hi");
+            // Scrolled back: the agent's cursor is not on screen.
+            app.preview_focus.scroll_offset = 2;
+            assert_eq!(agent_cursor(&app), None);
+        });
+    }
 
     #[test]
     fn sidebar_width_rules() {
@@ -1287,7 +1350,7 @@ mod tests {
         let running = session("a", "A", SessionStatus::Running);
         assert_eq!(
             browse(Some(&running), RightPaneTab::Preview, 200),
-            "→ scroll • enter open • x stop • E open in editor • ? help • n new • W worktrees • C settings • r run • \
+            "→ type • enter open • x stop • E open in editor • ? help • n new • W worktrees • C settings • r run • \
              / search • q quit"
         );
         let mut exited = session("b", "B", SessionStatus::Exited);
@@ -1305,7 +1368,7 @@ mod tests {
         // Narrow: higher drops go first, then short forms.
         assert_eq!(
             browse(Some(&running), RightPaneTab::Preview, 40),
-            "→ scroll • enter open • x stop • ? help"
+            "→ type • enter open • x stop • ? help"
         );
     }
 
@@ -1326,7 +1389,7 @@ mod tests {
         assert_eq!(footer_hint(&input(Mode::NotesFocus)), "esc done");
         assert_eq!(
             footer_hint(&input(Mode::PreviewFocus)),
-            "j/k ↑↓ J/K scroll • g/G top/bottom • wheel ×0.2 (+/− speed) • ← back"
+            "ctrl+] back • keys go to the agent • wheel ×0.2"
         );
         assert_eq!(
             footer_hint(&input(Mode::PickFilter)),

@@ -1,128 +1,134 @@
-//! Preview-focus keys and mouse wheel (→ on a running session's Preview: scroll it, or send the wheel to a fullscreen
-//! agent, which scrolls its own view), and the changes-/notes-focus hand-off to their flows.
+//! Preview focus (→ on a running session's Preview): typing to the agent in place. Every key goes to the agent as
+//! the terminal sent it, until Ctrl+] or Ctrl+Space; the mouse wheel scrolls the preview, or a fullscreen agent's
+//! own view. Also the changes-/notes-focus hand-off to their flows.
 
 use std::time::Instant;
 
-use deckhand_core::key::Input;
-use deckhand_core::wheel::WheelScaler;
-use deckhand_protocol::data::{JsNumber, SessionStatus};
-use deckhand_protocol::records::AppConfig;
-use deckhand_sys::storage::patch_app_config;
+use deckhand_client::attach::detach_position;
+use deckhand_core::display::display_session_title;
+use deckhand_core::key::{Input, KeyEventType};
+use deckhand_core::session_features::session_has_unread_reply;
+use deckhand_core::terminal_keys::application_cursor_key;
+use deckhand_protocol::data::SessionStatus;
 
+use crate::app::event_loop::is_mouse_report;
 use crate::app::state::{App, Mode};
-use crate::app::{
-    SCROLL_SENSITIVITY_STEP, WheelDirection, format_scroll_sensitivity, mouse_wheel_sequence,
-    normalize_scroll_sensitivity, parse_mouse_wheel,
-};
+use crate::app::{WheelDirection, mouse_wheel_sequence, parse_mouse_wheel};
 use crate::flow::Flow;
-use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
+use crate::input::KeyEvent;
+use crate::keymap::{Binding, HelpRef, KeySpec, Keymap};
 
-/// Preview focus keys.
-pub static KEYMAP: Keymap = &[
-    Binding {
-        keys: &[
-            KeySpec::Named(NamedKey::Escape),
-            KeySpec::Named(NamedKey::Left),
-            KeySpec::Char("h"),
-        ],
-        action: "back to the session list",
-        help: HelpRef::Topic("Panes"),
-    },
-    Binding {
-        keys: &[KeySpec::Char("+"), KeySpec::Char("-")],
-        action: "mouse-wheel speed (saved)",
-        help: HelpRef::Topic("Panes"),
-    },
-    Binding {
-        keys: &[KeySpec::Char("=")],
-        action: "mouse-wheel speed up",
-        help: HelpRef::Hidden("= is + without Shift"),
-    },
-    Binding {
-        keys: &[
-            KeySpec::Char("k"),
-            KeySpec::Named(NamedKey::Up),
-            KeySpec::Char("j"),
-            KeySpec::Named(NamedKey::Down),
-        ],
-        action: "scroll",
-        help: HelpRef::Topic("Panes"),
-    },
-    Binding {
-        keys: &[
-            KeySpec::Char("K"),
-            KeySpec::Char("J"),
-            KeySpec::Named(NamedKey::PageUp),
-            KeySpec::Named(NamedKey::PageDown),
-        ],
-        action: "scroll a page",
-        help: HelpRef::Topic("Panes"),
-    },
-    Binding {
-        keys: &[KeySpec::Char("g"), KeySpec::Char("G")],
-        action: "top / bottom",
-        help: HelpRef::Topic("Panes"),
-    },
-];
+/// Preview focus keys: everything else goes to the agent.
+pub static KEYMAP: Keymap = &[Binding {
+    keys: &[KeySpec::Ctrl("]")],
+    action: "back to the session list",
+    help: HelpRef::Topic("Panes"),
+}];
 
-/// TS: the preview-focus branch of the useTerminalInput handler.
-pub fn handle_preview_focus(app: &mut App, input: &Input) {
-    let key = &input.key;
-    let text = input.input.as_str();
-    if key.escape || key.left_arrow || text == "h" {
-        app.set_mode(Mode::Browse);
+/// Bracketed-paste markers, as the terminal wraps a paste while preview focus has bracketed paste on.
+const PASTE_START: &str = "\x1b[200~";
+const PASTE_END: &str = "\x1b[201~";
+
+/// One key event in preview focus, before any of Deckhand's own key handling (Ctrl+C included goes to the agent):
+/// sent to the agent as the terminal sent it, one `input` per event, so the daemon sees a lone Esc, Enter or digit
+/// as an answer. Ctrl+] or Ctrl+Space (outside a paste) sends what came before it and leaves.
+pub fn on_raw_key(app: &mut App, event: &KeyEvent) {
+    let sequence = event.sequence.as_str();
+    // The wheel arrives through `on_mouse_data`; clicks and motion are not forwarded.
+    if is_mouse_report(sequence) || event.input.key.event_type == Some(KeyEventType::Release) {
         return;
     }
-    // Mouse-wheel speed (also used when attached), saved to the config.
-    if text == "+" || text == "=" || text == "-" {
-        adjust_scroll_sensitivity(
-            app,
-            if text == "-" {
-                -SCROLL_SENSITIVITY_STEP
-            } else {
-                SCROLL_SENSITIVITY_STEP
-            },
-        );
-        return;
-    }
-    if text == "k" || key.up_arrow {
-        scroll_preview(app, WheelDirection::Up, 1);
-        return;
-    }
-    if text == "j" || key.down_arrow {
-        scroll_preview(app, WheelDirection::Down, 1);
-        return;
-    }
-    let rows = i64::from(app.layout().preview_rows);
-    // Not in the TS: K/J page too (a Mac keyboard has no page keys).
-    let (page_up, page_down) = (key.page_up || text == "K", key.page_down || text == "J");
-    if page_up || page_down {
-        let direction = if page_up {
-            WheelDirection::Up
-        } else {
-            WheelDirection::Down
-        };
-        scroll_preview(app, direction, usize::try_from((rows - 2).max(1)).unwrap_or(1));
-        return;
-    }
-    if text == "g" {
-        // A fullscreen agent scrolls its own view: Ctrl+Home is its transcript's start (not in the TS, which sent 12
-        // wheel events).
-        if !send_agent_scroll_input(app, CTRL_HOME) {
-            let offset = app.preview_focus.scroll_offset;
-            app.preview_focus.scroll_offset = app.panes.preview.max_scroll_offset.unwrap_or(offset + rows);
+    let modes = app
+        .panes
+        .preview
+        .screen
+        .as_ref()
+        .map(|screen| screen.modes)
+        .unwrap_or_default();
+    if sequence == PASTE_START || sequence == PASTE_END {
+        app.preview_focus.in_paste = sequence == PASTE_START;
+        if modes.bracketed_paste {
+            send_to_agent(app, sequence);
         }
         return;
     }
-    if text == "G" && !send_agent_scroll_input(app, CTRL_END) {
-        app.preview_focus.scroll_offset = 0;
+    if !app.preview_focus.in_paste
+        && let Some(at) = detach_position(sequence.as_bytes())
+    {
+        // Every detach key starts with an ASCII byte: `at` is a char boundary.
+        let before = &sequence[..at];
+        if !before.is_empty() {
+            send_to_agent(app, before);
+        }
+        leave_focus(app, None);
+        return;
     }
+    let data = if modes.application_cursor_keys {
+        application_cursor_key(sequence).unwrap_or(sequence)
+    } else {
+        sequence
+    };
+    send_to_agent(app, data);
 }
 
-/// Ctrl+Home / Ctrl+End (xterm): the start of the transcript / the latest output (following it again) in Claude's,
-/// Codex's and Pi's fullscreen views.
-const CTRL_HOME: &str = "\x1b[1;5H";
-const CTRL_END: &str = "\x1b[1;5F";
+/// Keys for the focused agent: the preview follows the latest output again.
+fn send_to_agent(app: &mut App, data: &str) {
+    let (Some(client), Some(session_id)) = (app.client(), app.preview_focus.session_id.clone()) else {
+        return;
+    };
+    app.preview_focus.scroll_offset = 0;
+    client.send_agent_input(&session_id, data);
+}
+
+/// Back to the session list, with `status` if given. A reply the agent finished while you typed to it was read, as
+/// after detaching from it.
+pub fn leave_focus(app: &mut App, status: Option<String>) {
+    app.set_mode(Mode::Browse);
+    app.preview_focus.in_paste = false;
+    app.panes.preview.screen = None;
+    if status.is_some() {
+        app.set_status(status);
+    }
+    let Some(session_id) = app.preview_focus.session_id.take() else {
+        return;
+    };
+    let unread = app
+        .sessions()
+        .iter()
+        .any(|session| session.id == session_id && session_has_unread_reply(session));
+    let Some(client) = app.client().filter(|_| unread) else {
+        return;
+    };
+    let reply = client.set_reply_read(&session_id, true);
+    drop(app.dispatch().spawn(reply, |app: &mut App, result| match result {
+        Ok(updated) => app.upsert(updated),
+        Err(error) => app.set_error(Some(error.to_string())),
+    }));
+}
+
+/// Not in the TS: preview focus ends by itself when its session stops running, the selection moves to another
+/// session, or the connection to the daemon goes (its error is shown already).
+pub fn interactive_focus_effect(app: &mut App) {
+    if app.mode != Mode::PreviewFocus {
+        return;
+    }
+    if app.client().is_none() {
+        leave_focus(app, None);
+        return;
+    }
+    let focused = app.preview_focus.session_id.clone();
+    let Some(session) = app
+        .selected_session()
+        .filter(|session| focused.as_deref() == Some(session.id.as_str()))
+    else {
+        leave_focus(app, None);
+        return;
+    };
+    if session.status != SessionStatus::Running {
+        let title = display_session_title(&session, &app.sessions());
+        leave_focus(app, Some(format!("{title} exited; back to the session list")));
+    }
+}
 
 /// TS: the preview-focus `stdin.on('data')` listener: wheel reports scaled by the sensitivity ([`WheelScaler`], as
 /// when attached).
@@ -139,33 +145,6 @@ pub fn on_mouse_data(app: &mut App, text: &str) {
         return;
     }
     scroll_preview(app, wheel.direction, scaled);
-}
-
-/// JS `Math.round` (halves round up, towards +∞).
-fn js_round(value: f64) -> f64 {
-    let floor = value.floor();
-    if value - floor >= 0.5 { floor + 1.0 } else { floor }
-}
-
-/// TS `adjustScrollSensitivity` (+ / −): saved to the config.
-pub fn adjust_scroll_sensitivity(app: &mut App, delta: f64) {
-    let current = app.preview_focus.scroll_sensitivity;
-    let next = normalize_scroll_sensitivity(Some(js_round((current + delta) * 100.0) / 100.0));
-    app.preview_focus.scroll_sensitivity = next;
-    app.preview_focus.wheel = WheelScaler::default();
-    app.set_status(Some(format!(
-        "Scroll speed {} (saved)",
-        format_scroll_sensitivity(next)
-    )));
-    let saved = patch_app_config(AppConfig {
-        scroll_speed: Some(JsNumber(next)),
-        ..AppConfig::default()
-    });
-    drop(app.dispatch().spawn(saved, |app: &mut App, result| {
-        if let Err(error) = result {
-            app.set_error(Some(error.to_string()));
-        }
-    }));
 }
 
 /// TS `sendClaudeWheel`, for every agent: a running agent whose preview has no scrollback (Claude, Pi and Codex all
@@ -226,91 +205,182 @@ pub fn handle_notes_focus(app: &mut App, input: &Input) {
 pub(crate) mod tests {
     use std::sync::Mutex;
 
-    use deckhand_core::key::Key;
-    use deckhand_protocol::data::{ProgramKey, SessionStatus};
-    use deckhand_sys::storage::load_app_config;
+    use deckhand_core::wheel::WheelScaler;
+    use deckhand_protocol::data::{ProgramKey, SessionAttention, SessionStatus};
+    use deckhand_protocol::screen::{PreviewScreen, ScreenModes};
+    use serde_json::json;
 
     use super::*;
-    use crate::app::modes::browse::tests::{Daemon, apply, local, named, text, with_sessions};
+    use crate::app::modes::browse::tests::{Daemon, local, with_sessions};
 
     /// Tests that change `DECKHAND_HOME` hold this.
     pub(crate) static ENV: Mutex<()> = Mutex::new(());
 
-    #[test]
-    fn esc_left_and_h_step_back_out() {
-        for input in [
-            named(Key {
-                escape: true,
-                ..Key::NONE
-            }),
-            named(Key {
-                left_arrow: true,
-                ..Key::NONE
-            }),
-            text("h"),
-        ] {
-            let (mut app, _rx) = with_sessions(1);
-            app.set_mode(Mode::PreviewFocus);
-            handle_preview_focus(&mut app, &input);
-            assert_eq!(app.mode, Mode::Browse);
-        }
+    /// An app typing to s0.
+    fn focused() -> (
+        App,
+        tokio::sync::mpsc::UnboundedReceiver<crate::app::event_loop::Update<App>>,
+    ) {
+        let (mut app, rx) = with_sessions(1);
+        app.set_mode(Mode::PreviewFocus);
+        app.preview_focus.session_id = Some("s0".to_owned());
+        (app, rx)
+    }
+
+    fn key(app: &mut App, sequence: &str) {
+        on_raw_key(app, &KeyEvent::from_sequence(sequence.to_owned()));
+    }
+
+    fn with_modes(app: &mut App, modes: ScreenModes) {
+        app.panes.preview.screen = Some(PreviewScreen {
+            modes,
+            ..PreviewScreen::default()
+        });
+    }
+
+    fn reply_ended(app: &mut App) {
+        app.data.repo_sessions[0].attention = Some(
+            serde_json::from_value::<SessionAttention>(
+                json!({"state": "response-ended", "event": "Stop", "at": "2026-01-01T00:00:00.000Z"}),
+            )
+            .unwrap_or_else(|error| panic!("{error}")),
+        );
     }
 
     #[test]
-    fn keys_scroll_the_preview_within_its_bounds() {
-        let (mut app, _rx) = with_sessions(1);
-        app.set_mode(Mode::PreviewFocus);
-        app.panes.preview.max_scroll_offset = Some(3);
-        for _ in 0..5 {
-            handle_preview_focus(&mut app, &text("k"));
-        }
-        assert_eq!(app.preview_focus.scroll_offset, 3);
-        handle_preview_focus(
-            &mut app,
-            &named(Key {
-                down_arrow: true,
-                ..Key::NONE
-            }),
-        );
-        assert_eq!(app.preview_focus.scroll_offset, 2);
-        handle_preview_focus(&mut app, &text("j"));
-        handle_preview_focus(&mut app, &text("j"));
-        handle_preview_focus(&mut app, &text("j"));
-        assert_eq!(app.preview_focus.scroll_offset, 0);
-        handle_preview_focus(&mut app, &text("g"));
-        assert_eq!(app.preview_focus.scroll_offset, 3);
-        handle_preview_focus(&mut app, &text("G"));
-        assert_eq!(app.preview_focus.scroll_offset, 0);
-        // Without a known maximum: up as far as asked; g a page up.
-        app.panes.preview.max_scroll_offset = None;
-        let rows = i64::from(app.layout().preview_rows);
-        handle_preview_focus(
-            &mut app,
-            &named(Key {
-                page_up: true,
-                ..Key::NONE
-            }),
-        );
-        assert_eq!(app.preview_focus.scroll_offset, rows - 2);
-        handle_preview_focus(
-            &mut app,
-            &named(Key {
-                page_down: true,
-                ..Key::NONE
-            }),
-        );
-        assert_eq!(app.preview_focus.scroll_offset, 0);
-        // K/J page as PgUp/PgDn do (a Mac keyboard has no page keys).
-        handle_preview_focus(&mut app, &text("K"));
-        assert_eq!(app.preview_focus.scroll_offset, rows - 2);
-        handle_preview_focus(&mut app, &text("J"));
-        assert_eq!(app.preview_focus.scroll_offset, 0);
-        handle_preview_focus(&mut app, &text("g"));
-        assert_eq!(app.preview_focus.scroll_offset, rows);
-        // Other keys do nothing.
-        handle_preview_focus(&mut app, &text("x"));
-        assert_eq!(app.preview_focus.scroll_offset, rows);
-        assert_eq!(app.mode, Mode::PreviewFocus);
+    fn every_key_goes_to_the_agent_as_typed() {
+        local(async {
+            let (mut app, _rx) = focused();
+            let mut daemon = Daemon::connect(&mut app);
+            app.preview_focus.scroll_offset = 4;
+            // Esc, h and j no longer step out or scroll; Ctrl+C does not quit.
+            for sequence in ["\x1b", "h", "j", "1", "\x03", "\r", "hi", "\x1b[A", "\x7f"] {
+                key(&mut app, sequence);
+                let message = daemon.next().await;
+                assert_eq!(message["type"], "input");
+                assert_eq!(message["sessionId"], "s0");
+                assert_eq!(message["data"], sequence);
+            }
+            assert_eq!(app.mode, Mode::PreviewFocus);
+            assert!(app.connection.exit.is_none());
+            assert_eq!(app.preview_focus.scroll_offset, 0, "typing follows the latest output");
+        });
+    }
+
+    #[test]
+    fn ctrl_bracket_and_ctrl_space_leave_after_sending_what_came_first() {
+        local(async {
+            let (mut app, _rx) = focused();
+            let mut daemon = Daemon::connect(&mut app);
+            with_modes(&mut app, ScreenModes::default());
+            key(&mut app, "ab\x1d");
+            assert_eq!(daemon.next().await["data"], "ab");
+            assert_eq!(app.mode, Mode::Browse);
+            assert!(app.panes.preview.screen.is_none());
+            assert!(app.preview_focus.session_id.is_none());
+
+            // Leaving marks a reply the agent finished meanwhile read, as detaching does.
+            for detach in ["\x00", "\x1b[32;5u", "\x1b[27;5;32~"] {
+                app.set_mode(Mode::PreviewFocus);
+                app.preview_focus.session_id = Some("s0".to_owned());
+                reply_ended(&mut app);
+                key(&mut app, detach);
+                assert_eq!(app.mode, Mode::Browse);
+                let message = daemon.next().await;
+                assert_eq!(message["type"], "set-reply-read", "{detach:?}: {message}");
+                assert_eq!(message["sessionId"], "s0");
+                assert_eq!(message["read"], true);
+            }
+        });
+    }
+
+    #[test]
+    fn paste_markers_reach_only_an_agent_that_asked_for_them() {
+        local(async {
+            let (mut app, _rx) = focused();
+            let mut daemon = Daemon::connect(&mut app);
+            // Without bracketed paste the markers are dropped, and a NUL inside a paste is pasted, not a detach.
+            key(&mut app, PASTE_START);
+            key(&mut app, "x\x00y");
+            key(&mut app, PASTE_END);
+            key(&mut app, "z");
+            assert_eq!(daemon.next().await["data"], "x\x00y");
+            assert_eq!(daemon.next().await["data"], "z");
+            assert_eq!(app.mode, Mode::PreviewFocus);
+            with_modes(
+                &mut app,
+                ScreenModes {
+                    bracketed_paste: true,
+                    ..ScreenModes::default()
+                },
+            );
+            for sequence in [PASTE_START, "multi\rline", PASTE_END] {
+                key(&mut app, sequence);
+                assert_eq!(daemon.next().await["data"], sequence);
+            }
+            assert!(!app.preview_focus.in_paste);
+        });
+    }
+
+    #[test]
+    fn cursor_keys_follow_the_agents_cursor_key_mode() {
+        local(async {
+            let (mut app, _rx) = focused();
+            let mut daemon = Daemon::connect(&mut app);
+            with_modes(
+                &mut app,
+                ScreenModes {
+                    application_cursor_keys: true,
+                    ..ScreenModes::default()
+                },
+            );
+            key(&mut app, "\x1b[A");
+            assert_eq!(daemon.next().await["data"], "\x1bOA");
+            key(&mut app, "\x1b[1;5C");
+            assert_eq!(daemon.next().await["data"], "\x1b[1;5C");
+        });
+    }
+
+    #[test]
+    fn mouse_reports_are_not_typed() {
+        local(async {
+            let (mut app, _rx) = focused();
+            let mut daemon = Daemon::connect(&mut app);
+            key(&mut app, "\x1b[<0;3;4M");
+            key(&mut app, "\x1b[M !!");
+            key(&mut app, "z");
+            assert_eq!(daemon.next().await["data"], "z");
+        });
+    }
+
+    #[test]
+    fn focus_ends_by_itself_when_its_agent_cannot_take_keys() {
+        local(async {
+            let (mut app, _rx) = focused();
+            let _daemon = Daemon::connect(&mut app);
+            interactive_focus_effect(&mut app);
+            assert_eq!(app.mode, Mode::PreviewFocus);
+            app.data.repo_sessions[0].status = SessionStatus::Exited;
+            interactive_focus_effect(&mut app);
+            assert_eq!(app.mode, Mode::Browse);
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("Session 0 exited; back to the session list")
+            );
+
+            // Another session selected: back quietly.
+            let (mut app, _rx) = with_sessions(2);
+            let _daemon = Daemon::connect(&mut app);
+            app.set_mode(Mode::PreviewFocus);
+            app.preview_focus.session_id = Some("s1".to_owned());
+            interactive_focus_effect(&mut app);
+            assert_eq!(app.mode, Mode::Browse);
+            assert_eq!(app.messages.status_message, None);
+        });
+        // No daemon: back too.
+        let (mut app, _rx) = focused();
+        interactive_focus_effect(&mut app);
+        assert_eq!(app.mode, Mode::Browse);
     }
 
     #[test]
@@ -354,15 +424,10 @@ pub(crate) mod tests {
                 mouse_wheel_sequence(WheelDirection::Up, layout.preview_cols, layout.preview_rows, 2)
             );
             assert_eq!(app.preview_focus.scroll_offset, 0);
-            // g / G: the agent's own top and bottom keys.
-            handle_preview_focus(&mut app, &text("g"));
-            assert_eq!(daemon.next().await["data"], CTRL_HOME);
-            handle_preview_focus(&mut app, &text("G"));
-            assert_eq!(daemon.next().await["data"], CTRL_END);
             // Pi and Codex too.
             for program in [ProgramKey::Pi, ProgramKey::Codex] {
                 app.data.repo_sessions[0].program = program;
-                handle_preview_focus(&mut app, &text("k"));
+                scroll_preview(&mut app, WheelDirection::Up, 1);
                 assert_eq!(
                     daemon.next().await["data"],
                     mouse_wheel_sequence(WheelDirection::Up, layout.preview_cols, layout.preview_rows, 1)
@@ -371,7 +436,7 @@ pub(crate) mod tests {
             // An agent printing inline left scrollback in the preview: that scrolls instead.
             app.panes.preview.max_scroll_offset = Some(3);
             assert!(!send_agent_wheel(&mut app, WheelDirection::Up, 1));
-            handle_preview_focus(&mut app, &text("g"));
+            scroll_preview(&mut app, WheelDirection::Up, 5);
             assert_eq!(app.preview_focus.scroll_offset, 3);
             app.preview_focus.scroll_offset = 0;
             app.panes.preview.max_scroll_offset = None;
@@ -381,63 +446,5 @@ pub(crate) mod tests {
             scroll_preview(&mut app, WheelDirection::Up, 1);
             assert_eq!(app.preview_focus.scroll_offset, 1);
         });
-    }
-
-    #[test]
-    fn plus_and_minus_change_the_wheel_speed_and_save_it() {
-        let _guard = ENV.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        let home = tempfile::Builder::new()
-            .prefix("deckhand-preview-")
-            .tempdir()
-            .unwrap_or_else(|error| panic!("{error}"));
-        let previous = std::env::var_os(deckhand_sys::paths::HOME_ENV);
-        // SAFETY: tests touching the environment hold ENV.
-        unsafe { std::env::set_var(deckhand_sys::paths::HOME_ENV, home.path()) };
-        local(async {
-            let (mut app, mut rx) = with_sessions(1);
-            app.preview_focus
-                .wheel
-                .scale(0.5, WheelDirection::Up, std::time::Instant::now());
-            handle_preview_focus(&mut app, &text("+"));
-            assert_eq!(app.preview_focus.scroll_sensitivity, 1.1);
-            assert_eq!(app.preview_focus.wheel, WheelScaler::default());
-            assert_eq!(app.messages.status_message.as_deref(), Some("Scroll speed 1.1 (saved)"));
-            apply(&mut app, &mut rx).await;
-            handle_preview_focus(&mut app, &text("="));
-            handle_preview_focus(&mut app, &text("-"));
-            handle_preview_focus(&mut app, &text("-"));
-            assert_eq!(app.preview_focus.scroll_sensitivity, 1.0);
-            for _ in 0..3 {
-                apply(&mut app, &mut rx).await;
-            }
-            assert_eq!(app.messages.error, None);
-            let config = load_app_config().await.unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(config.scroll_speed.map(|value| value.0), Some(1.0));
-            assert_eq!(config.attach_scroll_sensitivity, None);
-            for _ in 0..40 {
-                adjust_scroll_sensitivity(&mut app, SCROLL_SENSITIVITY_STEP);
-            }
-            assert_eq!(app.preview_focus.scroll_sensitivity, 3.0);
-            for _ in 0..40 {
-                adjust_scroll_sensitivity(&mut app, -SCROLL_SENSITIVITY_STEP);
-            }
-            assert_eq!(app.preview_focus.scroll_sensitivity, 0.0);
-            assert_eq!(app.messages.status_message.as_deref(), Some("Scroll speed 0 (saved)"));
-        });
-        // SAFETY: as above (ENV is still held).
-        unsafe {
-            match previous {
-                Some(value) => std::env::set_var(deckhand_sys::paths::HOME_ENV, value),
-                None => std::env::remove_var(deckhand_sys::paths::HOME_ENV),
-            }
-        }
-    }
-
-    #[test]
-    fn js_round_rounds_halves_up() {
-        assert_eq!(js_round(2.5), 3.0);
-        assert_eq!(js_round(-2.5), -2.0);
-        assert_eq!(js_round(15.999999999999998), 16.0);
-        assert_eq!(js_round(0.49999999999999994), 0.0);
     }
 }

@@ -124,6 +124,12 @@ pub trait UiModel: Sized + 'static {
     /// Draws the whole UI (TS the App component's render).
     fn render(&mut self, frame: &mut Frame<'_>);
 
+    /// Not in the TS: how often frames from updates may be drawn right now, when not the loop's default (see
+    /// [`run_throttled`]).
+    fn render_throttle(&self) -> Option<Duration> {
+        None
+    }
+
     /// The exit result once the UI asked to exit (taken by the loop).
     fn exit(&mut self) -> Option<Self::Exit>;
 }
@@ -149,7 +155,7 @@ pub enum LoopEnd<E> {
 }
 
 /// Whether `sequence` is a mouse report (SGR `ESC [ <` or legacy `ESC [ M`) rather than a key.
-fn is_mouse_report(sequence: &str) -> bool {
+pub(crate) fn is_mouse_report(sequence: &str) -> bool {
     sequence.starts_with("\x1b[<") || sequence.starts_with("\x1b[M")
 }
 
@@ -261,13 +267,13 @@ pub async fn run<M: UiModel, B: Backend>(
 /// [`run`] with frames from updates at most once per `throttle` (leading and trailing edges): a frame is drawn at once
 /// when none was drawn for `throttle`, else once the window ends, with everything that changed meanwhile. A key or a
 /// resize draws at once, so typing never waits for the window; mouse reports (a wheel burst) stay throttled. The
-/// model's effects still run after every batch.
+/// model's effects still run after every batch. [`UiModel::render_throttle`] overrides `throttle` while it says so.
 pub async fn run_throttled<M: UiModel, B: Backend>(
     model: &mut M,
     terminal: &mut Terminal<B>,
     events: &mut mpsc::UnboundedReceiver<TermEvent>,
     updates: &mut mpsc::UnboundedReceiver<Update<M>>,
-    throttle: Duration,
+    default_throttle: Duration,
 ) -> io::Result<LoopEnd<M::Exit>> {
     let mut parser = StdinParser::new();
     let mut exit = None;
@@ -281,6 +287,7 @@ pub async fn run_throttled<M: UiModel, B: Backend>(
     let mut draw_pending = false;
     let mut clear_pending = false;
     loop {
+        let throttle = model.render_throttle().unwrap_or(default_throttle);
         let mut frame = FrameRequest::default();
         tokio::select! {
             biased;
@@ -746,6 +753,8 @@ mod tests {
         renders: usize,
         quit: Option<&'static str>,
         counter: i32,
+        /// What `render_throttle` answers.
+        throttle: Option<Duration>,
     }
 
     impl UiModel for Recorder {
@@ -786,6 +795,10 @@ mod tests {
 
         fn exit(&mut self) -> Option<&'static str> {
             self.quit.take()
+        }
+
+        fn render_throttle(&self) -> Option<Duration> {
+            self.throttle
         }
     }
 
@@ -1023,6 +1036,35 @@ mod tests {
                 assert_eq!(model.renders, 2);
                 assert_eq!(model.effects_saw.first(), Some(&0));
                 assert_eq!(model.effects_saw.last(), Some(&3));
+                assert_eq!(rows(&terminal)[0], "count 3     ");
+            })
+            .await;
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn the_model_can_shorten_the_throttle() {
+        let local = tokio::task::LocalSet::new();
+        local
+            .run_until(async {
+                let mut terminal = Terminal::new(TestBackend::new(12, 2)).expect("terminal");
+                let mut model = Recorder {
+                    throttle: Some(Duration::from_millis(1)),
+                    ..Recorder::default()
+                };
+                let (_tx, mut events) = mpsc::unbounded_channel::<TermEvent>();
+                let (dispatch, mut update_rx) = Dispatch::<Recorder>::channel();
+                // Far apart, inside a default window that would otherwise hold them all.
+                let window = Duration::from_secs(10);
+                let _timers: Vec<Timer> = (1..=3)
+                    .map(|step| dispatch.after(Duration::from_millis(60 * step), |model| model.counter += 1))
+                    .collect();
+                let _quit = dispatch.after(Duration::from_millis(300), |model| model.quit = Some("done"));
+                let end = run_throttled(&mut model, &mut terminal, &mut events, &mut update_rx, window)
+                    .await
+                    .expect("loop runs");
+                assert_eq!(end, LoopEnd::Exit("done"));
+                // The leading frame, then one per update.
+                assert_eq!(model.renders, 4);
                 assert_eq!(rows(&terminal)[0], "count 3     ");
             })
             .await;

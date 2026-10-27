@@ -43,7 +43,7 @@ Select `smoke claude` (`1`) and walk the tabs with `]` / `[` and the letters.
 
 | Keys | Expected |
 | --- | --- |
-| `p` | Preview: the agent's screen, read-only. `→` enters preview focus; `j`/`k` or PgUp/PgDn scroll the scrollback; `←` or `Esc` leaves |
+| `p` | Preview: the agent's screen as plain text. `→` types to the agent: its colours and cursor appear, every key (Esc and Ctrl+C too) reaches it, the wheel scrolls; `Ctrl+]` leaves |
 | `t` | Terminal: a shell in the session's worktree (`pwd` shows `~/.deckhand-rust-dev/worktrees/...`). The shell starts the first time you view the tab |
 | `g` | Git: sections Merge Conflicts / Staged / Changes / Untracked, empty at first. In another terminal run `echo x >> <worktree>/notes.txt`; within about 2 s `notes.txt` appears under Changes with `+1 -0`. `→` focuses it; `space` stages (moves to Staged); `space` again unstages; `J`/`K` scroll the diff |
 | `d` | Dev: shows "not running" or the empty pane. `d` `d` (twice quickly) starts the Dev command: output `dev up`, `▶` appears after the row title. `d` `d` again stops it |
@@ -58,7 +58,7 @@ Also `<` / `>` narrow and widen the sidebar and `tab` / `shift+tab` cycle tabs. 
 2. Press `Ctrl+]`. Expected: back in Deckhand, selection and tab unchanged, the session still running.
 3. Repeat with `Ctrl+Space` (also detaches).
 4. On the Terminal tab press `o`: you are in the worktree shell; run `echo $0 && pwd`; `Ctrl+]` returns. On Git press `o`: lazygit opens if installed (`q` quits it; it restarts on the next `o`). On Dev press `o` while Dev runs: you see its output; `Ctrl+]` returns and Dev keeps running.
-5. Scroll the wheel while attached: the multiplier applies (`+` / `-` in preview focus change it).
+5. Scroll the wheel while attached: the multiplier applies (Settings → Scroll speed changes it).
 
 ## 4. Forks and sub-sessions
 

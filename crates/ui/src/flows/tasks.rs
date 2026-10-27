@@ -2215,7 +2215,7 @@ impl Flow<App> for TasksFlow {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::app::event_loop::Dispatch;
     use crate::primitives::{row_text, string_width};
@@ -2298,7 +2298,7 @@ mod tests {
         buf
     }
 
-    fn buffer_rows(buf: &Buffer) -> Vec<String> {
+    pub(crate) fn buffer_rows(buf: &Buffer) -> Vec<String> {
         (0..buf.area.height)
             .map(|y| {
                 let mut line = String::new();
@@ -2366,7 +2366,7 @@ mod tests {
     }
 
     /// Per row, the runs of cells whose style is not the default: `row 3: 0..12 fg=8 dim, 14..20 bold`.
-    fn style_rows(buf: &Buffer) -> Vec<String> {
+    pub(crate) fn style_rows(buf: &Buffer) -> Vec<String> {
         (0..buf.area.height)
             .filter_map(|y| {
                 let mut runs: Vec<(u16, u16, String)> = Vec::new();

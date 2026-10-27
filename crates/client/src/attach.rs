@@ -497,17 +497,28 @@ pub fn attached_terminal_title(session_id: &str, target: AttachTarget, options: 
 
 /// TS: attach.ts isDetachInput: the chunk holds NUL or 0x1d, or Ctrl+Space as `ESC [32;5u` / `ESC [27;5;32~`.
 pub fn is_detach_input(chunk: &[u8]) -> bool {
-    if chunk.contains(&0x00) || chunk.contains(&0x1d) {
-        return true;
-    }
+    detach_position(chunk).is_some()
+}
+
+/// Not in the TS: where [`is_detach_input`]'s first detach key starts in `chunk`, so the keys before it can still be
+/// sent.
+pub fn detach_position(chunk: &[u8]) -> Option<usize> {
     // Some terminals encode Ctrl+Space as an enhanced-keyboard escape sequence when an attached TUI enables CSI-u /
     // modifyOtherKeys mode. TS decodes the chunk as UTF-8 first; lossy decoding never consumes an ASCII byte into a
     // replacement character, so searching the bytes finds the same sequences.
-    contains_bytes(chunk, b"\x1b[32;5u") || contains_bytes(chunk, b"\x1b[27;5;32~")
+    let byte = chunk.iter().position(|byte| *byte == 0x00 || *byte == 0x1d);
+    [
+        byte,
+        find_bytes(chunk, b"\x1b[32;5u"),
+        find_bytes(chunk, b"\x1b[27;5;32~"),
+    ]
+    .into_iter()
+    .flatten()
+    .min()
 }
 
-fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack.windows(needle.len()).any(|window| window == needle)
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|window| window == needle)
 }
 
 /// TS: attach.ts attachResponseData: the attach response's `terminalModes`, if its data is an object that has them.
@@ -1565,6 +1576,10 @@ mod tests {
         assert!(!is_detach_input(b"\x1b[32;5"));
         assert!(!is_detach_input(b"hello"));
         assert!(!is_detach_input(b""));
+        assert_eq!(detach_position(b"ab\x1dc"), Some(2));
+        assert_eq!(detach_position(b"\x00"), Some(0));
+        assert_eq!(detach_position(b"hi\x1b[27;5;32~\x00"), Some(2));
+        assert_eq!(detach_position(b"hello"), None);
     }
 
     #[test]

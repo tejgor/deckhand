@@ -212,6 +212,14 @@ On conflicts, one small view lists the conflicted files and offers two keys. `en
 - **Inspecting**: `i` shows the worktree's branch and HEAD, changed and untracked counts, diff size, the base comparison and the cached upstream ahead/behind. `↑`/`↓`, `j`/`k` and `pgup`/`pgdn` move through it, and `esc` closes it. Inside it, `P` asks the optional `gh` CLI for PR and check status, `b` opens the PR (https URLs only), `c` creates a PR and `g` opens the Git tab. Missing tools, auth or network are reported without blocking local use. Reopen `i` to refresh.
 - **Creating a PR**: `c` first asks: *Push <branch> to <remote> and open GitHub's new-PR form in your browser?* Only `enter` proceeds; `esc` cancels. Deckhand then runs `git push -u <remote> <branch>`, never forced. The remote is the branch's upstream remote, else `origin`. Then it runs `gh pr create --web --head <branch>`, or `gh pr view --web` if an open PR already exists. `--base` is passed only when the session's base branch exists on that remote (for example `origin/main`); otherwise `gh` chooses. It refuses a detached HEAD, `main`/`master`, the session's base branch, sessions without a worktree branch and a branch that changed since you confirmed. Prompts are disabled and stdin is closed, so it never waits for input; push and `gh` failures are shown as errors. Press `P` afterwards to see the new PR.
 
+## Typing to an agent in the Preview
+
+To answer a question, approve a permission or type a short prompt, you don't need to attach: press `→` on a running session's Preview tab. Every key now goes to the agent, `esc` and `ctrl+c` included, and the Preview shows the agent's screen in its own colours, with its cursor (so an input method composes in place). The right pane's border and the `typing to the agent` badge show you are in it. `ctrl+]` or `ctrl+space` returns to the session list, the same keys that detach; a reply the agent finished meanwhile counts as read, as after detaching. Selecting another session, or the agent exiting, also returns.
+
+The agent keeps its size (its PTY is already sized to the Preview), so nothing redraws on the way in or out. Pastes reach it as one paste. The mouse wheel scrolls as it does outside (see [Scroll speed](#scroll-speed)); clicks are not passed on. `enter` (or `o`) still attaches full screen, for long sessions or anything the Preview is too small for.
+
+Only the UI typing to an agent gets its colours: another UI watching the same session keeps the plain preview.
+
 ## Terminal, Git and Dev panes
 
 Terminal (your `$SHELL`), Git (the Changes view, plus `lazygit` on `o`) and Dev belong to the session's worktree, or, for sessions without a worktree, to the checkout they run in. Every session in the same worktree sees the same shell, the same changes, the same lazygit and the same Dev command. Attaching (`o`) from any of them opens that one process, also after the session's agent has exited. Git state belongs to the worktree too, so agents sharing a worktree see the same changes.
@@ -254,7 +262,7 @@ Every worktree of a repository runs the same Dev config, so its servers want the
 
 ## Scroll speed
 
-While attached, and while you scroll the preview, Deckhand scales trackpad and mouse-wheel scrolling by the scroll speed. Pick it in Settings (`C` → **Scroll speed** in the Agents rows: 0.5, 1, 2 or 3, or **custom…** to type any number from 0 to 3), or while scrolling a preview (`→` on Preview) press `+` / `-` to raise or lower it by 0.1. Either is saved immediately and applies to both. Or edit the user config directly:
+While attached, and while you scroll the preview, Deckhand scales trackpad and mouse-wheel scrolling by the scroll speed. Pick it in Settings (`C` → **Scroll speed** in the Agents rows: 0.5, 1, 2 or 3, or **custom…** to type any number from 0 to 3). It is saved immediately and applies to both. Or edit the user config directly:
 
 ```json
 {
@@ -279,7 +287,7 @@ Every agent scrolls a fixed distance per wheel event, so the multiplier alone se
 - **Codex** scrolls `tui.mouse_scroll_speed` rows per event (1 unless set) and does not accelerate.
 - **Pi** scrolls one line per event on macOS; on Linux, or when started over SSH, it accelerates on fast scrolls unless `fullscreenWheelScrollLines` is set to a number in its settings.
 
-In the preview of a fullscreen agent, `g` / `G` send Ctrl+Home / Ctrl+End, which all three treat as the top of the conversation and the latest output.
+To jump to the top of a fullscreen agent's conversation or back to its latest output, [type to it](#typing-to-an-agent-in-the-preview) Ctrl+Home / Ctrl+End, which all three understand.
 
 ## Colours
 
@@ -293,7 +301,7 @@ It can also draw itself in the dusk palette of [the design system](brand/deckhan
 }
 ```
 
-Remove the key (or set `"terminal"`) to go back. Deckhand reads it when the UI starts and each time you come back from an attached session, so quit and reopen the UI after changing it. The status line of an attached view (and under a note in Vim) follows the same setting. Only Deckhand's own UI changes colour; agents' output keeps its own colours.
+Remove the key (or set `"terminal"`) to go back. Deckhand reads it when the UI starts and each time you come back from an attached session, so quit and reopen the UI after changing it. The status line of an attached view (and under a note in Vim) follows the same setting. Only Deckhand's own UI changes colour; agents' output keeps its own colours. The Preview shows an agent's colours only while you [type to it](#typing-to-an-agent-in-the-preview); otherwise it is plain text.
 
 ## Git changes
 

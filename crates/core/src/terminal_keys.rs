@@ -45,6 +45,20 @@ pub fn normalize_terminal_key(key: Key, sequence: &str) -> Key {
     }
 }
 
+/// Not in the TS: an unmodified arrow, Home or End key in its application-cursor form (`ESC O x`, DECCKM on), as a
+/// terminal sends it to a program that asked for that mode; `None` for any other sequence.
+pub fn application_cursor_key(sequence: &str) -> Option<&'static str> {
+    Some(match sequence {
+        "\x1b[A" => "\x1bOA",
+        "\x1b[B" => "\x1bOB",
+        "\x1b[C" => "\x1bOC",
+        "\x1b[D" => "\x1bOD",
+        "\x1b[H" => "\x1bOH",
+        "\x1b[F" => "\x1bOF",
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use deckhand_testkit::{Case, replay};
@@ -123,5 +137,17 @@ mod tests {
                 Ok(Value::Object(out))
             },
         );
+    }
+
+    #[test]
+    fn cursor_keys_take_their_application_form() {
+        assert_eq!(application_cursor_key("\x1b[A"), Some("\x1bOA"));
+        assert_eq!(application_cursor_key("\x1b[D"), Some("\x1bOD"));
+        assert_eq!(application_cursor_key("\x1b[H"), Some("\x1bOH"));
+        assert_eq!(application_cursor_key("\x1b[F"), Some("\x1bOF"));
+        // Modified keys and everything else are sent as they came.
+        assert_eq!(application_cursor_key("\x1b[1;5A"), None);
+        assert_eq!(application_cursor_key("\x1bOA"), None);
+        assert_eq!(application_cursor_key("a"), None);
     }
 }

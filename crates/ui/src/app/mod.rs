@@ -130,9 +130,8 @@ pub const WORKTREE_MODES: [WorktreeModeOption; 3] = [
     },
 ];
 
-/// TS: app.tsx SCROLL_SENSITIVITY_STEP (+ / − in preview focus); 0.1, not 0.04, for the wider range up to
-/// [`deckhand_core::wheel::MAX_SCROLL_SENSITIVITY`].
-pub const SCROLL_SENSITIVITY_STEP: f64 = 0.1;
+/// Not in the TS: the render throttle while you type to the agent ([`UiModel::render_throttle`]).
+pub const PREVIEW_FOCUS_RENDER_THROTTLE: std::time::Duration = std::time::Duration::from_millis(16);
 
 /// TS: app.tsx DEV_DOUBLE_TAP_MS: two d presses within this long start or stop Dev.
 pub const DEV_DOUBLE_TAP_MS: i64 = 500;
@@ -1276,7 +1275,8 @@ impl App {
                     self.set_mode(Mode::Browse);
                 }
             }
-            Mode::PreviewFocus => preview_focus::handle_preview_focus(self, input),
+            // Its keys go to the agent before they get here (`on_key`).
+            Mode::PreviewFocus => {}
             Mode::Tasks => self.tasks_flow_call(|flow, props, cx| flow.handle_input(props, input, cx)),
             Mode::Worktrees => self.worktrees_flow_call(|flow, props, cx| flow.handle_input(props, input, cx)),
             Mode::ConfirmRemove => confirm::handle_confirm_remove(self, input),
@@ -1462,8 +1462,14 @@ impl UiModel for App {
         }
     }
 
-    /// TS: useTerminalInput (releases dropped, the key normalised) → [`App::handle_input`].
+    /// TS: useTerminalInput (releases dropped, the key normalised) → [`App::handle_input`]. In preview focus every key
+    /// goes to the agent instead, before Ctrl+C or the busy gate see it.
     fn on_key(&mut self, event: &KeyEvent) {
+        if self.mode == Mode::PreviewFocus {
+            self.dismiss_notice();
+            crate::app::modes::preview_focus::on_raw_key(self, event);
+            return;
+        }
         if let Some(input) = terminal_input(event) {
             self.handle_input(&input);
         }
@@ -1486,6 +1492,11 @@ impl UiModel for App {
     /// TS: App's render (crates/ui/src/app/layout.rs).
     fn render(&mut self, frame: &mut Frame<'_>) {
         layout::render_app(self, frame);
+    }
+
+    /// Not in the TS: while you type to the agent its output is drawn at about 60 frames a second, not Ink's 30.
+    fn render_throttle(&self) -> Option<std::time::Duration> {
+        (self.mode == Mode::PreviewFocus).then_some(PREVIEW_FOCUS_RENDER_THROTTLE)
     }
 
     fn exit(&mut self) -> Option<UiExitResult> {
@@ -1592,6 +1603,22 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::{app, session};
     use super::*;
+
+    #[test]
+    fn typing_to_the_agent_draws_faster_and_ctrl_c_does_not_quit() {
+        let (mut app, _rx) = app(AppProps::default());
+        assert_eq!(app.render_throttle(), None);
+        app.data.repo_sessions = vec![session("a", "A", SessionStatus::Running)];
+        app.set_selected_id(Some("a".to_owned()));
+        app.set_mode(Mode::PreviewFocus);
+        app.preview_focus.session_id = Some("a".to_owned());
+        assert_eq!(app.render_throttle(), Some(PREVIEW_FOCUS_RENDER_THROTTLE));
+        app.on_key(&KeyEvent::from_sequence("\x03".to_owned()));
+        assert!(app.connection.exit.is_none(), "Ctrl+C went to the agent");
+        app.set_busy(true);
+        app.on_key(&KeyEvent::from_sequence("\x1d".to_owned()));
+        assert_eq!(app.mode, Mode::Browse, "the busy gate does not hold keys for the agent");
+    }
 
     #[test]
     fn scroll_sensitivity_is_clamped_and_printed_like_to_fixed() {

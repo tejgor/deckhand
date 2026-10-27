@@ -213,7 +213,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "→  l",
-                text: "Step into the pane: scroll the preview (running), browse Git changes, edit the notes",
+                text: "Step into the pane: type to the agent (running), browse Git changes, edit the notes",
             },
             HelpLine::Key {
                 keys: "←  h  Esc",
@@ -232,17 +232,17 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Open in Cursor / VS Code: the note on Notes, otherwise the session's folder",
             },
             HelpLine::Heading {
-                heading: "Scrolling the preview (→)",
+                heading: "Typing to the agent (→ on Preview)",
             },
             HelpLine::Key {
-                keys: "j k  ↑↓",
-                text: "Scroll (J/K or PgUp/PgDn a page, g/G top/bottom, the mouse wheel; + − change wheel speed)",
+                keys: "Ctrl+]",
+                text: "Back (Ctrl+Space too); every other key goes to the agent, Esc and Ctrl+C included",
             },
             HelpLine::Note {
                 note: "Mouse wheel: Scroll speed in Settings (C); \"claude_scroll_override\": false in config.json keeps your own Claude scroll settings.",
             },
             HelpLine::Note {
-                note: "Agents ask for approvals in their own terminal: open it (Enter) to answer. Terminal, Git and Dev belong to the worktree: all its sessions share them, also after their agents exit.",
+                note: "Agents ask for approvals in their own terminal: answer them here (→) or open it (Enter). Terminal, Git and Dev belong to the worktree: all its sessions share them, also after their agents exit.",
             },
         ],
     },
@@ -585,9 +585,20 @@ mod tests {
     }
 
     #[test]
+    fn guide_explains_typing_to_the_agent() {
+        let panes = topic_text("Panes");
+        assert!(panes.contains("type to the agent (running)"));
+        assert!(panes.contains("Ctrl+] Back (Ctrl+Space too)"));
+        assert!(panes.contains("Esc and Ctrl+C included"));
+    }
+
+    #[test]
     fn guide_explains_scroll_speed_and_preserving_claude_scroll_settings() {
         let panes = topic_text("Panes");
-        assert!(panes.contains("+ − change wheel speed"));
+        assert!(
+            !panes.contains("+ − change wheel speed"),
+            "the wheel speed is set in Settings only"
+        );
         assert!(panes.contains("Scroll speed in Settings (C)"));
         assert!(panes.contains("\"claude_scroll_override\": false"));
     }

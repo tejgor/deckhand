@@ -96,6 +96,8 @@ pub struct PaneWatchDeps {
     pub pane_scope: Option<String>,
     /// The watching tab is shown (terminal, git, dev).
     pub active: bool,
+    /// Preview only (not in the TS): you type to the agent, so its previews carry the styled screen.
+    pub interactive: bool,
 }
 
 /// TS: the dependencies of the `[selectedSession]` effect (the pane records reset for a new selection).
@@ -248,6 +250,7 @@ fn effect_pass(app: &mut App) {
     collapsed_effect(app);
     mount_effect(app);
     active_tab_effect(app);
+    crate::app::modes::preview_focus::interactive_focus_effect(app);
     if app.effects.stdout_modes {
         let mut stdout = std::io::stdout();
         sync_terminal_modes(app, &mut stdout);
@@ -790,6 +793,7 @@ fn watch_effects(app: &mut App, derived: &Derived) {
         scroll_offset: 0,
         pane_scope: None,
         active: true,
+        interactive: false,
     };
     let scope = pane_scope(derived.selected.as_ref());
     let tab = app.browse.active_tab;
@@ -797,6 +801,7 @@ fn watch_effects(app: &mut App, derived: &Derived) {
         app,
         PaneWatchDeps {
             scroll_offset: app.preview_focus.scroll_offset,
+            interactive: app.mode == Mode::PreviewFocus,
             ..base.clone()
         },
     );
@@ -847,7 +852,7 @@ fn watch_preview(app: &mut App, deps: PaneWatchDeps) {
         i64::from(deps.cols),
         i64::from(deps.rows),
         Some(deps.scroll_offset),
-        false,
+        deps.interactive,
     );
     let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
         if app.effects.preview.generation != generation {
@@ -1166,8 +1171,9 @@ fn branches_effect(app: &mut App) {
     app.effects.branches.deps = Some(deps);
 }
 
-/// TS: the terminal-mode effects: bracketed paste in notes focus, mouse reporting in preview focus (escape
-/// sequences written to stdout, undone when the mode ends).
+/// TS: the terminal-mode effects: bracketed paste in notes focus (and, not in the TS, in preview focus, so a paste
+/// reaches the agent as one), mouse reporting in preview focus (escape sequences written to stdout, undone when the
+/// mode ends).
 pub fn sync_terminal_modes(app: &mut App, out: &mut dyn std::io::Write) {
     let mode = app.mode;
     if app.effects.mode == Some(mode) {
@@ -1177,7 +1183,8 @@ pub fn sync_terminal_modes(app: &mut App, out: &mut dyn std::io::Write) {
     ran(app);
     // React runs every cleanup before the new setups.
     let mut text = String::new();
-    if app.effects.paste_on && mode != Mode::NotesFocus {
+    let pastes = matches!(mode, Mode::NotesFocus | Mode::PreviewFocus);
+    if app.effects.paste_on && !pastes {
         app.effects.paste_on = false;
         text.push_str(PASTE_OFF);
     }
@@ -1187,7 +1194,7 @@ pub fn sync_terminal_modes(app: &mut App, out: &mut dyn std::io::Write) {
     }
     // Bracketed paste only on a terminal (TS `process.stdout.isTTY`).
     let tty = !app.effects.stdout_modes || std::io::IsTerminal::is_terminal(&std::io::stdout());
-    if mode == Mode::NotesFocus && !app.effects.paste_on && tty {
+    if pastes && !app.effects.paste_on && tty {
         app.effects.paste_on = true;
         text.push_str(PASTE_ON);
     }
@@ -1522,13 +1529,14 @@ mod tests {
             let mut out = Vec::new();
             sync_terminal_modes(&mut app, &mut out);
             assert!(out.is_empty());
+            // Typing to the agent: pastes stay whole, and the wheel comes as mouse reports.
             app.set_mode(Mode::PreviewFocus);
             sync_terminal_modes(&mut app, &mut out);
-            assert_eq!(String::from_utf8_lossy(&out), MOUSE_ON);
+            assert_eq!(String::from_utf8_lossy(&out), format!("{PASTE_ON}{MOUSE_ON}"));
             out.clear();
             app.set_mode(Mode::NotesFocus);
             sync_terminal_modes(&mut app, &mut out);
-            assert_eq!(String::from_utf8_lossy(&out), format!("{MOUSE_OFF}{PASTE_ON}"));
+            assert_eq!(String::from_utf8_lossy(&out), MOUSE_OFF);
             out.clear();
             app.set_mode(Mode::Browse);
             sync_terminal_modes(&mut app, &mut out);
