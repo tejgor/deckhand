@@ -330,9 +330,8 @@ impl ResponseData {
             "create-pr" => ResponseData::CreatePr(from(data)?),
             "inspect-cleanup" => ResponseData::SessionCleanup(from(data)?),
             "inspect-worktree" => ResponseData::WorktreeCleanup(from(data)?),
-            "run-action" | "start-dev" | "watch-terminal" | "watch-git" | "watch-dev" | "watch-action" => {
-                ResponseData::Pane(from(data)?)
-            }
+            "run-action" | "start-dev" | "restart-terminal" | "watch-terminal" | "watch-git" | "watch-dev"
+            | "watch-action" => ResponseData::Pane(from(data)?),
             "watch-preview" => ResponseData::Preview(from(data)?),
             "agent-versions" => ResponseData::AgentVersions(Box::new(from(data)?)),
             "update-agent" => ResponseData::AgentUpdate(Box::new(from(data)?)),

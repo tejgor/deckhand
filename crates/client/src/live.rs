@@ -459,6 +459,19 @@ impl LiveClient {
         }))
     }
 
+    /// Not in the TS: stops the worktree's shell and everything running in it, then starts a fresh one
+    /// (`restart-terminal`).
+    pub fn restart_terminal(&self, session_id: &str, cols: i64, rows: i64) -> Reply<TerminalRecord> {
+        self.request(Request::RestartTerminal(SessionSizeRequest {
+            request_id: new_request_id(),
+            session_id: session_id.to_owned(),
+            cols: Some(cols),
+            rows: Some(rows),
+            process: None,
+            restart: None,
+        }))
+    }
+
     /// TS: LiveClient.watchChanges: the Git tab's Changes view; no session stops watching.
     pub fn watch_changes(&self, session_id: Option<&str>) -> Reply<ChangesRecord> {
         self.request(Request::WatchChanges(WatchChanges {

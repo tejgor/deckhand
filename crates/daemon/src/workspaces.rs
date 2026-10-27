@@ -1114,6 +1114,40 @@ impl Daemon {
         Ok(())
     }
 
+    /// Not in the TS: `restart-terminal`: stops the worktree's shell and everything running in it, then starts a
+    /// fresh one, answering its record once the old one is gone. A client attached to the shell is detached first
+    /// (`terminal-detached`), as when the worktree is deleted: leaving the attach restores its terminal, which the
+    /// stuck program may have left in another mode, and it sees the fresh shell on the Terminal tab.
+    pub async fn handle_restart_terminal(&self, request: &SessionSizeRequest) -> Result<WorkspacePaneRecord> {
+        let (session, key) = self.require_workspace(&request.session_id, WorkspacePane::Terminal)?;
+        let workspace = self.open_workspace(&key).await?;
+        let viewer = workspace.attached.borrow_mut().shift_remove(&WorkspacePane::Terminal);
+        if let Some(viewer) = viewer.filter(|viewer| !viewer.client.is_destroyed()) {
+            send_message(
+                &viewer.client,
+                &pane_detached_message(WorkspacePane::Terminal, viewer.session_id),
+            );
+        }
+        let terminal: WorkspacePaneRecord = self
+            .request_pane(
+                &workspace,
+                payload(json!({
+                    "type": "restart-terminal",
+                    "cols": clamp_size(request.cols, DEFAULT_PREVIEW_COLS),
+                    "rows": clamp_size(request.rows, DEFAULT_PREVIEW_ROWS),
+                })),
+            )
+            .await?;
+        if self.is_current_workspace(&workspace) {
+            workspace
+                .records
+                .borrow_mut()
+                .insert(WorkspacePane::Terminal, terminal.clone());
+            self.publish_workspace_pane(&key, WorkspacePane::Terminal, &terminal);
+        }
+        Ok(stamped(&terminal, &session.id, &key))
+    }
+
     /// Not in the TS: `stop-dev`, of every Dev process or only `process`.
     pub async fn handle_stop_dev(&self, request: &StopDevRequest) -> Result<OkResult> {
         let session = self.require_session(&request.session_id)?;
@@ -1657,6 +1691,82 @@ mod tests {
             settle().await;
             assert!(lines(&mut c).is_empty());
             assert!(!workspace.records.borrow().contains_key(&WorkspacePane::Git));
+        });
+    }
+
+    #[test]
+    fn restarting_the_terminal_answers_and_shows_the_fresh_shell_to_every_viewer() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = daemon(dir.path());
+        put(&daemon, session("s1", "/w", "/w"));
+        put(&daemon, session("s2", "/w", "/w"));
+        let mut deleted = session("gone", "/r", "/r/wt");
+        deleted.worktree = serde_json::from_value(
+            json!({"mode": "managed", "path": "/r/wt", "deletedAt": "2026-01-02T00:00:00.000Z"}),
+        )
+        .unwrap();
+        put(&daemon, deleted);
+        let (_b, mut b) = watcher(&daemon, 1, |sub| sub.watched_terminal_session_id = some("s2"));
+        let (attached, mut attached_rx) = test_client(2);
+        let restart = |session_id: &str, cols: Option<i64>| SessionSizeRequest {
+            request_id: "r".into(),
+            session_id: session_id.into(),
+            cols,
+            rows: None,
+            process: None,
+            restart: None,
+        };
+        local(async {
+            assert_eq!(
+                daemon
+                    .handle_restart_terminal(&restart("gone", None))
+                    .await
+                    .unwrap_err()
+                    .to_string(),
+                "Terminal is unavailable: its worktree was deleted"
+            );
+
+            let (workspace, mut fake) = fake_workspace(&daemon, "/w").await;
+            // Another client is attached to the shell, through s2.
+            workspace.attached.borrow_mut().insert(
+                WorkspacePane::Terminal,
+                PaneViewer {
+                    client: attached.clone(),
+                    session_id: "s2".into(),
+                },
+            );
+            let restarting = {
+                let daemon = daemon.clone();
+                let request = restart("s1", Some(90));
+                spawn(async move { daemon.handle_restart_terminal(&request).await })
+            };
+            let request = fake.next().await;
+            assert_eq!(
+                (&request["type"], &request["cols"], &request["rows"]),
+                (&json!("restart-terminal"), &json!(90), &json!(DEFAULT_PREVIEW_ROWS))
+            );
+            // Detached before the old shell is stopped: it never sees the old shell's end or the fresh one's output.
+            assert_eq!(
+                lines(&mut attached_rx),
+                [r#"{"type":"terminal-detached","sessionId":"s2"}"#]
+            );
+            assert!(!workspace.attached.borrow().contains_key(&WorkspacePane::Terminal));
+            fake.send(json!({"type": "output", "target": "terminal", "data": "$ "}))
+                .await;
+            fake.answer(&request, json!({"content": "", "live": true, "cwd": "/w"}))
+                .await;
+            assert_eq!(
+                json_text(&restarting.await.unwrap()),
+                r#"{"content":"","live":true,"cwd":"/w","sessionId":"s1","workspace":"/w"}"#
+            );
+            assert_eq!(
+                lines(&mut b),
+                [
+                    r#"{"type":"terminal-updated","terminal":{"content":"","live":true,"cwd":"/w","sessionId":"s2","workspace":"/w"}}"#
+                ]
+            );
+            assert!(workspace.records.borrow()[&WorkspacePane::Terminal].live);
+            assert!(lines(&mut attached_rx).is_empty());
         });
     }
 

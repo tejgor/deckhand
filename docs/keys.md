@@ -49,7 +49,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `U` | Mark the selected session's finished reply unread (`◆`), or read again ([unread replies](features.md#organizing-and-inspecting-sessions)) |
 | `m` | Merge the selected worktree into the current branch, uncommitted ([merging](features.md#merging-and-done)) |
 | `M` | Set or clear the worktree's merged marker without merging |
-| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes): `enter` starts or restarts it, `x` stops it), then your actions ([actions](features.md#setup-and-actions)). Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
+| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes): `enter` starts or restarts it, `x` stops it), then your actions ([actions](features.md#setup-and-actions)), then **Shell**: `enter` restarts the worktree's shell, killing whatever is stuck in it ([restarting](features.md#terminal-git-and-dev-panes)). Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
 | `A` | Archive or unarchive the selected session (it keeps running) |
 | `backspace` | Archive the selected exited session; on an archived one, remove it for good ([archiving](features.md#organizing-and-inspecting-sessions)) |
 | `H` | Export and open a handoff ([handoffs](features.md#resume-and-handoffs)) |

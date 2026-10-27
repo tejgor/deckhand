@@ -1396,6 +1396,34 @@ fn sessions_in_one_worktree_share_one_terminal_and_lazygit(c: &Ctx) {
     assert!(is_alive(shell_pid));
     assert_eq!(shell(&first_id).0, shell_pid);
 
+    // Restarting the shell (here from the exited session) kills a job stuck in it, one that ignores ctrl+c and the
+    // hangup; every session of the workspace gets the fresh shell, and a client attached to it is detached.
+    socket.send(json!({"type": "terminal-input", "sessionId": first_id, "data": "sh -c 'trap \"\" HUP INT; echo stuck=$$; exec sleep 100000'\r"}));
+    let stuck = wf(
+        || digits_after(text(&watch(&first_id)["content"]), "stuck="),
+        Option::is_some,
+    )
+    .unwrap();
+    let attach_id = uuid::Uuid::new_v4().to_string();
+    socket.send(
+        json!({"type": "attach-terminal", "requestId": attach_id, "sessionId": first_id, "cols": 300, "rows": 30}),
+    );
+    wf(
+        || socket.has(|e| e["type"] == "response" && e["requestId"] == attach_id.as_str() && e["ok"] == true),
+        |found| *found,
+    );
+    let restarted = c.ok(json!({"type": "restart-terminal", "sessionId": second_id, "cols": 300, "rows": 24}));
+    assert_eq!(restarted["live"], true);
+    assert_eq!(restarted["sessionId"], second_id.as_str());
+    assert_eq!(restarted["workspace"], key.as_str());
+    let detached = |e: &Value| e["type"] == "terminal-detached" && e["sessionId"] == first_id.as_str();
+    wf(|| socket.has(detached), |found| *found);
+    wf(|| is_alive(stuck), |alive| !alive);
+    wf(|| is_alive(shell_pid), |alive| !alive);
+    let shell_pid = shell(&first_id).0;
+    assert_eq!(shell(&second_id).0, shell_pid);
+    assert!(is_alive(relaunched_git));
+
     // Kill-with-delete stops the workspace's panes before removing the worktree; the deleted session has no workspace.
     c.ok(json!({"type": "kill", "sessionId": first_id, "deleteWorktree": true, "allowDataLoss": true}));
     let deleted = wf(|| c.state(&first_id), |s| !s["worktree"]["deletedAt"].is_null());

@@ -223,6 +223,7 @@ fn the_corpus_covers_every_variant() {
         "attach",
         "stop-dev",
         "stop-action",
+        "restart-terminal",
         "idle",
     ] {
         expected.push(format!("w2d workspace response {kind}"));

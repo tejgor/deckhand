@@ -49,6 +49,7 @@ Select `smoke claude` (`1`) and walk the tabs with `]` / `[` and the letters.
 | `d` | Dev: shows "not running" or the empty pane. `d` `d` (twice quickly) starts the Dev command: output `dev up`, `▶` appears after the row title. `d` `d` again stops it |
 | `a` | Notes: the worktree's note. `Enter` edits |
 | `r` | Run list: **Dev** first, then `hello`. Choose `hello` and Enter: the Terminal tab switches to the action, header `hello ✓ exit 0`, output `hello from action`. `v` switches back to the shell |
+| `r` `G` | Run list, last row: **Shell**. First, on the Terminal tab, `o` and run `sh -c 'trap "" INT HUP; sleep 300'`, then `Ctrl+]` (`ctrl+c` won't stop it). `r`, `G`, Enter: after about 2 s the Terminal tab shows a fresh prompt and the footer says `Restarted the shell` |
 
 Also `<` / `>` narrow and widen the sidebar and `tab` / `shift+tab` cycle tabs. Select `smoke pi`: Terminal, Git, Dev and Notes are shared per worktree, so they show that worktree's own (not claude's) shell and changes.
 

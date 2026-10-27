@@ -1,6 +1,6 @@
 # Typing to an agent in the Preview: follow-ups
 
-**Status:** v1 shipped (protocol v51): `→` on a running session's Preview sends every key to the agent and draws its styled screen and cursor; `ctrl+]` / `ctrl+space` return. See [docs/features.md](../features.md#typing-to-an-agent-in-the-preview) and HANDOFF.md, *Preview focus: typing to the agent*. What is below is not built.
+**Status:** v1 shipped (protocol v52): `→` on a running session's Preview sends every key to the agent and draws its styled screen and cursor; `ctrl+]` / `ctrl+space` return. See [docs/features.md](../features.md#typing-to-an-agent-in-the-preview) and HANDOFF.md, *Preview focus: typing to the agent*. What is below is not built.
 
 - **Keyboard-protocol mirroring.** Attach enables nothing beyond bracketed paste either, but a terminal speaking the kitty keyboard protocol (or modifyOtherKeys) sends Shift+Enter as its own sequence only when the program asked for it. Deckhand's UI never asks, so in preview focus Shift+Enter arrives as Enter. A terminal mapping Shift+Enter to `\x1b\r`, and Claude's `\` + Enter, still work. Mirroring would mean turning the protocol on for Deckhand's terminal while the agent has it on (`screen.modes` would carry it) and passing its sequences through unchanged.
 - **Clicks.** Mouse reports are dropped; only the wheel is forwarded. Forwarding clicks needs the agent's mouse mode (`ScreenModes.mouseTracking` is there already) and translating coordinates from the pane to the agent's screen.

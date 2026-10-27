@@ -427,7 +427,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
         lines: &[
             HelpLine::Key {
                 keys: "r",
-                text: "Run: Dev first (start or stop it), then your actions; Enter runs the selected one",
+                text: "Run: Dev (start or stop it), your actions, then Shell (restart it); Enter runs the selected one",
             },
             HelpLine::Key {
                 keys: "x",

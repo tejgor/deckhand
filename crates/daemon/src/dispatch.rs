@@ -214,6 +214,7 @@ impl Daemon {
                 &r.request_id,
                 self.handle_stop_pane(&r, WorkspacePane::Action).await,
             ),
+            Request::RestartTerminal(r) => reply(client, &r.request_id, self.handle_restart_terminal(&r).await),
             Request::SaveNote(r) => reply(client, &r.request_id, self.save_note(&r).await),
             Request::OpenNote(r) => reply(client, &r.request_id, self.handle_open_note(&r).await),
             Request::WatchTasks(r) => reply(client, &r.request_id, self.handle_watch_tasks(conn, &r).await),

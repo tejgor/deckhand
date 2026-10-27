@@ -188,6 +188,17 @@ pub struct StartAction {
     pub request_id: String,
 }
 
+/// Not in the TS: workspace worker `restart-terminal`: stops the shell and everything running in it, then starts a
+/// fresh `$SHELL` (answered with its record).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestartTerminal {
+    pub cols: i64,
+    pub rows: i64,
+    pub request_id: String,
+}
+
 /// A command with nothing but its ID (`stop-dev`, `stop-action`, `idle`, `shutdown`).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -220,6 +231,8 @@ pub enum WorkspaceWorkerCommand {
     StartAction(StartAction),
     #[serde(rename = "stop-action")]
     StopAction(WorkerRequestOnly),
+    #[serde(rename = "restart-terminal")]
+    RestartTerminal(RestartTerminal),
     #[serde(rename = "idle")]
     Idle(WorkerRequestOnly),
     #[serde(rename = "shutdown")]
@@ -238,6 +251,7 @@ impl WorkspaceWorkerCommand {
         "stop-dev",
         "start-action",
         "stop-action",
+        "restart-terminal",
         "idle",
         "shutdown",
     ];
@@ -396,7 +410,7 @@ pub enum WorkerResponseData {
     Idle(IdleResult),
     /// Agent `snapshot`.
     Preview(PreviewRecord),
-    /// Pane `snapshot`, `start-dev`, `start-action`.
+    /// Pane `snapshot`, `start-dev`, `start-action`, `restart-terminal`.
     Pane(Ordered<PaneRecord>),
     /// `attach` (either kind).
     Attach(Box<Ordered<AttachSnapshot>>),
@@ -410,7 +424,9 @@ impl WorkerResponseData {
             (false, "start") => WorkerResponseData::Session(Box::new(from(data)?)),
             (false, "kill") | (true, "start" | "shutdown") => WorkerResponseData::Ok(from(data)?),
             (false, "snapshot") => WorkerResponseData::Preview(from(data)?),
-            (true, "snapshot" | "start-dev" | "start-action") => WorkerResponseData::Pane(from(data)?),
+            (true, "snapshot" | "start-dev" | "start-action" | "restart-terminal") => {
+                WorkerResponseData::Pane(from(data)?)
+            }
             (_, "attach") => WorkerResponseData::Attach(Box::new(from(data)?)),
             (true, "stop-dev" | "stop-action" | "idle") => WorkerResponseData::Idle(from(data)?),
             (_, other) => return Err(DecodeError::UnknownRequest(other.to_owned())),

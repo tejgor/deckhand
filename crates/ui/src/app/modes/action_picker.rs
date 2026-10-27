@@ -4,6 +4,9 @@
 //!
 //! Not in the TS: with named Dev processes (`devCommand` as a map), a row for each follows the Dev row. Enter starts that
 //! process alone, or restarts it while it runs; x stops it.
+//!
+//! Not in the TS: the last row, Shell, comes with the Dev row (both belong to the session's worktree). Enter restarts
+//! the worktree's shell, killing whatever is stuck in it.
 
 use std::rc::Rc;
 
@@ -49,7 +52,7 @@ pub static KEYMAP: Keymap = &[
     },
     Binding {
         keys: &[KeySpec::Named(NamedKey::Return)],
-        action: "start or stop Dev, or run the selected action",
+        action: "start or stop Dev, run the selected action, or restart the shell",
         help: HelpRef::Topic("Dev & actions"),
     },
     Binding {
@@ -188,6 +191,40 @@ fn stop_dev_process(app: &mut App, name: &str) {
     drop(task);
 }
 
+/// Not in the TS: Enter on the Shell row: restarts the worktree's shell (stopping everything running in it), then
+/// shows it on the Terminal tab.
+fn restart_shell(app: &mut App) {
+    let (Some(client), Some(session)) = (app.client(), app.selected_session()) else {
+        return;
+    };
+    app.set_busy(true);
+    app.set_error(None);
+    let layout = app.layout();
+    let reply = client.restart_terminal(
+        &session.id,
+        i64::from(layout.preview_cols),
+        i64::from(layout.preview_rows),
+    );
+    let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
+        match result {
+            Ok(record) => {
+                if record.session_id == app.selected_id_ref() {
+                    app.panes.terminal = record;
+                }
+                app.set_active_tab(RightPaneTab::Terminal);
+                app.panes.terminal_view = TerminalView::Shell;
+                if app.mode == Mode::PickAction {
+                    app.set_mode(Mode::Browse);
+                }
+                app.set_status(Some("Restarted the shell".to_owned()));
+            }
+            Err(error) => app.set_error(Some(error_message(&error))),
+        }
+        app.set_busy(false);
+    });
+    drop(task);
+}
+
 /// TS: the `run` closure of a picked action: starts it on the daemon and shows it on the Terminal tab.
 fn run_picked(app: &mut App, client: &Rc<LiveClient>, session_id: &str, name: &str, cols: i64, rows: i64) {
     app.set_busy(true);
@@ -269,10 +306,12 @@ pub fn handle_pick_action(app: &mut App, input: &Input) {
     let actions = project_actions(action_project.as_ref().map(|project| &project.project));
     let review_session_id = action_project.as_ref().and_then(|project| project.session_id.clone());
     // Row 0 is the worktree's Dev command when the session has a workspace; its named processes and the actions
-    // follow.
+    // follow, then the worktree's shell.
     let processes = app.run_list_processes();
-    let dev_row = usize::from(app.run_list_has_dev()) + processes.len();
-    let rows = dev_row + actions.len();
+    let has_dev = app.run_list_has_dev();
+    let dev_row = usize::from(has_dev) + processes.len();
+    let shell_row = has_dev.then_some(dev_row + actions.len());
+    let rows = dev_row + actions.len() + usize::from(has_dev);
     let last = rows.saturating_sub(1);
     // The handlers below read the index as it was when the key arrived (React state).
     let index = app.action_picker.action_index;
@@ -317,6 +356,12 @@ pub fn handle_pick_action(app: &mut App, input: &Input) {
             start_dev_process(app, &process.name, process.running, processes.len());
         } else if text == "x" && process.running {
             stop_dev_process(app, &process.name);
+        }
+        return;
+    }
+    if shell_row == Some(index) {
+        if key.return_ {
+            restart_shell(app);
         }
         return;
     }
@@ -458,6 +503,7 @@ fn run_list(props: &ActionPickerPaneProps<'_>) -> RunList {
         .selected_index
         .checked_sub(dev_offset)
         .and_then(|row| actions.get(row));
+    let on_shell = props.dev.is_some() && props.selected_index == dev_offset + actions.len();
     let untrusted_dev = props.dev.is_some()
         && project.is_some_and(|project| {
             project.needs_review
@@ -534,6 +580,14 @@ fn run_list(props: &ActionPickerPaneProps<'_>) -> RunList {
         }),
         ..MenuItem::default()
     }));
+    if props.dev.is_some() {
+        items.push(MenuItem {
+            key: "__shell".to_owned(),
+            label: "Shell".to_owned(),
+            description: Some("restart the worktree's shell".to_owned()),
+            ..MenuItem::default()
+        });
+    }
 
     let details = if let Some(process) = on_process {
         let mut lines = vec![
@@ -555,6 +609,27 @@ fn run_list(props: &ActionPickerPaneProps<'_>) -> RunList {
         }
         Some(MenuPaneDetails {
             title: format!("Dev · {}", process.name),
+            lines,
+        })
+    } else if on_shell {
+        let mut lines = vec![
+            DetailLine {
+                text: "Enter stops the shell and everything running in it, then starts a fresh one. Anything that ignores the hangup is killed 2 s later.".to_owned(),
+                ..DetailLine::default()
+            },
+            colored(
+                "Every session in this worktree shares the shell; Dev and actions keep running.".to_owned(),
+                THEME.muted,
+            ),
+        ];
+        if let Some(name) = &running_name {
+            lines.push(colored(
+                format!("{name} is still running in this worktree: x stops it."),
+                THEME.warn,
+            ));
+        }
+        Some(MenuPaneDetails {
+            title: "Shell".to_owned(),
             lines,
         })
     } else if on_dev {
@@ -625,6 +700,8 @@ fn run_list(props: &ActionPickerPaneProps<'_>) -> RunList {
                 if process.running { "restart" } else { "start" },
                 process.name
             )
+        } else if on_shell {
+            "enter restart the shell".to_owned()
         } else if on_dev {
             if props.dev.is_some_and(|dev| dev.running) {
                 "enter stop Dev".to_owned()
@@ -898,22 +975,31 @@ mod tests {
     fn the_cursor_moves_over_the_dev_row_and_the_actions() {
         let (mut app, _rx) = picker_app();
         open_with(&mut app, trusted(), Some("a"));
-        // Dev, build, lint.
-        for (input, want) in [("j", 1), ("j", 2), ("j", 2), ("k", 1), ("g", 0), ("k", 0), ("G", 2)] {
+        // Dev, build, lint, Shell.
+        for (input, want) in [
+            ("j", 1),
+            ("j", 2),
+            ("j", 3),
+            ("j", 3),
+            ("k", 2),
+            ("g", 0),
+            ("k", 0),
+            ("G", 3),
+        ] {
             handle_pick_action(&mut app, &Input::text(input));
             assert_eq!(app.action_picker.action_index, want, "{input}");
         }
         handle_pick_action(&mut app, &pressed(|key| key.up_arrow = true));
-        assert_eq!(app.action_picker.action_index, 1);
-        handle_pick_action(&mut app, &pressed(|key| key.down_arrow = true));
         assert_eq!(app.action_picker.action_index, 2);
+        handle_pick_action(&mut app, &pressed(|key| key.down_arrow = true));
+        assert_eq!(app.action_picker.action_index, 3);
         handle_pick_action(&mut app, &pressed(|key| key.home = true));
         assert_eq!(app.action_picker.action_index, 0);
         handle_pick_action(&mut app, &pressed(|key| key.end = true));
-        assert_eq!(app.action_picker.action_index, 2);
+        assert_eq!(app.action_picker.action_index, 3);
         handle_pick_action(&mut app, &pressed(|key| key.escape = true));
         assert_eq!(app.mode, Mode::Browse);
-        // A session without a workspace has no Dev row: two rows.
+        // A session without a workspace has no Dev or Shell row: two rows.
         open_with(&mut app, trusted(), Some("zzz"));
         handle_pick_action(&mut app, &Input::text("G"));
         assert_eq!(app.action_picker.action_index, 1);
@@ -1133,6 +1219,99 @@ mod tests {
                     (Some("start-dev"), Some("web"), None)
                 ]
             );
+        });
+    }
+
+    #[test]
+    fn the_shell_row_comes_last_and_says_what_a_restart_stops() {
+        let project = trusted();
+        let props = ActionPickerPaneProps {
+            project: Some(&project),
+            running: None,
+            dev: Some(DevRow { running: true }),
+            processes: &[],
+            selected_index: 3,
+        };
+        let text = shown(&render(&props, 100, 24));
+        assert!(
+            text.contains("lint   make lint ❯ Shell  restart the worktree's shell"),
+            "{text}"
+        );
+        assert!(text.contains(
+            "Enter stops the shell and everything running in it, then starts a fresh one. Anything that ignores the hangup is killed 2 s later."
+        ));
+        assert!(text.contains("Dev and actions keep running."));
+        assert!(text.contains("enter restart the shell • esc cancel"));
+        // An action still running is named, and x stops it from here too.
+        let record: ActionRecord = serde_json::from_value(action_record(true)).unwrap_or_default();
+        let text = shown(&render(
+            &ActionPickerPaneProps {
+                running: Some(&record),
+                ..props
+            },
+            100,
+            24,
+        ));
+        assert!(text.contains("build is still running in this worktree: x stops it."));
+        assert!(text.contains("enter restart the shell • x stop build • esc cancel"));
+        // Without a workspace there is no shell to restart.
+        let text = shown(&render(&ActionPickerPaneProps { dev: None, ..props }, 100, 24));
+        assert!(!text.contains("Shell"), "{text}");
+    }
+
+    #[test]
+    fn enter_on_the_shell_row_restarts_it_and_shows_it_on_the_terminal_tab() {
+        local(async {
+            let (mut app, mut rx) = picker_app();
+            let seen = connect(&mut app, |message| match message["type"].as_str() {
+                Some("restart-terminal") => Ok(json!({
+                    "content": "$ ", "live": true, "cwd": "/repo", "sessionId": "a", "workspace": "/repo"
+                })),
+                other => Err(format!("unexpected {other:?}")),
+            });
+            open_with(&mut app, trusted(), Some("a"));
+            app.panes.terminal_view = TerminalView::Action;
+            // Dev, build, lint, Shell. x there stops nothing while no action runs.
+            handle_pick_action(&mut app, &Input::text("G"));
+            handle_pick_action(&mut app, &Input::text("x"));
+            assert!(seen.borrow().is_empty() && !app.messages.busy);
+            handle_pick_action(&mut app, &enter());
+            assert!(app.messages.busy);
+            settle(&mut app, &mut rx).await;
+            assert!(!app.messages.busy);
+            assert_eq!(app.mode, Mode::Browse);
+            assert_eq!(app.browse.active_tab, RightPaneTab::Terminal);
+            assert_eq!(app.panes.terminal_view, TerminalView::Shell);
+            assert!(app.panes.terminal.live && app.panes.terminal.content == "$ ");
+            assert_eq!(app.messages.status_message.as_deref(), Some("Restarted the shell"));
+            let seen = seen.borrow();
+            let layout = app.layout();
+            assert_eq!(seen.len(), 1);
+            assert_eq!(
+                (seen[0]["type"].as_str(), seen[0]["sessionId"].as_str()),
+                (Some("restart-terminal"), Some("a"))
+            );
+            assert_eq!(seen[0]["cols"], i64::from(layout.preview_cols));
+            assert_eq!(seen[0]["rows"], i64::from(layout.preview_rows));
+        });
+    }
+
+    #[test]
+    fn a_failed_shell_restart_reports_and_stays_on_the_list() {
+        local(async {
+            let (mut app, mut rx) = picker_app();
+            let _seen = connect(&mut app, |_| {
+                Err("Terminal is unavailable: its worktree was deleted".to_owned())
+            });
+            open_with(&mut app, trusted(), Some("a"));
+            handle_pick_action(&mut app, &Input::text("G"));
+            handle_pick_action(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            assert_eq!(
+                app.messages.error.as_deref(),
+                Some("Terminal is unavailable: its worktree was deleted")
+            );
+            assert_eq!((app.mode, app.messages.busy), (Mode::PickAction, false));
         });
     }
 

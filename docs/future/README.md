@@ -12,7 +12,7 @@ Each doc starts with its status. When something here ships, move the lasting par
 | [deckhand-mcp-cli.md](deckhand-mcp-cli.md) | Idea, not started | A scriptable `deckhand` CLI and a `deckhand mcp` server so agents can create, drive and watch sessions ("spin up 5 sessions for these tasks") |
 | [ideas-from-herdr.md](ideas-from-herdr.md) | Reviewed 2026-10-27; nothing built | What herdr (a Rust terminal multiplexer for agents) and its plugins do that Deckhand could adopt: how herdr-remote answers questions without attaching, agents reporting that they wait, notification details, a live screen stream, CLI guards, and what not to copy |
 | [ideas-from-orca.md](ideas-from-orca.md) | Reviewed 2026-10-20; nothing built | What Orca (an agent workbench in Electron) does that Deckhand could adopt: unread state, CLI shape, agent checkpoints, a phone companion, diff notes to agents, hibernation, fan-out, usage limits, and what not to copy |
-| [preview-typing.md](preview-typing.md) | v1 shipped (protocol v51); follow-ups open | Typing to an agent in the Preview: keyboard-protocol mirroring (Shift+Enter), click forwarding, holding frames during synchronized updates |
+| [preview-typing.md](preview-typing.md) | v1 shipped (protocol v52); follow-ups open | Typing to an agent in the Preview: keyboard-protocol mirroring (Shift+Enter), click forwarding, holding frames during synchronized updates |
 
 ## Suggested order
 
