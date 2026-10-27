@@ -8,11 +8,12 @@ pub mod events;
 pub mod ndjson;
 pub mod order;
 pub mod records;
+pub mod screen;
 pub mod wire;
 pub mod worker_ipc;
 
 /// types.ts PROTOCOL_VERSION: bump whenever the daemon/client request or response shape changes.
-pub const PROTOCOL_VERSION: u32 = 50;
+pub const PROTOCOL_VERSION: u32 = 51;
 
 /// This build's version (the workspace version). The daemon reports it in `ping` so a client can tell that another
 /// build of the same protocol is still running; compatibility is decided by [`PROTOCOL_VERSION`] alone.

@@ -84,6 +84,8 @@ pub struct WorkerRuntime {
     pub draft: RefCell<Option<Draft>>,
     /// When the hook behind the last applied signal started (its `sentAt`, ms): async hooks may arrive out of order.
     pub last_hook_at: Cell<Option<i64>>,
+    /// Not in the TS: the `preview-mode` last sent — on while some client types to the agent in its Preview.
+    pub preview_styled: Cell<bool>,
 }
 
 impl WorkerRuntime {
@@ -101,6 +103,7 @@ impl WorkerRuntime {
             screen: RefCell::new(None),
             draft: RefCell::new(None),
             last_hook_at: Cell::new(None),
+            preview_styled: Cell::new(false),
         }
     }
 }
@@ -245,6 +248,7 @@ pub fn build_preview_record(
         agent_status: session.agent_status,
         scroll_offset: Some(scroll_offset),
         max_scroll_offset: Some(max_scroll_offset),
+        screen: None,
     }
 }
 
@@ -740,10 +744,17 @@ impl Daemon {
                             subscription.preview_cols,
                             subscription.preview_rows,
                             subscription.preview_scroll_offset,
+                            subscription.preview_interactive,
                         )
                         .await?
-                    } else {
+                    } else if subscription.preview_interactive {
                         updated.preview.clone()
+                    } else {
+                        // Another client types to the agent: this one keeps its plain preview.
+                        PreviewRecord {
+                            screen: None,
+                            ..updated.preview.clone()
+                        }
                     };
                     send_message(&handle, &ServerMessage::PreviewUpdated(PreviewUpdated { preview }));
                 }
@@ -878,44 +889,36 @@ impl Daemon {
         }
     }
 
-    /// TS: InkDaemon.getPreviewRecord: the worker's snapshot while it runs, else the stored last screen.
+    /// TS: InkDaemon.getPreviewRecord: the worker's snapshot while it runs, else the stored last screen. `styled`
+    /// (not in the TS) asks a running worker for the styled screen too.
     pub async fn get_preview_record(
         &self,
         session_id: Option<&str>,
         cols: i64,
         rows: i64,
         scroll_offset: i64,
+        styled: bool,
     ) -> Result<PreviewRecord> {
         let Some(session_id) = session_id.filter(|id| !id.is_empty()) else {
-            return Ok(PreviewRecord {
-                session_id: None,
-                content: String::new(),
-                live: false,
-                status: None,
-                agent_status: None,
-                scroll_offset: None,
-                max_scroll_offset: None,
-            });
+            return Ok(PreviewRecord::default());
         };
         let Some(session) = self.held_session(session_id) else {
             return Ok(PreviewRecord {
                 session_id: Some(session_id.to_owned()),
-                content: String::new(),
-                live: false,
-                status: None,
-                agent_status: None,
-                scroll_offset: None,
-                max_scroll_offset: None,
+                ..PreviewRecord::default()
             });
         };
         if self.worker_of(session_id).is_some() {
-            let payload = object(json!({
+            let mut payload = object(json!({
                 "type": "snapshot",
                 "target": "agent",
                 "cols": cols,
                 "rows": rows,
                 "scrollOffset": scroll_offset,
             }));
+            if styled {
+                payload.insert("styled".to_owned(), Value::Bool(true));
+            }
             return self.send_worker_request(session_id, payload).await;
         }
         Ok(build_preview_record(
@@ -928,15 +931,48 @@ impl Daemon {
 
     /// TS: handleRequest `watch-preview`: records what the client watches (clamped sizes) and answers the preview.
     pub async fn handle_watch_preview(&self, conn: &Connection, request: &WatchPreview) -> Result<PreviewRecord> {
-        let (cols, rows, scroll_offset) = self.get_client(&conn.client, |client| {
-            client.watched_preview_session_id = request.session_id.clone();
+        let interactive = request.interactive == Some(true);
+        let (previous, cols, rows, scroll_offset) = self.get_client(&conn.client, |client| {
+            let previous = std::mem::replace(&mut client.watched_preview_session_id, request.session_id.clone());
             client.preview_cols = clamp_size(request.cols, client.preview_cols);
             client.preview_rows = clamp_size(request.rows, client.preview_rows);
             client.preview_scroll_offset = clamp_non_negative(request.scroll_offset);
-            (client.preview_cols, client.preview_rows, client.preview_scroll_offset)
+            client.preview_interactive = interactive;
+            (
+                previous,
+                client.preview_cols,
+                client.preview_rows,
+                client.preview_scroll_offset,
+            )
         });
-        self.get_preview_record(request.session_id.as_deref(), cols, rows, scroll_offset)
+        if let Some(previous) = previous.filter(|previous| request.session_id.as_ref() != Some(previous)) {
+            self.sync_preview_styled(&previous);
+        }
+        if let Some(session_id) = request.session_id.as_deref() {
+            self.sync_preview_styled(session_id);
+        }
+        self.get_preview_record(request.session_id.as_deref(), cols, rows, scroll_offset, interactive)
             .await
+    }
+
+    /// Not in the TS: tells the session's worker whether to send styled previews at typing pace — while any client
+    /// watching it types to it — each time that changes.
+    pub fn sync_preview_styled(&self, session_id: &str) {
+        let Some(worker) = self.worker_of(session_id) else {
+            return;
+        };
+        let styled = self.server.borrow().clients.values().any(|client| {
+            client.subscription.preview_interactive
+                && client.subscription.watched_preview_session_id.as_deref() == Some(session_id)
+        });
+        if worker.preview_styled.replace(styled) == styled {
+            return;
+        }
+        let mut payload = Map::new();
+        payload.insert("type".to_owned(), Value::String("preview-mode".to_owned()));
+        payload.insert("target".to_owned(), Value::String("agent".to_owned()));
+        payload.insert("styled".to_owned(), Value::Bool(styled));
+        worker.channel.send_event(payload);
     }
 
     /// TS: handleRequest `attach` (`session is not running`, `session is already attached elsewhere`): answers
@@ -1411,9 +1447,9 @@ mod tests {
         local(async {
             let dir = tempfile::tempdir().unwrap();
             let daemon = test_daemon(dir.path());
-            let none = daemon.get_preview_record(None, 80, 24, 0).await.unwrap();
+            let none = daemon.get_preview_record(None, 80, 24, 0, false).await.unwrap();
             assert_eq!(serde_json::to_string(&none).unwrap(), r#"{"content":"","live":false}"#);
-            let unknown = daemon.get_preview_record(Some("x"), 80, 24, 0).await.unwrap();
+            let unknown = daemon.get_preview_record(Some("x"), 80, 24, 0, false).await.unwrap();
             assert_eq!(
                 serde_json::to_string(&unknown).unwrap(),
                 r#"{"sessionId":"x","content":"","live":false}"#
@@ -1422,14 +1458,14 @@ mod tests {
             stored.status = SessionStatus::Exited;
             stored.last_preview = Some("bye".into());
             put(&daemon, stored);
-            let preview = daemon.get_preview_record(Some("s"), 80, 24, 3).await.unwrap();
+            let preview = daemon.get_preview_record(Some("s"), 80, 24, 3, false).await.unwrap();
             assert_eq!(
                 serde_json::to_string(&preview).unwrap(),
                 r#"{"sessionId":"s","content":"bye","live":false,"status":"exited","scrollOffset":0,"maxScrollOffset":0}"#
             );
 
             let (_worker, _events, mut fake) = fake_worker(&daemon, "s").await;
-            let request = daemon.get_preview_record(Some("s"), 100, 30, 2);
+            let request = daemon.get_preview_record(Some("s"), 100, 30, 2, false);
             let (preview, ()) = tokio::join!(request, async {
                 let sent = fake.next().await;
                 let keys: Vec<&String> = sent.as_object().unwrap().keys().collect();
@@ -1457,6 +1493,7 @@ mod tests {
                 cols: Some(0),
                 rows: Some(50),
                 scroll_offset: Some(-4),
+                interactive: None,
             };
             let preview = daemon.handle_watch_preview(&conn, &request).await.unwrap();
             assert_eq!(preview.session_id.as_deref(), Some("x"));
@@ -1470,6 +1507,141 @@ mod tests {
                 ),
                 (1, 50, 0)
             );
+        });
+    }
+
+    fn watch(session_id: &str, interactive: bool) -> WatchPreview {
+        WatchPreview {
+            request_id: "r".into(),
+            session_id: Some(session_id.into()),
+            cols: Some(80),
+            rows: Some(24),
+            scroll_offset: Some(0),
+            interactive: interactive.then_some(true),
+        }
+    }
+
+    /// Runs `watch` while the fake worker answers its snapshot; returns the messages the worker got, the snapshot
+    /// request last.
+    async fn watch_answered(
+        daemon: &Daemon,
+        conn: &Connection,
+        request: WatchPreview,
+        fake: &mut FakeWorker,
+    ) -> Vec<Value> {
+        let (preview, sent) = tokio::join!(daemon.handle_watch_preview(conn, &request), async {
+            let mut sent = Vec::new();
+            loop {
+                let message = fake.next().await;
+                sent.push(message.clone());
+                if message["type"] == "snapshot" {
+                    fake.answer(&message, json!({"sessionId": "s", "content": "live", "live": true}))
+                        .await;
+                    return sent;
+                }
+            }
+        });
+        preview.unwrap();
+        sent
+    }
+
+    fn preview_mode(styled: bool) -> Value {
+        json!({"type": "preview-mode", "target": "agent", "styled": styled})
+    }
+
+    #[test]
+    fn interactive_watches_switch_the_workers_preview_mode() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = test_daemon(dir.path());
+            put(&daemon, session("s", "/repo", "/repo"));
+            put(&daemon, session("t", "/repo", "/repo"));
+            let (worker, _events, mut fake) = fake_worker(&daemon, "s").await;
+            let (first, _first_rx) = test_client(1);
+            let first = Connection::new(first);
+            let (second, _second_rx) = test_client(2);
+            let second = Connection::new(second);
+
+            // A plain watch leaves the mode alone and asks for no styled screen.
+            let sent = watch_answered(&daemon, &first, watch("s", false), &mut fake).await;
+            assert_eq!(sent.len(), 1);
+            assert!(sent[0].get("styled").is_none(), "{}", sent[0]);
+
+            // Going interactive switches it on once, and the answer already carries the styled screen.
+            let sent = watch_answered(&daemon, &first, watch("s", true), &mut fake).await;
+            assert_eq!(sent[0], preview_mode(true));
+            assert_eq!(sent[1]["styled"], true);
+            assert!(worker.preview_styled.get());
+            let sent = watch_answered(&daemon, &first, watch("s", true), &mut fake).await;
+            assert_eq!(sent.len(), 1, "already on: {sent:?}");
+            let sent = watch_answered(&daemon, &second, watch("s", true), &mut fake).await;
+            assert_eq!(sent.len(), 1, "already on: {sent:?}");
+
+            // The first client moves on; the second still types to the agent.
+            daemon.handle_watch_preview(&first, &watch("t", false)).await.unwrap();
+            assert!(worker.preview_styled.get());
+            // The second disconnects: nobody types any more.
+            daemon.client_disconnected(&second);
+            assert_eq!(fake.next().await, preview_mode(false));
+            assert!(!worker.preview_styled.get());
+
+            // Switching sessions while interactive turns the old one off.
+            let sent = watch_answered(&daemon, &first, watch("s", true), &mut fake).await;
+            assert_eq!(sent[0], preview_mode(true));
+            daemon.handle_watch_preview(&first, &watch("t", true)).await.unwrap();
+            assert_eq!(fake.next().await, preview_mode(false));
+            fake.exit();
+        });
+    }
+
+    #[test]
+    fn only_interactive_watchers_get_the_styled_screen() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = test_daemon(dir.path());
+            put(&daemon, session("s", "/repo", "/repo"));
+            let (worker, _events, mut fake) = fake_worker(&daemon, "s").await;
+            let (typing, mut typing_rx) = test_client(1);
+            daemon.get_client(&typing, |client| {
+                client.watched_preview_session_id = Some("s".into());
+                client.preview_interactive = true;
+            });
+            let (plain, mut plain_rx) = test_client(2);
+            daemon.get_client(&plain, |client| {
+                client.watched_preview_session_id = Some("s".into());
+            });
+            let screen = json!({"lines": [[[0, 2, "hi", "p16:1", "d", ""]]], "modes": {"bracketedPaste": false, "applicationCursorKeys": false, "mouseTracking": false}});
+            let preview = json!({"sessionId": "s", "content": "hi", "live": true, "screen": screen});
+            let updated: WorkerMessage =
+                serde_json::from_value(json!({"type": "preview-updated", "preview": preview})).unwrap();
+            daemon
+                .handle_worker_message("s", updated.clone(), &worker)
+                .await
+                .unwrap();
+            assert_eq!(
+                lines(&mut typing_rx),
+                vec![json!({"type": "preview-updated", "preview": preview})]
+            );
+            assert_eq!(
+                lines(&mut plain_rx),
+                vec![json!({"type": "preview-updated", "preview": {"sessionId": "s", "content": "hi", "live": true}})]
+            );
+
+            // A scrolled interactive watcher's own snapshot asks for the styled screen; a plain one's does not.
+            daemon.get_client(&typing, |client| client.preview_scroll_offset = 5);
+            daemon.get_client(&plain, |client| client.preview_scroll_offset = 5);
+            let (handled, ()) = tokio::join!(daemon.handle_worker_message("s", updated, &worker), async {
+                let sent = fake.next().await;
+                assert_eq!(sent["styled"], true);
+                fake.answer(&sent, json!({"sessionId": "s", "content": "older", "live": true}))
+                    .await;
+                let sent = fake.next().await;
+                assert!(sent.get("styled").is_none(), "{sent}");
+                fake.answer(&sent, json!({"sessionId": "s", "content": "older", "live": true}))
+                    .await;
+            });
+            handled.unwrap();
+            fake.exit();
         });
     }
 

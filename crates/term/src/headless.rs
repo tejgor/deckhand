@@ -21,10 +21,10 @@
 //! `b`old `d`im `i`talic `u`nderline blin`k` `r`everse `h`idden `s`trikethrough `o`verline, in that order.
 
 use std::collections::BTreeMap;
-use std::fmt;
-use std::str::FromStr;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use deckhand_protocol::screen::ScreenSegment;
+pub use deckhand_protocol::screen::{CellAttrs, CellFlags, Color, CursorPos};
+use serde::{Deserialize, Serialize};
 
 /// TS: @xterm/headless ITerminalOptions (cols, rows, scrollback)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,204 +42,6 @@ pub enum BufferKind {
     Normal,
     #[serde(rename = "alternate")]
     Alternate,
-}
-
-/// TS: @xterm/headless IBuffer.cursorX / cursorY (viewport-relative)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct CursorPos {
-    pub x: u16,
-    pub y: u16,
-}
-
-/// TS: @xterm/headless IBufferCell getFgColorMode/getFgColor (and Bg), as the goldens in fixtures/term encode it
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Color {
-    /// Terminal default colour (`d`).
-    #[default]
-    Default,
-    /// One of the 16 ANSI colours (`p16:N`).
-    P16(u8),
-    /// One of the 256 palette colours set with `38;5;N`/`48;5;N` (`p256:N`).
-    P256(u8),
-    /// Truecolor (`rgb:rrggbb`).
-    Rgb(u8, u8, u8),
-}
-
-impl fmt::Display for Color {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Color::Default => f.write_str("d"),
-            Color::P16(index) => write!(f, "p16:{index}"),
-            Color::P256(index) => write!(f, "p256:{index}"),
-            Color::Rgb(r, g, b) => write!(f, "rgb:{r:02x}{g:02x}{b:02x}"),
-        }
-    }
-}
-
-impl FromStr for Color {
-    type Err = String;
-
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let invalid = || format!("invalid colour {text:?}");
-        if text == "d" {
-            return Ok(Color::Default);
-        }
-        if let Some(index) = text.strip_prefix("p16:") {
-            return index
-                .parse()
-                .ok()
-                .filter(|index| *index < 16)
-                .map(Color::P16)
-                .ok_or_else(invalid);
-        }
-        if let Some(index) = text.strip_prefix("p256:") {
-            return index.parse().map(Color::P256).map_err(|_| invalid());
-        }
-        if let Some(hex) = text.strip_prefix("rgb:")
-            && hex.len() == 6
-            && let Ok(value) = u32::from_str_radix(hex, 16)
-        {
-            let [_, r, g, b] = value.to_be_bytes();
-            return Ok(Color::Rgb(r, g, b));
-        }
-        Err(invalid())
-    }
-}
-
-impl Serialize for Color {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.collect_str(self)
-    }
-}
-
-impl<'de> Deserialize<'de> for Color {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        String::deserialize(deserializer)?
-            .parse()
-            .map_err(serde::de::Error::custom)
-    }
-}
-
-/// TS: @xterm/headless IBufferCell isBold()/isDim()/... as the goldens in fixtures/term encode them
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
-pub struct CellFlags(u16);
-
-impl CellFlags {
-    pub const BOLD: CellFlags = CellFlags(1);
-    pub const DIM: CellFlags = CellFlags(1 << 1);
-    pub const ITALIC: CellFlags = CellFlags(1 << 2);
-    pub const UNDERLINE: CellFlags = CellFlags(1 << 3);
-    pub const BLINK: CellFlags = CellFlags(1 << 4);
-    pub const INVERSE: CellFlags = CellFlags(1 << 5);
-    pub const INVISIBLE: CellFlags = CellFlags(1 << 6);
-    pub const STRIKETHROUGH: CellFlags = CellFlags(1 << 7);
-    pub const OVERLINE: CellFlags = CellFlags(1 << 8);
-
-    /// Golden letter for each flag, in serialisation order.
-    const LETTERS: [(CellFlags, char); 9] = [
-        (CellFlags::BOLD, 'b'),
-        (CellFlags::DIM, 'd'),
-        (CellFlags::ITALIC, 'i'),
-        (CellFlags::UNDERLINE, 'u'),
-        (CellFlags::BLINK, 'k'),
-        (CellFlags::INVERSE, 'r'),
-        (CellFlags::INVISIBLE, 'h'),
-        (CellFlags::STRIKETHROUGH, 's'),
-        (CellFlags::OVERLINE, 'o'),
-    ];
-
-    /// No flags set.
-    pub const fn empty() -> Self {
-        CellFlags(0)
-    }
-
-    pub const fn bits(self) -> u16 {
-        self.0
-    }
-
-    pub const fn is_empty(self) -> bool {
-        self.0 == 0
-    }
-
-    pub const fn contains(self, other: CellFlags) -> bool {
-        self.0 & other.0 == other.0
-    }
-
-    pub fn insert(&mut self, other: CellFlags) {
-        self.0 |= other.0;
-    }
-
-    pub fn set(&mut self, other: CellFlags, on: bool) {
-        if on {
-            self.0 |= other.0;
-        } else {
-            self.0 &= !other.0;
-        }
-    }
-}
-
-impl std::ops::BitOr for CellFlags {
-    type Output = CellFlags;
-
-    fn bitor(self, other: CellFlags) -> CellFlags {
-        CellFlags(self.0 | other.0)
-    }
-}
-
-impl fmt::Display for CellFlags {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (flag, letter) in CellFlags::LETTERS {
-            if self.contains(flag) {
-                write!(f, "{letter}")?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl FromStr for CellFlags {
-    type Err = String;
-
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let mut flags = CellFlags::empty();
-        for letter in text.chars() {
-            let (flag, _) = CellFlags::LETTERS
-                .iter()
-                .find(|(_, known)| *known == letter)
-                .ok_or_else(|| format!("invalid cell flag {letter:?} in {text:?}"))?;
-            flags.insert(*flag);
-        }
-        Ok(flags)
-    }
-}
-
-impl Serialize for CellFlags {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.collect_str(self)
-    }
-}
-
-impl<'de> Deserialize<'de> for CellFlags {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        String::deserialize(deserializer)?
-            .parse()
-            .map_err(serde::de::Error::custom)
-    }
-}
-
-/// The attributes compared when building runs (fg, bg, flags).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct CellAttrs {
-    pub fg: Color,
-    pub bg: Color,
-    pub flags: CellFlags,
-}
-
-impl CellAttrs {
-    /// Default colours and no flags: cells like this are outside every run.
-    pub fn is_default(&self) -> bool {
-        self.fg == Color::Default && self.bg == Color::Default && self.flags.is_empty()
-    }
 }
 
 /// TS: @xterm/headless IBufferCell (getChars, getWidth, colours, flags)
@@ -396,6 +198,11 @@ pub trait HeadlessTerminal {
     /// TS: Terminal.onTitleChange — the last title set (OSC 0/2), `None` if never set.
     fn title(&self) -> Option<String>;
 
+    /// TS: CoreService.isCursorHidden, negated — DECTCEM (`?25h`/`?25l`).
+    fn cursor_visible(&self) -> bool {
+        true
+    }
+
     /// TS: Terminal.write(string)
     fn write_str(&mut self, data: &str) {
         self.write(data.as_bytes());
@@ -444,6 +251,53 @@ pub trait HeadlessTerminal {
             }
         }
         runs
+    }
+
+    /// Line `y` as text segments of equal attributes, left to right, for drawing it in colour.
+    ///
+    /// The cell after a wide character adds its column to the segment holding that character. Stretches of blanks
+    /// in default attributes are left out (trailing ones trimmed), so a segment's `x` can jump.
+    fn line_segments(&self, y: usize) -> Vec<ScreenSegment> {
+        let mut segments: Vec<ScreenSegment> = Vec::new();
+        for x in 0..self.cols() {
+            let Some(cell) = self.cell(y, x) else { break };
+            if cell.width == 0 {
+                if let Some(last) = segments.last_mut()
+                    && last.x + last.cells == x
+                {
+                    last.cells += 1;
+                }
+                continue;
+            }
+            let text = if cell.chars.is_empty() {
+                " "
+            } else {
+                cell.chars.as_str()
+            };
+            match segments.last_mut() {
+                Some(last) if last.x + last.cells == x && last.attrs == cell.attrs => {
+                    last.cells += 1;
+                    last.text.push_str(text);
+                }
+                _ => segments.push(ScreenSegment {
+                    x,
+                    cells: 1,
+                    text: text.to_string(),
+                    attrs: cell.attrs,
+                }),
+            }
+        }
+        segments.retain_mut(|segment| {
+            if !segment.attrs.is_default() {
+                return true;
+            }
+            let trimmed = segment.text.trim_end_matches(' ').len();
+            let blanks = segment.text.len() - trimmed;
+            segment.text.truncate(trimmed);
+            segment.cells = segment.cells.saturating_sub(u16::try_from(blanks).unwrap_or(u16::MAX));
+            !segment.text.is_empty()
+        });
+        segments
     }
 
     /// Columns of line `y` holding a wide (2-cell) character.
@@ -627,36 +481,6 @@ mod tests {
     }
 
     #[test]
-    fn colors_round_trip_through_golden_encoding() {
-        for (color, text) in [
-            (Color::Default, "d"),
-            (Color::P16(9), "p16:9"),
-            (Color::P256(200), "p256:200"),
-            (Color::Rgb(0x0a, 0xbc, 0xff), "rgb:0abcff"),
-        ] {
-            assert_eq!(color.to_string(), text);
-            assert_eq!(text.parse::<Color>(), Ok(color));
-        }
-        assert!("p16:16".parse::<Color>().is_err());
-        assert!("rgb:12345".parse::<Color>().is_err());
-        assert!("x".parse::<Color>().is_err());
-    }
-
-    #[test]
-    fn flags_serialise_in_golden_letter_order() {
-        let flags = CellFlags::OVERLINE | CellFlags::BOLD | CellFlags::INVERSE | CellFlags::UNDERLINE;
-        assert_eq!(flags.to_string(), "buro");
-        assert_eq!("buro".parse::<CellFlags>(), Ok(flags));
-        assert_eq!(CellFlags::empty().to_string(), "");
-        assert!("z".parse::<CellFlags>().is_err());
-        let mut toggled = CellFlags::empty();
-        toggled.set(CellFlags::DIM, true);
-        assert!(toggled.contains(CellFlags::DIM));
-        toggled.set(CellFlags::DIM, false);
-        assert!(toggled.is_empty());
-    }
-
-    #[test]
     fn attr_run_is_a_json_tuple() {
         let run = AttrRun {
             x: 3,
@@ -707,6 +531,49 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&runs).unwrap(),
             r#"[[2,3,"p16:2","d",""],[5,1,"p16:2","rgb:010203","i"],[7,1,"p16:2","d",""]]"#
+        );
+    }
+
+    #[test]
+    fn segments_cover_text_and_styled_blanks_and_skip_default_gaps() {
+        let mut term = grid(12, 1);
+        term.write_str("ab  ");
+        term.pen = CellAttrs {
+            fg: Color::P16(1),
+            ..CellAttrs::default()
+        };
+        term.write_str("c");
+        term.pen = CellAttrs::default();
+        term.write_str("     ");
+        term.pen = CellAttrs {
+            bg: Color::P256(17),
+            ..CellAttrs::default()
+        };
+        term.write_str("  ");
+        assert_eq!(
+            serde_json::to_string(&term.line_segments(0)).unwrap(),
+            r#"[[0,2,"ab","d","d",""],[4,1,"c","p16:1","d",""],[10,2,"  ","d","p256:17",""]]"#
+        );
+        assert!(grid(4, 1).line_segments(0).is_empty());
+        assert!(term.line_segments(5).is_empty());
+    }
+
+    #[test]
+    fn segments_give_a_wide_character_both_columns() {
+        let mut term = grid(6, 1);
+        term.write_str("a界 b");
+        // GridTerminal writes one cell per char; lay the wide character out as an emulator does.
+        term.lines[0][1].width = 2;
+        term.lines[0][2] = CellInfo {
+            chars: String::new(),
+            width: 0,
+            attrs: CellAttrs::default(),
+        };
+        term.lines[0][3].chars = "b".to_string();
+        term.lines[0][4].chars = String::new();
+        assert_eq!(
+            serde_json::to_string(&term.line_segments(0)).unwrap(),
+            r#"[[0,4,"a界b","d","d",""]]"#
         );
     }
 

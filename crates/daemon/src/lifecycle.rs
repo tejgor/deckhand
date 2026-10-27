@@ -921,6 +921,7 @@ done
             screen: RefCell::new(None),
             draft: RefCell::new(None),
             last_hook_at: Cell::new(None),
+            preview_styled: Cell::new(false),
         })
     }
 

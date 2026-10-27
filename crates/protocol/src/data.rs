@@ -12,6 +12,7 @@ use serde_json::Value;
 use serde_with::skip_serializing_none;
 
 use crate::order::Ordered;
+use crate::screen::PreviewScreen;
 
 /// Declares a string union: an enum whose variants (de)serialise as the given strings.
 macro_rules! string_union {
@@ -676,9 +677,9 @@ pub struct AgentUpdateResult {
     pub versions: AgentVersions,
 }
 
-/// types.ts PreviewRecord (session worker snapshot literal order; `...scrollInfo` last).
+/// types.ts PreviewRecord (session worker snapshot literal order; `...scrollInfo` last, then `screen`).
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewRecord {
     pub session_id: Option<String>,
@@ -688,6 +689,9 @@ pub struct PreviewRecord {
     pub agent_status: Option<AgentActivityStatus>,
     pub scroll_offset: Option<i64>,
     pub max_scroll_offset: Option<i64>,
+    /// Not in the TS: the same rows as `content` with their colours, the cursor and the input modes, only while a UI
+    /// types to the agent in its Preview.
+    pub screen: Option<PreviewScreen>,
 }
 
 /// The record shared by the workspace panes (types.ts TerminalRecord, GitRecord, DevRecord, ActionRecord): one shape

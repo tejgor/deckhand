@@ -3,10 +3,11 @@
 //! read always sees every earlier write. Sizes and scroll offsets stay JS numbers (`f64`) so NaN/±Infinity,
 //! fractions and negatives normalise exactly as in TS (the H0c goldens exercise 2.5, -3 and 1e6).
 
+use deckhand_protocol::screen::{CursorPos, PreviewScreen, ScreenModes};
 use serde::{Deserialize, Serialize};
 
 use crate::alacritty::AlacrittyTerminal;
-use crate::headless::{HeadlessTerminal, TerminalOptions};
+use crate::headless::{HeadlessTerminal, MouseTrackingMode, TerminalOptions};
 
 /// TS: terminalPreview.ts DEFAULT_SCROLLBACK
 pub const DEFAULT_SCROLLBACK: usize = 10_000;
@@ -43,6 +44,11 @@ pub struct TerminalPreview<T: HeadlessTerminal = AlacrittyTerminal> {
     snapshot: String,
     snapshot_scroll_offset: usize,
     dirty: bool,
+    /// Not in the TS: the styled screen [`Self::get_screen`] last built, with its own dirty flag so that building it
+    /// never marks the plain snapshot clean.
+    screen: PreviewScreen,
+    screen_scroll_offset: usize,
+    screen_dirty: bool,
     cols: u16,
     rows: u16,
 }
@@ -61,6 +67,9 @@ impl<T: HeadlessTerminal> TerminalPreview<T> {
             snapshot: String::new(),
             snapshot_scroll_offset: 0,
             dirty: true,
+            screen: PreviewScreen::default(),
+            screen_scroll_offset: 0,
+            screen_dirty: true,
             cols,
             rows,
         }
@@ -70,6 +79,7 @@ impl<T: HeadlessTerminal> TerminalPreview<T> {
     pub fn write(&mut self, data: &str) {
         self.terminal.write_str(data);
         self.dirty = true;
+        self.screen_dirty = true;
     }
 
     /// TS: TerminalPreview.resize(cols, rows) — no-op when the clamped size is unchanged.
@@ -83,6 +93,7 @@ impl<T: HeadlessTerminal> TerminalPreview<T> {
         self.rows = next_rows;
         self.terminal.resize(self.cols, self.rows);
         self.dirty = true;
+        self.screen_dirty = true;
     }
 
     /// TS: TerminalPreview.getSnapshot(scrollOffset = 0) — viewport text at a scroll offset, cached.
@@ -93,6 +104,38 @@ impl<T: HeadlessTerminal> TerminalPreview<T> {
             self.dirty = false;
         }
         self.snapshot.clone()
+    }
+
+    /// Not in the TS: the rows [`Self::get_snapshot`] shows at the same offset, with their colours, the cursor (only
+    /// at offset 0 and while the agent shows it) and the input modes. Cached like the snapshot.
+    pub fn get_screen(&mut self, scroll_offset: Option<f64>) -> PreviewScreen {
+        let normalized = self.normalize_scroll_offset(scroll_offset.unwrap_or(0.0));
+        if self.screen_dirty || normalized != self.screen_scroll_offset {
+            let start_line = self.terminal.base_y().saturating_sub(normalized);
+            let lines = (0..usize::from(self.rows))
+                .map(|index| self.terminal.line_segments(start_line + index))
+                .collect();
+            let cursor = (normalized == 0 && self.terminal.cursor_visible()).then(|| {
+                let cursor = self.terminal.cursor();
+                CursorPos {
+                    x: cursor.x.min(self.terminal.cols().saturating_sub(1)),
+                    y: cursor.y,
+                }
+            });
+            let modes = self.terminal.modes();
+            self.screen = PreviewScreen {
+                lines,
+                cursor,
+                modes: ScreenModes {
+                    bracketed_paste: modes.bracketed_paste_mode,
+                    application_cursor_keys: modes.application_cursor_keys_mode,
+                    mouse_tracking: modes.mouse_tracking_mode != MouseTrackingMode::None,
+                },
+            };
+            self.screen_scroll_offset = normalized;
+            self.screen_dirty = false;
+        }
+        self.screen.clone()
     }
 
     /// TS: TerminalPreview.getScrollInfo(scrollOffset = 0)
@@ -263,6 +306,80 @@ mod tests {
         assert!(preview.dirty);
         assert_eq!((preview.terminal().cols(), preview.terminal().rows()), (5, 2));
         preview.dispose();
+    }
+
+    fn segment_texts(screen: &PreviewScreen) -> Vec<String> {
+        screen
+            .lines
+            .iter()
+            .map(|line| {
+                line.iter()
+                    .map(|segment| segment.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("|")
+            })
+            .collect()
+    }
+
+    #[test]
+    fn screen_follows_the_snapshot_offset_and_hides_the_cursor_when_scrolled() {
+        let mut preview = Preview::new(10.0, 3.0);
+        preview.write("one\r\ntwo\r\nthree\r\n\x1b[1mfour");
+        let screen = preview.get_screen(None);
+        assert_eq!(segment_texts(&screen), ["two", "three", "four"]);
+        assert_eq!(screen.cursor, Some(CursorPos { x: 4, y: 2 }));
+        assert!(
+            screen.lines[2][0]
+                .attrs
+                .flags
+                .contains(crate::headless::CellFlags::BOLD)
+        );
+        let scrolled = preview.get_screen(Some(1.0));
+        assert_eq!(segment_texts(&scrolled), ["one", "two", "three"]);
+        assert_eq!(scrolled.cursor, None);
+        assert_eq!(preview.get_snapshot(Some(1.0)), "one\ntwo\nthree");
+    }
+
+    #[test]
+    fn screen_cursor_follows_dectcem_and_stays_inside_the_screen() {
+        let mut preview = Preview::new(4.0, 2.0);
+        preview.write("abcd");
+        // The pending wrap leaves the cursor one past the last column.
+        assert_eq!(preview.get_screen(None).cursor, Some(CursorPos { x: 3, y: 0 }));
+        preview.write("\x1b[?25l");
+        assert_eq!(preview.get_screen(None).cursor, None);
+        preview.write("\x1b[?25h");
+        assert!(preview.get_screen(None).cursor.is_some());
+        preview.write("\x1b[?25l\x1b[!p");
+        assert!(preview.get_screen(None).cursor.is_some(), "DECSTR shows the cursor");
+        preview.write("\x1b[?25l\x1bc");
+        assert!(preview.get_screen(None).cursor.is_some(), "RIS shows the cursor");
+    }
+
+    #[test]
+    fn screen_reports_input_modes() {
+        let mut preview = Preview::new(10.0, 2.0);
+        assert_eq!(preview.get_screen(None).modes, ScreenModes::default());
+        preview.write("\x1b[?2004h\x1b[?1h\x1b[?1000h");
+        assert_eq!(
+            preview.get_screen(None).modes,
+            ScreenModes {
+                bracketed_paste: true,
+                application_cursor_keys: true,
+                mouse_tracking: true,
+            }
+        );
+    }
+
+    #[test]
+    fn building_the_screen_leaves_the_snapshot_dirty() {
+        let mut preview = Preview::new(10.0, 2.0);
+        preview.write("a");
+        let _ = preview.get_snapshot(None);
+        preview.write("b");
+        let _ = preview.get_screen(None);
+        assert_eq!(preview.get_cached_snapshot(), "a");
+        assert_eq!(preview.get_snapshot(None), "ab");
     }
 
     // ── H0c goldens ──────────────────────────────────────────────────────────────────────────────────────────────

@@ -27,6 +27,8 @@ pub struct Snapshot {
     pub cols: i64,
     pub rows: i64,
     pub scroll_offset: Option<i64>,
+    /// Not in the TS: a session worker adds the styled `screen` to the record.
+    pub styled: Option<bool>,
     pub request_id: String,
 }
 
@@ -65,6 +67,15 @@ pub struct PaneResize {
     pub target: AttachTarget,
     pub cols: i64,
     pub rows: i64,
+}
+
+/// Not in the TS: session worker `preview-mode` — whether preview broadcasts carry the styled `screen` and come at
+/// typing pace, while a UI types to the agent in its Preview (no response).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PreviewMode {
+    pub target: AttachTarget,
+    pub styled: bool,
 }
 
 /// Session worker `start`: spawn the agent PTY for `session` (answered with the session, now running).
@@ -107,10 +118,21 @@ pub enum WorkerCommand {
     Start(Box<StartAgent>),
     #[serde(rename = "kill")]
     Kill(KillAgent),
+    #[serde(rename = "preview-mode")]
+    PreviewMode(PreviewMode),
 }
 
 impl WorkerCommand {
-    pub const TYPES: &'static [&'static str] = &["snapshot", "attach", "detach", "input", "resize", "start", "kill"];
+    pub const TYPES: &'static [&'static str] = &[
+        "snapshot",
+        "attach",
+        "detach",
+        "input",
+        "resize",
+        "start",
+        "kill",
+        "preview-mode",
+    ];
 }
 
 /// Workspace worker `start`: the workspace (worktree root) its panes run in.

@@ -48,6 +48,9 @@ pub const DEFAULT_ROWS: u16 = 24;
 pub const PTY_TERM_NAME: &str = "xterm-256color";
 /// TS: sessionWorker.ts PREVIEW_BROADCAST_DELAY_MS (75 ms debounce of `preview-updated` / pane updates).
 pub const PREVIEW_BROADCAST_DELAY: Duration = Duration::from_millis(75);
+/// Not in the TS: the agent's `preview-updated` debounce while a UI types to it in its Preview, so the echo of a key
+/// arrives about as fast as in a terminal (still coalescing a burst of output).
+pub const STYLED_PREVIEW_BROADCAST_DELAY: Duration = Duration::from_millis(8);
 /// TS: sessionWorker.ts ACTIVITY_EVALUATION_DELAY_MS
 pub const ACTIVITY_EVALUATION_DELAY: Duration = Duration::from_millis(150);
 /// TS: sessionWorker.ts ACTIVITY_WINDOW_MS
@@ -135,6 +138,9 @@ pub struct AgentRuntime {
     pub last_preview_snapshot: String,
     pub preview_change_events: Vec<PreviewChangeEvent>,
     pub last_data_at: Option<Instant>,
+    /// Not in the TS: when the pending `pty.broadcast_timer` fires (`None` when none is pending, or once cleared on
+    /// exit), so switching to the styled pace can bring a slow broadcast forward.
+    pub broadcast_due: Option<Instant>,
 }
 
 /// An [`AgentRuntime`] shared between its pump task, timers and the command handlers.
@@ -311,7 +317,20 @@ pub fn request_id(command: &WorkerCommand) -> Option<&str> {
         WorkerCommand::Attach(attach) => Some(&attach.request_id),
         WorkerCommand::Start(start) => Some(&start.request_id),
         WorkerCommand::Kill(kill) => Some(&kill.request_id),
-        WorkerCommand::Detach(_) | WorkerCommand::Input(_) | WorkerCommand::Resize(_) => None,
+        WorkerCommand::Detach(_)
+        | WorkerCommand::Input(_)
+        | WorkerCommand::Resize(_)
+        | WorkerCommand::PreviewMode(_) => None,
+    }
+}
+
+/// Not in the TS: how long `preview-updated` waits for more output. Fast while a UI types to the agent in its
+/// Preview (`styled`), unless the agent is attached, where output streams to the attached terminal anyway.
+pub fn broadcast_delay(styled: bool, attached: bool) -> Duration {
+    if styled && !attached {
+        STYLED_PREVIEW_BROADCAST_DELAY
+    } else {
+        PREVIEW_BROADCAST_DELAY
     }
 }
 
@@ -346,6 +365,8 @@ struct SessionWorkerState {
     session: Option<Ordered<SessionRecord>>,
     agent: Option<SharedAgent>,
     agent_attached: bool,
+    /// Not in the TS: `preview-mode` — broadcasts carry the styled screen and come at typing pace.
+    preview_styled: bool,
 }
 
 impl SessionWorker {
@@ -453,7 +474,8 @@ impl SessionWorker {
             }
             WorkerCommand::Snapshot(snapshot) => {
                 check(snapshot.target)?;
-                let record = self.snapshot_agent(snapshot.cols, snapshot.rows, snapshot.scroll_offset);
+                let styled = snapshot.styled == Some(true);
+                let record = self.snapshot_agent(snapshot.cols, snapshot.rows, snapshot.scroll_offset, styled);
                 channel.ok(&snapshot.request_id, &record);
             }
             WorkerCommand::Attach(attach) => {
@@ -473,6 +495,10 @@ impl SessionWorker {
             WorkerCommand::Resize(resize) => {
                 check(resize.target)?;
                 self.resize_agent(resize.cols, resize.rows);
+            }
+            WorkerCommand::PreviewMode(mode) => {
+                check(mode.target)?;
+                self.set_preview_styled(mode.styled);
             }
         }
         Ok(())
@@ -508,6 +534,7 @@ impl SessionWorker {
             last_preview_snapshot: String::new(),
             preview_change_events: Vec::new(),
             last_data_at: None,
+            broadcast_due: None,
         }));
         self.inner.state.borrow_mut().agent = Some(Rc::clone(&agent));
         self.inner
@@ -587,6 +614,7 @@ impl SessionWorker {
             if let Some(timer) = runtime.pty.broadcast_timer.as_mut() {
                 timer.clear();
             }
+            runtime.broadcast_due = None;
         }
         wait_for_quiet_output(&agent).await;
         let last_preview = agent.borrow_mut().pty.preview.get_snapshot(None);
@@ -635,7 +663,7 @@ impl SessionWorker {
 
     /// TS: SessionWorker.attachAgent: the snapshot plus `{terminalModes, initialFrame}` while the agent exists.
     pub fn attach_agent(&self, cols: i64, rows: i64) -> Ordered<AttachSnapshot> {
-        let record = self.snapshot_agent(cols, rows, None);
+        let record = self.snapshot_agent(cols, rows, None, false);
         let extra = self.agent().map(|agent| {
             let mut runtime = agent.borrow_mut();
             let modes = runtime.pty.terminal_modes.clone();
@@ -665,22 +693,14 @@ impl SessionWorker {
 
     /// TS: SessionWorker.snapshotAgent: resizes PTY and preview (a real size change suppresses activity), then
     /// `{sessionId, content, live: true, status: 'running', agentStatus, scrollOffset, maxScrollOffset}`;
-    /// `{content: '', live: false}` without an agent.
-    pub fn snapshot_agent(&self, cols: i64, rows: i64, scroll_offset: Option<i64>) -> PreviewRecord {
+    /// `{content: '', live: false}` without an agent. `styled` (not in the TS) adds the styled `screen`.
+    pub fn snapshot_agent(&self, cols: i64, rows: i64, scroll_offset: Option<i64>, styled: bool) -> PreviewRecord {
         let (agent, session_id) = {
             let state = self.inner.state.borrow();
             match (&state.agent, &state.session) {
                 (Some(agent), Some(session)) => (Rc::clone(agent), session.id.clone()),
                 _ => {
-                    return PreviewRecord {
-                        session_id: None,
-                        content: String::new(),
-                        live: false,
-                        status: None,
-                        agent_status: None,
-                        scroll_offset: None,
-                        max_scroll_offset: None,
-                    };
+                    return PreviewRecord::default();
                 }
             }
         };
@@ -699,10 +719,11 @@ impl SessionWorker {
         }
         // TS `scrollOffset = 0` default.
         let offset = Some(scroll_offset.unwrap_or(0) as f64);
-        let (content, scroll) = {
+        let (content, scroll, screen) = {
             let mut runtime = agent.borrow_mut();
             let content = runtime.pty.preview.get_snapshot(offset);
-            (content, runtime.pty.preview.get_scroll_info(offset))
+            let screen = styled.then(|| runtime.pty.preview.get_screen(offset));
+            (content, runtime.pty.preview.get_scroll_info(offset), screen)
         };
         // Read after the awaits in TS: the heuristic may have changed it meanwhile.
         let agent_status = self
@@ -712,7 +733,10 @@ impl SessionWorker {
             .session
             .as_ref()
             .and_then(|session| session.agent_status);
-        preview_record(session_id, content, agent_status, scroll)
+        PreviewRecord {
+            screen,
+            ..preview_record(session_id, content, agent_status, scroll)
+        }
     }
 
     /// TS: SessionWorker.resizeAgent (a no-op once exited).
@@ -743,21 +767,43 @@ impl SessionWorker {
         let _ = term.write(data.as_bytes()).await;
     }
 
-    /// TS: SessionWorker.schedulePreviewBroadcast: at most one pending broadcast; after [`PREVIEW_BROADCAST_DELAY`]
-    /// posts `preview-updated` with the current snapshot and scroll info.
+    /// Not in the TS: `preview-mode`. Going styled brings a pending slow broadcast forward.
+    pub fn set_preview_styled(&self, styled: bool) {
+        self.inner.state.borrow_mut().preview_styled = styled;
+        let pending = self.agent().is_some_and(|agent| agent.borrow().broadcast_due.is_some());
+        if styled && pending {
+            self.schedule_preview_broadcast();
+        }
+    }
+
+    /// TS: SessionWorker.schedulePreviewBroadcast: at most one pending broadcast; after [`broadcast_delay`] posts
+    /// `preview-updated` with the current snapshot and scroll info (and the styled screen while `preview-mode` is
+    /// on). A pending broadcast due later than the current pace allows is replaced (not in the TS).
     pub fn schedule_preview_broadcast(&self) {
         let Some(runtime) = self.agent() else {
             return;
         };
-        if runtime.borrow().pty.broadcast_timer.is_some() {
-            return;
+        let delay = {
+            let state = self.inner.state.borrow();
+            broadcast_delay(state.preview_styled, state.agent_attached)
+        };
+        let due = Instant::now() + delay;
+        {
+            let current = runtime.borrow();
+            if current.pty.broadcast_timer.is_some() && current.broadcast_due.is_none_or(|pending| pending <= due) {
+                return;
+            }
         }
         let worker = self.clone();
         let captured = Rc::clone(&runtime);
-        let timer = Timer::after(PREVIEW_BROADCAST_DELAY, move || {
+        let timer = Timer::after(delay, move || {
             let runtime = captured;
-            if let Some(timer) = runtime.borrow_mut().pty.broadcast_timer.take() {
-                timer.detach();
+            {
+                let mut current = runtime.borrow_mut();
+                current.broadcast_due = None;
+                if let Some(timer) = current.pty.broadcast_timer.take() {
+                    timer.detach();
+                }
             }
             let session_id = {
                 let state = worker.inner.state.borrow();
@@ -766,10 +812,12 @@ impl SessionWorker {
                     _ => return,
                 }
             };
-            let (content, scroll) = {
+            let styled = worker.inner.state.borrow().preview_styled;
+            let (content, scroll, screen) = {
                 let mut runtime = runtime.borrow_mut();
                 let content = runtime.pty.preview.get_snapshot(None);
-                (content, runtime.pty.preview.get_scroll_info(None))
+                let screen = styled.then(|| runtime.pty.preview.get_screen(None));
+                (content, runtime.pty.preview.get_scroll_info(None), screen)
             };
             let agent_status = worker
                 .inner
@@ -782,10 +830,16 @@ impl SessionWorker {
                 .inner
                 .channel
                 .post(&WorkerMessage::PreviewUpdated(WorkerPreviewUpdated {
-                    preview: preview_record(session_id, content, agent_status, scroll),
+                    preview: PreviewRecord {
+                        screen,
+                        ..preview_record(session_id, content, agent_status, scroll)
+                    },
                 }));
         });
-        runtime.borrow_mut().pty.broadcast_timer = Some(timer);
+        // Replacing a pending timer cancels it.
+        let mut current = runtime.borrow_mut();
+        current.pty.broadcast_timer = Some(timer);
+        current.broadcast_due = Some(due);
     }
 
     /// TS: SessionWorker.scheduleActivityEvaluation: at most one pending evaluation, none while resize-suppressed.
@@ -927,6 +981,7 @@ fn preview_record(
         agent_status,
         scroll_offset: Some(js_int(scroll.scroll_offset)),
         max_scroll_offset: Some(js_int(scroll.max_scroll_offset)),
+        screen: None,
     }
 }
 
@@ -1377,6 +1432,80 @@ mod tests {
             assert_eq!(exit["exitCode"], 0);
             assert_eq!(exit["exitSignal"], 15);
             assert!(after.iter().all(|m| m["type"] != "output"), "detached: {after:?}");
+        });
+    }
+
+    #[test]
+    fn broadcasts_come_at_typing_pace_only_while_styled_and_not_attached() {
+        assert_eq!(broadcast_delay(false, false), PREVIEW_BROADCAST_DELAY);
+        assert_eq!(broadcast_delay(true, false), STYLED_PREVIEW_BROADCAST_DELAY);
+        assert_eq!(broadcast_delay(true, true), PREVIEW_BROADCAST_DELAY);
+        assert_eq!(broadcast_delay(false, true), PREVIEW_BROADCAST_DELAY);
+    }
+
+    #[test]
+    fn preview_mode_adds_the_styled_screen_until_switched_off() {
+        run_local(async {
+            let mut daemon = Daemon::start();
+            daemon.next().await;
+            let script = "printf '\\033[1mready'; while read line; do printf 'got:%s;' \"$line\"; done";
+            daemon.send(start_command("/bin/sh", &["-c", script])).await;
+            daemon.response("start-1").await;
+            let mut seen = Vec::new();
+            daemon.until(|m| m["type"] == "agent-status", &mut seen).await;
+
+            daemon
+                .send(json!({"type": "snapshot", "target": "agent", "cols": 80, "rows": 24, "styled": true, "requestId": "snap"}))
+                .await;
+            let snapshot = daemon.response("snap").await;
+            let screen = &snapshot["data"]["screen"];
+            assert_eq!(screen["lines"][0], json!([[0, 5, "ready", "d", "d", "b"]]));
+            assert_eq!(screen["cursor"], json!({"x": 5, "y": 0}));
+            assert_eq!(
+                screen["modes"],
+                json!({"bracketedPaste": false, "applicationCursorKeys": false, "mouseTracking": false})
+            );
+
+            daemon
+                .send(json!({"type": "preview-mode", "target": "agent", "styled": true}))
+                .await;
+            daemon
+                .send(json!({"type": "input", "target": "agent", "data": "one\r"}))
+                .await;
+            let styled = daemon
+                .until(
+                    |m| {
+                        m["type"] == "preview-updated"
+                            && m["preview"]["content"].as_str().is_some_and(|c| c.contains("got:one;"))
+                    },
+                    &mut seen,
+                )
+                .await;
+            let keys: Vec<&str> = styled["preview"]
+                .as_object()
+                .expect("object")
+                .keys()
+                .map(String::as_str)
+                .collect();
+            assert_eq!(keys.last(), Some(&"screen"), "screen comes last: {keys:?}");
+
+            daemon
+                .send(json!({"type": "preview-mode", "target": "agent", "styled": false}))
+                .await;
+            daemon
+                .send(json!({"type": "input", "target": "agent", "data": "two\r"}))
+                .await;
+            let plain = daemon
+                .until(
+                    |m| {
+                        m["type"] == "preview-updated"
+                            && m["preview"]["content"].as_str().is_some_and(|c| c.contains("got:two;"))
+                    },
+                    &mut seen,
+                )
+                .await;
+            assert!(plain["preview"].get("screen").is_none(), "{plain}");
+            daemon.worker.kill(true).expect("kill");
         });
     }
 

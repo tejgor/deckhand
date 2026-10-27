@@ -208,6 +208,11 @@ impl HeadlessTerminal for AlacrittyTerminal {
         self.events.title()
     }
 
+    /// TS: CoreService.isCursorHidden, negated
+    fn cursor_visible(&self) -> bool {
+        !self.core.dec.cursor_hidden
+    }
+
     /// TS: IBuffer.viewportY (`ydisp`, which xterm moves separately from `ybase` on resize and reflow)
     fn viewport_y(&self) -> usize {
         to_usize(self.active().ydisp)
@@ -2437,6 +2442,8 @@ struct DecModes {
     reverse_wraparound: bool,
     send_focus: bool,
     wraparound: bool,
+    /// DECTCEM reset (`?25l`). xterm.js keeps this in CoreService.isCursorHidden, outside `terminal.modes`.
+    cursor_hidden: bool,
 }
 
 impl Default for DecModes {
@@ -2449,6 +2456,7 @@ impl Default for DecModes {
             reverse_wraparound: false,
             send_focus: false,
             wraparound: true,
+            cursor_hidden: false,
         }
     }
 }
@@ -3701,6 +3709,7 @@ impl Core {
                     self.set_cursor(0, 0);
                 }
                 7 => self.dec.wraparound = true,
+                25 => self.dec.cursor_hidden = false,
                 45 => self.dec.reverse_wraparound = true,
                 66 => self.dec.application_keypad = true,
                 9 => self.mouse_protocol = MouseTrackingMode::X10,
@@ -3731,6 +3740,7 @@ impl Core {
                     self.set_cursor(0, 0);
                 }
                 7 => self.dec.wraparound = false,
+                25 => self.dec.cursor_hidden = true,
                 45 => self.dec.reverse_wraparound = false,
                 66 => self.dec.application_keypad = false,
                 9 | 1000 | 1002 | 1003 => self.mouse_protocol = MouseTrackingMode::None,

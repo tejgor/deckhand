@@ -192,6 +192,7 @@ mod tests {
             agent_status: None,
             scroll_offset: None,
             max_scroll_offset: None,
+            screen: None,
         }
     }
 

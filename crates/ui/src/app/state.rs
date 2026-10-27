@@ -579,15 +579,7 @@ pub use deckhand_core::wheel::DEFAULT_SCROLL_SENSITIVITY;
 
 /// TS: app.tsx EMPTY_PREVIEW.
 pub fn empty_preview() -> PreviewRecord {
-    PreviewRecord {
-        session_id: None,
-        content: String::new(),
-        live: false,
-        status: None,
-        agent_status: None,
-        scroll_offset: None,
-        max_scroll_offset: None,
-    }
+    PreviewRecord::default()
 }
 
 /// TS: app.tsx EMPTY_TERMINAL / EMPTY_DEV / EMPTY_ACTION (`{content: '', live: false}`).

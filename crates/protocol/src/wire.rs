@@ -552,6 +552,9 @@ pub struct WatchPreview {
     pub rows: Option<i64>,
     #[serde(default, deserialize_with = "lenient::size")]
     pub scroll_offset: Option<i64>,
+    /// Not in the TS: the UI types to the agent in its Preview, so previews carry the styled `screen`.
+    #[serde(default, deserialize_with = "lenient::truthy")]
+    pub interactive: Option<bool>,
 }
 
 /// `watch-terminal`, `watch-git`, `watch-dev`, `watch-action`: no `sessionId` stops watching.

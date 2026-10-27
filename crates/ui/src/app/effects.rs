@@ -847,6 +847,7 @@ fn watch_preview(app: &mut App, deps: PaneWatchDeps) {
         i64::from(deps.cols),
         i64::from(deps.rows),
         Some(deps.scroll_offset),
+        false,
     );
     let task = app.dispatch().spawn(reply, move |app: &mut App, result| {
         if app.effects.preview.generation != generation {
@@ -1044,6 +1045,7 @@ fn selected_session_effect(app: &mut App, derived: &Derived) {
         agent_status: selected.agent_status,
         scroll_offset: None,
         max_scroll_offset: None,
+        screen: None,
     };
 }
 

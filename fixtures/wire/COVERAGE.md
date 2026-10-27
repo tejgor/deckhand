@@ -116,7 +116,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `watch-changes` | 3 | 0 |
 | c2d | - | `watch-dev` | 3 | 0 |
 | c2d | - | `watch-git` | 1 | 0 |
-| c2d | - | `watch-preview` | 2 | 0 |
+| c2d | - | `watch-preview` | 2 | 1 |
 | c2d | - | `watch-tasks` | 2 | 0 |
 | c2d | - | `watch-terminal` | 2 | 0 |
 | c2d | - | `workspace-summary` | 2 | 0 |
@@ -140,7 +140,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | `git-output` | 0 | 1 |
 | d2c | - | `git-updated` | 0 | 2 |
 | d2c | - | `output` | 0 | 1 |
-| d2c | - | `preview-updated` | 1 | 0 |
+| d2c | - | `preview-updated` | 1 | 1 |
 | d2c | - | `session-removed` | 1 | 0 |
 | d2c | - | `session-updated` | 24 | 0 |
 | d2c | - | `tasks-updated` | 1 | 0 |
@@ -204,7 +204,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `watch-changes` | 4 | 0 |
 | d2c | - | response `watch-dev` | 5 | 0 |
 | d2c | - | response `watch-git` | 1 | 0 |
-| d2c | - | response `watch-preview` | 2 | 0 |
+| d2c | - | response `watch-preview` | 2 | 1 |
 | d2c | - | response `watch-tasks` | 1 | 0 |
 | d2c | - | response `watch-terminal` | 2 | 0 |
 | d2c | - | response `workspace-summary` | 2 | 0 |
@@ -215,8 +215,9 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2w | session | `detach` | 0 | 1 |
 | d2w | session | `input` | 1 | 0 |
 | d2w | session | `kill` | 2 | 0 |
+| d2w | session | `preview-mode` | 0 | 1 |
 | d2w | session | `resize` | 0 | 1 |
-| d2w | session | `snapshot` | 0 | 1 |
+| d2w | session | `snapshot` | 0 | 2 |
 | d2w | session | `start` | 22 | 0 |
 | d2w | workspace | `attach` | 1 | 0 |
 | d2w | workspace | `detach` | 1 | 0 |
@@ -234,12 +235,12 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | w2d | session | `exit` | 1 | 0 |
 | w2d | session | `hello` | 0 | 1 |
 | w2d | session | `output` | 0 | 1 |
-| w2d | session | `preview-updated` | 1 | 0 |
+| w2d | session | `preview-updated` | 1 | 1 |
 | w2d | session | `running` | 1 | 0 |
 | w2d | session | response (failure) | 0 | 1 |
 | w2d | session | response `attach` | 0 | 1 |
 | w2d | session | response `kill` | 1 | 0 |
-| w2d | session | response `snapshot` | 0 | 2 |
+| w2d | session | response `snapshot` | 0 | 3 |
 | w2d | session | response `start` | 22 | 0 |
 | w2d | workspace | `action-updated` | 3 | 0 |
 | w2d | workspace | `dev-updated` | 3 | 0 |

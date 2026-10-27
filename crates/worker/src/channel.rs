@@ -596,6 +596,7 @@ mod tests {
                 cols: 80,
                 rows: 30,
                 scroll_offset: None,
+                styled: None,
                 request_id: "7".into(),
             }))
         );

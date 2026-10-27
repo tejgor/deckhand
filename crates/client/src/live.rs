@@ -429,12 +429,15 @@ impl LiveClient {
     }
 
     /// TS: LiveClient.watchPreview (`scroll_offset` defaults to 0 and is always written; no session stops watching).
+    /// `interactive` (not in the TS, written only when set): the UI types to the agent, so previews carry its styled
+    /// screen.
     pub fn watch_preview(
         &self,
         session_id: Option<&str>,
         cols: i64,
         rows: i64,
         scroll_offset: Option<i64>,
+        interactive: bool,
     ) -> Reply<PreviewRecord> {
         self.request(Request::WatchPreview(WatchPreview {
             request_id: new_request_id(),
@@ -442,6 +445,7 @@ impl LiveClient {
             cols: Some(cols),
             rows: Some(rows),
             scroll_offset: Some(scroll_offset.unwrap_or(0)),
+            interactive: interactive.then_some(true),
         }))
     }
 
@@ -1220,12 +1224,21 @@ mod tests {
                     id(&line)
                 )
             );
-            drop(client.watch_preview(None, 80, 24, None));
+            drop(client.watch_preview(None, 80, 24, None, false));
             let line = daemon.next_line().await;
             assert_eq!(
                 line,
                 format!(
                     "{{\"type\":\"watch-preview\",\"requestId\":\"{}\",\"cols\":80,\"rows\":24,\"scrollOffset\":0}}\n",
+                    id(&line)
+                )
+            );
+            drop(client.watch_preview(Some("s1"), 80, 24, None, true));
+            let line = daemon.next_line().await;
+            assert_eq!(
+                line,
+                format!(
+                    "{{\"type\":\"watch-preview\",\"requestId\":\"{}\",\"sessionId\":\"s1\",\"cols\":80,\"rows\":24,\"scrollOffset\":0,\"interactive\":true}}\n",
                     id(&line)
                 )
             );

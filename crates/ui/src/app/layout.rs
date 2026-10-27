@@ -1539,6 +1539,7 @@ mod tests {
                 agent_status: None,
                 scroll_offset: None,
                 max_scroll_offset: None,
+                screen: None,
             };
             app.set_mode(Mode::PickProgram);
         });

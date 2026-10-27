@@ -120,6 +120,8 @@ pub struct ClientSubscription {
     pub preview_cols: i64,
     pub preview_rows: i64,
     pub preview_scroll_offset: i64,
+    /// Not in the TS: the client types to the watched agent in its Preview, so its previews carry the styled screen.
+    pub preview_interactive: bool,
     pub terminal_cols: i64,
     pub terminal_rows: i64,
     pub git_cols: i64,
@@ -146,6 +148,7 @@ impl Default for ClientSubscription {
             preview_cols: DEFAULT_PREVIEW_COLS,
             preview_rows: DEFAULT_PREVIEW_ROWS,
             preview_scroll_offset: 0,
+            preview_interactive: false,
             terminal_cols: DEFAULT_PREVIEW_COLS,
             terminal_rows: DEFAULT_PREVIEW_ROWS,
             git_cols: DEFAULT_PREVIEW_COLS,
@@ -442,7 +445,15 @@ impl Daemon {
                 }
             }
         }
-        self.server.borrow_mut().clients.shift_remove(&id);
+        let watched = self
+            .server
+            .borrow_mut()
+            .clients
+            .shift_remove(&id)
+            .and_then(|client| client.subscription.watched_preview_session_id);
+        if let Some(session_id) = watched {
+            self.sync_preview_styled(&session_id);
+        }
         self.sync_change_watches();
         self.log_soon("client disconnected".to_owned());
     }
