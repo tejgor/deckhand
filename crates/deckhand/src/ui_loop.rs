@@ -14,12 +14,13 @@ use std::time::Duration;
 
 use deckhand_client::attach::{AttachSessionOptions, attach_session};
 use deckhand_client::attach_status::StatusScope;
+use deckhand_client::client::request;
 use deckhand_client::term_state::reset_terminal_state;
 use deckhand_core::display::{ThemeMode, theme_mode};
 use deckhand_core::error::DhError;
-use deckhand_core::jsstr::date;
 use deckhand_protocol::UiState;
 use deckhand_protocol::data::{AttachTarget, EditorCommand, RightPaneTab, UiExitResult};
+use deckhand_protocol::wire::{Request, SetReplyRead};
 use deckhand_sys::async_util::Timer;
 use deckhand_sys::desktop::{is_vim_family, terminal_editor_args};
 use deckhand_sys::git::ensure_git_repo;
@@ -138,7 +139,6 @@ fn app_props(
         initial_session_tabs: Some(state.session_tabs.clone()),
         initial_collapsed_session_ids: Some(state.collapsed_session_ids.clone()),
         initial_hidden_exited_session_ids: Some(state.hidden_exited_session_ids.clone()),
-        read_replies: Some(state.read_replies.clone()),
         initial_session_filter: Some(state.session_filter),
         initial_session_query: Some(state.session_query.clone()),
         initial_terminal_view: Some(round_trip.terminal_view.get()),
@@ -322,11 +322,15 @@ pub fn record_attach(ui_state: &mut UiState, session_id: &str, target: AttachTar
     ui_state.session_tabs.insert(session_id.to_owned(), tab);
 }
 
-/// TS: cli.ts after attaching to the agent: its reply counts as read at `now_iso` (the entry is moved to the end, as
-/// `delete` then assign does).
-pub fn record_reply_read(ui_state: &mut UiState, session_id: &str, now_iso: String) {
-    ui_state.read_replies.shift_remove(session_id);
-    ui_state.read_replies.insert(session_id.to_owned(), now_iso);
+/// TS: cli.ts after attaching to the agent: its reply counts as read now. The daemon records it (`set-reply-read`),
+/// so every UI and the status line agree; a failure leaves the reply unread, which `U` or the next attach fixes.
+async fn record_reply_read(session_id: &str) {
+    let message = Request::SetReplyRead(SetReplyRead {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        session_id: session_id.to_owned(),
+        read: true,
+    });
+    drop(request::<()>(&message, None).await);
 }
 
 /// TS: cli.ts before editing a note: select the session and its Notes tab.
@@ -344,7 +348,7 @@ fn write_stderr(text: &str) {
 }
 
 /// TS: cli.ts the `attach` hand-off: records the selection, clears the screen, attaches with the configured scroll
-/// sensitivity; only attaching to the agent marks its reply read. A failure prints `\nattach failed: <message>\n`
+/// sensitivity; only attaching to the agent marks its reply read (in the daemon). A failure prints `\nattach failed: <message>\n`
 /// on stderr and pauses [`HAND_OFF_ERROR_PAUSE`]. Clears the screen again on the way back. The status line shows
 /// `status_title` (the full title, with a sub-session's parent) and counts the sessions the UI of `repo_root` lists,
 /// with its read replies.
@@ -361,7 +365,6 @@ pub async fn hand_off_attach(
     clear_terminal_screen();
     let status_scope = StatusScope {
         root: Some(repo_root.to_owned()),
-        read_replies: ui_state.borrow().read_replies.clone(),
     };
     let attached = async {
         let config = load_app_config().await?;
@@ -380,8 +383,7 @@ pub async fn hand_off_attach(
         Ok(()) => {
             // Only attaching to the agent reads its reply; selecting the session or its other tabs does not.
             if target == AttachTarget::Agent {
-                let now = date::to_iso_string(date::now_ms()).unwrap_or_default();
-                record_reply_read(&mut ui_state.borrow_mut(), session_id, now);
+                record_reply_read(session_id).await;
             }
         }
         Err(error) => {
@@ -566,15 +568,6 @@ mod tests {
         assert_eq!(state.selected_id.as_deref(), Some("b"));
         assert_eq!(state.active_tab, Some(RightPaneTab::Notes));
         assert_eq!(state.session_tabs.get("b"), Some(&RightPaneTab::Notes));
-        record_reply_read(&mut state, "a", "2026-01-01T00:00:00.000Z".to_owned());
-        record_reply_read(&mut state, "b", "2026-01-02T00:00:00.000Z".to_owned());
-        record_reply_read(&mut state, "a", "2026-01-03T00:00:00.000Z".to_owned());
-        let order: Vec<&str> = state.read_replies.keys().map(String::as_str).collect();
-        assert_eq!(order, ["b", "a"]);
-        assert_eq!(
-            state.read_replies.get("a").map(String::as_str),
-            Some("2026-01-03T00:00:00.000Z")
-        );
     }
 
     #[test]

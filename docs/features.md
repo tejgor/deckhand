@@ -203,6 +203,7 @@ On conflicts, one small view lists the conflicted files and offers two keys. `en
 - **Archiving**: `A` archives or unarchives a session without stopping it. The footer offers it for exited and archived sessions, and archiving from the active view says where the session went.
 - **Removing**: `backspace` archives an exited session; nothing is lost, and `f` `A` shows the archived view. `backspace` on an archived session removes it for good, and always asks first: `enter` removes it, `esc` keeps it. Its notes move to `notes/trash/`: its own, and its worktree's when it is the last session there (see [Notes](#notes)). When those notes still have open checklist items, they are listed. `enter` moves them to the backlog first, and `x` removes the session without moving them.
 - **Filter**: `f` opens the filter menu at the top of the sidebar, listing each filter with its key and how many rows it would list. One key picks it: `a` active, `r` running, `!` attention, `e` exited, `A` archived and `*` all. So any filter is two keys away (`f` `r`), and `f` `f` goes back to active. `j`/`k` show each filter as you move, `enter` keeps it and `esc` restores the one you had. Active means unarchived, not necessarily running. The sidebar header names any other filter (or a search) in cyan with its `shown/total` count, and shows `! N` when N sessions need you. `!` selects the next of them (sessions blocked on you first, then unread replies), switching to the attention filter and clearing any search.
+- **Unread replies**: when an agent finishes a turn, its reply is unread: `◆` before the title, the title bold, counted as `◆ N` in the sidebar header and the attached status line. Attaching to the agent reads it. `U` marks it unread again so you can come back to it, or marks it read without attaching. The daemon keeps this (the session's `replyReadAt`), so every Deckhand UI and the status line agree, and it survives restarts. A new reply is unread again.
 - **Search**: `/` searches title, notes (the session's and its worktree's), tasks, agent, branch and path. `enter` keeps the query; `esc` clears it. Matching children keep their ancestors visible for context, and searches and filters show matches inside collapsed trees.
 - **Persistence**: selection, per-session tabs, collapsed and hidden sessions, filter and search persist per repository in `ui-state.json`.
 - **Terminal title**: Deckhand titles its terminal `deckhand · <repository>`. Quitting gives the terminal its previous title back where the terminal supports that.
@@ -412,7 +413,7 @@ After a daemon crash, sessions are marked interrupted and keep their conversatio
 
 ## Agent versions and updates
 
-`U` opens the Agents screen (full width, like Settings). It has one row per agent with:
+`G` opens the Agents screen (full width, like Settings). It has one row per agent with:
 
 - its installed version (`<agent> --version`, found on the daemon's PATH, the one sessions launch with);
 - its latest release (the npm `latest` dist-tag of `@anthropic-ai/claude-code`, `@openai/codex` and `@earendil-works/pi-coding-agent`);
@@ -423,7 +424,7 @@ Opening it looks the latest releases up again, up to about 10 s each; `r` repeat
 
 `enter` runs the selected agent's own updater, non-interactively (stdin closed, the daemon's environment, at most 5 minutes): `claude update`, `codex update` or `pi update --self` (Pi itself, not its packages). If the agent has running sessions, you are asked first. The details box shows the running state, then the new version or the updater's exit code and the last lines of its output. Leaving the screen does not stop it, and the footer says when it finished. Only one update per agent runs at a time. Agents that are not installed are left to `deckhand setup`. `esc` goes back.
 
-Updating never restarts or touches sessions. Each launch (create, `s`, `S`) records the version it started with. A running session whose version is older than the one now installed shows a dim `↑` before its agent glyph (the first marker dropped on a narrow sidebar). Its details line names both versions (`claude 2.1.287 · 2.1.290 installed`). Restart it (`x`, then `s`) to pick up the new build. Exited sessions are never marked: their next start uses the installed version. When any installed agent has a newer release, the header's right side says so quietly (`codex update · U`, `2 agent updates · U`).
+Updating never restarts or touches sessions. Each launch (create, `s`, `S`) records the version it started with. A running session whose version is older than the one now installed shows a dim `↑` before its agent glyph (the first marker dropped on a narrow sidebar). Its details line names both versions (`claude 2.1.287 · 2.1.290 installed`). Restart it (`x`, then `s`) to pick up the new build. Exited sessions are never marked: their next start uses the installed version. When any installed agent has a newer release, the header's right side says so quietly (`codex update · G`, `2 agent updates · G`).
 
 ## Lifecycle signals and notifications
 

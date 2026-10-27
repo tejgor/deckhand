@@ -13,7 +13,7 @@ Optional:
 - [`lazygit`](https://github.com/jesseduffield/lazygit) for `o` on the Git tab.
 - Cursor or VS Code for `E`, which opens a worktree, note or file in your editor. Other editors aren't supported.
 - [`gh`](https://cli.github.com), signed in, to open pull requests.
-- `npm` for the agent update check on the Agents screen (`U`).
+- `npm` for the agent update check on the Agents screen (`G`).
 - On Linux, `notify-send` for desktop notifications.
 
 ## Install

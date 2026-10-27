@@ -387,7 +387,10 @@ pub struct SessionRecord {
     pub merge_target_branch: Option<String>,
     pub merge_source_ref: Option<String>,
     pub merge_marked_manually: Option<bool>,
-    /// UI only: never sent by the daemon.
+    /// Not in the TS: when you last read the session's reply (detached from its agent, or `U`); the reply that ended
+    /// its last turn is read when this is not before `attention.at`. `U` clears it to mark the reply unread.
+    pub reply_read_at: Option<String>,
+    /// UI only: never sent by the daemon (derived from `reply_read_at` by `with_reply_read`).
     pub reply_read: Option<bool>,
     /// Keys this version does not know (kept, as the TS spreads keep them).
     #[serde(flatten)]

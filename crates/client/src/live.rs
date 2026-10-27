@@ -33,9 +33,9 @@ use deckhand_protocol::wire::{
     AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest, DeleteWorktree,
     ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose, MergeWorktree, OpenNote, PromoteNoteItem,
     Remove, ReorderSession, RequestOnly, ResolveMerge, Restart, ReturnTaskToNote, RunAction, SaveConfig, SaveNote,
-    SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetSessionDone, StopDevRequest, Subscribe,
-    TaskOpRequest, TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview,
-    WorkspaceSummaryRequest, WorktreeCandidateSizes,
+    SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone,
+    StopDevRequest, Subscribe, TaskOpRequest, TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane,
+    WatchPreview, WorkspaceSummaryRequest, WorktreeCandidateSizes,
 };
 
 use crate::client::{
@@ -694,6 +694,15 @@ impl LiveClient {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
             done,
+        }))
+    }
+
+    /// Not in the TS: marks the session's last reply read or unread (`set-reply-read`).
+    pub fn set_reply_read(&self, session_id: &str, read: bool) -> Reply<SessionRecord> {
+        self.request(Request::SetReplyRead(SetReplyRead {
+            request_id: new_request_id(),
+            session_id: session_id.to_owned(),
+            read,
         }))
     }
 

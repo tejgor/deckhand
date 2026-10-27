@@ -97,6 +97,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `save-config` | 4 | 0 |
 | c2d | - | `save-note` | 3 | 0 |
 | c2d | - | `send-open-items` | 2 | 0 |
+| c2d | - | `set-reply-read` | 0 | 1 |
 | c2d | - | `set-session-done` | 2 | 0 |
 | c2d | - | `settings-info` | 2 | 0 |
 | c2d | - | `shutdown` | 1 | 0 |
@@ -187,6 +188,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `save-config` | 2 | 0 |
 | d2c | - | response `save-note` | 6 | 0 |
 | d2c | - | response `send-open-items` | 2 | 0 |
+| d2c | - | response `set-reply-read` | 0 | 1 |
 | d2c | - | response `set-session-done` | 9 | 0 |
 | d2c | - | response `settings-info` | 10 | 0 |
 | d2c | - | response `shutdown` | 1 | 0 |

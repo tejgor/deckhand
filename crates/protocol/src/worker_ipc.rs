@@ -405,7 +405,7 @@ mod tests {
         let hello = WorkerMessage::Hello(Hello::default());
         assert_eq!(
             serde_json::to_string(&hello).unwrap(),
-            r#"{"type":"hello","version":49}"#
+            format!(r#"{{"type":"hello","version":{}}}"#, crate::PROTOCOL_VERSION)
         );
     }
 

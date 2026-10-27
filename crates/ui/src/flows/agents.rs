@@ -1,4 +1,4 @@
-//! U → Agents. Each agent's installed and latest version and its own updater (enter). Updating never touches sessions:
+//! G → Agents. Each agent's installed and latest version and its own updater (enter). Updating never touches sessions:
 //! running ones keep their version until restarted (↑ in the sidebar). r looks the latest up again.
 
 use std::rc::Rc;

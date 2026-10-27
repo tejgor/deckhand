@@ -1,5 +1,5 @@
 //! Agent versions as pure data: parsing `--version` output, comparing, and what the UI says about them (the Agents
-//! screen U, the sidebar's ↑ marker, the header hint). The daemon's I/O lives in `deckhand_sys::agent_version_check`.
+//! screen G, the sidebar's ↑ marker, the header hint). The daemon's I/O lives in `deckhand_sys::agent_version_check`.
 
 use std::sync::LazyLock;
 
@@ -143,7 +143,7 @@ pub fn installed_versions(versions: Option<&AgentVersions>) -> InstalledVersions
         .collect()
 }
 
-/// TS: agentVersions.ts updateHint: the app header's quiet hint (`codex update · U`, `2 agent updates · U`, or
+/// TS: agentVersions.ts updateHint: the app header's quiet hint (`codex update · G`, `2 agent updates · G`, or
 /// nothing: all current, or latest unknown).
 pub fn update_hint(versions: Option<&AgentVersions>) -> String {
     let available: Vec<ProgramKey> = AGENT_PROGRAMS
@@ -156,8 +156,8 @@ pub fn update_hint(versions: Option<&AgentVersions>) -> String {
         .collect();
     match available.as_slice() {
         [] => String::new(),
-        [program] => format!("{program} update · U"),
-        _ => format!("{} agent updates · U", available.len()),
+        [program] => format!("{program} update · G"),
+        _ => format!("{} agent updates · G", available.len()),
     }
 }
 
@@ -297,13 +297,13 @@ mod tests {
             hint(
                 json!({"codex": {"installed": "0.157.0", "latest": "0.160.1"}, "pi": {"installed": "1.0.4", "latest": "1.0.4"}})
             ),
-            "codex update · U"
+            "codex update · G"
         );
         assert_eq!(
             hint(
                 json!({"codex": {"installed": "0.157.0", "latest": "0.160.1"}, "pi": {"installed": "1.0.2", "latest": "1.0.4"}})
             ),
-            "2 agent updates · U"
+            "2 agent updates · G"
         );
         // Unknown or current.
         assert_eq!(

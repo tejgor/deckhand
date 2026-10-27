@@ -872,6 +872,19 @@ pub struct SetSessionDone {
     pub done: bool,
 }
 
+/// Not in the TS: marks the reply that ended the session's last turn read (`replyReadAt` now) or unread (cleared).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetReplyRead {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    #[serde(default, deserialize_with = "lenient::string")]
+    pub session_id: String,
+    #[serde(default, deserialize_with = "lenient::flag")]
+    pub read: bool,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1050,6 +1063,8 @@ pub enum Request {
     MarkSessionMerged(SessionTargetRequest),
     #[serde(rename = "set-session-done")]
     SetSessionDone(SetSessionDone),
+    #[serde(rename = "set-reply-read")]
+    SetReplyRead(SetReplyRead),
     #[serde(rename = "remove")]
     Remove(Remove),
     #[serde(rename = "attach")]
@@ -1126,7 +1141,7 @@ request_table! {
     ListBranches => "list-branches", Create => "create", ReorderSession => "reorder-session", Restart => "restart",
     Kill => "kill", MergePreview => "merge-preview", MergeWorktree => "merge-worktree",
     ResolveMerge => "resolve-merge", MarkSessionMerged => "mark-session-merged", SetSessionDone => "set-session-done",
-    Remove => "remove", Attach => "attach", Input => "input", Resize => "resize", Detach => "detach",
+    SetReplyRead => "set-reply-read", Remove => "remove", Attach => "attach", Input => "input", Resize => "resize", Detach => "detach",
     AttachTerminal => "attach-terminal", TerminalInput => "terminal-input", TerminalResize => "terminal-resize",
     TerminalDetach => "terminal-detach", AttachGit => "attach-git", GitInput => "git-input", GitResize => "git-resize",
     GitDetach => "git-detach", AttachDev => "attach-dev", DevInput => "dev-input", DevResize => "dev-resize",
@@ -1187,6 +1202,7 @@ impl Request {
             R::MergeWorktree(r) => &r.request_id,
             R::ResolveMerge(r) => &r.request_id,
             R::SetSessionDone(r) => &r.request_id,
+            R::SetReplyRead(r) => &r.request_id,
             R::Remove(r) => &r.request_id,
             R::Attach(r) | R::AttachTerminal(r) | R::AttachGit(r) | R::AttachDev(r) | R::AttachAction(r) => {
                 &r.request_id
@@ -1263,7 +1279,7 @@ mod tests {
                 json!({"type": kind, "requestId": 5, "sessionId": 5, "cwd": 5, "path": 5, "repoRoot": 5,
                        "cols": "x", "rows": null, "section": "bogus", "mode": "bogus", "group": "bogus",
                        "direction": "bogus", "action": "bogus", "program": "bogus", "target": "bogus", "op": "x",
-                       "line": 1.5, "done": "yes", "archived": 1, "paths": "x", "input": 5, "payload": 5,
+                       "line": 1.5, "done": "yes", "read": "yes", "archived": 1, "paths": "x", "input": 5, "payload": 5,
                        "data": 5, "sentAt": "x", "deleteBranch": [], "sendOpenItems": 1}),
             ] {
                 let request = serde_json::from_value::<Request>(body.clone());
@@ -1366,6 +1382,6 @@ mod tests {
         tags.sort_unstable();
         tags.dedup();
         assert_eq!(tags.len(), Request::TYPES.len());
-        assert_eq!(Request::TYPES.len(), 76);
+        assert_eq!(Request::TYPES.len(), 77);
     }
 }

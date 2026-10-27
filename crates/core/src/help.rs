@@ -52,7 +52,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Tasks: the repository's task list (n starts a session from one) / Worktrees: what is merged, delete them",
             },
             HelpLine::Key {
-                keys: "C  U",
+                keys: "C  G",
                 text: "Settings / Agents: versions and updates (Enter updates, r re-checks)",
             },
             HelpLine::Key {
@@ -83,6 +83,10 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             HelpLine::Key {
                 keys: "Space",
                 text: "Mark done / not done (☑; any session, not the same as merged)",
+            },
+            HelpLine::Key {
+                keys: "U",
+                text: "Mark its finished reply unread (◆) to come back to it / read again",
             },
             HelpLine::Key {
                 keys: "m  M",

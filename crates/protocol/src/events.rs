@@ -313,9 +313,13 @@ impl ResponseData {
                 ResponseData::Ok(from(data)?)
             }
             "export-handoff" | "open-note" | "open-tasks" => ResponseData::Path(from(data)?),
-            "set-session-done" | "archive-session" | "create" | "restart" | "resolve-merge" | "mark-session-merged" => {
-                ResponseData::Session(from(data)?)
-            }
+            "set-session-done"
+            | "set-reply-read"
+            | "archive-session"
+            | "create"
+            | "restart"
+            | "resolve-merge"
+            | "mark-session-merged" => ResponseData::Session(from(data)?),
             "list" | "subscribe" | "reorder-session" => ResponseData::Sessions(from(data)?),
             "save-config" => ResponseData::SavedConfig(from(data)?),
             "settings-info" => ResponseData::SettingsInfo(Box::new(from(data)?)),

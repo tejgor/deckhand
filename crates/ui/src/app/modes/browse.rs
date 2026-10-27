@@ -9,14 +9,16 @@ use deckhand_core::display::display_session_title;
 use deckhand_core::jsstr::date::now_ms;
 use deckhand_core::jsstr::{js_len, js_trim};
 use deckhand_core::key::Input;
-use deckhand_core::session_features::{filter_session_list, session_blocked, session_needs_attention};
+use deckhand_core::session_features::{
+    filter_session_list, session_blocked, session_has_unread_reply, session_needs_attention,
+};
 use deckhand_core::session_order::{session_descendants, session_has_children};
 use deckhand_core::tasks_board::work_key_of;
 use deckhand_core::workspace::{no_workspace_reason, workspace_key};
 use deckhand_protocol::data::JsNumber;
 use deckhand_protocol::data::{
-    AttachTarget, DevRecord, MoveDirection, ProjectInfo, RestartMode, RightPaneTab, SessionRecord, SessionStatus,
-    SessionWorktreeMode, SetupState, WorktreeMode,
+    AttachTarget, AttentionState, DevRecord, MoveDirection, ProjectInfo, RestartMode, RightPaneTab, SessionRecord,
+    SessionStatus, SessionWorktreeMode, SetupState, WorktreeMode,
 };
 use deckhand_protocol::records::{AppConfig, SessionFilter};
 use deckhand_sys::desktop::open_in_editor;
@@ -84,7 +86,7 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Topic("Git & PRs"),
     },
     Binding {
-        keys: &[KeySpec::Char("C"), KeySpec::Char("U")],
+        keys: &[KeySpec::Char("C"), KeySpec::Char("G")],
         action: "settings / agents",
         help: HelpRef::Topic("Start here"),
     },
@@ -186,6 +188,11 @@ pub static KEYMAP: Keymap = &[
     Binding {
         keys: &[KeySpec::Char(" ")],
         action: "mark done",
+        help: HelpRef::Topic("Sessions"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("U")],
+        action: "mark the reply unread / read",
         help: HelpRef::Topic("Sessions"),
     },
     Binding {
@@ -313,7 +320,7 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         app.settings_flow_call(|flow, props, cx| flow.open(&cwd, props, cx));
         return;
     }
-    if text == "U" && connected {
+    if text == "G" && connected {
         app.agents_flow_call(|flow, props, cx| flow.open(props, cx));
         return;
     }
@@ -510,6 +517,10 @@ pub fn handle_browse(app: &mut App, input: &Input) {
     // Space marks the session done (or not), as it ticks a task.
     if text == " " {
         toggle_selected_done(app);
+        return;
+    }
+    if text == "U" {
+        toggle_selected_reply_read(app);
         return;
     }
     // x asks first (with the worktree's deletion choices); X force-stops at once and keeps any worktree.
@@ -1075,6 +1086,39 @@ pub fn toggle_selected_done(app: &mut App) {
     }));
 }
 
+/// Not in the TS: U marks the reply that ended the selected session's last turn unread, or read again (the daemon
+/// keeps it).
+pub fn toggle_selected_reply_read(app: &mut App) {
+    let (Some(client), Some(session)) = (app.client(), app.selected_session()) else {
+        return;
+    };
+    let ended = session
+        .attention
+        .as_ref()
+        .is_some_and(|attention| attention.state == AttentionState::ResponseEnded);
+    if !ended {
+        app.set_status(Some(
+            "No reply to mark unread: its agent has not finished a turn".to_owned(),
+        ));
+        return;
+    }
+    let read = !session_has_unread_reply(&session);
+    app.set_error(None);
+    let reply = client.set_reply_read(&session.id, !read);
+    drop(app.dispatch().spawn(reply, move |app: &mut App, result| match result {
+        Ok(updated) => {
+            let title = display_session_title(&updated, &app.sessions());
+            app.upsert(updated);
+            app.set_status(Some(if read {
+                format!("Marked unread: {title}")
+            } else {
+                format!("Marked read: {title}")
+            }));
+        }
+        Err(error) => app.set_error(Some(error.to_string())),
+    }));
+}
+
 /// TS `markSelectedMerged` (M).
 pub fn mark_selected_merged(app: &mut App) {
     let (Some(client), Some(session)) = (app.client(), app.selected_session()) else {
@@ -1324,9 +1368,9 @@ pub(crate) mod tests {
     use deckhand_client::live::{LiveClient, LiveClientHandlers};
     use deckhand_core::key::Key;
     use deckhand_protocol::data::{
-        AgentActivityStatus, AttachTarget, AttentionState, ProgramKey, SessionAttention, SessionWorktreeRecord,
-        UiExitResult,
+        AgentActivityStatus, AttachTarget, ProgramKey, SessionAttention, SessionWorktreeRecord, UiExitResult,
     };
+    use indexmap::IndexMap;
 
     use super::*;
     use crate::app::event_loop::{UiModel, Update};
@@ -1747,7 +1791,7 @@ pub(crate) mod tests {
         handle_browse(&mut app, &text("/"));
         assert_eq!(app.mode, Mode::Search);
         app.set_mode(Mode::Browse);
-        // Without a daemon: W and R say so; C, U, A, i, H do nothing.
+        // Without a daemon: W and R say so; C, G, A, i, H do nothing.
         handle_browse(&mut app, &text("W"));
         assert_eq!(app.messages.error.as_deref(), Some("still connecting to daemon"));
         assert_eq!(app.mode, Mode::Browse);
@@ -1755,7 +1799,7 @@ pub(crate) mod tests {
         handle_browse(&mut app, &text("R"));
         assert_eq!(app.messages.error.as_deref(), Some("still connecting to daemon"));
         app.set_error(None);
-        for key in ["C", "U", "A", "i", "H"] {
+        for key in ["C", "G", "A", "i", "H"] {
             handle_browse(&mut app, &text(key));
             assert_eq!(app.mode, Mode::Browse, "{key}");
             assert_eq!(app.messages.error, None, "{key}");
@@ -2057,6 +2101,47 @@ pub(crate) mod tests {
             daemon.ok(&request, json_of(&archived)).await;
             apply(&mut app, &mut rx).await;
             assert_eq!(app.messages.status_message.as_deref(), Some("Archived Session 0"));
+        });
+    }
+
+    #[test]
+    fn u_toggles_an_ended_reply_unread_and_read() {
+        local(async {
+            let (mut app, mut rx) = with_sessions(1);
+            let mut daemon = Daemon::connect(&mut app);
+            // Nothing ended yet: nothing to mark, and nothing is sent.
+            handle_browse(&mut app, &text("U"));
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("No reply to mark unread: its agent has not finished a turn")
+            );
+            let mut session = app.data.repo_sessions[0].clone();
+            session.attention = Some(SessionAttention {
+                state: AttentionState::ResponseEnded,
+                event: "Stop".to_owned(),
+                at: "2026-01-02T00:00:00.000Z".to_owned(),
+                reason: None,
+                extra: IndexMap::new(),
+            });
+            session.reply_read_at = Some("2026-01-02T00:05:00.000Z".to_owned());
+            app.data.repo_sessions[0] = session.clone();
+            handle_browse(&mut app, &text("U"));
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "set-reply-read");
+            assert_eq!(request["read"], false);
+            session.reply_read_at = None;
+            daemon.ok(&request, json_of(&session)).await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(app.messages.status_message.as_deref(), Some("Marked unread: Session 0"));
+            assert!(session_has_unread_reply(&app.sessions()[0]));
+            handle_browse(&mut app, &text("U"));
+            let request = daemon.next().await;
+            assert_eq!(request["read"], true);
+            session.reply_read_at = Some("2026-01-02T00:06:00.000Z".to_owned());
+            daemon.ok(&request, json_of(&session)).await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(app.messages.status_message.as_deref(), Some("Marked read: Session 0"));
+            assert!(!session_has_unread_reply(&app.sessions()[0]));
         });
     }
 

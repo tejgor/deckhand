@@ -1196,7 +1196,13 @@ mod tests {
     fn start_streams_preview_activity_and_exit() {
         run_local(async {
             let mut daemon = Daemon::start();
-            assert_eq!(daemon.next_text().await, r#"{"type":"hello","version":49}"#);
+            assert_eq!(
+                daemon.next_text().await,
+                format!(
+                    r#"{{"type":"hello","version":{}}}"#,
+                    deckhand_protocol::PROTOCOL_VERSION
+                )
+            );
             daemon
                 .send(start_command("/bin/sh", &["-c", "printf hello; sleep 0.6"]))
                 .await;

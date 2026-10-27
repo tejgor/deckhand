@@ -113,8 +113,6 @@ fn sgr(layer: u8, Rgb(r, g, b): Rgb) -> String {
 pub struct StatusScope {
     /// The UI's checkout (`None`: every session the subscription sends, the whole repository).
     pub root: Option<String>,
-    /// The UI's read replies (session ID → when you last detached from its agent).
-    pub read_replies: IndexMap<String, String>,
 }
 
 /// How another session waits on you.
@@ -147,8 +145,7 @@ impl SessionSummary {
         let waiting = if !listed {
             None
         } else if attention == Some(AttentionState::ResponseEnded) {
-            session_has_unread_reply(&with_reply_read(session.clone(), &scope.read_replies))
-                .then_some(Waiting::UnreadReply)
+            session_has_unread_reply(&with_reply_read(session.clone())).then_some(Waiting::UnreadReply)
         } else {
             needs_attention(attention).then_some(Waiting::NeedsYou)
         };
@@ -835,10 +832,6 @@ mod tests {
     fn only_the_uis_sessions_and_unread_replies_count() {
         let scope = StatusScope {
             root: Some("/r/wt".to_owned()),
-            read_replies: IndexMap::from([
-                ("read".to_owned(), "2026-01-01T00:02:00.000Z".to_owned()),
-                ("replied-since".to_owned(), "2026-01-01T00:00:00.000Z".to_owned()),
-            ]),
         };
         let mut status = StatusLine::new("s", "fix-login", 6, 80, ThemeMode::Terminal)
             .unwrap()
@@ -851,6 +844,10 @@ mod tests {
             }))
             .unwrap()
         };
+        let read_at = |mut session: SessionRecord, at: &str| {
+            session.reply_read_at = Some(at.to_owned());
+            session
+        };
         let mut failed = session("failed", "/r/wt", AttentionState::Unknown);
         failed.status = SessionStatus::Exited;
         failed.exit_reason = Some(deckhand_protocol::data::ExitReason::Failed);
@@ -858,8 +855,14 @@ mod tests {
             session("s", "/r/wt", AttentionState::Working),
             // Another checkout of the repository: the subscription sends it, the UI does not list it.
             session("elsewhere", "/r", AttentionState::NeedsInput),
-            session("read", "/r/wt", AttentionState::ResponseEnded),
-            session("replied-since", "/r/wt", AttentionState::ResponseEnded),
+            read_at(
+                session("read", "/r/wt", AttentionState::ResponseEnded),
+                "2026-01-01T00:02:00.000Z",
+            ),
+            read_at(
+                session("replied-since", "/r/wt", AttentionState::ResponseEnded),
+                "2026-01-01T00:00:00.000Z",
+            ),
             // The sidebar counts an exit that failed; the line counts only running sessions.
             failed,
         ]);

@@ -111,7 +111,7 @@ Also `<` / `>` narrow and widen the sidebar and `tab` / `shift+tab` cycle tabs. 
 
 ## 10. Help search
 
-Press `?`, then `/` and type `merge`. Expected: topics narrow to those mentioning it; `Enter` keeps the search and gives letters back; `PgDn` scrolls; `Esc` clears the search, `Esc` again closes. Also: `U` shows the Agents screen with installed vs latest versions (latest may read "unknown" without `npm`); `Esc` leaves.
+Press `?`, then `/` and type `merge`. Expected: topics narrow to those mentioning it; `Enter` keeps the search and gives letters back; `PgDn` scrolls; `Esc` clears the search, `Esc` again closes. Also: `G` shows the Agents screen with installed vs latest versions (latest may read "unknown" without `npm`); `Esc` leaves.
 
 ## 11. 60-column resize
 

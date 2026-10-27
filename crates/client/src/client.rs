@@ -703,7 +703,7 @@ async fn exchange(socket: &mut UnixStream, message: &Request) -> Result<Option<V
 /// TS: client.ts ProtocolMismatchError vs any other ping failure.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum PingError {
-    /// TS: ProtocolMismatchError: `daemon protocol mismatch: expected v49, got <version>` (`undefined` when the daemon
+    /// TS: ProtocolMismatchError: `daemon protocol mismatch: expected v<PROTOCOL_VERSION>, got <version>` (`undefined` when the daemon
     /// sent no version).
     #[error("{0}")]
     ProtocolMismatch(String),
@@ -1375,28 +1375,28 @@ mod tests {
     fn ping_version_must_match_the_protocol() {
         // A daemon older than build reporting answers without `build` and `pid`.
         assert_eq!(
-            check_ping_version(Some(&json!({"ok": true, "version": 49}))),
+            check_ping_version(Some(&json!({"ok": true, "version": PROTOCOL_VERSION}))),
             Ok(PingResult {
                 ok: true,
-                version: Some(49),
+                version: Some(PROTOCOL_VERSION),
                 ..PingResult::default()
             })
         );
         assert_eq!(
             check_ping_version(Some(&json!({"ok": true, "version": 45}))),
-            Err(PingError::ProtocolMismatch(String::from(
-                "daemon protocol mismatch: expected v49, got 45"
+            Err(PingError::ProtocolMismatch(format!(
+                "daemon protocol mismatch: expected v{PROTOCOL_VERSION}, got 45"
             )))
         );
         assert_eq!(
             check_ping_version(Some(&json!({"ok": true}))).unwrap_err().to_string(),
-            "daemon protocol mismatch: expected v49, got undefined"
+            format!("daemon protocol mismatch: expected v{PROTOCOL_VERSION}, got undefined")
         );
         assert_eq!(
-            check_ping_version(Some(&json!({"version": "49"})))
+            check_ping_version(Some(&json!({"version": PROTOCOL_VERSION.to_string()})))
                 .unwrap_err()
                 .to_string(),
-            "daemon protocol mismatch: expected v49, got 49"
+            format!("daemon protocol mismatch: expected v{PROTOCOL_VERSION}, got {PROTOCOL_VERSION}")
         );
         assert!(matches!(
             check_ping_version(Some(&Value::Null)),
@@ -1406,12 +1406,12 @@ mod tests {
 
     #[test]
     fn a_matching_ping_reports_the_daemon_build_and_pid_when_sent() {
-        let answer = json!({"ok": true, "version": 49, "home": "/h", "channel": "stable", "build": "3.0.1", "pid": 42});
+        let answer = json!({"ok": true, "version": PROTOCOL_VERSION, "home": "/h", "channel": "stable", "build": "3.0.1", "pid": 42});
         assert_eq!(
             check_ping_version(Some(&answer)),
             Ok(PingResult {
                 ok: true,
-                version: Some(49),
+                version: Some(PROTOCOL_VERSION),
                 home: Some("/h".into()),
                 channel: Some("stable".into()),
                 build: Some("3.0.1".into()),
@@ -1419,7 +1419,7 @@ mod tests {
             })
         );
         // Fields of an unexpected type are left out; the ping still succeeds.
-        let odd = json!({"ok": true, "version": 49, "build": 3, "pid": -1});
+        let odd = json!({"ok": true, "version": PROTOCOL_VERSION, "build": 3, "pid": -1});
         let ping = check_ping_version(Some(&odd)).unwrap();
         assert_eq!((ping.build, ping.pid), (None, None));
     }
@@ -1673,7 +1673,7 @@ mod tests {
         serve(&files.socket, |request| {
             Some(response(
                 &request,
-                json!({"ok": true, "data": {"ok": true, "version": 49}}),
+                json!({"ok": true, "data": {"ok": true, "version": PROTOCOL_VERSION}}),
             ))
         });
         ensure_daemon_running_with(&files, || panic!("must not spawn"))
@@ -1705,14 +1705,14 @@ mod tests {
         );
         assert_eq!(
             error.to_string(),
-            format!("daemon protocol mismatch: expected v49, got 45; {hint}")
+            format!("daemon protocol mismatch: expected v{PROTOCOL_VERSION}, got 45; {hint}")
         );
         let log = std::fs::read_to_string(&files.log).unwrap();
         assert!(log.starts_with('['), "{log}");
         assert!(
             log.ends_with(&format!(
                 "] client refusing to replace live daemon pid {pid} after protocol mismatch: daemon protocol \
-                 mismatch: expected v49, got 45; {hint}\n"
+                 mismatch: expected v{PROTOCOL_VERSION}, got 45; {hint}\n"
             )),
             "{log}"
         );
@@ -1734,7 +1734,7 @@ mod tests {
             serve(&socket, |request| {
                 Some(response(
                     &request,
-                    json!({"ok": true, "data": {"ok": true, "version": 49}}),
+                    json!({"ok": true, "data": {"ok": true, "version": PROTOCOL_VERSION}}),
                 ))
             });
             Ok(())
@@ -1852,7 +1852,12 @@ mod tests {
             DaemonState::Unresponsive { pid, .. } if pid == own
         ));
 
-        fake_daemon(&files.socket, 49, json!({"build": "3.0.0", "pid": 4242}), json!([]));
+        fake_daemon(
+            &files.socket,
+            PROTOCOL_VERSION,
+            json!({"build": "3.0.0", "pid": 4242}),
+            json!([]),
+        );
         let DaemonState::Running { ping, pid } = daemon_state_with(&files).await else {
             panic!("a running daemon");
         };
@@ -1866,7 +1871,7 @@ mod tests {
         assert_eq!(
             daemon_state_with(&other_files).await,
             DaemonState::OtherProtocol {
-                message: "daemon protocol mismatch: expected v49, got 45".into(),
+                message: format!("daemon protocol mismatch: expected v{PROTOCOL_VERSION}, got 45"),
                 pid: Some(own),
             }
         );
@@ -1878,7 +1883,7 @@ mod tests {
         let socket = dir.path().join("daemon.sock");
         assert_eq!(count_live_sessions_at(&socket).await, None);
         let sessions = json!([{"status": "running"}, {"status": "exited"}, {"status": "starting"}, {"id": "x"}]);
-        fake_daemon(&socket, 49, json!({}), sessions);
+        fake_daemon(&socket, PROTOCOL_VERSION, json!({}), sessions);
         assert_eq!(count_live_sessions_at(&socket).await, Some(3));
     }
 
@@ -1889,7 +1894,7 @@ mod tests {
         let files = files(dir.path());
         let (pid, exited) = stand_in(false);
         std::fs::write(&files.pid, pid.to_string()).unwrap();
-        let seen = fake_daemon(&files.socket, 49, json!({}), json!([]));
+        let seen = fake_daemon(&files.socket, PROTOCOL_VERSION, json!({}), json!([]));
         let outcome = stop_daemon_with(&files, Some(pid), Duration::from_secs(5))
             .await
             .unwrap();
@@ -1908,7 +1913,7 @@ mod tests {
         let files = files(dir.path());
         let (pid, exited) = stand_in(true);
         std::fs::write(&files.pid, pid.to_string()).unwrap();
-        fake_daemon(&files.socket, 49, json!({}), json!([]));
+        fake_daemon(&files.socket, PROTOCOL_VERSION, json!({}), json!([]));
         let outcome = stop_daemon_with(&files, Some(pid), Duration::from_millis(300))
             .await
             .unwrap();

@@ -1107,7 +1107,7 @@ fn spawned_matches(processes: &HashMap<String, SetupProcess>, session_id: &str, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::tests::{local, session, test_client, test_daemon};
+    use crate::server::tests::{hello_line, local, session, test_client, test_daemon};
     use crate::worker_channel::ProcessExit;
     use deckhand_protocol::data::SessionWorktreeMode;
     use deckhand_protocol::wire::WatchPreview;
@@ -1157,7 +1157,7 @@ mod tests {
         let mut theirs = BufReader::new(theirs);
         theirs
             .get_mut()
-            .write_all(b"{\"type\":\"hello\",\"version\":49}\n")
+            .write_all(format!("{}\n", hello_line()).as_bytes())
             .await
             .unwrap();
         let fake = FakeWorker {
@@ -1836,7 +1836,7 @@ mod tests {
             "worker.sh",
             &format!(
                 r#"#!/bin/sh
-printf '{{"type":"hello","version":49}}\n' >&3
+printf '{hello}\n' >&3
 while IFS= read -r line <&3; do
   id=$(printf '%s' "$line" | sed -n 's/.*"requestId":"\([^"]*\)".*/\1/p')
   case "$line" in
@@ -1851,7 +1851,8 @@ while IFS= read -r line <&3; do
   esac
 done
 "#,
-                data = data.display()
+                data = data.display(),
+                hello = hello_line(),
             ),
         );
         let daemon = Daemon::with_paths(

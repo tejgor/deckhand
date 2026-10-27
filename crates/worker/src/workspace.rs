@@ -1251,7 +1251,13 @@ mod tests {
                 cwd,
                 _dir: dir,
             };
-            assert_eq!(daemon.next_text().await, r#"{"type":"hello","version":49}"#);
+            assert_eq!(
+                daemon.next_text().await,
+                format!(
+                    r#"{{"type":"hello","version":{}}}"#,
+                    deckhand_protocol::PROTOCOL_VERSION
+                )
+            );
             daemon
         }
 

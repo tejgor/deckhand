@@ -25,7 +25,8 @@ use deckhand_protocol::data::{
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage};
 use deckhand_protocol::wire::{
-    ArchiveSession, ExportHandoff, Remove, SessionRequest, SetSessionDone, js_string, js_truthy, node_received,
+    ArchiveSession, ExportHandoff, Remove, SessionRequest, SetReplyRead, SetSessionDone, js_string, js_truthy,
+    node_received,
 };
 use deckhand_protocol::{KeyOrder, Ordered};
 use deckhand_sys::agent_path::integration_args;
@@ -1826,6 +1827,16 @@ impl Daemon {
         Ok(saved)
     }
 
+    /// Not in the TS: handleRequest `set-reply-read`: records `replyReadAt` now (read) or clears it (unread).
+    ///
+    /// A new turn's reply ends after `replyReadAt`, so it is unread again without anything clearing the field.
+    pub async fn handle_set_reply_read(&self, request: &SetReplyRead) -> Result<Ordered<SessionRecord>> {
+        let mut session = self.require_session(&request.session_id)?;
+        assign(&mut session, "replyReadAt");
+        session.reply_read_at = request.read.then(now_iso);
+        self.save_session(session).await
+    }
+
     /// TS: handleRequest `archive-session`.
     pub async fn handle_archive_session(&self, request: &ArchiveSession) -> Result<Ordered<SessionRecord>> {
         let mut session = self.require_session(&request.session_id)?;
@@ -2440,6 +2451,38 @@ mod tests {
             let untouched = daemon.require_session("missing").unwrap();
             assert_eq!(untouched.status, SessionStatus::Exited);
             assert_eq!(untouched.launch_id.as_deref(), Some("l1"));
+        });
+    }
+
+    #[test]
+    fn set_reply_read_records_when_the_reply_was_read_and_clears_it() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = daemon(dir.path());
+            let ended = json!({"state": "response-ended", "event": "Stop", "at": "2026-01-01T00:00:00.000Z"});
+            put(
+                &daemon,
+                record(json!({"id": "s", "status": "running", "attention": ended})),
+            );
+            let set = |read: bool| SetReplyRead {
+                request_id: "r".into(),
+                session_id: "s".into(),
+                read,
+            };
+            let read = daemon.handle_set_reply_read(&set(true)).await.unwrap();
+            assert!(read.reply_read_at.as_deref() > Some("2026-01-01T00:00:00.000Z"));
+            assert_eq!(daemon.require_session("s").unwrap().reply_read_at, read.reply_read_at);
+            let unread = daemon.handle_set_reply_read(&set(false)).await.unwrap();
+            assert_eq!(unread.reply_read_at, None);
+            assert_eq!(daemon.require_session("s").unwrap().reply_read_at, None);
+            let gone = SetReplyRead {
+                session_id: "gone".into(),
+                ..set(true)
+            };
+            assert_eq!(
+                error(daemon.handle_set_reply_read(&gone).await),
+                "Session does not exist"
+            );
         });
     }
 

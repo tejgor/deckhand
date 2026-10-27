@@ -414,7 +414,7 @@ impl Daemon {
 pub(crate) mod tests {
     use super::*;
     use crate::launch::Draft;
-    use crate::server::tests::{local, session, test_client, test_daemon};
+    use crate::server::tests::{hello_line, local, session, test_client, test_daemon};
     use crate::server::{Client, ClientId, ClientSubscription};
     use crate::worker_channel::{ChannelEvents, ProcessExit, WorkerChannel, WorkerKind};
     use deckhand_sys::async_util::Timer;
@@ -486,7 +486,7 @@ pub(crate) mod tests {
         let mut theirs = BufReader::new(theirs);
         theirs
             .get_mut()
-            .write_all(b"{\"type\":\"hello\",\"version\":49}\n")
+            .write_all(format!("{}\n", hello_line()).as_bytes())
             .await
             .unwrap();
         let worker = Rc::new(WorkerRuntime {

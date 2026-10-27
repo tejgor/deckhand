@@ -687,6 +687,14 @@ pub(crate) mod tests {
         tokio::task::LocalSet::new().block_on(&runtime, future)
     }
 
+    /// The hello a worker of this build sends first (one line, without its newline).
+    pub(crate) fn hello_line() -> String {
+        format!(
+            r#"{{"type":"hello","version":{}}}"#,
+            deckhand_protocol::PROTOCOL_VERSION
+        )
+    }
+
     /// A daemon whose files live in `dir`.
     pub(crate) fn test_daemon(dir: &std::path::Path) -> Daemon {
         Daemon::with_paths(

@@ -212,9 +212,6 @@ pub struct AppProps {
     pub initial_session_tabs: Option<IndexMap<String, RightPaneTab>>,
     pub initial_collapsed_session_ids: Option<Vec<String>>,
     pub initial_hidden_exited_session_ids: Option<Vec<String>>,
-    /// Session ID → when you last detached from its agent (uiState.ts); a response-ended reply from before then is
-    /// read.
-    pub read_replies: Option<IndexMap<String, String>>,
     pub initial_session_filter: Option<SessionFilter>,
     pub initial_session_query: Option<String>,
     /// The Terminal tab's view, kept across attaches by the caller.

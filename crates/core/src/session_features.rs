@@ -7,7 +7,6 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -88,11 +87,11 @@ fn js_string_cmp(a: &str, b: &str) -> Ordering {
     a.encode_utf16().cmp(b.encode_utf16())
 }
 
-/// TS: sessionFeatures.ts withReplyRead (`read_replies`: ui-state's session ID → when you last detached from its
-/// agent).
-pub fn with_reply_read(mut session: SessionRecord, read_replies: &IndexMap<String, String>) -> SessionRecord {
+/// TS: sessionFeatures.ts withReplyRead: `replyRead` when the reply that ended the last turn came no later than the
+/// session's `replyReadAt` (the TS took that time from ui-state's `readReplies`; the daemon keeps it now).
+pub fn with_reply_read(mut session: SessionRecord) -> SessionRecord {
     // ISO timestamps compare as strings.
-    let read = match (&session.attention, read_replies.get(&session.id)) {
+    let read = match (&session.attention, &session.reply_read_at) {
         (Some(attention), Some(read_at)) => {
             attention.state == AttentionState::ResponseEnded
                 && !read_at.is_empty()
@@ -449,6 +448,7 @@ pub fn handoff_markdown(
 pub(crate) mod tests {
     use super::*;
     use deckhand_testkit::{Case, Outcome, replay, tags};
+    use indexmap::IndexMap;
     use serde_json::{Value, json};
 
     /// A SessionRecord from a partial TS literal (`{...} as SessionRecord`): required fields the code under test never
@@ -576,11 +576,11 @@ pub(crate) mod tests {
             .collect()
     }
 
-    fn read_replies(entries: &[(&str, &str)]) -> IndexMap<String, String> {
-        entries
-            .iter()
-            .map(|(id, at)| ((*id).to_owned(), (*at).to_owned()))
-            .collect()
+    fn read_at(session: &SessionRecord, at: &str) -> SessionRecord {
+        SessionRecord {
+            reply_read_at: Some(at.to_owned()),
+            ..session.clone()
+        }
     }
 
     #[test]
@@ -589,23 +589,20 @@ pub(crate) mod tests {
             attention: attention(AttentionState::ResponseEnded, "Stop", "2026-10-19T10:00:00.000Z"),
             ..root()
         };
-        assert!(session_needs_attention(&with_reply_read(
-            ended.clone(),
-            &IndexMap::new()
-        )));
+        assert!(session_needs_attention(&with_reply_read(ended.clone())));
         assert!(!session_blocked(&ended));
-        // Detached before the reply arrived: still unread. After: read, and no longer needs attention.
-        assert!(session_needs_attention(&with_reply_read(
-            ended.clone(),
-            &read_replies(&[("root", "2026-10-19T09:59:59.000Z")])
-        )));
-        let read = with_reply_read(ended.clone(), &read_replies(&[("root", "2026-10-19T10:05:00.000Z")]));
+        // Read before the reply arrived: still unread. After: read, and no longer needs attention.
+        assert!(session_needs_attention(&with_reply_read(read_at(
+            &ended,
+            "2026-10-19T09:59:59.000Z"
+        ))));
+        let read = with_reply_read(read_at(&ended, "2026-10-19T10:05:00.000Z"));
         assert_eq!(read.reply_read, Some(true));
         assert!(!session_needs_attention(&read));
         assert!(listed_ids(&[read], SessionFilter::Attention, "").is_empty());
         // Only a reply is read: a session that asks or failed stays blocked whenever you last attached.
-        let asks = with_reply_read(
-            SessionRecord {
+        let asks = with_reply_read(read_at(
+            &SessionRecord {
                 attention: attention(
                     AttentionState::NeedsInput,
                     "PermissionRequest",
@@ -613,8 +610,8 @@ pub(crate) mod tests {
                 ),
                 ..ended
             },
-            &read_replies(&[("root", "2026-10-19T10:05:00.000Z")]),
-        );
+            "2026-10-19T10:05:00.000Z",
+        ));
         assert_eq!(asks.reply_read, None);
         assert!(session_blocked(&asks));
         // normalizeUiState's readReplies (the last assertion of the TS test) is ui state (I1).
@@ -779,7 +776,10 @@ pub(crate) mod tests {
                 } else {
                     case.arg_as(1)?
                 };
-                let result = with_reply_read(partial_session(&input)?, &read_replies);
+                // The recorded cases pass ui-state's readReplies; the time is the session's own field now.
+                let mut session = partial_session(&input)?;
+                session.reply_read_at = read_replies.get(&session.id).cloned();
+                let result = with_reply_read(session);
                 let value = serde_json::to_value(result).map_err(|error| error.to_string())?;
                 Ok(prune_to(value, &input, &["replyRead"]))
             },

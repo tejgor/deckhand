@@ -1187,7 +1187,7 @@ async fn start_detached(future: impl std::future::Future<Output = ()> + 'static)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::tests::{local, session, test_client, test_daemon};
+    use crate::server::tests::{hello_line, local, session, test_client, test_daemon};
     use crate::server::{Client, ClientSubscription};
     use crate::worker_channel::ProcessExit;
     use deckhand_protocol::data::SessionStatus;
@@ -1295,7 +1295,7 @@ mod tests {
         let mut theirs = BufReader::new(theirs);
         theirs
             .get_mut()
-            .write_all(b"{\"type\":\"hello\",\"version\":49}\n")
+            .write_all(format!("{}\n", hello_line()).as_bytes())
             .await
             .unwrap();
         let workspace = Rc::new(WorkspaceRuntime::new(key.to_owned(), channel));
@@ -2180,7 +2180,7 @@ mod tests {
 
     /// A workspace worker in sh: says hello, answers `start` and `snapshot`, exits on `shutdown`.
     const SH_WORKSPACE_WORKER: &str = r#"#!/bin/sh
-printf '{"type":"hello","version":49}\n' >&3
+printf '@HELLO@\n' >&3
 echo "workspace $1"
 while IFS= read -r line <&3; do
   id=$(printf '%s' "$line" | sed -n 's/.*"requestId":"\([^"]*\)".*/\1/p')
@@ -2197,7 +2197,7 @@ done
         let dir = tempfile::tempdir().unwrap();
         let _home = Home::set(dir.path());
         let exe = dir.path().join("worker.sh");
-        std::fs::write(&exe, SH_WORKSPACE_WORKER).unwrap();
+        std::fs::write(&exe, SH_WORKSPACE_WORKER.replace("@HELLO@", &hello_line())).unwrap();
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
         let daemon = Daemon::with_paths(
             crate::daemon::DaemonOptions {

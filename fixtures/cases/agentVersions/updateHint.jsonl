@@ -1,24 +1,24 @@
 {"args":[{"$u":1}],"ret":""}
 {"args":[{"claude":{"program":"","installed":"","latest":"0.9.0"},"pi":{"program":"pi","installed":"","latest":"1.287.4"},"codex":{"program":"codex","latest":"9.1.23"}}],"ret":""}
-{"args":[{"claude":{"program":"","installed":"","latest":"27.0.100"},"pi":{"program":"pi"},"codex":{"program":"codex","installed":"0.100.9","latest":"16.9.0"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"","installed":"","latest":"27.0.100"},"pi":{"program":"pi"},"codex":{"program":"codex","installed":"0.100.9","latest":"16.9.0"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"","installed":"","latest":"6.99.1"},"pi":{"program":"pi","installed":"","latest":"99.99.99"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"","installed":"","latest":"99.27.26"},"pi":{"program":"pi","installed":"","latest":"1000.11.0"},"codex":{"program":"codex","installed":"","latest":"287.15.287"}}],"ret":""}
 {"args":[{"claude":{"program":"","installed":""},"pi":{"program":"pi","installed":"99.99.1","latest":"28.9.10"},"codex":{"program":"codex","installed":"","latest":"3.29.1"}}],"ret":""}
 {"args":[{"claude":{"program":"","installed":""},"pi":{"program":"pi","latest":"27.0.1"},"codex":{"program":"codex","installed":"11.0.19","latest":"8.7.9"}}],"ret":""}
-{"args":[{"claude":{"program":"","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"caude","installed":"","latest":"10.99.0"},"pi":{"program":"pi"},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"cl\taude","installed":"","latest":"99.100.0"},"pi":{"program":"pi","latest":"10.0.0"},"codex":{"program":"codex","installed":"12.3.26","latest":"24.15.13"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"cl\taude","installed":"","latest":"99.100.0"},"pi":{"program":"pi","latest":"10.0.0"},"codex":{"program":"codex","installed":"12.3.26","latest":"24.15.13"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":""},"pi":{"program":"pi","latest":"0.3.10"},"codex":{"program":"codex","installed":"","latest":"15.29.18"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":""},"pi":{"program":"pi","latest":"100.100.27"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"0.1000.14"},"pi":{"program":"pi","installed":"2.0.287","latest":""},"codex":{"program":"codex","latest":"99.10.4"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"0.1000.14"},"pi":{"program":"pi","installed":"2.0.287","latest":"9.0.28"},"codex":{"program":"codex","latest":"99.10.4"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"0.1000.14"},"pi":{"program":"pi","installed":"2.0.287","latest":"9.0.28"},"codex":{"program":"codex","latest":"99.10.4"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"0.19.1000"},"pi":{"program":"pi"},"codex":{"program":"codex","latest":"10.14.0"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"0.19.1000"},"pi":{"program":"pi"},"codex":{"program":"codex","latest":"10.14.010.14.0"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"0.24.0"},"pi":{"program":"pi","installed":"15.10.10"},"codex":{"program":"codex","installed":"99.287.15","latest":"99.10.27"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"0.24.0"},"pi":{"program":"pi","installed":"15.10.10"},"codex":{"program":"codex","installed":"99.287._15","latest":"99.10.27"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"0.24.0"},"pi":{"program":"pipi","installed":"15.10.10"},"codex":{"program":"codex","installed":"99.287.15","latest":"99.10.27"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"0.29.1"},"pi":{"program":"_pi","installed":"0.1.0","latest":"100.5.4"},"codex":{"program":"codex","installed":"","latest":"6.9.1000"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"0.29.1"},"pi":{"program":"pi","installed":"0.1.0","latest":"100.5.4"},"codex":{"program":"codex","installed":"","latest":"6.9.1000"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"0.29.1"},"pi":{"program":"_pi","installed":"0.1.0","latest":"100.5.4"},"codex":{"program":"codex","installed":"","latest":"6.9.1000"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"0.29.1"},"pi":{"program":"pi","installed":"0.1.0","latest":"100.5.4"},"codex":{"program":"codex","installed":"","latest":"6.9.1000"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"0.9.0"},"pi":{"program":"pi","installed":"","latest":"1.287.4"},"codex":{"program":"codex","latest":"9.1.23"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"0.9.0é"},"pi":{"program":"pi","installed":"","latest":"1.287.4"},"codex":{"program":"codex","latest":"9.1.23"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"1.1.30"},"pi":{"program":"pi","installed":"","latest":"1.0.1000"},"codex":{"program":"codex","installed":"","latest":"3.30.16"}}],"ret":""}
@@ -35,31 +35,31 @@
 {"args":[{"claude":{"program":"claude","installed":"","latest":"11.1.0"},"pi":{"program":"pi","installed":"","latest":"9.26.1000"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"11.1.0"},"pi":{"program":"pi","installed":"","latest":"9.26.1000"},"codex":{"program":"codexcodex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"11.1.0"},"pi":{"program":"pi","installed":"\n","latest":"9.26.1000"},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"14.99.287"},"pi":{"program":"pi","installed":"1.29.10","latest":"17.10.0"},"codex":{"program":"codex","latest":"100.0.1"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"14.99.287"},"pi":{"program":"pi","installed":"1.29.10","latest":"17.10.0"},"codex":{"program":"codex","latest":"100.0.1"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"14.99.287"},"pi":{"program":"pi","installed":"1.29.100","latest":"17.10."},"codex":{"program":"codex","latest":"100.0.1"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"14.99.287"},"pi":{"program":"pi","installed":"1.29.100","latest":"17.10.0"},"codex":{"program":"codex","latest":"100.0.1"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"14.99.287"},"pi":{"program":"pi","installed":"1.29.100","latest":"17.10.0"},"codex":{"program":"codex","latest":"100.0.1"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"15.16.26"},"pi":{"program":"pi","installed":"10.100.9"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"15.16.2615.16.26"},"pi":{"program":"pi","installed":"10.100.9"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"17.1000.9"},"pi":{"program":"pi","installed":"16.1000.99","latest":"99..99.10"},"codex":{"program":"codex","installed":"","latest":"9.1.28"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"17.1000.9"},"pi":{"program":"pi","installed":"16.1000.99","latest":"99.99.10"},"codex":{"program":"codex","installed":"","latest":"9.1.28"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"17.1000.9"},"pi":{"program":"pi","installed":"16.1000.99","latest":"99.99.10"},"codex":{"program":"codex","installed":"","latest":"9.1.289.1.28"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"17.1000.9"},"pi":{"program":"pi","installed":"16.1000.99","latest":"99.99.10"},"codex":{"program":"codex","installed":"","latest":"9.1.28"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"17.1000.9"},"pi":{"program":"pi","installed":"16.1000.99","latest":"99.99.10"},"codex":{"program":"codex","installed":"","latest":"9.1.289.1.28"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"23.10.21"},"pi":{"program":"pi","latest":"100.100.27"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"23.10.21"},"pi":{"program":"pi","latest":"100.100.27"},"codex":{"program":"odex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"24.3.100"},"pi":{"program":"pi","installed":"1000.1.1","latest":"0.1.29"},"codex":{"program":"codex","installed":"0.3.287","latest":"99.1000.100"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"24.3.100"},"pi":{"program":"pi","installed":"1000.1.11000.1.1","latest":"0.1.29"},"codex":{"program":"codex","installed":"0.3.287","latest":"99.1000.100"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"27.0.100"},"pi":{"program":"pi"},"codex":{"program":"codex","installed":"0.100.9","latest":"16.9.0"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"287.10.27"},"pi":{"program":"pi","installed":"7.11.100","latest":"99.99.12"},"codex":{"program":"codex","latest":"20.287.1"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"287.10.27"},"pi":{"program":"pi","installed":"7.11.100","latest":"99.99.12"},"codex":{"program":"codex","latest":"20.87.1"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"24.3.100"},"pi":{"program":"pi","installed":"1000.1.1","latest":"0.1.29"},"codex":{"program":"codex","installed":"0.3.287","latest":"99.1000.100"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"24.3.100"},"pi":{"program":"pi","installed":"1000.1.11000.1.1","latest":"0.1.29"},"codex":{"program":"codex","installed":"0.3.287","latest":"99.1000.100"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"27.0.100"},"pi":{"program":"pi"},"codex":{"program":"codex","installed":"0.100.9","latest":"16.9.0"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"287.10.27"},"pi":{"program":"pi","installed":"7.11.100","latest":"99.99.12"},"codex":{"program":"codex","latest":"20.287.1"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"287.10.27"},"pi":{"program":"pi","installed":"7.11.100","latest":"99.99.12"},"codex":{"program":"codex","latest":"20.87.1"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"287.27.28"},"pi":{"program":"pi","installed":"","latest":"30.100.9"},"codex":{"program":"codex","latest":"11.3.0"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"287.27.28287.27.28"},"pi":{"program":"pi","installed":"","latest":"30.100.9"},"codex":{"program":"codex","latest":"11.3.0"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"287.27.28中"},"pi":{"program":"pi","installed":"","latest":"30.100.9"},"codex":{"program":"codex","latest":"11.3.0"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"29.1.18"},"pi":{"program":"pi","latest":"0.3.10"},"codex":{"program":"codex","installed":"","latest":"15.29.18"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"29.1.18"},"pi":{"program":"pi","latest":"0.3.10"},"codex":{"program":"codex","installed":"\t","latest":"15.29.18"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"30.0.0"},"pi":{"program":"pi","installed":"","latest":"1000.99.10"},"codex":{"program":"codex","installed":"1.100.11","latest":""}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"30.0.0"},"pi":{"program":"pi","installed":"","latest":"1000.99.10"},"codex":{"program":"codex","installed":"1.100.11","latest":"23.1.0"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"30.99.99"},"pi":{"program":"pi","installed":"10.99.1","latest":"0.0.10"},"codex":{"program":"codex","installed":"4.3.100","latest":"287.17.1000"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"30.99.99"},"pi":{"program":"pi","installed":"10.99.1","latest":"0.0.100.0.10"},"codex":{"program":"codex","installed":"4.3.100","latest":"287.17.1000"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"30.\n99.99"},"pi":{"program":"pi","installed":"10.99.1","latest":"0.0.10"},"codex":{"program":"codex","installed":"4.3.100","latest":"287.17.1000"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"30.0.0"},"pi":{"program":"pi","installed":"","latest":"1000.99.10"},"codex":{"program":"codex","installed":"1.100.11","latest":"23.1.0"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"30.99.99"},"pi":{"program":"pi","installed":"10.99.1","latest":"0.0.10"},"codex":{"program":"codex","installed":"4.3.100","latest":"287.17.1000"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"30.99.99"},"pi":{"program":"pi","installed":"10.99.1","latest":"0.0.100.0.10"},"codex":{"program":"codex","installed":"4.3.100","latest":"287.17.1000"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"30.\n99.99"},"pi":{"program":"pi","installed":"10.99.1","latest":"0.0.10"},"codex":{"program":"codex","installed":"4.3.100","latest":"287.17.1000"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"5.99.22"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"","latest":"9.4.28"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"6.25.1000"},"pi":{"program":"pi","installed":"","latest":"18.1.0"},"codex":{"program":"codex","latest":"4.287.24"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"6.25.1000"},"pi":{"program":"pi","installed":"","latest":"18.1.0"},"codex":{"program":"cod‍ex","latest":"4.287.24"}}],"ret":""}
@@ -71,27 +71,27 @@
 {"args":[{"claude":{"program":"claude","installed":"","latest":"9.1.22"},"pi":{"program":"pi","installed":"","latest":"9.1000.1"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"9.1.22"},"pi":{"program":"pi","installed":"é","latest":"9.1000.1"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"9.10.100"},"pi":{"program":"pi","latest":"0.1.100"},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"9.4.10"},"pi":{"program":"p","installed":"","latest":"26.1000.1000"},"codex":{"program":"codex","installed":"9.100.27","latest":"99.1000.11"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"9.4.10"},"pi":{"program":"pi","installed":"","latest":"26.1000.1000"},"codex":{"program":"","installed":"9.100.27","latest":"99.1000.11"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"9.4.10"},"pi":{"program":"pi","installed":"","latest":"26.1000.1000"},"codex":{"program":"codex","installed":"9.100.27","latest":"99.1000.11"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"9.4.10"},"pi":{"program":"p","installed":"","latest":"26.1000.1000"},"codex":{"program":"codex","installed":"9.100.27","latest":"99.1000.11"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"9.4.10"},"pi":{"program":"pi","installed":"","latest":"26.1000.1000"},"codex":{"program":"","installed":"9.100.27","latest":"99.1000.11"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"9.4.10"},"pi":{"program":"pi","installed":"","latest":"26.1000.1000"},"codex":{"program":"codex","installed":"9.100.27","latest":"99.1000.11"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"9.4.100"},"pi":{"program":"pi","latest":"17.2.100"},"codex":{"program":"codex","installed":"","latest":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"9.4.100"},"pi":{"program":"pi","latest":"17.2.100"},"codex":{"program":"codex","installed":"","latest":"4.14.99"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"9.4.100"},"pi":{"program":"pi","latest":"17.2.100"},"codex":{"program":"codex","installed":"\t","latest":"4.14.99"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"99.10.100"},"pi":{"program":"","latest":"0.1.100"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"99.10.100"},"pi":{"program":"pi","latest":"0.1.100"},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"99.100.0"},"pi":{"program":"pi","latest":"10.0.0"},"codex":{"program":"codex","installed":"12.3.26","latest":"24.15.13"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"","latest":"99.100.0"},"pi":{"program":"pi","latest":"10.0.0"},"codex":{"program":"codex","installed":"12.3.26","latest":"_24.15.13"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"99.100.0"},"pi":{"program":"pi","latest":"10.0.0"},"codex":{"program":"codex","installed":"12.3.26","latest":"24.15.13"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"","latest":"99.100.0"},"pi":{"program":"pi","latest":"10.0.0"},"codex":{"program":"codex","installed":"12.3.26","latest":"_24.15.13"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":"","latest":"99.27.26"},"pi":{"program":"pi","installed":"","latest":"1000.11.0"},"codex":{"program":"codex","installed":"","latest":"287.15.287"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"","latest":"1000.100.1000"},"codex":{"program":"codex","installed":" ","latest":"4.6.18"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"","latest":"1000.100.1000"},"codex":{"program":"codex","installed":"","latest":"4.6.18"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"","latest":"1000.100.10001000.100.1000"},"codex":{"program":"codex","installed":"","latest":"4.6.18"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"","latest":"26.3.2"},"codex":{"program":"codex","installed":"26.21.26","latest":"99.100.10"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"","latest":"26.3.2"},"codex":{"program":"codex","installed":"26.21.26","latest":"99.100.10"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":""},"codex":{"program":"","latest":"1.30.26"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","latest":"1.30.2"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","latest":"1.30.26"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","latest":"28.5.27"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"0.21.0","latest":"4.4.100"},"codex":{"program":"","installed":"","latest":"19.12.24"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"0.21.0","latest":"4.4.100"},"codex":{"program":"codex","installed":"","latest":"19.12.24"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"0.21.0","latest":"4.4.100"},"codex":{"program":"","installed":"","latest":"19.12.24"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"0.21.0","latest":"4.4.100"},"codex":{"program":"codex","installed":"","latest":"19.12.24"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"0.21.0","latest":"44.100"},"codex":{"program":"codex","installed":"","latest":"19.12.24"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pi","installed":"99.99.1","latest":"28.9.10"},"codex":{"program":"codex","installed":"","latest":"3.29.1"}}],"ret":""}
@@ -106,72 +106,72 @@
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"pipi","installed":""},"codex":{"program":"codex","latest":"28.5.27"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":""},"pi":{"program":"épi"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"/","latest":"99.27.26"},"pi":{"program":"pi","installed":"","latest":"1000.11.0"},"codex":{"program":"codex","installed":"","latest":"287.15.287"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"0.0.100","latest":"1.5.99"},"pi":{"program":"pi"},"codex":{"program":"codex"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"0.0.100","latest":"1.5.99"},"pi":{"program":"pipi"},"codex":{"program":"codex"}}],"ret":"claude update · U"}
+{"args":[{"claude":{"program":"claude","installed":"0.0.100","latest":"1.5.99"},"pi":{"program":"pi"},"codex":{"program":"codex"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"0.0.100","latest":"1.5.99"},"pi":{"program":"pipi"},"codex":{"program":"codex"}}],"ret":"claude update · G"}
 {"args":[{"claude":{"program":"claude","installed":"0.10.29"},"pi":{"program":"pi","installed":"1000.8.10","latest":"17.0.1000"},"codex":{"program":"codex","installed":"0.10.1000"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"0.10.29"},"pi":{"program":"pi","installed":"1é000.8.10","latest":"17.0.1000"},"codex":{"program":"codex","installed":"0.10.1000"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"0.3.1","latest":"15.100.9"},"pi":{"program":"pi","latest":".1.9"},"codex":{"program":"codex","installed":"0.19.287"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"0.3.1","latest":"15.100.9"},"pi":{"program":"pi","latest":"2.1.9"},"codex":{"program":"codex","installed":"0.19.287"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"0.3.10.3.1","latest":"15.100.9"},"pi":{"program":"pi","latest":"2.1.9"},"codex":{"program":"codex","installed":"0.19.287"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"0.9.3","latest":"9.5.2"},"pi":{"program":"pi","installed":"287.1.26","latest":""},"codex":{"program":"codex","installed":"","latest":"287.2.99"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"0.9.3","latest":"9.5.2"},"pi":{"program":"pi","installed":"287.1.26","latest":"287.20.23"},"codex":{"program":"codex","installed":"","latest":"287.2.99"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"0.9.3","latest":"9.5.2"},"pi":{"program":"pi","installed":"287.1.26","latest":"287.20.23287.20.23"},"codex":{"program":"codex","installed":"","latest":"287.2.99"}}],"ret":"2 agent updates · U"}
+{"args":[{"claude":{"program":"claude","installed":"0.10.29"},"pi":{"program":"pi","installed":"1é000.8.10","latest":"17.0.1000"},"codex":{"program":"codex","installed":"0.10.1000"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"0.3.1","latest":"15.100.9"},"pi":{"program":"pi","latest":".1.9"},"codex":{"program":"codex","installed":"0.19.287"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"0.3.1","latest":"15.100.9"},"pi":{"program":"pi","latest":"2.1.9"},"codex":{"program":"codex","installed":"0.19.287"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"0.3.10.3.1","latest":"15.100.9"},"pi":{"program":"pi","latest":"2.1.9"},"codex":{"program":"codex","installed":"0.19.287"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"0.9.3","latest":"9.5.2"},"pi":{"program":"pi","installed":"287.1.26","latest":""},"codex":{"program":"codex","installed":"","latest":"287.2.99"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"0.9.3","latest":"9.5.2"},"pi":{"program":"pi","installed":"287.1.26","latest":"287.20.23"},"codex":{"program":"codex","installed":"","latest":"287.2.99"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"0.9.3","latest":"9.5.2"},"pi":{"program":"pi","installed":"287.1.26","latest":"287.20.23287.20.23"},"codex":{"program":"codex","installed":"","latest":"287.2.99"}}],"ret":"2 agent updates · G"}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":""},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":".0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pai","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":".0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pai","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":""}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"junk","latest":"/9.9.9"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2😀.0"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":""}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2😀.0"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":""}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.02.0.0","latest":"2.0.0"},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0."},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0."},"codex":{"program":"codex"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"cdex"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"jnk","latest":"9.9.9"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.02.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"3 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2 .0"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"3 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.99.9.9"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junkjunk","latest":"9.9.9"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.02.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.02.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.0."},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0."},"codex":{"program":"codex"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"cdex"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"jnk","latest":"9.9.9"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.02.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"3 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2 .0"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"3 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.99.9.9"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junkjunk","latest":"9.9.9"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.02.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.02.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0é","latest":"2.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"1.0.01.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.01.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.0.0中","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.01.0.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.01.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.0.0中","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"1.0_.0","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"1.1.14","latest":"0.8.1"},"pi":{"program":"pi","latest":"1.2.27"},"codex":{"program":"codex","installed":"","latest":"4.18.3"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"1.1.287","latest":"1.13.100"},"pi":{"program":"pi","latest":"100.26.2"},"codex":{"program":"codex","latest":"7.1.9"}}],"ret":"claude update · U"}
+{"args":[{"claude":{"program":"claude","installed":"1.1.287","latest":"1.13.100"},"pi":{"program":"pi","latest":"100.26.2"},"codex":{"program":"codex","latest":"7.1.9"}}],"ret":"claude update · G"}
 {"args":[{"claude":{"program":"claude","installed":"1.100.21","latest":"0.1.12"},"pi":{"program":"pi","installed":"","latest":"4.287.10"},"codex":{"program":"codex","latest":"100.10.1"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"1.100.29"},"pi":{"program":"pi","installed":"26.1.4","latest":"10.10.9"},"codex":{"program":"codex","installed":"7.1000.2","latest":"24.25.11"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.2.100","latest":"23.1.100"},"pi":{"program":"pi","latest":"9.9.10"},"codex":{"program":"codex","installed":"","latest":"100.1.19"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.27.14","latest":"3.20.0"},"pi":{"program":"pi","installed":"","latest":"17.9.0"},"codex":{"program":"codex","installed":"100.1.28"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.4.28","latest":"1.22.3"},"pi":{"program":"pi","latest":"29.4.9"},"codex":{"program":"codex","installed":"","latest":"0.1.9"}}],"ret":"claude update · U"}
+{"args":[{"claude":{"program":"claude","installed":"1.100.29"},"pi":{"program":"pi","installed":"26.1.4","latest":"10.10.9"},"codex":{"program":"codex","installed":"7.1000.2","latest":"24.25.11"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.2.100","latest":"23.1.100"},"pi":{"program":"pi","latest":"9.9.10"},"codex":{"program":"codex","installed":"","latest":"100.1.19"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.27.14","latest":"3.20.0"},"pi":{"program":"pi","installed":"","latest":"17.9.0"},"codex":{"program":"codex","installed":"100.1.28"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.4.28","latest":"1.22.3"},"pi":{"program":"pi","latest":"29.4.9"},"codex":{"program":"codex","installed":"","latest":"0.1.9"}}],"ret":"claude update · G"}
 {"args":[{"claude":{"program":"claude","installed":"1.99.1"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"1.99.27","latest":"9.17.8"},"pi":{"program":"pi","installed":"20.14.20","latest":"287.10.30"},"codex":{"program":"codex"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","installed":"1.a0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"1.99.27","latest":"9.17.8"},"pi":{"program":"pi","installed":"20.14.20","latest":"287.10.30"},"codex":{"program":"codex"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","installed":"1.a0.0","latest":"1.0.1"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"10.23.11"},"pi":{"program":"pi","installed":"","latest":"24.20.10"},"codex":{"program":"codex","latest":"28.9.13"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"10.3.29","latest":"1.0.9"},"pi":{"program":"pi"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"10.3.9","latest":"9.6.100"},"pi":{"program":"pi","installed":"","latest":"6.28.1"},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"10.4.3","latest":"10.99.28"},"pi":{"program":"pi","installed":"","latest":"9.25.12"},"codex":{"program":"codex","installed":""}}],"ret":"claude update · U"}
+{"args":[{"claude":{"program":"claude","installed":"10.4.3","latest":"10.99.28"},"pi":{"program":"pi","installed":"","latest":"9.25.12"},"codex":{"program":"codex","installed":""}}],"ret":"claude update · G"}
 {"args":[{"claude":{"program":"claude","installed":"100.99.1"},"pi":{"program":"pi","installed":"10.99.9"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"1000.16.23","latest":"99.99.287"},"pi":{"program":"pi","installed":"100.99.99","latest":"1.1.99"},"codex":{"program":"codex","latest":"10.17.9"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"1000.28.1000"},"pi":{"program":"pi","installed":"","latest":"16.11.0"},"codex":{"program":"codex","installed":"20.4.287"}}],"ret":""}
@@ -180,47 +180,47 @@
 {"args":[{"claude":{"program":"claude","installed":"17.0.8"},"pi":{"program":"pi","installed":"","latest":"9.99.30"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"19.2.8"},"pi":{"program":"pi","latest":"27.25.27"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"2.0.100"},"pi":{"program":"pi","installed":"","latest":"2.2.99"},"codex":{"program":"codex","installed":""}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"2.9.1","latest":"26.0.1"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"","latest":"11.16.5"}}],"ret":"claude update · U"}
+{"args":[{"claude":{"program":"claude","installed":"2.9.1","latest":"26.0.1"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"","latest":"11.16.5"}}],"ret":"claude update · G"}
 {"args":[{"claude":{"program":"claude","installed":"24.1.100","latest":"9.25.6"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"","latest":"1.5.23"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"27.1000.14","latest":"4.15.1"},"pi":{"program":"pi","installed":"1.30.287"},"codex":{"program":"codex","installed":"1.99.5"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"27.4.99","latest":"16.1000.99"},"pi":{"program":"pi","latest":"100.1000.0"},"codex":{"program":"codex","installed":"","latest":"6.100.13"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"28.20.2","latest":"0.1.99"},"pi":{"program":"pi","latest":"99.7.15"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"287.1.30","latest":"18.9.0"},"pi":{"program":"pi","installed":"","latest":"3.1000.1"},"codex":{"program":"codex","installed":"","latest":"12.10.1000"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"287.100.26"},"pi":{"program":"pi","latest":"0.99.27"},"codex":{"program":"codex","latest":"100.1.12"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"3.26.29","latest":"13.7.2"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex"}}],"ret":"claude update · U"}
+{"args":[{"claude":{"program":"claude","installed":"3.26.29","latest":"13.7.2"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex"}}],"ret":"claude update · G"}
 {"args":[{"claude":{"program":"claude","installed":"3.6.3"},"pi":{"program":"pi","installed":"","latest":"0.23.0"},"codex":{"program":"codex","installed":""}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"3.99.2","latest":"287.99.9"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"","latest":"2.99.28"}}],"ret":"claude update · U"}
+{"args":[{"claude":{"program":"claude","installed":"3.99.2","latest":"287.99.9"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"","latest":"2.99.28"}}],"ret":"claude update · G"}
 {"args":[{"claude":{"program":"claude","installed":"4.9.29"},"pi":{"program":"pi","installed":"10.18.9","latest":"9.16.0"},"codex":{"program":"codex","installed":"","latest":"1.100.1"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"5.29.1000"},"pi":{"program":"pi","installed":"9.19.25","latest":"28.4.100"},"codex":{"program":"codex","installed":"","latest":"4.1.26"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"8.0.0","latest":"1.99.1"},"pi":{"program":"pi","installed":"10.1000.99","latest":"1000.30.2"},"codex":{"program":"codex","installed":"","latest":"0.2.287"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","installed":"9.0.9","latest":"1000.0.8"},"pi":{"program":"pi","installed":"100.1.99","latest":"1000.10.2"},"codex":{"program":"codex","installed":"","latest":"23.27.30"}}],"ret":"2 agent updates · U"}
+{"args":[{"claude":{"program":"claude","installed":"5.29.1000"},"pi":{"program":"pi","installed":"9.19.25","latest":"28.4.100"},"codex":{"program":"codex","installed":"","latest":"4.1.26"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"8.0.0","latest":"1.99.1"},"pi":{"program":"pi","installed":"10.1000.99","latest":"1000.30.2"},"codex":{"program":"codex","installed":"","latest":"0.2.287"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","installed":"9.0.9","latest":"1000.0.8"},"pi":{"program":"pi","installed":"100.1.99","latest":"1000.10.2"},"codex":{"program":"codex","installed":"","latest":"23.27.30"}}],"ret":"2 agent updates · G"}
 {"args":[{"claude":{"program":"claude","installed":"9.10.287"},"pi":{"program":"pi","installed":"13.22.10"},"codex":{"program":"codex","installed":"1.17.287"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"9.1000.12","latest":"1.0.287"},"pi":{"program":"pi","latest":"3.3.4"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"9.17.0","latest":"0.10.0"},"pi":{"program":"pi","installed":"","latest":"287.8.99"},"codex":{"program":"codex","installed":""}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"9.29.10","latest":"22.9.18"},"pi":{"program":"pi","latest":"99.23.1000"},"codex":{"program":"codex","latest":"12.6.3"}}],"ret":"claude update · U"}
-{"args":[{"claude":{"program":"claude","installed":"9.99.100","latest":"6.25.4"},"pi":{"program":"pi","installed":"9.25.1","latest":"9.3.1"},"codex":{"program":"codex","installed":"99.1.18","latest":"1000.10.1000"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","installed":"9.29.10","latest":"22.9.18"},"pi":{"program":"pi","latest":"99.23.1000"},"codex":{"program":"codex","latest":"12.6.3"}}],"ret":"claude update · G"}
+{"args":[{"claude":{"program":"claude","installed":"9.99.100","latest":"6.25.4"},"pi":{"program":"pi","installed":"9.25.1","latest":"9.3.1"},"codex":{"program":"codex","installed":"99.1.18","latest":"1000.10.1000"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":"99.1.29","latest":"1.1000.1"},"pi":{"program":"pi","latest":"1.11.24"},"codex":{"program":"codex","installed":"28.0.1000"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"99.10.1000"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"99.287.287","latest":"16.20.0"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"10.1.99"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"99.99.26","latest":"23.1.17"},"pi":{"program":"pi","latest":"100.11.2"},"codex":{"program":"codex","latest":"10.0.0"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"\n","latest":"0.19.1000"},"pi":{"program":"pi"},"codex":{"program":"codex","latest":"10.14.0"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"\n"},"pi":{"program":"pi","installed":"","latest":"26.3.2"},"codex":{"program":"codex","installed":"26.21.26","latest":"99.100.10"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","installed":"\n"},"pi":{"program":"pi","installed":"","latest":"26.3.2"},"codex":{"program":"codex","installed":"26.21.26","latest":"99.100.10"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","installed":"é","latest":"5.99.22"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"","latest":"9.4.28"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"ß","latest":"5.99.22"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"","latest":"9.4.28"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","installed":"ß"},"pi":{"program":"pi","installed":"","latest":"26.3.2"},"codex":{"program":"codex","installed":"26.21.26","latest":"99.100.10"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"é","latest":"27.0.100"},"pi":{"program":"pi"},"codex":{"program":"codex","installed":"0.100.9","latest":"16.9.0"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","installed":"‍","latest":"287.10.27"},"pi":{"program":"pi","installed":"7.11.100","latest":"99.99.12"},"codex":{"program":"codex","latest":"20.287.1"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","installed":"ß"},"pi":{"program":"pi","installed":"","latest":"26.3.2"},"codex":{"program":"codex","installed":"26.21.26","latest":"99.100.10"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"é","latest":"27.0.100"},"pi":{"program":"pi"},"codex":{"program":"codex","installed":"0.100.9","latest":"16.9.0"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","installed":"‍","latest":"287.10.27"},"pi":{"program":"pi","installed":"7.11.100","latest":"99.99.12"},"codex":{"program":"codex","latest":"20.287.1"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","installed":"‍","latest":"8.27.10"},"pi":{"program":"pi"},"codex":{"program":"codex","latest":"99.12.0"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","installed":"😀","latest":"9.1.22"},"pi":{"program":"pi","installed":"","latest":"9.1000.1"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"0.10.9"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"10.1.100"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"0.25.9"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","installed":"","latest":"9.1.100"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"0.99.29"},"pi":{"program":"pi","latest":"18.3.25"},"codex":{"program":"codex","latest":"10.99.22"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"2.0.0"},"codex":{"program":"codex"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"0.1.0","latest":"0.2.0"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex","installed":"junk","latest":"9.9.9"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claude","latest":"1.0.0"},"pi":{"program":"pi","installed":"2.0.0","latest":"3.0.0"},"codex":{"program":"codex"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","latest":"10.1.8"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"10.26.9"},"pi":{"program":"pi","installed":"","latest":"9.4.10"},"codex":{"program":"codex","installed":"","latest":"30.20.100"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"10.287.19"},"pi":{"program":"pi","latest":"1.1.0"},"codex":{"program":"codex","installed":"0.29.1"}}],"ret":""}
@@ -230,19 +230,19 @@
 {"args":[{"claude":{"program":"claude","latest":"19.27.1"},"pi":{"program":"pi","installed":"","latest":"287.3.1"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"21.0.29"},"pi":{"program":"pi","installed":"1000.10.0"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"21.18.9"},"pi":{"program":"pi","installed":"","latest":"27.99.10"},"codex":{"program":"codex","installed":"","latest":"5.28.7"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","latest":"26.1.287"},"pi":{"program":"pi","installed":"0.9.1","latest":"100.23.27"},"codex":{"program":"codex","installed":"","latest":"0.10.8"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","latest":"26.1.287"},"pi":{"program":"pi","installed":"0.9.1","latest":"100.23.27"},"codex":{"program":"codex","installed":"","latest":"0.10.8"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","latest":"27.9.23"},"pi":{"program":"pi"},"codex":{"program":"codex","latest":"2.6.100"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"28.10.1000"},"pi":{"program":"pi","installed":""},"codex":{"program":"codex","latest":"1.10.4"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","latest":"4.1.1"},"pi":{"program":"pi","latest":"14.287.99"},"codex":{"program":"codex","installed":"0.29.287","latest":"8.1000.287"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","latest":"4.1.1"},"pi":{"program":"pi","latest":"14.287.99"},"codex":{"program":"codex","installed":"0.29.287","latest":"8.1000.287"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","latest":"5.30.5"},"pi":{"program":"pi","latest":"27.99.100"},"codex":{"program":"codex","latest":"99.5.10"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","latest":"9.10.10"},"pi":{"program":"pi","installed":"287.1.100","latest":"26.28.1000"},"codex":{"program":"codex","installed":"287.99.1","latest":"1000.4.99"}}],"ret":"codex update · U"}
-{"args":[{"claude":{"program":"claude","latest":"9.2.1"},"pi":{"program":"pi","installed":"10.1.287","latest":"10.100.10"},"codex":{"program":"codex","installed":"99.0.100"}}],"ret":"pi update · U"}
+{"args":[{"claude":{"program":"claude","latest":"9.10.10"},"pi":{"program":"pi","installed":"287.1.100","latest":"26.28.1000"},"codex":{"program":"codex","installed":"287.99.1","latest":"1000.4.99"}}],"ret":"codex update · G"}
+{"args":[{"claude":{"program":"claude","latest":"9.2.1"},"pi":{"program":"pi","installed":"10.1.287","latest":"10.100.10"},"codex":{"program":"codex","installed":"99.0.100"}}],"ret":"pi update · G"}
 {"args":[{"claude":{"program":"claude","latest":"9.26.1"},"pi":{"program":"pi","latest":"29.7.3"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"99.0.27"},"pi":{"program":"pi","latest":"1.2.10"},"codex":{"program":"codex","installed":""}}],"ret":""}
 {"args":[{"claude":{"program":"claude","latest":"99.2.287"},"pi":{"program":"pi","installed":"99.10.26"},"codex":{"program":"codex","installed":"","latest":"1.287.287"}}],"ret":""}
 {"args":[{"claude":{"program":"claude","running":0,"outdated":0,"installed":"2.1.287"},"pi":{"program":"pi","running":0,"outdated":0},"codex":{"program":"codex","running":0,"outdated":0,"installed":"0.160.1","latest":"0.160.1"}}],"ret":""}
-{"args":[{"claude":{"program":"claude","running":0,"outdated":0},"pi":{"program":"pi","running":0,"outdated":0,"installed":"1.0.2","latest":"1.0.4"},"codex":{"program":"codex","running":0,"outdated":0,"installed":"0.157.0","latest":"0.160.1"}}],"ret":"2 agent updates · U"}
-{"args":[{"claude":{"program":"claude","running":0,"outdated":0},"pi":{"program":"pi","running":0,"outdated":0,"installed":"1.0.4","latest":"1.0.4"},"codex":{"program":"codex","running":0,"outdated":0,"installed":"0.157.0","latest":"0.160.1"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude","running":0,"outdated":0},"pi":{"program":"pi","running":0,"outdated":0,"installed":"1.0.2","latest":"1.0.4"},"codex":{"program":"codex","running":0,"outdated":0,"installed":"0.157.0","latest":"0.160.1"}}],"ret":"2 agent updates · G"}
+{"args":[{"claude":{"program":"claude","running":0,"outdated":0},"pi":{"program":"pi","running":0,"outdated":0,"installed":"1.0.4","latest":"1.0.4"},"codex":{"program":"codex","running":0,"outdated":0,"installed":"0.157.0","latest":"0.160.1"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claude","running":0,"outdated":0},"pi":{"program":"pi","running":0,"outdated":0,"latest":"1.0.4"},"codex":{"program":"codex","running":0,"outdated":0}}],"ret":""}
 {"args":[{"claude":{"program":"claude"},"pi":{"program":"pi","installed":"","latest":"287.9.30"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude"},"pi":{"program":"pi","installed":"","latest":"9.0.99"},"codex":{"program":"codex","installed":""}}],"ret":""}
@@ -252,13 +252,13 @@
 {"args":[{"claude":{"program":"claude"},"pi":{"program":"pi","installed":"10.12.6"},"codex":{"program":"codex","installed":"","latest":"0.0.99"}}],"ret":""}
 {"args":[{"claude":{"program":"claude"},"pi":{"program":"pi","installed":"2.10.99","latest":"0.1.287"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claude"},"pi":{"program":"pi","installed":"27.8.10","latest":"0.1.1000"},"codex":{"program":"codex","installed":"14.9.30","latest":"14.0.10"}}],"ret":""}
-{"args":[{"claude":{"program":"claude"},"pi":{"program":"pi","installed":"99.10.10","latest":"100.287.99"},"codex":{"program":"codex","installed":""}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claudeclaude","installed":"","latest":"0.1000.14"},"pi":{"program":"pi","installed":"2.0.287","latest":"9.0.28"},"codex":{"program":"codex","latest":"99.10.4"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claudeclaude","installed":"","latest":"0.29.1"},"pi":{"program":"pi","installed":"0.1.0","latest":"100.5.4"},"codex":{"program":"codex","installed":"","latest":"6.9.1000"}}],"ret":"pi update · U"}
-{"args":[{"claude":{"program":"claudeclaude","installed":"","latest":"24.3.100"},"pi":{"program":"pi","installed":"1000.1.1","latest":"0.1.29"},"codex":{"program":"codex","installed":"0.3.287","latest":"99.1000.100"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claude"},"pi":{"program":"pi","installed":"99.10.10","latest":"100.287.99"},"codex":{"program":"codex","installed":""}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claudeclaude","installed":"","latest":"0.1000.14"},"pi":{"program":"pi","installed":"2.0.287","latest":"9.0.28"},"codex":{"program":"codex","latest":"99.10.4"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claudeclaude","installed":"","latest":"0.29.1"},"pi":{"program":"pi","installed":"0.1.0","latest":"100.5.4"},"codex":{"program":"codex","installed":"","latest":"6.9.1000"}}],"ret":"pi update · G"}
+{"args":[{"claude":{"program":"claudeclaude","installed":"","latest":"24.3.100"},"pi":{"program":"pi","installed":"1000.1.1","latest":"0.1.29"},"codex":{"program":"codex","installed":"0.3.287","latest":"99.1000.100"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claudeclaude","installed":"","latest":"8.27.10"},"pi":{"program":"pi"},"codex":{"program":"codex","latest":"99.12.0"}}],"ret":""}
 {"args":[{"claude":{"program":"claudeclaude","installed":"0.10.29"},"pi":{"program":"pi","installed":"1000.8.10","latest":"17.0.1000"},"codex":{"program":"codex","installed":"0.10.1000"}}],"ret":""}
-{"args":[{"claude":{"program":"claud中e","installed":"","latest":"30.0.0"},"pi":{"program":"pi","installed":"","latest":"1000.99.10"},"codex":{"program":"codex","installed":"1.100.11","latest":"23.1.0"}}],"ret":"codex update · U"}
+{"args":[{"claude":{"program":"claud中e","installed":"","latest":"30.0.0"},"pi":{"program":"pi","installed":"","latest":"1000.99.10"},"codex":{"program":"codex","installed":"1.100.11","latest":"23.1.0"}}],"ret":"codex update · G"}
 {"args":[{"claude":{"program":"claue","installed":"","latest":"15.16.26"},"pi":{"program":"pi","installed":"10.100.9"},"codex":{"program":"codex"}}],"ret":""}
 {"args":[{"claude":{"program":"claue","installed":"","latest":"6.25.1000"},"pi":{"program":"pi","installed":"","latest":"18.1.0"},"codex":{"program":"codex","latest":"4.287.24"}}],"ret":""}
 {"args":[{"claude":{"program":"claue","installed":""},"pi":{"program":"pi","installed":"99.99.1","latest":"28.9.10"},"codex":{"program":"codex","installed":"","latest":"3.29.1"}}],"ret":""}

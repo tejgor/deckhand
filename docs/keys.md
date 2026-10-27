@@ -46,6 +46,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `s` | Resume the selected exited session (or retry a failed setup) |
 | `S` | Restart the selected exited session with a fresh conversation |
 | `space` | Mark the selected session done or not done (`☑`) |
+| `U` | Mark the selected session's finished reply unread (`◆`), or read again ([unread replies](features.md#organizing-and-inspecting-sessions)) |
 | `m` | Merge the selected worktree into the current branch, uncommitted ([merging](features.md#merging-and-done)) |
 | `M` | Set or clear the worktree's merged marker without merging |
 | `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes): `enter` starts or restarts it, `x` stops it), then your actions ([actions](features.md#setup-and-actions)). Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
@@ -56,7 +57,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `b` | Open the repository's task list ([Tasks](#tasks)) |
 | `W` | Open the Worktrees screen ([Worktrees](#worktrees)) |
 | `C` | Open Settings ([Settings](features.md#settings-c)) |
-| `U` | Open the Agents screen ([versions and updates](features.md#agent-versions-and-updates)) |
+| `G` | Open the Agents screen ([versions and updates](features.md#agent-versions-and-updates)) |
 | `R` | Reload the session list (it updates live, so this is rarely needed) |
 | `?` | Open the in-app guide |
 | `q` | Quit the UI; running sessions continue in the daemon |
@@ -127,7 +128,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session fr
 | `◌` | Before the title: running, activity unknown |
 | `○` | Before the title: exited |
 | `?` | Before the title: needs you (agent signals) |
-| `◆` | Before the title: response ended, unread until you attach to the agent (agent signals) |
+| `◆` | Before the title: response ended, unread until you attach to the agent or press `U` (agent signals) |
 | `!` | Before the title: failed (red) or interrupted (yellow) |
 | `⌛` | Before the title: rate-limited (agent signals) |
 | `▾` / `▸` | Parent with sub-sessions, expanded / collapsed (`c`) |

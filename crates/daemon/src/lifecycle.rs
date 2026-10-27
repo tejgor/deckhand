@@ -493,7 +493,7 @@ impl Daemon {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::tests::{local, session, test_client, test_daemon};
+    use crate::server::tests::{hello_line, local, session, test_client, test_daemon};
     use crate::server::{Client, ClientSubscription};
     use serde_json::json;
     use std::path::Path;
@@ -878,7 +878,7 @@ mod tests {
 
     /// A session worker that exits on `kill` (`OBEY` set) or ignores it.
     const SH_WORKER: &str = r#"#!/bin/sh
-printf '{"type":"hello","version":49}\n' >&3
+printf '@HELLO@\n' >&3
 : > "$KILLS.ready"
 while IFS= read -r line <&3; do
   case "$line" in
@@ -891,7 +891,7 @@ done
         use crate::worker_channel::{SpawnOptions, WorkerChannel, WorkerKind};
         use std::cell::{Cell, RefCell};
         let exe = dir.join(format!("worker-{name}.sh"));
-        std::fs::write(&exe, SH_WORKER).unwrap();
+        std::fs::write(&exe, SH_WORKER.replace("@HELLO@", &hello_line())).unwrap();
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
         let mut env = vec![(
             "KILLS".to_owned(),

@@ -22,7 +22,6 @@ use std::io;
 use std::rc::Rc;
 use std::sync::LazyLock;
 
-use indexmap::IndexMap;
 use ratatui::Frame;
 use ratatui::style::Color;
 use regex::Regex;
@@ -571,15 +570,14 @@ macro_rules! with_props {
 pub(crate) use with_props;
 
 impl App {
-    /// TS `sessions`: this checkout's sessions, replies read before the last detach marked read.
+    /// TS `sessions`: this checkout's sessions, replies read since they ended marked read (the daemon's
+    /// `replyReadAt`).
     pub fn sessions(&self) -> Vec<SessionRecord> {
-        let none = IndexMap::new();
-        let read_replies = self.props.read_replies.as_ref().unwrap_or(&none);
         self.data
             .repo_sessions
             .iter()
             .filter(|session| session_matches_scope(session, &self.props.repo_root))
-            .map(|session| with_reply_read(session.clone(), read_replies))
+            .map(|session| with_reply_read(session.clone()))
             .collect()
     }
 

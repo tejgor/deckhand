@@ -145,6 +145,7 @@ impl Daemon {
                     .await,
             ),
             Request::SetSessionDone(r) => reply(client, &r.request_id, self.handle_set_session_done(&r).await),
+            Request::SetReplyRead(r) => reply(client, &r.request_id, self.handle_set_reply_read(&r).await),
             Request::ArchiveSession(r) => reply(client, &r.request_id, self.handle_archive_session(&r).await),
             Request::ExportHandoff(r) => reply(client, &r.request_id, self.handle_export_handoff(&r).await),
             Request::AgentHook(r) => reply(client, &r.request_id, ok(self.handle_agent_hook(&r).await)),

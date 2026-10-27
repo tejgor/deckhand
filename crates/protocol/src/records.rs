@@ -184,7 +184,8 @@ pub struct UiState {
     pub session_tabs: IndexMap<String, RightPaneTab>,
     pub collapsed_session_ids: Vec<String>,
     pub hidden_exited_session_ids: Vec<String>,
-    /// Session ID -> when you last detached from its agent.
+    /// Session ID -> when you last detached from its agent. Legacy: kept as read and written back, but no longer
+    /// recorded or consulted; the daemon keeps when a reply was read (the session's `replyReadAt`).
     pub read_replies: IndexMap<String, String>,
 }
 

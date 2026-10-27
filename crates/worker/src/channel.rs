@@ -504,7 +504,7 @@ mod tests {
             let mut lines = BufReader::new(read_half).lines();
             assert_eq!(
                 read_line(&mut lines).await,
-                serde_json::json!({"type": "hello", "version": 49})
+                serde_json::json!({"type": "hello", "version": deckhand_protocol::PROTOCOL_VERSION})
             );
             assert_eq!(
                 read_line(&mut lines).await,
