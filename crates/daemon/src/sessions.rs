@@ -13,7 +13,9 @@ use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{self, date, path};
 use deckhand_core::project_config::{resolve_settings, resolve_setup_command};
 use deckhand_core::session_features::HandoffTask;
-use deckhand_core::session_order::{compare_session_order, sort_sessions_for_sidebar};
+use deckhand_core::session_order::{
+    Placement, compare_session_order, parent_of, place_session, sort_sessions_for_sidebar,
+};
 use deckhand_core::session_scope::sessions_in_scope;
 use deckhand_core::tasks::{parse_tasks, task_prompt};
 use deckhand_core::workspace::workspace_key;
@@ -704,6 +706,49 @@ impl Daemon {
         Ok(self.sessions_for_repo(&session.repo_root))
     }
 
+    /// Not in the TS: places the session right before or after a sibling, among every session with its parent
+    /// whichever checkout started it, so each sidebar sees the same move ([`place_session`]); answers with the
+    /// sessions whose order changed.
+    pub async fn place_session(
+        &self,
+        session_id: &str,
+        placement: Placement<'_>,
+    ) -> Result<Vec<Ordered<SessionRecord>>> {
+        let Some(session) = self.get_session(session_id) else {
+            return Err(DhError::msg("session does not exist"));
+        };
+        let siblings: Vec<Ordered<SessionRecord>> = self
+            .all_sessions()
+            .into_iter()
+            .filter(|candidate| parent_of(candidate) == parent_of(&session))
+            .collect();
+        let (Placement::Before(anchor) | Placement::After(anchor)) = placement;
+        if anchor == session_id || !siblings.iter().any(|candidate| candidate.id == anchor) {
+            return Err(DhError::msg("the session to place it next to is not a sibling"));
+        }
+        let now = now_iso();
+        let mut changed = Vec::new();
+        for (id, order) in place_session(&siblings, session_id, placement) {
+            let Some(updated) = self.patch_session(&id, |candidate| {
+                assign(candidate, "sidebarOrder");
+                candidate.sidebar_order = Some(JsNumber(order));
+                assign(candidate, "updatedAt");
+                candidate.updated_at.clone_from(&now);
+            }) else {
+                continue;
+            };
+            changed.push(updated);
+        }
+        if changed.is_empty() {
+            return Ok(changed);
+        }
+        self.persist().await?;
+        for updated in &changed {
+            self.broadcast_session_updated(updated);
+        }
+        Ok(changed)
+    }
+
     /// TS: InkDaemon.sameRepository (the same path, or the same Git common dir).
     pub async fn same_repository(&self, left: &str, right: &str) -> Result<bool> {
         if left == right {
@@ -892,12 +937,11 @@ impl Daemon {
         let command = self.resolve_program_command(input.program).await;
         let session_id = uuid::Uuid::new_v4().to_string();
         let now = now_iso();
+        // Not in the TS: below every sibling, whichever checkout started it, so it is last in each sidebar.
         let sibling_orders: Vec<f64> = self
             .all_sessions()
             .iter()
-            .filter(|session| {
-                session.repo_root == input.repo_root && session.parent_session_id == input.parent_session_id
-            })
+            .filter(|session| parent_of(session) == parent_id.as_deref())
             .map(|session| {
                 session
                     .sidebar_order
@@ -2273,6 +2317,61 @@ mod tests {
             assert_eq!(daemon.require_session("a").unwrap().sidebar_order, Some(JsNumber(0.0)));
             assert_eq!(
                 error(daemon.reorder_session("zzz", MoveDirection::Down).await),
+                "session does not exist"
+            );
+        });
+    }
+
+    #[test]
+    fn placing_a_session_moves_it_among_siblings_of_every_checkout() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let _home = Home::set(dir.path());
+            let daemon = daemon(dir.path());
+            let (client, mut rx) = test_client(1);
+            daemon.get_client(&client, |subscription| subscription.repo_root = Some("/r".into()));
+            // `parent` was started from another checkout of the repository; `here` from this one.
+            daemon.set_session(record(json!({"id": "parent", "repoRoot": "/base", "sidebarOrder": 3})));
+            daemon.set_session(record(
+                json!({"id": "other", "repoRoot": "/base", "cwd": "/base", "sidebarOrder": 1}),
+            ));
+            daemon.set_session(record(json!({"id": "here", "sidebarOrder": 5})));
+            daemon.set_session(record(json!({"id": "kid", "parentSessionId": "parent"})));
+
+            let changed = daemon.place_session("here", Placement::Before("parent")).await.unwrap();
+            let orders: Vec<(String, Option<f64>)> = changed
+                .iter()
+                .map(|session| (session.id.clone(), session.sidebar_order.map(|order| order.0)))
+                .collect();
+            assert_eq!(orders, [("here".to_owned(), Some(2.0))]);
+            assert_ne!(
+                daemon.require_session("here").unwrap().updated_at,
+                "2026-01-01T00:00:00.000Z"
+            );
+            let sent: Vec<Value> = std::iter::from_fn(|| rx.try_recv().ok())
+                .map(|line| serde_json::from_str(&line).unwrap())
+                .collect();
+            assert_eq!(sent.len(), 1);
+            assert_eq!(sent[0]["session"]["id"], "here");
+            let state: Value =
+                serde_json::from_str(&std::fs::read_to_string(deckhand_sys::paths::state_path()).unwrap()).unwrap();
+            let saved = state["sessions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|session| session["id"] == "here")
+                .cloned();
+            assert_eq!(saved.unwrap()["sidebarOrder"], 2);
+
+            // Only next to a sibling: not a sub-session, not itself, not an unknown one.
+            for anchor in ["kid", "here", "zzz"] {
+                assert_eq!(
+                    error(daemon.place_session("here", Placement::After(anchor)).await),
+                    "the session to place it next to is not a sibling"
+                );
+            }
+            assert_eq!(
+                error(daemon.place_session("zzz", Placement::After("here")).await),
                 "session does not exist"
             );
         });

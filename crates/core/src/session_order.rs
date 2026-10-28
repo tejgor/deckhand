@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::jsstr::locale_compare;
 use deckhand_protocol::Ordered;
-use deckhand_protocol::data::SessionRecord;
+use deckhand_protocol::data::{MoveDirection, SessionRecord};
 
 /// Anything that is (or holds) a session record: `SessionRecord`, `Ordered<SessionRecord>`, or a reference to one.
 pub trait SessionLike {
@@ -33,7 +33,7 @@ impl<T: SessionLike + ?Sized> SessionLike for &T {
 }
 
 /// A JS-truthy parent id (set and not empty).
-pub(crate) fn parent_of(session: &SessionRecord) -> Option<&str> {
+pub fn parent_of(session: &SessionRecord) -> Option<&str> {
     session.parent_session_id.as_deref().filter(|id| !id.is_empty())
 }
 
@@ -72,6 +72,75 @@ pub fn compare_session_order(a: &SessionRecord, b: &SessionRecord) -> Ordering {
     by_order
         .then_with(|| locale_compare(&a.created_at, &b.created_at))
         .then_with(|| locale_compare(&a.id, &b.id))
+}
+
+/// Not in the TS: where a moved session lands among its siblings, next to the session named.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Placement<'a> {
+    Before(&'a str),
+    After(&'a str),
+}
+
+/// Not in the TS: where `session_id` lands when it steps past its neighbour among `peers` (the siblings shown, in
+/// the order they are shown): before the one above it, or after the one below it. `None` at either end.
+pub fn step_placement<'a, S: SessionLike>(
+    peers: &'a [S],
+    session_id: &str,
+    direction: MoveDirection,
+) -> Option<Placement<'a>> {
+    let index = peers.iter().position(|peer| peer.session().id == session_id)?;
+    match direction {
+        MoveDirection::Up => Some(Placement::Before(&peers.get(index.checked_sub(1)?)?.session().id)),
+        MoveDirection::Down => Some(Placement::After(&peers.get(index + 1)?.session().id)),
+    }
+}
+
+/// Not in the TS: the `sidebarOrder`s to write so `session_id` sits right before or after the anchor among
+/// `siblings` (the sessions with its parent, itself included, in any order). Only its own when the orders it lands
+/// between leave room for one (fractions are kept); otherwise every sibling whose order changes when they are
+/// renumbered 0, 1, 2… in the new order. Empty when the session or the anchor is not among them.
+///
+/// Sessions a sidebar does not show keep their place, so every sidebar sees the same move.
+pub fn place_session<S: SessionLike>(siblings: &[S], session_id: &str, placement: Placement<'_>) -> Vec<(String, f64)> {
+    let (anchor, after) = match placement {
+        Placement::Before(anchor) => (anchor, false),
+        Placement::After(anchor) => (anchor, true),
+    };
+    let mut ordered: Vec<&SessionRecord> = siblings.iter().map(SessionLike::session).collect();
+    ordered.sort_by(|a, b| compare_session_order(a, b));
+    let Some(from) = ordered.iter().position(|session| session.id == session_id) else {
+        return Vec::new();
+    };
+    let moved = ordered.remove(from);
+    let Some(at) = ordered.iter().position(|session| session.id == anchor) else {
+        return Vec::new();
+    };
+    let index = if after { at + 1 } else { at };
+    ordered.insert(index, moved);
+    let previous = index
+        .checked_sub(1)
+        .and_then(|before| ordered.get(before))
+        .map(|session| order_value(session));
+    let next = ordered.get(index + 1).map(|session| order_value(session));
+    let order = match (previous, next) {
+        (Some(previous), Some(next)) => previous + (next - previous) / 2.0,
+        (Some(previous), None) => previous.floor() + 1.0,
+        (None, Some(next)) => next.ceil() - 1.0,
+        (None, None) => 0.0,
+    };
+    let fits = previous.is_none_or(|previous| previous < order) && next.is_none_or(|next| order < next);
+    if fits {
+        return vec![(moved.id.clone(), order)];
+    }
+    ordered
+        .iter()
+        .enumerate()
+        .filter_map(|(index, session)| {
+            #[allow(clippy::cast_precision_loss)]
+            let order = index as f64;
+            (session.sidebar_order.map(|current| current.0) != Some(order)).then(|| (session.id.clone(), order))
+        })
+        .collect()
 }
 
 /// TS sortSessionsForSidebar's `visit`: `start`, then its unvisited descendants depth first (pre-order), iteratively
@@ -373,6 +442,126 @@ mod tests {
         let mut infinite = list[2].clone();
         infinite.sidebar_order = Some(JsNumber(f64::INFINITY));
         assert_eq!(order_value(&infinite), 0.0);
+    }
+
+    fn ordered(id: &str, order: Option<f64>, created: &str) -> SessionRecord {
+        let mut record: SessionRecord = serde_json::from_value(serde_json::json!({
+            "id": id, "title": "t", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r",
+            "status": "running", "createdAt": created, "updatedAt": created,
+        }))
+        .unwrap();
+        record.sidebar_order = order.map(JsNumber);
+        record
+    }
+
+    /// The sessions' ids in sidebar order once `changes` are written.
+    fn after_writing(list: &[SessionRecord], changes: &[(String, f64)]) -> Vec<String> {
+        let written: Vec<SessionRecord> = list
+            .iter()
+            .map(|session| {
+                let mut session = session.clone();
+                if let Some((_, order)) = changes.iter().find(|(id, _)| *id == session.id) {
+                    session.sidebar_order = Some(JsNumber(*order));
+                }
+                session
+            })
+            .collect();
+        sort_sessions_for_sidebar(&written)
+            .into_iter()
+            .map(|session| session.id.clone())
+            .collect()
+    }
+
+    #[test]
+    fn placing_a_session_writes_only_its_own_order_when_there_is_room() {
+        let t = "2026-01-01T00:00:00.000Z";
+        let list = [
+            ordered("a", Some(0.0), t),
+            ordered("b", Some(1.0), t),
+            ordered("c", Some(2.0), t),
+            ordered("d", Some(3.0), t),
+        ];
+        let up = place_session(&list, "d", Placement::Before("b"));
+        assert_eq!(up, [("d".to_owned(), 0.5)]);
+        assert_eq!(after_writing(&list, &up), ["a", "d", "b", "c"]);
+        // To either end: one past the end's whole number.
+        assert_eq!(
+            place_session(&list, "c", Placement::Before("a")),
+            [("c".to_owned(), -1.0)]
+        );
+        assert_eq!(
+            place_session(&list, "a", Placement::After("d")),
+            [("a".to_owned(), 4.0)]
+        );
+        // A session or an anchor that is not a sibling changes nothing.
+        assert!(place_session(&list, "zzz", Placement::Before("a")).is_empty());
+        assert!(place_session(&list, "a", Placement::After("zzz")).is_empty());
+    }
+
+    #[test]
+    fn placing_between_tied_orders_renumbers_the_siblings() {
+        // b and c tie on their order (c is newer), as orders of different checkouts did.
+        let list = [
+            ordered("a", Some(0.0), "2026-01-01T00:00:00.000Z"),
+            ordered("b", Some(1.0), "2026-01-01T00:00:00.000Z"),
+            ordered("c", Some(1.0), "2026-01-02T00:00:00.000Z"),
+            ordered("d", None, "2026-01-03T00:00:00.000Z"),
+        ];
+        assert_eq!(after_writing(&list, &[]), ["a", "d", "b", "c"]);
+        let changes = place_session(&list, "a", Placement::After("b"));
+        assert_eq!(after_writing(&list, &changes), ["d", "b", "a", "c"]);
+        // Only those whose order changes: d (unset) 0, b 1 stays, a 2, c 3.
+        assert_eq!(
+            changes,
+            [("d".to_owned(), 0.0), ("a".to_owned(), 2.0), ("c".to_owned(), 3.0)]
+        );
+    }
+
+    #[test]
+    fn repeated_halving_falls_back_to_renumbering() {
+        let t = "2026-01-01T00:00:00.000Z";
+        let mut list = vec![
+            ordered("a", Some(1.0), t),
+            ordered("b", Some(2.0), t),
+            ordered("m", Some(3.0), t),
+        ];
+        // Swapping the two after a halves the gap above a each time, until there is no room left.
+        let mut renumbered = false;
+        for _ in 0..80 {
+            let changes = place_session(&list, "m", Placement::After("a"));
+            renumbered |= changes.len() > 1;
+            for (id, order) in &changes {
+                if let Some(session) = list.iter_mut().find(|session| &session.id == id) {
+                    session.sidebar_order = Some(JsNumber(*order));
+                }
+            }
+            assert_eq!(after_writing(&list, &[]), ["a", "m", "b"]);
+            let changes = place_session(&list, "b", Placement::After("a"));
+            for (id, order) in &changes {
+                if let Some(session) = list.iter_mut().find(|session| &session.id == id) {
+                    session.sidebar_order = Some(JsNumber(*order));
+                }
+            }
+            assert_eq!(after_writing(&list, &[]), ["a", "b", "m"]);
+        }
+        assert!(renumbered);
+    }
+
+    #[test]
+    fn stepping_goes_past_the_shown_neighbour() {
+        let t = "2026-01-01T00:00:00.000Z";
+        let shown = [ordered("a", None, t), ordered("b", None, t), ordered("c", None, t)];
+        assert_eq!(
+            step_placement(&shown, "b", MoveDirection::Up),
+            Some(Placement::Before("a"))
+        );
+        assert_eq!(
+            step_placement(&shown, "b", MoveDirection::Down),
+            Some(Placement::After("c"))
+        );
+        assert_eq!(step_placement(&shown, "a", MoveDirection::Up), None);
+        assert_eq!(step_placement(&shown, "c", MoveDirection::Down), None);
+        assert_eq!(step_placement(&shown, "zzz", MoveDirection::Up), None);
     }
 
     #[test]

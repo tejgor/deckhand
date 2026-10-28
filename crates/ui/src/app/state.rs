@@ -6,6 +6,7 @@
 //! app's methods, not stored. Closures TS keeps in state (the trust review's `resume`/`skip`/`back`) are
 //! [`AppAction`]s / [`AppCallback`]s run on the app.
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use indexmap::{IndexMap, IndexSet};
@@ -13,8 +14,8 @@ use indexmap::{IndexMap, IndexSet};
 use deckhand_client::live::LiveClient;
 use deckhand_core::display::HintPart;
 use deckhand_protocol::data::{
-    ActionRecord, AgentVersions, BranchList, ChangesRecord, DevRecord, MergePreview, PreviewRecord, ProjectInfo,
-    RightPaneTab, SessionCleanupInspection, SessionRecord, SubSessionKind, Task, TasksDoc, TerminalRecord,
+    ActionRecord, AgentVersions, BranchList, ChangesRecord, DevRecord, JsNumber, MergePreview, PreviewRecord,
+    ProjectInfo, RightPaneTab, SessionCleanupInspection, SessionRecord, SubSessionKind, Task, TasksDoc, TerminalRecord,
     UiExitResult, WorkspaceSummary, WorktreeInfoRecord, WorktreeMergeResult, WorktreeMode,
 };
 use deckhand_protocol::records::{SessionFilter, SessionView};
@@ -568,6 +569,24 @@ pub struct AppTimers {
     pub clock: Option<Timer>,
 }
 
+/// Not in the TS: J/K moves shown at once and written to the daemon once you stop moving
+/// ([`crate::app::modes::browse::reorder_selected`]).
+#[derive(Debug, Default)]
+pub struct ReorderState {
+    /// The orders shown in place of the daemon's until the writes settle.
+    pub orders: HashMap<String, f64>,
+    /// The daemon's latest order of each session in `orders`, put back when the writes settle.
+    pub saved: HashMap<String, Option<JsNumber>>,
+    /// The session whose move is not written yet, and the timer that writes it.
+    pub moving: Option<String>,
+    pub timer: Option<Timer>,
+    /// Writes sent and not answered; an exit waits for them (up to `exit_wait`).
+    pub writing: usize,
+    pub exit_wait: Option<Timer>,
+    /// The exit stopped waiting.
+    pub exit_waited: bool,
+}
+
 /// Not in the TS: how far the open dialog's body is scrolled, and how it scrolled when last drawn.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct DialogState {
@@ -600,6 +619,7 @@ pub struct App {
     pub dialog: DialogState,
     pub flows: Flows,
     pub timers: AppTimers,
+    pub reorder: ReorderState,
     /// The effects' last dependencies and their in-flight work (crates/ui/src/app/effects.rs).
     pub effects: EffectState,
 }
@@ -714,6 +734,7 @@ impl App {
                 ..Flows::default()
             },
             timers: AppTimers::default(),
+            reorder: ReorderState::default(),
             effects: EffectState::default(),
             props,
         }

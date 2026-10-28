@@ -620,12 +620,20 @@ impl LiveClient {
         }))
     }
 
-    /// TS: LiveClient.reorderSession.
-    pub fn reorder_session(&self, session_id: &str, direction: MoveDirection) -> Reply<Vec<SessionRecord>> {
+    /// TS: LiveClient.reorderSession; not in the TS: places the session right after `after` (else right before
+    /// `before`) among its siblings, and answers with the sessions whose order changed.
+    pub fn reorder_session(
+        &self,
+        session_id: &str,
+        after: Option<&str>,
+        before: Option<&str>,
+    ) -> Reply<Vec<SessionRecord>> {
         self.request(Request::ReorderSession(ReorderSession {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
-            direction,
+            direction: MoveDirection::Down,
+            after: after.map(str::to_owned),
+            before: before.map(str::to_owned),
         }))
     }
 

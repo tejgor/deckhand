@@ -37,6 +37,7 @@
 //! is recorded as `merge`; a subscribed root that is not text is not kept.
 
 use deckhand_core::error::DhError;
+use deckhand_core::session_order::Placement;
 use deckhand_protocol::data::{OkResult, RestartMode, WorktreeMergeMode};
 use deckhand_protocol::events::{ServerMessage, ServerResponse};
 use deckhand_protocol::wire::{Loose, Request, node_received};
@@ -250,11 +251,18 @@ impl Daemon {
                 &r.request_id,
                 self.create_session_request(r.input.as_ref()).await,
             ),
-            Request::ReorderSession(r) => reply(
-                client,
-                &r.request_id,
-                self.reorder_session(&r.session_id, r.direction).await,
-            ),
+            Request::ReorderSession(r) => {
+                let placement = match (r.after.as_deref(), r.before.as_deref()) {
+                    (Some(after), _) => Some(Placement::After(after)),
+                    (None, Some(before)) => Some(Placement::Before(before)),
+                    (None, None) => None,
+                };
+                let result = match placement {
+                    Some(placement) => self.place_session(&r.session_id, placement).await,
+                    None => self.reorder_session(&r.session_id, r.direction).await,
+                };
+                reply(client, &r.request_id, result)
+            }
             Request::Restart(r) => {
                 // `mode ?? 'resume'`; the worker sizes a missing size with its defaults.
                 let mode = match &r.mode {

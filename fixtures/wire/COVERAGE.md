@@ -90,7 +90,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `project-info` | 2 | 0 |
 | c2d | - | `promote-note-item` | 2 | 0 |
 | c2d | - | `remove` | 3 | 0 |
-| c2d | - | `reorder-session` | 0 | 1 |
+| c2d | - | `reorder-session` | 0 | 2 |
 | c2d | - | `resize` | 0 | 1 |
 | c2d | - | `resolve-merge` | 2 | 0 |
 | c2d | - | `restart` | 2 | 0 |

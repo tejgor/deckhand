@@ -3,6 +3,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 
 use deckhand_client::live::KillOptions;
 use deckhand_core::display::display_session_title;
@@ -12,7 +13,10 @@ use deckhand_core::key::Input;
 use deckhand_core::session_features::{
     filter_session_list, session_blocked, session_has_unread_reply, session_needs_attention,
 };
-use deckhand_core::session_order::{session_descendants, session_has_children};
+use deckhand_core::session_order::{
+    parent_of, place_session, session_descendants, session_has_children, sort_sessions_for_sidebar, step_placement,
+};
+use deckhand_core::session_sections::session_section;
 use deckhand_core::tasks_board::work_key_of;
 use deckhand_core::workspace::{no_workspace_reason, workspace_key};
 use deckhand_protocol::data::JsNumber;
@@ -27,7 +31,7 @@ use deckhand_sys::storage::update_app_config;
 use crate::app::layout::{SIDEBAR_PERCENT_STEP, measure_sidebar, normalize_sidebar_percent};
 use crate::app::modes::{action_picker, confirm, create, filter, workspace_info};
 use crate::app::state::{App, AppCallback, Mode, ReviewLabels};
-use crate::app::{DEV_DOUBLE_TAP_MS, RIGHT_TABS, ReviewOptions, hint_short, sort_sessions, truthy, upsert_session};
+use crate::app::{DEV_DOUBLE_TAP_MS, RIGHT_TABS, ReviewOptions, hint_short, truthy};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 use crate::panes::dev::dev_processes;
 use crate::panes::terminal::{TerminalView, has_action, shells, shown_shell};
@@ -782,26 +786,92 @@ pub fn toggle_selected_collapse(app: &mut App) {
     app.set_status(Some("collapsed all sub-sessions".to_owned()));
 }
 
-/// TS `reorderSelected` (J / K): move the session among its siblings.
+/// Not in the TS: a J/K move is written this long after the last one, so a run of moves is one write.
+pub const REORDER_DEBOUNCE: Duration = Duration::from_millis(600);
+/// Not in the TS: how long an exit waits for a move being written.
+pub const REORDER_EXIT_WAIT: Duration = Duration::from_secs(1);
+
+/// TS `reorderSelected` (J / K): move the session among its siblings. Not in the TS: past the sibling shown next
+/// to it (in the state view, in its section), on screen at once; the daemon gets its new place
+/// [`REORDER_DEBOUNCE`] after the last move ([`write_reorder`]). Moving another session writes the last one first.
 pub fn reorder_selected(app: &mut App, direction: MoveDirection) {
-    let (Some(client), Some(session)) = (app.client(), app.selected_session()) else {
+    if app.client().is_none() {
+        return;
+    }
+    let derived = app.derived();
+    let Some(session) = derived.selected else {
         return;
     };
-    app.set_busy(true);
-    app.set_error(None);
-    let reply = client.reorder_session(&session.id, direction);
+    let section = app.sectioned().then(|| session_section(&session));
+    let peers: Vec<&SessionRecord> = derived
+        .visible
+        .iter()
+        .filter(|peer| {
+            parent_of(peer) == parent_of(&session) && section.is_none_or(|section| session_section(peer) == section)
+        })
+        .collect();
+    let Some(placement) = step_placement(&peers, &session.id, direction) else {
+        return;
+    };
+    if app.reorder.moving.as_ref().is_some_and(|moving| *moving != session.id) {
+        write_reorder(app);
+    }
+    let siblings: Vec<&SessionRecord> = app
+        .data
+        .repo_sessions
+        .iter()
+        .filter(|sibling| parent_of(sibling) == parent_of(&session))
+        .collect();
+    let orders = place_session(&siblings, &session.id, placement);
+    app.show_pending_orders(orders);
+    app.reorder.moving = Some(session.id);
+    app.reorder.timer = Some(app.dispatch().after(REORDER_DEBOUNCE, write_reorder));
+}
+
+/// Not in the TS: writes the move J/K made, as the place after the sibling now above it (or before the one now
+/// below it); when every write is answered the daemon's orders show again. A failed write puts the daemon's back.
+pub fn write_reorder(app: &mut App) {
+    app.reorder.timer = None;
+    let Some(session_id) = app.reorder.moving.take() else {
+        return;
+    };
+    let siblings: Vec<&SessionRecord> = match app.data.repo_sessions.iter().find(|session| session.id == session_id) {
+        Some(session) => app
+            .data
+            .repo_sessions
+            .iter()
+            .filter(|sibling| parent_of(sibling) == parent_of(session))
+            .collect(),
+        None => Vec::new(),
+    };
+    let ordered = sort_sessions_for_sidebar(&siblings);
+    let index = ordered.iter().position(|sibling| sibling.id == session_id);
+    let after = index
+        .and_then(|index| index.checked_sub(1))
+        .and_then(|before| ordered.get(before))
+        .map(|sibling| sibling.id.clone());
+    let before = index
+        .filter(|_| after.is_none())
+        .and_then(|index| ordered.get(index + 1))
+        .map(|sibling| sibling.id.clone());
+    let client = app.client();
+    let (Some(client), true) = (client, after.is_some() || before.is_some()) else {
+        app.settle_pending_orders();
+        return;
+    };
+    let reply = client.reorder_session(&session_id, after.as_deref(), before.as_deref());
+    app.reorder.writing += 1;
     drop(app.dispatch().spawn(reply, |app: &mut App, result| {
+        app.reorder.writing = app.reorder.writing.saturating_sub(1);
         match result {
-            Ok(reordered) => {
-                let mut current = std::mem::take(&mut app.data.repo_sessions);
-                for session in reordered {
-                    current = upsert_session(current, session);
+            Ok(changed) => {
+                for session in changed {
+                    app.upsert(session);
                 }
-                app.data.repo_sessions = sort_sessions(current);
             }
-            Err(error) => app.set_error(Some(error.to_string())),
+            Err(error) => app.set_error(Some(format!("Could not save the new order: {error}"))),
         }
-        app.set_busy(false);
+        app.settle_pending_orders();
     }));
 }
 
@@ -1275,7 +1345,7 @@ pub fn refresh_sessions(app: &mut App) {
     };
     let reply = client.subscribe(&app.props.repo_root);
     drop(app.dispatch().spawn(reply, |app: &mut App, result| match result {
-        Ok(latest) => app.data.repo_sessions = sort_sessions(latest),
+        Ok(latest) => app.set_repo_sessions(latest),
         Err(error) => app.set_error(Some(error.to_string())),
     }));
 }
@@ -2352,30 +2422,95 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn reorder_refresh_and_restart_go_to_the_daemon() {
+    fn moves_show_at_once_and_are_written_once_you_stop() {
+        local(async {
+            let (mut app, mut rx) = with_sessions(3);
+            let mut daemon = Daemon::connect(&mut app);
+            // Two moves down: shown at once, nothing written yet.
+            handle_browse(&mut app, &text("J"));
+            handle_browse(&mut app, &text("J"));
+            assert_eq!(ids(&app), ["s1", "s2", "s0"]);
+            assert!(!app.messages.busy);
+            // At the end: nothing more.
+            handle_browse(&mut app, &text("J"));
+            assert_eq!(ids(&app), ["s1", "s2", "s0"]);
+            // The daemon's records keep the old order meanwhile; the move stays on screen.
+            app.upsert(session("s0", "Session 0", SessionStatus::Running));
+            assert_eq!(ids(&app), ["s1", "s2", "s0"]);
+
+            // One write, once the moves stop: after the sibling now above it.
+            apply(&mut app, &mut rx).await;
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "reorder-session");
+            assert_eq!((&request["sessionId"], &request["after"]), (&json!("s0"), &json!("s2")));
+            assert!(request.get("before").is_none());
+            let mut written = session("s0", "Session 0", SessionStatus::Running);
+            written.sidebar_order = Some(JsNumber(1.0));
+            daemon.ok(&request, json!([json_of(&written)])).await;
+            apply(&mut app, &mut rx).await;
+            assert!(app.reorder.orders.is_empty() && app.reorder.saved.is_empty());
+            assert_eq!(ids(&app), ["s1", "s2", "s0"]);
+
+            // A failed write puts the daemon's order back.
+            handle_browse(&mut app, &text("K"));
+            assert_eq!(ids(&app), ["s1", "s0", "s2"]);
+            apply(&mut app, &mut rx).await;
+            let request = daemon.next().await;
+            assert_eq!((&request["after"], &request["before"]), (&json!("s1"), &Value::Null));
+            daemon.fail(&request, "cannot move").await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(
+                app.messages.error.as_deref(),
+                Some("Could not save the new order: cannot move")
+            );
+            assert_eq!(ids(&app), ["s1", "s2", "s0"]);
+
+            // Moving another session writes the first move at once.
+            handle_browse(&mut app, &text("K"));
+            app.set_selected_id(Some("s1".to_owned()));
+            handle_browse(&mut app, &text("J"));
+            let request = daemon.next().await;
+            assert_eq!((&request["sessionId"], &request["after"]), (&json!("s0"), &json!("s1")));
+        });
+    }
+
+    #[test]
+    fn in_the_state_view_a_move_stays_in_its_section() {
+        local(async {
+            let (mut app, _rx) = with_sessions(3);
+            let _daemon = Daemon::connect(&mut app);
+            app.data.repo_sessions[2].status = SessionStatus::Exited;
+            assert!(app.sectioned());
+            app.set_selected_id(Some("s1".to_owned()));
+            // s1 is the last running session: the exited s2 below it is in another section.
+            handle_browse(&mut app, &text("J"));
+            assert!(app.reorder.orders.is_empty());
+            handle_browse(&mut app, &text("K"));
+            assert_eq!(ids(&app), ["s1", "s0", "s2"]);
+        });
+    }
+
+    #[test]
+    fn quitting_writes_a_move_first_and_waits_for_it() {
         local(async {
             let (mut app, mut rx) = with_sessions(2);
             let mut daemon = Daemon::connect(&mut app);
             handle_browse(&mut app, &text("J"));
-            assert!(app.messages.busy);
+            app.quit();
             let request = daemon.next().await;
-            assert_eq!(request["type"], "reorder-session");
-            assert_eq!(request["direction"], "down");
-            let mut moved = app.data.repo_sessions[0].clone();
-            moved.title = "Moved".to_owned();
-            daemon.ok(&request, json!([json_of(&moved)])).await;
+            assert_eq!((&request["sessionId"], &request["after"]), (&json!("s0"), &json!("s1")));
+            assert_eq!(UiModel::exit(&mut app), None, "the exit waits for the write");
+            daemon.ok(&request, json!([])).await;
             apply(&mut app, &mut rx).await;
-            assert!(!app.messages.busy);
-            assert_eq!(app.data.repo_sessions.len(), 2);
-            assert!(app.data.repo_sessions.iter().any(|session| session.title == "Moved"));
-            handle_browse(&mut app, &text("K"));
-            let request = daemon.next().await;
-            assert_eq!(request["direction"], "up");
-            daemon.fail(&request, "cannot move").await;
-            apply(&mut app, &mut rx).await;
-            assert_eq!(app.messages.error.as_deref(), Some("cannot move"));
-            assert!(!app.messages.busy);
+            assert_eq!(UiModel::exit(&mut app), Some(UiExitResult::Quit));
+        });
+    }
 
+    #[test]
+    fn refresh_and_restart_go_to_the_daemon() {
+        local(async {
+            let (mut app, mut rx) = with_sessions(2);
+            let mut daemon = Daemon::connect(&mut app);
             handle_browse(&mut app, &text("R"));
             let request = daemon.next().await;
             assert_eq!(request["type"], "subscribe");

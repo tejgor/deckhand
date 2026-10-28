@@ -1,6 +1,7 @@
 {"dir":"c2d","msg":{"type":"global-link-candidates","requestId":"e0000000-0000-4000-8000-000000000000","cwd":"/private/tmp/deckhand-state-IRZCCU/worktrees/term-shared"}}
 {"dir":"c2d","msg":{"type":"open-tasks","requestId":"e0000001-0000-4000-8000-000000000001","cwd":"/private/tmp/deckhand-state-IRZCCU/worktrees/term-shared"}}
 {"dir":"c2d","msg":{"type":"reorder-session","requestId":"e0000002-0000-4000-8000-000000000002","sessionId":"34a1c670-f5bf-40e3-8e03-d04fd47c59be","direction":"up"}}
+{"dir":"c2d","msg":{"type":"reorder-session","requestId":"e0000002-0000-4000-8000-000000000003","sessionId":"34a1c670-f5bf-40e3-8e03-d04fd47c59be","direction":"down","after":"fdee9d47-9a04-440d-8761-e3d488dd61bf"}}
 {"dir":"c2d","msg":{"type":"attach","requestId":"e0000003-0000-4000-8000-000000000003","sessionId":"34a1c670-f5bf-40e3-8e03-d04fd47c59be","cols":120,"rows":34}}
 {"dir":"c2d","msg":{"type":"input","sessionId":"34a1c670-f5bf-40e3-8e03-d04fd47c59be","data":"\u001b[A\r"}}
 {"dir":"c2d","msg":{"type":"resize","sessionId":"34a1c670-f5bf-40e3-8e03-d04fd47c59be","cols":100,"rows":30}}

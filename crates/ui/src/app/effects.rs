@@ -37,7 +37,6 @@ use crate::app::layout::{measure_sidebar, normalize_sidebar_percent};
 use crate::app::state::{App, AppTimers, Mode, empty_pane};
 use crate::app::{
     Derived, ERROR_MESSAGE_AUTO_HIDE_MS, SPINNER_FRAMES, STATUS_MESSAGE_AUTO_HIDE_MS, normalize_scroll_sensitivity,
-    sort_sessions,
 };
 use crate::panes::dev::{dev_cell_size, dev_processes};
 use crate::panes::terminal::TerminalView;
@@ -566,7 +565,7 @@ pub fn connect(app: &mut App) {
                 if flag.get() {
                     return;
                 }
-                app.data.repo_sessions = sort_sessions(sessions);
+                app.set_repo_sessions(sessions);
                 app.data.sessions_loaded = true;
                 app.set_error(None);
             });

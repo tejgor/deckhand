@@ -788,6 +788,13 @@ pub struct ReorderSession {
     pub session_id: String,
     #[serde(default = "lenient::down", deserialize_with = "lenient::direction")]
     pub direction: MoveDirection,
+    /// Not in the TS: the sibling to place the session right after, or (without one) [`ReorderSession::before`];
+    /// `direction` applies only when neither is given.
+    #[serde(default, deserialize_with = "lenient::opt_id")]
+    pub after: Option<String>,
+    /// Not in the TS: the sibling to place the session right before.
+    #[serde(default, deserialize_with = "lenient::opt_id")]
+    pub before: Option<String>,
 }
 
 #[skip_serializing_none]
@@ -1375,6 +1382,16 @@ mod tests {
             panic!()
         };
         assert_eq!(reorder.direction, MoveDirection::Down);
+        assert_eq!((reorder.after, reorder.before), (None, None));
+        let Request::ReorderSession(placed) =
+            decode(json!({"type": "reorder-session", "sessionId": "s", "after": "a", "before": 5}))
+        else {
+            panic!()
+        };
+        assert_eq!(
+            (placed.after.as_deref(), placed.before.as_deref()),
+            (Some("a"), Some("5"))
+        );
         let Request::ResolveMerge(resolve) = decode(json!({"type": "resolve-merge", "action": 5})) else {
             panic!()
         };

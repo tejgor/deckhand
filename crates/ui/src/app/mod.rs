@@ -42,8 +42,9 @@ use deckhand_core::tasks_board::{OwnedTaskLinkLookup, linked_tasks, task_link_lo
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::data::RightPaneTab;
 use deckhand_protocol::data::{
-    AttachTarget, BranchFrom, BranchList, DevProcessRecord, ProgramKey, ProjectInfo, SessionCleanupInspection,
-    SessionRecord, SessionStatus, SessionWorktreeMode, SubSessionKind, TasksDoc, UiExitResult, WorktreeMode,
+    AttachTarget, BranchFrom, BranchList, DevProcessRecord, JsNumber, ProgramKey, ProjectInfo,
+    SessionCleanupInspection, SessionRecord, SessionStatus, SessionWorktreeMode, SubSessionKind, TasksDoc,
+    UiExitResult, WorktreeMode,
 };
 use deckhand_protocol::records::{SessionFilter, SessionView};
 use deckhand_sys::desktop::resolve_terminal_editor;
@@ -923,10 +924,65 @@ impl App {
         }
     }
 
-    /// TS `setSessions(current => upsertSession(current, session))`.
-    pub fn upsert(&mut self, session: SessionRecord) {
+    /// TS `setSessions(current => upsertSession(current, session))`. Not in the TS: a J/K move not written yet
+    /// keeps its place ([`App::keep_pending_order`]).
+    pub fn upsert(&mut self, mut session: SessionRecord) {
+        self.keep_pending_order(&mut session);
         let current = std::mem::take(&mut self.data.repo_sessions);
         self.data.repo_sessions = upsert_session(current, session);
+    }
+
+    /// TS `setSessions(sortSessions(sessions))`, with J/K moves not written yet kept in place.
+    pub fn set_repo_sessions(&mut self, mut sessions: Vec<SessionRecord>) {
+        for session in &mut sessions {
+            self.keep_pending_order(session);
+        }
+        self.data.repo_sessions = sort_sessions(sessions);
+    }
+
+    /// Not in the TS: a record from the daemon shows the order you moved it to until the writes settle; the
+    /// daemon's order is kept to put back then.
+    fn keep_pending_order(&mut self, session: &mut SessionRecord) {
+        if let Some(order) = self.reorder.orders.get(&session.id) {
+            self.reorder.saved.insert(session.id.clone(), session.sidebar_order);
+            session.sidebar_order = Some(JsNumber(*order));
+        }
+    }
+
+    /// Not in the TS: J/K moves to show at once, with the daemon's orders kept to put back.
+    pub fn show_pending_orders(&mut self, orders: Vec<(String, f64)>) {
+        for (id, order) in orders {
+            if !self.reorder.orders.contains_key(&id) {
+                let current = self.data.repo_sessions.iter().find(|session| session.id == id);
+                self.reorder
+                    .saved
+                    .insert(id.clone(), current.and_then(|session| session.sidebar_order));
+            }
+            self.reorder.orders.insert(id, order);
+        }
+        let mut sessions = std::mem::take(&mut self.data.repo_sessions);
+        for session in &mut sessions {
+            if let Some(order) = self.reorder.orders.get(&session.id) {
+                session.sidebar_order = Some(JsNumber(*order));
+            }
+        }
+        self.data.repo_sessions = sort_sessions(sessions);
+    }
+
+    /// Not in the TS: every move written and answered, the daemon's orders are shown again (the moves among them).
+    pub fn settle_pending_orders(&mut self) {
+        if self.reorder.moving.is_some() || self.reorder.writing > 0 {
+            return;
+        }
+        self.reorder.orders.clear();
+        let saved = std::mem::take(&mut self.reorder.saved);
+        let mut sessions = std::mem::take(&mut self.data.repo_sessions);
+        for session in &mut sessions {
+            if let Some(order) = saved.get(&session.id) {
+                session.sidebar_order = *order;
+            }
+        }
+        self.data.repo_sessions = sort_sessions(sessions);
     }
 
     /// TS: the five pane records back to empty (session removed, none selected).
@@ -938,11 +994,18 @@ impl App {
         self.panes.action = empty_pane();
     }
 
-    /// TS `exit(result)` (useApp): the loop ends with it.
+    /// TS `exit(result)` (useApp): the loop ends with it. Not in the TS: a J/K move not written yet is written now,
+    /// and the loop waits for it (up to REORDER_EXIT_WAIT), so the next sidebar shows it.
     pub fn exit_with(&mut self, result: UiExitResult) {
         // Ink resolves waitUntilExit once; a second exit changes nothing.
         if self.connection.exit.is_none() {
             self.connection.exit = Some(result);
+            modes::browse::write_reorder(self);
+            if self.reorder.writing > 0 && self.reorder.exit_wait.is_none() {
+                self.reorder.exit_wait = Some(self.dispatch().after(modes::browse::REORDER_EXIT_WAIT, |app| {
+                    app.reorder.exit_waited = true;
+                }));
+            }
         }
     }
 
@@ -1543,6 +1606,9 @@ impl UiModel for App {
     }
 
     fn exit(&mut self) -> Option<UiExitResult> {
+        if self.reorder.writing > 0 && !self.reorder.exit_waited {
+            return None;
+        }
         self.connection.exit.take()
     }
 }
