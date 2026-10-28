@@ -1117,7 +1117,7 @@ mod tests {
                 ]),
             );
             let p = props(Some(&client), &s1, &changes, false);
-            let mut press_key = |app: &mut App, text: &str| {
+            let press_key = |app: &mut App, text: &str| {
                 let (_, effects) = call(app, |flow, cx| flow.handle_input(&p, &press(text), cx));
                 app.apply_flow_effects(effects);
             };
