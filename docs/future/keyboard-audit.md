@@ -37,7 +37,19 @@ The points about terminals and layouts (kitty encodings, Ctrl+] behind Option, C
 
 ## Build
 
-Shipped. Kept here as the record of what was decided; one deviation: 2.2 (`S`) uses the press-twice rule (7.0) rather than a dialog, since it is a yes/no.
+Shipped on 2026-10-28, in five commits on `agents-without-attaching` (`50ff34a`, `087ada8`, `24f3b7d`, `015c4e3`, `b89ced0`). The tables below are the record of what was decided. Where the build settled a detail the table left open:
+
+- **2.2**: `S` uses the press-twice rule (7.0), not a dialog, since it is a yes/no: the first `S` says the old conversation can't be resumed, the second restarts.
+- **2.1**: the force kill's dialog offers only *Force kill, keep worktree* and *Cancel*, and checks nothing first, since it never deletes.
+- **2.4 + 2.5**: "shows what runs" switches to its tab (Dev, or the action's or shell's Terminal view) and closes the run list; it doesn't attach full screen.
+- **3.1**: an edit that changed nothing, like an empty title, just closes on Esc. When the save fails (no daemon), the editor stays open with the text.
+- **3.3**: the text fields are the session search, the new-session name and its worktree search, both DELETE prompts, the notes and task editors, the task picker's search and the guide's search (`App::typing_in_field`). Notes are saved on every exit from the UI, attaches included.
+- **4.2**: Ctrl+D / Ctrl+U are PgDn / PgUp wherever a screen pages; the session list and the Tasks board, which had no page keys, move half their list. Worktrees keeps its ten rows.
+- **5.1**: a failed update's status says `G shows the output` (or `why`), since it can show on any screen.
+- **5.3**: Ctrl+N / Ctrl+P also move in the existing-worktree picker while typing its search.
+- **7.3**: the hint reads *ctrl+c went to the agent; ctrl+] returns to the list* (or *the shell*).
+
+Where each key is documented now: `docs/keys.md` (the Run list and Agents sections are new, with notes on Ctrl and letters and on press twice), `docs/features.md`, the in-app guide and `HANDOFF.md`.
 
 **Typing into an agent or shell**
 

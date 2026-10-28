@@ -13,7 +13,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `1`–`9` | Select that numbered session |
 | `0` | Select session 10 (while 10 or fewer are visible) |
 | a number | With more than 10 visible, type it: `enter` or a short pause selects, `esc` clears |
-| `/` | Search titles, notes, tasks, agent, branch and path |
+| `/` | Search titles, notes, tasks, agent, branch and path. While typing, `↑`/`↓` or `ctrl+n`/`ctrl+p` move the selection, `enter` keeps the search and `esc` clears it |
 | `f` | Open the filter menu: `a` active, `r` running, `!` attention, `e` exited, `A` archived, `*` all |
 | `f` `f` | Go back to the active filter |
 | `!`, `;` | Select the next session that needs you, switching to the attention filter |
@@ -51,7 +51,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `U` | Mark the selected session's finished reply unread (`◆`), or read again ([unread replies](features.md#organizing-and-inspecting-sessions)) |
 | `m` | Merge the selected worktree into the current branch, uncommitted ([merging](features.md#merging-and-done)) |
 | `M` | Set or clear the worktree's merged marker without merging |
-| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes)), then your actions ([actions](features.md#setup-and-actions)), then a row per shell and **+ New shell**, which opens [another](features.md#several-shells). `esc`, `h` or `←` closes it. On every row `enter` starts what is stopped and shows what runs, and `x` twice stops the selected row, closes an extra shell, or restarts the first shell, killing whatever is stuck in it ([restarting](features.md#terminal-git-and-dev-panes)). To restart anything else: `x` `x`, then `enter`. Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
+| `r` | Open the [run list](#run-list): Dev, your actions and the worktree's shells |
 | `A` | Archive or unarchive the selected session (it keeps running) |
 | `backspace` | Archive the selected exited session; on an archived one, remove it for good ([archiving](features.md#organizing-and-inspecting-sessions)) |
 | `H` | Export and open a handoff ([handoffs](features.md#resume-and-handoffs)) |
@@ -67,9 +67,13 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 
 `q` works only on the session list: every other screen closes with `esc`.
 
-**In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic (`g`/`G` the first or last), `/` searches every topic, `J`/`K` (or `pgdn`/`pgup`, `space`) scroll and `esc` closes.
+**Ctrl and letters**: outside a text field, `ctrl` plus a letter never does what the letter does (`ctrl+x` doesn't stop a session, `ctrl+a` doesn't open Notes). The exceptions are `ctrl+d` / `ctrl+u`, which page wherever `pgdn` / `pgup` do, since a laptop has no page keys without `fn`.
 
-**Dialogs and the merge screen**: when what they show does not fit, `J`/`K` (or `pgdn`/`pgup`, `ctrl+d`/`ctrl+u`) scroll it, and the border says how much more there is (`↓ 12 more · J`). In `i`, the trust review and the DELETE prompt, `J`/`K` scroll a page. In Settings lists, `J`/`K` move five rows and `g`/`G` go to the first or last.
+**Press twice**: a few keys that are hard to undo but don't need a dialog act on the second press. The first press says in the status line what the second will do; press the same key again within 2 seconds to do it, and any other key cancels. These are `S` (fresh restart), `x` in the [run list](#run-list) and in [Tasks](#tasks), and `a` / `A` in [Git changes](#git-changes) while a file is partly staged.
+
+**In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic (`g`/`G` the first or last), `/` searches every topic, `J`/`K` (or `pgdn`/`pgup`, `ctrl+d`/`ctrl+u`, `space`) scroll and `esc` closes.
+
+**Dialogs and the merge screen**: when what they show does not fit, `J`/`K` (or `pgdn`/`pgup`, `ctrl+d`/`ctrl+u`) scroll it, and the border says how much more there is (`↓ 12 more · J`). In `i`, the trust review and the DELETE prompt, `J`/`K` scroll a page. In Settings lists, `J`/`K` move five rows and `g`/`G` go to the first or last. In a DELETE prompt, `esc` goes back to the choices.
 
 > [!NOTE]
 > Deletion is conservative. Unknown or unsafe Git state needs `DELETE` typed, and `X` never authorises data loss. The protections for the main checkout, the current worktree and an actively shared worktree can't be overridden. See [Cleanup](features.md#cleanup).
@@ -90,11 +94,11 @@ The list starts on your default agent (Claude unless [`defaultAgent`](features.m
 | --- | --- |
 | typing | The session's name, which can't be empty. With a new worktree, it also names the worktree's folder and branch, sanitised ([worktree settings](features.md#worktree-settings)) |
 | `tab` | Next workspace: **no worktree** (the launch checkout), **new worktree**, **existing worktree** ([modes](features.md#sessions-and-sub-sessions)) |
-| `↑` / `↓` | With a new worktree: the branch it starts from |
+| `↑` / `↓`, `ctrl+p` / `ctrl+n` | With a new worktree: the branch it starts from |
 | `enter` | Create the session (with an existing worktree: pick it first) |
 | `esc` | Back to the agent |
 
-The form opens on **no worktree** unless [`defaultWorkspace`](features.md#configuration) says otherwise. With **existing worktree**, `enter` lists the repository's worktrees: `j`/`k` pick one, `/` searches, `enter` creates the session there and `esc` goes back.
+The form opens on **no worktree** unless [`defaultWorkspace`](features.md#configuration) says otherwise. With **existing worktree**, `enter` lists the repository's worktrees: `j`/`k` pick one, `/` searches (while typing, `↑`/`↓` or `ctrl+p`/`ctrl+n` move), `enter` creates the session there and `esc` goes back.
 
 The agent starts with no task: attach (`o`) and type it, or start the session from a task (`n` in the [task list](#tasks)) to have the task typed for you.
 
@@ -137,9 +141,11 @@ The agent starts with no task: attach (`o`) and type it, or start the session fr
 | `◇` | Agent: Codex |
 | `╎` | Left edge: shares the selected session's worktree (and its Terminal, Git and Dev) |
 | `›` | Left edge: the selected session |
-| `! N` | Header: N sessions need you (`!` jumps to them) |
+| `! N` | Header: N sessions need you (`!` or `;` jumps to them) |
 | `╎N` | Details: N other sessions share the worktree |
 | `☑2d` | Details: done 2 days ago |
+
+The sketch shows your own order (`V`). By default the rows sit under section headers instead, **Needs you**, **Unread**, **Working**, **Idle** and **Exited**, each with its count (`  Idle 3 ───`); a sub-session is indented under its parent only when both are in the same section. While you type to an agent or shell, every row but the selected one is dimmed.
 
 Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessions. Done rows have a muted title, while their markers and status stay readable. Below the branch, the details repeat the row's markers as glyphs (`╎N`, `▶`, `✓`, `☑2d`, `▣`), then `☐ N open` checklist items. A long branch is shortened to keep them. When `↑` shows, the details line names both versions, for example `✶ claude 2.1.287 · 2.1.290 installed`. In the app, `?` → Sidebar lists all of this.
 
@@ -151,9 +157,9 @@ Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessio
 | --- | --- |
 | `ctrl+]`, `ctrl+space` | Back to the session list |
 | any other key | Goes to the agent (or the shell), `esc`, `ctrl+c` and the arrows included. The first `ctrl+c` of each stint says so in the status line |
+| mouse wheel | On Preview: scroll the agent's view (or the preview's history); the [scroll speed](features.md#scroll-speed) is set in Settings |
 
 While you type, the rest of the sidebar is dimmed (the selected row stays bright) and the pane's header shows a filled *typing to the agent* (or *typing into shell N*). When typing ends by itself, because the agent exited or the shell closed, keys you were still typing are held back until you pause for 0.75 s, so they can't run list commands.
-| mouse wheel | On Preview: scroll the agent's view (or the preview's history); the [scroll speed](features.md#scroll-speed) is set in Settings |
 
 ## Attach
 
@@ -165,6 +171,8 @@ While you type, the rest of the sidebar is dimmed (the selected row stays bright
 | `ctrl+space` | Detach and return to Deckhand |
 | `ctrl+]` | Detach and return to Deckhand |
 | mouse wheel | Scroll the pane, scaled by the [scroll speed](features.md#scroll-speed) |
+
+Both detach keys still work when the attached program switches the terminal to an enhanced keyboard mode (kitty's or xterm's modifyOtherKeys, as Codex can).
 
 ## Notes editor
 
@@ -194,6 +202,32 @@ Press `enter` (or `→`) on the Notes tab to edit the note; [Notes](features.md#
 | `esc` | Stop editing |
 
 An editor's integrated terminal (Cursor, VS Code) may keep some `ctrl` keys for itself. Every line and word key has a non-`ctrl` alternative.
+
+## Run list
+
+`r` lists what can run in the selected session's worktree: **Dev** first (then a row per [Dev process](features.md#several-dev-processes)), then your [actions](features.md#setup-and-actions), then a row per [shell](features.md#several-shells) and **+ New shell**. Every row follows one rule: `enter` starts what is stopped and shows what runs, and `x` twice stops it.
+
+| Key | Action |
+| --- | --- |
+| `j`, `↓` / `k`, `↑` | Next / previous row |
+| `g`, `home` / `G`, `end` | First / last row |
+| `enter` | Start the row if it is stopped (an action from an untrusted `deckhand.json` is shown for review first); show it on its tab if it runs. On **+ New shell**: open another shell |
+| `x` `x` | Stop the selected row (Dev, a Dev process or the running action). On an extra shell: close it. On the first shell: restart it, killing whatever is stuck in it ([restarting](features.md#terminal-git-and-dev-panes)) |
+| `x` `x`, then `enter` | Restart anything else |
+| `esc`, `h`, `←` | Close the run list |
+
+The running action's row says `● running`. Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time).
+
+## Agents
+
+`G` lists the installed agents with their versions; [Agent versions and updates](features.md#agent-versions-and-updates) explains what an update runs.
+
+| Key | Action |
+| --- | --- |
+| `j`, `↓` / `k`, `↑` | Next / previous agent |
+| `enter` | Update the selected agent (asks first while it has running sessions) |
+| `R` | Look the latest releases up again |
+| `esc`, `h`, `←` | Back |
 
 ## Tasks
 
@@ -275,6 +309,6 @@ On the Git tab, `→` (or `l`) browses the worktree's changes and the files its 
 | `enter`, `E` | Open the file in Cursor or VS Code at its first changed line |
 | `J` | Scroll the diff preview down |
 | `K` | Scroll the diff preview up |
-| `pgdn` / `pgup` | Scroll the diff preview a page |
+| `pgdn` / `pgup`, `ctrl+d` / `ctrl+u` | Scroll the diff preview a page |
 | `o` | Attach lazygit (commits, discards, hunks, branches, history) |
 | `esc`, `←`, `h` | Back to the session list |
