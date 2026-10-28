@@ -62,7 +62,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `R` | Reload the session list (it updates live, so this is rarely needed) |
 | `?` | Open the in-app guide |
 | `q` | Quit the UI; running sessions continue in the daemon |
-| `ctrl+c` | Quit from any screen (in a Settings edit, the first press acts as `esc`; while [typing to the agent](#typing-to-the-agent) it goes to the agent) |
+| `ctrl+c` | Quit from any screen. In a text field (a search, a name, a note, a task, a DELETE prompt, a Settings edit) the first press acts as `esc`; while [typing to the agent](#typing-to-the-agent) it goes to the agent |
 
 `q` works only on the session list: every other screen closes with `esc`.
 
@@ -220,7 +220,7 @@ An editor's integrated terminal (Cursor, VS Code) may keep some `ctrl` keys for 
 | `E` | Open the task list file in Cursor or VS Code |
 | `esc` | Back |
 
-While editing a task, `enter` saves the title, `ctrl+s` saves from the details and `esc` cancels.
+While editing a task, `enter` saves the title, `ctrl+s` saves from the details, and `esc` saves too (as in the notes editor); with an empty title it just closes.
 
 **In the Notes view** (`tab`):
 

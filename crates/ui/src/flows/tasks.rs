@@ -934,8 +934,21 @@ impl TasksFlow {
         cx: &mut FlowCx<App, Self>,
     ) {
         let key = &input.key;
+        // Not in the TS: Esc keeps what was typed, as in the notes editor (it threw the title and details away). Nothing
+        // typed, or nothing changed, just closes.
         if key.escape {
-            self.editor = None;
+            let untouched = js_trim(&state.title.text).is_empty()
+                || state.id.as_ref().is_some_and(|id| {
+                    props
+                        .tasks
+                        .iter()
+                        .any(|task| &task.id == id && task.title == state.title.text && task.body == state.body.text)
+                });
+            if untouched {
+                self.editor = None;
+            } else {
+                self.save(state, props, cx);
+            }
             return;
         }
         if key.ctrl && input.input == "s" {
@@ -2088,15 +2101,15 @@ impl Flow<App> for TasksFlow {
     fn hint(&self, props: &TasksFlowProps<'_>, width: usize) -> String {
         if let Some(editor) = &self.editor {
             let parts: Vec<HintPart> = if editor.kind == TaskEditorKind::Step {
-                vec!["enter add to the note".into(), "esc cancel".into()]
+                vec!["enter add to the note".into(), "esc add".into()]
             } else if editor.field == TaskEditorField::Title {
-                vec!["enter save".into(), "tab details".into(), "esc cancel".into()]
+                vec!["enter save".into(), "tab details".into(), "esc save".into()]
             } else {
                 vec![
                     "enter new line".into(),
                     "ctrl+s save".into(),
                     "tab title".into(),
-                    "esc cancel".into(),
+                    "esc save".into(),
                 ]
             };
             return fit_hint(&parts, width, HINT_SEPARATOR);
@@ -2761,7 +2774,7 @@ pub(crate) mod tests {
             "a step editor",
             "a",
             "{}",
-            "enter add to the note • esc cancel",
+            "enter add to the note • esc add",
             &[],
             &[
                 "│                                                                                                │",
@@ -2780,19 +2793,13 @@ pub(crate) mod tests {
                 "╰────────────────────────────────────────────────────────────────────────────────────────────────╯",
             ],
         ),
-        (
-            "typed",
-            "hello world",
-            "{}",
-            "enter add to the note • esc cancel",
-            &[],
-            &[],
-        ),
+        // Not in the TS: Esc adds what was typed; with nothing typed it just closes (the recording typed "hello world").
+        ("nothing typed", "", "{}", "enter add to the note • esc add", &[], &[]),
         (
             "tab in step",
             "",
             "{\"tab\": true}",
-            "enter add to the note • esc cancel",
+            "enter add to the note • esc add",
             &[],
             &[],
         ),
@@ -2804,12 +2811,12 @@ pub(crate) mod tests {
             &[],
             &[],
         ),
-        ("A editor", "A", "{}", "enter save • tab details • esc cancel", &[], &[]),
+        ("A editor", "A", "{}", "enter save • tab details • esc save", &[], &[]),
         (
             "tab body",
             "",
             "{\"tab\": true}",
-            "enter new line • ctrl+s save • tab title • esc cancel",
+            "enter new line • ctrl+s save • tab title • esc save",
             &[],
             &[],
         ),
@@ -2817,7 +2824,7 @@ pub(crate) mod tests {
             "body typed",
             "line one",
             "{}",
-            "enter new line • ctrl+s save • tab title • esc cancel",
+            "enter new line • ctrl+s save • tab title • esc save",
             &[],
             &[
                 "│                                                                                                │",
@@ -3366,15 +3373,24 @@ pub(crate) mod tests {
         assert_eq!(state.body.text, "one\ntwo");
         assert_eq!(
             flow.hint(&props, 130),
-            "enter new line • ctrl+s save • tab title • esc cancel"
+            "enter new line • ctrl+s save • tab title • esc save"
         );
         // Ctrl+S saves: without a daemon, the error says so.
         press(&mut flow, &props, &mut cx, ctrl_s());
         assert_eq!(effects(&mut cx), ["SetError(Some(\"still connecting to daemon\"))"]);
         assert!(flow.editor.is_some());
-        // Esc closes it.
+        // Not in the TS: Esc saves too (it threw the draft away); without a daemon the editor stays, nothing lost.
         press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
-        assert!(flow.editor.is_none());
+        assert_eq!(effects(&mut cx), ["SetError(Some(\"still connecting to daemon\"))"]);
+        assert!(flow.editor.is_some());
+        // An empty title has nothing to keep: Esc closes it.
+        let empty = TaskEditor {
+            title: EditorState::default(),
+            ..flow.editor.clone().unwrap_or_else(|| panic!("the editor"))
+        };
+        flow.editor = Some(empty);
+        press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
+        assert!(flow.editor.is_none() && effects(&mut cx).is_empty());
         // A: always a backlog task.
         typed(&mut flow, &props, &mut cx, "A");
         assert_eq!(flow.editor.as_ref().map(|state| state.kind), Some(TaskEditorKind::Add));

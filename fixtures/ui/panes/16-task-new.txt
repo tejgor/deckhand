@@ -30,7 +30,7 @@
 │                                                                                                │
 ╰────────────────────────────────────────────────────────────────────────────────────────────────╯
 ── hint
-enter save • tab details • esc cancel
+enter save • tab details • esc save
 ── styles
 row 0: 0..98 fg=5
 row 1: 0..1 fg=5, 2..9 fg=6 bold, 9..16 fg=8, 74..96 fg=8, 97..98 fg=5

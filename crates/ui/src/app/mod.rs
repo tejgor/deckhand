@@ -998,11 +998,34 @@ impl App {
         if self.connection.exit.is_none() {
             self.connection.exit = Some(result);
             modes::browse::write_reorder(self);
-            if self.reorder.writing > 0 && self.reorder.exit_wait.is_none() {
+            // Not in the TS: notes typed in the last moment are saved before the UI goes.
+            self.notes_flow_call(|flow, props, cx| flow.flush_all(props.client, cx));
+            if (self.reorder.writing > 0 || self.flows.notes.saving()) && self.reorder.exit_wait.is_none() {
                 self.reorder.exit_wait = Some(self.dispatch().after(modes::browse::REORDER_EXIT_WAIT, |app| {
                     app.reorder.exit_waited = true;
                 }));
             }
+        }
+    }
+
+    /// Not in the TS: a text field has the keyboard, where a first Ctrl+C acts as Esc. Settings decides its own
+    /// (`SettingsFlow::cancelable`).
+    pub fn typing_in_field(&self) -> bool {
+        match self.mode {
+            Mode::Search | Mode::EnterName | Mode::ConfirmLoss | Mode::NotesFocus => true,
+            Mode::PickWorktree => self.create.worktree_typing,
+            Mode::Help => self.flows.help.typing,
+            Mode::Tasks => {
+                let tasks = &self.flows.tasks;
+                tasks.editor.is_some() || tasks.picker.as_ref().is_some_and(|picker| picker.typing)
+            }
+            Mode::Worktrees => self
+                .flows
+                .worktrees
+                .confirm
+                .as_ref()
+                .is_some_and(|confirm| confirm.override_.is_some()),
+            _ => false,
         }
     }
 
@@ -1331,21 +1354,26 @@ impl App {
         self.dismiss_notice();
         // Ink's exitOnCtrlC is off (cli.ts) so a first Ctrl+C acts like Esc while a Settings edit or JSON draft is
         // open (asking before discarding it). Ctrl+C at the discard prompt, while a save is in flight, or anywhere
-        // else quits like q.
+        // else quits like q. Not in the TS: in any other text field too (a search, a name, a note, a task, a DELETE
+        // prompt), so a reflex Ctrl+C there doesn't quit with what was typed.
         if key.ctrl && input.input == "c" {
+            let escape = Input::key(
+                "",
+                Key {
+                    escape: true,
+                    ..Key::NONE
+                },
+            );
+            if self.typing_in_field() && !self.messages.busy {
+                self.handle_input(&escape);
+                return;
+            }
             let cancelable = with_props!(
                 settings,
                 self,
                 |flow: &mut SettingsFlow, props: &SettingsFlowProps<'_>| { flow.cancelable(props) }
             );
             if cancelable && !self.messages.busy {
-                let escape = Input::key(
-                    "",
-                    Key {
-                        escape: true,
-                        ..Key::NONE
-                    },
-                );
                 self.settings_flow_call(|flow, props, cx| flow.handle_input(props, &escape, cx));
                 return;
             }
@@ -1603,7 +1631,7 @@ impl UiModel for App {
     }
 
     fn exit(&mut self) -> Option<UiExitResult> {
-        if self.reorder.writing > 0 && !self.reorder.exit_waited {
+        if (self.reorder.writing > 0 || self.flows.notes.saving()) && !self.reorder.exit_waited {
             return None;
         }
         self.connection.exit.take()
@@ -1724,6 +1752,31 @@ mod tests {
         app.set_busy(true);
         app.on_key(&KeyEvent::from_sequence("\x1d".to_owned()));
         assert_eq!(app.mode, Mode::Browse, "the busy gate does not hold keys for the agent");
+    }
+
+    #[test]
+    fn a_first_ctrl_c_in_a_text_field_acts_as_esc() {
+        let (mut app, _rx) = app(AppProps::default());
+        app.data.repo_sessions = vec![session("a", "A", SessionStatus::Running)];
+        app.set_mode(Mode::Search);
+        app.browse.session_query = "fix".to_owned();
+        app.handle_input(&Input::key(
+            "c",
+            Key {
+                ctrl: true,
+                ..Key::NONE
+            },
+        ));
+        assert_eq!(app.mode, Mode::Browse);
+        assert!(app.connection.exit.is_none(), "the first Ctrl+C left the search");
+        app.handle_input(&Input::key(
+            "c",
+            Key {
+                ctrl: true,
+                ..Key::NONE
+            },
+        ));
+        assert_eq!(app.connection.exit, Some(UiExitResult::Quit));
     }
 
     #[test]

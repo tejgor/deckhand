@@ -402,6 +402,24 @@ impl NotesFlow {
         }
     }
 
+    /// Not in the TS: saves every unsaved draft now (the UI is quitting; their debounce timers would die with it).
+    pub fn flush_all(&mut self, client: Option<&Rc<LiveClient>>, cx: &mut FlowCx<App, Self>) {
+        let keys: Vec<String> = self
+            .drafts
+            .iter()
+            .filter(|(_, draft)| draft.text != draft.saved)
+            .map(|(key, _)| key.clone())
+            .collect();
+        for key in keys {
+            self.flush(&key, client, cx, None);
+        }
+    }
+
+    /// Not in the TS: a save is still in flight.
+    pub fn saving(&self) -> bool {
+        self.drafts.values().any(|draft| draft.in_flight.is_some())
+    }
+
     /// TS: useNotesFlow schedule: save `key` SAVE_DEBOUNCE_MS after the last edit.
     pub fn schedule(&mut self, key: &str, cx: &mut FlowCx<App, Self>) {
         let owned = key.to_owned();
