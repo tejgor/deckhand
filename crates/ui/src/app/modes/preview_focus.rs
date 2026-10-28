@@ -7,6 +7,7 @@ use std::time::Instant;
 
 use deckhand_client::attach::detach_position;
 use deckhand_core::display::display_session_title;
+use deckhand_core::jsstr::date::now_ms;
 use deckhand_core::key::{Input, KeyEventType};
 use deckhand_core::session_features::session_has_unread_reply;
 use deckhand_core::terminal_keys::application_cursor_key;
@@ -60,6 +61,17 @@ pub fn on_raw_key(app: &mut App, event: &KeyEvent) {
         leave_focus(app, None);
         return;
     }
+    // Not in the TS: the first Ctrl+C of each stint says where it went (to the agent, which a second one may quit)
+    // and how to get back; it is still sent.
+    if sequence == "\x03" && !app.preview_focus.ctrl_c_hinted {
+        app.preview_focus.ctrl_c_hinted = true;
+        let to = if app.mode == Mode::TerminalFocus {
+            "the shell"
+        } else {
+            "the agent"
+        };
+        app.set_status(Some(format!("ctrl+c went to {to}; ctrl+] returns to the list")));
+    }
     let data = if modes.application_cursor_keys {
         application_cursor_key(sequence).unwrap_or(sequence)
     } else {
@@ -99,6 +111,7 @@ pub fn leave_focus(app: &mut App, status: Option<String>) {
     let typed_to_agent = app.mode == Mode::PreviewFocus;
     app.set_mode(Mode::Browse);
     app.preview_focus.in_paste = false;
+    app.preview_focus.ctrl_c_hinted = false;
     app.preview_focus.shell = None;
     app.panes.preview.screen = None;
     if status.is_some() {
@@ -122,6 +135,33 @@ pub fn leave_focus(app: &mut App, status: Option<String>) {
     }));
 }
 
+/// Not in the TS: after typing ends by itself, list keys wait for this long a pause, so the rest of a sentence being
+/// typed doesn't run commands (Backspace archives, s / S restart).
+pub const TYPING_ENDED_QUIET_MS: i64 = 750;
+
+/// Typing ended by itself: back to the session list, holding keys until the typing stops.
+fn end_focus(app: &mut App, status: Option<String>) {
+    leave_focus(app, status);
+    app.preview_focus.held_since = Some(now_ms());
+}
+
+/// Whether a key on the session list is held back: it came less than [`TYPING_ENDED_QUIET_MS`] after typing ended by
+/// itself, or after the last key held. Ctrl+C is never held.
+pub fn hold_key(app: &mut App, input: &Input, now: i64) -> bool {
+    let Some(since) = app.preview_focus.held_since else {
+        return false;
+    };
+    if input.key.ctrl && input.input == "c" {
+        return false;
+    }
+    if now - since >= TYPING_ENDED_QUIET_MS {
+        app.preview_focus.held_since = None;
+        return false;
+    }
+    app.preview_focus.held_since = Some(now);
+    true
+}
+
 /// Not in the TS: preview focus ends by itself when its session stops running, the selection moves to another
 /// session, or the connection to the daemon goes (its error is shown already); terminal focus when its shell is gone
 /// or no longer shown.
@@ -130,7 +170,7 @@ pub fn interactive_focus_effect(app: &mut App) {
         return;
     }
     if app.client().is_none() {
-        leave_focus(app, None);
+        end_focus(app, None);
         return;
     }
     let focused = app.preview_focus.session_id.clone();
@@ -138,7 +178,7 @@ pub fn interactive_focus_effect(app: &mut App) {
         .selected_session()
         .filter(|session| focused.as_deref() == Some(session.id.as_str()))
     else {
-        leave_focus(app, None);
+        end_focus(app, None);
         return;
     };
     if app.mode == Mode::TerminalFocus {
@@ -147,7 +187,7 @@ pub fn interactive_focus_effect(app: &mut App) {
     }
     if session.status != SessionStatus::Running {
         let title = display_session_title(&session, &app.sessions());
-        leave_focus(app, Some(format!("{title} exited; back to the session list")));
+        end_focus(app, Some(format!("{title} exited; back to the session list")));
     }
 }
 
@@ -156,7 +196,7 @@ fn shell_focus_effect(app: &mut App) {
     let id = app.preview_focus.shell.unwrap_or(0);
     let terminal = &app.panes.terminal;
     if app.browse.active_tab != RightPaneTab::Terminal || app.panes.terminal_view == TerminalView::Action {
-        leave_focus(app, None);
+        end_focus(app, None);
         return;
     }
     let mine = terminal.session_id == app.preview_focus.session_id;
@@ -167,7 +207,7 @@ fn shell_focus_effect(app: &mut App) {
         } else {
             Some("The shell exited; back to the session list".to_owned())
         };
-        leave_focus(app, status);
+        end_focus(app, status);
     }
 }
 
@@ -305,6 +345,15 @@ pub(crate) mod tests {
             assert_eq!(app.mode, Mode::PreviewFocus);
             assert!(app.connection.exit.is_none());
             assert_eq!(app.preview_focus.scroll_offset, 0, "typing follows the latest output");
+            // The first Ctrl+C of the stint said where it went, once.
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("ctrl+c went to the agent; ctrl+] returns to the list")
+            );
+            app.set_status(None);
+            key(&mut app, "\x03");
+            assert_eq!(daemon.next().await["data"], "\x03");
+            assert_eq!(app.messages.status_message, None);
         });
     }
 
@@ -408,6 +457,35 @@ pub(crate) mod tests {
                 app.messages.status_message.as_deref(),
                 Some("Session 0 exited; back to the session list")
             );
+            // The keys still being typed are held until a pause, then the list takes them; Ctrl+C always goes through.
+            let since = app.preview_focus.held_since.unwrap_or_else(|| panic!("held"));
+            let backspace = Input::key(
+                "",
+                deckhand_core::key::Key {
+                    backspace: true,
+                    ..deckhand_core::key::Key::NONE
+                },
+            );
+            assert!(hold_key(&mut app, &backspace, since + 100));
+            assert!(hold_key(&mut app, &Input::text("s"), since + 700));
+            let ctrl_c = Input::key(
+                "c",
+                deckhand_core::key::Key {
+                    ctrl: true,
+                    ..deckhand_core::key::Key::NONE
+                },
+            );
+            assert!(!hold_key(&mut app, &ctrl_c, since + 800));
+            assert!(
+                hold_key(&mut app, &Input::text("x"), since + 1300),
+                "the pause counts from the last key"
+            );
+            assert!(!hold_key(
+                &mut app,
+                &Input::text("j"),
+                since + 1300 + TYPING_ENDED_QUIET_MS
+            ));
+            assert_eq!(app.preview_focus.held_since, None);
 
             // Another session selected: back quietly.
             let (mut app, _rx) = with_sessions(2);

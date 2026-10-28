@@ -349,6 +349,11 @@ pub struct PreviewFocusState {
     pub in_paste: bool,
     /// Where the last frame drew the Preview's body (the agent's screen), for placing the cursor.
     pub body: Option<ratatui::layout::Rect>,
+    /// Not in the TS: typing ended by itself (the agent exited, the shell died): when the last key came since, while
+    /// keys still in flight are held back from the session list ([`crate::app::modes::preview_focus::hold_key`]).
+    pub held_since: Option<i64>,
+    /// Not in the TS: this stint of typing showed its Ctrl+C hint ([`crate::app::modes::preview_focus::on_raw_key`]).
+    pub ctrl_c_hinted: bool,
 }
 
 /// TS: the filter menu's way back (f): the filter and selection it was opened on.
@@ -704,6 +709,8 @@ impl App {
                 shell: None,
                 in_paste: false,
                 body: None,
+                held_since: None,
+                ctrl_c_hinted: false,
             },
             filter: None,
             review: ReviewState::default(),

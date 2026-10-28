@@ -25,7 +25,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
         title: "Start here",
         lines: &[
             HelpLine::Note {
-                note: "The session list on the left, the pane on the right: → steps in, ← or Esc back out. Everywhere: Enter opens, Space toggles, E opens your editor; in lists a adds, x removes (on the session list: a Notes tab, x stop).",
+                note: "The session list on the left, the pane on the right: → steps in, ← or Esc back out (typing to an agent or shell: Ctrl+]). Everywhere: Enter opens, Space toggles, E opens your editor; in lists a adds, x removes (on the session list: a Notes tab, x stop).",
             },
             HelpLine::Key {
                 keys: "n",
@@ -225,7 +225,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "←  h  Esc",
-                text: "Step back out to the session list",
+                text: "Step back out (typing to it: Ctrl+]; the notes editor: Esc)",
             },
             HelpLine::Key {
                 keys: "v",

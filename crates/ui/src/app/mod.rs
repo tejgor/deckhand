@@ -1627,6 +1627,9 @@ impl UiModel for App {
             return;
         }
         if let Some(input) = terminal_input(event) {
+            if crate::app::modes::preview_focus::hold_key(self, &input, deckhand_core::jsstr::date::now_ms()) {
+                return;
+            }
             self.handle_input(&input);
         }
     }

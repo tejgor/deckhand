@@ -105,18 +105,18 @@ fn header_row(props: &PreviewPaneProps<'_>, width: usize) -> Row {
         badges.extend(worktree_badge(session).map(str::to_owned));
         badges.push(status_label(Some(session)));
     }
-    if focused {
-        badges.push("typing to the agent".to_owned());
-    }
     if let Some(offset) = scrolled {
         badges.push(format!("↑{offset}"));
     }
     badges.retain(|badge| !badge.is_empty());
+    // Not in the TS: while you type to the agent, a filled `typing to the agent` comes first and is never cut.
+    let typing = focused.then_some(" typing to the agent ");
+    let typing_width = typing.map_or(0, |pill| js_len(pill) + 1);
     // Keep the header on one row: the badge yields to at least 8 columns of path.
-    let badge = truncate(&badges.join(" · "), width.saturating_sub(9));
+    let badge = truncate(&badges.join(" · "), width.saturating_sub(9 + typing_width));
     let badge = (!badge.is_empty()).then_some(badge);
     let path_budget = width
-        .saturating_sub(badge.as_ref().map_or(0, |badge| js_len(badge) + 1))
+        .saturating_sub(badge.as_ref().map_or(0, |badge| js_len(badge) + 1) + typing_width)
         .max(1);
     let cwd_label = match session {
         Some(session) => {
@@ -130,10 +130,17 @@ fn header_row(props: &PreviewPaneProps<'_>, width: usize) -> Row {
         None => "Select a session from the sidebar".to_owned(),
     };
     let left = vec![Seg::new(truncate(&cwd_label, path_budget), TextStyle::fg(THEME.muted))];
-    let right: Row = badge.map_or_else(Vec::new, |badge| {
-        let row = vec![Seg::new(badge, TextStyle::fg(THEME.accent))];
-        truncate_row(&row, width, Wrap::TruncateEnd)
-    });
+    let mut right: Row = typing
+        .map(|pill| Seg::new(pill, TextStyle::fg(THEME.border_active).inverse(true).bold(true)))
+        .into_iter()
+        .collect();
+    if let Some(badge) = badge {
+        if !right.is_empty() {
+            right.push(Seg::plain(" "));
+        }
+        right.push(Seg::new(badge, TextStyle::fg(THEME.accent)));
+    }
+    let right = truncate_row(&right, width, Wrap::TruncateEnd);
     space_between(&left, &right, width)
 }
 
@@ -457,10 +464,13 @@ mod tests {
         assert_eq!(rows.len(), 3);
         let header = row_text(&rows[0]);
         assert!(header.starts_with("/wt/a"));
+        // Typing comes first, filled, and is never the part that is cut.
         assert!(
-            header.ends_with("worktree · running · typing to the agent · ↑3"),
+            header.ends_with(" typing to the agent  worktree · running · ↑3"),
             "{header}"
         );
+        let narrow = row_text(&preview_rows(&props, 40, 3)[0]);
+        assert!(narrow.contains(" typing to the agent "), "{narrow}");
         assert_eq!(row_text(&rows[1]), "hello");
         assert_eq!(rows[1][0].style.color, None);
     }

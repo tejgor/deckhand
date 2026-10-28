@@ -506,22 +506,42 @@ pub fn is_detach_input(chunk: &[u8]) -> bool {
 /// Not in the TS: where [`is_detach_input`]'s first detach key starts in `chunk`, so the keys before it can still be
 /// sent.
 pub fn detach_position(chunk: &[u8]) -> Option<usize> {
-    // Some terminals encode Ctrl+Space as an enhanced-keyboard escape sequence when an attached TUI enables CSI-u /
-    // modifyOtherKeys mode. TS decodes the chunk as UTF-8 first; lossy decoding never consumes an ASCII byte into a
-    // replacement character, so searching the bytes finds the same sequences.
+    // Terminals encode Ctrl+Space and Ctrl+] as an enhanced-keyboard escape sequence when an attached TUI enables
+    // CSI-u (kitty) or modifyOtherKeys mode. TS decodes the chunk as UTF-8 first; lossy decoding never consumes an ASCII
+    // byte into a replacement character, so reading the bytes finds the same sequences.
     let byte = chunk.iter().position(|byte| *byte == 0x00 || *byte == 0x1d);
-    [
-        byte,
-        find_bytes(chunk, b"\x1b[32;5u"),
-        find_bytes(chunk, b"\x1b[27;5;32~"),
-    ]
-    .into_iter()
-    .flatten()
-    .min()
+    let sequence = (0..chunk.len()).find(|&at| enhanced_detach_key(&chunk[at..]));
+    [byte, sequence].into_iter().flatten().min()
 }
 
-fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|window| window == needle)
+/// Not in the TS (which knew only `ESC [32;5u` and `ESC [27;5;32~`): whether `bytes` start with Ctrl+Space or Ctrl+]
+/// as a CSI-u (`ESC [ code (:alternates) ; mods (:event) u`) or modifyOtherKeys (`ESC [27; mods ; code ~`) key press:
+/// Ctrl held with nothing but Shift, Caps Lock or Num Lock, and not a release.
+fn enhanced_detach_key(bytes: &[u8]) -> bool {
+    let Some(rest) = bytes.strip_prefix(b"\x1b[") else {
+        return false;
+    };
+    let end = rest.iter().position(|byte| !matches!(byte, b'0'..=b'9' | b';' | b':'));
+    let Some(end) = end else { return false };
+    let (params, terminator) = (&rest[..end], rest[end]);
+    let Ok(params) = std::str::from_utf8(params) else {
+        return false;
+    };
+    let fields: Vec<&str> = params.split(';').collect();
+    let number = |text: &str| text.parse::<u32>().ok();
+    let (code, modifiers) = match (terminator, fields.as_slice()) {
+        (b'u', [code, modifiers, ..]) => (code.split(':').next().and_then(number), Some(*modifiers)),
+        (b'~', ["27", modifiers, code]) => (number(code), Some(*modifiers)),
+        _ => return false,
+    };
+    let Some(modifiers) = modifiers else { return false };
+    let mut parts = modifiers.split(':');
+    let mask = parts.next().and_then(number).and_then(|value| value.checked_sub(1));
+    // Event type 1 is a press, 2 a repeat, 3 a release (kitty's flag 2).
+    let pressed = parts.next().and_then(number).is_none_or(|event| event != 3);
+    // Bits: Shift 1, Alt 2, Ctrl 4, Super 8, Hyper 16, Meta 32, Caps Lock 64, Num Lock 128.
+    let ctrl_only = mask.is_some_and(|mask| mask & 4 != 0 && mask & !(4 | 1 | 64 | 128) == 0);
+    matches!(code, Some(32 | 93)) && ctrl_only && pressed
 }
 
 /// TS: attach.ts attachResponseData: the attach response's `terminalModes`, if its data is an object that has them.
@@ -1597,6 +1617,27 @@ mod tests {
         assert_eq!(detach_position(b"\x00"), Some(0));
         assert_eq!(detach_position(b"hi\x1b[27;5;32~\x00"), Some(2));
         assert_eq!(detach_position(b"hello"), None);
+        // Not in the TS: Ctrl+] too, with lock keys, event types and alternate codes; never a release, nor Alt+Ctrl.
+        for key in [
+            &b"\x1b[93;5u"[..],
+            b"\x1b[27;5;93~",
+            b"\x1b[32;69u",
+            b"\x1b[93;133u",
+            b"\x1b[93;5:1u",
+            b"\x1b[93:125;5u",
+        ] {
+            assert!(is_detach_input(key), "{}", String::from_utf8_lossy(key));
+        }
+        for key in [
+            &b"\x1b[93;5:3u"[..],
+            b"\x1b[93;7u",
+            b"\x1b[93u",
+            b"\x1b[94;5u",
+            b"\x1b[27;5;94~",
+        ] {
+            assert!(!is_detach_input(key), "{}", String::from_utf8_lossy(key));
+        }
+        assert_eq!(detach_position(b"hi\x1b[93;5u"), Some(2));
     }
 
     #[test]

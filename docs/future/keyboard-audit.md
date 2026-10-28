@@ -1,6 +1,6 @@
 # Keyboard audit: placement and misclicks
 
-**Status:** audited 2026-10-27, reviewed and decided 2026-10-28; nothing built. [Build](#build) is the agreed list, [Later](#later) holds the bigger items kept for afterwards, and [Decided against](#decided-against) says why the rest were dropped. Numbers are kept from the first draft so they can be traced.
+**Status:** audited 2026-10-27, decided 2026-10-28. [Build](#build) **shipped** on branch `agents-without-attaching` (the lasting parts are in `HANDOFF.md`, `docs/keys.md` and `docs/features.md`); [Later](#later) is still open, and [Decided against](#decided-against) says why the rest were dropped. Numbers are kept from the first draft so they can be traced.
 
 Deckhand's keys were audited for **where they sit on the keyboard**, not what they mean. The goal: frequent actions are easy to reach, and a slip onto a neighbouring key, a missed Shift or a key repeat never costs anything. The baseline is a US QWERTY Mac laptop keyboard, typed touch-style, plus a check of UK, German, French and Nordic layouts for anything that uses punctuation or Ctrl chords.
 
@@ -36,6 +36,8 @@ The points about terminals and layouts (kitty encodings, Ctrl+] behind Option, C
 - **Leave key.** `detach_position` (`crates/client/src/attach.rs`) doesn't recognise Ctrl+] in the kitty or modifyOtherKeys encodings, which attached TUIs such as Codex can switch on.
 
 ## Build
+
+Shipped. Kept here as the record of what was decided; one deviation: 2.2 (`S`) uses the press-twice rule (7.0) rather than a dialog, since it is a yes/no.
 
 **Typing into an agent or shell**
 

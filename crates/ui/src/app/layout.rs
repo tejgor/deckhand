@@ -604,6 +604,7 @@ fn render_sidebar_for(app: &App, derived: &Derived, buf: &mut Buffer, area: Rect
         task_of: Some(task_of),
         filter_menu,
         sectioned: app.sectioned(),
+        typing: app.mode.types_into_pane(),
     };
     render_sidebar(&props, buf, area);
 }

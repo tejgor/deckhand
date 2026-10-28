@@ -200,7 +200,7 @@ pub fn terminal_rows(props: &TerminalPaneProps<'_>, width: usize, height: usize)
     };
     let typing = focused && !show_action;
     let right_text = if typing {
-        format!("typing into {}", shell_label(terminal, shown))
+        format!(" typing into {} ", shell_label(terminal, shown))
     } else if with_action {
         format!("{} │ {action_name} {}", labels.join(" │ "), status.text)
     } else if all.len() > 1 {
@@ -239,8 +239,12 @@ pub fn terminal_rows(props: &TerminalPaneProps<'_>, width: usize, height: usize)
             ));
         }
     };
+    // Not in the TS: while you type into it, the shell's name is a filled badge, as the Preview's is.
     let right: Row = if typing {
-        vec![Seg::new(right_text.clone(), TextStyle::fg(THEME.accent))]
+        vec![Seg::new(
+            right_text.clone(),
+            TextStyle::fg(THEME.border_active).inverse(true).bold(true),
+        )]
     } else if with_action {
         let name = TextStyle::fg(if show_action { THEME.active } else { THEME.muted }).bold(show_action);
         let mut segs = Vec::new();
@@ -468,7 +472,7 @@ mod tests {
 
         // Typing into it: the header says so and its styled screen is drawn.
         let typing = TerminalPaneProps { focused: true, ..props };
-        assert!(row_text(&terminal_rows(&typing, 50, 3)[0]).ends_with("typing into shell 2"));
+        assert!(row_text(&terminal_rows(&typing, 50, 3)[0]).ends_with(" typing into shell 2 "));
         let area = Rect::new(0, 0, 50, 3);
         let mut buf = Buffer::empty(area);
         render_terminal_pane(&typing, &mut buf, area);

@@ -2,9 +2,9 @@ deckhand                                                                        
 <TMP>/demo
 ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Help · Start here                                                                                                              │
-│ ❯ 1 Start here      │ The session list on the left, the pane on the right: → steps in, ← or Esc back out. Everywhere: Enter    │
-│   2 Sessions        │ opens, Space toggles, E opens your editor; in lists a adds, x removes (on the session list: a Notes      │
-│   3 Sidebar         │ tab, x stop).                                                                                            │
+│ ❯ 1 Start here      │ The session list on the left, the pane on the right: → steps in, ← or Esc back out (typing to an agent   │
+│   2 Sessions        │ or shell: Ctrl+]). Everywhere: Enter opens, Space toggles, E opens your editor; in lists a adds, x       │
+│   3 Sidebar         │ removes (on the session list: a Notes tab, x stop).                                                      │
 │   4 Find & organize │                                                                                                          │
 │   5 Panes           │ n         New session: agent, name, Tab for the workspace (↑↓ a new worktree's base), Enter launches     │
 │   6 Notes           │ j k  ↑↓   Select a session (or type its number)                                                          │

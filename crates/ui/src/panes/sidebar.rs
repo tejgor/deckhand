@@ -64,6 +64,9 @@ pub struct SidebarProps<'a> {
     /// Not in the TS: the state view: `sessions` are in sections ([`deckhand_core::session_sections`]), each under a
     /// header.
     pub sectioned: bool,
+    /// Not in the TS: keys go to the selected session's agent or shell: everything but its row is dimmed, so the list
+    /// reads as not listening.
+    pub typing: bool,
 }
 
 /// TS: sidebar.tsx visibleSessions: the index range of the rows shown, `available_rows` around the selection.
@@ -143,6 +146,16 @@ fn section_header_row(section: SessionSection, count: usize, width: usize) -> Ro
         ),
     ];
     truncate_row(&row, width, Wrap::TruncateEnd)
+}
+
+/// The row with every segment dimmed.
+fn dimmed(row: Row) -> Row {
+    row.into_iter()
+        .map(|seg| Seg {
+            style: seg.style.dim(true),
+            text: seg.text,
+        })
+        .collect()
 }
 
 /// TS: sidebar.tsx emptyMessage: the title and hint of an empty list.
@@ -394,7 +407,9 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             header_right.push(Seg::new(count.clone(), TextStyle::fg(colour).bold(true)));
         }
     }
-    let header_row = with_margin(space_between(&header_left, &header_right, content_width));
+    // While keys go to the selected session's agent or shell, everything but its row is dimmed.
+    let dim_if = |row: Row| if props.typing { dimmed(row) } else { row };
+    let header_row = dim_if(with_margin(space_between(&header_left, &header_right, content_width)));
 
     let mut filter_menu = Vec::new();
     if let Some(menu) = props.filter_menu {
@@ -437,7 +452,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         shown
             .iter()
             .filter_map(|line| match line {
-                ListLine::Header(section, count) => Some(section_header_row(*section, *count, row_width)),
+                ListLine::Header(section, count) => Some(dim_if(section_header_row(*section, *count, row_width))),
                 ListLine::Session(_) => session_rows.next().map(|row| {
                     let base = TextStyle {
                         color: if row.selected { Some(THEME.active) } else { None },
@@ -450,7 +465,8 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
                         .iter()
                         .map(|part| Seg::new(part.text.clone(), part_style(part, row)))
                         .collect();
-                    truncate_row(&with_base(segs, base), row_width, Wrap::TruncateEnd)
+                    let row_segs = truncate_row(&with_base(segs, base), row_width, Wrap::TruncateEnd);
+                    if row.selected { row_segs } else { dim_if(row_segs) }
                 }),
             })
             .collect()
@@ -459,8 +475,8 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         (None, None)
     } else {
         (
-            Some(more_line("↑", &sessions[..visible_start], content_width)),
-            Some(more_line("↓", &sessions[visible_end..], content_width)),
+            Some(dim_if(more_line("↑", &sessions[..visible_start], content_width))),
+            Some(dim_if(more_line("↓", &sessions[visible_end..], content_width))),
         )
     };
     SidebarLayout {
@@ -516,7 +532,12 @@ pub fn render_sidebar(props: &SidebarProps<'_>, buf: &mut Buffer, area: Rect) {
         if !layout.details_follow_list {
             column.grow();
         }
-        column.extend(detail_row_list(&layout.details, content_width));
+        let details = detail_row_list(&layout.details, content_width);
+        column.extend(
+            details
+                .into_iter()
+                .map(|row| if props.typing { dimmed(row) } else { row }),
+        );
     }
     column.draw(buf, inner);
 }
@@ -664,6 +685,7 @@ mod tests {
             task_of: None,
             filter_menu: None,
             sectioned: false,
+            typing: false,
         }
     }
 

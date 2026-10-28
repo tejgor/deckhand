@@ -1,4 +1,4 @@
-/work/repo                                                           running · typing to the agent
+/work/repo                                                            typing to the agent  running
 ✻ Welcome to Claude
 
 > hello   日本
@@ -30,7 +30,7 @@
 
 
 ── styles
-row 0: 0..10 fg=8, 69..98 fg=5
+row 0: 0..10 fg=8, 69..90 fg=5 bold inverse, 91..98 fg=5
 row 1: 0..12 fg=Rgb(217, 119, 87) bold
 row 3: 0..2 fg=8, 2..7 bold, 10..11 fg=2, 12..13 fg=2
 row 4: 0..18 fg=244 dim

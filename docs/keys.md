@@ -4,7 +4,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 
 ## Session list
 
-**Layout**: Deckhand has two places, the session list on the left and the pane on the right. `→` or `l` steps into the pane, and `←`, `h` or `esc` steps back out. The same keys mean the same thing on every screen: `enter` opens or chooses, `space` toggles and `E` opens your editor. In lists, `a` adds and `x` removes. On the session list itself, `a` opens the Notes tab and `x` stops a session. `o` (or `enter`) attaches: it opens what the tab shows full screen, and `ctrl+]` comes back ([Attach](#attach)).
+**Layout**: Deckhand has two places, the session list on the left and the pane on the right. `→` or `l` steps into the pane, and `←`, `h` or `esc` steps back out, except where you type: typing to the agent or a shell leaves with `ctrl+]`, and the notes editor with `esc` (`←` and `h` are text there). The same keys mean the same thing on every screen: `enter` opens or chooses, `space` toggles and `E` opens your editor. In lists, `a` adds and `x` removes. On the session list itself, `a` opens the Notes tab and `x` stops a session. `o` (or `enter`) attaches: it opens what the tab shows full screen, and `ctrl+]` comes back ([Attach](#attach)).
 
 | Key | Action |
 | --- | --- |
@@ -34,7 +34,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `D` | Start or stop the worktree's Dev command (and show the Dev tab); starting it stops Dev in the repository's other worktrees |
 | `a` | Show the Notes tab |
 | `→`, `l` | Step into the pane: [type to the agent or a shell](#typing-to-the-agent), browse [Git changes](#git-changes) or [edit the notes](#notes-editor) |
-| `←`, `h`, `esc` | Step back out to the session list |
+| `←`, `h`, `esc` | Step back out to the session list (typing to the agent: `ctrl+]`; the notes editor: `esc`) |
 | `enter`, `o` | Open full screen what the tab shows: the agent, the shell or action, lazygit or Dev |
 | `enter` *(on Notes)* | Edit the note here |
 | `o` *(on Notes)* | Edit the note in your terminal editor ([in vim](features.md#notes)) |
@@ -150,7 +150,9 @@ Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessio
 | Key | Action |
 | --- | --- |
 | `ctrl+]`, `ctrl+space` | Back to the session list |
-| any other key | Goes to the agent (or the shell), `esc`, `ctrl+c` and the arrows included |
+| any other key | Goes to the agent (or the shell), `esc`, `ctrl+c` and the arrows included. The first `ctrl+c` of each stint says so in the status line |
+
+While you type, the rest of the sidebar is dimmed (the selected row stays bright) and the pane's header shows a filled *typing to the agent* (or *typing into shell N*). When typing ends by itself, because the agent exited or the shell closed, keys you were still typing are held back until you pause for 0.75 s, so they can't run list commands.
 | mouse wheel | On Preview: scroll the agent's view (or the preview's history); the [scroll speed](features.md#scroll-speed) is set in Settings |
 
 ## Attach
