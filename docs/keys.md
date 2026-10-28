@@ -50,7 +50,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `U` | Mark the selected session's finished reply unread (`◆`), or read again ([unread replies](features.md#organizing-and-inspecting-sessions)) |
 | `m` | Merge the selected worktree into the current branch, uncommitted ([merging](features.md#merging-and-done)) |
 | `M` | Set or clear the worktree's merged marker without merging |
-| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes): `enter` starts or restarts it, `x` stops it), then your actions ([actions](features.md#setup-and-actions)), then a row per shell (`enter` restarts it, killing whatever is stuck in it ([restarting](features.md#terminal-git-and-dev-panes)); `x` closes an extra one) and **+ New shell**, which opens [another](features.md#several-shells). Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
+| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes)), then your actions ([actions](features.md#setup-and-actions)), then a row per shell and **+ New shell**, which opens [another](features.md#several-shells). On every row `enter` starts what is stopped and shows what runs, and `x` twice stops the selected row, closes an extra shell, or restarts the first shell, killing whatever is stuck in it ([restarting](features.md#terminal-git-and-dev-panes)). To restart anything else: `x` `x`, then `enter`. Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
 | `A` | Archive or unarchive the selected session (it keeps running) |
 | `backspace` | Archive the selected exited session; on an archived one, remove it for good ([archiving](features.md#organizing-and-inspecting-sessions)) |
 | `H` | Export and open a handoff ([handoffs](features.md#resume-and-handoffs)) |
@@ -266,8 +266,8 @@ On the Git tab, `→` (or `l`) browses the worktree's changes and the files its 
 | `g`, `home` | Select the first file |
 | `G`, `end` | Select the last file |
 | `space` | Stage the selected file, or unstage it if staged (staging a conflict marks it resolved; a committed file is left as it is) |
-| `a` | Stage everything except conflicted files |
-| `A` | Unstage everything |
+| `a` | Stage everything except conflicted files (press twice when a file is partly staged) |
+| `A` | Unstage everything (press twice when a file is partly staged) |
 | `enter`, `E` | Open the file in Cursor or VS Code at its first changed line |
 | `J` | Scroll the diff preview down |
 | `K` | Scroll the diff preview up |

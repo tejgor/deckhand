@@ -38,6 +38,7 @@ use deckhand_protocol::data::{
 use crate::app::state::App;
 use crate::flow::{Flow, FlowCx, FlowEffect};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
+use crate::press_again::PressAgain;
 use crate::primitives::{
     Border, Column, Row, Seg, TextStyle, Wrap, bordered, draw_rows, fit_row, space_between, truncate_row, with_base,
 };
@@ -611,8 +612,8 @@ pub struct TasksFlow {
     pub selected: RowSelection,
     pub show_older: bool,
     pub editor: Option<TaskEditor>,
-    /// The task whose deletion waits for a second x.
-    pub pending_delete: Option<String>,
+    /// The task whose deletion waits for a second x ([`PressAgain`]).
+    pub pending_delete: PressAgain<String>,
     /// The work the board was opened from (v shows it alone).
     pub scope: Option<String>,
     pub scoped: bool,
@@ -636,7 +637,7 @@ impl Default for TasksFlow {
             selected: RowSelection::default(),
             show_older: false,
             editor: None,
-            pending_delete: None,
+            pending_delete: PressAgain::default(),
             scope: None,
             scoped: false,
             picker: None,
@@ -727,7 +728,7 @@ impl TasksFlow {
         self.view = TasksView::Tasks;
         self.editor = None;
         self.picker = None;
-        self.pending_delete = None;
+        self.pending_delete.clear();
         self.scope = scope.map(str::to_owned);
         self.scoped = false;
         if let Some(first) = first_task_of(scope, props.tasks) {
@@ -1929,7 +1930,7 @@ impl Flow<App> for TasksFlow {
                 self.apply(TaskOp::Remove { id: task.id.clone() }, props, cx, Some(then));
                 return;
             }
-            self.pending_delete = Some(task.id.clone());
+            self.pending_delete.arm(task.id.clone());
             cx.set_status(Some(format!("x again deletes “{}”", truncate(&task.title, 40))));
             return;
         }
@@ -3424,9 +3425,9 @@ pub(crate) mod tests {
         );
         // x asks first; another key forgets it; x twice deletes (no daemon here).
         typed(&mut flow, &props, &mut cx, "x");
-        assert_eq!(flow.pending_delete.as_deref(), Some(TASK_ID));
+        assert_eq!(flow.pending_delete.armed().map(String::as_str), Some(TASK_ID));
         typed(&mut flow, &props, &mut cx, "z");
-        assert_eq!(flow.pending_delete, None);
+        assert_eq!(flow.pending_delete.armed(), None);
         typed(&mut flow, &props, &mut cx, "x");
         typed(&mut flow, &props, &mut cx, "x");
         assert_eq!(
@@ -3533,14 +3534,18 @@ pub(crate) mod tests {
         let props = props(&tasks, &[]);
         let mut flow = TasksFlow {
             view: TasksView::Notes,
-            pending_delete: Some("x".to_owned()),
+            pending_delete: {
+                let mut armed = PressAgain::default();
+                armed.arm("x".to_owned());
+                armed
+            },
             scoped: true,
             ..TasksFlow::default()
         };
         flow.open(Some("wt:w1"), &props);
         assert_eq!(flow.view, TasksView::Tasks);
         assert_eq!(flow.scope.as_deref(), Some("wt:w1"));
-        assert!(!flow.scoped && flow.pending_delete.is_none());
+        assert!(!flow.scoped && flow.pending_delete.armed().is_none());
         assert_eq!(flow.selected, RowSelection::task("cc"));
         // v narrows to that work, and its hint offers the way back.
         let mut cx = cx();

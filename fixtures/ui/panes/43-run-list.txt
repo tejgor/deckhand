@@ -9,7 +9,7 @@
   │                                                                                            │
   │ ❯ Dev          dev                                                               ○ stopped │
   │   test         echo tests-ok                                                 · needs trust │
-  │   Shell        restart the worktree's shell                                                │
+  │   Shell        the worktree's shell · x restarts it                                        │
   │   + New shell  another shell in this worktree                                              │
   │                                                                                            │
   │ ╭────────────────────────────────────────────────────────────────────────────────────────╮ │

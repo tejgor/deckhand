@@ -429,6 +429,8 @@ pub struct ActionProject {
 pub struct ActionPickerState {
     pub action_project: Option<ActionProject>,
     pub action_index: usize,
+    /// Not in the TS: the row (its menu key) whose stop or close waits for a second x.
+    pub press_again: crate::press_again::PressAgain<String>,
 }
 
 /// TS: app.tsx `workspaceInfo`: keyed by session so a late response never shows in another.

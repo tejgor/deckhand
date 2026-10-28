@@ -929,7 +929,7 @@ mod tests {
         let scrolling = Regex::new(r"J/K scroll|↓ \d").expect("regex");
         for (index, topic) in HELP_TOPICS.iter().enumerate() {
             let text = pane(&topic_props(index), 100, 24).join("\n");
-            assert!(!scrolling.is_match(&text), "{}", topic.title);
+            assert!(!scrolling.is_match(&text), "{}\n{text}", topic.title);
         }
         let narrow = pane(&topic_props(1), 56, 14);
         let heading = Regex::new(r"Help · ◂ Sessions \(2/11\) ▸ +↓ \d+/\d+").expect("regex");

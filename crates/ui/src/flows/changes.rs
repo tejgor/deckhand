@@ -21,6 +21,7 @@ use crate::app::state::App;
 use crate::flow::{Flow, FlowCx, FlowEffect};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 use crate::panes::changes::{ChangesPaneProps, DiffState, changes_layout, diff_lines, render_changes_pane};
+use crate::press_again::PressAgain;
 
 /// TS: changesFlow.tsx DIFF_DEBOUNCE_MS: the selected entry's diff is fetched this long after the selection settles.
 pub const DIFF_DEBOUNCE_MS: u64 = 60;
@@ -65,6 +66,8 @@ pub struct ChangesFlow {
     pub diff_client: usize,
     /// The `[key, selected]` the follow-the-selection effect last ran for (`None` before its first run).
     pub follow_deps: Option<(Option<String>, Option<usize>)>,
+    /// Not in the TS: `a` or `A` waiting for a second press because it would undo partial staging.
+    pub press_again: PressAgain<&'static str>,
 }
 
 impl Default for ChangesFlow {
@@ -81,6 +84,7 @@ impl Default for ChangesFlow {
             diff_for: None,
             diff_client: 0,
             follow_deps: None,
+            press_again: PressAgain::default(),
         }
     }
 }
@@ -152,12 +156,12 @@ pub static KEYMAP: Keymap = &[
     },
     Binding {
         keys: &[KeySpec::Char("a")],
-        action: "stage everything",
+        action: "stage everything (twice when a file is partly staged)",
         help: GUIDE,
     },
     Binding {
         keys: &[KeySpec::Char("A")],
-        action: "unstage everything",
+        action: "unstage everything (twice when a file is partly staged)",
         help: GUIDE,
     },
     Binding {
@@ -426,6 +430,19 @@ impl ChangesFlow {
     }
 }
 
+/// Not in the TS: how many files have changes both staged and not (partly staged).
+pub fn partly_staged(entries: &[ChangeEntry]) -> usize {
+    let staged: std::collections::HashSet<&str> = entries
+        .iter()
+        .filter(|entry| entry.group == ChangeGroup::Staged)
+        .map(|entry| entry.path.as_str())
+        .collect();
+    entries
+        .iter()
+        .filter(|entry| entry.group == ChangeGroup::Unstaged && staged.contains(entry.path.as_str()))
+        .count()
+}
+
 /// The end of TS `open`: starts the editor at `line`, then reports it (or the error).
 fn open_at(file: &str, entry_path: &str, line: i64, opener: Opener, cx: &mut FlowCx<App, ChangesFlow>) {
     let errors = RefCell::new(Vec::new());
@@ -444,6 +461,7 @@ impl Flow<App> for ChangesFlow {
     fn handle_input(&mut self, props: &ChangesFlowProps<'_>, input: &Input, cx: &mut FlowCx<App, Self>) {
         let key = &input.key;
         let text = input.input.as_str();
+        let armed = self.press_again.take();
         if key.escape || key.left_arrow || text == "h" {
             // Leaving focus ends the diff effect (TS: `focused` turns false).
             self.cancel_diff();
@@ -503,12 +521,26 @@ impl Flow<App> for ChangesFlow {
             }
             return;
         }
-        if text == "a" {
-            self.stage(StageMode::Stage, None, props, cx);
-            return;
-        }
-        if text == "A" {
-            self.stage(StageMode::Unstage, None, props, cx);
+        // Not in the TS: staging or unstaging everything asks for a second press when a file is partly staged (in
+        // lazygit, say), since it would undo that.
+        if text == "a" || text == "A" {
+            let key = if text == "a" { "a" } else { "A" };
+            let partly = partly_staged(Self::entries(props));
+            if partly > 0 && armed != Some(key) {
+                self.press_again.arm(key);
+                let files = if partly == 1 { "file" } else { "files" };
+                cx.set_status(format!(
+                    "{key} again {} everything: {partly} {files} partly staged",
+                    if key == "a" { "stages" } else { "unstages" }
+                ));
+                return;
+            }
+            let mode = if key == "a" {
+                StageMode::Stage
+            } else {
+                StageMode::Unstage
+            };
+            self.stage(mode, None, props, cx);
             return;
         }
         if key.return_ || text == "E" {
@@ -1064,6 +1096,48 @@ mod tests {
                 sent.iter()
                     .all(|request| request.get("group").is_none() && request.get("path").is_none())
             );
+        });
+    }
+
+    #[test]
+    fn staging_everything_over_partly_staged_files_asks_for_a_second_press() {
+        local(async {
+            let after = record("s1", Some("/repo"), &[]);
+            let (client, requests) =
+                fake_daemon(move |_| Ok(json!({"changed": 1, "skippedConflicts": 0, "changes": after})));
+            let (mut app, mut rx) = app(AppProps::default());
+            let s1 = session("s1", "One", SessionStatus::Running);
+            let changes = record(
+                "s1",
+                Some("/repo"),
+                &files(&[
+                    ("staged", "a.txt", "M"),
+                    ("unstaged", "a.txt", "M"),
+                    ("unstaged", "b.txt", "M"),
+                ]),
+            );
+            let p = props(Some(&client), &s1, &changes, false);
+            let mut press_key = |app: &mut App, text: &str| {
+                let (_, effects) = call(app, |flow, cx| flow.handle_input(&p, &press(text), cx));
+                app.apply_flow_effects(effects);
+            };
+            press_key(&mut app, "A");
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("A again unstages everything: 1 file partly staged")
+            );
+            // Another key cancels; a then a stages everything.
+            press_key(&mut app, "j");
+            press_key(&mut app, "a");
+            assert!(requests.borrow().is_empty());
+            press_key(&mut app, "a");
+            pump(&mut app, &mut rx, 1).await;
+            let modes: Vec<Value> = requests
+                .borrow()
+                .iter()
+                .map(|request| request["mode"].clone())
+                .collect();
+            assert_eq!(modes, [json!("stage")]);
         });
     }
 

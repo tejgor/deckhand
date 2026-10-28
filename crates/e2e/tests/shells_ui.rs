@@ -55,13 +55,15 @@ fn a_second_shell_opens_takes_keys_without_attaching_and_closes() {
     ui.press("v");
     wait_for(&|| ui.screen_text(), |frame| !frame.contains("two-2"), UI_WAIT);
 
-    // x on its run-list row closes the second shell.
+    // x twice on its run-list row closes the second shell.
     ui.press("r");
     ui.screen("Shell 2");
     ui.press("G");
     ui.screen("enter open a shell");
     ui.press("k");
     ui.screen("x close shell 2");
+    ui.press("x");
+    ui.screen("x again closes shell 2");
     ui.press("x");
     ui.screen("Closed shell 2");
     ui.press("\x1b");

@@ -80,10 +80,13 @@ fn x_in_the_run_list_stops_the_running_action_from_the_dev_row_too() {
         |frame| frame.contains("q quit") && !frame.contains("Working…"),
         Duration::from_secs(30),
     );
-    // Back in the run list, on the Dev row: the running action is named, and x stops it.
+    // Back in the run list, on the Dev row: the running action is named. On its own row x twice stops it.
     ui.press("r");
-    ui.screen("slow is still running in this worktree: x stops it.");
+    ui.screen("slow is still running in this worktree: x twice on its row stops it.");
+    ui.press("j");
     ui.screen("x stop slow");
+    ui.press("x");
+    ui.screen("x again stops slow");
     ui.press("x");
     ui.screen("Stopped slow");
 }

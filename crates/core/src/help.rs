@@ -395,7 +395,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "a  A",
-                text: "Stage everything except conflicts / unstage everything",
+                text: "Stage all but conflicts / unstage all; twice if partly staged",
             },
             HelpLine::Key {
                 keys: "Enter  E",
@@ -431,15 +431,15 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
         lines: &[
             HelpLine::Key {
                 keys: "r",
-                text: "Run: Dev (start or stop it), your actions, the shells (restart one), + New shell (up to 4)",
+                text: "Run: Dev, your actions, the shells, + New shell (up to 4); Enter starts what is stopped, shows what runs",
             },
             HelpLine::Key {
                 keys: "x",
-                text: "In the run list: stop the action (or Dev); close an extra shell",
+                text: "In the run list, twice: stop the row, close or restart a shell",
             },
             HelpLine::Key {
                 keys: "r",
-                text: "In the run list, with several Dev processes: a row for each after Dev; Enter starts or restarts it, x stops it",
+                text: "In the run list, with several Dev processes: a row for each after Dev; Enter starts or shows it, x x stops it",
             },
             HelpLine::Key {
                 keys: "d  d d",
@@ -575,7 +575,7 @@ mod tests {
         let dev = topic_text("Dev & actions");
         for instruction in [
             "a row for each after Dev",
-            "Enter starts or restarts it, x stops it",
+            "Enter starts or shows it, x x stops it",
             "+ Add a process",
             "splits to show each one's output",
             "starting it in one worktree stops it in the others",
