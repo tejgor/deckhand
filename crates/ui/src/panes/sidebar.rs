@@ -9,18 +9,18 @@ use ratatui::layout::Rect;
 use ratatui::style::Color;
 
 use deckhand_core::agent_versions::InstalledVersions;
-use deckhand_core::display::{THEME as INK_THEME, truncate};
+use deckhand_core::display::{THEME as INK_THEME, display_session_title, truncate};
 use deckhand_core::session_features::{SESSION_FILTERS, SessionFilterCounts, session_needs_attention};
 use deckhand_core::session_sections::{SessionSection, session_section};
 use deckhand_core::sidebar_model::{
     DetailLine, DetailTask, RowPart, RowRole, SidebarHeaderInput, SidebarRow, SidebarRowsInput, filter_menu_lines,
-    session_details_with_parent, sidebar_header, sidebar_rows,
+    section_parents, session_details_with_parent, sidebar_header, sidebar_rows,
 };
 use deckhand_protocol::data::SessionRecord;
 use deckhand_protocol::records::SessionFilter;
 
 use crate::primitives::{
-    Border, Column, Row, Seg, TextStyle, Wrap, bordered, inset, space_between, truncate_row, with_base,
+    Border, Column, Row, Seg, TextStyle, Wrap, bordered, inset, space_between, string_width, truncate_row, with_base,
 };
 use crate::theme::{THEME, color};
 
@@ -84,22 +84,34 @@ pub fn visible_range(count: usize, selected_index: usize, available_rows: usize)
     start..start + available_rows
 }
 
-/// Not in the TS: one line of the list: a section's header (with how many sessions it lists) or a session (its index).
+/// Not in the TS: one line of the list: a section's header (with how many sessions it lists), the line naming the
+/// parent a run of sub-sessions sits under in the state view (the index of the first of them), or a session (its
+/// index).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ListLine {
     Header(SessionSection, usize),
+    Parent(usize),
     Session(usize),
 }
 
 /// The list's lines: the sessions, each section headed in the state view (`sessions` are already grouped). A folded
 /// Exited section (`folded_exited`, its whole count) keeps its header, last, even with none of its sessions listed.
-pub fn list_lines(sessions: &[&SessionRecord], sectioned: bool, folded_exited: Option<usize>) -> Vec<ListLine> {
+/// In the state view each run of sessions its section lists apart from their parent (`parents`, from
+/// [`section_parents`]) is headed by a line naming it.
+pub fn list_lines(
+    sessions: &[&SessionRecord],
+    sectioned: bool,
+    folded_exited: Option<usize>,
+    parents: &[Option<&SessionRecord>],
+) -> Vec<ListLine> {
     let mut lines = Vec::with_capacity(sessions.len() + SessionSection::ALL.len());
     let mut current = None;
+    let mut under: Option<&str> = None;
     for (index, session) in sessions.iter().enumerate() {
         let section = session_section(session);
         if sectioned && current != Some(section) {
             current = Some(section);
+            under = None;
             let count = match folded_exited {
                 Some(total) if section == SessionSection::Exited => total,
                 _ => sessions[index..]
@@ -108,6 +120,13 @@ pub fn list_lines(sessions: &[&SessionRecord], sectioned: bool, folded_exited: O
                     .count(),
             };
             lines.push(ListLine::Header(section, count));
+        }
+        if sectioned {
+            let parent = parents.get(index).copied().flatten().map(|parent| parent.id.as_str());
+            if parent.is_some() && parent != under {
+                lines.push(ListLine::Parent(index));
+            }
+            under = parent;
         }
         lines.push(ListLine::Session(index));
     }
@@ -119,24 +138,59 @@ pub fn list_lines(sessions: &[&SessionRecord], sectioned: bool, folded_exited: O
     lines
 }
 
-/// The lines shown in `range`. A window that starts inside a section shows its header first, in place of the
-/// window's first session (with at least three rows, so the selection, kept mid-window, stays shown).
-fn window_lines(lines: &[ListLine], sessions: &[&SessionRecord], range: std::ops::Range<usize>) -> Vec<ListLine> {
-    let mut shown = lines[range.clone()].to_vec();
-    if range.start > 0
-        && range.len() >= 3
-        && let Some(ListLine::Session(index)) = shown.first().copied()
+/// The lines a line sits under, in order: its section's header (unless it is one) and, for a session listed apart from
+/// its parent, the line naming the parent. Each is the last of its kind before it.
+fn heads_of(lines: &[ListLine], at: usize, parents: &[Option<&SessionRecord>]) -> Vec<ListLine> {
+    let before = &lines[..at];
+    let mut heads = Vec::new();
+    if !matches!(lines[at], ListLine::Header(..)) {
+        heads.extend(before.iter().rev().find(|line| matches!(line, ListLine::Header(..))));
+    }
+    if let ListLine::Session(index) = lines[at]
+        && parents.get(index).copied().flatten().is_some()
     {
-        let section = session_section(sessions[index]);
-        let header = lines[..range.start].iter().rev().find_map(|line| match line {
-            ListLine::Header(header, count) if *header == section => Some(ListLine::Header(*header, *count)),
-            _ => None,
-        });
-        if let Some(header) = header {
-            shown[0] = header;
-        }
+        heads.extend(before.iter().rev().find(|line| matches!(line, ListLine::Parent(..))));
+    }
+    heads
+}
+
+/// The lines shown in `range`. A window that starts inside a section shows its header first and, inside a run of
+/// sub-sessions listed apart from their parent, the line naming it, in place of the window's first lines (only while
+/// the selection, kept mid-window, stays shown).
+fn window_lines(
+    lines: &[ListLine],
+    parents: &[Option<&SessionRecord>],
+    range: std::ops::Range<usize>,
+) -> Vec<ListLine> {
+    let mut shown = lines[range.clone()].to_vec();
+    if range.start == 0 {
+        return shown;
+    }
+    // The first line kept below the heads it needs, which take the places of the lines before it.
+    let kept = (0..=2).find(|&skip| {
+        range.len() > 2 * skip && heads_of(lines, range.start + skip, parents).len() == skip
+    });
+    if let Some(skip) = kept.filter(|&skip| skip > 0) {
+        shown.splice(0..skip, heads_of(lines, range.start + skip, parents));
     }
     shown
+}
+
+/// The line naming the parent a run of sub-sessions sits under in the state view: muted, where a top-level row's
+/// status glyph goes (its sub-sessions' `↳` one level in), then a dotted rule to the edge.
+fn parent_line_row(parent: &SessionRecord, all_sessions: &[&SessionRecord], number_width: usize, width: usize) -> Row {
+    let indent = " ".repeat(number_width + 3);
+    let title = display_session_title(parent, all_sessions);
+    let used = indent.chars().count() + string_width(&title) + 1;
+    let row = vec![
+        Seg::plain(indent),
+        Seg::new(title, TextStyle::fg(THEME.muted)),
+        Seg::new(
+            format!(" {}", "┄".repeat(width.saturating_sub(used))),
+            TextStyle::fg(THEME.muted).dim(true),
+        ),
+    ];
+    truncate_row(&row, width, Wrap::TruncateEnd)
 }
 
 /// A section's header row: its name in the section's colour, the count, then a rule to the edge. Exited, which `c`
@@ -270,10 +324,8 @@ pub struct SidebarLayout {
     pub rows: Vec<Row>,
     /// The `↓ N more` line when the list scrolls.
     pub below: Option<Row>,
-    /// The details block's lines.
+    /// The details block's lines, at the bottom.
     pub details: Vec<DetailLine>,
-    /// Whether the details follow the list directly (scrolling) or sit at the bottom.
-    pub details_follow_list: bool,
 }
 
 /// `<Box marginLeft={1}>` around a row.
@@ -331,7 +383,12 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
     let task = selected.and_then(task_for);
     // As many rows as the largest details block of any listed session needs (at most DETAIL_ROWS), so the list keeps
     // its size while the selection moves; sessions with less leave the rest blank.
-    let lines = list_lines(sessions, props.sectioned, props.folded_exited);
+    let parents = if props.sectioned {
+        section_parents(sessions, all_sessions, props.filter)
+    } else {
+        Vec::new()
+    };
+    let lines = list_lines(sessions, props.sectioned, props.folded_exited, &parents);
     let detail_rows = if lines.len() + DETAIL_ROWS > rows_for_sessions && rows_for_sessions >= DETAIL_MIN_SIDEBAR_ROWS {
         sessions
             .iter()
@@ -354,20 +411,35 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         0
     };
     // A list that scrolls gets a line above and below it saying how many sessions are out of view (and how many of
-    // those need you), kept even when empty so the rows don't jump as the selection moves.
+    // those need you), each only while some are: at the top of the list the rows take the line above's place, at the
+    // bottom the line below's, so the list and the "more" lines always fill the same rows.
     let free_rows = rows_for_sessions.saturating_sub(detail_rows);
     let scrolls = lines.len() > free_rows && free_rows >= 5;
-    let list_rows = free_rows.saturating_sub(if scrolls { 2 } else { 0 });
     let selected_line = lines
         .iter()
         .position(|line| *line == ListLine::Session(selected_index))
         .unwrap_or(0);
-    let shown = window_lines(&lines, sessions, visible_range(lines.len(), selected_line, list_rows));
+    let range = if scrolls {
+        let middle = visible_range(lines.len(), selected_line, free_rows - 2);
+        if middle.start == 0 {
+            0..free_rows - 1
+        } else if middle.end == lines.len() {
+            lines.len() - (free_rows - 1)..lines.len()
+        } else {
+            middle
+        }
+    } else {
+        visible_range(lines.len(), selected_line, free_rows)
+    };
+    let more_above = range.start > 0;
+    let more_below = range.end < lines.len();
+    let more_rows = usize::from(more_above) + usize::from(more_below);
+    let shown = window_lines(&lines, &parents, range);
     // The sessions shown are one run of the list; the headers between them are not sessions.
     let shown_sessions = || {
         shown.iter().filter_map(|line| match line {
             ListLine::Session(index) => Some(*index),
-            ListLine::Header(..) => None,
+            ListLine::Header(..) | ListLine::Parent(..) => None,
         })
     };
     let visible_start = shown_sessions().next().unwrap_or(0);
@@ -383,11 +455,12 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         all_sessions,
     });
     let no_ids = HashSet::new();
+    let number_width = sessions.len().max(1).to_string().len();
     let session_rows = sidebar_rows(&SidebarRowsInput {
         rows: visible,
         all_sessions,
         first_number: visible_start + 1,
-        number_width: sessions.len().max(1).to_string().len(),
+        number_width,
         selected_id: props.selected_id,
         width: row_width,
         spinner_frame: props.spinner_frame,
@@ -407,7 +480,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             selected,
             all_sessions,
             content_width,
-            rows_for_sessions.saturating_sub(shown.len() + if scrolls { 2 } else { 0 }),
+            rows_for_sessions.saturating_sub(shown.len() + more_rows),
             props.now,
             props.installed_versions,
             task.as_ref(),
@@ -476,6 +549,11 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
                     props.folded_exited.is_some(),
                     row_width,
                 ))),
+                ListLine::Parent(index) => parents
+                    .get(*index)
+                    .copied()
+                    .flatten()
+                    .map(|parent| dim_if(parent_line_row(parent, all_sessions, number_width, row_width))),
                 ListLine::Session(_) => session_rows.next().map(|row| {
                     let base = TextStyle {
                         color: if row.selected { Some(THEME.active) } else { None },
@@ -494,14 +572,10 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             })
             .collect()
     };
-    let (above, below) = if sessions.is_empty() || !scrolls {
-        (None, None)
-    } else {
-        (
-            Some(dim_if(more_line("↑", &sessions[..visible_start], content_width))),
-            Some(dim_if(more_line("↓", &sessions[visible_end..], content_width))),
-        )
-    };
+    let above = (!sessions.is_empty() && more_above)
+        .then(|| dim_if(more_line("↑", &sessions[..visible_start], content_width)));
+    let below = (!sessions.is_empty() && more_below)
+        .then(|| dim_if(more_line("↓", &sessions[visible_end..], content_width)));
     SidebarLayout {
         header: header_row,
         filter_menu,
@@ -509,8 +583,6 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         rows,
         below,
         details,
-        // Under a scrolling list the details sit right below it (their rule never moves); otherwise at the bottom.
-        details_follow_list: scrolls,
     }
 }
 
@@ -552,9 +624,7 @@ pub fn render_sidebar(props: &SidebarProps<'_>, buf: &mut Buffer, area: Rect) {
     column.extend(layout.rows);
     column.extend(layout.below);
     if !layout.details.is_empty() {
-        if !layout.details_follow_list {
-            column.grow();
-        }
+        column.grow();
         let details = detail_row_list(&layout.details, content_width);
         column.extend(
             details
@@ -925,25 +995,29 @@ mod tests {
         let mut props = props(&ordered, "d", SessionFilter::All);
         props.all_sessions = &everyone;
         props.sectioned = true;
-        let lines = render(&props, 34, 18);
+        let lines = render(&props, 34, 26);
         assert_eq!(
-            lines[..13],
+            lines[..17],
             [
                 "╭────────────────────────────────╮",
                 "│ Sessions         all 7/7 · ! 2 │",
                 "│  Needs you 1 ───────────────── │",
                 "│› 1 ? fix flaky checkout e2e… ◇ │",
                 "│  Working 2 ─────────────────── │",
-                // a's sub-sessions are in other sections: no ▾, each at its section's top level with its glyph, and
-                // its parent named where the title leaves room.
+                // a's sub-sessions are in other sections: no ▾ on a, and in each section a line naming it, its
+                // sub-session one level in under it.
                 "│  2 ⠋ auth refactor         ▶ ✶ │",
                 "│  3 ⠋ bump deps               π │",
                 "│  Idle 1 ────────────────────── │",
-                "│  4 ↳ ● write tests · auth… ▶ π │",
+                "│    auth refactor ┄┄┄┄┄┄┄┄┄┄┄┄┄ │",
+                "│  4   ↳ ● write tests       ▶ π │",
                 "│  Exited 3 ▾ ────────────────── │",
-                "│  5 ⑂ ○ try alt approach    ▶ ✶ │",
+                "│    auth refactor ┄┄┄┄┄┄┄┄┄┄┄┄┄ │",
+                "│  5   ⑂ ○ try alt approach  ▶ ✶ │",
                 "│  6 ! migrate billing webhoo… ✶ │",
                 "│  7 ○ docs cleanup        ▣ ✓ ✶ │",
+                "│                                │",
+                "│                                │",
             ]
         );
         // The selected sub-session's details name its parent and how it is doing.
@@ -965,7 +1039,7 @@ mod tests {
         props.sessions = &running;
         props.folded_exited = Some(3);
         let folded = render(&props, 34, 18);
-        assert_eq!(folded[9], "│  Exited 3 ▸ ────────────────── │", "{folded:#?}");
+        assert_eq!(folded[10], "│  Exited 3 ▸ ────────────────── │", "{folded:#?}");
         assert!(!folded.iter().any(|line| line.contains("docs cleanup")));
     }
 
@@ -985,6 +1059,38 @@ mod tests {
         assert!(lines[4].contains("15 ● session number 14"), "{lines:#?}");
         assert!(has("↑ 14 more"), "{lines:#?}");
         assert!(has("↓ 12 more"), "{lines:#?}");
+    }
+
+    #[test]
+    fn a_scrolled_state_view_keeps_the_line_naming_the_parent_on_top() {
+        let mut list = vec![session(
+            "p",
+            0,
+            json!({"title": "big parent", "agentStatus": "active",
+                "attention": {"state": "working", "event": "PreToolUse", "at": ago(1)}}),
+        )];
+        list.extend((0..30).map(|index| {
+            session(
+                &format!("k{index}"),
+                index + 1,
+                json!({"title": format!("child {index}"), "parentSessionId": "p", "subSessionKind": "clean"}),
+            )
+        }));
+        let everyone = refs(&list);
+        let ordered: Vec<&SessionRecord> = deckhand_core::session_sections::order_by_section(&everyone)
+            .into_iter()
+            .copied()
+            .collect();
+        let mut props = props(&ordered, "k15", SessionFilter::All);
+        props.all_sessions = &everyone;
+        props.sectioned = true;
+        let lines = render(&props, 34, 24);
+        // Under the "↑" line, the Idle header and the line naming the children's parent, then the children.
+        assert!(lines[2].contains("↑ "), "{lines:#?}");
+        assert!(lines[3].contains("Idle 30 ───"), "{lines:#?}");
+        assert_eq!(lines[4], "│     big parent ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │", "{lines:#?}");
+        assert!(lines[5].contains("↳ ● child"), "{lines:#?}");
+        assert!(lines.iter().any(|line| line.contains("› 17   ↳ ● child 15")), "{lines:#?}");
     }
 
     #[test]
@@ -1044,15 +1150,39 @@ mod tests {
             (
                 lines.iter().filter(|line| is_list_row(line)).count(),
                 lines.iter().position(|line| line.contains("↓ ")),
-                lines.iter().position(|line| line.starts_with("│ ──────")),
             )
         };
         assert_eq!(shape(&without), shape(&with_task));
-        // The rule sits right under the "more" line; the session with a task shows it, the other leaves that row blank.
-        let (_, more, rule) = shape(&with_task);
-        assert_eq!(rule, more.map(|more| more + 1));
-        assert!(with_task.iter().any(|line| line.contains("◆ Fix the footer")));
+        // The details sit at the bottom, as under a list that fits: the session with a task shows it, the other
+        // leaves a blank row between the "more" line and its rule.
+        let last_detail = |lines: &[String]| lines[lines.len() - 2].clone();
+        assert!(last_detail(&with_task).contains("◆ Fix the footer"), "{with_task:#?}");
+        assert!(last_detail(&without).contains("main checkout"), "{without:#?}");
         assert!(!without.iter().any(|line| line.contains('◆')));
+        let rule = |lines: &[String]| lines.iter().position(|line| line.starts_with("│ ──────"));
+        assert_eq!(rule(&without), rule(&with_task).map(|rule| rule + 1));
+    }
+
+    #[test]
+    fn a_scrolling_list_shows_a_more_line_only_on_a_side_with_sessions_out_of_view() {
+        let list = many(40);
+        let sessions = refs(&list);
+        let lines_for = |selected: &str| render(&props(&sessions, selected, SessionFilter::All), 34, 24);
+        let rows = |lines: &[String]| lines.iter().filter(|line| is_list_row(line)).count();
+        // At the top no blank line stands in for "↑": the first session sits under the header, and the row the
+        // line would take lists one more session.
+        let top = lines_for("s0");
+        assert!(top[2].contains(" 1 ● session number 0"), "{top:#?}");
+        assert!(!top.iter().any(|line| line.contains('↑')), "{top:#?}");
+        assert!(top.iter().any(|line| line.contains("↓ ")), "{top:#?}");
+        // At the bottom, likewise for "↓".
+        let bottom = lines_for("s39");
+        assert!(bottom.iter().any(|line| line.contains("↑ ")), "{bottom:#?}");
+        assert!(!bottom.iter().any(|line| line.contains('↓')), "{bottom:#?}");
+        // In between both, and the list and its "more" lines always fill the same rows.
+        let middle = lines_for("s20");
+        assert_eq!(rows(&top), rows(&middle) + 1);
+        assert_eq!(rows(&bottom), rows(&middle) + 1);
     }
 
     #[test]

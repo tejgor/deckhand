@@ -138,9 +138,10 @@ pub struct SidebarRowsInput<'a> {
     /// only, which is easy to miss with many sessions in one checkout), and next to the agent glyph.
     pub shared_dev: bool,
     /// Not in the TS: the state view's rows ([`crate::session_sections`]): a sub-session is indented under its parent
-    /// only when both are in the same section.
+    /// when both are in the same section, and otherwise under the line naming its parent ([`section_parents`]).
     pub sectioned: bool,
-    /// Not in the TS: a sub-session listed apart from its parent names it after its title (` · parent`).
+    /// Not in the TS: outside the state view, a sub-session listed apart from its parent names it after its title
+    /// (` · parent`).
     pub parent_names: bool,
 }
 
@@ -176,6 +177,58 @@ fn is_merged(session: &SessionRecord) -> bool {
 fn parent_of<'a>(session: &SessionRecord, sessions: &[&'a SessionRecord]) -> Option<&'a SessionRecord> {
     let parent = session.parent_session_id.as_deref().filter(|id| !id.is_empty())?;
     sessions.iter().copied().find(|candidate| candidate.id == parent)
+}
+
+/// The sessions `filter` lists (as ▾ ▸ and +N count them, whatever the search), and in the state view each section's.
+fn listed_sessions<'a>(
+    all_sessions: &[&'a SessionRecord],
+    filter: SessionFilter,
+    sectioned: bool,
+) -> (Vec<&'a SessionRecord>, HashMap<SessionSection, Vec<&'a SessionRecord>>) {
+    let listed: Vec<&SessionRecord> = filter_session_list(all_sessions, filter, "", None)
+        .into_iter()
+        .copied()
+        .collect();
+    let sections = if sectioned {
+        SessionSection::ALL
+            .into_iter()
+            .map(|section| (section, in_section(&listed, section).into_iter().copied().collect()))
+            .collect()
+    } else {
+        HashMap::new()
+    };
+    (listed, sections)
+}
+
+/// Not in the TS: the parent a session sits under in the state view when its section lists it apart from that parent
+/// (the parent is in another section, or not listed): the parent of its topmost ancestor in `section`.
+fn section_parent<'a, 'b>(
+    session: &'b SessionRecord,
+    section: &[&'b SessionRecord],
+    all_sessions: &[&'a SessionRecord],
+) -> Option<&'a SessionRecord> {
+    let mut top = session;
+    let mut seen: HashSet<&str> = HashSet::from([session.id.as_str()]);
+    while let Some(parent) = parent_of(top, section).filter(|parent| seen.insert(parent.id.as_str())) {
+        top = parent;
+    }
+    parent_of(top, all_sessions)
+}
+
+/// Not in the TS: for each of `rows` in the state view, the parent it sits under when its section lists it apart from
+/// that parent. The sidebar heads each run of them with a line naming the parent, and indents them under it.
+pub fn section_parents<'a>(
+    rows: &[&SessionRecord],
+    all_sessions: &[&'a SessionRecord],
+    filter: SessionFilter,
+) -> Vec<Option<&'a SessionRecord>> {
+    let (listed, sections) = listed_sessions(all_sessions, filter, true);
+    rows.iter()
+        .map(|session| {
+            let section = sections.get(&session_section(session)).unwrap_or(&listed);
+            section_parent(session, section, all_sessions)
+        })
+        .collect()
 }
 
 /// TS: sidebarModel.ts rowDimmed (archived rows, except in the archived view, which lists nothing else).
@@ -221,27 +274,17 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
     let mut dev_shown: HashSet<String> = HashSet::new();
     // ▾ ▸ and +N count the sub-sessions this view lists (an archived one is gone from the active view); depth and
     // titles still follow every ancestor.
-    let listed: Vec<&SessionRecord> = filter_session_list(input.all_sessions, input.filter, "", None)
-        .into_iter()
-        .copied()
-        .collect();
-    let sections: HashMap<SessionSection, Vec<&SessionRecord>> = if input.sectioned {
-        SessionSection::ALL
-            .into_iter()
-            .map(|section| (section, in_section(&listed, section).into_iter().copied().collect()))
-            .collect()
-    } else {
-        HashMap::new()
-    };
+    let (listed, sections) = listed_sessions(input.all_sessions, input.filter, input.sectioned);
     let mut out = Vec::with_capacity(input.rows.len());
     for (index, &session) in input.rows.iter().enumerate() {
         let selected = input.selected_id == Some(session.id.as_str());
         let key = key_of(&session.id);
         let shares_selected = !selected && selected_key.is_some() && key == selected_key;
-        // Indented under the parents the view lists (an archived sub-session of a live session is top level there; in
-        // the state view, one whose parent is in another section).
+        // Indented under the parents the view lists (an archived sub-session of a live session is top level there). In
+        // the state view, one listed apart from its parent sits one level in, under the line naming the parent.
         let listed = sections.get(&session_section(session)).unwrap_or(&listed);
-        let depth = session_depth(session, listed);
+        let apart = input.sectioned && section_parent(session, listed, input.all_sessions).is_some();
+        let depth = session_depth(session, listed) + usize::from(apart);
         let has_children = session_has_children(&session.id, listed);
         let collapsed = collapsed_ids.contains(&session.id);
         let child_count = if collapsed && has_children {
@@ -338,10 +381,11 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
             }
         }
         let title = cut(&full_title, (width - prefix_width - 1 - suffix_width(&suffix)).max(0));
-        // Not in the TS: a sub-session listed apart from its parent (another section, a search, the parent not
-        // listed) names it after its own title, in the room the title leaves: the first thing cut.
+        // Not in the TS: outside the state view (which names it on a line of its own), a sub-session listed apart from
+        // its parent (a search, the parent not listed) names it after its own title, in the room the title leaves:
+        // the first thing cut.
         let parent_part = parent_of(session, input.all_sessions)
-            .filter(|_| input.parent_names && depth == 0 && title == full_title)
+            .filter(|_| input.parent_names && !input.sectioned && depth == 0 && title == full_title)
             .map(|parent| display_session_title(parent, input.all_sessions))
             .filter(|parent| !parent.is_empty())
             .and_then(|parent| {
@@ -1788,8 +1832,8 @@ mod tests {
             })
             .collect()
         };
-        // a works, its clean child b is idle and its fork c exited: each listed at its section's top level, glyphs
-        // kept and no ▾.
+        // a works, its clean child b is idle and its fork c exited: no ▾ on a, and each child sits one level in, under
+        // the line the sidebar adds to name a, glyphs kept and no parent after the title.
         let rows = tree(&ordered);
         let of = |title: &str| {
             rows.iter()
@@ -1797,8 +1841,18 @@ mod tests {
                 .map(|row| row.1.as_str())
         };
         assert_eq!(of("auth refactor").map(str::trim), Some(""));
-        assert_eq!(of("write tests"), Some("↳ "));
-        assert_eq!(of("try alt approach"), Some("⑂ "));
+        assert_eq!(of("write tests"), Some("  ↳ "));
+        assert_eq!(of("try alt approach"), Some("  ⑂ "));
+        let parents: Vec<Option<&str>> = section_parents(&ordered, &all, SessionFilter::All)
+            .iter()
+            .map(|parent| parent.map(|parent| parent.id.as_str()))
+            .collect();
+        let ids: Vec<&str> = ordered.iter().map(|session| session.id.as_str()).collect();
+        let parent_of_id = |id: &str| ids.iter().position(|row| *row == id).and_then(|at| parents[at]);
+        assert_eq!(parent_of_id("a"), None);
+        assert_eq!(parent_of_id("b"), Some("a"));
+        assert_eq!(parent_of_id("c"), Some("a"));
+        assert_eq!(parent_of_id("d"), None);
         // Both idle: the child is indented under its parent as usual.
         let parent = sess("p", json!({"title": "parent"}));
         let child = sess(

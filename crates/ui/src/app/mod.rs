@@ -578,9 +578,16 @@ impl App {
     }
 
     /// TS `collapseApplied`: search and non-default filters reveal matches regardless of collapse state. Not in the
-    /// TS: neither does the state view, where a sub-session can sit in another section than its parent.
+    /// TS: neither does the state view, where a sub-session can sit in another section than its parent; the all view
+    /// (`*`), which lists everything the active view does and more, collapses like it.
     pub fn collapse_applied(&self) -> bool {
-        self.browse.session_query.is_empty() && self.browse.session_filter == SessionFilter::Active && !self.sectioned()
+        self.browse.session_query.is_empty() && self.collapses_in_filter() && !self.sectioned()
+    }
+
+    /// Not in the TS: the filter is one that collapses sub-sessions and folds the Exited section: the active view and
+    /// the all view (the others list only matches, and show every one).
+    pub fn collapses_in_filter(&self) -> bool {
+        matches!(self.browse.session_filter, SessionFilter::Active | SessionFilter::All)
     }
 
     /// Not in the TS: the sidebar lists sessions in sections by state (`V` switches to your own order).
@@ -589,12 +596,12 @@ impl App {
     }
 
     /// Not in the TS: the state view's Exited section is folded (`c`). Like collapsed sub-sessions, only in the active
-    /// view without a search, which show every match.
+    /// and all views without a search (searches and the other filters show every match).
     pub fn exited_folded(&self) -> bool {
         self.sectioned()
             && self.browse.exited_collapsed
             && self.browse.session_query.is_empty()
-            && self.browse.session_filter == SessionFilter::Active
+            && self.collapses_in_filter()
     }
 
     /// Not in the TS: how many exited sessions a folded Exited section holds (its header's count).

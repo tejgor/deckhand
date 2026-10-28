@@ -781,9 +781,9 @@ pub fn toggle_session_view(app: &mut App) {
 
 /// Not in the TS: c in the state view folds or unfolds the Exited section (sub-sessions collapse in your own order).
 pub fn toggle_exited_section(app: &mut App) {
-    if !app.browse.session_query.is_empty() || app.browse.session_filter != SessionFilter::Active {
+    if !app.browse.session_query.is_empty() || !app.collapses_in_filter() {
         app.set_status(Some(
-            "Searches and filters show every exited session; c folds them in the active view".to_owned(),
+            "Searches and filters show every exited session; c folds them in the active and all views".to_owned(),
         ));
         return;
     }
@@ -799,8 +799,16 @@ pub fn toggle_exited_section(app: &mut App) {
     ));
 }
 
-/// TS `toggleSelectedCollapse` (c): hide exited children → collapse → expand.
+/// TS `toggleSelectedCollapse` (c): hide exited children → collapse → expand. Not in the TS: a session whose
+/// sub-sessions have all exited collapses at once (hiding them would look the same, with ▾ still showing); a search
+/// or a filter that lists only matches shows every one, and says so.
 pub fn toggle_selected_collapse(app: &mut App) {
+    if !app.collapse_applied() {
+        app.set_status(Some(
+            "Searches and filters show every sub-session; c collapses them in the active and all views".to_owned(),
+        ));
+        return;
+    }
     let sessions = app.sessions();
     // The sub-sessions this view lists (as the sidebar's ▾ ▸): archived ones are not there.
     let listed = filter_session_list(&sessions, app.browse.session_filter, "", None);
@@ -837,7 +845,7 @@ pub fn toggle_selected_collapse(app: &mut App) {
         return;
     }
 
-    if !exited_ids.is_empty() && !exited_already_hidden {
+    if !exited_ids.is_empty() && !exited_already_hidden && exited_ids.len() < descendant_ids.len() {
         app.browse.hidden_exited_session_ids.extend(exited_ids.iter().cloned());
         app.set_status(Some(format!(
             "collapsed {} exited sub-session{}",
@@ -1839,6 +1847,67 @@ pub(crate) mod tests {
         app.data.repo_sessions.clear();
         move_selection(&mut app, 1);
         assert_eq!(app.browse.selected_id.as_ref(), order.get(1));
+    }
+
+    #[test]
+    fn c_collapses_a_session_whose_sub_sessions_have_all_exited_at_once() {
+        let (mut app, _rx) = app(AppProps {
+            initial_session_view: Some(SessionView::Order),
+            ..AppProps::default()
+        });
+        let parent = session("p", "Parent", SessionStatus::Running);
+        let mut first = session("c1", "First", SessionStatus::Exited);
+        first.parent_session_id = Some("p".to_owned());
+        let mut second = session("c2", "Second", SessionStatus::Exited);
+        second.parent_session_id = Some("p".to_owned());
+        app.data.repo_sessions = vec![parent, first, second];
+        app.set_selected_id(Some("p".to_owned()));
+        // Hiding the exited ones would hide them all with ▾ still showing: c collapses (▸), and the next c expands.
+        handle_browse(&mut app, &text("c"));
+        assert_eq!(
+            app.messages.status_message.as_deref(),
+            Some("collapsed all sub-sessions")
+        );
+        assert!(app.browse.collapsed_session_ids.contains("p"));
+        assert!(app.browse.hidden_exited_session_ids.is_empty());
+        let order = |app: &App| -> Vec<String> { app.visible_sessions().into_iter().map(|s| s.id).collect() };
+        assert_eq!(order(&app), ["p"]);
+        handle_browse(&mut app, &text("c"));
+        assert_eq!(
+            app.messages.status_message.as_deref(),
+            Some("expanded all sub-sessions")
+        );
+        assert_eq!(order(&app), ["p", "c1", "c2"]);
+    }
+
+    #[test]
+    fn c_collapses_in_the_all_view_but_not_in_a_filter_of_matches() {
+        let (mut app, _rx) = app(AppProps {
+            initial_session_view: Some(SessionView::Order),
+            ..AppProps::default()
+        });
+        let parent = session("p", "Parent", SessionStatus::Running);
+        let mut child = session("c", "Child", SessionStatus::Running);
+        child.parent_session_id = Some("p".to_owned());
+        app.data.repo_sessions = vec![parent, child];
+        app.set_selected_id(Some("p".to_owned()));
+        let order = |app: &App| -> Vec<String> { app.visible_sessions().into_iter().map(|s| s.id).collect() };
+        app.browse.session_filter = SessionFilter::All;
+        handle_browse(&mut app, &text("c"));
+        assert_eq!(
+            app.messages.status_message.as_deref(),
+            Some("collapsed all sub-sessions")
+        );
+        assert_eq!(order(&app), ["p"]);
+        // The running filter lists every match; c says so and leaves the collapse as it was.
+        app.browse.session_filter = SessionFilter::Running;
+        assert_eq!(order(&app), ["p", "c"]);
+        handle_browse(&mut app, &text("c"));
+        assert_eq!(
+            app.messages.status_message.as_deref(),
+            Some("Searches and filters show every sub-session; c collapses them in the active and all views")
+        );
+        assert!(app.browse.collapsed_session_ids.contains("p"));
     }
 
     #[test]
