@@ -116,7 +116,13 @@ pub fn sidebar_row_widths(input: &SidebarRowsInput<'_>) -> Vec<i64> {
     sidebar_rows(&wide)
         .iter()
         .map(|row| {
-            let total: usize = row.parts.iter().map(|part| string_width(&part.text)).sum();
+            // A sub-session's parent name only uses room the sidebar has; it never widens it.
+            let total: usize = row
+                .parts
+                .iter()
+                .filter(|part| part.role != RowRole::Parent)
+                .map(|part| string_width(&part.text))
+                .sum();
             // The widest gap pads the title out to the markers; the one-column gaps between markers stay.
             let padding = row
                 .parts
@@ -551,6 +557,7 @@ pub fn measure_sidebar(app: &mut App, derived: &Derived) {
         installed_versions: Some(&versions),
         shared_dev: true,
         sectioned: app.sectioned(),
+        parent_names: true,
     });
     app.browse.sidebar_content = widths.into_iter().max();
 }
@@ -1251,6 +1258,7 @@ mod tests {
             installed_versions: None,
             shared_dev: true,
             sectioned: false,
+            parent_names: false,
         });
         assert_eq!(widths[1] - widths[0], 13);
         let rendered = sidebar_rows(&SidebarRowsInput {
@@ -1267,6 +1275,7 @@ mod tests {
             installed_versions: None,
             shared_dev: true,
             sectioned: false,
+            parent_names: false,
         });
         // At that width the longer title shows whole.
         assert!(
@@ -1349,6 +1358,7 @@ mod tests {
             installed_versions: None,
             shared_dev: true,
             sectioned: false,
+            parent_names: false,
         });
         let text: String = drawn[0].parts.iter().map(|part| part.text.as_str()).collect();
         assert!(

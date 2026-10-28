@@ -62,6 +62,9 @@ pub enum RowRole {
     Outdated,
     #[serde(rename = "agent")]
     Agent,
+    /// Not in the TS: ` · parent title` after a sub-session listed apart from its parent (muted, cut first).
+    #[serde(rename = "parent")]
+    Parent,
 }
 
 /// TS: sidebarModel.ts RowPart.
@@ -137,6 +140,8 @@ pub struct SidebarRowsInput<'a> {
     /// Not in the TS: the state view's rows ([`crate::session_sections`]): a sub-session is indented under its parent
     /// only when both are in the same section.
     pub sectioned: bool,
+    /// Not in the TS: a sub-session listed apart from its parent names it after its title (` · parent`).
+    pub parent_names: bool,
 }
 
 /// UTF-16 length as a JS number (widths here go negative).
@@ -165,6 +170,12 @@ fn is_merged(session: &SessionRecord) -> bool {
             .as_ref()
             .and_then(|worktree| worktree.merged_at.as_ref()),
     ) || truthy(session.merged_at.as_ref())
+}
+
+/// The parent of a sub-session, when it is among `sessions`.
+fn parent_of<'a>(session: &SessionRecord, sessions: &[&'a SessionRecord]) -> Option<&'a SessionRecord> {
+    let parent = session.parent_session_id.as_deref().filter(|id| !id.is_empty())?;
+    sessions.iter().copied().find(|candidate| candidate.id == parent)
 }
 
 /// TS: sidebarModel.ts rowDimmed (archived rows, except in the archived view, which lists nothing else).
@@ -327,9 +338,22 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
             }
         }
         let title = cut(&full_title, (width - prefix_width - 1 - suffix_width(&suffix)).max(0));
-        let gap = (width - prefix_width - jlen(&title) - suffix_width(&suffix)).max(1);
+        // Not in the TS: a sub-session listed apart from its parent (another section, a search, the parent not
+        // listed) names it after its own title, in the room the title leaves: the first thing cut.
+        let parent_part = parent_of(session, input.all_sessions)
+            .filter(|_| input.parent_names && depth == 0 && title == full_title)
+            .map(|parent| display_session_title(parent, input.all_sessions))
+            .filter(|parent| !parent.is_empty())
+            .and_then(|parent| {
+                let room = width - prefix_width - jlen(&title) - suffix_width(&suffix) - 1;
+                (room >= 3 + jlen(&parent).min(4))
+                    .then(|| part(format!(" · {}", cut(&parent, room - 3)), RowRole::Parent))
+            });
+        let parent_width = parent_part.as_ref().map_or(0, |part| jlen(&part.text));
+        let gap = (width - prefix_width - jlen(&title) - parent_width - suffix_width(&suffix)).max(1);
         let mut parts = prefix;
         parts.push(part(title, RowRole::Title));
+        parts.extend(parent_part);
         parts.push(part(" ".repeat(usize::try_from(gap).unwrap_or(1)), RowRole::Gap));
         for (at, item) in suffix.into_iter().enumerate() {
             if at > 0 {
@@ -838,6 +862,52 @@ pub fn session_details<S: SessionLike>(
     installed_versions: Option<&InstalledVersions>,
     task: Option<&DetailTask>,
 ) -> Vec<DetailLine> {
+    details(
+        session,
+        all_sessions,
+        width,
+        free_rows,
+        now_ms,
+        installed_versions,
+        task,
+        false,
+    )
+}
+
+/// Not in the TS: [`session_details`] with a sub-session's parent named after the location (`↳ sub-session of …`):
+/// the sidebar lists a sub-session apart from its parent in sections by state.
+pub fn session_details_with_parent<S: SessionLike>(
+    session: Option<&SessionRecord>,
+    all_sessions: &[S],
+    width: usize,
+    free_rows: usize,
+    now_ms: i64,
+    installed_versions: Option<&InstalledVersions>,
+    task: Option<&DetailTask>,
+) -> Vec<DetailLine> {
+    details(
+        session,
+        all_sessions,
+        width,
+        free_rows,
+        now_ms,
+        installed_versions,
+        task,
+        true,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn details<S: SessionLike>(
+    session: Option<&SessionRecord>,
+    all_sessions: &[S],
+    width: usize,
+    free_rows: usize,
+    now_ms: i64,
+    installed_versions: Option<&InstalledVersions>,
+    task: Option<&DetailTask>,
+    parents: bool,
+) -> Vec<DetailLine> {
     let Some(session) = session else {
         return Vec::new();
     };
@@ -872,6 +942,12 @@ pub fn session_details<S: SessionLike>(
             THEME.muted,
         )]);
     }
+    // Not in the TS: whose sub-session it is, and how that one is doing (a row can sit far from its parent).
+    if let Some(parent) = parent_line(session, all_sessions, width).filter(|_| parents)
+        && room(&lines) >= 1
+    {
+        lines.push(parent);
+    }
     // The task it works on (b), and how many more are open on its work: kept longer than the checklist line below.
     if let Some(task) = task
         && room(&lines) >= 1
@@ -897,6 +973,42 @@ pub fn session_details<S: SessionLike>(
         lines.push(vec![detail(checklist, THEME.muted)]);
     }
     lines
+}
+
+/// Not in the TS: `↳ sub-session of <parent> · <its state>` (`⑂ fork of` for a fork), the parent's name cut to
+/// fit, its state dropped when even a short name would not; none for a top-level session.
+fn parent_line<S: SessionLike>(session: &SessionRecord, all_sessions: &[S], width: usize) -> Option<DetailLine> {
+    let parent_id = session.parent_session_id.as_deref().filter(|id| !id.is_empty())?;
+    let parent = all_sessions
+        .iter()
+        .map(SessionLike::session)
+        .find(|candidate| candidate.id == parent_id)?;
+    let head = match session.sub_session_kind {
+        Some(SubSessionKind::Forked) => "⑂ fork of ",
+        _ => "↳ sub-session of ",
+    };
+    let mut name = display_session_title(parent, all_sessions);
+    if name.is_empty() {
+        name = "(untitled)".to_owned();
+    }
+    let state = status_words(parent);
+    let width = jnum(width);
+    let tail = format!(" · {state}");
+    let with_state = width - jlen(head) - jlen(&tail) >= jlen(&name).min(8);
+    let name_room = width - jlen(head) - if with_state { jlen(&tail) } else { 0 };
+    let mut line = vec![
+        detail(head, THEME.muted),
+        detail(cut(&name, name_room.max(1)), THEME.accent_soft),
+    ];
+    if with_state {
+        line.push(DetailPart {
+            text: " · ".into(),
+            color: Some(THEME.muted),
+            dim: Some(true),
+        });
+        line.push(detail(state, status_color(parent)));
+    }
+    Some(line)
 }
 
 /// TS: sidebarModel.ts attentionReasonLines: what a running session waits on, from its agent signal's reason (`asks:
@@ -1139,6 +1251,7 @@ mod tests {
                     installed_versions: installed.as_ref(),
                     shared_dev: false,
                     sectioned: false,
+                    parent_names: false,
                 }))
             },
         );
@@ -1305,6 +1418,7 @@ mod tests {
         collapsed: Option<HashSet<String>>,
         shared_dev: bool,
         sectioned: bool,
+        parent_names: bool,
     }
 
     fn rows_of(rows: &[&SessionRecord], opts: Opts<'_>) -> Vec<SidebarRow> {
@@ -1322,6 +1436,7 @@ mod tests {
             installed_versions: None,
             shared_dev: opts.shared_dev,
             sectioned: opts.sectioned,
+            parent_names: opts.parent_names,
         })
     }
 
@@ -1506,6 +1621,7 @@ mod tests {
             Opts {
                 shared_dev: true,
                 sectioned: false,
+                parent_names: false,
                 ..Opts::default()
             },
         )
@@ -1708,6 +1824,32 @@ mod tests {
             })
             .collect();
         assert_eq!(trees, ["▾ ", "  ↳ "]);
+    }
+
+    #[test]
+    fn details_name_a_sub_sessions_parent_and_its_state() {
+        let list = fixture();
+        let all = refs(&list);
+        let of = |id: &str, width: usize| -> Vec<String> {
+            let session = all.iter().copied().find(|session| session.id == id);
+            line_texts(&session_details_with_parent(session, &all, width, 10, NOW, None, None))
+        };
+        // c is a fork of a (working); b a clean sub-session. Narrow, the state goes before the name is cut short.
+        assert!(
+            of("c", 48).contains(&"⑂ fork of auth refactor · working".to_owned()),
+            "{:?}",
+            of("c", 48)
+        );
+        assert!(
+            of("b", 30).contains(&"↳ sub-session of auth refactor".to_owned()),
+            "{:?}",
+            of("b", 30)
+        );
+        // A top-level session has no such line, and the TS details never do.
+        assert!(!of("a", 48).iter().any(|line| line.contains("sub-session of")));
+        let b = all.iter().copied().find(|session| session.id == "b");
+        let plain = line_texts(&session_details(b, &all, 48, 10, NOW, None, None));
+        assert!(!plain.iter().any(|line| line.contains("sub-session of")));
     }
 
     #[test]

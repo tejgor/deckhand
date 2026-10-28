@@ -129,6 +129,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session fr
 | `▾` / `▸` | Parent with sub-sessions, expanded / collapsed (`c`) |
 | `↳` | Clean sub-session |
 | `⑂` | Forked sub-session |
+| `· name` | After a sub-session's title: its parent, when it isn't listed right above it (another section, a search); cut first when narrow |
 | `▶` | After the title: the worktree's Dev command runs (on its first row; muted on the worktree's other rows, which share it) |
 | `▣` | After the title: archived |
 | `!` | After the title: cleanup error |
@@ -145,7 +146,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session fr
 | `╎N` | Details: N other sessions share the worktree |
 | `☑2d` | Details: done 2 days ago |
 
-The sketch shows your own order (`V`). By default the rows sit under section headers instead, **Needs you**, **Unread**, **Working**, **Idle** and **Exited**, each with its count (`  Idle 3 ───`); a sub-session is indented under its parent only when both are in the same section. `c` folds **Exited** to its header (`Exited 4 ▸`). While you type to an agent or shell, every row but the selected one is dimmed.
+The sketch shows your own order (`V`). By default the rows sit under section headers instead, **Needs you**, **Unread**, **Working**, **Idle** and **Exited**, each with its count (`  Idle 3 ───`); a sub-session is indented under its parent only when both are in the same section, and otherwise names it after its title (`↳ write tests · auth refactor`). `c` folds **Exited** to its header (`Exited 4 ▸`). While you type to an agent or shell, every row but the selected one is dimmed.
 
 Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessions. Done rows have a muted title, while their markers and status stay readable. Below the branch, the details repeat the row's markers as glyphs (`╎N`, `▶`, `✓`, `☑2d`, `▣`), then `☐ N open` checklist items. A long branch is shortened to keep them. When `↑` shows, the details line names both versions, for example `✶ claude 2.1.287 · 2.1.290 installed`. In the app, `?` → Sidebar lists all of this.
 

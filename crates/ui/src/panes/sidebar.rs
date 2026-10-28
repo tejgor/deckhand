@@ -14,7 +14,7 @@ use deckhand_core::session_features::{SESSION_FILTERS, SessionFilterCounts, sess
 use deckhand_core::session_sections::{SessionSection, session_section};
 use deckhand_core::sidebar_model::{
     DetailLine, DetailTask, RowPart, RowRole, SidebarHeaderInput, SidebarRow, SidebarRowsInput, filter_menu_lines,
-    session_details, sidebar_header, sidebar_rows,
+    session_details_with_parent, sidebar_header, sidebar_rows,
 };
 use deckhand_protocol::data::SessionRecord;
 use deckhand_protocol::records::SessionFilter;
@@ -24,8 +24,9 @@ use crate::primitives::{
 };
 use crate::theme::{THEME, color};
 
-/// TS: sidebar.tsx DETAIL_ROWS: the most rows the details block can use.
-pub const DETAIL_ROWS: usize = 9;
+/// TS: sidebar.tsx DETAIL_ROWS: the most rows the details block can use (9 in the TS; not in the TS: one more for a
+/// sub-session's parent).
+pub const DETAIL_ROWS: usize = 10;
 
 /// TS: sidebar.tsx DETAIL_MIN_SIDEBAR_ROWS: a long list keeps rows for the details only in a sidebar this tall.
 pub const DETAIL_MIN_SIDEBAR_ROWS: usize = 21;
@@ -215,7 +216,7 @@ pub fn part_style_spec(part: &RowPart, row: &SidebarRow) -> PartStyleSpec {
         RowRole::Number | RowRole::Archived | RowRole::Merged | RowRole::Count | RowRole::Outdated => {
             spec(INK_THEME.muted, true)
         }
-        RowRole::Done | RowRole::Agent | RowRole::DevShared => spec(INK_THEME.muted, false),
+        RowRole::Done | RowRole::Agent | RowRole::DevShared | RowRole::Parent => spec(INK_THEME.muted, false),
         RowRole::Dev => spec(INK_THEME.success, false),
         RowRole::Cleanup => spec(INK_THEME.error, false),
         RowRole::Tree | RowRole::Status | RowRole::Title => spec(row.color, false),
@@ -336,7 +337,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             .iter()
             .map(|session| {
                 let task = task_for(session);
-                session_details(
+                session_details_with_parent(
                     Some(session),
                     all_sessions,
                     content_width,
@@ -396,12 +397,13 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         installed_versions: props.installed_versions,
         shared_dev: true,
         sectioned: props.sectioned,
+        parent_names: true,
     });
     // The details take the rows the list leaves free (the ones kept for them when it scrolls).
     let details = if sessions.is_empty() {
         Vec::new()
     } else {
-        session_details(
+        session_details_with_parent(
             selected,
             all_sessions,
             content_width,
@@ -569,7 +571,7 @@ mod tests {
     use crate::primitives::string_width;
     use deckhand_core::jsstr::date;
     use deckhand_core::session_order::sort_sessions_for_sidebar;
-    use deckhand_core::sidebar_model::filter_menu_lines;
+    use deckhand_core::sidebar_model::{filter_menu_lines, session_details};
     use deckhand_testkit::{Case, replay, tags};
     use serde_json::{Value, json};
 
@@ -932,17 +934,28 @@ mod tests {
                 "│  Needs you 1 ───────────────── │",
                 "│› 1 ? fix flaky checkout e2e… ◇ │",
                 "│  Working 2 ─────────────────── │",
-                // a's sub-sessions are in other sections: no ▾, each at its section's top level with its glyph.
+                // a's sub-sessions are in other sections: no ▾, each at its section's top level with its glyph, and
+                // its parent named where the title leaves room.
                 "│  2 ⠋ auth refactor         ▶ ✶ │",
                 "│  3 ⠋ bump deps               π │",
                 "│  Idle 1 ────────────────────── │",
-                "│  4 ↳ ● write tests         ▶ π │",
+                "│  4 ↳ ● write tests · auth… ▶ π │",
                 "│  Exited 3 ▾ ────────────────── │",
                 "│  5 ⑂ ○ try alt approach    ▶ ✶ │",
                 "│  6 ! migrate billing webhoo… ✶ │",
                 "│  7 ○ docs cleanup        ▣ ✓ ✶ │",
             ]
         );
+        // The selected sub-session's details name its parent and how it is doing.
+        props.selected_id = Some("b");
+        let details = render(&props, 34, 24);
+        assert!(
+            details
+                .iter()
+                .any(|line| line.contains("↳ sub-session of auth refactor")),
+            "{details:#?}"
+        );
+        props.selected_id = Some("d");
         // Folded (c): the header keeps the whole count, last, with no exited row left to list.
         let running: Vec<&SessionRecord> = ordered
             .iter()
@@ -1126,6 +1139,7 @@ mod tests {
                 installed_versions: versions,
                 shared_dev: false,
                 sectioned: false,
+                parent_names: false,
             })
         };
         let texts = |rows: Vec<SidebarRow>| -> Vec<String> {
