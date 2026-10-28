@@ -626,6 +626,8 @@ pub struct TasksFlow {
     pub busy: bool,
     /// The editor body's wrap width at the last render (TS `bodyWidth`, 40 before one).
     pub body_width: usize,
+    /// Not in the TS: the list's rows at the last render, for PgDn / PgUp (and Ctrl+D / Ctrl+U): half of them.
+    pub list_rows: usize,
     /// Not in the TS: the tasks whose steps are hidden (c), kept across attaches by the app's caller.
     pub collapsed_steps: Vec<String>,
 }
@@ -645,6 +647,7 @@ impl Default for TasksFlow {
             top: 0,
             busy: false,
             body_width: 40,
+            list_rows: 10,
             collapsed_steps: Vec::new(),
         }
     }
@@ -681,7 +684,14 @@ pub static KEYMAP: Keymap = &[
     board_key(&[KeySpec::Char("c")], "hide or show its steps"),
     board_key(&[KeySpec::Named(NamedKey::Return)], "edit it / open the note"),
     board_key(&[KeySpec::Named(NamedKey::Tab)], "the notes view / back to tasks"),
-    board_key(&[KeySpec::Named(NamedKey::Escape)], "back"),
+    board_key(
+        &[
+            KeySpec::Named(NamedKey::Escape),
+            KeySpec::Char("h"),
+            KeySpec::Named(NamedKey::Left),
+        ],
+        "back",
+    ),
 ];
 
 /// The picker row that is a work (a worktree or a main-checkout session).
@@ -1382,7 +1392,7 @@ impl TasksFlow {
     ) {
         let key = &input.key;
         let text = input.input.as_str();
-        if key.escape || key.tab {
+        if key.escape || key.tab || key.left_arrow || text == "h" {
             self.view = TasksView::Tasks;
             self.selected = RowSelection::default();
             return;
@@ -1717,6 +1727,11 @@ impl Flow<App> for TasksFlow {
             self.move_by(&rows, current, -1);
             return;
         }
+        if key.page_down || key.page_up {
+            let half = signed((self.list_rows / 2).max(1));
+            self.move_by(&rows, current, if key.page_down { half } else { -half });
+            return;
+        }
         if key.down_arrow || text == "j" {
             self.move_by(&rows, current, 1);
             return;
@@ -1759,7 +1774,8 @@ impl Flow<App> for TasksFlow {
             self.notes_input(input, current_row, props, cx);
             return;
         }
-        if key.escape {
+        // Not in the TS: h and ← go back too, as from every pane.
+        if key.escape || key.left_arrow || text == "h" {
             cx.exit();
             return;
         }
@@ -2030,6 +2046,7 @@ impl Flow<App> for TasksFlow {
         // Border (2), title and status lines (2), the `+N more` line (1), then the rule and the lower part.
         let lower_rows = if lower.nodes > 0 { lower.nodes + 1 } else { 0 };
         let list_rows = to_index((signed(height) - 2 - 3 - signed(lower_rows)).max(1));
+        self.list_rows = list_rows;
         self.top = scrolled_list_top(self.top, current, list_rows, rows.len(), &|index| {
             rows.get(index).is_some_and(selectable_row)
         });

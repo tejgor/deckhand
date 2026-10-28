@@ -1384,6 +1384,31 @@ impl App {
             return;
         }
         let mode = self.mode;
+        // Not in the TS: Ctrl+letter is not the letter. Outside a text field (and Settings, which has its own) the
+        // list keys no longer fire on it (Ctrl+X opened the stop confirmation, Ctrl+A the Notes tab); Ctrl+D / Ctrl+U
+        // page down and up, as PgDn / PgUp do, since a laptop has no page keys without fn.
+        let paged;
+        let input = if input.key.ctrl
+            && input.input.chars().count() == 1
+            && !self.typing_in_field()
+            && !is_settings_flow_mode(mode)
+        {
+            let (down, up) = (input.input == "d", input.input == "u");
+            if !down && !up {
+                return;
+            }
+            paged = Input::key(
+                "",
+                Key {
+                    page_down: down,
+                    page_up: up,
+                    ..Key::NONE
+                },
+            );
+            &paged
+        } else {
+            input
+        };
         // Not in the TS: J/K (PgUp/PgDn) scroll a dialog's (or the merge screen's) body: what does not fit. Not while
         // a field takes letters as text (the session's name, the worktree picker's search).
         let typing = mode == Mode::EnterName || (mode == Mode::PickWorktree && self.create.worktree_typing);
@@ -1777,6 +1802,34 @@ mod tests {
             },
         ));
         assert_eq!(app.connection.exit, Some(UiExitResult::Quit));
+    }
+
+    #[test]
+    fn ctrl_letters_are_not_the_letter_and_ctrl_d_u_page() {
+        let (mut app, _rx) = app(AppProps::default());
+        app.data.repo_sessions = (0..30)
+            .map(|index| session(&format!("s{index}"), &format!("S{index}"), SessionStatus::Running))
+            .collect();
+        app.set_selected_id(Some("s0".to_owned()));
+        let ctrl = |letter: &str| {
+            Input::key(
+                letter,
+                Key {
+                    ctrl: true,
+                    ..Key::NONE
+                },
+            )
+        };
+        // Ctrl+X, Ctrl+A, Ctrl+D used to act as x (stop), a (Notes), d (Dev).
+        app.handle_input(&ctrl("x"));
+        app.handle_input(&ctrl("a"));
+        assert_eq!((app.mode, app.browse.active_tab), (Mode::Browse, RightPaneTab::Preview));
+        let half = usize::from(app.layout().pane_inner_height / 2).max(1);
+        app.handle_input(&ctrl("d"));
+        assert_eq!(app.browse.active_tab, RightPaneTab::Preview);
+        assert_eq!(app.selected_index(), half);
+        app.handle_input(&ctrl("u"));
+        assert_eq!(app.selected_index(), 0);
     }
 
     #[test]

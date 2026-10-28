@@ -425,8 +425,10 @@ pub fn handle_confirm_kill(app: &mut App, input: &Input) {
 /// TS: the confirm-loss branch (type DELETE, then Enter).
 pub fn handle_confirm_loss(app: &mut App, input: &Input) {
     let key = &input.key;
+    // Not in the TS: Esc goes back one step, to the choices, as the Worktrees DELETE prompt does.
     if key.escape {
-        app.set_mode(Mode::Browse);
+        app.kill.confirmation_draft.clear();
+        app.set_mode(Mode::ConfirmKill);
         return;
     }
     if app.scroll_details_pane(input) {
@@ -1929,8 +1931,10 @@ mod tests {
         // Enter without a matching inspection does nothing (and without DELETE too).
         handle_confirm_loss(&mut app, &enter());
         assert_eq!(app.mode, Mode::ConfirmLoss);
+        // Esc goes back to the choices, the draft forgotten.
         handle_confirm_loss(&mut app, &escape());
-        assert_eq!(app.mode, Mode::Browse);
+        assert_eq!(app.mode, Mode::ConfirmKill);
+        assert!(app.kill.confirmation_draft.is_empty());
     }
 
     fn preview_json(uncommitted: i64) -> Value {

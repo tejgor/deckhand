@@ -56,6 +56,15 @@ pub fn handle_search(app: &mut App, input: &Input) {
         app.set_mode(Mode::Browse);
         return;
     }
+    // Not in the TS: ↑/↓, or Ctrl+P / Ctrl+N on the home row, move the selection among the matches while typing.
+    let (up, down) = (
+        key.up_arrow || (key.ctrl && input.input == "p"),
+        key.down_arrow || (key.ctrl && input.input == "n"),
+    );
+    if up || down {
+        crate::app::modes::browse::move_selection(app, if down { 1 } else { -1 });
+        return;
+    }
     if key.backspace || key.delete {
         // TS `slice(0, -1)` drops one UTF-16 unit (half of an emoji); here the whole character goes.
         app.browse.session_query.pop();
@@ -99,6 +108,44 @@ mod tests {
         assert_eq!(visible, ["b"]);
         handle_search(&mut app, &pressed(|key| key.return_ = true));
         assert_eq!((app.mode, app.browse.session_query.as_str()), (Mode::Browse, "bet"));
+    }
+
+    #[test]
+    fn arrows_and_ctrl_n_p_move_the_selection_while_typing() {
+        let (mut app, _rx) = app(AppProps::default());
+        app.data.repo_sessions = vec![
+            session("a", "Alpha one", SessionStatus::Running),
+            session("b", "Beta", SessionStatus::Running),
+            session("c", "Alpha two", SessionStatus::Running),
+        ];
+        app.set_mode(Mode::Search);
+        handle_search(&mut app, &Input::text("alpha"));
+        app.set_selected_id(Some("a".to_owned()));
+        handle_search(&mut app, &pressed(|key| key.down_arrow = true));
+        assert_eq!(app.browse.selected_id.as_deref(), Some("c"));
+        handle_search(
+            &mut app,
+            &Input::key(
+                "p",
+                Key {
+                    ctrl: true,
+                    ..Key::NONE
+                },
+            ),
+        );
+        assert_eq!(app.browse.selected_id.as_deref(), Some("a"));
+        handle_search(
+            &mut app,
+            &Input::key(
+                "n",
+                Key {
+                    ctrl: true,
+                    ..Key::NONE
+                },
+            ),
+        );
+        assert_eq!(app.browse.selected_id.as_deref(), Some("c"));
+        assert_eq!((app.mode, app.browse.session_query.as_str()), (Mode::Search, "alpha"));
     }
 
     #[test]

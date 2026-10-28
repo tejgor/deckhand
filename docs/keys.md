@@ -16,7 +16,8 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `/` | Search titles, notes, tasks, agent, branch and path |
 | `f` | Open the filter menu: `a` active, `r` running, `!` attention, `e` exited, `A` archived, `*` all |
 | `f` `f` | Go back to the active filter |
-| `!` | Select the next session that needs you, switching to the attention filter |
+| `!`, `;` | Select the next session that needs you, switching to the attention filter |
+| `ctrl+d` / `ctrl+u` | Half a list down / up (`pgdn` / `pgup` too). In every list and scroll area, not in text fields |
 | `V` | Switch the list between [sections by state](features.md#organizing-and-inspecting-sessions) (needs you, unread, working, idle, exited; the default) and your own order |
 | `J` | Move the selected session down past the sibling below it (in the state view, within its section) |
 | `K` | Move the selected session up past the sibling above it (in the state view, within its section) |
@@ -50,7 +51,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `U` | Mark the selected session's finished reply unread (`◆`), or read again ([unread replies](features.md#organizing-and-inspecting-sessions)) |
 | `m` | Merge the selected worktree into the current branch, uncommitted ([merging](features.md#merging-and-done)) |
 | `M` | Set or clear the worktree's merged marker without merging |
-| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes)), then your actions ([actions](features.md#setup-and-actions)), then a row per shell and **+ New shell**, which opens [another](features.md#several-shells). On every row `enter` starts what is stopped and shows what runs, and `x` twice stops the selected row, closes an extra shell, or restarts the first shell, killing whatever is stuck in it ([restarting](features.md#terminal-git-and-dev-panes)). To restart anything else: `x` `x`, then `enter`. Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
+| `r` | Open the run list: the Dev command first (then a row per [Dev process](features.md#several-dev-processes)), then your actions ([actions](features.md#setup-and-actions)), then a row per shell and **+ New shell**, which opens [another](features.md#several-shells). `esc`, `h` or `←` closes it. On every row `enter` starts what is stopped and shows what runs, and `x` twice stops the selected row, closes an extra shell, or restarts the first shell, killing whatever is stuck in it ([restarting](features.md#terminal-git-and-dev-panes)). To restart anything else: `x` `x`, then `enter`. Starting Dev stops it in the repository's [other worktrees](features.md#dev-in-one-worktree-at-a-time) |
 | `A` | Archive or unarchive the selected session (it keeps running) |
 | `backspace` | Archive the selected exited session; on an archived one, remove it for good ([archiving](features.md#organizing-and-inspecting-sessions)) |
 | `H` | Export and open a handoff ([handoffs](features.md#resume-and-handoffs)) |
@@ -68,7 +69,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 
 **In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic (`g`/`G` the first or last), `/` searches every topic, `J`/`K` (or `pgdn`/`pgup`, `space`) scroll and `esc` closes.
 
-**Dialogs and the merge screen**: when what they show does not fit, `J`/`K` (or `pgdn`/`pgup`) scroll it, and the border says how much more there is (`↓ 12 more · J`). In `i`, the trust review and the DELETE prompt, `J`/`K` scroll a page. In Settings lists, `J`/`K` move five rows and `g`/`G` go to the first or last.
+**Dialogs and the merge screen**: when what they show does not fit, `J`/`K` (or `pgdn`/`pgup`, `ctrl+d`/`ctrl+u`) scroll it, and the border says how much more there is (`↓ 12 more · J`). In `i`, the trust review and the DELETE prompt, `J`/`K` scroll a page. In Settings lists, `J`/`K` move five rows and `g`/`G` go to the first or last.
 
 > [!NOTE]
 > Deletion is conservative. Unknown or unsafe Git state needs `DELETE` typed, and `X` never authorises data loss. The protections for the main checkout, the current worktree and an actively shared worktree can't be overridden. See [Cleanup](features.md#cleanup).
@@ -218,7 +219,8 @@ An editor's integrated terminal (Cursor, VS Code) may keep some `ctrl` keys for 
 | `v` | Show only the selected session's worktree, or everything again |
 | `tab` | Switch to the Notes view, and back |
 | `E` | Open the task list file in Cursor or VS Code |
-| `esc` | Back |
+| `pgdn` / `pgup`, `ctrl+d` / `ctrl+u` | Half a list down / up |
+| `esc`, `h`, `←` | Back |
 
 While editing a task, `enter` saves the title, `ctrl+s` saves from the details, and `esc` saves too (as in the notes editor); with an empty title it just closes.
 
@@ -242,7 +244,7 @@ While editing a task, `enter` saves the title, `ctrl+s` saves from the details, 
 | --- | --- |
 | `j`, `↓` | Select the next worktree |
 | `k`, `↑` | Select the previous worktree |
-| `pgdn` / `pgup` | Move ten rows |
+| `pgdn` / `pgup`, `ctrl+d` / `ctrl+u` | Move ten rows |
 | `g`, `home` | Select the first worktree |
 | `G`, `end` | Select the last worktree |
 | `x` | Delete the selected worktree, asking first (on a missing one: prune or forget it) |
@@ -253,7 +255,7 @@ While editing a task, `enter` saves the title, `ctrl+s` saves from the details, 
 | `M` | Mark it merged, or clear the marker |
 | `E` | Open it in Cursor or VS Code |
 | `R` | Check them all again |
-| `esc` | Back |
+| `esc`, `h`, `←` | Back (in a DELETE prompt, `esc` goes back to the choices) |
 
 ## Git changes
 

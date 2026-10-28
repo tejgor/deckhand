@@ -53,7 +53,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "C  G",
-                text: "Settings / Agents: versions and updates (Enter updates, r re-checks)",
+                text: "Settings / Agents: versions and updates (Enter updates, R re-checks)",
             },
             HelpLine::Key {
                 keys: "?",
@@ -183,8 +183,12 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Filter menu: a active · r running · ! attention · e exited · A archived · * all; f f back to active (the sidebar header names any other)",
             },
             HelpLine::Key {
-                keys: "!",
+                keys: "!  ;",
                 text: "Next session that needs attention: blocked ones first, then unread replies",
+            },
+            HelpLine::Key {
+                keys: "Ctrl+D  Ctrl+U",
+                text: "Half a page down / up, in every list and scroll area (PgDn / PgUp too)",
             },
             HelpLine::Key {
                 keys: "V",
@@ -321,7 +325,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "o  J K  c",
-                text: "Open the session doing it / reorder (j k, g G move) / hide or show its steps (▸ 2/5)",
+                text: "Open the session doing it / reorder (j k, g G move; h, Esc back) / hide or show its steps (▸ 2/5)",
             },
             HelpLine::Key {
                 keys: "Tab  E",
@@ -356,7 +360,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "R  j k  g G",
-                text: "Check them all again / move",
+                text: "Check them all again / move (h or Esc: back)",
             },
             HelpLine::Key {
                 keys: "J K",

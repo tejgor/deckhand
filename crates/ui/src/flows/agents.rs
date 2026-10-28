@@ -330,7 +330,7 @@ pub fn render_agents_pane(props: &AgentsPaneProps<'_>, buf: &mut Buffer, area: R
         vec![
             HintPart::from("enter update"),
             HintPart {
-                text: "r re-check".to_owned(),
+                text: "R re-check".to_owned(),
                 short: None,
                 drop: Some(2),
             },
@@ -406,7 +406,7 @@ impl AgentsFlow {
                     cx.emit(FlowEffect::Versions(Box::new(result.versions.clone())));
                     let message = if !result.ok {
                         format!(
-                            "{label} update failed (exit {}); U shows the output",
+                            "{label} update failed (exit {}); G shows the output",
                             exit_text(&result)
                         )
                     } else if let Some(after) = updated_to(&result) {
@@ -426,7 +426,7 @@ impl AgentsFlow {
                             error: error_message(&error),
                         },
                     );
-                    cx.set_status(format!("{label} update failed; U shows why"));
+                    cx.set_status(format!("{label} update failed; G shows why"));
                 }
             }
             flow.working.shift_remove(&program);
@@ -450,7 +450,7 @@ impl Flow<App> for AgentsFlow {
             }
             return;
         }
-        if key.escape {
+        if key.escape || key.left_arrow || text == "h" {
             cx.emit(FlowEffect::SetMode(Mode::Browse));
             return;
         }
@@ -462,7 +462,8 @@ impl Flow<App> for AgentsFlow {
             self.selected = (self.selected + 1).min(AGENT_PROGRAMS.len() - 1);
             return;
         }
-        if text == "r" {
+        // R checks again, as R reloads on the session list and Worktrees (it was r).
+        if text == "R" {
             self.check(props, cx);
             return;
         }
@@ -630,7 +631,7 @@ mod tests {
                 "Update     claude update",
                 "3 running sessions · 1 on an older version (restart to update)",
                 "enter update",
-                "r re-check",
+                "R re-check",
                 "esc back",
             ],
         );
@@ -821,7 +822,7 @@ mod tests {
         press(&mut app, &key(|key| key.return_ = true));
         assert_eq!(app.flows.agents.confirming, Some(ProgramKey::Claude));
         press(&mut app, &Input::text("j"));
-        press(&mut app, &Input::text("r"));
+        press(&mut app, &Input::text("R"));
         assert_eq!(app.flows.agents.confirming, Some(ProgramKey::Claude));
         assert_eq!(app.flows.agents.selected, 0);
         press(&mut app, &Input::text("n"));
@@ -920,7 +921,7 @@ mod tests {
             assert!(!app.flows.agents.checking);
             assert_eq!(app.data.agent_versions, Some(latest));
             // Offline: the failure is swallowed, checking ends, the versions stay.
-            press(&mut app, &Input::text("r"));
+            press(&mut app, &Input::text("R"));
             assert!(app.flows.agents.checking);
             let request = daemon.request().await;
             daemon.respond(&request, json!({"ok": false, "error": "offline"})).await;
@@ -975,7 +976,7 @@ mod tests {
             apply(&mut app, &mut rx).await;
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("Codex update failed (exit 1); U shows the output")
+                Some("Codex update failed (exit 1); G shows the output")
             );
             press(&mut app, &key(|key| key.return_ = true));
             let request = daemon.request().await;
@@ -994,7 +995,7 @@ mod tests {
             apply(&mut app, &mut rx).await;
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("Codex update failed; U shows why")
+                Some("Codex update failed; G shows why")
             );
             assert_eq!(
                 app.flows.agents.outcomes.get(&ProgramKey::Codex),

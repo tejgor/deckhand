@@ -78,7 +78,7 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Topic("Sessions"),
     },
     Binding {
-        keys: &[KeySpec::Char("!")],
+        keys: &[KeySpec::Char("!"), KeySpec::Char(";")],
         action: "next session needing attention",
         help: HelpRef::Topic("Find & organize"),
     },
@@ -188,6 +188,16 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Topic("Start here"),
     },
     Binding {
+        keys: &[
+            KeySpec::Ctrl("d"),
+            KeySpec::Ctrl("u"),
+            KeySpec::Named(NamedKey::PageDown),
+            KeySpec::Named(NamedKey::PageUp),
+        ],
+        action: "half a list down / up (every list and scroll area)",
+        help: HelpRef::Topic("Find & organize"),
+    },
+    Binding {
         keys: &[KeySpec::Char("<"), KeySpec::Char(">"), KeySpec::Char("=")],
         action: "resize the sidebar (saved); = fits it to the sessions again",
         help: HelpRef::Topic("Find & organize"),
@@ -266,6 +276,14 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         cycle_tab(app, step);
         return;
     }
+    // Not in the TS: digits typed fast can arrive as one chunk ("12"); each goes through as if typed alone (they were
+    // ignored, and cleared a number being typed).
+    if text.len() > 1 && text.bytes().all(|byte| byte.is_ascii_digit()) && !key.ctrl && !key.meta {
+        for digit in text.chars() {
+            handle_browse(app, &Input::text(digit.to_string()));
+        }
+        return;
+    }
     if !app.browse.numeric_selection.is_empty() {
         if is_digit(text) {
             app.browse.numeric_selection.push_str(text);
@@ -318,7 +336,8 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         toggle_archive(app);
         return;
     }
-    if text == "!" {
+    // Not in the TS: ; (home row, no Shift) does what ! does.
+    if text == "!" || text == ";" {
         next_attention(app);
         return;
     }
@@ -490,6 +509,22 @@ pub fn handle_browse(app: &mut App, input: &Input) {
     }
     if text == "k" || key.up_arrow {
         move_selection(app, -1);
+        return;
+    }
+    // Not in the TS: PgDn / PgUp (and Ctrl+D / Ctrl+U) move half a list, stopping at the ends.
+    if key.page_down || key.page_up {
+        let half = usize::from(app.layout().pane_inner_height / 2).max(1);
+        let visible = app.visible_sessions();
+        let at = app.selected_index();
+        let next = if key.page_down {
+            (at + half).min(visible.len().saturating_sub(1))
+        } else {
+            at.saturating_sub(half)
+        };
+        if let Some(session) = visible.get(next) {
+            let id = session.id.clone();
+            app.set_selected_id(Some(id));
+        }
         return;
     }
     if text == "j" || key.down_arrow {
@@ -1711,6 +1746,11 @@ pub(crate) mod tests {
         );
         assert_eq!(app.browse.selected_id.as_ref(), order.get(11));
         assert_eq!(app.browse.numeric_selection, "");
+        // Typed fast, the digits can arrive as one chunk: the same number.
+        handle_browse(&mut app, &text("1"));
+        handle_browse(&mut app, &text("10"));
+        assert_eq!(app.browse.numeric_selection, "110");
+        app.browse.numeric_selection.clear();
         handle_browse(&mut app, &text("4"));
         handle_browse(
             &mut app,

@@ -624,8 +624,12 @@ pub struct WorktreesFlow {
 /// The worktree manager's keys (keysDocumented: each must be in the guide's Worktrees topic).
 pub static KEYMAP: Keymap = &[
     Binding {
-        keys: &[KeySpec::Named(NamedKey::Escape)],
-        action: "back to the session list (in a confirmation: cancel, or leave the DELETE prompt)",
+        keys: &[
+            KeySpec::Named(NamedKey::Escape),
+            KeySpec::Char("h"),
+            KeySpec::Named(NamedKey::Left),
+        ],
+        action: "back to the session list (Esc in a confirmation: cancel, or leave the DELETE prompt)",
         help: HelpRef::Hidden("esc goes back everywhere; the footer hint says so"),
     },
     Binding {
@@ -1537,7 +1541,8 @@ impl Flow<App> for WorktreesFlow {
         let key = &input.key;
         let text = input.input.as_str();
         let view = self.view(props, date::now_ms());
-        if key.escape {
+        // Not in the TS: h and ← go back too, as from every pane.
+        if key.escape || key.left_arrow || text == "h" {
             cx.exit();
             return;
         }

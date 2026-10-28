@@ -56,7 +56,11 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Topic("Dev & actions"),
     },
     Binding {
-        keys: &[KeySpec::Named(NamedKey::Escape)],
+        keys: &[
+            KeySpec::Named(NamedKey::Escape),
+            KeySpec::Char("h"),
+            KeySpec::Named(NamedKey::Left),
+        ],
         action: "close the run list",
         help: HelpRef::Hidden("the pane's own hint says esc cancels"),
     },
@@ -376,7 +380,8 @@ pub fn handle_pick_action(app: &mut App, input: &Input) {
     let last = rows.saturating_sub(1);
     // The handlers below read the index as it was when the key arrived (React state).
     let index = app.action_picker.action_index;
-    if key.escape {
+    // Not in the TS: h and ← close it too, as they go back from every pane.
+    if key.escape || key.left_arrow || text == "h" {
         app.set_mode(Mode::Browse);
         return;
     }
