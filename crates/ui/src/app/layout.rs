@@ -605,6 +605,7 @@ fn render_sidebar_for(app: &App, derived: &Derived, buf: &mut Buffer, area: Rect
         filter_menu,
         sectioned: app.sectioned(),
         typing: app.mode.types_into_pane(),
+        folded_exited: app.folded_exited_count(&derived.sessions),
     };
     render_sidebar(&props, buf, area);
 }

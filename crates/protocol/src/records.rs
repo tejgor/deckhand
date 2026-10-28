@@ -197,6 +197,8 @@ pub struct UiState {
     pub read_replies: IndexMap<String, String>,
     /// Not in the TS: the sidebar's view (`V`); `None` is the default, sections by state.
     pub session_view: Option<SessionView>,
+    /// Not in the TS: the state view's Exited section is folded (`c`); written only when it is.
+    pub exited_collapsed: Option<bool>,
 }
 
 impl Default for UiState {
@@ -291,6 +293,7 @@ impl UiState {
                 .get("sessionView")
                 .and_then(Value::as_str)
                 .and_then(|text| SessionView::ALL.iter().copied().find(|view| view.as_str() == text)),
+            exited_collapsed: (value.get("exitedCollapsed") == Some(&Value::Bool(true))).then_some(true),
         }
     }
 }

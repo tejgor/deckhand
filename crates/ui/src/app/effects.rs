@@ -127,6 +127,7 @@ pub struct EffectState {
     pub terminal_view: Option<TerminalView>,
     pub visibility: Option<(SessionFilter, String)>,
     pub session_view: Option<SessionView>,
+    pub exited_collapsed: Option<bool>,
     pub collapsed: Option<Vec<String>>,
     pub hidden_exited: Option<Vec<String>>,
     pub collapsed_task_steps: Option<Vec<String>>,
@@ -328,16 +329,23 @@ fn visibility_effect(app: &mut App) {
     }
 }
 
-/// Not in the TS: reports the sidebar's view (`V`) to be saved.
+/// Not in the TS: reports the sidebar's view (`V`) and its folded Exited section (`c`) to be saved.
 fn session_view_effect(app: &mut App) {
     let view = app.browse.session_view;
-    if app.effects.session_view == Some(view) {
-        return;
+    if app.effects.session_view != Some(view) {
+        app.effects.session_view = Some(view);
+        ran(app);
+        if let Some(listener) = &app.props.callbacks.on_session_view_change {
+            listener(view);
+        }
     }
-    app.effects.session_view = Some(view);
-    ran(app);
-    if let Some(listener) = &app.props.callbacks.on_session_view_change {
-        listener(view);
+    let collapsed = app.browse.exited_collapsed;
+    if app.effects.exited_collapsed != Some(collapsed) {
+        app.effects.exited_collapsed = Some(collapsed);
+        ran(app);
+        if let Some(listener) = &app.props.callbacks.on_exited_collapsed_change {
+            listener(collapsed);
+        }
     }
 }
 

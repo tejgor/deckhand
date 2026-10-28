@@ -131,6 +131,7 @@ fn app_props(
     let on_collapsed = saver.clone();
     let on_hidden = saver.clone();
     let on_view = saver.clone();
+    let on_exited = saver.clone();
     let view = Rc::clone(&round_trip.terminal_view);
     let collapsed_steps = Rc::clone(&round_trip.collapsed_task_steps);
     AppProps {
@@ -144,6 +145,7 @@ fn app_props(
         initial_session_filter: Some(state.session_filter),
         initial_session_query: Some(state.session_query.clone()),
         initial_session_view: state.session_view,
+        initial_exited_collapsed: state.exited_collapsed,
         initial_terminal_view: Some(round_trip.terminal_view.get()),
         initial_dev_process: None,
         initial_collapsed_task_steps: Some(round_trip.collapsed_task_steps.borrow().clone()),
@@ -158,6 +160,9 @@ fn app_props(
             on_session_view_change: Some(Box::new(move |view| {
                 // The default (sections by state) is not written.
                 on_view.update(|state| state.session_view = (view != SessionView::State).then_some(view));
+            })),
+            on_exited_collapsed_change: Some(Box::new(move |collapsed| {
+                on_exited.update(|state| state.exited_collapsed = collapsed.then_some(true));
             })),
             on_selected_id_change: Some(Box::new(move |session_id| {
                 on_selected.update(|state| state.selected_id = session_id.map(str::to_owned));

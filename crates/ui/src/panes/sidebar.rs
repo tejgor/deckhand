@@ -67,6 +67,9 @@ pub struct SidebarProps<'a> {
     /// Not in the TS: keys go to the selected session's agent or shell: everything but its row is dimmed, so the list
     /// reads as not listening.
     pub typing: bool,
+    /// Not in the TS: the state view's Exited section is folded (`c`), holding this many exited sessions; `sessions`
+    /// lists at most the selected one of them.
+    pub folded_exited: Option<usize>,
 }
 
 /// TS: sidebar.tsx visibleSessions: the index range of the rows shown, `available_rows` around the selection.
@@ -87,21 +90,30 @@ pub enum ListLine {
     Session(usize),
 }
 
-/// The list's lines: the sessions, each section headed in the state view (`sessions` are already grouped).
-pub fn list_lines(sessions: &[&SessionRecord], sectioned: bool) -> Vec<ListLine> {
+/// The list's lines: the sessions, each section headed in the state view (`sessions` are already grouped). A folded
+/// Exited section (`folded_exited`, its whole count) keeps its header, last, even with none of its sessions listed.
+pub fn list_lines(sessions: &[&SessionRecord], sectioned: bool, folded_exited: Option<usize>) -> Vec<ListLine> {
     let mut lines = Vec::with_capacity(sessions.len() + SessionSection::ALL.len());
     let mut current = None;
     for (index, session) in sessions.iter().enumerate() {
         let section = session_section(session);
         if sectioned && current != Some(section) {
             current = Some(section);
-            let count = sessions[index..]
-                .iter()
-                .take_while(|session| session_section(session) == section)
-                .count();
+            let count = match folded_exited {
+                Some(total) if section == SessionSection::Exited => total,
+                _ => sessions[index..]
+                    .iter()
+                    .take_while(|session| session_section(session) == section)
+                    .count(),
+            };
             lines.push(ListLine::Header(section, count));
         }
         lines.push(ListLine::Session(index));
+    }
+    if let Some(total) = folded_exited.filter(|total| sectioned && *total > 0)
+        && current != Some(SessionSection::Exited)
+    {
+        lines.push(ListLine::Header(SessionSection::Exited, total));
     }
     lines
 }
@@ -126,8 +138,9 @@ fn window_lines(lines: &[ListLine], sessions: &[&SessionRecord], range: std::ops
     shown
 }
 
-/// A section's header row: its name in the section's colour, the count, then a rule to the edge.
-fn section_header_row(section: SessionSection, count: usize, width: usize) -> Row {
+/// A section's header row: its name in the section's colour, the count, then a rule to the edge. Exited, which `c`
+/// folds, says which it is: `▾` open, `▸` folded.
+fn section_header_row(section: SessionSection, count: usize, folded: bool, width: usize) -> Row {
     let tone = match section {
         SessionSection::NeedsYou => THEME.warn,
         SessionSection::Unread => THEME.accent,
@@ -135,7 +148,10 @@ fn section_header_row(section: SessionSection, count: usize, width: usize) -> Ro
         SessionSection::Idle | SessionSection::Exited => THEME.muted,
     };
     let label = format!("  {} ", section.label());
-    let count = count.to_string();
+    let count = match section {
+        SessionSection::Exited => format!("{count} {}", if folded { "▸" } else { "▾" }),
+        _ => count.to_string(),
+    };
     let used = label.chars().count() + count.chars().count() + 1;
     let row = vec![
         Seg::new(label, TextStyle::fg(tone).bold(true)),
@@ -314,7 +330,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
     let task = selected.and_then(task_for);
     // As many rows as the largest details block of any listed session needs (at most DETAIL_ROWS), so the list keeps
     // its size while the selection moves; sessions with less leave the rest blank.
-    let lines = list_lines(sessions, props.sectioned);
+    let lines = list_lines(sessions, props.sectioned, props.folded_exited);
     let detail_rows = if lines.len() + DETAIL_ROWS > rows_for_sessions && rows_for_sessions >= DETAIL_MIN_SIDEBAR_ROWS {
         sessions
             .iter()
@@ -452,7 +468,12 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         shown
             .iter()
             .filter_map(|line| match line {
-                ListLine::Header(section, count) => Some(dim_if(section_header_row(*section, *count, row_width))),
+                ListLine::Header(section, count) => Some(dim_if(section_header_row(
+                    *section,
+                    *count,
+                    props.folded_exited.is_some(),
+                    row_width,
+                ))),
                 ListLine::Session(_) => session_rows.next().map(|row| {
                     let base = TextStyle {
                         color: if row.selected { Some(THEME.active) } else { None },
@@ -686,6 +707,7 @@ mod tests {
             filter_menu: None,
             sectioned: false,
             typing: false,
+            folded_exited: None,
         }
     }
 
@@ -915,12 +937,23 @@ mod tests {
                 "│  3 ⠋ bump deps               π │",
                 "│  Idle 1 ────────────────────── │",
                 "│  4 ↳ ● write tests         ▶ π │",
-                "│  Exited 3 ──────────────────── │",
+                "│  Exited 3 ▾ ────────────────── │",
                 "│  5 ⑂ ○ try alt approach    ▶ ✶ │",
                 "│  6 ! migrate billing webhoo… ✶ │",
                 "│  7 ○ docs cleanup        ▣ ✓ ✶ │",
             ]
         );
+        // Folded (c): the header keeps the whole count, last, with no exited row left to list.
+        let running: Vec<&SessionRecord> = ordered
+            .iter()
+            .copied()
+            .filter(|session| session.status != deckhand_protocol::data::SessionStatus::Exited)
+            .collect();
+        props.sessions = &running;
+        props.folded_exited = Some(3);
+        let folded = render(&props, 34, 18);
+        assert_eq!(folded[9], "│  Exited 3 ▸ ────────────────── │", "{folded:#?}");
+        assert!(!folded.iter().any(|line| line.contains("docs cleanup")));
     }
 
     #[test]

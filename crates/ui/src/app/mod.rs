@@ -36,7 +36,7 @@ use deckhand_core::key::{Input, Key};
 use deckhand_core::session_features::{TaskTitleOf, filter_session_list, with_reply_read};
 use deckhand_core::session_order::{filter_collapsed_sessions, sort_sessions_for_sidebar};
 use deckhand_core::session_scope::sessions_in_scope;
-use deckhand_core::session_sections::order_by_section;
+use deckhand_core::session_sections::{SessionSection, order_by_section, session_section};
 use deckhand_core::tasks::parse_tasks;
 use deckhand_core::tasks_board::{OwnedTaskLinkLookup, linked_tasks, task_link_lookup};
 use deckhand_core::workspace::workspace_key;
@@ -588,6 +588,25 @@ impl App {
         self.browse.session_view == SessionView::State
     }
 
+    /// Not in the TS: the state view's Exited section is folded (`c`). Like collapsed sub-sessions, only in the active
+    /// view without a search, which show every match.
+    pub fn exited_folded(&self) -> bool {
+        self.sectioned()
+            && self.browse.exited_collapsed
+            && self.browse.session_query.is_empty()
+            && self.browse.session_filter == SessionFilter::Active
+    }
+
+    /// Not in the TS: how many exited sessions a folded Exited section holds (its header's count).
+    pub fn folded_exited_count(&self, sessions: &[SessionRecord]) -> Option<usize> {
+        self.exited_folded().then(|| {
+            filter_session_list(sessions, self.browse.session_filter, "", None)
+                .into_iter()
+                .filter(|session| session_section(session) == SessionSection::Exited)
+                .count()
+        })
+    }
+
     /// The title of the tasks a session works on (TS filterSessionList's `taskTitle`).
     fn task_titles(&self, session: &SessionRecord) -> Option<String> {
         Some(
@@ -609,8 +628,16 @@ impl App {
             Some(title),
         );
         if self.sectioned() {
+            // A folded Exited section keeps only the selected session, so the row you are on never vanishes.
+            let folded = self.exited_folded();
+            let selected = self.browse.selected_id.as_deref();
             return order_by_section(&filtered)
                 .into_iter()
+                .filter(|session| {
+                    !folded
+                        || session_section(session) != SessionSection::Exited
+                        || Some(session.id.as_str()) == selected
+                })
                 .map(|session| (**session).clone())
                 .collect();
         }

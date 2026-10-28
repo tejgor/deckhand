@@ -4,7 +4,7 @@ deckhand                                                                        
 │ Sessions           2 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                                │
 │  Idle 1 ──────────── │ │                                                                                                       │
 │› 1 ● auth refactor ✶ │ │ <TMP>/demo                                                                                       idle │
-│  Exited 1 ────────── │ │ agent output line 1                                                                                   │
+│  Exited 1 ▾ ──────── │ │ agent output line 1                                                                                   │
 │╎ 2 ○ write tests   ✶ │ │ agent output line 2                                                                                   │
 │                      │ │ agent output line 3                                                                                   │
 │                      │ │ agent output line 4                                                                                   │

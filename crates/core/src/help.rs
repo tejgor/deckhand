@@ -200,7 +200,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "c",
-                text: "Hide exited children → collapse → expand (in your own order)",
+                text: "Hide exited children → collapse → expand; in sections, fold Exited",
             },
             HelpLine::Key {
                 keys: "< > =",

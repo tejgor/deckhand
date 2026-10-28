@@ -210,6 +210,8 @@ pub struct AppCallbacks {
     pub on_session_visibility_change: Option<VisibilityListener>,
     /// Not in the TS: the sidebar's view (`V`).
     pub on_session_view_change: Option<Listener<SessionView>>,
+    /// Not in the TS: the state view's Exited section folded or not (`c`).
+    pub on_exited_collapsed_change: Option<Listener<bool>>,
     /// Not in the TS: the tasks whose steps the Tasks view hides.
     pub on_collapsed_task_steps_change: Option<IdsListener>,
 }
@@ -234,6 +236,8 @@ pub struct AppProps {
     pub initial_session_query: Option<String>,
     /// Not in the TS: the sidebar's view; `None` lists sessions in sections by state.
     pub initial_session_view: Option<SessionView>,
+    /// Not in the TS: the state view's Exited section starts folded.
+    pub initial_exited_collapsed: Option<bool>,
     /// The Terminal tab's view, kept across attaches by the caller.
     pub initial_terminal_view: Option<TerminalView>,
     /// Not in the TS: the selected Dev process (by name), kept across attaches by the caller.
@@ -263,6 +267,8 @@ pub struct BrowseState {
     pub session_filter: SessionFilter,
     /// Not in the TS: sections by state (the default) or your own order (`V`).
     pub session_view: SessionView,
+    /// Not in the TS: the state view's Exited section is folded (`c`): its sessions are hidden but the selected one.
+    pub exited_collapsed: bool,
     pub session_query: String,
     pub collapsed_session_ids: IndexSet<String>,
     pub hidden_exited_session_ids: IndexSet<String>,
@@ -668,6 +674,7 @@ impl App {
             browse: BrowseState {
                 session_filter: props.initial_session_filter.unwrap_or(SessionFilter::Active),
                 session_view: props.initial_session_view.unwrap_or(SessionView::State),
+                exited_collapsed: props.initial_exited_collapsed.unwrap_or(false),
                 session_query: props.initial_session_query.clone().unwrap_or_default(),
                 collapsed_session_ids: props.initial_collapsed_session_ids.iter().flatten().cloned().collect(),
                 hidden_exited_session_ids: props

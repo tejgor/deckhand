@@ -169,7 +169,7 @@ pub static KEYMAP: Keymap = &[
     },
     Binding {
         keys: &[KeySpec::Char("c")],
-        action: "collapse / expand sub-sessions",
+        action: "collapse / expand sub-sessions (sections by state: fold the Exited section)",
         help: HelpRef::Topic("Find & organize"),
     },
     Binding {
@@ -491,9 +491,7 @@ pub fn handle_browse(app: &mut App, input: &Input) {
     }
     if text == "c" {
         if app.sectioned() {
-            app.set_error(Some(
-                "Sub-sessions collapse in your own order; V switches to it".to_owned(),
-            ));
+            toggle_exited_section(app);
             return;
         }
         toggle_selected_collapse(app);
@@ -779,6 +777,26 @@ pub fn toggle_session_view(app: &mut App) {
     app.browse.sidebar_fit_pending = true;
     app.set_error(None);
     app.set_status(Some(status.to_owned()));
+}
+
+/// Not in the TS: c in the state view folds or unfolds the Exited section (sub-sessions collapse in your own order).
+pub fn toggle_exited_section(app: &mut App) {
+    if !app.browse.session_query.is_empty() || app.browse.session_filter != SessionFilter::Active {
+        app.set_status(Some(
+            "Searches and filters show every exited session; c folds them in the active view".to_owned(),
+        ));
+        return;
+    }
+    app.browse.exited_collapsed = !app.browse.exited_collapsed;
+    app.set_error(None);
+    app.set_status(Some(
+        if app.browse.exited_collapsed {
+            "Exited sessions folded; c shows them"
+        } else {
+            "Exited sessions shown; c folds them"
+        }
+        .to_owned(),
+    ));
 }
 
 /// TS `toggleSelectedCollapse` (c): hide exited children → collapse → expand.
@@ -1888,11 +1906,6 @@ pub(crate) mod tests {
             // By default: working, idle, exited; the working child is listed apart from its idle parent.
             assert_eq!(order(&app), ["c", "p", "l", "x"]);
             app.set_selected_id(Some("p".to_owned()));
-            handle_browse(&mut app, &text("c"));
-            assert_eq!(
-                app.messages.error.as_deref(),
-                Some("Sub-sessions collapse in your own order; V switches to it")
-            );
             handle_browse(&mut app, &text("V"));
             assert_eq!(app.browse.session_view, SessionView::Order);
             assert_eq!(order(&app), ["p", "c", "x", "l"]);
@@ -1906,6 +1919,49 @@ pub(crate) mod tests {
             crate::app::effects::run_effects(&mut app);
             assert_eq!(app.browse.session_view, SessionView::State);
             assert_eq!(*saved.borrow(), [SessionView::Order, SessionView::State]);
+        });
+    }
+
+    #[test]
+    fn c_folds_the_exited_section_but_keeps_the_selected_one() {
+        crate::app::modes::workspace_info::fake_daemon::local(async {
+            let saved = Rc::new(RefCell::new(Vec::new()));
+            let record = Rc::clone(&saved);
+            let (mut app, _rx) = app(AppProps {
+                callbacks: AppCallbacks {
+                    on_exited_collapsed_change: Some(Box::new(move |folded| record.borrow_mut().push(folded))),
+                    ..AppCallbacks::default()
+                },
+                ..AppProps::default()
+            });
+            app.data.repo_sessions = vec![
+                session("a", "A", SessionStatus::Running),
+                session("x", "X", SessionStatus::Exited),
+                session("y", "Y", SessionStatus::Exited),
+            ];
+            let order = |app: &App| -> Vec<String> { app.visible_sessions().into_iter().map(|s| s.id).collect() };
+            app.set_selected_id(Some("y".to_owned()));
+            handle_browse(&mut app, &text("c"));
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("Exited sessions folded; c shows them")
+            );
+            // The selected exited session stays until you move off it; the header still counts both.
+            assert_eq!(order(&app), ["a", "y"]);
+            assert_eq!(app.folded_exited_count(&app.sessions()), Some(2));
+            handle_browse(&mut app, &text("k"));
+            assert_eq!(order(&app), ["a"]);
+            // A search shows them all, and c says why it doesn't fold there.
+            app.browse.session_query = "y".to_owned();
+            assert_eq!(order(&app), ["y"]);
+            handle_browse(&mut app, &text("c"));
+            assert!(app.browse.exited_collapsed);
+            app.browse.session_query.clear();
+            crate::app::effects::run_effects(&mut app);
+            handle_browse(&mut app, &text("c"));
+            crate::app::effects::run_effects(&mut app);
+            assert_eq!(order(&app), ["a", "x", "y"]);
+            assert_eq!(*saved.borrow(), [true, false]);
         });
     }
 

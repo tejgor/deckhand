@@ -21,7 +21,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `V` | Switch the list between [sections by state](features.md#organizing-and-inspecting-sessions) (needs you, unread, working, idle, exited; the default) and your own order |
 | `J` | Move the selected session down past the sibling below it (in the state view, within its section) |
 | `K` | Move the selected session up past the sibling above it (in the state view, within its section) |
-| `c` | Cycle its sub-sessions: hide the exited ones, collapse, expand (in your own order) |
+| `c` | In your own order: cycle its sub-sessions (hide the exited ones, collapse, expand). In sections by state: fold or unfold the **Exited** section (`▸` / `▾`); the selected session stays until you move off it |
 | `<` | Narrow the sidebar: 2% less of the terminal, saved as your width for every repository ([sidebar width](features.md#organizing-and-inspecting-sessions)) |
 | `>` | Widen the sidebar: 2% more of the terminal, saved |
 | `=` | Fit the sidebar to the sessions again (forgets your width) |
@@ -145,7 +145,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session fr
 | `╎N` | Details: N other sessions share the worktree |
 | `☑2d` | Details: done 2 days ago |
 
-The sketch shows your own order (`V`). By default the rows sit under section headers instead, **Needs you**, **Unread**, **Working**, **Idle** and **Exited**, each with its count (`  Idle 3 ───`); a sub-session is indented under its parent only when both are in the same section. While you type to an agent or shell, every row but the selected one is dimmed.
+The sketch shows your own order (`V`). By default the rows sit under section headers instead, **Needs you**, **Unread**, **Working**, **Idle** and **Exited**, each with its count (`  Idle 3 ───`); a sub-session is indented under its parent only when both are in the same section. `c` folds **Exited** to its header (`Exited 4 ▸`). While you type to an agent or shell, every row but the selected one is dimmed.
 
 Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessions. Done rows have a muted title, while their markers and status stay readable. Below the branch, the details repeat the row's markers as glyphs (`╎N`, `▶`, `✓`, `☑2d`, `▣`), then `☐ N open` checklist items. A long branch is shortened to keep them. When `↑` shows, the details line names both versions, for example `✶ claude 2.1.287 · 2.1.290 installed`. In the app, `?` → Sidebar lists all of this.
 
