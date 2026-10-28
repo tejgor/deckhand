@@ -1,4 +1,7 @@
+use std::collections::{HashMap, HashSet};
+
 use crate::jsstr::path;
+use crate::session_order::{SessionLike, parent_of};
 use deckhand_protocol::data::SessionRecord;
 
 /// TS: sessionScope.ts isPathInside (lexical: `child` is `parent` or beneath it).
@@ -20,6 +23,41 @@ pub fn session_matches_scope(session: &SessionRecord, repo_root: &str) -> bool {
             .and_then(|worktree| worktree.path.as_deref())
             .is_some_and(|worktree_path| path::resolve(worktree_path) == root)
         || is_path_inside(&root, &session.cwd)
+}
+
+/// Not in the TS: the sessions [`session_matches_scope`] keeps, and every descendant of one, in list order.
+///
+/// A sub-session started in a new worktree keeps its parent's `repoRoot`, which is not this checkout when the parent
+/// was itself launched from another one, so it would otherwise leave the sidebar it was created from.
+pub fn sessions_in_scope<'a, S: SessionLike>(sessions: &'a [S], repo_root: &str) -> Vec<&'a S> {
+    let matching: HashSet<&str> = sessions
+        .iter()
+        .map(SessionLike::session)
+        .filter(|session| session_matches_scope(session, repo_root))
+        .map(|session| session.id.as_str())
+        .collect();
+    let parents: HashMap<&str, Option<&str>> = sessions
+        .iter()
+        .map(|item| (item.session().id.as_str(), parent_of(item.session())))
+        .collect();
+    sessions
+        .iter()
+        .filter(|item| {
+            let session = item.session();
+            if matching.contains(session.id.as_str()) {
+                return true;
+            }
+            let mut seen: HashSet<&str> = HashSet::from([session.id.as_str()]);
+            let mut parent = parent_of(session);
+            while let Some(id) = parent.filter(|id| seen.insert(id)) {
+                if matching.contains(id) {
+                    return true;
+                }
+                parent = parents.get(id).copied().flatten();
+            }
+            false
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -107,5 +145,40 @@ pub(crate) mod tests {
         for (parent, child, expected) in paths {
             assert_eq!(is_path_inside(parent, child), expected, "{child} inside {parent}");
         }
+    }
+
+    #[test]
+    fn a_sub_session_in_its_own_worktree_stays_with_its_parent() {
+        // The parent was launched from the `base` checkout into `/wt/feature`; Deckhand runs in `/wt/feature`.
+        let session = |id: &str, parent: Option<&str>, repo_root: &str, worktree: &str| {
+            partial_session(&json!({
+                "id": id, "parentSessionId": parent, "repoRoot": repo_root, "cwd": worktree,
+                "worktree": {"mode": "managed", "path": worktree},
+            }))
+            .unwrap()
+        };
+        let list = [
+            session("parent", None, "/wt/base", "/wt/feature"),
+            session("child", Some("parent"), "/wt/base", "/wt/feature-child"),
+            session("grandchild", Some("child"), "/wt/base", "/wt/feature-grandchild"),
+            session("elsewhere", None, "/wt/base", "/wt/base"),
+            session("cycle-a", Some("cycle-b"), "/wt/base", "/wt/a"),
+            session("cycle-b", Some("cycle-a"), "/wt/base", "/wt/b"),
+        ];
+        let ids = |root: &str| -> Vec<String> {
+            sessions_in_scope(&list, root)
+                .into_iter()
+                .map(|session| session.id.clone())
+                .collect()
+        };
+        assert!(!session_matches_scope(&list[1], "/wt/feature"));
+        assert_eq!(ids("/wt/feature"), ["parent", "child", "grandchild"]);
+        // The checkout the parent was launched from keeps all of them.
+        assert_eq!(
+            ids("/wt/base"),
+            list.iter().map(|session| session.id.clone()).collect::<Vec<_>>()
+        );
+        assert_eq!(ids("/wt/feature-child"), ["child", "grandchild"]);
+        assert!(ids("/elsewhere").is_empty());
     }
 }

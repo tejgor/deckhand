@@ -35,7 +35,7 @@ use deckhand_core::jsstr::js_len;
 use deckhand_core::key::{Input, Key};
 use deckhand_core::session_features::{TaskTitleOf, filter_session_list, with_reply_read};
 use deckhand_core::session_order::{filter_collapsed_sessions, sort_sessions_for_sidebar};
-use deckhand_core::session_scope::session_matches_scope;
+use deckhand_core::session_scope::sessions_in_scope;
 use deckhand_core::session_sections::order_by_section;
 use deckhand_core::tasks::parse_tasks;
 use deckhand_core::tasks_board::{OwnedTaskLinkLookup, linked_tasks, task_link_lookup};
@@ -571,12 +571,10 @@ pub(crate) use with_props;
 
 impl App {
     /// TS `sessions`: this checkout's sessions, replies read since they ended marked read (the daemon's
-    /// `replyReadAt`).
+    /// `replyReadAt`). Not in the TS: with their sub-sessions wherever those work ([`sessions_in_scope`]).
     pub fn sessions(&self) -> Vec<SessionRecord> {
-        self.data
-            .repo_sessions
-            .iter()
-            .filter(|session| session_matches_scope(session, &self.props.repo_root))
+        sessions_in_scope(&self.data.repo_sessions, &self.props.repo_root)
+            .into_iter()
             .map(|session| with_reply_read(session.clone()))
             .collect()
     }

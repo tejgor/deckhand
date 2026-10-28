@@ -14,7 +14,7 @@ use deckhand_core::jsstr::{self, date, path};
 use deckhand_core::project_config::{resolve_settings, resolve_setup_command};
 use deckhand_core::session_features::HandoffTask;
 use deckhand_core::session_order::{compare_session_order, sort_sessions_for_sidebar};
-use deckhand_core::session_scope::session_matches_scope;
+use deckhand_core::session_scope::sessions_in_scope;
 use deckhand_core::tasks::{parse_tasks, task_prompt};
 use deckhand_core::workspace::workspace_key;
 use deckhand_core::worktree_records::{own_worktree_path, project_worktree};
@@ -263,6 +263,13 @@ pub fn inherited_child_title(parent_title: &str, child_title: &str) -> String {
     format!("{prefix}{SEPARATOR}{child}")
 }
 
+/// Not in the TS: the title a new worktree and its branch are named after. A sub-session's `<parent> / <child>`
+/// becomes `<parent>-<child>`, not a `<parent>_` folder holding `_<child>` (a `<parent>_/_<child>` branch); a `/`
+/// typed without spaces still nests, as in `feat/auth`.
+pub fn worktree_title(title: &str) -> String {
+    title.replace(" / ", "-")
+}
+
 /// TS: daemon.ts readAgentExit.
 ///
 /// What an exited agent's last screen says about its conversation: the ref to keep, whether the launch failed, and a
@@ -421,14 +428,14 @@ impl Daemon {
         self.get_session(session_id)
     }
 
-    /// TS: InkDaemon.sessionsForRepo (in sidebar order).
+    /// TS: InkDaemon.sessionsForRepo (in sidebar order). Not in the TS: with their sub-sessions wherever those work.
     pub fn sessions_for_repo(&self, repo_root: &str) -> Vec<Ordered<SessionRecord>> {
-        let matching: Vec<Ordered<SessionRecord>> = self
-            .all_sessions()
+        let all = self.all_sessions();
+        let matching: Vec<&Ordered<SessionRecord>> = sessions_in_scope(&all, repo_root);
+        sort_sessions_for_sidebar(&matching)
             .into_iter()
-            .filter(|session| session_matches_scope(session, repo_root))
-            .collect();
-        sort_sessions_for_sidebar(&matching).into_iter().cloned().collect()
+            .map(|session| (*session).clone())
+            .collect()
     }
 
     /// TS: InkDaemon.handleWorkerSessionExit: the exit record (reason, last screen or silentExitNote), then the
@@ -1074,7 +1081,7 @@ impl Daemon {
                 .ok()
                 .and_then(|settings| settings.worktree.clone());
             let created = create_worktree_for_session(
-                &title,
+                &worktree_title(&title),
                 &launch_cwd,
                 worktree_settings.as_ref(),
                 input.base_branch.as_deref().filter(|base| !base.is_empty()),
@@ -2070,6 +2077,19 @@ mod tests {
             ),
             "A long parent title… / and a long child title that also goes on"
         );
+    }
+
+    #[test]
+    fn a_sub_session_worktree_is_named_after_parent_and_child_without_nesting() {
+        let name = |title: &str| deckhand_sys::git::sanitize_worktree_name(&worktree_title(title));
+        let child = inherited_child_title("Fix coaching tone", "tone-fix-other-convs");
+        assert_eq!(name(&child), "fix_coaching_tone-tone-fix-other-convs");
+        assert_eq!(
+            name(&inherited_child_title(&child, "tests")),
+            "fix_coaching_tone-tone-fix-other-convs-tests"
+        );
+        assert_eq!(name("feat/auth"), "feat/auth");
+        assert_eq!(name("Plain title"), "plain_title");
     }
 
     #[test]
