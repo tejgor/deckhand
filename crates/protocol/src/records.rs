@@ -171,7 +171,7 @@ string_union!(
 );
 
 string_union!(
-    /// Not in the TS: how the sidebar lists sessions: in sections by state (the default), or in your own order.
+    /// Not in the TS: how the sidebar lists sessions: in your own order (the default), or in sections by state.
     SessionView {
         State = "state",
         Order = "order",
@@ -195,7 +195,7 @@ pub struct UiState {
     /// Session ID -> when you last detached from its agent. Legacy: kept as read and written back, but no longer
     /// recorded or consulted; the daemon keeps when a reply was read (the session's `replyReadAt`).
     pub read_replies: IndexMap<String, String>,
-    /// Not in the TS: the sidebar's view (`V`); `None` is the default, sections by state.
+    /// Not in the TS: the sidebar's view (`V`); `None` is the default, your own order.
     pub session_view: Option<SessionView>,
     /// Not in the TS: the state view's Exited section is folded (`c`); written only when it is.
     pub exited_collapsed: Option<bool>,

@@ -158,8 +158,8 @@ fn app_props(
                 });
             })),
             on_session_view_change: Some(Box::new(move |view| {
-                // The default (sections by state) is not written.
-                on_view.update(|state| state.session_view = (view != SessionView::State).then_some(view));
+                // The default (your own order) is not written.
+                on_view.update(|state| state.session_view = (view != SessionView::Order).then_some(view));
             })),
             on_exited_collapsed_change: Some(Box::new(move |collapsed| {
                 on_exited.update(|state| state.exited_collapsed = collapsed.then_some(true));

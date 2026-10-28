@@ -1972,22 +1972,24 @@ pub(crate) mod tests {
             let lone = session("l", "Lone", SessionStatus::Running);
             app.data.repo_sessions = vec![parent, child, gone, lone];
             let order = |app: &App| -> Vec<String> { app.visible_sessions().into_iter().map(|s| s.id).collect() };
-            // By default: working, idle, exited; the working child is listed apart from its idle parent.
-            assert_eq!(order(&app), ["c", "p", "l", "x"]);
-            app.set_selected_id(Some("p".to_owned()));
-            handle_browse(&mut app, &text("V"));
+            // By default: your own order, the tree as you arranged it.
             assert_eq!(app.browse.session_view, SessionView::Order);
             assert_eq!(order(&app), ["p", "c", "x", "l"]);
+            app.set_selected_id(Some("p".to_owned()));
+            handle_browse(&mut app, &text("V"));
+            // In sections: working, idle, exited; the working child is listed apart from its idle parent.
+            assert_eq!(app.browse.session_view, SessionView::State);
+            assert_eq!(order(&app), ["c", "p", "l", "x"]);
             assert_eq!(app.browse.selected_id.as_deref(), Some("p"));
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("Sessions in your own order; V for sections by state")
+                Some("Sessions in sections by state; V for your own order")
             );
             crate::app::effects::run_effects(&mut app);
             handle_browse(&mut app, &text("V"));
             crate::app::effects::run_effects(&mut app);
-            assert_eq!(app.browse.session_view, SessionView::State);
-            assert_eq!(*saved.borrow(), [SessionView::Order, SessionView::State]);
+            assert_eq!(app.browse.session_view, SessionView::Order);
+            assert_eq!(*saved.borrow(), [SessionView::State, SessionView::Order]);
         });
     }
 
@@ -2001,6 +2003,7 @@ pub(crate) mod tests {
                     on_exited_collapsed_change: Some(Box::new(move |folded| record.borrow_mut().push(folded))),
                     ..AppCallbacks::default()
                 },
+                initial_session_view: Some(SessionView::State),
                 ..AppProps::default()
             });
             app.data.repo_sessions = vec![
@@ -2637,7 +2640,7 @@ pub(crate) mod tests {
             let (mut app, _rx) = with_sessions(3);
             let _daemon = Daemon::connect(&mut app);
             app.data.repo_sessions[2].status = SessionStatus::Exited;
-            assert!(app.sectioned());
+            app.browse.session_view = SessionView::State;
             app.set_selected_id(Some("s1".to_owned()));
             // s1 is the last running session: the exited s2 below it is in another section.
             handle_browse(&mut app, &text("J"));
