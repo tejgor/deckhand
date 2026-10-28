@@ -1,102 +1,122 @@
 # Keyboard audit: placement and misclicks
 
-**Status:** audited 2026-10-27; nothing built. Proposals are numbered so they can be picked one by one.
+**Status:** audited 2026-10-27, reviewed and decided 2026-10-28; nothing built. [Build](#build) is the agreed list, [Later](#later) holds the bigger items kept for afterwards, and [Decided against](#decided-against) says why the rest were dropped. Numbers are kept from the first draft so they can be traced.
 
 Deckhand's keys were audited for **where they sit on the keyboard**, not what they mean. The goal: frequent actions are easy to reach, and a slip onto a neighbouring key, a missed Shift or a key repeat never costs anything. The baseline is a US QWERTY Mac laptop keyboard, typed touch-style, plus a check of UK, German, French and Nordic layouts for anything that uses punctuation or Ctrl chords.
 
-Three audits read the code in parallel: the session list, every other screen, and modifier keys and conflicts with terminals and agents. Items 2.1–2.6 were then checked against the code by hand. The rest come from the audits' reading of the code. The points about terminals and layouts (kitty encodings, Ctrl+] behind Option, Ctrl+Space as the macOS input-source switch) still need a check on a real terminal.
+**How it was decided.**
+1. Three audits read the code in parallel: the session list, every other screen, and modifier keys and conflicts with terminals and agents.
+2. Two independent reviews then judged the proposals. One looked at UX and bloat, the other checked each premise against the code for key conflicts and side effects.
+3. The owner made the final cut.
 
-**The constraint that shapes the proposals:** every action keeps a home-row way to do it. Arrows are an alternative, never the only way. So `l` stays as the way into a pane, even though its neighbour `k` makes slips into typing mode possible; the slip guard in 1.1 deals with that instead.
+The points about terminals and layouts (kitty encodings, Ctrl+] behind Option, Ctrl+Space as the macOS input-source switch) still need a check on a real terminal.
+
+**Constraints:**
+- Every action keeps a home-row way to do it. Arrows are an alternative, never the only way, so `l` stays as the way into a pane.
+- No new rules to learn without a clear payoff.
+- One way to do each thing: one press-twice convention, one paging key, one way back.
 
 ## What the audits found
 
-- **Typing into an agent is easy to start by accident and hard to stop.**
-  - `l` (next to `k`) and `→` (next to `↓`) start typing on Preview and Terminal (`crates/ui/src/app/modes/browse.rs`, `step_into_pane`).
-  - From then on every key goes to the agent. A digit meant to pick a session, or Enter meant to attach, can answer a permission prompt. A reflex Esc interrupts Claude's turn.
-  - The way out, Ctrl+], is a right-pinky stretch, and the only one shown on screen (`crates/ui/src/app/layout.rs` footer, `crates/client/src/attach_status.rs`).
-  - On Mac German, French and Nordic layouts, `]` needs Option. Ctrl+Space, the other way out, is macOS's default input-source switch.
-  - `detach_position` (`crates/client/src/attach.rs`) doesn't recognise Ctrl+] in the kitty or modifyOtherKeys encodings.
-- **Shift twins skip a confirmation.**
-  - `x` asks before stopping; `X` force-stops at once.
-  - `s` resumes; `S` starts a fresh conversation at once, and the old one can't be resumed from Deckhand afterwards.
+- **Typing into an agent is easy to start by accident.**
+  - `l` (next to `k`) and `→` start typing on Preview and Terminal (`step_into_pane` in `crates/ui/src/app/modes/browse.rs`).
+  - From then on every key goes to the agent: a digit or Enter can answer a permission prompt, and Esc interrupts Claude.
+  - When typing ends on its own, keys still being typed run list commands.
+- **Shift twins skip a confirmation.** `x` asks before stopping; `X` force-stops at once. `s` resumes; `S` starts a fresh conversation at once, and the old one can't be resumed from Deckhand afterwards.
 - **Dev is easy to toggle by accident.**
   - `d d` within 500 ms starts or stops Dev (`DEV_DOUBLE_TAP_MS`). Key repeat on a held `d` can trigger it, and starting Dev stops it in the other worktrees.
-  - In the run list, Enter on the Dev row stops Dev when it runs (`action_picker.rs`).
-  - `x` in the run list stops the running action or closes a shell with no confirmation.
-- **Some confirmations start on the riskier choice.** The Worktrees bulk delete starts on "delete N worktrees and their branches" (`crates/ui/src/flows/worktrees.rs`). The merged-worktree default is deliberate.
-- **Typed work can be lost.** Esc in the task editor discards the draft, and discard prompts put "discard" on Enter.
+  - In the run list, Enter on the Dev row stops a running Dev, and Enter on a shell row restarts the shell.
+  - `x` stops an action or closes a shell with no confirmation, and on a running Dev process row it stops the action instead (`crates/ui/src/app/modes/action_picker.rs`).
+- **Typed work can be lost.** Esc in the task editor throws away the draft. Ctrl+C quits from the editors, and quitting doesn't flush the notes' 300 ms save (`crates/ui/src/flows/notes.rs`).
+- **List keys ignore Ctrl.** Ctrl+X opens the stop confirmation, Ctrl+A shows Notes and Ctrl+D arms the Dev double tap, exactly as `x`, `a` and `d` do (`crates/ui/src/input.rs`, `handle_browse`).
 - **Reach.**
   - `!` (next session that needs you) needs Shift and a pinky stretch.
-  - A Mac laptop has no PgUp/PgDn without fn, and `J`/`K` mean something different on four kinds of screen.
-  - `h` doesn't go back on several screens.
+  - A Mac laptop has no PgUp/PgDn without fn.
+  - `h` doesn't go back on several screens, and the branch picker and session search move only with arrows.
+- **Leave key.** `detach_position` (`crates/client/src/attach.rs`) doesn't recognise Ctrl+] in the kitty or modifyOtherKeys encodings, which attached TUIs such as Codex can switch on.
 
-## Batch 1: typing into an agent or shell (`l`/`→` on Preview and Terminal)
+## Build
 
-| # | Proposal | Cost |
+**Typing into an agent or shell**
+
+| # | Change | Cost |
 |---|---|---|
-| 1.1 | **Slip guard:** if the *first* key after entering is `h`, `j`, `k` or an arrow, leave typing and apply that key to the list. Nothing is sent to the agent. `l` stays as the way in. | S |
-| 1.2 | **Decide:** does Esc as the first key also count as a slip? Yes protects against a reflex Esc interrupting Claude. The cost is that stopping an agent from the list takes `l`, another key, then Esc. Leaning yes. | XS |
-| 1.3 | Footer and attach status line show **Ctrl+Space** first (thumb plus pinky, near the home row), with Ctrl+] as the alternative. Today only Ctrl+] is shown. | XS |
-| 1.4 | Make typing mode obvious: dim the sidebar and its `›`, and put **TYPING · ctrl+space back** in the pane's border title, where it can't be cut off. | S |
-| 1.5 | When typing ends on its own (the agent exits, the shell dies, the connection drops), ignore list keys for about 0.75 s. Otherwise the rest of a sentence runs commands: `⌫` archives, `s`/`S` restart. | S |
-| 1.6 | Fix `docs/keys.md` and the guide: `←`/`h`/Esc don't leave the typing panes. | XS |
-| 1.7 | Clicking the sidebar leaves typing mode. Clicks are received and ignored today. This exit works on every layout. | S |
+| 1.4 | While typing, dim the rest of the sidebar, keeping the selected row bright: it shows who gets your keys. Make the existing *typing to the agent* / *typing into shell N* badge louder rather than adding a second one. The magenta border stays. | S |
+| 1.5 | When typing ends on its own (the agent exits, the shell dies, the connection drops), ignore list keys until 0.75 s pass with no key, so the rest of a sentence can't run commands. Ctrl+C still works meanwhile. | S |
+| 1.6 | Fix `docs/keys.md` and the guide (`crates/core/src/help.rs`), which say `←`/`h`/Esc go back from every pane. They don't in typing mode or in the notes editor. | XS |
 
-## Batch 2: destructive actions on a single key
+**Destructive keys**
 
-| # | Proposal | Cost |
+| # | Change | Cost |
 |---|---|---|
-| 2.1 | `X` opens the stop confirmation with "force" preselected, so one Enter confirms. | S |
-| 2.2 | `S` (fresh conversation) asks first; one Enter confirms. | S |
-| 2.3 | Move Dev start/stop from `d d` to **`D`**, which is free and on the home row. `d` only shows the Dev tab, and `last_dev_tap` goes. | M: about 20 strings, footer hints, 2 E2E tests |
-| 2.4 | Run list: Enter on a running Dev opens it rather than stopping it. Enter on a shell row opens the shell; restarting moves to `x x`, or another key. | S |
-| 2.5 | Run list: stopping an action or closing a shell takes `x x`, as deleting a task does, and acts only on the selected row. | S |
-| 2.6 | Worktrees bulk delete starts on "keep the branches". The merged-worktree default stays. | XS |
-| 2.7 | Git changes: `a` (stage all) and `A` (unstage all) need a double press. Either undoes hunk-level staging done in lazygit. | S |
-| 2.8 | *(Optional)* `A` (archive) needs a double press. It can be undone, so leaning no. | XS |
+| 2.1 | `X` opens the stop confirmation with "force" preselected, so one Enter confirms. `app.kill.force` and the *Force kill* title already exist, unused (`confirm.rs`). Update E2E `tasks_ui.rs`. | S |
+| 2.2 | `S` asks first and says the old conversation can't be resumed afterwards. It must also cover the setup-review path. | S |
+| 2.3 | Dev start/stop moves from `d d` to **`D`** (free). `d` only shows the Dev tab; `last_dev_tap` and `DEV_DOUBLE_TAP_MS` go. There are about 60 references in 19 files, including the footer, panes/dev.rs, help, Settings, a daemon error string (`workspaces.rs`) and E2E `settings_ui.rs` and `tasks_ui.rs`. | M |
+| 2.4 + 2.5 | **One model for every run-list row** (Dev, Dev processes, actions, shells). Enter starts a stopped row and opens a running one. `x x` (the shared press-twice rule) stops or closes the selected row only. Restarting is `x x` then Enter; on the first shell `x x` kills it and it comes back fresh. Update E2E `run_list_ui.rs` and `shells_ui.rs`, and the help line "Enter starts or restarts it". | S |
+| 2.7 | Git changes: `a` (stage all) and `A` (unstage all) stay one key, except when they would undo partial staging (done in lazygit). Then the footer says so ("a again: 3 files partly staged") and a second press confirms. | S |
 
-## Batch 3: losing typed work
+**Losing typed work**
 
-| # | Proposal | Cost |
+| # | Change | Cost |
 |---|---|---|
-| 3.1 | Esc in the task editor saves the edit, as the notes editor does. | S |
-| 3.2 | Discard prompts: Enter keeps editing and `d` discards, so Esc then Enter no longer loses the draft. | S |
-| 3.3 | Ctrl+C in the task and notes editors acts as Esc on the first press, as Settings does, and notes are saved before quitting. The 300 ms save may be lost today; this needs checking. | S |
+| 3.1 | Esc in the task editor saves, as the notes editor does. A new task with an empty title saves nothing and closes (today the empty-title error would leave the editor stuck). Update E2E `tasks_ui.rs` and the "esc cancel" hints. | S |
+| 3.3 | In every text field (editors, searches, the new-session name, DELETE prompts) the first Ctrl+C acts as Esc, as it already does in Settings. Notes are saved before the UI quits, which is a bug fix in its own right. | S |
 
-## Batch 4: reach and the home row
+**Reach**
 
-| # | Proposal | Cost |
+| # | Change | Cost |
 |---|---|---|
-| 4.1 | **`;`** (right pinky, home row, free) selects the next session that needs you, as well as `!`. | XS |
-| 4.2 | **`ctrl+d` / `ctrl+u`** scroll half a page in every list and scroll area. | M |
-| 4.3 | **`h`** goes back on Tasks, Worktrees, Agents and the run list. | S |
-| 4.4 | `J`/`K` page where they're free: the Worktrees list and the task picker. They keep their meaning elsewhere. | S |
-| 4.5 | The key that opens a screen also closes it (`b`, `W`, `C`, `G`), as `?` already does. | S |
+| 4.0 | **List keys respect Ctrl**: Ctrl+X, Ctrl+A, Ctrl+D and the like no longer act as `x`, `a`, `d`. Needed by 4.2. | S |
+| 4.1 | **`;`** (right pinky, home row, free) does exactly what `!` does, filter switch included. `!` stays; the header shows `! N`. | XS |
+| 4.2 | **Ctrl+D / Ctrl+U** scroll half a page in lists and scroll areas, never in text fields (the notes editor uses emacs-style Ctrl keys). In a split view they scroll what PgDn/PgUp scroll. Typing mode is unaffected (keys go to the agent raw). | M |
+| 4.3 | **`h`** goes back on Tasks, Worktrees, Agents and the run list, as Esc does. Not where `h` types (searches, DELETE drafts) or already means something (the task picker's `h`/`l` switch views; Help's previous topic). | S |
+| 5.3 | ↑/↓ and **Ctrl+N / Ctrl+P** move the selection while typing a session search; Ctrl+N/P also move in the new-session branch picker, which is arrows-only today. | S |
 
-## Batch 5: consistency between screens
+**Consistency**
 
-| # | Proposal | Cost |
+| # | Change | Cost |
 |---|---|---|
-| 5.1 | Agents reloads with `R`, as every other screen does, not `r`. | XS |
-| 5.2 | `/` search in Tasks and Worktrees. | M |
-| 5.3 | ↑/↓ move the selection while typing a session search, as they do in the task picker. | S |
-| 5.4 | Esc behaves the same in both DELETE prompts. Worktrees goes back to the choices; the kill prompt goes back to the session list. | XS |
+| 5.1 | The Agents screen reloads with `R`, as every other screen does, not `r`. Its failed-update status, "U shows why" / "U shows the output" (`crates/ui/src/flows/agents.rs`), names a key that does nothing there: reword it to point at the details box, which already shows the output. | XS |
+| 5.4 | Esc goes back one step in both DELETE prompts. Today Worktrees goes back to the choices; the stop confirmation goes all the way back to the session list. | XS |
 
-## Batch 6: the leave key on other keyboards and terminals
+**Leave key and small fixes**
 
-| # | Proposal | Cost |
+| # | Change | Cost |
 |---|---|---|
-| 6.1 | Recognise Ctrl+] (and Ctrl+Space with Caps Lock or Num Lock on) in the kitty (`ESC[93;5u`) and modifyOtherKeys (`ESC[27;5;93~`) encodings, ignoring lock bits and key releases. | S |
-| 6.2 | A configurable leave key (`detachKey` in `config.json`), used by `detach_position`, the typing-mode keymap and every hint. | S–M |
-| 6.3 | **Decide:** an extra leave key on by default. Candidates: `ctrl+\` (0x1c, the dtach convention, right pinky) or `ctrl+q` (left hand; it quits VS Code on Linux, so opt-in). | XS once 6.2 exists |
+| 6.1 | Recognise Ctrl+] and Ctrl+Space in the kitty (`ESC[93;5u`, `ESC[32;5u`, with `:1` press events) and modifyOtherKeys (`ESC[27;5;93~`) encodings, ignoring Caps Lock and Num Lock bits and key releases. A bug fix. | S |
+| 7.0 | **One press-twice rule, built once**: the same key again within 2 s; the footer says what the second press will do; any other key cancels. Used by the run list's `x x` (2.5), the Tasks `x x` (7.1) and the Git changes `a`/`A` (2.7). | S |
+| 7.1 | The Tasks `x x` delete goes through 7.0, so it expires after 2 s. Today another key cancels it, but nothing times out. | XS |
+| 7.2 | Digits that arrive in one chunk (`"12"`) go through the existing number buffer, as if typed one at a time. Today the chunk is ignored and even clears a pending number. | XS |
+| 7.3 | The first Ctrl+C of each typing stint shows "ctrl+] returns to the list; ctrl+c goes to the agent". The Ctrl+C still reaches the agent. Nothing is saved. | XS |
 
-## Batch 7: small fixes
+End-to-end tests that these change: 2.1, 2.3, 2.5, 3.1 (see each row). They're updated as part of the change, not blessed around.
 
-| # | Proposal | Cost |
+## Later
+
+Kept, but bigger than the rest; build after [Build](#build).
+
+| # | Change | Cost |
 |---|---|---|
-| 7.1 | The Tasks `x x` delete expires after about 2 s. | XS |
-| 7.2 | Digits that arrive together (`"12"`) select session 12; today they're ignored. | XS |
-| 7.3 | The first Ctrl+C while typing into an agent shows "ctrl+space returns to the list; ctrl+c goes to the agent", once. | XS |
+| 6.2 | **A configurable leave key** (`detachKey` in `config.json`), for layouts where `]` needs Option (German, French, Nordic Macs) and for people whose Ctrl+Space switches input source. It would be read by `detach_position`, the typing-mode keymap, the footer, the attach status line and the notes editor's vim mapping (`notes_vim.rs`, hard-coded today; the `notesVim` corpus would need a reviewed bless). The guide's text is static, so it would say "the leave key" and name the default. Docs give examples, Ctrl+Q among them (it quits VS Code on Linux, so not a default). | M–L |
+| 5.2 | **`/` search in Tasks and Worktrees**, working exactly as the sidebar search does (Enter keeps the search, Esc clears it). It doesn't fix a misclick, so it waits. | M |
+
+## Decided against
+
+- **1.1 Slip guard** (the first key after entering typing, if `h`/`j`/`k`/an arrow, goes to the list). It would eat keys you need right after stepping in on purpose:
+  - ↑/↓ move through Claude's and Codex's permission menus.
+  - ↑ recalls shell history.
+  - Words start with h, j and k.
+
+  After a swallowed letter, the rest of the word would run as list commands. Making the mode obvious (1.4) and safe when it ends (1.5) covers the risk without a hidden rule.
+- **1.2 Esc as a slip.** A lone Esc declines Claude's prompt and interrupts a turn. It's often the reason you step in.
+- **1.3 Showing both leave keys in the footer and status line.** It would crowd them. Ctrl+] stays the one shown; Ctrl+Space stays in the guide and docs.
+- **1.7 Click the sidebar to leave typing.** Not needed.
+- **2.6 Bulk worktree delete starting on "keep the branches".** The bulk delete lists only merged worktrees, and offering the branch first for merged work is deliberate (as in the single delete).
+- **2.8 Press twice to archive (`A`).** It can be undone and shows at once.
+- **3.2 Discard prompts: Enter and Esc keep editing, `d` discards.** Judged confusing. The Settings discard prompts, and the Settings link editor where Esc discards, stay as they are.
+- **4.4 `J`/`K` paging in the Worktrees list and task picker.** `J`/`K` already mean four things; Ctrl+D/U (4.2) is the paging key.
+- **4.5 The key that opens a screen also closes it** (`b`, `W`, `C`, `G`). `G` means "last row" in every list, and `h` (4.3) already gives a home-row way back.
+- **6.3 An extra default leave key.** `ctrl+\` needs Option on German and Nordic Macs too, and it sends SIGQUIT to a shell's job. Ctrl+Q is an example value for 6.2.
 
 ## Keep as is
 
@@ -106,9 +126,7 @@ Three audits read the code in parallel: the session list, every other screen, an
 - Typing DELETE before data is lost.
 - Capitals for rare screens (`C`, `G`, `W`).
 - `space`, `/`, `?` and `q`.
+- `l` and `→` into a pane.
+- Ctrl+] as the leave key shown on screen.
 - Ctrl+S, Ctrl+Q, Ctrl+C and Ctrl+Z reach Deckhand rather than the terminal, since flow control and signal keys are off.
 - A leave key inside a paste is ignored.
-
-## Suggested starting set
-
-All of Batch 1 (with 1.2 = yes), 2.1–2.6, Batch 3, 4.1–4.3, 6.1 and 7.1. Each is small, and together they cover every way a slip can cost something. Batch 6 matters most for keyboard layouts where `]` needs Option.
