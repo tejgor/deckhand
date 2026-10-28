@@ -324,12 +324,11 @@ fn dev_command_saved_in_settings_keeps_the_file_trusted() {
     ui.press("\x1b");
     ui.screen("C settings");
 
-    // One d shows Dev; d twice quickly starts it: trusted, so no review.
+    // d shows Dev; D starts it: trusted, so no review.
     ui.press("d");
     ui.screen("d:Dev");
-    ui.screen("d d start Dev");
-    ui.press("d");
-    ui.press("d");
+    ui.screen("D start Dev");
+    ui.press("D");
     ui.screen("repo-42");
     // An edit from outside Deckhand: the next start reviews it.
     fs::write(&file, format!("{}\n", json!({"devCommand": "echo outside-$((40+2))"}))).expect("outside edit");

@@ -104,10 +104,10 @@ pub fn fallback_message(session: Option<&SessionRecord>, dev: &DevRecord) -> Str
         return dev.content.clone();
     }
     if !dev.live && dev.session_id.as_deref() == Some(session.id.as_str()) {
-        return "Dev command exited. d d starts it again (press d twice quickly).".to_owned();
+        return "Dev command exited. D starts it again.".to_owned();
     }
     if dev.content.is_empty() {
-        "d d starts the Dev command (press d twice quickly; shared by every session in this worktree).".to_owned()
+        "D starts the Dev command (shared by every session in this worktree).".to_owned()
     } else {
         dev.content.clone()
     }
@@ -157,7 +157,7 @@ pub fn dev_rows(props: &DevPaneProps<'_>, width: usize, height: usize) -> Vec<Ro
 pub fn process_rows(process: &DevProcessRecord, selected: bool, width: usize, height: usize) -> Vec<Row> {
     let body_height = height.saturating_sub(1).max(1);
     let body = if process.content.is_empty() && !process.live {
-        "Not running. r restarts it; d d starts every process.".to_owned()
+        "Not running. r starts it; D starts every process.".to_owned()
     } else {
         process.content.clone()
     };
@@ -268,11 +268,11 @@ mod tests {
         assert_eq!(fallback_message(None, &dev("", false, None)), "No session selected.");
         assert_eq!(
             fallback_message(Some(&session), &dev("", false, None)),
-            "d d starts the Dev command (press d twice quickly; shared by every session in this worktree)."
+            "D starts the Dev command (shared by every session in this worktree)."
         );
         assert_eq!(
             fallback_message(Some(&session), &dev("", false, Some("s1"))),
-            "Dev command exited. d d starts it again (press d twice quickly)."
+            "Dev command exited. D starts it again."
         );
         assert_eq!(fallback_message(Some(&session), &dev("out", false, Some("s1"))), "out");
         assert_eq!(
@@ -334,7 +334,7 @@ mod tests {
             "  api · run api                        ● live│▸ web · run web                     ○ stopped"
         );
         assert!(line(1).starts_with("api-up"));
-        assert!(line(1).contains("│Not running. r restarts it"));
+        assert!(line(1).contains("│Not running. r starts it"));
         assert_eq!(selected_process_index(&record, Some("web")), 1);
         assert_eq!(selected_process_index(&record, Some("gone")), 0);
         let exited = DevProcessRecord {

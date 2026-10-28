@@ -1387,7 +1387,7 @@ impl SettingsFlow {
             SettingId::WorktreeLocation => vec![nowrap(format!("→ {}", preview_location(text, info.vars.as_ref())))],
             SettingId::DevCommand => {
                 vec![line(
-                    "Runs in the Dev pane (d d starts it), with your shell in the session's worktree",
+                    "Runs in the Dev pane (D starts it), with your shell in the session's worktree",
                 )]
             }
             SettingId::ScrollSpeed if blank => vec![line(

@@ -163,7 +163,7 @@ fn start_dev_process(app: &mut App, name: &str, running: bool, count: usize) {
                 }
                 let verb = if running { "Restarted" } else { "Started" };
                 app.set_status(Some(format!(
-                    "{verb} {name}{} · d d stops Dev",
+                    "{verb} {name}{} · D stops Dev",
                     stopped_elsewhere(&elsewhere)
                 )));
             }
@@ -795,7 +795,7 @@ fn run_list(props: &ActionPickerPaneProps<'_>) -> RunList {
                 text: if process.running {
                     "Running: Enter shows it, x twice stops it; the other Dev processes keep running.".to_owned()
                 } else {
-                    "Enter starts it alone; Enter on Dev (or d d) starts every process.".to_owned()
+                    "Enter starts it alone; Enter on Dev (or D) starts every process.".to_owned()
                 },
                 ..DetailLine::default()
             },

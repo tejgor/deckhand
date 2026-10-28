@@ -95,7 +95,7 @@ More in [docs/architecture.md](docs/architecture.md).
 | `o` or `enter` | Attach to what the tab shows: the agent, the shell, lazygit or Dev |
 | `ctrl+]` | Detach and come back to Deckhand |
 | `!` | Jump to the next session that needs you |
-| `s` / `S` | Resume an exited session / restart it fresh |
+| `s` / `S` `S` | Resume an exited session / restart it fresh (press twice) |
 | `m` | Merge the session's worktree |
 | `b` / `W` / `C` | Tasks / Worktrees / Settings |
 | `?` | Every key, in the app |

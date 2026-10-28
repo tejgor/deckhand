@@ -3,9 +3,9 @@ deckhand                                                                        
 ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Help · Sessions                                                                                                                │
 │   1 Start here      │ N             Sub-session of the selected one: clean, ⑂ a fork of it, or ↳ from its handoff (after H)    │
-│ ❯ 2 Sessions        │ x  X          Stop, asking first (and whether to delete its worktree) / force-stop at once; starting:    │
-│   3 Sidebar         │               cancel                                                                                     │
-│   4 Find & organize │ s  S          Resume an exited session (or retry a failed setup) / restart it with a fresh conversation  │
+│ ❯ 2 Sessions        │ x  X          Stop, asking first (and whether to delete its worktree) / force-stop (one Enter);          │
+│   3 Sidebar         │               starting: cancel                                                                           │
+│   4 Find & organize │ s  S          Resume an exited session (or retry a failed setup) / twice: start a fresh conversation     │
 │   5 Panes           │ Space         Mark done / not done (☑; any session, not the same as merged)                              │
 │   6 Notes           │ U             Mark its finished reply unread (◆) to come back to it / read again                         │
 │   7 Tasks           │ m  M          Merge the worktree into this branch (see Git & PRs) / mark it merged without merging (✓)   │

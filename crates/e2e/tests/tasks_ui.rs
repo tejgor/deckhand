@@ -320,18 +320,21 @@ fn tasks_board_add_start_session_notes_and_send() {
     ui.press("\x1b");
     ui.screen("enter edit notes");
     ui.press("[");
-    ui.screen("d d start Dev");
+    ui.screen("D start Dev");
     ui.press("x");
     ui.screen("Kill only, keep worktree");
     ui.press("\x1b");
-    ui.screen("d d start Dev");
+    ui.screen("D start Dev");
     ui.press("\x1b[A");
     ui.press("\x1b[B");
     ui.screen("x stop");
     ui.press(" ");
     ui.screen("Marked done");
     // Backspace archives a finished session; in the archived view (f A) Backspace removes it for good.
+    // X asks too, with the force kill chosen: Enter force-stops it.
     ui.press("X");
+    ui.screen("Force kill, keep worktree");
+    ui.press("\r");
     ui.screen("s resume");
     ui.press("x");
     ui.screen("Already stopped: Backspace archives it, s resumes it");

@@ -30,7 +30,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `t` | Show the Terminal tab |
 | `g` | Show the Git tab |
 | `d` | Show the Dev tab |
-| `d` `d` | Start or stop the worktree's Dev command (press `d` twice quickly); starting it stops Dev in the repository's other worktrees |
+| `D` | Start or stop the worktree's Dev command (and show the Dev tab); starting it stops Dev in the repository's other worktrees |
 | `a` | Show the Notes tab |
 | `→`, `l` | Step into the pane: [type to the agent or a shell](#typing-to-the-agent), browse [Git changes](#git-changes) or [edit the notes](#notes-editor) |
 | `←`, `h`, `esc` | Step back out to the session list |
@@ -43,9 +43,9 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `n` | New top-level session |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
 | `x` | Stop the selected session, asking first (and whether to delete its worktree and branch) |
-| `X` | Force-stop the selected session at once, keeping its worktree |
+| `X` | Force-stop the selected session, keeping its worktree: asks first, with the force kill chosen (one `enter`) |
 | `s` | Resume the selected exited session (or retry a failed setup) |
-| `S` | Restart the selected exited session with a fresh conversation |
+| `S` `S` | Restart the selected exited session with a fresh conversation (press twice: the old conversation can't be resumed from Deckhand afterwards) |
 | `space` | Mark the selected session done or not done (`☑`) |
 | `U` | Mark the selected session's finished reply unread (`◆`), or read again ([unread replies](features.md#organizing-and-inspecting-sessions)) |
 | `m` | Merge the selected worktree into the current branch, uncommitted ([merging](features.md#merging-and-done)) |

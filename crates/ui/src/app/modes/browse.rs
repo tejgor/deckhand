@@ -5,9 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use deckhand_client::live::KillOptions;
 use deckhand_core::display::display_session_title;
-use deckhand_core::jsstr::date::now_ms;
 use deckhand_core::jsstr::{js_len, js_trim};
 use deckhand_core::key::Input;
 use deckhand_core::session_features::{
@@ -31,7 +29,7 @@ use deckhand_sys::storage::update_app_config;
 use crate::app::layout::{SIDEBAR_PERCENT_STEP, measure_sidebar, normalize_sidebar_percent};
 use crate::app::modes::{action_picker, confirm, create, filter, workspace_info};
 use crate::app::state::{App, AppCallback, Mode, ReviewLabels};
-use crate::app::{DEV_DOUBLE_TAP_MS, RIGHT_TABS, ReviewOptions, hint_short, truthy};
+use crate::app::{RIGHT_TABS, ReviewOptions, hint_short, truthy};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 use crate::panes::dev::dev_processes;
 use crate::panes::terminal::{TerminalView, has_action, shells, shown_shell};
@@ -150,8 +148,13 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Topic("Panes"),
     },
     Binding {
-        keys: &[KeySpec::Char("d"), KeySpec::Char("dd")],
-        action: "Dev tab; twice quickly starts or stops Dev",
+        keys: &[KeySpec::Char("d")],
+        action: "Dev tab",
+        help: HelpRef::Topic("Dev & actions"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("D")],
+        action: "start or stop Dev",
         help: HelpRef::Topic("Dev & actions"),
     },
     Binding {
@@ -252,6 +255,7 @@ fn show_tab(app: &mut App, tab: RightPaneTab) {
 pub fn handle_browse(app: &mut App, input: &Input) {
     let key = &input.key;
     let text = input.input.as_str();
+    let armed = app.browse.press_again.take();
     // Tab / ] next tab, Shift+Tab / [ previous.
     if key.tab || text == "[" || text == "]" {
         let step = if (key.tab && key.shift) || text == "[" {
@@ -412,11 +416,15 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         show_tab(app, tab);
         return;
     }
-    // Tab letters only switch tabs; Dev starts and stops from the run list (r).
-    // d shows the Dev tab; d twice quickly (a deliberate double-tap, not a later second d) starts or stops Dev. A fast
-    // double-tap can arrive as one chunk ("dd").
+    // Tab letters only switch tabs. Not in the TS: D starts or stops Dev (and shows its tab); it was a double d, which
+    // key repeat or a second look at the tab could fire by accident.
     if text == "d" || text == "dd" {
-        dev_tap(app, text);
+        show_tab(app, RightPaneTab::Dev);
+        return;
+    }
+    if text == "D" {
+        show_tab(app, RightPaneTab::Dev);
+        run_dev(app, None);
         return;
     }
     // The Dev tab selects the next of its named processes (enter attaches the selected one).
@@ -557,15 +565,10 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         toggle_selected_reply_read(app);
         return;
     }
-    // x asks first (with the worktree's deletion choices); X force-stops at once and keeps any worktree.
+    // x asks first (with the worktree's deletion choices); X asks too, with the force kill chosen, and keeps any
+    // worktree.
     if text == "X" && session.status == SessionStatus::Running {
-        confirm::kill_selected(
-            app,
-            KillOptions {
-                force: true,
-                ..KillOptions::default()
-            },
-        );
+        confirm::open_force_kill_confirm(app);
         return;
     }
     if (text == "x" || text == "X") && session.status == SessionStatus::Exited {
@@ -588,6 +591,15 @@ pub fn handle_browse(app: &mut App, input: &Input) {
     // it for good, which deletes its notes (open items ask first).
     if (key.backspace || key.delete) && session.status == SessionStatus::Exited {
         archive_or_remove(app);
+        return;
+    }
+    // Not in the TS: S drops the conversation, which can't be resumed from Deckhand afterwards, so it asks for a second
+    // S (it is the Shift twin of s, which resumes).
+    if text == "S" && session.status == SessionStatus::Exited && armed.as_deref() != Some(session.id.as_str()) {
+        app.browse.press_again.arm(session.id.clone());
+        app.set_status(Some(
+            "S again starts a fresh conversation; this one can't be resumed from Deckhand afterwards".to_owned(),
+        ));
         return;
     }
     if (text == "s" || text == "S") && session.status == SessionStatus::Exited {
@@ -1115,9 +1127,9 @@ pub fn toggle_dev_selected(app: &mut App) {
                 let live = keep_newer_dev(app, next, updates).unwrap_or(live);
                 upsert_dev_running(app, &session, live);
                 app.set_active_tab(RightPaneTab::Dev);
-                // d on the Dev tab starts it, so a quick second d says plainly what it did.
+                // Says plainly what started, and how to stop it.
                 app.set_status(Some(format!(
-                    "Started Dev{}{} · d d stops it",
+                    "Started Dev{}{} · D stops it",
                     command.map(|command| format!(": {command}")).unwrap_or_default(),
                     stopped_elsewhere(&elsewhere)
                 )));
@@ -1405,17 +1417,6 @@ pub fn next_attention(app: &mut App) {
     }
 }
 
-/// TS: d (and d d): the Dev tab, a quick double-tap starts or stops Dev.
-pub fn dev_tap(app: &mut App, input: &str) {
-    let now = now_ms();
-    let double_tap = input == "dd" || now - app.browse.last_dev_tap < DEV_DOUBLE_TAP_MS;
-    app.browse.last_dev_tap = if double_tap { 0 } else { now };
-    show_tab(app, RightPaneTab::Dev);
-    if double_tap {
-        run_dev(app, None);
-    }
-}
-
 /// TS: Enter / o: open what the tab shows full screen (on Notes, Enter edits them here).
 pub fn open_selected(app: &mut App, input: &Input) {
     let opening = input.input == "o" || input.key.return_;
@@ -1453,9 +1454,7 @@ pub fn open_selected(app: &mut App, input: &Input) {
         return;
     }
     if tab == RightPaneTab::Dev && !dev_running(app, &session) {
-        app.set_error(Some(
-            "Dev is not running: d d starts it (press d twice quickly)".to_owned(),
-        ));
+        app.set_error(Some("Dev is not running: D starts it".to_owned()));
         return;
     }
     let target = app.active_attach_target();
@@ -2054,24 +2053,20 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn d_shows_dev_and_a_double_tap_runs_it() {
+    fn d_shows_dev_and_upper_d_runs_it() {
         let (mut app, _rx) = with_sessions(1);
-        handle_browse(&mut app, &text("d"));
-        assert_eq!(app.browse.active_tab, RightPaneTab::Dev);
-        assert!(app.browse.last_dev_tap > 0);
-        assert_eq!(app.messages.error, None);
-        // Without a workspace the second d says why.
         app.data.repo_sessions[0].requested_worktree_mode = Some(WorktreeMode::New);
         let reason = no_workspace_reason(&app.data.repo_sessions[0]);
-        handle_browse(&mut app, &text("d"));
-        assert_eq!(app.browse.last_dev_tap, 0);
-        assert_eq!(app.messages.error, Some(format!("Dev is unavailable: {reason}")));
-        app.set_error(None);
-        // A later second d is a first tap again.
-        app.browse.last_dev_tap = 1;
-        dev_tap(&mut app, "d");
-        assert_eq!(app.messages.error, None);
-        dev_tap(&mut app, "dd");
+        // d, d d (key repeat, or one chunk) only show the tab.
+        for keys in ["d", "d", "dd"] {
+            handle_browse(&mut app, &text(keys));
+            assert_eq!(app.browse.active_tab, RightPaneTab::Dev);
+            assert_eq!(app.messages.error, None);
+        }
+        // D runs it: without a workspace it says why.
+        app.set_active_tab(RightPaneTab::Preview);
+        handle_browse(&mut app, &text("D"));
+        assert_eq!(app.browse.active_tab, RightPaneTab::Dev);
         assert_eq!(app.messages.error, Some(format!("Dev is unavailable: {reason}")));
     }
 
@@ -2221,10 +2216,7 @@ pub(crate) mod tests {
         );
         app.set_active_tab(RightPaneTab::Dev);
         handle_browse(&mut app, &enter);
-        assert_eq!(
-            app.messages.error.as_deref(),
-            Some("Dev is not running: d d starts it (press d twice quickly)")
-        );
+        assert_eq!(app.messages.error.as_deref(), Some("Dev is not running: D starts it"));
         app.set_active_tab(RightPaneTab::Git);
         handle_browse(&mut app, &text("o"));
         assert_eq!(
@@ -2523,6 +2515,12 @@ pub(crate) mod tests {
             let mut exited = session("s9", "Fresh", SessionStatus::Exited);
             app.data.repo_sessions = vec![exited.clone()];
             app.set_selected_id(Some("s9".to_owned()));
+            // S asks first; a second S restarts it fresh.
+            handle_browse(&mut app, &text("S"));
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("S again starts a fresh conversation; this one can't be resumed from Deckhand afterwards")
+            );
             handle_browse(&mut app, &text("S"));
             let request = daemon.next().await;
             assert_eq!(request["type"], "restart");
@@ -2581,11 +2579,11 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_double_d_reviews_then_starts_and_stops_dev() {
+    fn upper_d_reviews_then_starts_and_stops_dev() {
         local(async {
             let (mut app, mut rx) = with_sessions(1);
             let mut daemon = Daemon::connect(&mut app);
-            handle_browse(&mut app, &text("dd"));
+            handle_browse(&mut app, &text("D"));
             let request = daemon.next().await;
             assert_eq!(request["type"], "project-info");
             let project = json!({
@@ -2630,10 +2628,10 @@ pub(crate) mod tests {
             assert_eq!(app.data.repo_sessions[0].dev_running, Some(true));
             assert_eq!(
                 app.messages.status_message.as_deref(),
-                Some("Started Dev: npm run dev · d d stops it")
+                Some("Started Dev: npm run dev · D stops it")
             );
-            // Running: d d stops it without a review.
-            handle_browse(&mut app, &text("dd"));
+            // Running: D stops it without a review.
+            handle_browse(&mut app, &text("D"));
             let request = daemon.next().await;
             assert_eq!(request["type"], "stop-dev");
             daemon.ok(&request, Value::Null).await;
@@ -2653,7 +2651,7 @@ pub(crate) mod tests {
         local(async {
             let (mut app, mut rx) = with_sessions(1);
             let mut daemon = Daemon::connect(&mut app);
-            handle_browse(&mut app, &text("dd"));
+            handle_browse(&mut app, &text("D"));
             let request = daemon.next().await;
             assert_eq!(request["type"], "project-info");
             let project = json!({

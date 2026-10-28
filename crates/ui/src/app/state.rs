@@ -272,8 +272,8 @@ pub struct BrowseState {
     pub active_tab: RightPaneTab,
     /// Digits typed to select a session by number (10+ sessions).
     pub numeric_selection: String,
-    /// TS `lastDevTapRef`: when d was last pressed (ms since the epoch; 0 for none).
-    pub last_dev_tap: i64,
+    /// Not in the TS: the session whose fresh restart (S) waits for a second S.
+    pub press_again: crate::press_again::PressAgain<String>,
     pub spinner_index: usize,
     /// Re-render tick when the selected session's shown age changes.
     pub clock_tick: u64,
@@ -675,7 +675,7 @@ impl App {
                 session_tabs,
                 active_tab,
                 numeric_selection: String::new(),
-                last_dev_tap: 0,
+                press_again: crate::press_again::PressAgain::default(),
                 spinner_index: 0,
                 clock_tick: 0,
                 terminal_size,

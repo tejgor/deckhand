@@ -74,11 +74,11 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "x  X",
-                text: "Stop, asking first (and whether to delete its worktree) / force-stop at once; starting: cancel",
+                text: "Stop, asking first (and whether to delete its worktree) / force-stop (one Enter); starting: cancel",
             },
             HelpLine::Key {
                 keys: "s  S",
-                text: "Resume an exited session (or retry a failed setup) / restart it with a fresh conversation",
+                text: "Resume an exited session (or retry a failed setup) / twice: start a fresh conversation",
             },
             HelpLine::Key {
                 keys: "Space",
@@ -213,7 +213,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
         lines: &[
             HelpLine::Key {
                 keys: "p t g d a",
-                text: "Jump to Preview, Terminal, Git, Dev, Notes (d twice quickly also starts or stops Dev)",
+                text: "Jump to Preview, Terminal, Git, Dev, Notes (D starts or stops Dev)",
             },
             HelpLine::Key {
                 keys: "→  l",
@@ -442,8 +442,8 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "In the run list, with several Dev processes: a row for each after Dev; Enter starts or shows it, x x stops it",
             },
             HelpLine::Key {
-                keys: "d  d d",
-                text: "The Dev tab (Enter opens it while it runs) / twice quickly: start or stop Dev",
+                keys: "d  D",
+                text: "The Dev tab (Enter opens it while it runs) / start or stop Dev",
             },
             HelpLine::Note {
                 note: "Dev is shared by every session in the same worktree and keeps running after their agents exit, until stopped (or the worktree is deleted).",

@@ -768,7 +768,7 @@ impl Daemon {
         Ok(stamped(&snapshot, session_id, &key))
     }
 
-    /// TS: InkDaemon.attachWorkspacePane (`no running dev command; d d starts it`, `no action has run here; r runs
+    /// TS: InkDaemon.attachWorkspacePane (`no running dev command; D starts it`, `no action has run here; r runs
     /// one`, `<name> is already attached elsewhere`): answers `{...session, ...attachData}` itself, then
     /// `<pane>-attached` and the initial frame.
     ///
@@ -846,7 +846,7 @@ impl Daemon {
         };
         let Some(workspace) = workspace else {
             return Err(DhError::msg(if pane == WorkspacePane::Dev {
-                "no running dev command; d d starts it"
+                "no running dev command; D starts it"
             } else {
                 "no action has run here; r runs one"
             }));
@@ -2294,7 +2294,7 @@ mod tests {
         local(async {
             // Dev and actions attach only to what runs.
             for (pane, text) in [
-                (WorkspacePane::Dev, "no running dev command; d d starts it"),
+                (WorkspacePane::Dev, "no running dev command; D starts it"),
                 (WorkspacePane::Action, "no action has run here; r runs one"),
             ] {
                 let error = daemon

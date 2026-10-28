@@ -211,8 +211,29 @@ fn counted(count: i64, noun: &str) -> String {
     format!("{count} {noun}{}", if count == 1 { "" } else { "s" })
 }
 
-/// TS: the options now offered by the confirmation (`killConfirmOptions`).
-fn current_kill_options(app: &App) -> Vec<KillOption> {
+/// Not in the TS: the force kill's choices (`X`): it never deletes, so nothing is checked first.
+pub fn force_kill_options(can_delete: bool) -> Vec<KillOption> {
+    vec![
+        KillOption {
+            kind: KillOptionKind::Kill,
+            label: if can_delete {
+                "Force kill, keep worktree (restartable)"
+            } else {
+                "Force kill session"
+            },
+        },
+        KillOption {
+            kind: KillOptionKind::Cancel,
+            label: "Cancel",
+        },
+    ]
+}
+
+/// TS: the options now offered by the confirmation (`killConfirmOptions`); a force kill's are its own.
+pub fn current_kill_options(app: &App) -> Vec<KillOption> {
+    if app.kill.force {
+        return force_kill_options(app.selected_can_delete_worktree());
+    }
     let check = app.current_cleanup_check();
     kill_options(
         app.selected_can_delete_worktree(),
@@ -227,16 +248,34 @@ fn current_kill_options(app: &App) -> Vec<KillOption> {
 /// arrived, and a deletion found blocked dropped its choices from under the cursor. Without a worktree nothing is
 /// checked, so Kill shows at once.
 pub fn kill_loading(app: &App) -> bool {
-    app.current_cleanup_check()
-        .is_some_and(|check| match check.worktree.as_ref() {
-            None => true,
-            // A blocked worktree deletion offers no delete choices, so the branch's answer does not matter.
-            Some(worktree) => {
-                structural_blockers(Some(worktree)).is_empty()
-                    && app.selected_can_delete_branch()
-                    && check.branch.is_none()
-            }
-        })
+    !app.kill.force
+        && app
+            .current_cleanup_check()
+            .is_some_and(|check| match check.worktree.as_ref() {
+                None => true,
+                // A blocked worktree deletion offers no delete choices, so the branch's answer does not matter.
+                Some(worktree) => {
+                    structural_blockers(Some(worktree)).is_empty()
+                        && app.selected_can_delete_branch()
+                        && check.branch.is_none()
+                }
+            })
+}
+
+/// Not in the TS: X on a running session: the kill confirmation with the force kill chosen (one Enter), which never
+/// deletes, so nothing is inspected. It acted at once before, the Shift twin of x, which asks.
+pub fn open_force_kill_confirm(app: &mut App) {
+    if app
+        .selected_session()
+        .is_none_or(|s| s.status != SessionStatus::Running)
+    {
+        return;
+    }
+    app.kill.confirm_index = 0;
+    app.kill.force = true;
+    app.kill.keep_open_items = false;
+    app.kill.cleanup_check = None;
+    app.set_mode(Mode::ConfirmKill);
 }
 
 /// TS: x on a running session: the kill confirmation, inspecting what deleting its worktree (and branch) would lose.
@@ -947,7 +986,10 @@ pub fn kill_dialog_rows(props: &KillConfirmPaneProps<'_>, width: u16) -> DialogR
             Wrap::Wrap,
         ));
     }
-    if worktree.is_some_and(|worktree| truthy(worktree.path.as_ref()) && worktree.mode != SessionWorktreeMode::None) {
+    // A force kill never deletes: nothing to check.
+    if !props.force
+        && worktree.is_some_and(|worktree| truthy(worktree.path.as_ref()) && worktree.mode != SessionWorktreeMode::None)
+    {
         rows.body.push(Vec::new());
         rows.body.extend(fit_row(
             &text(cleanup_summary(props.inspection), TextStyle::fg(THEME.warn)),
@@ -2118,6 +2160,29 @@ mod tests {
     }
 
     #[test]
+    fn x_upper_asks_with_the_force_kill_chosen_and_never_deletes() {
+        run(async {
+            let record = in_worktree(session("s1", "beta", SessionStatus::Running), "w1", "/wt/beta", "beta");
+            let (mut app, mut rx) = app_with(vec![record]);
+            let (client, requests) = fake_daemon(|_| json!({"ok": true}));
+            app.connection.client = Some(client);
+            crate::app::modes::browse::handle_browse(&mut app, &press("X"));
+            // Nothing is checked or sent yet; the only choices are the force kill and Cancel.
+            assert_eq!((app.mode, app.kill.force), (Mode::ConfirmKill, true));
+            assert!(!kill_loading(&app) && requests.borrow().is_empty());
+            let labels: Vec<&str> = current_kill_options(&app).iter().map(|option| option.label).collect();
+            assert_eq!(labels, ["Force kill, keep worktree (restartable)", "Cancel"]);
+            handle_confirm_kill(&mut app, &enter());
+            settle(&mut app, &mut rx).await;
+            let kill = requests.borrow()[0].clone();
+            assert_eq!(kill["type"], "kill");
+            assert_eq!(kill["force"], json!(true));
+            assert_eq!(kill["deleteWorktree"], json!(false));
+            assert_eq!(app.mode, Mode::Browse);
+        });
+    }
+
+    #[test]
     fn killing_sends_the_choices_and_checks_it_stopped() {
         run(async {
             let mut record = in_worktree(session("s1", "beta", SessionStatus::Running), "w1", "/wt/beta", "beta");
@@ -2659,7 +2724,7 @@ mod tests {
     }
 
     #[test]
-    fn the_kill_confirmation_lists_the_open_items_and_the_force() {
+    fn the_kill_confirmation_lists_the_open_items() {
         let beta = in_worktree(session("s2", "beta", SessionStatus::Running), "w2", "/wt/beta", "beta");
         let sessions = [beta];
         let options = kill_options(true, false, None, None);
@@ -2669,7 +2734,7 @@ mod tests {
             sessions: &refs(&sessions),
             options: &options,
             selected_index: 1,
-            force: true,
+            force: false,
             inspection: None,
             open_items: &items,
             keep_open_items: false,
@@ -2683,7 +2748,7 @@ mod tests {
             .map(|row| row.trim_matches(|c| c == '│' || c == ' '))
             .collect();
         // The question and the path on top, what deleting would lose below them, the choices at the bottom.
-        assert_eq!(text[0], "Force kill \"beta\"?");
+        assert_eq!(text[0], "Kill \"beta\"?");
         assert_eq!(text[1], "/wt/beta");
         assert_eq!(text[3], "Checking cleanup safety…");
         let at = |text: &[&str], start: &str| {

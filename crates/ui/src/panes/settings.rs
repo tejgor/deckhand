@@ -746,7 +746,7 @@ fn value_line(
 }
 
 /// Not in the TS: what Dev processes are, above their list.
-pub const DEV_PROCESSES_INTRO: &str = "What Dev runs (d d): one command, or several processes side by side, each in its own split of the Dev tab. One layer's Dev replaces the other's whole.";
+pub const DEV_PROCESSES_INTRO: &str = "What Dev runs (D): one command, or several processes side by side, each in its own split of the Dev tab. One layer's Dev replaces the other's whole.";
 
 /// TS: settingsPane.tsx actionLines: the Actions view's lines and the value column's width (`id`: Actions, or the
 /// Dev processes).
@@ -881,7 +881,7 @@ pub fn action_details(
     let relation = if needs_trust {
         NEEDS_TRUST_DETAIL.to_owned()
     } else if id == SettingId::DevCommand {
-        "d d starts it with the other Dev processes · Enter edits its command and name".to_owned()
+        "D starts it with the other Dev processes · Enter edits its command and name".to_owned()
     } else if status == Some("overrides global") {
         format!("overrides the global {} action", action.name)
     } else if status.is_some() {

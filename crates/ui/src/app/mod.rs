@@ -135,9 +135,6 @@ pub const WORKTREE_MODES: [WorktreeModeOption; 3] = [
 /// Not in the TS: the render throttle while you type to the agent ([`UiModel::render_throttle`]).
 pub const PREVIEW_FOCUS_RENDER_THROTTLE: std::time::Duration = std::time::Duration::from_millis(16);
 
-/// TS: app.tsx DEV_DOUBLE_TAP_MS: two d presses within this long start or stop Dev.
-pub const DEV_DOUBLE_TAP_MS: i64 = 500;
-
 /// TS: app.tsx STATUS_MESSAGE_AUTO_HIDE_MS.
 pub const STATUS_MESSAGE_AUTO_HIDE_MS: u64 = 5000;
 

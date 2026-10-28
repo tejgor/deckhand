@@ -1530,7 +1530,7 @@ pub fn dev_command_change(
 /// Not in the TS: [`action_saved_message`] of a Dev process.
 pub fn dev_process_saved_message(name: &str, target: ConfigTargetKind, trust: Option<SaveTrust>) -> String {
     format!(
-        "Saved Dev process {name} to {}{} · d d starts Dev",
+        "Saved Dev process {name} to {}{} · D starts Dev",
         layer_short(target),
         repository_trust(target, trust)
     )

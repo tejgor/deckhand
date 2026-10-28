@@ -28,7 +28,7 @@ Install [`lazygit`](https://github.com/jesseduffield/lazygit). The rest of the G
 
 ## The Dev tab is empty
 
-Set a Dev command in Settings (`C`), then press `d` twice quickly to start it. A single `d` only shows the tab.
+Set a Dev command in Settings (`C`), then press `D` to start it. `d` only shows the tab.
 
 ## No notifications on macOS
 

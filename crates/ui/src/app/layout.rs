@@ -27,8 +27,8 @@ use deckhand_protocol::data::{RightPaneTab, SessionRecord, SessionStatus};
 
 use crate::app::modes::action_picker::{ActionPickerPaneProps, DevRow, render_action_picker_pane};
 use crate::app::modes::confirm::{
-    KillConfirmPaneProps, KillOptionKind, MergeConfirmPaneProps, RemoveConfirmPaneProps, kill_loading, kill_options,
-    render_conflict_pane, render_kill_dialog, render_merge_pane, render_remove_dialog,
+    KillConfirmPaneProps, KillOptionKind, MergeConfirmPaneProps, RemoveConfirmPaneProps, current_kill_options,
+    kill_loading, render_conflict_pane, render_kill_dialog, render_merge_pane, render_remove_dialog,
 };
 use crate::app::modes::create::{
     BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, filtered_worktrees, render_create_dialog,
@@ -849,13 +849,7 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
             app.dialog.last = render_worktree_picker(&props, buf, right, view);
         }
         Mode::ConfirmKill => {
-            let check = app.current_cleanup_check();
-            let options = kill_options(
-                app.selected_can_delete_worktree(),
-                app.selected_can_delete_branch(),
-                check.and_then(|check| check.worktree.as_ref()),
-                check.and_then(|check| check.branch.as_ref()),
-            );
+            let options = current_kill_options(app);
             let index = app.kill.confirm_index.min(options.len().saturating_sub(1));
             let delete_branch = options
                 .get(index)
@@ -1092,9 +1086,9 @@ pub fn browse_hint_parts(input: &FooterHintInput<'_>) -> Vec<HintPart> {
         (RightPaneTab::Notes, Some(_)) => Some("enter edit notes • o vim • E open in editor".to_owned()),
         (RightPaneTab::Dev, Some(session)) if workspace_key(session).is_some_and(|key| !key.is_empty()) => {
             let toggle = if session.dev_running == Some(true) {
-                "d d stop Dev"
+                "D stop Dev"
             } else {
-                "d d start Dev"
+                "D start Dev"
             };
             Some(match input.dev_switch {
                 Some(switch) => format!("{switch} • {toggle}"),
@@ -1417,7 +1411,7 @@ mod tests {
         );
         assert_eq!(
             browse(Some(&running), RightPaneTab::Dev, 200),
-            "enter open • d d start Dev • x stop • E open in editor • ? help • n new • W worktrees • C settings • \
+            "enter open • D start Dev • x stop • E open in editor • ? help • n new • W worktrees • C settings • \
              r run • / search • q quit"
         );
         // Narrow: higher drops go first, then short forms.

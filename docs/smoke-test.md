@@ -46,7 +46,7 @@ Select `smoke claude` (`1`) and walk the tabs with `]` / `[` and the letters.
 | `p` | Preview: the agent's screen as plain text. `→` types to the agent: its colours and cursor appear, every key (Esc and Ctrl+C too) reaches it, the wheel scrolls; `Ctrl+]` leaves |
 | `t` | Terminal: a shell in the session's worktree (`pwd` shows `~/.deckhand-rust-dev/worktrees/...`). The shell starts the first time you view the tab. `→` types into it (its colours and cursor appear); `Ctrl+]` leaves |
 | `g` | Git: sections Merge Conflicts / Staged / Changes / Untracked, empty at first. In another terminal run `echo x >> <worktree>/notes.txt`; within about 2 s `notes.txt` appears under Changes with `+1 -0`. `→` focuses it; `space` stages (moves to Staged); `space` again unstages; `J`/`K` scroll the diff |
-| `d` | Dev: shows "not running" or the empty pane. `d` `d` (twice quickly) starts the Dev command: output `dev up`, `▶` appears after the row title. `d` `d` again stops it |
+| `d` | Dev: shows "not running" or the empty pane. `D` starts the Dev command: output `dev up`, `▶` appears after the row title. `D` again stops it |
 | `a` | Notes: the worktree's note. `Enter` edits |
 | `r` | Run list: **Dev** first, then `hello`. Choose `hello` and Enter: the Terminal tab switches to the action, header `hello ✓ exit 0`, output `hello from action`. `v` switches back to the shell |
 | `r` `G` `k` `x` `x` | Run list, the row before last: **Shell**. First, on the Terminal tab, `o` and run `sh -c 'trap "" INT HUP; sleep 300'`, then `Ctrl+]` (`ctrl+c` won't stop it). `r`, `G`, `k`, `x`: the footer says `x again restarts the shell`; `x` again: after about 2 s the Terminal tab shows a fresh prompt and the footer says `Restarted the shell` |
@@ -100,7 +100,7 @@ The sidebar lists the sessions under section headers (`Working`, `Idle`, …); w
 2. Dirty a worktree (`echo y > $WT/untracked.txt` in its shell) and press `x` on it. Expected: a branch keep/delete choice, then, because of the untracked file, a screen that requires typing `DELETE`. `Esc` cancels; the worktree is untouched.
 3. Select the merged worktree from step 7, `x`, choose delete worktree and branch. Expected: the sessions running there are named and stopped first; afterwards the directory under `~/.deckhand-rust-dev/worktrees/` is gone, `git worktree list` in the repo no longer lists it, and its sessions are archived (`f` then `A` shows them).
 4. `x` on the main checkout row or a worktree used by another session: refused with a reason, never offered.
-5. `x` on a running session (sidebar): asks stop only / stop and delete worktree / delete worktree and branch. Choose stop only; the session shows `○` exited and keeps its worktree. `X` force-stops without ever authorising data loss.
+5. `x` on a running session (sidebar): asks stop only / stop and delete worktree / delete worktree and branch. Choose stop only; the session shows `○` exited and keeps its worktree. `X` asks with **Force kill, keep worktree** chosen; `enter` force-stops it, never authorising data loss.
 
 ## 9. Settings and trust
 
@@ -108,7 +108,7 @@ The sidebar lists the sessions under section headers (`Working`, `Idle`, …); w
 2. On This repo choose **Default agent**, Enter, pick `pi`. Expected: saved to `$SMOKE/repo/deckhand.json`; the status says review required (the file is no longer the trusted bytes).
 3. Press `←`, select **Dev command**, Enter, type `sh -c 'echo global dev; sleep 600'`. Expected: saved under `defaults` in `~/.deckhand-rust-dev/config.json` (check with `cat`).
 4. `E` opens the selected column's raw JSON; type a syntax error and `ctrl+s`: it must refuse and leave the file untouched; `ctrl+f` formats; `Esc` returns.
-5. Press `T`: the review shows the exact bytes of `deckhand.json`; `Enter` trusts it, returning to Settings with the row no longer marked. Edit `deckhand.json` outside Deckhand (`echo '' >> deckhand.json`): the next `n` or `d` `d` asks for review again.
+5. Press `T`: the review shows the exact bytes of `deckhand.json`; `Enter` trusts it, returning to Settings with the row no longer marked. Edit `deckhand.json` outside Deckhand (`echo '' >> deckhand.json`): the next `n` or `D` asks for review again.
 6. **Agents**: in Settings go to Agents, switch **Agent signals** on. Expected: a Codex hooks warning if `~/.codex/hooks.json` does not call this Deckhand, naming `deckhand hooks codex`.
 
 ## 10. Help search
@@ -127,7 +127,7 @@ Press `?`, then `/` and type `merge`. Expected: topics narrow to those mentionin
 
 ## 13. Exit and resume
 
-1. Attach to `smoke pi`, send `/quit` (or Ctrl+C twice) so the agent exits. Expected: the row turns `○`, the Preview keeps the last screen, and `s` resumes the same conversation (`--session-id <same uuid>`), `S` starts a fresh one.
+1. Attach to `smoke pi`, send `/quit` (or Ctrl+C twice) so the agent exits. Expected: the row turns `○`, the Preview keeps the last screen, and `s` resumes the same conversation (`--session-id <same uuid>`), `S` `S` starts a fresh one (the first `S` says the old one can't be resumed).
 2. Repeat for Claude: after exit the preview ends with the resume hint; `s` runs `claude --resume <uuid>`.
 3. Codex: `s` resumes (`codex resume <id>`) only once its ID was captured; otherwise it refuses and asks for `S`.
 
