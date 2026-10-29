@@ -331,7 +331,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "block2",
  "crossterm",
@@ -360,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-client"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "deckhand-core",
  "deckhand-protocol",
@@ -383,7 +383,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-core"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "chrono",
  "deckhand-protocol",
@@ -405,7 +405,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-daemon"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "chrono",
  "deckhand-core",
@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-e2e"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "libc",
  "nix",
@@ -444,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-protocol"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "indexmap 2.14.2",
  "serde",
@@ -456,7 +456,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-sys"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "chrono",
  "deckhand-core",
@@ -480,7 +480,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-term"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "alacritty_terminal",
  "deckhand-core",
@@ -499,7 +499,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-testkit"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "indexmap 2.14.2",
  "libc",
@@ -512,7 +512,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-ui"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "crossterm",
  "deckhand-client",
@@ -538,7 +538,7 @@ dependencies = [
 
 [[package]]
 name = "deckhand-worker"
-version = "3.0.1"
+version = "3.1.0"
 dependencies = [
  "deckhand-core",
  "deckhand-protocol",
