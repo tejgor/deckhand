@@ -167,9 +167,8 @@ fn window_lines(
         return shown;
     }
     // The first line kept below the heads it needs, which take the places of the lines before it.
-    let kept = (0..=2).find(|&skip| {
-        range.len() > 2 * skip && heads_of(lines, range.start + skip, parents).len() == skip
-    });
+    let kept =
+        (0..=2).find(|&skip| range.len() > 2 * skip && heads_of(lines, range.start + skip, parents).len() == skip);
     if let Some(skip) = kept.filter(|&skip| skip > 0) {
         shown.splice(0..skip, heads_of(lines, range.start + skip, parents));
     }
@@ -572,10 +571,10 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             })
             .collect()
     };
-    let above = (!sessions.is_empty() && more_above)
-        .then(|| dim_if(more_line("↑", &sessions[..visible_start], content_width)));
-    let below = (!sessions.is_empty() && more_below)
-        .then(|| dim_if(more_line("↓", &sessions[visible_end..], content_width)));
+    let above =
+        (!sessions.is_empty() && more_above).then(|| dim_if(more_line("↑", &sessions[..visible_start], content_width)));
+    let below =
+        (!sessions.is_empty() && more_below).then(|| dim_if(more_line("↓", &sessions[visible_end..], content_width)));
     SidebarLayout {
         header: header_row,
         filter_menu,
@@ -1090,7 +1089,10 @@ mod tests {
         assert!(lines[3].contains("Idle 30 ───"), "{lines:#?}");
         assert_eq!(lines[4], "│     big parent ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │", "{lines:#?}");
         assert!(lines[5].contains("↳ ● child"), "{lines:#?}");
-        assert!(lines.iter().any(|line| line.contains("› 17   ↳ ● child 15")), "{lines:#?}");
+        assert!(
+            lines.iter().any(|line| line.contains("› 17   ↳ ● child 15")),
+            "{lines:#?}"
+        );
     }
 
     #[test]
