@@ -1,6 +1,8 @@
 //! Not in the TS: the sidebar's default view, sessions in sections by state (needs you, unread, working, idle,
-//! exited). Inside a section sessions keep your order (`sidebarOrder`, `J`/`K`); a sub-session sits under its parent
-//! when both are in the same section, and is listed at the section's top level otherwise.
+//! exited). Needs you and Unread list the session waiting longest first, Idle the one that went idle last first;
+//! Working and Exited keep your order (`sidebarOrder`, `J`/`K`). The time order is only how the view lists them: your
+//! order stays as it is. A sub-session sits under its parent (in your order) when both are in the same section, and is
+//! listed at the section's top level otherwise.
 
 use std::collections::{HashMap, HashSet};
 
@@ -35,6 +37,15 @@ impl SessionSection {
         SessionSection::Exited,
     ];
 
+    /// How the section lists its sessions by time ([`arrived_at`]), or `None` for your order.
+    pub fn time_order(self) -> Option<TimeOrder> {
+        match self {
+            SessionSection::NeedsYou | SessionSection::Unread => Some(TimeOrder::OldestFirst),
+            SessionSection::Idle => Some(TimeOrder::NewestFirst),
+            SessionSection::Working | SessionSection::Exited => None,
+        }
+    }
+
     /// The section header's name.
     pub fn label(self) -> &'static str {
         match self {
@@ -44,6 +55,30 @@ impl SessionSection {
             SessionSection::Idle => "Idle",
             SessionSection::Exited => "Exited",
         }
+    }
+}
+
+/// How a section orders its sessions by when they arrived in it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TimeOrder {
+    /// The one waiting longest first, so a new arrival joins at the bottom (Needs you, Unread).
+    OldestFirst,
+    /// The latest first, so the session whose reply you just read is on top (Idle).
+    NewestFirst,
+}
+
+/// When `session` arrived in `section`, as an ISO time (they compare as strings), for the sections listed by time:
+/// when it asked for you or ended its turn, or for Idle the later of reading its reply and its agent going idle.
+pub fn arrived_at(session: &SessionRecord, section: SessionSection) -> Option<&str> {
+    match section {
+        SessionSection::NeedsYou | SessionSection::Unread => {
+            session.attention.as_ref().map(|attention| attention.at.as_str())
+        }
+        SessionSection::Idle => session
+            .reply_read_at
+            .as_deref()
+            .max(session.agent_status_updated_at.as_deref()),
+        SessionSection::Working | SessionSection::Exited => None,
     }
 }
 
@@ -88,7 +123,8 @@ pub fn in_section<S: SessionLike>(sessions: &[S], section: SessionSection) -> Ve
 }
 
 /// `sessions` (in sidebar order) grouped by section. Inside each, a session whose parent is in the same section
-/// follows it depth first; the others keep their place in the list.
+/// follows it depth first; the others are in the section's [`TimeOrder`], else keep their place in the list (as do
+/// sessions that arrived at the same time, or with no time known).
 pub fn order_by_section<S: SessionLike>(sessions: &[S]) -> Vec<&S> {
     let mut ordered = Vec::with_capacity(sessions.len());
     for section in SessionSection::ALL {
@@ -101,6 +137,15 @@ pub fn order_by_section<S: SessionLike>(sessions: &[S]) -> Vec<&S> {
                 Some(parent) => children.entry(parent).or_default().push(item),
                 None => roots.push(item),
             }
+        }
+        if let Some(order) = section.time_order() {
+            roots.sort_by(|a, b| {
+                let (a, b) = (arrived_at(a.session(), section), arrived_at(b.session(), section));
+                match order {
+                    TimeOrder::OldestFirst => a.cmp(&b),
+                    TimeOrder::NewestFirst => b.cmp(&a),
+                }
+            });
         }
         let mut visited: HashSet<&str> = HashSet::new();
         for root in roots {
@@ -179,6 +224,69 @@ mod tests {
             let record = crate::session_features::with_reply_read(record);
             assert_eq!(session_section(&record), section, "{fields}");
         }
+    }
+
+    #[test]
+    fn needs_you_and_unread_list_the_longest_waiting_first_and_idle_the_latest() {
+        let attention = |state: &str, at: &str| json!({"state": state, "event": "Stop", "at": at});
+        let day = |day: u32| format!("2026-10-{day:02}T00:00:00.000Z");
+        let list = vec![
+            session("ask-late", json!({"attention": attention("needs-input", &day(5))})),
+            session("ask-early", json!({"attention": attention("failed", &day(2))})),
+            session("reply-late", json!({"attention": attention("response-ended", &day(6))})),
+            session(
+                "reply-early",
+                json!({"attention": attention("response-ended", &day(3))}),
+            ),
+            // Idle: when its reply was read, or its agent went idle, whichever came later.
+            session(
+                "read-early",
+                json!({"attention": attention("response-ended", &day(1)), "replyReadAt": day(4), "agentStatusUpdatedAt": day(1)}),
+            ),
+            session(
+                "idle-late",
+                json!({"agentStatusUpdatedAt": day(7), "replyReadAt": day(2)}),
+            ),
+            session(
+                "read-late",
+                json!({"attention": attention("response-ended", &day(1)), "replyReadAt": day(8), "agentStatusUpdatedAt": day(1)}),
+            ),
+            // An idle session with no time known goes last.
+            session("idle-unknown", json!({})),
+            // Working and Exited keep your order.
+            session(
+                "work-b",
+                json!({"agentStatus": "active", "agentStatusUpdatedAt": day(9)}),
+            ),
+            session(
+                "work-a",
+                json!({"agentStatus": "active", "agentStatusUpdatedAt": day(1)}),
+            ),
+            session("gone-b", json!({"status": "exited", "agentStatusUpdatedAt": day(1)})),
+            session("gone-a", json!({"status": "exited", "agentStatusUpdatedAt": day(9)})),
+        ];
+        let list: Vec<SessionRecord> = list.into_iter().map(crate::session_features::with_reply_read).collect();
+        let ids: Vec<&str> = order_by_section(&list)
+            .into_iter()
+            .map(|item| item.id.as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                "ask-early",
+                "ask-late",
+                "reply-early",
+                "reply-late",
+                "work-b",
+                "work-a",
+                "read-late",
+                "idle-late",
+                "read-early",
+                "idle-unknown",
+                "gone-b",
+                "gone-a",
+            ]
+        );
     }
 
     #[test]

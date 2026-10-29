@@ -360,6 +360,11 @@ pub struct PreviewFocusState {
     pub held_since: Option<i64>,
     /// Not in the TS: this stint of typing showed its Ctrl+C hint ([`crate::app::modes::preview_focus::on_raw_key`]).
     pub ctrl_c_hinted: bool,
+    /// Not in the TS: a lone h in preview focus, held back in case a second one follows to leave
+    /// ([`crate::app::modes::preview_focus::on_raw_key`]); it goes to the agent when this fires.
+    pub held_h: Option<Timer>,
+    /// Not in the TS: when the last key of this stint came (epoch milliseconds), to tell an h after a pause.
+    pub last_key_at: Option<i64>,
 }
 
 /// TS: the filter menu's way back (f): the filter and selection it was opened on.
@@ -720,6 +725,8 @@ impl App {
                 body: None,
                 held_since: None,
                 ctrl_c_hinted: false,
+                held_h: None,
+                last_key_at: None,
             },
             filter: None,
             review: ReviewState::default(),
