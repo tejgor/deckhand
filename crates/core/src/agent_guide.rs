@@ -14,65 +14,37 @@ tasks to the backlog, add steps to the note, list or tick tasks. Only when the u
 
 /// The always-loaded instruction for agents without lazily loaded skills.
 pub const TRIGGER: &str = "This is a Deckhand session. Only when the user asks for a Deckhand action (start a \
-session, add a task or a note step), run `deckhand guide` first and follow it.";
+session, add a task or a note step), run `deckhand guide` once per conversation, unless it is still in context.";
 
 /// The always-loaded instruction for Codex when it has the `deckhand` MCP tool (`deckhand mcp`), whose sandbox keeps
 /// its shell from reaching the daemon.
 pub const CODEX_TRIGGER: &str = "This is a Deckhand session. Only when the user asks for a Deckhand action (start a \
-session, add a task or a note step), call the `deckhand` tool with args [\"guide\"] first and follow it.";
+session, add a task or a note step), call the `deckhand` tool with args [\"guide\"] once per conversation, unless \
+it is still in context.";
 
 /// The most an always-loaded text may be, in bytes (about 60 tokens).
 pub const ALWAYS_LOADED_BUDGET: usize = 240;
 
+/// The most [`GUIDE`] may be, in bytes (about 250 tokens): it is read whenever an agent takes a Deckhand action, so
+/// details belong in each command's `--help`.
+pub const GUIDE_BUDGET: usize = 1100;
+
 /// `deckhand guide`: the full guide, and the skill's body.
 pub const GUIDE: &str = "\
-# Deckhand commands
+# deckhand: act for this Deckhand session, only when the user asks
 
-You run inside a Deckhand session. The `deckhand` commands act for this session. Use them only when the user asks for
-a Deckhand action; never start sessions, move tasks or end sessions on your own.
+deckhand new --prompt <brief> [--title <t>] [--agent claude|codex|pi] [--task <id>]
+  [--worktree new|same|none|<path>] [--base <branch>] [--top-level] [--fork] [--draft]
+  A sub-session of this one in a new worktree; the prompt is sent (--draft: typed, not sent). The new agent
+  knows nothing of this conversation (unless --fork): give context, constraints and what done means.
+deckhand task list | task add <title> [--details <text>] | task done|reopen <id> | task move <id> --to backlog|<session>
+  task add parks work in the backlog.
+deckhand note add <item>      a step in this session's note
+deckhand ls                   sessions (* is this one)
+deckhand kill <id>, deckhand remove <id>    only sub-sessions this session started
 
-## Starting sessions
-
-  deckhand new --prompt <text> [--title <t>] [--agent claude|codex|pi] [--task <id>]
-               [--worktree new|same|none|<path>] [--base <branch>] [--top-level] [--fork] [--draft]
-
-- By default the new session is a sub-session of this one, in a new worktree. `--worktree same` shares this
-  session's worktree, `--worktree none` runs in the repository's checkout, `--top-level` makes it a sibling,
-  `--fork` copies this conversation (same agent).
-- The prompt is sent. Write it as a complete brief: the context, the constraints and what done means; the new agent
-  knows nothing of this conversation (unless `--fork`). `--draft` types it without sending, for the user to review.
-  A long prompt can come from a quoted heredoc:
-    deckhand new --prompt \"$(cat <<'EOF'
-    ...
-    EOF
-    )\"
-- `--task <id>` starts the session on a task from `deckhand task list` (top-level unless in a new worktree); the
-  prompt replaces the task's text, and the task is ticked when the work is merged or done.
-- The name defaults to the task's title or the prompt's first line; `--title` sets it (at most 64 characters).
-
-## Tasks and notes
-
-  deckhand task list
-  deckhand task add <title> [--details <text>]     (to the backlog)
-  deckhand task done|reopen <id>
-  deckhand task move <id> --to backlog|<session id>
-  deckhand note add <item>                         (a checklist step in this session's note)
-
-When the user says to park something for later, `task add` it rather than doing it. Moving a task onto a session
-makes it the task of that session's work, or a step in its note when the work has a task already.
-
-## Sessions
-
-  deckhand ls                                      (* marks this session)
-  deckhand kill <session id>                       (ends a running sub-session this session started)
-  deckhand remove <session id>                     (removes an ended one from the list)
-
-IDs may be shortened to any unique prefix, as `ls` and `task list` print them. Add `--json` to any command for
-machine-readable output. `deckhand <command> --help` describes one command. Merging and deleting worktrees stay
-with the user.
-
-With the `deckhand` tool, pass the same words as `args`, without `deckhand` and without shell quoting: a long
-prompt is one string, as in [\"new\", \"--prompt\", \"<the whole brief>\"].
+IDs: any unique prefix. --json on any command; <command> --help for details.
+As tool args, pass the words after `deckhand`, e.g. [\"new\", \"--prompt\", \"<brief>\"]; no quoting needed.
 ";
 
 #[cfg(test)]
@@ -87,10 +59,16 @@ mod tests {
     }
 
     #[test]
+    fn the_guide_stays_within_its_budget() {
+        assert!(GUIDE.len() <= GUIDE_BUDGET, "{} bytes", GUIDE.len());
+    }
+
+    #[test]
     fn the_trigger_points_at_the_guide() {
         assert!(TRIGGER.contains("deckhand guide"));
-        assert!(CODEX_TRIGGER.contains("`deckhand` tool with args [\"guide\"]"));
-        assert!(GUIDE.contains("With the `deckhand` tool, pass the same words as `args`"));
-        assert!(GUIDE.starts_with("# Deckhand commands"));
+        assert!(CODEX_TRIGGER.contains("`deckhand` tool with args [\"guide\"] once per conversation"));
+        assert!(TRIGGER.contains("`deckhand guide` once per conversation"));
+        assert!(GUIDE.contains("As tool args, pass the words after `deckhand`"));
+        assert!(GUIDE.starts_with("# deckhand: "));
     }
 }

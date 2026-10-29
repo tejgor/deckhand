@@ -17,7 +17,8 @@ Usage: deckhand new [--prompt <text>] [--draft] [--agent claude|codex|pi] [--tit
 Starts a session. Run inside a Deckhand session, it is a sub-session of that session in a new worktree; run
 elsewhere, a top-level session of the current repository.
 
-  --prompt <text>     The agent's first message, sent when it starts
+  --prompt <text>     The agent's first message, sent when it starts (from a shell, a long one can come from
+                      a quoted heredoc: --prompt \"$(cat <<'EOF' ... EOF)\")
   --draft             Type the prompt into the agent's input without sending it
   --agent <agent>     claude, codex or pi (default: this session's agent, else the repository's default agent)
   --title <title>     The session's name (default: the task's title, else the prompt's first line)

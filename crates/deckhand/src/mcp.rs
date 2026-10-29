@@ -460,11 +460,11 @@ mod tests {
 
     #[test]
     fn tools_call_runs_an_agent_command_and_answers_its_output() {
-        let (server, calls) = fake_server(true, ok("# Deckhand commands\n"));
+        let (server, calls) = fake_server(true, ok("# deckhand: guide\n"));
         let answer = reply(&server, &call(json!(["guide"]))).unwrap();
         assert_eq!(
             answer["result"],
-            json!({"content": [{"type": "text", "text": "# Deckhand commands"}], "isError": false})
+            json!({"content": [{"type": "text", "text": "# deckhand: guide"}], "isError": false})
         );
         // Words go through as given; a leading `deckhand` is dropped.
         reply(

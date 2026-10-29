@@ -278,7 +278,7 @@ fn the_mcp_server_answers_over_stdio_and_its_tool_acts_for_the_session() {
     for reply in &replies[2..5] {
         assert_eq!(reply["result"]["isError"], false, "{reply}");
     }
-    assert!(tool_text(&replies[2]).starts_with("# Deckhand commands"));
+    assert!(tool_text(&replies[2]).starts_with("# deckhand: "));
     assert!(
         tool_text(&replies[4]).contains(&format!("*  {}", &lead_id[..8])),
         "{}",
