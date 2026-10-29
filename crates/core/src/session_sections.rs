@@ -1,8 +1,8 @@
 //! Not in the TS: the sidebar's default view, sessions in sections by state (needs you, unread, working, idle,
-//! exited). Needs you and Unread list the session waiting longest first, Idle the one that went idle last first;
-//! Working and Exited keep your order (`sidebarOrder`, `J`/`K`). The time order is only how the view lists them: your
-//! order stays as it is. A sub-session sits under its parent (in your order) when both are in the same section, and is
-//! listed at the section's top level otherwise.
+//! exited). Needs you and Unread list the session waiting longest first, Idle the one that went idle last first (a
+//! parent by the latest of it and the sub-sessions under it); Working and Exited keep your order (`sidebarOrder`,
+//! `J`/`K`). The time order is only how the view lists them: your order stays as it is. A sub-session sits under its
+//! parent (in your order) when both are in the same section, and is listed at the section's top level otherwise.
 
 use std::collections::{HashMap, HashSet};
 
@@ -123,8 +123,9 @@ pub fn in_section<S: SessionLike>(sessions: &[S], section: SessionSection) -> Ve
 }
 
 /// `sessions` (in sidebar order) grouped by section. Inside each, a session whose parent is in the same section
-/// follows it depth first; the others are in the section's [`TimeOrder`], else keep their place in the list (as do
-/// sessions that arrived at the same time, or with no time known).
+/// follows it depth first; the others are in the section's [`TimeOrder`] (Idle's by the latest of each one's tree, so
+/// a sub-session that just went idle is not kept down by a parent idle for long), else keep their place in the list
+/// (as do sessions that arrived at the same time, or with no time known).
 pub fn order_by_section<S: SessionLike>(sessions: &[S]) -> Vec<&S> {
     let mut ordered = Vec::with_capacity(sessions.len());
     for section in SessionSection::ALL {
@@ -139,13 +140,18 @@ pub fn order_by_section<S: SessionLike>(sessions: &[S]) -> Vec<&S> {
             }
         }
         if let Some(order) = section.time_order() {
-            roots.sort_by(|a, b| {
-                let (a, b) = (arrived_at(a.session(), section), arrived_at(b.session(), section));
-                match order {
-                    TimeOrder::OldestFirst => a.cmp(&b),
-                    TimeOrder::NewestFirst => b.cmp(&a),
-                }
+            let mut timed: Vec<(Option<&str>, &S)> = roots
+                .into_iter()
+                .map(|root| match order {
+                    TimeOrder::OldestFirst => (arrived_at(root.session(), section), root),
+                    TimeOrder::NewestFirst => (latest_in_tree(root, &children, section), root),
+                })
+                .collect();
+            timed.sort_by(|(a, _), (b, _)| match order {
+                TimeOrder::OldestFirst => a.cmp(b),
+                TimeOrder::NewestFirst => b.cmp(a),
             });
+            roots = timed.into_iter().map(|(_, root)| root).collect();
         }
         let mut visited: HashSet<&str> = HashSet::new();
         for root in roots {
@@ -157,6 +163,25 @@ pub fn order_by_section<S: SessionLike>(sessions: &[S]) -> Vec<&S> {
         }
     }
     ordered
+}
+
+/// The latest [`arrived_at`] of `root` and the sessions listed under it (`children`, its section's), cycles cut.
+fn latest_in_tree<'a, S: SessionLike>(
+    root: &'a S,
+    children: &HashMap<&str, Vec<&'a S>>,
+    section: SessionSection,
+) -> Option<&'a str> {
+    let mut latest = None;
+    let mut seen: HashSet<&str> = HashSet::new();
+    let mut stack = vec![root];
+    while let Some(item) = stack.pop() {
+        let session = item.session();
+        if seen.insert(session.id.as_str()) {
+            latest = latest.max(arrived_at(session, section));
+            stack.extend(children.get(session.id.as_str()).into_iter().flatten().copied());
+        }
+    }
+    latest
 }
 
 #[cfg(test)]
@@ -287,6 +312,36 @@ mod tests {
                 "gone-a",
             ]
         );
+    }
+
+    #[test]
+    fn idle_lists_a_parent_by_the_latest_of_its_tree() {
+        let day = |day: u32| format!("2026-10-{day:02}T00:00:00.000Z");
+        let list = vec![
+            // Idle since day 1, but its sub-session (and that one's) went idle on day 6.
+            session("stale", json!({"agentStatusUpdatedAt": day(1)})),
+            session(
+                "child",
+                json!({"parentSessionId": "stale", "agentStatusUpdatedAt": day(2)}),
+            ),
+            session(
+                "grandchild",
+                json!({"parentSessionId": "child", "agentStatusUpdatedAt": day(6)}),
+            ),
+            session("other", json!({"agentStatusUpdatedAt": day(4)})),
+            // A sub-session in another section does not count for its parent's place.
+            session("old", json!({"agentStatusUpdatedAt": day(3)})),
+            session(
+                "busy",
+                json!({"parentSessionId": "old", "agentStatus": "active", "agentStatusUpdatedAt": day(9)}),
+            ),
+        ];
+        let ids: Vec<&str> = order_by_section(&list)
+            .into_iter()
+            .map(|item| item.id.as_str())
+            .collect();
+        // The tree keeps its own order under the parent.
+        assert_eq!(ids, ["busy", "stale", "child", "grandchild", "other", "old"]);
     }
 
     #[test]
