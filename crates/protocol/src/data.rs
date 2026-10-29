@@ -354,6 +354,9 @@ pub struct SessionRecord {
     pub requested_worktree_mode: Option<WorktreeMode>,
     pub handoff_path: Option<String>,
     pub start_prompt: Option<String>,
+    /// Not in the TS: the message sent as the agent's first, at its first launch (`create`'s `prompt`, as a handoff
+    /// child's first message is); a draft is `start_prompt` instead.
+    pub first_message: Option<String>,
     pub status: SessionStatus,
     pub agent_status: Option<AgentActivityStatus>,
     pub agent_status_updated_at: Option<String>,
@@ -831,6 +834,11 @@ pub struct CreateSessionInput {
     pub project_fingerprint: Option<String>,
     /// Not in the TS: the session a top-level fork (`subSessionKind: "forked"`, no parent) copies the conversation of.
     pub fork_from_session_id: Option<String>,
+    /// Not in the TS: the agent's first message, passed at launch (`deckhand new --prompt`). With a `taskId` it replaces
+    /// the task's text.
+    pub prompt: Option<String>,
+    /// Not in the TS: `false` types `prompt` into the agent's input without sending it, as a task's text is; absent: sent.
+    pub submit: Option<bool>,
 }
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 //! deckhand-sys.
 
+pub mod agent_commands;
 pub mod agent_path;
 pub mod agent_version_check;
 pub mod async_util;

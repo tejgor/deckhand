@@ -2,11 +2,13 @@
 //!
 //! One binary plays every role the TS split between `node dist/cli.js <mode>` invocations: the Ink UI, the daemon
 //! (`--daemon`), the per-session and per-workspace workers (`--session-worker`, `--workspace-worker`), the agent hook
-//! bridge (`hook`), the hooks config printer (`hooks [codex]`), `setup`/`doctor`, `restart` (not in TS), the dev
+//! bridge (`hook`), the hooks config printer (`hooks [codex]`), `setup`/`doctor`, `restart` and the agent commands
+//! (`new`, `ls`, `task`, `note`, `kill`, `remove`, `guide`; neither in TS), the dev
 //! channel's `status`/`stop`, `--version` and `help`. Whatever the role, the process runs on one current_thread tokio runtime with a `LocalSet`,
 //! so shared state is `Rc<RefCell<..>>` and futures need not be `Send` (docs/conventions.md, Runtime model).
 
 mod cli;
+mod commands;
 mod doctor;
 mod guard;
 mod hook;
@@ -103,6 +105,12 @@ mod tests {
         assert!(!guard::needs_home(&cli::Command::Setup(vec!["--check".into()])));
         assert!(!guard::needs_home(&cli::Command::Doctor(Vec::new())));
         assert!(!guard::needs_home(&cli::Command::Hooks(hooks::HooksTarget::Codex)));
+        assert!(!guard::needs_home(&cli::Command::Agent(vec!["guide".into()])));
+        assert!(!guard::needs_home(&cli::Command::Agent(vec![
+            "new".into(),
+            "--help".into()
+        ])));
+        assert!(guard::needs_home(&cli::Command::Agent(vec!["ls".into()])));
         assert!(guard::needs_home(&cli::Command::Ui));
         assert!(guard::needs_home(&cli::Command::Daemon));
         assert!(guard::needs_home(&cli::Command::Restart(Vec::new())));

@@ -10,13 +10,14 @@ use deckhand_core::error::DhError;
 use crate::cli::Command;
 
 /// Whether `command` reads or writes the state directory (`DECKHAND_HOME` / `~/.deckhand`): everything except
-/// printing the hooks config, `setup`/`doctor` (which only probe the PATH and read Codex's own config), `--version`
-/// and `help`.
+/// printing the hooks config, `setup`/`doctor` (which only probe the PATH and read Codex's own config), `--version`,
+/// `help`, `deckhand guide` and an agent command's `--help`.
 pub fn needs_home(command: &Command) -> bool {
-    !matches!(
-        command,
-        Command::Hooks(_) | Command::Setup(_) | Command::Doctor(_) | Command::Version | Command::Help
-    )
+    match command {
+        Command::Hooks(_) | Command::Setup(_) | Command::Doctor(_) | Command::Version | Command::Help => false,
+        Command::Agent(args) => crate::commands::args::needs_daemon(args),
+        _ => true,
+    }
 }
 
 /// The debug-build guard: in a debug build, an error when the resolved state directory is (or is inside)

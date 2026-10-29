@@ -168,6 +168,16 @@ where
     .await;
 }
 
+/// Where to run Git for a session's worktree: the checkout it was launched from while that still exists, else the
+/// repository's. Any checkout lists and removes the same worktrees, and the launch checkout (for a sub-session started
+/// inside its parent's worktree, that worktree) may have been deleted since.
+pub(crate) async fn git_checkout_of(session: &SessionRecord) -> String {
+    match session.launch_worktree_root.as_deref() {
+        Some(root) if tokio::fs::metadata(root).await.is_ok_and(|meta| meta.is_dir()) => root.to_owned(),
+        _ => session.repo_root.clone(),
+    }
+}
+
 impl Daemon {
     /// TS `liveWorktreeRecord(this.worktrees.values(), worktreePath)`: the live record at the path, as held.
     fn live_record(&self, worktree_path: &str) -> Option<Ordered<WorktreeRecord>> {
@@ -336,10 +346,7 @@ impl Daemon {
                 break;
             }
         }
-        let list_root = session
-            .launch_worktree_root
-            .clone()
-            .unwrap_or_else(|| session.repo_root.clone());
+        let list_root = git_checkout_of(session).await;
         match list_worktrees(&list_root).await {
             Ok(items) => {
                 let mut registered = None;
@@ -1286,6 +1293,25 @@ mod tests {
     }
 
     #[test]
+    fn git_runs_in_the_launch_checkout_while_it_exists_else_the_repository() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let parent = dir.path().join("parent-worktree");
+            std::fs::create_dir(&parent).unwrap();
+            let mut child = session("child", "/repo", "/wt/child").to_value().unwrap();
+            child["launchWorktreeRoot"] = json!(parent);
+            let child: SessionRecord = serde_json::from_value(child).unwrap();
+            assert_eq!(git_checkout_of(&child).await, parent.to_string_lossy());
+            // The parent's worktree was deleted after the child started from it.
+            std::fs::remove_dir(&parent).unwrap();
+            assert_eq!(git_checkout_of(&child).await, "/repo");
+            let mut plain = child;
+            plain.launch_worktree_root = None;
+            assert_eq!(git_checkout_of(&plain).await, "/repo");
+        });
+    }
+
+    #[test]
     fn linked_worktree_roots_are_told_from_the_main_checkout() {
         let fixture = fixture();
         local(async {
@@ -1543,6 +1569,16 @@ mod tests {
             let main_path = in_worktree("a", repo, repo, json!({"mode": "attached", "path": repo}), "running");
             assert_eq!(
                 blockers(main_path, false).await,
+                ["Worktree is missing or is the main checkout"]
+            );
+
+            // Started inside a worktree deleted since (a parent's): the repository lists it instead.
+            let mut orphaned = owner.clone();
+            orphaned.launch_worktree_root = Some(format!("{}/deleted-parent", fixture.root.display()));
+            assert!(blockers(orphaned.clone(), false).await.is_empty());
+            orphaned.worktree = Some(serde_json::from_value(json!({"mode": "managed", "path": gone})).unwrap());
+            assert_eq!(
+                blockers(orphaned, false).await,
                 ["Worktree is missing or is the main checkout"]
             );
 

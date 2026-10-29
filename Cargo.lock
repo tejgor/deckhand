@@ -475,6 +475,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "toml",
  "uuid",
 ]
 

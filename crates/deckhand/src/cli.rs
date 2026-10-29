@@ -16,7 +16,7 @@ use deckhand_sys::paths;
 use serde_json::Value;
 
 use crate::hooks::HooksTarget;
-use crate::{doctor, hook, hooks, restart, setup, ui_loop};
+use crate::{commands, doctor, hook, hooks, restart, setup, ui_loop};
 
 /// TS: cli.ts `process.title` in the dev channel.
 pub const DEV_PROCESS_TITLE: &str = "deckhand-dev";
@@ -34,6 +34,9 @@ pub enum Command {
     Hook,
     /// `hooks [codex]`: print the hooks config (see `crate::hooks`).
     Hooks(HooksTarget),
+    /// `new`, `ls`, `task`, `note`, `kill`, `remove`, `guide` (not in TS): Deckhand actions for the agents it runs
+    /// (see `crate::commands`). Holds argv from the command word on.
+    Agent(Vec<String>),
     /// `--session-worker` anywhere in argv.
     SessionWorker,
     /// `--workspace-worker` anywhere in argv.
@@ -68,6 +71,15 @@ Commands:
   --version                    Print the version
   help, --help, -h             Show this help
 
+Deckhand actions, for the agents in its sessions (and for you):
+  new [options]                Start a session (inside one: a sub-session in a new worktree)
+  ls                           List the checkout's sessions
+  task list|add|done|reopen|move  List, add, tick or move the repository's tasks
+  note add <item>              Add a step to this session's note
+  kill <id>, remove <id>       End, or remove, a session (from inside one: only its sub-sessions)
+  guide                        Print the guide to these commands for agents
+Each takes --json; deckhand <command> --help describes it.
+
 --check only reports; --yes (-y) installs, or restarts, without asking.
 deckhand hook is run by agents, not by hand.";
 
@@ -86,7 +98,8 @@ pub fn process_title(dev_channel: bool) -> &'static str {
 }
 
 /// TS: cli.ts main's argv tests, in order: dev `status`/`stop` (first argument, dev channel only), `hook`, `hooks`
-/// (second argument `codex` selects Codex), `--session-worker`, `--workspace-worker`, `--daemon` (anywhere), `setup`
+/// (second argument `codex` selects Codex), the agent commands (first argument, not in TS: before the flags below, so a
+/// `--prompt` may say `--daemon`), `--session-worker`, `--workspace-worker`, `--daemon` (anywhere), `setup`
 /// / `doctor` / `restart` (first argument; the rest are passed on), `--version` (first argument), else the UI. `args` excludes
 /// the program name (`process.argv.slice(2)`). The port adds `help` / `--help` / `-h` (first argument) beside
 /// `--version`, so the worker and daemon flags still win over it.
@@ -97,6 +110,7 @@ pub fn parse_args(args: &[String], dev_channel: bool) -> Command {
         Some("stop") if dev_channel => return Command::DevDaemon(DevDaemonAction::Stop),
         Some("hook") => return Command::Hook,
         Some("hooks") => return Command::Hooks(HooksTarget::from_arg(args.get(1).map(String::as_str))),
+        Some(word) if commands::args::COMMAND_WORDS.contains(&word) => return Command::Agent(args.to_vec()),
         _ => {}
     }
     let has = |flag: &str| args.iter().any(|arg| arg == flag);
@@ -151,6 +165,7 @@ pub async fn run(command: Command) -> Result<ExitCode, DhError> {
         Command::DevDaemon(action) => run_dev_daemon(action).await?,
         Command::Hook => hook::run_hook().await,
         Command::Hooks(target) => hooks::run_hooks(target)?,
+        Command::Agent(args) => return commands::run(&args).await,
         Command::SessionWorker => run_session_worker().await?,
         Command::WorkspaceWorker => run_workspace_worker().await?,
         Command::Daemon => run_daemon().await?,
@@ -381,6 +396,20 @@ mod tests {
     }
 
     #[test]
+    fn agent_commands_are_the_first_argument_and_win_over_internal_flags() {
+        for word in ["new", "ls", "task", "note", "kill", "remove", "guide"] {
+            assert_eq!(parse_args(&args(&[word]), false), Command::Agent(args(&[word])));
+            assert_eq!(parse_args(&args(&[word]), true), Command::Agent(args(&[word])));
+        }
+        // A prompt may hold any text, an internal flag included.
+        let prompt = args(&["new", "--prompt", "--daemon", "--session-worker"]);
+        assert_eq!(parse_args(&prompt, false), Command::Agent(prompt.clone()));
+        assert_eq!(parse_args(&args(&["x", "new"]), false), Command::Ui);
+        assert_eq!(parse_args(&args(&["--daemon", "new"]), false), Command::Daemon);
+        assert_eq!(parse_args(&args(&["NEW"]), false), Command::Ui);
+    }
+
+    #[test]
     fn help_is_the_first_argument_and_internal_flags_win_over_it() {
         for flag in ["help", "--help", "-h"] {
             assert_eq!(parse_args(&args(&[flag]), false), Command::Help);
@@ -414,6 +443,12 @@ mod tests {
             "hooks [codex]",
             "restart [--yes|-y]",
             "--version",
+            "new [options]",
+            "task list|add|done|reopen|move",
+            "note add <item>",
+            "kill <id>, remove <id>",
+            "guide",
+            "deckhand <command> --help",
         ] {
             assert!(HELP_TEXT.contains(listed), "{listed}");
         }

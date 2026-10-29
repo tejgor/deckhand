@@ -19,8 +19,11 @@ scripts/deckhand-dev.sh --sandbox       # open the UI in a disposable repository
 | `~/.deckhand/` | `~/.deckhand-dev/` |
 | Production socket/PID/logs/state/trust/UI preferences | Separate socket/PID/logs/state/trust/UI preferences |
 | `~/.deckhand/worktrees/` | `~/.deckhand-dev/worktrees/` (Git fallback) |
+| Agents' `deckhand`: the installed binary | Agents' `deckhand`: this checkout's build |
 
 The script sets `DECKHAND_HOME` to the dev namespace and `DECKHAND_CHANNEL=dev` for the processes it starts. An optional **`DECKHAND_DEV_HOME`** selects another dev namespace. It must be separate from `~/.deckhand` and from any `DECKHAND_HOME` your shell already sets for stable Deckhand: the same path, an ancestor or descendant, or a symlink alias of either is rejected. `setup` and `doctor` are refused unless you pass `--check` (read-only); the launcher never installs agent tools.
+
+Agents in dev sessions inherit that environment, and their `PATH` starts with `~/.deckhand-dev/agent-plugin/bin`, which holds a link to the binary the dev daemon runs. So the [`deckhand` commands](features.md#deckhand-commands-for-agents) they run are this checkout's build and act on the dev daemon, whichever `deckhand` your own `PATH` names.
 
 ## Status, stop, and rebuild
 

@@ -299,6 +299,19 @@ pub mod lenient {
     }
 }
 
+/// The session a `deckhand` command run inside a Deckhand session acts for (its `DECKHAND_SESSION_ID`,
+/// `DECKHAND_LAUNCH_ID` and `DECKHAND_HOOK_TOKEN`), checked as hook callbacks are. Not in the TS.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCaller {
+    #[serde(default, deserialize_with = "lenient::string")]
+    pub session_id: String,
+    #[serde(default, deserialize_with = "lenient::string")]
+    pub launch_id: String,
+    #[serde(default, deserialize_with = "lenient::string")]
+    pub token: String,
+}
+
 /// A request naming only its ID (`ping`, `shutdown`, `list`).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -776,6 +789,9 @@ pub struct Create {
     pub request_id: String,
     #[serde(default, deserialize_with = "lenient::present")]
     pub input: Option<Value>,
+    /// Set by `deckhand` commands run inside a session (not in the TS): the daemon checks it and acts for that session.
+    #[serde(default)]
+    pub caller: Option<AgentCaller>,
 }
 
 #[skip_serializing_none]
@@ -834,6 +850,9 @@ pub struct Kill {
     pub allow_data_loss: Option<bool>,
     #[serde(default, deserialize_with = "lenient::strict_true")]
     pub send_open_items: Option<bool>,
+    /// Set by `deckhand` commands run inside a session (not in the TS): the daemon checks it and acts for that session.
+    #[serde(default)]
+    pub caller: Option<AgentCaller>,
 }
 
 /// `merge-preview`, `mark-session-merged`.
@@ -916,6 +935,9 @@ pub struct Remove {
     pub session_id: String,
     #[serde(default, deserialize_with = "lenient::truthy")]
     pub move_open_items: Option<bool>,
+    /// Set by `deckhand` commands run inside a session (not in the TS): the daemon checks it and acts for that session.
+    #[serde(default)]
+    pub caller: Option<AgentCaller>,
 }
 
 /// `attach`, `attach-terminal`, `attach-git`, `attach-dev`, `attach-action` (attach.ts literal order).

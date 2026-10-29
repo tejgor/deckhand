@@ -110,6 +110,9 @@ pub struct AppConfig {
     /// Not in the TS: how far the mouse wheel scrolls, when attached and in Preview focus (`deckhand_core::wheel`; 1,
     /// the default: each wheel event as the terminal sends it). Settings (`C`) and `+`/`-` in Preview focus save it.
     pub scroll_speed: Option<JsNumber>,
+    /// Not in the TS: unless false, agents Deckhand launches may run `deckhand` commands without asking (Claude:
+    /// `--allowedTools`). The skill that tells them about the commands is added either way.
+    pub allow_deckhand_commands: Option<bool>,
     /// Global project defaults (deckhand.json schema), kept as stored (`null` included).
     #[serde(default, deserialize_with = "crate::events::present_value")]
     pub defaults: Option<Value>,
@@ -152,6 +155,7 @@ impl AppConfig {
             sidebar_width_percent: raw.get("sidebar_width_percent").and_then(Value::as_f64).map(JsNumber),
             claude_scroll_override: raw.get("claude_scroll_override").and_then(Value::as_bool),
             scroll_speed: raw.get("scroll_speed").and_then(Value::as_f64).map(JsNumber),
+            allow_deckhand_commands: raw.get("allow_deckhand_commands").and_then(Value::as_bool),
             // `defaults: parsed.defaults` keeps even null.
             defaults: raw.get("defaults").cloned(),
         }
@@ -336,5 +340,15 @@ mod tests {
             r#"{"trustedProjects":{"/r":["abc"],"/t":["x"]},"agent_hooks":true,"notifications":false}"#
         );
         assert_eq!(to_ts_json(&AppConfig::from_raw(&RawConfig::new())).unwrap(), "{}");
+    }
+
+    #[test]
+    fn deckhand_commands_are_allowed_unless_turned_off() {
+        let read = |text: &str| AppConfig::from_raw(&serde_json::from_str(text).unwrap()).allow_deckhand_commands;
+        assert_eq!(read(r#"{"allow_deckhand_commands":false}"#), Some(false));
+        assert_eq!(read(r#"{"allow_deckhand_commands":true}"#), Some(true));
+        // Absent or not a boolean: unset (the default, on).
+        assert_eq!(read(r#"{"allow_deckhand_commands":"no"}"#), None);
+        assert_eq!(read(r#"{"theme":"dusk"}"#), None);
     }
 }

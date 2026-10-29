@@ -27,7 +27,7 @@ Two other Orca details need nothing either:
   - Roadmap 6's "reviewed" flag is the unread state: set when a turn ends, cleared when you open the session, settable from the CLI.
   - Show unread rows bold in the sidebar.
 
-### CLI shape (joins the scriptable CLI, `deckhand-mcp-cli.md`)
+### CLI shape (joins the scriptable CLI, `deckhand-cli.md`)
 - Orca's CLI uses `--json` on every command, plus selectors (`active`, `id:`, `path:`, `branch:`, `name:`).
 - `orca terminal read --screen` returns the rendered screen; `read --cursor <n>` returns the output since a cursor, escapes stripped.
 - `orca terminal send --text … --enter` types text into a terminal.
@@ -37,9 +37,9 @@ Two other Orca details need nothing either:
 ### Agent checkpoints (joins the CLI)
 - Agents report progress with `orca worktree set --comment "…" --workspace-status todo|in-progress|in-review|completed`, shown in the UI.
 - The guidance: the first line says what the agent is doing; read the current value (`worktree current`) before writing so the user's text is not overwritten.
-- For Deckhand: `deckhand status --set "…"` from inside a session. It is authenticated by the session's hook token (as the MCP doc plans) and shown on the details line next to the live activity (roadmap 4).
+- For Deckhand: `deckhand status --set "…"` from inside a session. It is authenticated by the session's hook token (as `deckhand-cli.md` plans) and shown on the details line next to the live activity (roadmap 4).
 
-### Skill served by the binary (joins the CLI)
+### Skill served by the binary (built: `deckhand guide`, see `docs/features.md`)
 - Orca publishes tiny `SKILL.md` stubs. Each one only tells the agent to run `orca skills get <topic>`, so the full guide always matches the installed version.
 - For Deckhand: `deckhand skill` prints the CLI guide, plus a one-paragraph stub users add to `~/.claude/skills`. Deckhand would print the stub and never install it, as with `deckhand hooks`.
 
@@ -74,7 +74,7 @@ For Deckhand:
   - One form: a prompt, N agents, base branch.
   - A grouped comparison: per worktree the state, files changed and +/− lines, and the turn summary (roadmap 6).
   - "Merge this one, delete the others". The other worktrees still go through the normal safety checks.
-- The CLI and MCP get the same thing as `deckhand new --fan-out`.
+- The CLI gets the same thing as `deckhand new --fan-out`.
 
 ### Usage and rate limits (new; Codex half depends on `codex-app-server.md`)
 - **Codex:** Orca asks the app-server (`account/rateLimits/read`), falling back to an internal chatgpt.com endpoint. With the app-server integration Deckhand gets this almost for free, and `account/rateLimits/updated` pushes changes.
@@ -127,7 +127,7 @@ A native iOS or Android app is not planned. It would mean a separate codebase, s
 
 ### Scheduled runs (later)
 - `orca automations create --trigger daily|<cron> --prompt … --precheck "<shell>"` runs a prompt on a schedule. When the precheck exits non-zero, the run is skipped without starting an agent.
-- For Deckhand the daemon could run these. But agents running unattended spend money and need permission defaults that Deckhand deliberately leaves to the agent, so this waits until the MCP orchestration exists.
+- For Deckhand the daemon could run these. But agents running unattended spend money and need permission defaults that Deckhand deliberately leaves to the agent, so this waits until CLI orchestration exists.
 
 ### Accounts per launch (later)
 - Orca keeps each Codex account in its own `CODEX_HOME`, and each Claude account in its own `CLAUDE_CONFIG_DIR`. Switching only affects new launches; running sessions keep theirs.

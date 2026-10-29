@@ -1,5 +1,6 @@
 //! deckhand-core.
 
+pub mod agent_guide;
 pub mod agent_signals;
 pub mod agent_versions;
 pub mod agents;

@@ -43,7 +43,7 @@ For Deckhand:
 - herdr-projects makes it a rule: an agent that needs you must run `herdr-projects report <id> --state blocked --kind question|permission|auth --msg "<why>"` before it stops. A question asked in plain words with no report looks exactly like a finished turn, and is reviewed as finished.
 - For Deckhand:
   - Extend the planned `deckhand status --set "…"` with `--state waiting --kind question|permission|auth`, authenticated by the hook token like the checkpoints, ordered like hook signals (`sentAt`; older ones are dropped).
-  - It gives Pi a waiting state without a Pi extension, and gives orchestrated sessions (MCP) a reliable "waiting, not finished".
+  - It gives Pi a waiting state without a Pi extension, and gives orchestrated sessions (the CLI's later phase) a reliable "waiting, not finished".
 
 ### "Why this state?" (joins hook health, README 1b)
 - `herdr agent explain [--file screen.txt]` prints which detection rule matched and why.
@@ -83,7 +83,7 @@ herdr's `agent prompt <name> "text" --wait --until idle|done|blocked`:
 - fails with `agent_prompt_stalled` when no working state appears within 5 seconds;
 - submits the text and Enter as one ordered step, with bracketed paste.
 
-For Deckhand: `deckhand send` refuses on needs-input the same way, `wait` takes `--until idle|ended|waiting`, and `read --screen` stays the visible screen (history comes from transcripts, as `deckhand-mcp-cli.md` says).
+For Deckhand: `deckhand send` refuses on needs-input the same way, `wait` takes `--until idle|ended|waiting`, and `read --screen` stays the visible screen (history comes from transcripts, as `deckhand-cli.md` says).
 
 ## Not adopting
 

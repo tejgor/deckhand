@@ -30,6 +30,14 @@ Install [`lazygit`](https://github.com/jesseduffield/lazygit). The rest of the G
 
 Set a Dev command in Settings (`C`), then press `D` to start it. `d` only shows the tab.
 
+## An agent's `deckhand` commands fail or ask first
+
+- **Claude asks before each one**: check that `~/.deckhand/config.json` doesn't set `"allow_deckhand_commands": false`. The setting applies from a session's next launch.
+- **Codex asks before each one**: expected. Codex has no launch option to allow a command, so its own approval settings apply.
+- **An agent runs another `deckhand`**: ask it to run `command -v deckhand`. It should be `~/.deckhand/agent-plugin/bin/deckhand`, a link to the Deckhand that launched it. If your shell's startup files set `PATH` themselves, the agent's shell may find another copy first.
+
+See [Deckhand commands for agents](features.md#deckhand-commands-for-agents).
+
 ## No notifications on macOS
 
 Allow Deckhand in System Settings › Notifications › Deckhand. If it isn't listed there, switch Notifications off and on in Settings (`C`) to send a test. See [Allowing notifications on macOS](features.md#allowing-notifications-on-macos).

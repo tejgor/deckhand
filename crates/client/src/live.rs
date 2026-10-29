@@ -30,12 +30,12 @@ use deckhand_protocol::data::{
     WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview,
 };
 use deckhand_protocol::wire::{
-    AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest, DeleteWorktree,
-    ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose, MergeWorktree, OpenNote, PromoteNoteItem,
-    Remove, ReorderSession, RequestOnly, ResolveMerge, Restart, ReturnTaskToNote, RunAction, SaveConfig, SaveNote,
-    SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone,
-    StopDevRequest, Subscribe, TaskOpRequest, TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane,
-    WatchPreview, WorkspaceSummaryRequest, WorktreeCandidateSizes,
+    AgentCaller, AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest,
+    DeleteWorktree, ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose, MergeWorktree, OpenNote,
+    PromoteNoteItem, Remove, ReorderSession, RequestOnly, ResolveMerge, Restart, ReturnTaskToNote, RunAction,
+    SaveConfig, SaveNote, SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetReplyRead,
+    SetSessionDone, StopDevRequest, Subscribe, TaskOpRequest, TaskToNote, TrustProject, UpdateAgent, WatchChanges,
+    WatchPane, WatchPreview, WorkspaceSummaryRequest, WorktreeCandidateSizes,
 };
 
 use crate::client::{
@@ -613,10 +613,17 @@ impl LiveClient {
 
     /// TS: LiveClient.createSession.
     pub fn create_session(&self, input: CreateSessionInput) -> Reply<SessionRecord> {
+        self.create_session_as(input, None)
+    }
+
+    /// Not in the TS: `create` for a `deckhand` command, acting for `caller` (the session it runs in, checked by the
+    /// daemon) when there is one.
+    pub fn create_session_as(&self, input: CreateSessionInput, caller: Option<AgentCaller>) -> Reply<SessionRecord> {
         // The daemon reads the input as sent (createSession's checks); a well-formed one always serialises.
         self.request(Request::Create(Create {
             request_id: new_request_id(),
             input: serde_json::to_value(&input).ok(),
+            caller,
         }))
     }
 
@@ -711,6 +718,22 @@ impl LiveClient {
             force: Some(options.force),
             allow_data_loss: Some(options.allow_data_loss),
             send_open_items: only_true(options.send_open_items),
+            caller: None,
+        }))
+    }
+
+    /// Not in the TS: `kill` for a `deckhand` command, acting for `caller` when there is one. It never deletes the
+    /// worktree or branch nor forces the stop: none of those options is sent (the daemon refuses them from a caller).
+    pub fn kill_session_as(&self, session_id: &str, caller: Option<AgentCaller>) -> Reply<()> {
+        self.request(Request::Kill(Kill {
+            request_id: new_request_id(),
+            session_id: session_id.to_owned(),
+            delete_worktree: None,
+            delete_branch: None,
+            force: None,
+            allow_data_loss: None,
+            send_open_items: None,
+            caller,
         }))
     }
 
@@ -782,6 +805,18 @@ impl LiveClient {
             request_id: new_request_id(),
             session_id: session_id.to_owned(),
             move_open_items: only_true(move_open_items.unwrap_or(false)),
+            caller: None,
+        }))
+    }
+
+    /// Not in the TS: `remove` for a `deckhand` command, acting for `caller` when there is one (open note items stay
+    /// in their notes).
+    pub fn remove_session_as(&self, session_id: &str, caller: Option<AgentCaller>) -> Reply<()> {
+        self.request(Request::Remove(Remove {
+            request_id: new_request_id(),
+            session_id: session_id.to_owned(),
+            move_open_items: None,
+            caller,
         }))
     }
 
@@ -1423,6 +1458,39 @@ mod tests {
                     String::from("close")
                 ]
             );
+        });
+    }
+
+    #[test]
+    fn commands_run_in_a_session_send_their_caller_and_no_destructive_options() {
+        run(async {
+            let log = Log::default();
+            let (client, mut daemon) = connect(recording(&log));
+            let caller = AgentCaller {
+                session_id: "s1".into(),
+                launch_id: "l1".into(),
+                token: "t1".into(),
+            };
+            drop(client.kill_session_as("s2", Some(caller.clone())));
+            drop(client.remove_session_as("s2", Some(caller)));
+            drop(client.kill_session_as("s3", None));
+            let kill = daemon.next().await.unwrap();
+            let remove = daemon.next().await.unwrap();
+            let from_shell = daemon.next().await.unwrap();
+            let without_id = |mut message: Value| {
+                message.as_object_mut().map(|object| object.remove("requestId"));
+                message
+            };
+            let caller = json!({"sessionId": "s1", "launchId": "l1", "token": "t1"});
+            assert_eq!(
+                without_id(kill),
+                json!({"type": "kill", "sessionId": "s2", "caller": caller})
+            );
+            assert_eq!(
+                without_id(remove),
+                json!({"type": "remove", "sessionId": "s2", "caller": caller})
+            );
+            assert_eq!(without_id(from_shell), json!({"type": "kill", "sessionId": "s3"}));
         });
     }
 }

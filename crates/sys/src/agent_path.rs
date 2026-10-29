@@ -191,7 +191,8 @@ async fn integration_args_with(
     if program != ProgramKey::Claude || !help.contains("--settings") {
         return Ok(Vec::new());
     }
-    // Additional settings only; never alter permissions or replace the native TUI.
+    // Additional settings only; never alter permissions (`deckhand` commands are pre-allowed separately, in
+    // `agent_commands`) or replace the native TUI.
     let mut settings = serde_json::Map::new();
     if enabled {
         let mut hooks = hook_settings_for(&hook_command()?, true);

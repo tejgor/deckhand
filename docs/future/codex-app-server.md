@@ -22,10 +22,10 @@ Codex hooks would no longer be needed. Claude keeps hooks (see *Claude* below); 
 | Approval details | Command or file only | Command, cwd, parsed actions, reason, network host; file changes as separate requests | Small–medium |
 | Setup | Manual `hooks.json`, then trust in `/hooks`; redo when the deckhand binary moves (an old `node … cli.js hook` entry is stale since the native port) | None: Deckhand passes the flags | Medium (friction) |
 | Answering without attaching | Not possible | Respond to the request; the server sends each request to every subscribed client, the first answer wins, and the others get `serverRequest/resolved` | **Large** |
-| Orchestration (see `deckhand-mcp-cli.md`) | Typing into the PTY | Start threads and turns, read results | **Large** |
+| Orchestration (see `deckhand-cli.md`) | Typing into the PTY | Start threads and turns, read results | **Large** |
 | Conversation ID | SessionStart hook or the exit hint | `thread/started` | Small |
 
-For an accurate sidebar alone, Codex hooks get most of the way once installed. The app-server earns its cost if answering from Deckhand or the MCP orchestrator matters, or if Codex is used a lot.
+For an accurate sidebar alone, Codex hooks get most of the way once installed. The app-server earns its cost if answering from Deckhand or orchestration through the CLI (`deckhand-cli.md`) matters, or if Codex is used a lot.
 
 ## Key question: can a second client follow the TUI's own conversation?
 
@@ -76,7 +76,7 @@ Claude's hooks already cover most of what the app-server gives Codex, documented
 - `integration_args` (`crates/sys/src/agent_path.rs`): for Codex, `--remote unix://<sock>` instead of `--no-daemon`, only when `--remote` appears in `codex --help`.
 - The session worker (`crates/worker/src/session.rs`): start and own the app-server child next to the PTY (about 60 ms to `initialize`), remove the socket on exit.
 - A new `codex_app_server` module (the WebSocket client in `crates/worker`, the pure event mapping in `crates/core`): a `normalize_app_server()` producing the existing `AgentSignal`: `turn/started` → working; `waitingOnApproval` / `waitingOnUserInput` → needs-input with the reason from the request; `turn/completed` → response-ended (last agent message), failed or limited; `serverRequest/resolved` → working; `thread/started` → the conversation ID.
-- The daemon (`crates/daemon/src/hooks.rs`): feed those signals into the existing attention and notification pipeline; later an "answer request" call (roadmap item 7) and the MCP.
+- The daemon (`crates/daemon/src/hooks.rs`): feed those signals into the existing attention and notification pipeline; later an "answer request" call (roadmap item 7) and CLI orchestration.
 - Settings and docs: retire the "⚠ Codex hooks" setup.
 - Optionally generate types per Codex version with `codex app-server generate-ts`.
 

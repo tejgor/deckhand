@@ -38,7 +38,7 @@ Not yet checked against real agents: real question/permission payload wording, a
 - Moved up in the suggested order (`README.md`): it is the core of the phone companion page (`ideas-from-orca.md`, *Phone*). Start with Claude's questions and permission prompts.
 - The reason already keeps the first question's `options`.
 - In the Preview pane, a waiting question lists its options; picking one sends keystrokes to the PTY (the option's number or arrows, then Enter). Depends on Claude's dialog layout: check the option labels are on screen first, refuse otherwise.
-- Structured alternative: a briefly waiting `PreToolUse` hook returning `permissionDecision: "allow"` with `updatedInput` (the original `questions` plus `answers`). Robust, but the dialog is hidden while it waits — better suited to orchestrated sessions (a Deckhand MCP, see `deckhand-mcp-cli.md`) than interactive use. For Codex, the app-server answers requests natively, with the TUI's prompt still visible (`codex-app-server.md`).
+- Structured alternative: a briefly waiting `PreToolUse` hook returning `permissionDecision: "allow"` with `updatedInput` (the original `questions` plus `answers`). Robust, but the dialog is hidden while it waits — better suited to orchestrated sessions (the scriptable CLI's later phase, see `deckhand-cli.md`) than interactive use. For Codex, the app-server answers requests natively, with the TUI's prompt still visible (`codex-app-server.md`).
 - Permission prompts could get y/n the same way (keystrokes).
 - herdr-remote answers this way today; its lessons are in `ideas-from-herdr.md` (*Answering without attaching*). In short: the client sends back a fingerprint of the question text and option labels (not the whole screen: Claude's timer redraws it every second) and the daemon refuses if the dialog changed; a numbered menu takes the digit key, never text and Enter; a custom answer waits for the text field before typing; multi-select toggles then submits; keys go out at most once. Refuse multi-question dialogs at first.
 
@@ -55,4 +55,4 @@ Not yet checked against real agents: real question/permission payload wording, a
 - Claude Code hooks: https://code.claude.com/docs/en/hooks
 - Codex hooks: https://learn.chatgpt.com/docs/hooks
 - Pi extensions: https://pi.dev/docs/latest/extensions
-- Related future work: `codex-app-server.md` (Codex without hooks), `deckhand-mcp-cli.md` (agents driving Deckhand)
+- Related future work: `codex-app-server.md` (Codex without hooks), `deckhand-cli.md` (agents driving Deckhand)

@@ -973,7 +973,7 @@ fn json_of<T: Serialize>(value: &Option<T>) -> Option<Value> {
 }
 
 /// The AppConfig properties in normalizeAppConfig key order (all of them, as `Object.keys` lists them).
-fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 10] {
+fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 11] {
     [
         ("dev_command", json_of(&config.dev_command)),
         ("attach_scroll_sensitivity", json_of(&config.attach_scroll_sensitivity)),
@@ -984,6 +984,7 @@ fn properties(config: &AppConfig) -> [(&'static str, Option<Value>); 10] {
         ("sidebar_width_percent", json_of(&config.sidebar_width_percent)),
         ("claude_scroll_override", json_of(&config.claude_scroll_override)),
         ("scroll_speed", json_of(&config.scroll_speed)),
+        ("allow_deckhand_commands", json_of(&config.allow_deckhand_commands)),
         ("defaults", config.defaults.clone()),
     ]
 }
@@ -1045,6 +1046,7 @@ pub fn patch_app_config(patch: AppConfig) -> Task<Result<AppConfig>> {
             sidebar_width_percent: patch.sidebar_width_percent.or(current.sidebar_width_percent),
             claude_scroll_override: patch.claude_scroll_override.or(current.claude_scroll_override),
             scroll_speed: patch.scroll_speed.or(current.scroll_speed),
+            allow_deckhand_commands: patch.allow_deckhand_commands.or(current.allow_deckhand_commands),
             defaults: patch.defaults.or(current.defaults),
         })
     })

@@ -83,6 +83,7 @@ More in [docs/architecture.md](docs/architecture.md).
 - **[Git tab](docs/features.md#git-changes)**: the worktree's changes, with diffs and staging, like your editor's source control panel.
 - **[Notes](docs/features.md#notes)**: one Markdown note with checklists per worktree, editable in Deckhand or your own editor.
 - **[Tasks](docs/features.md#tasks)** (`b`): one task list per repository. Start a session from a task, and merging its worktree ticks it off.
+- **[Deckhand commands for agents](docs/features.md#deckhand-commands-for-agents)**: ask an agent to start sub-sessions, add tasks or add steps to its note, and it does so with `deckhand` commands. It can end only the sub-sessions it started, and merging and deleting stay with you.
 - **[Project settings](docs/features.md#configuration)**: a per-repository `deckhand.json` for defaults, a Dev command and named actions, reviewed before any of it runs.
 
 ## Essential keys
@@ -119,7 +120,7 @@ No. The daemon keeps them running. Stopping or restarting the daemon itself ends
 It never commits on your branch: a merge leaves the result staged for you to commit. Before merging, it commits leftover changes in the agent's worktree, with the session title as the message; press `space` on the merge screen to leave them uncommitted. Deckhand pushes only when you open a pull request from the Git summary (`i`, then `c`), and asks first.
 
 **Does it change my agents' settings?**
-No. Claude Code gets Deckhand's hooks as a launch option, and you add Codex's hooks yourself.
+No. Claude Code gets Deckhand's hooks as a launch option, and every agent is told about the [`deckhand` commands](docs/features.md#what-agents-are-told) the same way. You add Codex's hooks yourself.
 
 **Something isn't working.**
 See [Troubleshooting](docs/troubleshooting.md).

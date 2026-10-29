@@ -583,6 +583,8 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
             .map(|task| task.id.clone()),
         project_fingerprint,
         fork_from_session_id: fork_from_id,
+        prompt: None,
+        submit: None,
     };
     let reply = client.create_session(input);
     let task = app.dispatch().spawn(reply, |app: &mut App, result| {

@@ -346,7 +346,7 @@ There are two things: tasks, one list per repository, and notes, one per worktre
 - **Other keys**: `space` ticks or reopens a task, `x` twice deletes, and `J`/`K` reorder within a group (done tasks can't be reordered). `j`/`k` (`↑`/`↓`) and `g`/`G` move, `o` selects the session doing it and `E` opens the file in Cursor or VS Code.
 - **Steps**: the checklist in a worktree's note (a main-checkout session's own note, for work in the main checkout) is the breakdown of its task. `space` on a step ticks or unticks it in the note, revision-checked like typing in the Notes tab. `enter` opens the note. The session's Notes tab banner says `2/5 steps`. The task list only reads the note, so it stays plain Markdown. `c` on a task (or one of its steps) hides its steps, and its count shows `▸ 2/5` until `c` shows them again. Deckhand remembers which are hidden until it quits.
 - **Moving** (`w`): to the backlog, back to the note it was sent from, or to a worktree or main-checkout session. **↩ Back to its note** is listed while a note still holds its `↗` line. The line becomes the checklist item again, with its details indented under it, and the task leaves the list. Onto work without a task (a session started from the sidebar, say), it becomes that work's task, exactly as if the session had been started from it with `n`. Onto work that has one, it becomes a step: an open item at the end of its note (or on its `↗` line, if that note sent it), and it leaves the list. Each row says which (`◆ its task` / `→ a step in its note`). The menu has two lists, **Worktrees** and **Sessions** (main checkout), and `tab` switches between them. `j`/`k` or `↑`/`↓` choose. `/` searches names, branches and session titles (`enter` keeps the search, `esc` clears it, as in the sidebar; while typing, `↑`/`↓`, `ctrl+p`/`ctrl+n` or `ctrl+k`/`ctrl+j` choose). `esc` clears a kept search, then cancels.
-- **Starting a session** (`n` on a backlog task): the usual new-session form opens, named after the task (cut to 64 characters), in a new worktree by default, with *Task:* and *Base:* lines. `↑`/`↓` choose where the new branch starts: the `worktree.branchFrom` setting (first), or any local branch, most recently committed first. The task becomes the task of the session's worktree (in the main checkout, of the session).
+- **Starting a session** (`n` on a backlog task): the usual new-session form opens, named after the task (cut to 64 characters), in a new worktree by default, with *Task:* and *Base:* lines. `↑`/`↓` choose where the new branch starts: the `worktree.branchFrom` setting (first), or any local branch, most recently committed first. The task becomes the task of the session's worktree (in the main checkout, of the session). An agent can start one too, with `deckhand new --task`, as a sub-session in a new worktree or a top-level session (see [Deckhand commands for agents](#starting-a-session-from-a-command)).
 - **Typing the task**: its text (`<title>: <details>` on one line) is typed into the agent's input but not sent, so you edit it and press `enter` yourself. Deckhand types it once the agent's screen has not changed for 0.7 s (or its activity turns idle), with no menu or question showing. That rules out Claude's and Codex's folder-trust prompts and numbered menus. It types the text as one bracketed paste, so no character acts as a shortcut. If you type letters into the agent first, or it doesn't settle within two minutes, nothing is typed.
 - **Notes view** (`tab`): every note with text, in full, under a heading per worktree in sidebar order (its note), then **main checkout** (its note, then each session's own). Each note has its name and open-item count. Every line is listed (checklist items as ☐/☑, `↗` links, headings). `a` on an open item sends it to the backlog as a task, and `A` sends every open item of the selected note at once. `enter` opens the note in its session's Notes tab, `f` shows only open items (and back) and `v` only the selected session's worktree (or, in the main checkout, its note and the main checkout's). Empty notes and deleted worktrees' notes are left out. A sent item's line becomes `↗ item`, which says where its task is: *in Tasks*, *done* or *not in Tasks* (deleted).
 - **The end of the work**: merging the worktree (`m`, `M` or merged found by Deckhand) ticks its task, and the merge confirmation names it. Marking done (`space`) ticks it once every session of the worktree is done. Undoing the merged marker or done reopens it. When the worktree is deleted unmerged, or its last session (or a main-checkout session) is removed, its open task goes back to the backlog marked *tried in ⎇ branch*.
@@ -375,6 +375,74 @@ New worktrees are created with `git worktree add` at the configured `worktree.lo
 - **Forking Codex**: a Codex parent can be forked once its conversation ID is known, from Codex's SessionStart hook or its exit hint.
 - **Top-level forks**: `n` with a session selected also offers **⑂ Fork <session>**. It forks that session's conversation into a new top-level session rather than a sub-session. The fork starts from the source's directory with `n`'s usual workspace default, and `tab` picks another. A Codex fork stays in the source's worktree, as above. Its details say `⑂ fork of <source>` while the source is listed.
 - **From a handoff**: **↳ From its handoff** creates a clean child from the handoff exported with `H` (see [Resume and handoffs](#resume-and-handoffs)).
+
+## Deckhand commands for agents
+
+An agent in a Deckhand session can take Deckhand actions when you ask it to: "start sub-sessions for these three tasks", "park this in the backlog", "add a step to our note". It runs `deckhand` commands in its shell to do it. The sessions it starts appear in the sidebar under it, and you watch them, attach to them and take over as with any other session. You can run the same commands yourself.
+
+| Command | What it does |
+| --- | --- |
+| `deckhand new [options]` | Starts a session; see [Starting a session from a command](#starting-a-session-from-a-command) |
+| `deckhand ls` | Lists the sessions of the checkout it runs in, as the sidebar there does (archived ones left out): ID, state, agent, name, branch and task. `*` marks the session the command runs in |
+| `deckhand task list` | The repository's open tasks (in progress, then the backlog) and those done in the last 7 days |
+| `deckhand task add <title> [--details <text>]` | Adds a task to the backlog |
+| `deckhand task done <id>`, `deckhand task reopen <id>` | Ticks a task, or reopens it |
+| `deckhand task move <id> --to backlog\|<session id>` | Moves a task to the backlog, or onto a session's work by the rules of `w` in the task list (see [Tasks](#tasks)): it becomes that work's task, or a step in its note when the work has a task already |
+| `deckhand note add <item>` | Adds `- [ ] <item>` at the end of the calling session's note: its worktree's note, or in the main checkout the session's own |
+| `deckhand kill <id>` | Ends a running session. Its worktree and branch are kept |
+| `deckhand remove <id>` | Removes an exited session from the list |
+| `deckhand guide` | Prints the guide agents read (see [What agents are told](#what-agents-are-told)) |
+
+Every command takes `--json` for machine-readable output, and `deckhand <command> --help` describes it. IDs may be shortened to any unique prefix; the text output shows their first 8 characters. The commands reach the daemon as the UI does, and start it when it isn't running; `guide` and `--help` need no daemon. `deckhand help` lists them too.
+
+### The caller
+
+A command run inside a session acts for that session, the **caller**. It finds it from the `DECKHAND_SESSION_ID`, `DECKHAND_LAUNCH_ID` and `DECKHAND_HOOK_TOKEN` Deckhand gives every agent it launches, and the daemon checks them as it checks [agent signal callbacks](#lifecycle-signals-and-notifications): a wrong token, an earlier launch or an exited session is refused with *Stale or unauthorized deckhand caller*.
+
+- **Starting sessions**: from a session, a new session's parent (or the session it forks) can only be the caller: *A deckhand command starts sessions only from the session it runs in*.
+- **Ending sessions**: from a session, `kill` and `remove` act only on the caller's own sub-sessions, those it started. Anything else is refused: *Only sub-sessions this session started can be stopped or removed from it*. `kill` never deletes a worktree or branch, and `remove` doesn't send a note's open items to the backlog first (the choice `backspace`'s confirmation offers).
+- **Left to you**: merging, deleting worktrees and branches, and anything on sessions the caller didn't start. There are no commands for them.
+- **Run by hand**, outside a session, there is no caller: `new` starts a top-level session of the current repository, `kill` and `remove` act on any session, and `note add`, `new --fork` and `new --worktree same` refuse.
+
+### Starting a session from a command
+
+Inside a session, `deckhand new` starts a **sub-session of the caller in a new worktree**, so sub-sessions working side by side don't edit the same checkout. It waits up to 20 seconds for the worktree, then prints the session (with `--json`, its record).
+
+- **`--prompt <text>`**: the agent's first message, sent when it starts. It arrives whole, however long, as one message. Only the session's first launch sends it; resuming never sends it again.
+- **`--draft`**: types the prompt into the agent's input without sending it, as starting a task does (see [Tasks](#tasks)), for you to review and send. Prefer sending long prompts: Claude collapses a multi-line paste into a placeholder you can't edit.
+- **`--worktree new|same|none|<path>`**: `same` runs in the caller's worktree (what `N` does by default), `none` runs without a worktree in the [launch checkout](#checkouts-and-the-session-list) and a path joins that existing worktree.
+- **`--top-level`**: a top-level session instead of a sub-session.
+- **`--fork`**: forks the caller's conversation, as **⑂ Fork parent** does. It keeps the caller's agent, and a Codex fork stays in the caller's worktree (see [Sessions and sub-sessions](#sessions-and-sub-sessions)).
+- **`--agent claude|codex|pi`**: by default the caller's agent. Run by hand, the repository's `defaultAgent`, else Claude.
+- **`--title <title>`**: the name, at most 64 characters. By default the task's title, else the prompt's first line, else the agent's name (`fork` for a fork), with ` 2`, ` 3`… added while an active session of the same name and parent has it.
+- **`--base <branch>`**: where the new worktree's branch starts, instead of `worktree.branchFrom`. Only for a new worktree.
+- **`--task <id>`**: starts on a task from `deckhand task list` and links it, as `n` in the task list does, so merging or finishing the work ticks it. A prompt replaces the task's text as what the agent receives; without one, the task's text is typed as a draft, as usual. Only a top-level session or a sub-session in a new worktree can start from a task, so with any other `--worktree` the session is top-level. `--task` and `--fork` can't be combined.
+
+A new worktree runs setup as usual. A command can't review `deckhand.json` for you: when the repository's `deckhand.json` sets a `setupCommand` and is not trusted, setup doesn't run and the agent doesn't start. Select the session and press `s` to review the file and retry (see [Setup and actions](#setup-and-actions)).
+
+### What agents are told
+
+At every launch (creating, `s`, `S` and forks alike) Deckhand tells the agent about these commands, keeping what stays in its context small, since most sessions never use them. Always loaded is a sentence or two: use the commands only when the user asks for a Deckhand action, and read the guide first. The guide itself, `deckhand guide`, costs context only in the turn the agent reads it. It lists the commands and tells the agent never to start sessions, move tasks or end sessions on its own, to write a sub-session's prompt as a complete brief and to park work it is told to leave for later with `task add`.
+
+- **Claude** gets a plugin with a `deckhand` skill (`--plugin-dir`). Claude keeps only a skill's name and description in context until it uses it, and the skill's body is the guide. Without `--plugin-dir`, the short instruction goes in with `--append-system-prompt`.
+- **Pi** gets the same skill (`--skill`), else the short instruction with `--append-system-prompt`.
+- **Codex** gets the short instruction as `developer_instructions` (`-c`), placed after your own top-level `developer_instructions` from `$CODEX_HOME/config.toml` (by default `~/.codex/config.toml`), which the option would otherwise replace.
+
+Each option is passed only when the installed agent's `--help` lists it. Nothing is written to the agents' own configuration: the plugin lives in the state directory, in `~/.deckhand/agent-plugin/`, and is rewritten when a new version of Deckhand changes it.
+
+The `deckhand` an agent runs is the Deckhand that launched it: the agent's `PATH` starts with `~/.deckhand/agent-plugin/bin`, which holds a link to the daemon's binary.
+
+### Running them without a prompt
+
+So that asking for a Deckhand action doesn't come back as a permission prompt, Claude is launched with `deckhand` commands allowed (`--allowedTools "Bash(deckhand:*)"`). Pi doesn't ask before running commands. Codex has no launch option for this, so it asks as its own approval settings say. With commands allowed, the guide's "only when the user asks" is what keeps an agent from using them unasked, and the limits under [The caller](#the-caller) are what the daemon enforces.
+
+To have Claude ask before each `deckhand` command, set this in the user config (`~/.deckhand/config.json`). It has no Settings (`C`) row and applies to launches after the change; agents are still told about the commands:
+
+```json
+{
+  "allow_deckhand_commands": false
+}
+```
 
 ## Agent identity
 

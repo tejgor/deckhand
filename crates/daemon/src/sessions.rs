@@ -28,8 +28,8 @@ use deckhand_protocol::data::{
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage};
 use deckhand_protocol::wire::{
-    ArchiveSession, ExportHandoff, Remove, SessionRequest, SetReplyRead, SetSessionDone, js_string, js_truthy,
-    node_received,
+    AgentCaller, ArchiveSession, Create, ExportHandoff, Kill, Remove, SessionRequest, SetReplyRead, SetSessionDone,
+    js_string, js_truthy, node_received,
 };
 use deckhand_protocol::{KeyOrder, Ordered};
 use deckhand_sys::agent_path::integration_args;
@@ -77,6 +77,16 @@ pub struct AgentExitReading {
     /// Appended to the preview: what s/S will do.
     pub note: Option<String>,
 }
+
+/// Not in the TS: a `deckhand` command's `kill`/`remove` of a session that is not its caller's sub-session.
+pub const NOT_CALLERS_SUB_SESSION: &str = "Only sub-sessions this session started can be stopped or removed from it";
+
+/// Not in the TS: a `deckhand` command's `create` naming a parent, fork source or handoff other than its caller.
+pub const NOT_CALLERS_CHILD: &str = "A deckhand command starts sessions only from the session it runs in";
+
+/// Not in the TS: a `deckhand` command's `kill` asking to delete (worktrees and branches stay with the user).
+pub const CALLER_CANNOT_DELETE: &str = "Deleting worktrees and branches stays with the user: deckhand commands cannot \
+ask for deleteWorktree, deleteBranch, force or allowDataLoss";
 
 /// TS: InkDaemon.killSession's flags (`kill` request fields, defaults false).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -582,10 +592,7 @@ impl Daemon {
         self.worktrees.borrow_mut().cleanup.insert(cleanup_key.clone());
         let outcome: Result<()> = async {
             let attempt: Result<()> = async {
-                let repo_cwd = existing
-                    .launch_worktree_root
-                    .clone()
-                    .unwrap_or_else(|| existing.repo_root.clone());
+                let repo_cwd = crate::worktrees::git_checkout_of(existing).await;
                 self.assert_cleanup_allowed(
                     session_id,
                     worker.delete_branch_on_exit.get(),
@@ -877,6 +884,8 @@ impl Daemon {
             },
             project_fingerprint: text("projectFingerprint"),
             fork_from_session_id: id("forkFromSessionId"),
+            prompt: text("prompt"),
+            submit: field("submit").and_then(Value::as_bool),
         };
         self.create_session_checked(input, checks).await
     }
@@ -1020,8 +1029,12 @@ impl Daemon {
             .map_or(0.0, |max| max + 1.0);
         let mut start_prompt = None;
         if let Some(task_id) = input.task_id.as_deref() {
-            if checks.task_id_not_text || handoff_from.is_some() || parent_session.is_some() {
-                return Err(DhError::msg("Only a new top-level session can start from a task"));
+            // Not in the TS: a sub-session in a worktree of its own may start from a task too (`deckhand new --task`).
+            let own_worktree = input.worktree_mode == Some(WorktreeMode::New);
+            if checks.task_id_not_text || handoff_from.is_some() || (parent_session.is_some() && !own_worktree) {
+                return Err(DhError::msg(
+                    "Only a new top-level session, or a sub-session in a new worktree, can start from a task",
+                ));
             }
             let key = self.tasks_key_for(&input.cwd).await?;
             let text = self
@@ -1041,6 +1054,17 @@ impl Daemon {
                 return Err(DhError::msg("That task is already being worked on"));
             }
             start_prompt = Some(task_prompt(&task)).filter(|prompt| !prompt.is_empty());
+        }
+        // Not in the TS: a prompt (blank: none) replaces a task's text; it is sent as the agent's first message unless
+        // `submit` is false, when it is typed as the draft a task's text is.
+        let mut first_message = None;
+        if let Some(prompt) = input.prompt.clone().filter(|prompt| !jsstr::js_trim(prompt).is_empty()) {
+            if input.submit == Some(false) {
+                start_prompt = Some(prompt);
+            } else {
+                start_prompt = None;
+                first_message = Some(prompt);
+            }
         }
         if input.base_branch.is_some()
             && (checks.base_branch_not_text || input.worktree_mode.unwrap_or(WorktreeMode::None) != WorktreeMode::New)
@@ -1075,6 +1099,7 @@ impl Daemon {
             "requestedWorktreeMode": input.worktree_mode.unwrap_or(WorktreeMode::None),
             "handoffPath": handoff_path,
             "startPrompt": start_prompt,
+            "firstMessage": first_message,
             "status": SessionStatus::Starting,
             "agentStatus": AgentActivityStatus::Unknown,
             "agentStatusUpdatedAt": now,
@@ -1104,6 +1129,9 @@ impl Daemon {
         ];
         if record.start_prompt.is_some() {
             keys.push("startPrompt");
+        }
+        if record.first_message.is_some() {
+            keys.push("firstMessage");
         }
         keys.extend([
             "status",
@@ -1451,6 +1479,10 @@ impl Daemon {
             )
             .await?,
         );
+        args.extend(
+            self.deckhand_command_args(prepared_session.program, &prepared_session.command, &app_config)
+                .await,
+        );
         args.extend(self.first_message_args(&prepared_session, &plan, true));
         prepared_session.args = Some(args.clone());
         let mut launch_session = self.require_session(session_id)?;
@@ -1718,6 +1750,10 @@ impl Daemon {
                     config.claude_scroll_override != Some(false),
                 )
                 .await?,
+            );
+            args.extend(
+                self.deckhand_command_args(starting.program, &starting.command, &config)
+                    .await,
             );
             args.extend(self.first_message_args(&starting, &plan, never_started));
             starting.args = Some(args.clone());
@@ -2037,8 +2073,61 @@ impl Daemon {
         Ok(OkResult::default())
     }
 
-    /// TS: handleRequest `remove`: moves the open note items first when asked, then removeSession.
+    /// `create`; not in the TS: with a `caller` (a `deckhand` command run inside a session), only once it is
+    /// authenticated. Its input says the parent (the CLI names the caller unless `--top-level`).
+    pub async fn handle_create(&self, request: &Create) -> Result<Ordered<SessionRecord>> {
+        if let Some(caller) = &request.caller {
+            let caller = self.authenticate_caller(caller)?;
+            // A parent, fork source or handoff, when given, is the caller: it may kill only its own sub-sessions.
+            let input = request.input.as_ref();
+            let others = ["parentSessionId", "forkFromSessionId", "handoffFromSessionId"]
+                .iter()
+                .filter_map(|key| input.and_then(|input| input.get(key)))
+                .any(|id| !id.is_null() && id.as_str() != Some(caller.id.as_str()));
+            if others {
+                return Err(DhError::msg(NOT_CALLERS_CHILD));
+            }
+        }
+        self.create_session_request(request.input.as_ref()).await
+    }
+
+    /// `kill`; not in the TS: with a `caller`, only one of its own sub-sessions, and without deleting anything.
+    pub async fn handle_kill(&self, request: &Kill) -> Result<OkResult> {
+        let options = KillOptions {
+            delete_worktree: request.delete_worktree.unwrap_or(false),
+            delete_branch: request.delete_branch.unwrap_or(false),
+            force: request.force.unwrap_or(false),
+            allow_data_loss: request.allow_data_loss.unwrap_or(false),
+            send_open_items: request.send_open_items == Some(true),
+        };
+        if let Some(caller) = &request.caller {
+            self.assert_callers_sub_session(caller, &request.session_id)?;
+            if options.delete_worktree || options.delete_branch || options.force || options.allow_data_loss {
+                return Err(DhError::msg(CALLER_CANNOT_DELETE));
+            }
+        }
+        self.kill_session(&request.session_id, options).await?;
+        Ok(OkResult::default())
+    }
+
+    /// Not in the TS: a `deckhand` command may stop or remove only sessions whose parent is its caller (an unknown
+    /// session is left to the request's own error).
+    fn assert_callers_sub_session(&self, caller: &AgentCaller, session_id: &str) -> Result<()> {
+        let caller = self.authenticate_caller(caller)?;
+        match self.get_session(session_id) {
+            Some(target) if target.parent_session_id.as_deref() != Some(caller.id.as_str()) => {
+                Err(DhError::msg(NOT_CALLERS_SUB_SESSION))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// TS: handleRequest `remove`: moves the open note items first when asked, then removeSession. Not in the TS: with
+    /// a `caller`, only one of its own sub-sessions.
     pub async fn handle_remove(&self, request: &Remove) -> Result<OkResult> {
+        if let Some(caller) = &request.caller {
+            self.assert_callers_sub_session(caller, &request.session_id)?;
+        }
         if request.move_open_items == Some(true) {
             self.move_open_note_items(&request.session_id).await?;
         }
@@ -2632,7 +2721,11 @@ mod tests {
                 (json!({"handoffFromSessionId": "gone"}), "Session does not exist"),
                 (
                     json!({"taskId": "t1", "parentSessionId": "p"}),
-                    "Only a new top-level session can start from a task",
+                    "Only a new top-level session, or a sub-session in a new worktree, can start from a task",
+                ),
+                (
+                    json!({"taskId": "t1", "handoffFromSessionId": "p"}),
+                    "Only a new top-level session, or a sub-session in a new worktree, can start from a task",
                 ),
             ];
             for (fields, expected) in cases {
@@ -2642,6 +2735,13 @@ mod tests {
                     "{fields}"
                 );
             }
+            // A sub-session in a worktree of its own may start from a task: it is looked up (`/r` is no repository).
+            let own_worktree = input(json!({"taskId": "t1", "parentSessionId": "p", "worktreeMode": "new"}));
+            let looked_up = error(daemon.create_session(own_worktree).await);
+            assert!(
+                looked_up.starts_with("Command failed: git -C /r rev-parse"),
+                "{looked_up}"
+            );
             assert_eq!(daemon.all_sessions().len(), 5);
             assert!(daemon.sessions.borrow().preparing.is_empty());
         });
@@ -2860,6 +2960,7 @@ mod tests {
                 request_id: "r".into(),
                 session_id: "gone".into(),
                 move_open_items: None,
+                caller: None,
             };
             assert_eq!(error(daemon.handle_remove(&remove).await), "session does not exist");
         });

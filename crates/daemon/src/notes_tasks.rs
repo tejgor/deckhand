@@ -1938,4 +1938,110 @@ mod tests {
             assert_eq!(notes.get(&session_note("main")).text, "- [ ] Main\n");
         });
     }
+
+    #[test]
+    fn a_prompt_replaces_a_tasks_text_and_the_task_is_still_linked() {
+        use crate::daemon::{DaemonOptions, DaemonPaths};
+        use deckhand_protocol::data::{CreateSessionInput, ProgramKey};
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        local(async {
+            // A fake agent (its `--help` offers nothing), and a worker that cannot start: the launch fails after the
+            // task is linked, and nothing real runs.
+            let daemon = Daemon::with_paths(
+                DaemonOptions {
+                    worker_exe: Some(dir.path().join("no-worker")),
+                },
+                DaemonPaths {
+                    config_dir: dir.path().to_path_buf(),
+                    socket: dir.path().join("daemon.sock"),
+                    pid_file: dir.path().join("daemon.pid"),
+                    log_file: dir.path().join("daemon.log"),
+                    worker_dir: dir.path().join("workers"),
+                },
+            );
+            daemon.notes().load().await.unwrap();
+            let agent = dir.path().join("claude");
+            std::fs::write(&agent, "#!/bin/sh\nexit 0\n").unwrap();
+            std::fs::set_permissions(&agent, std::fs::Permissions::from_mode(0o755)).unwrap();
+            daemon
+                .launch
+                .borrow_mut()
+                .program_command_cache
+                .insert(ProgramKey::Claude, agent.to_string_lossy().into_owned());
+            let key = daemon.tasks_key_for(&root).await.unwrap();
+            for title in ["Sent", "Drafted", "Plain"] {
+                let op = TaskOp::Add {
+                    title: title.to_owned(),
+                    body: Some("Its details".to_owned()),
+                    link: None,
+                    id: None,
+                    from: None,
+                };
+                daemon.change_tasks(&key, op).await.unwrap();
+            }
+            let create = |title: &str, extra: Value| {
+                let mut input = json!({"title": title, "program": "claude", "cwd": root, "repoRoot": root,
+                    "cols": 80, "rows": 24});
+                if let (Value::Object(map), Value::Object(extra)) = (&mut input, extra) {
+                    map.extend(extra);
+                }
+                let input: CreateSessionInput = serde_json::from_value(input).unwrap();
+                let daemon = daemon.clone();
+                async move { daemon.create_session(input).await.unwrap() }
+            };
+            let brief = "Fix the login form.\nDone when the tests pass.";
+            // Sent: the prompt is the first message; the task's text is not typed.
+            let sent_task = find(&daemon, &key, "Sent").id;
+            let sent = create("sent", json!({"taskId": sent_task, "prompt": brief})).await;
+            assert_eq!(sent.first_message.as_deref(), Some(brief));
+            assert_eq!(sent.start_prompt, None);
+            // Drafted (`submit: false`): typed as the task's text would be, not sent.
+            let drafted_task = find(&daemon, &key, "Drafted").id;
+            let drafted = create(
+                "drafted",
+                json!({"taskId": drafted_task, "prompt": brief, "submit": false}),
+            )
+            .await;
+            assert_eq!(drafted.start_prompt.as_deref(), Some(brief));
+            assert_eq!(drafted.first_message, None);
+            // A blank prompt is none: the task's own text is the draft.
+            let plain_task = find(&daemon, &key, "Plain").id;
+            let plain = create("plain", json!({"taskId": plain_task, "prompt": "  \n"})).await;
+            assert_eq!(plain.start_prompt.as_deref(), Some("Plain: Its details"));
+            assert_eq!(plain.first_message, None);
+            // Without a task.
+            let alone = create("alone", json!({"prompt": brief, "submit": true})).await;
+            assert_eq!(alone.first_message.as_deref(), Some(brief));
+            // Each task is still this session's work (linked before the launch, which fails here).
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+            let launched = |daemon: &Daemon| {
+                [&sent, &drafted, &plain, &alone]
+                    .iter()
+                    .all(|session| daemon.get_session(&session.id).unwrap().status == SessionStatus::Exited)
+            };
+            while !launched(&daemon) && std::time::Instant::now() < deadline {
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            }
+            for (title, session) in [("Sent", &sent), ("Drafted", &drafted), ("Plain", &plain)] {
+                assert_eq!(
+                    find(&daemon, &key, title).meta.s.as_deref(),
+                    Some(session.id.as_str()),
+                    "{title}"
+                );
+            }
+            // The launch got as far as its arguments: the prompt follows `--`, once.
+            let args = daemon.get_session(&sent.id).unwrap().args.clone().unwrap_or_default();
+            assert_eq!(args[args.len() - 2..], ["--".to_owned(), brief.to_owned()]);
+            let args = daemon
+                .get_session(&drafted.id)
+                .unwrap()
+                .args
+                .clone()
+                .unwrap_or_default();
+            assert!(!args.contains(&brief.to_owned()), "{args:?}");
+        });
+    }
 }

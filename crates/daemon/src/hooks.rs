@@ -19,7 +19,7 @@ use deckhand_protocol::data::{
     AgentActivityStatus, AgentSessionRef, AttentionReasonKind, AttentionState, SessionAttention, SessionRecord,
     SessionStatus, SubSessionKind,
 };
-use deckhand_protocol::wire::AgentHook;
+use deckhand_protocol::wire::{AgentCaller, AgentHook};
 use deckhand_sys::async_util::{Timer, spawn};
 use deckhand_sys::notify::{self, Delivery};
 use deckhand_sys::storage::load_app_config;
@@ -98,6 +98,18 @@ fn truthy(value: Option<&str>) -> bool {
     value.is_some_and(|text| !text.is_empty())
 }
 
+/// Not in the TS: the refusal of a `deckhand` command whose caller is not a running session's current launch.
+pub const STALE_CALLER: &str = "Stale or unauthorized deckhand caller";
+
+/// Whether `launch_id` and `token` are the current launch's of a session that has not exited: its worker's hook token
+/// and launch ID, and the session's launch ID. Authenticates hook callbacks and `deckhand` commands.
+fn is_current_launch(worker: &WorkerRuntime, session: &SessionRecord, launch_id: &str, token: &str) -> bool {
+    worker.hook_token == token
+        && worker.launch_id == launch_id
+        && session.launch_id.as_deref() == Some(launch_id)
+        && session.status != SessionStatus::Exited
+}
+
 /// `{state, event, at}`: an attention record without a reason.
 /// A running session whose last signal says it works.
 fn is_working(session: &SessionRecord) -> bool {
@@ -121,18 +133,28 @@ impl Daemon {
         self.launch.borrow().workers.get(session_id).cloned()
     }
 
+    /// The session `caller` names, when its launch ID and token are those of its current launch and it has not
+    /// exited (as a hook callback is checked): a `deckhand` command run inside a session acts for that session. Not in
+    /// the TS. Otherwise [`STALE_CALLER`], also for a session that does not exist.
+    pub fn authenticate_caller(&self, caller: &AgentCaller) -> Result<Ordered<SessionRecord>> {
+        let worker = self.session_worker(&caller.session_id);
+        match (worker, self.get_session(&caller.session_id)) {
+            (Some(worker), Some(session)) if is_current_launch(&worker, &session, &caller.launch_id, &caller.token) => {
+                Ok(session)
+            }
+            _ => Err(DhError::msg(STALE_CALLER)),
+        }
+    }
+
     /// TS: InkDaemon.handleAgentHook (`Stale or unauthorized lifecycle callback`): applies the hook's signal to the
     /// session's attention (stale and repeated signals are dropped), adopts a new conversation ID, and notifies when
     /// the session newly needs attention.
     pub async fn handle_agent_hook(&self, message: &AgentHook) -> Result<()> {
         let worker = self.session_worker(&message.session_id);
         let session = self.require_session(&message.session_id)?;
-        let Some(worker) = worker.filter(|worker| {
-            worker.hook_token == message.token
-                && worker.launch_id == message.launch_id
-                && session.launch_id.as_deref() == Some(message.launch_id.as_str())
-                && session.status != SessionStatus::Exited
-        }) else {
+        let Some(worker) =
+            worker.filter(|worker| is_current_launch(worker, &session, &message.launch_id, &message.token))
+        else {
             return Err(DhError::msg("Stale or unauthorized lifecycle callback"));
         };
         let Some(signal) = normalize_hook(session.program, &message.payload)? else {
@@ -695,6 +717,133 @@ pub(crate) mod tests {
             daemon.patch_session("s", |session| session.status = SessionStatus::Exited);
             let error = daemon.handle_agent_hook(&hook(payload, None)).await.unwrap_err();
             assert_eq!(error.to_string(), "Stale or unauthorized lifecycle callback");
+        });
+    }
+
+    fn caller(token: &str) -> Value {
+        json!({"sessionId": "s", "launchId": "launch-1", "token": token})
+    }
+
+    fn create(caller: Value) -> deckhand_protocol::wire::Create {
+        serde_json::from_value(json!({"requestId": "r", "caller": caller})).unwrap()
+    }
+
+    fn kill(session_id: &str, caller: Value, flags: Value) -> deckhand_protocol::wire::Kill {
+        let mut request = json!({"requestId": "r", "sessionId": session_id, "caller": caller});
+        if let (Value::Object(map), Value::Object(flags)) = (&mut request, flags) {
+            map.extend(flags);
+        }
+        serde_json::from_value(request).unwrap()
+    }
+
+    fn remove(session_id: &str, caller: Value) -> deckhand_protocol::wire::Remove {
+        serde_json::from_value(json!({"requestId": "r", "sessionId": session_id, "caller": caller})).unwrap()
+    }
+
+    #[test]
+    fn a_deckhand_caller_is_checked_as_hooks_are() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, _worker, _fake) = setup(dir.path()).await;
+            let good: AgentCaller = serde_json::from_value(caller("token")).unwrap();
+            assert_eq!(daemon.authenticate_caller(&good).unwrap().id, "s");
+            let refused = |value: Value| {
+                let caller: AgentCaller = serde_json::from_value(value).unwrap();
+                daemon.authenticate_caller(&caller).unwrap_err().to_string()
+            };
+            assert_eq!(refused(caller("other")), STALE_CALLER);
+            assert_eq!(
+                refused(json!({"sessionId": "s", "launchId": "launch-0", "token": "token"})),
+                STALE_CALLER
+            );
+            // An unknown session is refused alike (a caller learns nothing from it).
+            assert_eq!(
+                refused(json!({"sessionId": "nope", "launchId": "launch-1", "token": "token"})),
+                STALE_CALLER
+            );
+            assert_eq!(refused(json!({})), STALE_CALLER);
+            // `create` is refused before its input is read; an authenticated one goes on to it.
+            let error = daemon.handle_create(&create(caller("other"))).await.unwrap_err();
+            assert_eq!(error.to_string(), STALE_CALLER);
+            let error = daemon.handle_create(&create(caller("token"))).await.unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "Cannot read properties of undefined (reading 'program')"
+            );
+            // It starts sessions only from itself: another parent, fork source or handoff is refused.
+            for key in ["parentSessionId", "forkFromSessionId", "handoffFromSessionId"] {
+                let mut request = create(caller("token"));
+                request.input = Some(json!({ key: "other" }));
+                let error = daemon.handle_create(&request).await.unwrap_err();
+                assert_eq!(error.to_string(), crate::sessions::NOT_CALLERS_CHILD, "{key}");
+            }
+            // Once the session exited, its launch's credentials no longer work.
+            daemon.patch_session("s", |session| session.status = SessionStatus::Exited);
+            assert_eq!(refused(caller("token")), STALE_CALLER);
+        });
+    }
+
+    #[test]
+    fn a_caller_stops_and_removes_only_its_own_sub_sessions() {
+        use crate::sessions::{CALLER_CANNOT_DELETE, NOT_CALLERS_SUB_SESSION};
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, _worker, _fake) = setup(dir.path()).await;
+            for (id, parent) in [("mine", Some("s")), ("theirs", Some("other")), ("top", None)] {
+                let mut child = session(id, "/r", "/r");
+                child.status = SessionStatus::Exited;
+                child.parent_session_id = parent.map(str::to_owned);
+                daemon.set_session(child);
+            }
+            let kill_error = |id: &str, caller: Value, flags: Value| {
+                let request = kill(id, caller, flags);
+                let daemon = daemon.clone();
+                async move { daemon.handle_kill(&request).await.unwrap_err().to_string() }
+            };
+            let none = json!({});
+            // Not its sub-session (another's, a top-level one, itself): refused before anything else.
+            for id in ["theirs", "top", "s"] {
+                assert_eq!(
+                    kill_error(id, caller("token"), none.clone()).await,
+                    NOT_CALLERS_SUB_SESSION
+                );
+                let error = daemon.handle_remove(&remove(id, caller("token"))).await.unwrap_err();
+                assert_eq!(error.to_string(), NOT_CALLERS_SUB_SESSION);
+            }
+            assert_eq!(kill_error("mine", caller("other"), none.clone()).await, STALE_CALLER);
+            // Its own: the request's own checks apply (this one has exited already).
+            assert_eq!(
+                kill_error("mine", caller("token"), none.clone()).await,
+                "session is not running"
+            );
+            assert_eq!(
+                kill_error("gone", caller("token"), none.clone()).await,
+                "Session does not exist"
+            );
+            // Deleting stays with the user, even for its own sub-session.
+            for flag in ["deleteWorktree", "deleteBranch", "force", "allowDataLoss"] {
+                let flags = json!({ flag: true });
+                assert_eq!(
+                    kill_error("mine", caller("token"), flags).await,
+                    CALLER_CANNOT_DELETE,
+                    "{flag}"
+                );
+            }
+            // Without a caller (the UI), the same flags reach the kill as before.
+            let request = kill("mine", Value::Null, json!({"deleteWorktree": true}));
+            let error = daemon.handle_kill(&request).await.unwrap_err();
+            assert_eq!(error.to_string(), "session is not running");
+            daemon.handle_remove(&remove("mine", caller("token"))).await.unwrap();
+            assert!(daemon.get_session("mine").is_none());
+            let error = daemon
+                .handle_remove(&remove("gone", caller("token")))
+                .await
+                .unwrap_err();
+            assert_eq!(error.to_string(), "session does not exist");
+            daemon.handle_remove(&remove("theirs", Value::Null)).await.unwrap();
+            assert!(daemon.get_session("theirs").is_none());
         });
     }
 

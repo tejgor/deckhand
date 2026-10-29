@@ -45,7 +45,6 @@ use serde::Serialize;
 
 use crate::daemon::Daemon;
 use crate::server::{ClientHandle, Connection, DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS, send_message};
-use crate::sessions::KillOptions;
 use crate::workspaces::WorkspacePane;
 
 /// TS: daemon.ts response: `{type: 'response', requestId, ok: true, data}`.
@@ -246,11 +245,7 @@ impl Daemon {
                 &r.request_id,
                 self.list_branches(repo_root_cwd(&r.cwd).as_deref()).await,
             ),
-            Request::Create(r) => reply(
-                client,
-                &r.request_id,
-                self.create_session_request(r.input.as_ref()).await,
-            ),
+            Request::Create(r) => reply(client, &r.request_id, self.handle_create(&r).await),
             Request::ReorderSession(r) => {
                 let placement = match (r.after.as_deref(), r.before.as_deref()) {
                     (Some(after), _) => Some(Placement::After(after)),
@@ -279,20 +274,7 @@ impl Daemon {
                     .await;
                 reply(client, &r.request_id, restarted)
             }
-            Request::Kill(r) => {
-                let options = KillOptions {
-                    delete_worktree: r.delete_worktree.unwrap_or(false),
-                    delete_branch: r.delete_branch.unwrap_or(false),
-                    force: r.force.unwrap_or(false),
-                    allow_data_loss: r.allow_data_loss.unwrap_or(false),
-                    send_open_items: r.send_open_items == Some(true),
-                };
-                reply(
-                    client,
-                    &r.request_id,
-                    ok(self.kill_session(&r.session_id, options).await),
-                )
-            }
+            Request::Kill(r) => reply(client, &r.request_id, self.handle_kill(&r).await),
             Request::MergePreview(r) => reply(
                 client,
                 &r.request_id,

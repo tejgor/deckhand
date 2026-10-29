@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use deckhand_core::agent_signals::answers_prompt;
 use deckhand_core::agents::{LaunchPlan, forks_parent_again};
 use deckhand_core::error::{DhError, Result, errno_code};
-use deckhand_core::jsstr::{self, date};
+use deckhand_core::jsstr::{self, date, js_trim};
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::Ordered;
 use deckhand_protocol::data::{
@@ -22,8 +22,10 @@ use deckhand_protocol::data::{
     SessionStatus, SetupState,
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage, SessionOutput, SessionRef};
+use deckhand_protocol::records::AppConfig;
 use deckhand_protocol::wire::{Attach, Detach, Input, Loose, Resize, WatchPreview};
 use deckhand_protocol::worker_ipc::WorkerMessage;
+use deckhand_sys::agent_commands;
 use deckhand_sys::async_util::{Timer, spawn};
 use deckhand_sys::claude_transcripts::{LatestConversationOptions, latest_claude_conversation};
 use deckhand_sys::proc::{self, ExecOptions};
@@ -504,6 +506,21 @@ impl Daemon {
         self.assert_workspace_available(&session.cwd)?;
         self.assert_current_launch(&session.id, Some(&launch_id))?;
         let hook_token = uuid::Uuid::new_v4().to_string();
+        let mut env = vec![
+            ("DECKHAND_SESSION_ID".to_owned(), session.id.clone()),
+            ("DECKHAND_LAUNCH_ID".to_owned(), launch_id.clone()),
+            ("DECKHAND_HOOK_TOKEN".to_owned(), hook_token.clone()),
+        ];
+        // Not in the TS: the agent's `deckhand` is this build (`agent_commands::link_executable`).
+        let linked = deckhand_sys::paths::cli_entry_path()
+            .and_then(|exe| agent_commands::link_executable(&agent_commands::plugin_dir(&self.paths.config_dir), &exe));
+        match linked {
+            Ok(bin) => env.push((
+                "PATH".to_owned(),
+                agent_commands::path_with(&bin, std::env::var_os("PATH").as_deref()),
+            )),
+            Err(error) => self.log_soon(format!("linking the agents' deckhand failed: {error}")),
+        }
         // The version this launch runs (read beside the spawn; cached per binary, so usually instant).
         let launch_version = {
             let checker = self.agent_versions();
@@ -513,11 +530,7 @@ impl Daemon {
         let (channel, events) = WorkerChannel::spawn(SpawnOptions {
             kind: WorkerKind::Session,
             exe: worker_exe(self.options.worker_exe.as_deref())?,
-            env: vec![
-                ("DECKHAND_SESSION_ID".to_owned(), session.id.clone()),
-                ("DECKHAND_LAUNCH_ID".to_owned(), launch_id.clone()),
-                ("DECKHAND_HOOK_TOKEN".to_owned(), hook_token.clone()),
-            ],
+            env,
             log_path: self.paths.worker_dir.join(format!("{}.log", session.id)),
         })?;
         let worker = Rc::new(WorkerRuntime::new(channel, hook_token, launch_id.clone()));
@@ -807,13 +820,33 @@ impl Daemon {
     }
 
     /// TS: InkDaemon.firstMessageArgs: `['--', handoffPrompt]` on a handoff child's first launch, `['--',
-    /// movedForkPrompt]` for a fork in another worktree, else none.
+    /// movedForkPrompt]` for a fork in another worktree, else none. Not in the TS: on the first launch the session's
+    /// `firstMessage` (`create`'s `prompt`) follows either, in the same message.
     pub fn first_message_args(&self, session: &SessionRecord, plan: &LaunchPlan, first_launch: bool) -> Vec<String> {
+        let mut parts = Vec::new();
         if first_launch && let Some(handoff_path) = session.handoff_path.as_deref().filter(|path| !path.is_empty()) {
-            return vec!["--".to_owned(), handoff_prompt(handoff_path)];
+            parts.push(handoff_prompt(handoff_path));
+        } else if let Some(moved) = self.moved_fork_prompt_of(session, plan) {
+            parts.push(moved);
         }
-        if !matches!(plan, LaunchPlan::Fork { .. }) {
+        if first_launch
+            && let Some(message) = session
+                .first_message
+                .as_deref()
+                .filter(|text| !js_trim(text).is_empty())
+        {
+            parts.push(message.to_owned());
+        }
+        if parts.is_empty() {
             return Vec::new();
+        }
+        vec!["--".to_owned(), parts.join("\n\n")]
+    }
+
+    /// A fork in another worktree than its parent's: what it is told about the move.
+    fn moved_fork_prompt_of(&self, session: &SessionRecord, plan: &LaunchPlan) -> Option<String> {
+        if !matches!(plan, LaunchPlan::Fork { .. }) {
+            return None;
         }
         let parent = session
             .forked_from_session_id
@@ -826,10 +859,26 @@ impl Daemon {
         let child_root = workspace_key(session).filter(|root| !root.is_empty());
         match (parent_root, child_root) {
             (Some(parent_root), Some(child_root)) if parent_root != child_root => {
-                vec!["--".to_owned(), moved_fork_prompt(session, &parent_root, &child_root)]
+                Some(moved_fork_prompt(session, &parent_root, &child_root))
             }
-            _ => Vec::new(),
+            _ => None,
         }
+    }
+
+    /// Not in the TS: what an agent is told about the `deckhand` commands at every launch
+    /// ([`agent_commands::command_args`]): the plugin is (re)written first; when it cannot be, Claude and Pi get the
+    /// short trigger instead. `allow_deckhand_commands: false` leaves the commands to the agent's own permissions.
+    pub async fn deckhand_command_args(&self, program: ProgramKey, command: &str, config: &AppConfig) -> Vec<String> {
+        let dir = agent_commands::plugin_dir(&self.paths.config_dir);
+        let plugin = match agent_commands::write_plugin(&dir).await {
+            Ok(()) => Some(dir),
+            Err(error) => {
+                self.log_soon(format!("writing the agent plugin failed: {error}"));
+                None
+            }
+        };
+        let allow = config.allow_deckhand_commands != Some(false);
+        agent_commands::command_args(program, command, plugin.as_deref(), allow).await
     }
 
     /// TS: InkDaemon.continuedConversation: the Claude conversation a resumed session continued in, from its
@@ -1339,6 +1388,97 @@ mod tests {
         starting.status = SessionStatus::Running;
         put(&daemon, starting);
         assert!(!daemon.is_current_launch("s", Some("l1")));
+    }
+
+    #[test]
+    fn a_prompt_is_sent_as_the_first_message_on_the_first_launch_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = test_daemon(dir.path());
+        let mut child = session("c", "/repo", "/repo");
+        child.first_message = Some("Fix the login bug.\nRun the tests.".into());
+        let sent = vec!["--".to_owned(), "Fix the login bug.\nRun the tests.".to_owned()];
+        assert_eq!(daemon.first_message_args(&child, &plan("new"), true), sent);
+        // Resumed or relaunched after it started: never again.
+        assert!(daemon.first_message_args(&child, &plan("new"), false).is_empty());
+        assert!(daemon.first_message_args(&child, &plan("resume"), false).is_empty());
+        // A forked conversation gets it too (Claude: `--resume <parent> --fork-session ... -- <prompt>`).
+        assert_eq!(daemon.first_message_args(&child, &plan("fork"), true), sent);
+        // After a handoff's or a moved fork's message, in the same message.
+        child.handoff_path = Some("/h.md".into());
+        assert_eq!(
+            daemon.first_message_args(&child, &plan("new"), true),
+            vec![
+                "--".to_owned(),
+                format!("{}\n\nFix the login bug.\nRun the tests.", handoff_prompt("/h.md"))
+            ]
+        );
+        child.handoff_path = None;
+        child.forked_from_session_id = Some("p".into());
+        child.launch_worktree_root = Some("/wt/child".into());
+        child.cwd = "/wt/child".into();
+        let mut parent = session("p", "/repo", "/repo");
+        parent.launch_worktree_root = Some("/repo".into());
+        put(&daemon, parent);
+        assert_eq!(
+            daemon.first_message_args(&child, &plan("fork"), true),
+            vec![
+                "--".to_owned(),
+                format!(
+                    "{}\n\nFix the login bug.\nRun the tests.",
+                    moved_fork_prompt(&child, "/repo", "/wt/child")
+                )
+            ]
+        );
+        // A blank prompt is none.
+        let mut blank = session("b", "/repo", "/repo");
+        blank.first_message = Some(" \n ".into());
+        assert!(daemon.first_message_args(&blank, &plan("new"), true).is_empty());
+    }
+
+    #[test]
+    fn every_launch_writes_the_skill_and_tells_the_agent_about_it() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = test_daemon(dir.path());
+            let claude = dir.path().join("claude");
+            std::fs::write(
+                &claude,
+                "#!/bin/sh\nprintf -- '--allowedTools <tools...>\\n--plugin-dir <path>\\n--append-system-prompt\\n'\n",
+            )
+            .unwrap();
+            std::fs::set_permissions(
+                &claude,
+                <std::fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o755),
+            )
+            .unwrap();
+            let command = claude.to_string_lossy().into_owned();
+            let plugin = dir.path().join("agent-plugin");
+            let plugin_text = plugin.to_string_lossy().into_owned();
+            let config = AppConfig::default();
+            assert_eq!(
+                daemon
+                    .deckhand_command_args(ProgramKey::Claude, &command, &config)
+                    .await,
+                [
+                    "--allowedTools",
+                    "Bash(deckhand:*)",
+                    "--plugin-dir",
+                    plugin_text.as_str()
+                ]
+            );
+            let skill = std::fs::read_to_string(plugin.join("skills/deckhand/SKILL.md")).unwrap();
+            assert!(skill.starts_with("---\nname: deckhand\n"));
+            assert!(plugin.join(".claude-plugin/plugin.json").is_file());
+            // `allow_deckhand_commands: false`: the skill stays, nothing is pre-allowed.
+            let off = AppConfig {
+                allow_deckhand_commands: Some(false),
+                ..AppConfig::default()
+            };
+            assert_eq!(
+                daemon.deckhand_command_args(ProgramKey::Claude, &command, &off).await,
+                ["--plugin-dir", plugin_text.as_str()]
+            );
+        });
     }
 
     #[test]

@@ -21,7 +21,7 @@ The daemon and workers are the same executable, relaunched with an internal flag
 
 Workers feed terminal output into a headless terminal emulator ([`alacritty_terminal`](https://crates.io/crates/alacritty_terminal)). The UI receives rendered snapshots for previews. When you attach, your keystrokes and the pane's raw output stream through the daemon between your terminal and the selected PTY.
 
-The Git tab's Changes view needs no worker: the daemon reads `git status` for the worktrees being watched. The `deckhand hook` bridge that agents call for [agent signals](features.md#lifecycle-signals-and-notifications) is short-lived. It forwards one event to the daemon and exits, and it never starts a daemon.
+The Git tab's Changes view needs no worker: the daemon reads `git status` for the worktrees being watched. The `deckhand hook` bridge that agents call for [agent signals](features.md#lifecycle-signals-and-notifications) is short-lived. It forwards one event to the daemon and exits, and it never starts a daemon. The [`deckhand` commands](features.md#deckhand-commands-for-agents) agents run (`new`, `ls`, `task`, `note`, `kill`, `remove`) are short-lived clients of the daemon too, like the UI.
 
 ## Daemon lifecycle
 
@@ -51,7 +51,7 @@ Everything lives in `~/.deckhand/` unless `DECKHAND_HOME` names another director
 | Path | Purpose |
 | --- | --- |
 | `~/.deckhand/state.json` | The session list (with done markers) and per-worktree merged and deleted markers |
-| `~/.deckhand/config.json` | User configuration: global `defaults`, agent signals, notifications, scroll sensitivity and repository trust fingerprints |
+| `~/.deckhand/config.json` | User configuration: global `defaults`, agent signals, notifications, scroll sensitivity, whether agents may run `deckhand` commands without asking and repository trust fingerprints |
 | `~/.deckhand/ui-state.json` | Per-repository selection, tabs, tree, filter and search preferences |
 | `~/.deckhand/notes/` | Notes as Markdown: `sessions/`, `worktrees/` and `repos/` (the main checkout's) |
 | `~/.deckhand/notes/tasks/` | Each repository's task list, one Markdown file per repository |
@@ -64,6 +64,7 @@ Everything lives in `~/.deckhand/` unless `DECKHAND_HOME` names another director
 | `~/.deckhand/daemon-notice` | Which daemon (PID and versions) the "older daemon still running" notice was last shown for, so it shows once |
 | `~/.deckhand/workers/<session-id>.pid`, `.log` | Each session worker's PID and log |
 | `~/.deckhand/workers/workspace-<hex>.pid`, `.log` | Each workspace worker's PID and log |
+| `~/.deckhand/agent-plugin/` | What agents get for the `deckhand` commands: the skill Claude and Pi load, rewritten when it changes, and `bin/deckhand`, a link to the daemon's binary put first on every agent's `PATH` |
 | `~/.deckhand/worktrees/` | The default location for new worktrees (`worktree.location` changes it) |
 | `~/.deckhand/agent-sessions/pi/` | Legacy Pi session files, from before exact conversation IDs |
 | `~/.deckhand/Deckhand.app` | macOS only: the notifier app bundle, rebuilt when the Deckhand binary changes |
@@ -76,14 +77,14 @@ The Rust workspace lives in `crates/`. Lower crates never depend on higher ones:
 | Crate | What it does |
 | --- | --- |
 | `crates/protocol` | The wire and on-disk shapes everyone shares: session and worktree records, client requests and responses, events, daemon-to-worker messages, NDJSON framing and the protocol version |
-| `crates/core` | Pure logic with no I/O: the agents table and launch arguments, agent signals, the settings model, the sidebar and session order, notes, tasks, worktree models, merge and changes models, the text editor, key decoding and the in-app guide |
-| `crates/sys` | Operating-system work: paths and `DECKHAND_HOME`, atomic storage, config files, Git calls, the notes store, UI state, agent lookup and version checks, desktop notifications and process helpers |
+| `crates/core` | Pure logic with no I/O: the agents table and launch arguments, agent signals, the settings model, the sidebar and session order, notes, tasks, worktree models, merge and changes models, the text editor, key decoding, the in-app guide and the guide to the `deckhand` commands for agents |
+| `crates/sys` | Operating-system work: paths and `DECKHAND_HOME`, atomic storage, config files, Git calls, the notes store, UI state, agent lookup and version checks, what agents get for the `deckhand` commands, desktop notifications and process helpers |
 | `crates/term` | PTYs, UTF-8 stream handling and the headless terminal emulator with its preview rendering |
 | `crates/worker` | The session worker (agent PTY, preview, attach) and the workspace worker (Terminal, lazygit, Dev, actions) |
 | `crates/daemon` | The daemon: socket server and request dispatch, session lifecycle and launches, agent signal callbacks, worktrees, merging, notes and tasks, changes, config and trust, and worker supervision |
 | `crates/client` | The daemon client (start-up, ping, stale socket handling, protocol-mismatch refusal), live subscriptions and attach streaming |
 | `crates/ui` | The ratatui app: state and effects, the screens (create, merge, settings, notes, tasks, worktrees, agents, help), panes, keymaps and theme |
-| `crates/deckhand` | The binary: command-line dispatch, the UI loop and the hand-off to attach or your editor, plus `hook`, `hooks`, `setup` and `doctor` |
+| `crates/deckhand` | The binary: command-line dispatch, the UI loop and the hand-off to attach or your editor, plus `hook`, `hooks`, `setup`, `doctor` and the `deckhand` commands for agents |
 | `crates/testkit` | Test-only: replays the recorded cases in `fixtures/cases`, text snapshots, shared proptest strategies |
 | `crates/e2e` | Test-only: drives the built binary with a real daemon, fake agents and the dev launcher |
 
