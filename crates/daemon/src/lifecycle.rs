@@ -922,6 +922,7 @@ done
             draft: RefCell::new(None),
             last_hook_at: Cell::new(None),
             preview_styled: Cell::new(false),
+            working_settle: RefCell::new(None),
         })
     }
 

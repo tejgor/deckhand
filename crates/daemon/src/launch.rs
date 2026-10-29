@@ -86,6 +86,9 @@ pub struct WorkerRuntime {
     pub last_hook_at: Cell<Option<i64>>,
     /// Not in the TS: the `preview-mode` last sent — on while some client types to the agent in its Preview.
     pub preview_styled: Cell<bool>,
+    /// Not in the TS: while the session works, ends that signal once the screen has not changed for
+    /// STALE_WORKING_AFTER (restarted by every screen update and signal; `Daemon::settle_working`).
+    pub working_settle: RefCell<Option<Timer>>,
 }
 
 impl WorkerRuntime {
@@ -104,6 +107,7 @@ impl WorkerRuntime {
             draft: RefCell::new(None),
             last_hook_at: Cell::new(None),
             preview_styled: Cell::new(false),
+            working_settle: RefCell::new(None),
         }
     }
 }
@@ -707,6 +711,7 @@ impl Daemon {
             }
             WorkerMessage::PreviewUpdated(updated) => {
                 *worker.screen.borrow_mut() = Some(updated.preview.content.clone());
+                self.settle_working(session_id);
                 // A draft is typed once the screen stops changing (each update restarts the wait).
                 if let Some(draft) = worker.draft.borrow_mut().as_mut() {
                     let daemon = self.downgrade();

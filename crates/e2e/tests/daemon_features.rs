@@ -372,7 +372,8 @@ fn agent_signals_say_why_a_session_waits(c: &Ctx) {
     let launch = c.trace(&id).expect("trace");
     let hook = |payload: Value, sent_at: i64| c.hook(&id, &launch, payload, sent_at).expect("hook");
     let at = now_ms() + 60_000; // later than the fake agent's own SessionStart hook
-    // The fake agent printed `ready` and goes idle 5 s later: a working signal left over then becomes unknown.
+    // The fake agent printed `ready` and draws nothing more: a working signal the screen doesn't follow for 5 s
+    // becomes unknown.
     hook(json!({"hook_event_name": "UserPromptSubmit"}), at);
     assert_eq!(c.state(&id)["attention"]["state"], "working");
     c.wait(&id, |s| {

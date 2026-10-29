@@ -64,6 +64,9 @@ pub const ACTIVE_MIN_CHANGED_CHARS: usize = 1;
 pub const ACTIVE_AFTER: Duration = Duration::from_millis(1000);
 /// Not in the TS: the longest pause between two changes of one run of [`ACTIVE_AFTER`].
 pub const ACTIVE_MAX_GAP: Duration = Duration::from_millis(500);
+/// Not in the TS: replaces [`IDLE_AFTER`] until the agent's activity is first known, so a new session reads idle once
+/// its first screen has been still this long. The start's own [`IDLE_AFTER`] covers an agent that prints nothing.
+pub const FIRST_SETTLE_AFTER: Duration = Duration::from_millis(1000);
 /// Not in the TS: screen changes this soon after input are its echo (typing to the agent in its Preview, attached, a
 /// task draft): they keep the current activity but never make the agent `active`.
 pub const INPUT_ECHO_WINDOW: Duration = Duration::from_millis(500);
@@ -882,7 +885,8 @@ impl SessionWorker {
     /// TS: SessionWorker.evaluatePreviewActivity: counts changed characters since the last snapshot, keeps the
     /// changes of the last [`ACTIVITY_WINDOW`] and re-arms the idle timer ([`IDLE_AFTER`], which also clears the
     /// window). Not in the TS: it goes `active` only on a sustained run of changes ([`sustained_change`]), and the
-    /// echo of input ([`INPUT_ECHO_WINDOW`]) re-arms the idle timer without counting as a change.
+    /// echo of input ([`INPUT_ECHO_WINDOW`]) re-arms the idle timer without counting as a change. Until the activity
+    /// is first known the idle timer is [`FIRST_SETTLE_AFTER`].
     pub fn evaluate_preview_activity(&self) {
         let Some(runtime) = self.agent() else {
             return;
@@ -915,9 +919,16 @@ impl SessionWorker {
         if active {
             self.set_agent_status(AgentActivityStatus::Active);
         }
+        // Not in the TS: until the activity is first known, the agent's first screen settles sooner.
+        let known = {
+            let state = self.inner.state.borrow();
+            let status = state.session.as_ref().and_then(|session| session.agent_status);
+            !matches!(status, None | Some(AgentActivityStatus::Unknown))
+        };
+        let idle_after = if known { IDLE_AFTER } else { FIRST_SETTLE_AFTER };
         let worker = self.clone();
         let captured = Rc::clone(&runtime);
-        let timer = Timer::after(IDLE_AFTER, move || {
+        let timer = Timer::after(idle_after, move || {
             {
                 let mut current = captured.borrow_mut();
                 if let Some(timer) = current.activity_idle_timer.take() {
@@ -1604,6 +1615,29 @@ mod tests {
                     r#""updatedAt":"2026-01-01T00:00:00.000Z","agentStatus":"idle","agentStatusUpdatedAt":""#
                 ),
                 "{text}"
+            );
+            daemon.worker.kill(false).expect("kill");
+        });
+    }
+
+    #[test]
+    fn a_new_agents_first_screen_settles_to_idle_in_about_a_second() {
+        run_local(async {
+            let mut daemon = Daemon::start();
+            daemon.next().await;
+            let started = Instant::now();
+            daemon
+                .send(start_command("/bin/sh", &["-c", "printf ready; sleep 30"]))
+                .await;
+            daemon.response("start-1").await;
+            let mut seen = Vec::new();
+            // Its one burst of output is not work: the first status it reports is idle, long before IDLE_AFTER.
+            let status = daemon.until(|m| m["type"] == "agent-status", &mut seen).await;
+            assert_eq!(status["agentStatus"], "idle");
+            let waited = started.elapsed();
+            assert!(
+                waited >= FIRST_SETTLE_AFTER && waited < Duration::from_millis(3000),
+                "idle after {waited:?}"
             );
             daemon.worker.kill(false).expect("kill");
         });

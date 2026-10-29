@@ -20,7 +20,7 @@ use deckhand_protocol::data::{
     SessionStatus, SubSessionKind,
 };
 use deckhand_protocol::wire::AgentHook;
-use deckhand_sys::async_util::spawn;
+use deckhand_sys::async_util::{Timer, spawn};
 use deckhand_sys::notify::{self, Delivery};
 use deckhand_sys::storage::load_app_config;
 use indexmap::IndexMap;
@@ -35,6 +35,10 @@ pub const DRAFT_WAIT: Duration = Duration::from_millis(120_000);
 
 /// TS: daemon.ts DRAFT_SETTLE_MS: the screen has settled once unchanged this long.
 pub const DRAFT_SETTLE: Duration = Duration::from_millis(700);
+
+/// Not in the TS: a **working** signal is stale once the screen has not changed for this long after it (Claude sends
+/// no hook when Esc interrupts it). Each screen update and each signal restarts the wait.
+pub const STALE_WORKING_AFTER: Duration = Duration::from_secs(5);
 
 /// TS: daemon.ts AGENT_PROMPT_PATTERN (`/do you trust|trust (?:the files|the contents|this folder|this
 /// directory)|press enter to continue|^\s*[❯›>]\s*1\.\s/im`): a menu or question on the agent's screen, where a draft
@@ -95,6 +99,12 @@ fn truthy(value: Option<&str>) -> bool {
 }
 
 /// `{state, event, at}`: an attention record without a reason.
+/// A running session whose last signal says it works.
+fn is_working(session: &SessionRecord) -> bool {
+    session.status == SessionStatus::Running
+        && session.attention.as_ref().map(|attention| attention.state) == Some(AttentionState::Working)
+}
+
 fn plain_attention(state: AttentionState, event: &str, at: String) -> SessionAttention {
     SessionAttention {
         state,
@@ -180,6 +190,7 @@ impl Daemon {
             held.touch("attention");
             held.attention = Some(attention);
             self.set_session(held);
+            self.settle_working(&message.session_id);
             return Ok(());
         }
         let mut updated = session;
@@ -190,6 +201,7 @@ impl Daemon {
         updated.touch("attention");
         updated.attention = Some(attention);
         let updated = self.save_session(updated).await?;
+        self.settle_working(&message.session_id);
         if needs_attention(Some(signal.state)) && (previous_state != Some(signal.state) || reason_changed) {
             let text = attention_message(signal.state, reason.as_ref());
             let daemon = self.clone();
@@ -240,6 +252,7 @@ impl Daemon {
         session.touch("attention");
         session.attention = Some(plain_attention(AttentionState::Working, "Answered", now_iso()));
         self.set_session_in_workspace(session.clone());
+        self.settle_working(session_id);
         Some(session)
     }
 
@@ -316,24 +329,58 @@ impl Daemon {
         if session.status == SessionStatus::Exited || session.agent_status == Some(agent_status) {
             return Ok(());
         }
-        let now = now_iso();
-        // A signal still saying working on a settled screen is stale: Claude reports no hook when Esc interrupts it.
-        // Agents animate while they work, so the screen going idle means they stopped; the next hook says what's next.
-        let stale_working = agent_status == AgentActivityStatus::Idle
-            && session.attention.as_ref().map(|attention| attention.state) == Some(AttentionState::Working);
+        // A stale working signal is ended by `settle_working`, not here: the screen can settle without ever having
+        // counted as active (Esc within a second of a prompt), so no change of activity would come.
         let mut updated = session;
         updated.touch("agentStatus");
         updated.agent_status = Some(agent_status);
         updated.touch("agentStatusUpdatedAt");
-        updated.agent_status_updated_at = Some(now.clone());
-        if stale_working {
-            updated.touch("attention");
-            updated.attention = Some(plain_attention(AttentionState::Unknown, "ScreenIdle", now));
-        }
+        updated.agent_status_updated_at = Some(now_iso());
         self.save_session(updated).await?;
         if agent_status == AgentActivityStatus::Idle {
             self.type_draft(session_id).await?;
         }
+        Ok(())
+    }
+
+    /// Not in the TS: (re)starts the wait after which a working signal is stale ([`STALE_WORKING_AFTER`]) while the
+    /// session works, and drops it otherwise. Called on every screen update and every applied signal.
+    ///
+    /// Agents animate while they work, so a screen that stays still after a working signal means they stopped; the
+    /// next hook says what's next.
+    pub fn settle_working(&self, session_id: &str) {
+        let Some(worker) = self.session_worker(session_id) else {
+            return;
+        };
+        let working = self.get_session(session_id).is_some_and(|session| is_working(&session));
+        let timer = working.then(|| {
+            let daemon = self.downgrade();
+            let id = session_id.to_owned();
+            Timer::after(STALE_WORKING_AFTER, move || {
+                let Some(daemon) = daemon.upgrade() else {
+                    return;
+                };
+                drop(spawn(async move {
+                    if let Err(error) = daemon.end_stale_working(&id).await {
+                        daemon.log_soon(format!("ending a stale working signal failed: {error}"));
+                    }
+                }));
+            })
+        });
+        // Replacing the timer clears the previous one.
+        *worker.working_settle.borrow_mut() = timer;
+    }
+
+    /// Not in the TS: a working signal the screen has not followed for [`STALE_WORKING_AFTER`] becomes unknown
+    /// (`ScreenIdle`), so the session shows idle.
+    pub async fn end_stale_working(&self, session_id: &str) -> Result<()> {
+        let Some(session) = self.get_session(session_id).filter(|session| is_working(session)) else {
+            return Ok(());
+        };
+        let mut updated = session;
+        updated.touch("attention");
+        updated.attention = Some(plain_attention(AttentionState::Unknown, "ScreenIdle", now_iso()));
+        self.save_session(updated).await?;
         Ok(())
     }
 
@@ -502,6 +549,7 @@ pub(crate) mod tests {
             draft: RefCell::new(None),
             last_hook_at: Cell::new(None),
             preview_styled: Cell::new(false),
+            working_settle: RefCell::new(None),
         });
         daemon
             .launch
@@ -933,6 +981,49 @@ pub(crate) mod tests {
                 .set_worker_agent_status("missing", AgentActivityStatus::Active)
                 .await
                 .unwrap();
+        });
+    }
+
+    #[test]
+    fn a_working_signal_the_screen_does_not_follow_ends() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, worker, _fake) = setup(dir.path()).await;
+            // A working signal starts the wait, and the activity going idle no longer ends it: Esc within a second of
+            // a prompt never counts as active, so no change of activity would come.
+            daemon
+                .handle_agent_hook(&hook(json!({"hook_event_name": "UserPromptSubmit"}), None))
+                .await
+                .unwrap();
+            assert_eq!(state(&daemon), Some(AttentionState::Working));
+            assert!(worker.working_settle.borrow().is_some());
+            daemon.patch_session("s", |session| {
+                session.touch("agentStatus");
+                session.agent_status = Some(AgentActivityStatus::Active);
+            });
+            daemon
+                .set_worker_agent_status("s", AgentActivityStatus::Idle)
+                .await
+                .unwrap();
+            assert_eq!(state(&daemon), Some(AttentionState::Working));
+            // Once the screen has stayed still for the wait, the signal is stale.
+            daemon.end_stale_working("s").await.unwrap();
+            let ended = attention(&daemon).unwrap();
+            assert_eq!(
+                (ended.state, ended.event.as_str()),
+                (AttentionState::Unknown, "ScreenIdle")
+            );
+            // Not working: no wait, and nothing to end.
+            daemon.settle_working("s");
+            assert!(worker.working_settle.borrow().is_none());
+            seed(&daemon, AttentionState::NeedsInput, None, None);
+            daemon.end_stale_working("s").await.unwrap();
+            assert_eq!(state(&daemon), Some(AttentionState::NeedsInput));
+            // Answering a prompt works again, so it waits too.
+            drop(daemon.mark_answered("s"));
+            assert_eq!(state(&daemon), Some(AttentionState::Working));
+            assert!(worker.working_settle.borrow().is_some());
         });
     }
 

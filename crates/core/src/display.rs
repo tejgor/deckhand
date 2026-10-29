@@ -259,6 +259,14 @@ pub fn program_glyph(program: ProgramKey) -> &'static str {
     }
 }
 
+/// Not in the TS: a session reads as starting until its agent's activity is known (running, before its first screen
+/// settled), rather than showing a separate "running, activity unknown" for its first second or so.
+pub fn still_starting(session: &SessionRecord) -> bool {
+    session.status == SessionStatus::Starting
+        || (session.status == SessionStatus::Running
+            && matches!(session.agent_status, None | Some(AgentActivityStatus::Unknown)))
+}
+
 /// TS: ui.ts statusGlyph (`spinner_frame` while working or starting).
 pub fn status_glyph(session: &SessionRecord, spinner_frame: &str) -> String {
     let attention = session.attention.as_ref().map(|attention| attention.state);
@@ -286,7 +294,8 @@ pub fn status_glyph(session: &SessionRecord, spinner_frame: &str) -> String {
                 spinner_frame.to_owned()
             }
             Some(AgentActivityStatus::Active | AgentActivityStatus::Idle) => "●".to_owned(),
-            _ => "◌".to_owned(),
+            // Not in the TS (`◌`): activity not known yet reads as starting ([`still_starting`]).
+            _ => spinner_frame.to_owned(),
         },
         SessionStatus::Exited => "○".to_owned(),
     }

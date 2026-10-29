@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::display::still_starting;
 use crate::session_features::session_has_unread_reply;
 use crate::session_order::{SessionLike, parent_of, visit};
 use deckhand_protocol::data::{AgentActivityStatus, AttentionState, SessionRecord, SessionStatus};
@@ -70,6 +71,9 @@ pub fn session_section(session: &SessionRecord) -> SessionSection {
     }
     if session_has_unread_reply(session) {
         SessionSection::Unread
+    } else if still_starting(session) {
+        // Not in the TS: activity not known yet reads as starting.
+        SessionSection::Working
     } else {
         SessionSection::Idle
     }
@@ -158,6 +162,13 @@ mod tests {
                 SessionSection::Working,
             ),
             (json!({}), SessionSection::Idle),
+            // Running before its activity is known reads as starting, unless a reply is unread.
+            (json!({"agentStatus": "unknown"}), SessionSection::Working),
+            (json!({"agentStatus": null}), SessionSection::Working),
+            (
+                json!({"attention": {"state": "response-ended", "event": "Stop", "at": at}, "agentStatus": "unknown"}),
+                SessionSection::Unread,
+            ),
             (
                 json!({"status": "exited", "attention": {"state": "needs-input", "event": "Stop", "at": at}}),
                 SessionSection::Exited,

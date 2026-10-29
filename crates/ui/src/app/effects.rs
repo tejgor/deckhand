@@ -182,10 +182,18 @@ pub fn should_animate_status(sessions: &[SessionRecord]) -> bool {
 }
 
 /// TS: whether `session` counts as working for the spinner (`starting`, or running with attention `working`, or an
-/// active agent with unknown attention).
+/// active agent with unknown attention). Not in the TS: also running before its activity is known, which reads as
+/// starting.
 pub fn session_animates(status: SessionStatus, session: &SessionRecord) -> bool {
     let attention = session.attention.as_ref().map(|attention| attention.state);
     status == SessionStatus::Starting
+        || (status == SessionStatus::Running
+            && matches!(session.agent_status, None | Some(AgentActivityStatus::Unknown))
+            && !matches!(
+                attention,
+                Some(AttentionState::NeedsInput | AttentionState::Failed | AttentionState::Limited)
+            )
+            && !(attention == Some(AttentionState::ResponseEnded) && session.reply_read != Some(true)))
         || (status == SessionStatus::Running
             && (attention == Some(AttentionState::Working)
                 || (matches!(attention, None | Some(AttentionState::Unknown))

@@ -120,7 +120,6 @@ The agent starts with no task: attach (`o`) and type it, or start the session fr
 | --- | --- |
 | `⠋` (spinner) | Before the title: starting or working |
 | `●` | Before the title: idle |
-| `◌` | Before the title: running, activity unknown |
 | `○` | Before the title: exited |
 | `?` | Before the title: needs you (agent signals) |
 | `◆` | Before the title: response ended, unread until you attach to the agent or press `U` (agent signals) |

@@ -662,7 +662,8 @@ pub fn status_words(session: &SessionRecord) -> &'static str {
             // Not in the TS: as statusGlyph, a screen changing after a read reply is not work.
             Some(AgentActivityStatus::Active) if attention != Some(AttentionState::ResponseEnded) => "working",
             Some(AgentActivityStatus::Active | AgentActivityStatus::Idle) => "idle",
-            _ => "running",
+            // Not in the TS (`running`): activity not known yet reads as starting (`still_starting`).
+            _ => "starting",
         },
     }
 }
@@ -2161,12 +2162,13 @@ mod tests {
         let words = |fields: Value| status_words(&sess("s", fields));
         assert_eq!(words(json!({})), "idle");
         assert_eq!(words(json!({"agentStatus": "active"})), "working");
-        assert_eq!(words(json!({"agentStatus": "unknown"})), "running");
+        // Activity not known yet reads as starting.
+        assert_eq!(words(json!({"agentStatus": "unknown"})), "starting");
         assert_eq!(
             words(
                 json!({"attention": {"state": "unknown", "event": "SessionStart", "at": ago(1)}, "agentStatus": null})
             ),
-            "running"
+            "starting"
         );
         assert_eq!(
             words(json!({"attention": {"state": "response-ended", "event": "Stop", "at": ago(1)}})),
