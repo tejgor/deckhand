@@ -14,7 +14,7 @@ use deckhand_core::session_features::{
 use deckhand_core::session_order::{
     parent_of, place_session, session_descendants, session_has_children, sort_sessions_for_sidebar, step_placement,
 };
-use deckhand_core::session_sections::session_section;
+use deckhand_core::session_sections::{TimeOrder, session_section};
 use deckhand_core::tasks_board::work_key_of;
 use deckhand_core::workspace::{no_workspace_reason, workspace_key};
 use deckhand_protocol::data::JsNumber;
@@ -867,6 +867,7 @@ pub const REORDER_EXIT_WAIT: Duration = Duration::from_secs(1);
 /// TS `reorderSelected` (J / K): move the session among its siblings. Not in the TS: past the sibling shown next
 /// to it (in the state view, in its section), on screen at once; the daemon gets its new place
 /// [`REORDER_DEBOUNCE`] after the last move ([`write_reorder`]). Moving another session writes the last one first.
+/// In a section listed by time it only says so.
 pub fn reorder_selected(app: &mut App, direction: MoveDirection) {
     if app.client().is_none() {
         return;
@@ -876,6 +877,15 @@ pub fn reorder_selected(app: &mut App, direction: MoveDirection) {
         return;
     };
     let section = app.sectioned().then(|| session_section(&session));
+    // A section listed by time has no order of yours to change (and its neighbours say nothing about your order).
+    if let Some((section, order)) = section.and_then(|section| section.time_order().map(|order| (section, order))) {
+        let first = match order {
+            TimeOrder::OldestFirst => "the longest waiting first",
+            TimeOrder::NewestFirst => "the latest first",
+        };
+        app.set_status(Some(format!("{} is ordered by time, {first}", section.label())));
+        return;
+    }
     let peers: Vec<&SessionRecord> = derived
         .visible
         .iter()
@@ -2639,14 +2649,40 @@ pub(crate) mod tests {
         local(async {
             let (mut app, _rx) = with_sessions(3);
             let _daemon = Daemon::connect(&mut app);
+            for session in &mut app.data.repo_sessions[..2] {
+                session.agent_status = Some(AgentActivityStatus::Active);
+            }
             app.data.repo_sessions[2].status = SessionStatus::Exited;
             app.browse.session_view = SessionView::State;
             app.set_selected_id(Some("s1".to_owned()));
-            // s1 is the last running session: the exited s2 below it is in another section.
+            // s1 is the last working session: the exited s2 below it is in another section.
             handle_browse(&mut app, &text("J"));
             assert!(app.reorder.orders.is_empty());
             handle_browse(&mut app, &text("K"));
             assert_eq!(ids(&app), ["s1", "s0", "s2"]);
+        });
+    }
+
+    #[test]
+    fn in_the_state_view_a_section_listed_by_time_is_not_reordered() {
+        local(async {
+            let (mut app, _rx) = with_sessions(2);
+            let _daemon = Daemon::connect(&mut app);
+            app.data.repo_sessions[0].agent_status_updated_at = Some("2026-10-01T00:00:00.000Z".to_owned());
+            app.data.repo_sessions[1].agent_status_updated_at = Some("2026-10-02T00:00:00.000Z".to_owned());
+            app.browse.session_view = SessionView::State;
+            // Idle lists the session that went idle last first; the list view keeps your order.
+            assert_eq!(ids(&app), ["s1", "s0"]);
+            app.set_selected_id(Some("s1".to_owned()));
+            handle_browse(&mut app, &text("J"));
+            assert!(app.reorder.orders.is_empty(), "your order is left alone");
+            assert!(app.reorder.moving.is_none());
+            assert_eq!(
+                app.messages.status_message.as_deref(),
+                Some("Idle is ordered by time, the latest first")
+            );
+            app.browse.session_view = SessionView::Order;
+            assert_eq!(ids(&app), ["s0", "s1"]);
         });
     }
 

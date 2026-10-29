@@ -19,8 +19,8 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `!`, `;` | Select the next session that needs you, switching to the attention filter |
 | `ctrl+d` / `ctrl+u` | Half a list down / up (`pgdn` / `pgup` too). In every list and scroll area, not in text fields |
 | `V` | Switch the list between your own order (the default) and [sections by state](features.md#organizing-and-inspecting-sessions) (needs you, unread, working, idle, exited) |
-| `J` | Move the selected session down past the sibling below it (in the state view, within its section) |
-| `K` | Move the selected session up past the sibling above it (in the state view, within its section) |
+| `J` | Move the selected session down past the sibling below it (in the state view, within its section; Needs you, Unread and Idle are ordered by time instead) |
+| `K` | Move the selected session up past the sibling above it (in the state view, within its section; Needs you, Unread and Idle are ordered by time instead) |
 | `c` | In your own order: cycle its sub-sessions (hide the exited ones, collapse, expand; when they have all exited, collapse at once). In sections by state: fold or unfold the **Exited** section (`▸` / `▾`); the selected session stays until you move off it. Both in the active and all (`*`) views; searches and the other filters show every match |
 | `<` | Narrow the sidebar: 2% less of the terminal, saved as your width for every repository ([sidebar width](features.md#organizing-and-inspecting-sessions)) |
 | `>` | Widen the sidebar: 2% more of the terminal, saved |

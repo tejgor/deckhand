@@ -196,7 +196,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "J K",
-                text: "Move the session down / up among its siblings",
+                text: "Move the session down / up among its siblings (needs you, unread, idle: by time)",
             },
             HelpLine::Key {
                 keys: "c",
