@@ -8,13 +8,20 @@
 //!   asks before running a command, so there is nothing to pre-allow.
 //! - **Codex** has no skill or allowlist flag: the trigger goes in as `developer_instructions` (`-c`), after the
 //!   user's own `developer_instructions` from `$CODEX_HOME/config.toml`, which the override would otherwise replace.
+//!   Its sandbox keeps a shell command from reaching the daemon's socket (Seatbelt counts an AF_UNIX connect as
+//!   network), so a Codex new enough ([`CODEX_MCP_MIN_VERSION`]) also gets the `deckhand` MCP server (`deckhand
+//!   mcp`, one `-c mcp_servers.deckhand={…}`): Codex starts it as its own child, outside the sandbox, and its tool
+//!   runs the same commands. Its trigger is then [`CODEX_TRIGGER`]. The server's environment comes from Codex's own
+//!   through `env_vars` (names only, so the hook token never appears in an argument); with
+//!   `allow_deckhand_commands` (unless false) the tool runs without asking (`default_tools_approval_mode`).
 //!
 //! The plugin lives in the state directory (`<DECKHAND_HOME>/agent-plugin`) and is rewritten only when its content
 //! differs from this build's.
 
 use std::path::{Path, PathBuf};
 
-use deckhand_core::agent_guide::{GUIDE, SKILL_DESCRIPTION, SKILL_NAME, TRIGGER};
+use deckhand_core::agent_guide::{CODEX_TRIGGER, GUIDE, SKILL_DESCRIPTION, SKILL_NAME, TRIGGER};
+use deckhand_core::agent_versions::compare_versions;
 use deckhand_core::error::{DhError, Result};
 use deckhand_protocol::data::ProgramKey;
 
@@ -27,6 +34,28 @@ pub const PLUGIN_DIR_NAME: &str = "agent-plugin";
 
 /// The permission rule that lets Claude run `deckhand` commands without asking.
 pub const DECKHAND_COMMANDS_RULE: &str = "Bash(deckhand:*)";
+
+/// The name of Deckhand's MCP server in Codex's `mcp_servers` (its tool shows as `deckhand` from server `deckhand`).
+pub const CODEX_MCP_SERVER: &str = "deckhand";
+
+/// The first Codex given the MCP server: older ones lack `default_tools_approval_mode` (and may not know
+/// `env_vars`), so their tool would ask every time or not reach the right session. Older Codex keeps the trigger only.
+pub const CODEX_MCP_MIN_VERSION: &str = "0.122.0";
+
+/// What the MCP server takes from Codex's environment (Codex passes a server only `HOME`, `PATH`, `TMPDIR` and a few
+/// others by default): the caller, as for hooks, and which Deckhand home and channel to reach.
+pub const CODEX_MCP_ENV_VARS: [&str; 6] = [
+    "DECKHAND_SESSION_ID",
+    "DECKHAND_LAUNCH_ID",
+    "DECKHAND_HOOK_TOKEN",
+    paths::HOME_ENV,
+    paths::CHANNEL_ENV,
+    paths::ALLOW_PROD_HOME_ENV,
+];
+
+/// Codex's timeout for one call of the tool (s): above the server's own limit on one command
+/// (`deckhand mcp`, 60 s), so the server answers first.
+pub const CODEX_MCP_TOOL_TIMEOUT_SECS: u64 = 90;
 
 /// The plugin's description (Claude lists it with the plugin; it is not loaded into the conversation).
 const PLUGIN_DESCRIPTION: &str = "The deckhand commands, for agents running in a Deckhand session.";
@@ -84,12 +113,17 @@ pub async fn write_plugin(dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// `<plugin dir>/bin/deckhand`: the link [`link_executable`] makes, which Codex starts as the MCP server.
+pub fn linked_executable(plugin_dir: &Path) -> PathBuf {
+    plugin_dir.join("bin").join("deckhand")
+}
+
 /// `<plugin dir>/bin`, holding `deckhand` as a link to `exe` (replaced when it points elsewhere). Put first on an
 /// agent's `PATH`, the `deckhand` commands it runs are this build's, whichever `deckhand` the `PATH` names (a dev
 /// build's agents would otherwise run the installed one).
 pub fn link_executable(plugin_dir: &Path, exe: &Path) -> Result<PathBuf> {
+    let link = linked_executable(plugin_dir);
     let bin = plugin_dir.join("bin");
-    let link = bin.join("deckhand");
     if std::fs::read_link(&link).is_ok_and(|target| target == exe) {
         return Ok(bin);
     }
@@ -139,13 +173,54 @@ fn toml_string(text: &str) -> String {
     serde_json::to_string(text).unwrap_or_default()
 }
 
+/// Whether a Codex of `version` gets the MCP server (unknown: no, as for an old one).
+pub fn codex_takes_mcp(version: Option<&str>) -> bool {
+    version.is_some_and(|version| compare_versions(version, CODEX_MCP_MIN_VERSION) >= 0)
+}
+
+/// The `-c` value adding the MCP server: `mcp_servers.deckhand={command=…, args=["mcp"], env_vars=[…], …}`, one TOML
+/// inline table. Codex merges a dotted override into its config table by table, so the user's own servers stay.
+pub fn codex_mcp_override(deckhand: &Path, allow_commands: bool) -> String {
+    let env_vars = CODEX_MCP_ENV_VARS.map(toml_string).join(", ");
+    let approval = if allow_commands {
+        ", default_tools_approval_mode=\"approve\""
+    } else {
+        ""
+    };
+    format!(
+        "mcp_servers.{CODEX_MCP_SERVER}={{command={}, args=[\"mcp\"], env_vars=[{env_vars}], \
+         tool_timeout_sec={CODEX_MCP_TOOL_TIMEOUT_SECS}{approval}}}",
+        toml_string(&deckhand.to_string_lossy()),
+    )
+}
+
+/// What the launch arguments depend on besides the agent (see [`command_args_for`]).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CommandInputs<'a> {
+    /// The installed agent's `--help` text.
+    pub help: &'a str,
+    /// The plugin directory, when it could be written.
+    pub plugin: Option<&'a Path>,
+    /// Pre-allow the commands (`allow_deckhand_commands` unless false).
+    pub allow_commands: bool,
+    /// The user's own Codex `developer_instructions`.
+    pub codex_instructions: Option<&'a str>,
+    /// The installed Codex's version.
+    pub codex_version: Option<&'a str>,
+    /// The `deckhand` Codex starts as its MCP server (none: no server).
+    pub deckhand: Option<&'a Path>,
+}
+
 /// The launch arguments that tell an agent about the `deckhand` commands (see the module docs). `plugin`: the
-/// plugin directory, when it could be written; `allow_commands`: pre-allow them (Claude).
+/// plugin directory, when it could be written; `allow_commands`: pre-allow them; `deckhand`: the executable Codex
+/// starts as its MCP server; `version`: the agent's version.
 pub async fn command_args(
     program: ProgramKey,
     command: &str,
     plugin: Option<&Path>,
     allow_commands: bool,
+    deckhand: Option<&Path>,
+    version: Option<&str>,
 ) -> Vec<String> {
     let help = program_help(command).await;
     let codex_instructions = if program == ProgramKey::Codex {
@@ -153,17 +228,29 @@ pub async fn command_args(
     } else {
         None
     };
-    command_args_for(program, &help, plugin, allow_commands, codex_instructions.as_deref())
+    command_args_for(
+        program,
+        &CommandInputs {
+            help: &help,
+            plugin,
+            allow_commands,
+            codex_instructions: codex_instructions.as_deref(),
+            codex_version: version,
+            deckhand,
+        },
+    )
 }
 
-/// [`command_args`] with the agent's `--help` text and the user's Codex instructions given.
-pub fn command_args_for(
-    program: ProgramKey,
-    help: &str,
-    plugin: Option<&Path>,
-    allow_commands: bool,
-    codex_instructions: Option<&str>,
-) -> Vec<String> {
+/// [`command_args`] with the agent's `--help` text, the user's Codex instructions and its version given.
+pub fn command_args_for(program: ProgramKey, inputs: &CommandInputs) -> Vec<String> {
+    let CommandInputs {
+        help,
+        plugin,
+        allow_commands,
+        codex_instructions,
+        codex_version,
+        deckhand,
+    } = *inputs;
     let mut args = Vec::new();
     match program {
         ProgramKey::Claude => {
@@ -192,14 +279,19 @@ pub fn command_args_for(
         },
         ProgramKey::Codex => {
             if help.contains("--config") {
+                let mcp = deckhand.filter(|_| codex_takes_mcp(codex_version));
+                let trigger = if mcp.is_some() { CODEX_TRIGGER } else { TRIGGER };
                 let instructions = match codex_instructions {
-                    Some(own) => format!("{own}\n\n{TRIGGER}"),
-                    None => TRIGGER.to_owned(),
+                    Some(own) => format!("{own}\n\n{trigger}"),
+                    None => trigger.to_owned(),
                 };
                 args.extend([
                     "-c".to_owned(),
                     format!("developer_instructions={}", toml_string(&instructions)),
                 ]);
+                if let Some(deckhand) = mcp {
+                    args.extend(["-c".to_owned(), codex_mcp_override(deckhand, allow_commands)]);
+                }
             }
         }
     }
@@ -219,76 +311,229 @@ mod tests {
         items.iter().map(|item| (*item).to_owned()).collect()
     }
 
+    /// The inputs with only the help text and the plugin given.
+    fn inputs<'a>(help: &'a str, plugin: Option<&'a Path>, allow_commands: bool) -> CommandInputs<'a> {
+        CommandInputs {
+            help,
+            plugin,
+            allow_commands,
+            ..CommandInputs::default()
+        }
+    }
+
     #[test]
     fn claude_gets_the_plugin_and_the_pre_allowed_commands() {
         let plugin = Path::new("/h/agent-plugin");
+        let claude = |inputs: CommandInputs| command_args_for(ProgramKey::Claude, &inputs);
         assert_eq!(
-            command_args_for(ProgramKey::Claude, CLAUDE_HELP, Some(plugin), true, None),
+            claude(inputs(CLAUDE_HELP, Some(plugin), true)),
             strings(&["--allowedTools", "Bash(deckhand:*)", "--plugin-dir", "/h/agent-plugin"])
         );
         // Turned off: the skill alone.
         assert_eq!(
-            command_args_for(ProgramKey::Claude, CLAUDE_HELP, Some(plugin), false, None),
+            claude(inputs(CLAUDE_HELP, Some(plugin), false)),
             strings(&["--plugin-dir", "/h/agent-plugin"])
         );
         // No plugin (unwritable) or no --plugin-dir: the short trigger instead.
         assert_eq!(
-            command_args_for(ProgramKey::Claude, CLAUDE_HELP, None, false, None),
+            claude(inputs(CLAUDE_HELP, None, false)),
             strings(&["--append-system-prompt", TRIGGER])
         );
         assert_eq!(
-            command_args_for(
-                ProgramKey::Claude,
-                "--allowedTools --append-system-prompt",
-                Some(plugin),
-                true,
-                None
-            ),
+            claude(inputs("--allowedTools --append-system-prompt", Some(plugin), true)),
             strings(&["--allowedTools", "Bash(deckhand:*)", "--append-system-prompt", TRIGGER])
         );
         // An agent whose help offers none of them (a fake agent, a failed probe): nothing.
-        assert!(command_args_for(ProgramKey::Claude, "", Some(plugin), true, None).is_empty());
+        assert!(claude(inputs("", Some(plugin), true)).is_empty());
+        // The MCP server is Codex's alone.
+        let with_mcp = CommandInputs {
+            codex_version: Some("0.163.0"),
+            deckhand: Some(Path::new("/h/agent-plugin/bin/deckhand")),
+            ..inputs(CLAUDE_HELP, Some(plugin), true)
+        };
+        assert_eq!(claude(with_mcp), claude(inputs(CLAUDE_HELP, Some(plugin), true)));
     }
 
     #[test]
     fn pi_gets_the_skill_directory_and_nothing_to_allow() {
         let plugin = Path::new("/h/agent-plugin");
+        let pi = |inputs: CommandInputs| command_args_for(ProgramKey::Pi, &inputs);
         let skill = ["--skill", "/h/agent-plugin/skills/deckhand"];
+        assert_eq!(pi(inputs(PI_HELP, Some(plugin), true)), strings(&skill));
+        assert_eq!(pi(inputs(PI_HELP, Some(plugin), false)), strings(&skill));
         assert_eq!(
-            command_args_for(ProgramKey::Pi, PI_HELP, Some(plugin), true, None),
-            strings(&skill)
-        );
-        assert_eq!(
-            command_args_for(ProgramKey::Pi, PI_HELP, Some(plugin), false, None),
-            strings(&skill)
-        );
-        assert_eq!(
-            command_args_for(ProgramKey::Pi, PI_HELP, None, true, None),
+            pi(inputs(PI_HELP, None, true)),
             strings(&["--append-system-prompt", TRIGGER])
         );
-        assert!(command_args_for(ProgramKey::Pi, "", Some(plugin), true, None).is_empty());
+        assert!(pi(inputs("", Some(plugin), true)).is_empty());
+    }
+
+    /// The value of `-c <key>=<value>` as Codex reads it: a TOML value.
+    fn override_value(assignment: &str, key: &str) -> toml::Value {
+        let value = assignment
+            .strip_prefix(key)
+            .and_then(|rest| rest.strip_prefix('='))
+            .unwrap_or_else(|| panic!("{assignment}"));
+        let parsed: toml::Table = format!("v = {value}").parse().unwrap();
+        parsed["v"].clone()
+    }
+
+    /// A Codex's `-c` values, by key.
+    fn codex_overrides(args: &[String]) -> Vec<(String, toml::Value)> {
+        assert_eq!(args.len() % 2, 0, "{args:?}");
+        args.chunks(2)
+            .map(|pair| {
+                assert_eq!(pair[0], "-c", "{args:?}");
+                let key = pair[1].split('=').next().unwrap().to_owned();
+                (key.clone(), override_value(&pair[1], &key))
+            })
+            .collect()
+    }
+
+    const DECKHAND: &str = "/h/agent-plugin/bin/deckhand";
+
+    fn codex_inputs(version: Option<&str>, allow_commands: bool) -> CommandInputs<'_> {
+        CommandInputs {
+            help: CODEX_HELP,
+            allow_commands,
+            codex_version: version,
+            deckhand: Some(Path::new(DECKHAND)),
+            ..CommandInputs::default()
+        }
     }
 
     #[test]
-    fn codex_gets_the_trigger_after_the_users_own_developer_instructions() {
-        let value = |args: Vec<String>| -> String {
-            assert_eq!(args.len(), 2, "{args:?}");
-            assert_eq!(args[0], "-c");
-            let assignment = args[1].strip_prefix("developer_instructions=").unwrap().to_owned();
-            // As Codex reads it: a TOML value.
-            let parsed: toml::Table = format!("v = {assignment}").parse().unwrap();
-            parsed["v"].as_str().unwrap().to_owned()
+    fn an_old_codex_gets_the_trigger_after_the_users_own_developer_instructions() {
+        let instructions = |inputs: CommandInputs| -> String {
+            let overrides = codex_overrides(&command_args_for(ProgramKey::Codex, &inputs));
+            assert_eq!(overrides.len(), 1, "{overrides:?}");
+            assert_eq!(overrides[0].0, "developer_instructions");
+            overrides[0].1.as_str().unwrap().to_owned()
         };
-        assert_eq!(
-            value(command_args_for(ProgramKey::Codex, CODEX_HELP, None, true, None)),
-            TRIGGER
-        );
+        assert_eq!(instructions(inputs(CODEX_HELP, None, true)), TRIGGER);
         let own = "Answer in \"French\".\nAlways\ttest.";
         assert_eq!(
-            value(command_args_for(ProgramKey::Codex, CODEX_HELP, None, false, Some(own))),
+            instructions(CommandInputs {
+                codex_instructions: Some(own),
+                ..inputs(CODEX_HELP, None, false)
+            }),
             format!("{own}\n\n{TRIGGER}")
         );
-        assert!(command_args_for(ProgramKey::Codex, "", None, true, None).is_empty());
+        // Older than the MCP server's minimum, or of unknown version: no server, the shell trigger.
+        assert_eq!(instructions(codex_inputs(Some("0.121.9"), true)), TRIGGER);
+        assert_eq!(instructions(codex_inputs(None, true)), TRIGGER);
+        assert!(command_args_for(ProgramKey::Codex, &inputs("", None, true)).is_empty());
+        assert!(
+            command_args_for(
+                ProgramKey::Codex,
+                &CommandInputs {
+                    help: "",
+                    ..codex_inputs(Some("0.163.0"), true)
+                }
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_new_codex_gets_the_mcp_server_and_the_tool_trigger() {
+        let args = command_args_for(
+            ProgramKey::Codex,
+            &CommandInputs {
+                codex_instructions: Some("Be brief"),
+                ..codex_inputs(Some("0.163.0"), true)
+            },
+        );
+        let overrides = codex_overrides(&args);
+        assert_eq!(overrides.len(), 2, "{overrides:?}");
+        assert_eq!(overrides[0].0, "developer_instructions");
+        assert_eq!(
+            overrides[0].1.as_str(),
+            Some(format!("Be brief\n\n{CODEX_TRIGGER}").as_str())
+        );
+        assert_eq!(overrides[1].0, "mcp_servers.deckhand");
+        let server = overrides[1].1.as_table().unwrap();
+        assert_eq!(server["command"].as_str(), Some(DECKHAND));
+        assert_eq!(server["args"], toml::Value::Array(vec!["mcp".into()]));
+        let env_vars: Vec<&str> = server["env_vars"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|name| name.as_str().unwrap())
+            .collect();
+        assert_eq!(
+            env_vars,
+            [
+                "DECKHAND_SESSION_ID",
+                "DECKHAND_LAUNCH_ID",
+                "DECKHAND_HOOK_TOKEN",
+                "DECKHAND_HOME",
+                "DECKHAND_CHANNEL",
+                "DECKHAND_ALLOW_PROD_HOME"
+            ]
+        );
+        // The environment goes by name only: no `env` table, whose values would be arguments.
+        assert!(!server.contains_key("env"));
+        assert_eq!(server["tool_timeout_sec"].as_integer(), Some(90));
+        assert_eq!(server["default_tools_approval_mode"].as_str(), Some("approve"));
+        // The exact argument, as `ps` shows it.
+        assert_eq!(
+            args[3],
+            "mcp_servers.deckhand={command=\"/h/agent-plugin/bin/deckhand\", args=[\"mcp\"], env_vars=[\
+             \"DECKHAND_SESSION_ID\", \"DECKHAND_LAUNCH_ID\", \"DECKHAND_HOOK_TOKEN\", \"DECKHAND_HOME\", \
+             \"DECKHAND_CHANNEL\", \"DECKHAND_ALLOW_PROD_HOME\"], tool_timeout_sec=90, \
+             default_tools_approval_mode=\"approve\"}"
+        );
+        // From the first version that has it on.
+        assert_eq!(
+            codex_overrides(&command_args_for(
+                ProgramKey::Codex,
+                &codex_inputs(Some("0.122.0"), true)
+            ))
+            .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn with_deckhand_commands_not_allowed_codex_asks_before_the_tool_runs() {
+        let args = command_args_for(ProgramKey::Codex, &codex_inputs(Some("0.163.0"), false));
+        let overrides = codex_overrides(&args);
+        assert_eq!(overrides[0].1.as_str(), Some(CODEX_TRIGGER));
+        let server = overrides[1].1.as_table().unwrap();
+        assert!(!server.contains_key("default_tools_approval_mode"), "{server:?}");
+        assert_eq!(server["command"].as_str(), Some(DECKHAND));
+    }
+
+    #[test]
+    fn the_mcp_server_command_is_quoted_for_toml_and_its_environment_goes_by_name() {
+        let odd = Path::new("/Users/a \"b\"\\c/agent-plugin/bin/deckhand");
+        let value = override_value(&codex_mcp_override(odd, true), "mcp_servers.deckhand");
+        assert_eq!(value["command"].as_str(), Some(odd.to_str().unwrap()));
+        // Nothing but these keys: the environment goes by name (`env_vars`), never as values (`env`), so the hook
+        // token is no argument (`ps` shows arguments to every user).
+        let mut keys: Vec<&str> = value.as_table().unwrap().keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "args",
+                "command",
+                "default_tools_approval_mode",
+                "env_vars",
+                "tool_timeout_sec"
+            ]
+        );
+    }
+
+    #[test]
+    fn codex_takes_the_mcp_server_from_its_minimum_version() {
+        assert!(codex_takes_mcp(Some("0.122.0")));
+        assert!(codex_takes_mcp(Some("0.163.0")));
+        assert!(codex_takes_mcp(Some("1.0.0")));
+        assert!(!codex_takes_mcp(Some("0.121.3")));
+        assert!(!codex_takes_mcp(Some("0.99.0")));
+        assert!(!codex_takes_mcp(None));
     }
 
     #[test]
@@ -350,6 +595,7 @@ mod tests {
         let (first, second) = (temp.path().join("first"), temp.path().join("second"));
         let bin = link_executable(&dir, &first).unwrap();
         assert_eq!(bin, dir.join("bin"));
+        assert_eq!(linked_executable(&dir), bin.join("deckhand"));
         assert_eq!(std::fs::read_link(bin.join("deckhand")).unwrap(), first);
         // Another build: the link follows it.
         link_executable(&dir, &second).unwrap();

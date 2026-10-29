@@ -3,7 +3,7 @@
 //! One binary plays every role the TS split between `node dist/cli.js <mode>` invocations: the Ink UI, the daemon
 //! (`--daemon`), the per-session and per-workspace workers (`--session-worker`, `--workspace-worker`), the agent hook
 //! bridge (`hook`), the hooks config printer (`hooks [codex]`), `setup`/`doctor`, `restart` and the agent commands
-//! (`new`, `ls`, `task`, `note`, `kill`, `remove`, `guide`; neither in TS), the dev
+//! (`new`, `ls`, `task`, `note`, `kill`, `remove`, `guide`; neither in TS), Codex's MCP server (`mcp`), the dev
 //! channel's `status`/`stop`, `--version` and `help`. Whatever the role, the process runs on one current_thread tokio runtime with a `LocalSet`,
 //! so shared state is `Rc<RefCell<..>>` and futures need not be `Send` (docs/conventions.md, Runtime model).
 
@@ -13,6 +13,7 @@ mod doctor;
 mod guard;
 mod hook;
 mod hooks;
+mod mcp;
 #[cfg(target_os = "macos")]
 mod notifier;
 mod restart;
@@ -105,6 +106,8 @@ mod tests {
         assert!(!guard::needs_home(&cli::Command::Setup(vec!["--check".into()])));
         assert!(!guard::needs_home(&cli::Command::Doctor(Vec::new())));
         assert!(!guard::needs_home(&cli::Command::Hooks(hooks::HooksTarget::Codex)));
+        // The MCP server's commands run as their own processes, each checked itself.
+        assert!(!guard::needs_home(&cli::Command::Mcp));
         assert!(!guard::needs_home(&cli::Command::Agent(vec!["guide".into()])));
         assert!(!guard::needs_home(&cli::Command::Agent(vec![
             "new".into(),

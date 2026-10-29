@@ -6,6 +6,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::rc::Rc;
 use std::sync::LazyLock;
@@ -868,8 +869,17 @@ impl Daemon {
     /// Not in the TS: what an agent is told about the `deckhand` commands at every launch
     /// ([`agent_commands::command_args`]): the plugin is (re)written first; when it cannot be, Claude and Pi get the
     /// short trigger instead. `allow_deckhand_commands: false` leaves the commands to the agent's own permissions.
+    /// Codex also gets the `deckhand` MCP server when its version allows: the agents' `deckhand` link (this build),
+    /// else this executable.
     pub async fn deckhand_command_args(&self, program: ProgramKey, command: &str, config: &AppConfig) -> Vec<String> {
         let dir = agent_commands::plugin_dir(&self.paths.config_dir);
+        let (deckhand, version) = if program == ProgramKey::Codex {
+            // The version is read beside every launch anyway (`start_worker`), so this is usually cached.
+            let version = self.agent_versions().version_of(command).await.version;
+            (self.agents_deckhand(&dir), version)
+        } else {
+            (None, None)
+        };
         let plugin = match agent_commands::write_plugin(&dir).await {
             Ok(()) => Some(dir),
             Err(error) => {
@@ -878,7 +888,34 @@ impl Daemon {
             }
         };
         let allow = config.allow_deckhand_commands != Some(false);
-        agent_commands::command_args(program, command, plugin.as_deref(), allow).await
+        agent_commands::command_args(
+            program,
+            command,
+            plugin.as_deref(),
+            allow,
+            deckhand.as_deref(),
+            version.as_deref(),
+        )
+        .await
+    }
+
+    /// The `deckhand` an agent starts by path (Codex's MCP server): the link in the plugin directory
+    /// ([`agent_commands::link_executable`]), else this executable; none when neither is known.
+    fn agents_deckhand(&self, plugin_dir: &Path) -> Option<PathBuf> {
+        let exe = match deckhand_sys::paths::cli_entry_path() {
+            Ok(exe) => exe,
+            Err(error) => {
+                self.log_soon(format!("finding this executable failed: {error}"));
+                return None;
+            }
+        };
+        match agent_commands::link_executable(plugin_dir, &exe) {
+            Ok(_) => Some(agent_commands::linked_executable(plugin_dir)),
+            Err(error) => {
+                self.log_soon(format!("linking the agents' deckhand failed: {error}"));
+                Some(exe)
+            }
+        }
     }
 
     /// TS: InkDaemon.continuedConversation: the Claude conversation a resumed session continued in, from its
@@ -1478,6 +1515,69 @@ mod tests {
                 daemon.deckhand_command_args(ProgramKey::Claude, &command, &off).await,
                 ["--plugin-dir", plugin_text.as_str()]
             );
+        });
+    }
+
+    #[test]
+    fn a_codex_launch_gets_the_mcp_server_at_the_agents_deckhand_link_from_its_minimum_version() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = test_daemon(dir.path());
+            let fake_codex = |name: &str, version: &str| -> String {
+                let codex = dir.path().join(name);
+                std::fs::write(
+                    &codex,
+                    format!(
+                        "#!/bin/sh\n[ \"$1\" = --version ] && echo 'codex-cli {version}' && exit 0\n\
+                         printf -- '  -c, --config <key=value>\\n'\n"
+                    ),
+                )
+                .unwrap();
+                std::fs::set_permissions(
+                    &codex,
+                    <std::fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o755),
+                )
+                .unwrap();
+                codex.to_string_lossy().into_owned()
+            };
+            let link = dir.path().join("agent-plugin/bin/deckhand");
+            let server = format!(
+                "mcp_servers.deckhand={{command={:?}, args=[\"mcp\"]",
+                link.to_string_lossy()
+            );
+
+            let new = fake_codex("codex", "0.163.0");
+            let args = daemon
+                .deckhand_command_args(ProgramKey::Codex, &new, &AppConfig::default())
+                .await;
+            assert_eq!(args.len(), 4, "{args:?}");
+            assert!(args[1].starts_with("developer_instructions="), "{args:?}");
+            assert!(args[3].starts_with(&server), "{args:?}");
+            assert!(
+                args[3].ends_with("default_tools_approval_mode=\"approve\"}"),
+                "{args:?}"
+            );
+            // The link is this build's (the test binary here).
+            assert_eq!(
+                std::fs::read_link(&link).unwrap(),
+                deckhand_sys::paths::cli_entry_path().unwrap()
+            );
+            let off = AppConfig {
+                allow_deckhand_commands: Some(false),
+                ..AppConfig::default()
+            };
+            let args = daemon.deckhand_command_args(ProgramKey::Codex, &new, &off).await;
+            assert!(
+                args[3].starts_with(&server) && !args[3].contains("approval"),
+                "{args:?}"
+            );
+
+            // Too old for it: the developer instructions alone, as before.
+            let old = fake_codex("old-codex", "0.121.0");
+            let args = daemon
+                .deckhand_command_args(ProgramKey::Codex, &old, &AppConfig::default())
+                .await;
+            assert_eq!(args.len(), 2, "{args:?}");
         });
     }
 

@@ -33,7 +33,8 @@ Set a Dev command in Settings (`C`), then press `D` to start it. `d` only shows 
 ## An agent's `deckhand` commands fail or ask first
 
 - **Claude asks before each one**: check that `~/.deckhand/config.json` doesn't set `"allow_deckhand_commands": false`. The setting applies from a session's next launch.
-- **Codex asks before each one**: expected. Codex has no launch option to allow a command, so its own approval settings apply.
+- **Codex asks, or its `deckhand` command can't reach the daemon**: Codex 0.122.0 and later use the `deckhand` tool instead of a shell command, and run it without asking. Check `codex --version`, then restart the session (`x`, then `s`) so it launches with the tool. In the session, `/mcp` should list a `deckhand` server; if it failed to start, check that `~/.deckhand/agent-plugin/bin/deckhand` exists (the daemon makes it at every launch). With `"allow_deckhand_commands": false` Codex asks before each call, as intended. An older Codex runs `deckhand` in its shell, where its sandbox stops the connection to the daemon: update Codex (`G`).
+- **Codex's tool says it works only inside a Deckhand session**: Codex didn't pass the session's `DECKHAND_*` variables on to the server. Restart the session (`x`, then `s`); if it keeps happening, report your Codex version.
 - **An agent runs another `deckhand`**: ask it to run `command -v deckhand`. It should be `~/.deckhand/agent-plugin/bin/deckhand`, a link to the Deckhand that launched it. If your shell's startup files set `PATH` themselves, the agent's shell may find another copy first.
 
 See [Deckhand commands for agents](features.md#deckhand-commands-for-agents).

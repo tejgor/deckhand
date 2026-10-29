@@ -1,8 +1,9 @@
 //! What agents Deckhand launches are told about the `deckhand` commands (not in the TS).
 //!
-//! Every session carries [`TRIGGER`] (or [`SKILL_DESCRIPTION`], for an agent that loads skills lazily), so it stays
-//! a line or two; the full [`GUIDE`] is printed by `deckhand guide` (and is the skill's body) and only costs context
-//! in the turn the user asks for a Deckhand action.
+//! Every session carries [`TRIGGER`] (or [`SKILL_DESCRIPTION`], for an agent that loads skills lazily, or
+//! [`CODEX_TRIGGER`], for a Codex given the `deckhand` MCP tool), so it stays a line or two; the full [`GUIDE`] is
+//! printed by `deckhand guide` (and is the skill's body) and only costs context in the turn the user asks for a
+//! Deckhand action.
 
 /// The skill's name, for agents that load skills lazily (Claude: `--plugin-dir`).
 pub const SKILL_NAME: &str = "deckhand";
@@ -14,6 +15,11 @@ tasks to the backlog, add steps to the note, list or tick tasks. Only when the u
 /// The always-loaded instruction for agents without lazily loaded skills.
 pub const TRIGGER: &str = "This is a Deckhand session. Only when the user asks for a Deckhand action (start a \
 session, add a task or a note step), run `deckhand guide` first and follow it.";
+
+/// The always-loaded instruction for Codex when it has the `deckhand` MCP tool (`deckhand mcp`), whose sandbox keeps
+/// its shell from reaching the daemon.
+pub const CODEX_TRIGGER: &str = "This is a Deckhand session. Only when the user asks for a Deckhand action (start a \
+session, add a task or a note step), call the `deckhand` tool with args [\"guide\"] first and follow it.";
 
 /// The most an always-loaded text may be, in bytes (about 60 tokens).
 pub const ALWAYS_LOADED_BUDGET: usize = 240;
@@ -64,6 +70,9 @@ makes it the task of that session's work, or a step in its note when the work ha
 IDs may be shortened to any unique prefix, as `ls` and `task list` print them. Add `--json` to any command for
 machine-readable output. `deckhand <command> --help` describes one command. Merging and deleting worktrees stay
 with the user.
+
+With the `deckhand` tool, pass the same words as `args`, without `deckhand` and without shell quoting: a long
+prompt is one string, as in [\"new\", \"--prompt\", \"<the whole brief>\"].
 ";
 
 #[cfg(test)]
@@ -72,7 +81,7 @@ mod tests {
 
     #[test]
     fn the_always_loaded_texts_stay_within_the_budget() {
-        for text in [TRIGGER, SKILL_DESCRIPTION] {
+        for text in [TRIGGER, SKILL_DESCRIPTION, CODEX_TRIGGER] {
             assert!(text.len() <= ALWAYS_LOADED_BUDGET, "{} bytes: {text}", text.len());
         }
     }
@@ -80,6 +89,8 @@ mod tests {
     #[test]
     fn the_trigger_points_at_the_guide() {
         assert!(TRIGGER.contains("deckhand guide"));
+        assert!(CODEX_TRIGGER.contains("`deckhand` tool with args [\"guide\"]"));
+        assert!(GUIDE.contains("With the `deckhand` tool, pass the same words as `args`"));
         assert!(GUIDE.starts_with("# Deckhand commands"));
     }
 }

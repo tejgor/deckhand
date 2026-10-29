@@ -1,6 +1,7 @@
 //! The `deckhand` commands agents run (`new`, `task`, `ls`, `note`, `kill`), black-box: the CLI against a real
 //! daemon with fake agents, run by hand (no caller) and from inside a session (its `DECKHAND_SESSION_ID`,
-//! `DECKHAND_LAUNCH_ID` and `DECKHAND_HOOK_TOKEN`, as the fake agent saw them).
+//! `DECKHAND_LAUNCH_ID` and `DECKHAND_HOOK_TOKEN`, as the fake agent saw them), directly and through `deckhand mcp`
+//! (Codex's MCP server).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -191,6 +192,108 @@ fn inside_a_session_new_starts_a_sub_session_it_may_end_and_note_add_adds_a_step
     // The lead is not its own sub-session.
     let refused = as_lead(&["kill", &lead_id]);
     assert!(!refused.status.success(), "{}", text(&refused.stdout));
+
+    stop(&mut daemon);
+}
+
+/// `deckhand mcp` (Codex's MCP server) over real stdio, as Codex starts it for a session: its environment holds the
+/// session's identity and Deckhand home (Codex forwards them by name), and its tool runs the same commands.
+#[test]
+fn the_mcp_server_answers_over_stdio_and_its_tool_acts_for_the_session() {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let root = repo();
+    let sandbox = Sandbox::new("agent-mcp");
+    let root_path: PathBuf = fs::canonicalize(root.path()).expect("realpath");
+    let bin = install_agents(&sandbox, fake_agent!());
+    let mut daemon = launch(&sandbox, &root_path, &bin);
+    ready(&sandbox.socket());
+
+    let lead = json_of(&cli(
+        &sandbox,
+        &bin,
+        &root_path,
+        &["new", "--title", "Lead", "--json"],
+        &[],
+    ));
+    let lead_id = lead["id"].as_str().unwrap_or_default().to_owned();
+    let lead = running(&sandbox.socket(), &lead_id);
+    let lead_cwd = PathBuf::from(lead["cwd"].as_str().unwrap_or_default());
+    let identity = trace(&sandbox, &lead_id);
+    let (launch_id, token) = (
+        identity["launchId"].as_str().unwrap_or_default().to_owned(),
+        identity["token"].as_str().unwrap_or_default().to_owned(),
+    );
+
+    let call = |id: u64, args: Value| {
+        serde_json::json!({"jsonrpc": "2.0", "id": id, "method": "tools/call",
+            "params": {"name": "deckhand", "arguments": {"args": args}}})
+    };
+    let messages = [
+        serde_json::json!({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {
+            "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "codex", "version": "0"}}}),
+        serde_json::json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+        serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}),
+        call(2, serde_json::json!(["guide"])),
+        call(3, serde_json::json!(["note", "add", "Check the \"MCP\" path"])),
+        call(4, serde_json::json!(["ls"])),
+        call(5, serde_json::json!(["restart", "--yes"])),
+    ];
+    let mut command = sandbox.cli(&["mcp"]);
+    command
+        .current_dir(&lead_cwd)
+        .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
+        .env("DECKHAND_SESSION_ID", &lead_id)
+        .env("DECKHAND_LAUNCH_ID", &launch_id)
+        .env("DECKHAND_HOOK_TOKEN", &token)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut server = sandbox.spawn(command);
+    {
+        let mut stdin = server.stdin.take().expect("stdin");
+        for message in &messages {
+            writeln!(stdin, "{message}").expect("write");
+        }
+    }
+    // The input ends: the server answers what it read, then exits.
+    let output = server.wait_with_output().expect("mcp output");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let replies: Vec<Value> = text(&output.stdout)
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap_or_else(|error| panic!("{error}: {line}")))
+        .collect();
+    let ids: Vec<u64> = replies.iter().map(|reply| reply["id"].as_u64().unwrap_or(99)).collect();
+    assert_eq!(ids, [0, 1, 2, 3, 4, 5], "{replies:?}");
+    assert_eq!(replies[0]["result"]["protocolVersion"], "2025-06-18");
+    assert_eq!(replies[0]["result"]["serverInfo"]["name"], "deckhand");
+    assert_eq!(replies[1]["result"]["tools"][0]["name"], "deckhand");
+    let tool_text = |reply: &Value| {
+        reply["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned()
+    };
+    for reply in &replies[2..5] {
+        assert_eq!(reply["result"]["isError"], false, "{reply}");
+    }
+    assert!(tool_text(&replies[2]).starts_with("# Deckhand commands"));
+    assert!(
+        tool_text(&replies[4]).contains(&format!("*  {}", &lead_id[..8])),
+        "{}",
+        replies[4]
+    );
+    assert_eq!(replies[5]["result"]["isError"], true);
+    assert!(!text(&output.stdout).contains(&token));
+
+    // The step reached the lead's note, as the caller's.
+    let lead = state(&sandbox.socket(), &lead_id);
+    let note = lead["sharedNotes"]["text"]
+        .as_str()
+        .or(lead["notes"].as_str())
+        .unwrap_or_default();
+    assert!(note.contains("- [ ] Check the \"MCP\" path"), "{lead}");
 
     stop(&mut daemon);
 }

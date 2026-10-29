@@ -2,7 +2,8 @@
 //!
 //! cli.ts `main` is an if-chain over argv; [`parse_args`] keeps its order of precedence and [`run`] carries out the
 //! result. The UI loop (`runUi` and the attach / `$EDITOR` hand-off) is `crate::ui_loop` (unit A1); the hook bridge
-//! is `crate::hook`, the hooks printer `crate::hooks`, setup and doctor `crate::setup` / `crate::doctor`.
+//! is `crate::hook`, the hooks printer `crate::hooks`, setup and doctor `crate::setup` / `crate::doctor`, Codex's MCP
+//! server `crate::mcp`.
 
 use std::io::Write;
 use std::path::Path;
@@ -16,7 +17,7 @@ use deckhand_sys::paths;
 use serde_json::Value;
 
 use crate::hooks::HooksTarget;
-use crate::{commands, doctor, hook, hooks, restart, setup, ui_loop};
+use crate::{commands, doctor, hook, hooks, mcp, restart, setup, ui_loop};
 
 /// TS: cli.ts `process.title` in the dev channel.
 pub const DEV_PROCESS_TITLE: &str = "deckhand-dev";
@@ -34,6 +35,9 @@ pub enum Command {
     Hook,
     /// `hooks [codex]`: print the hooks config (see `crate::hooks`).
     Hooks(HooksTarget),
+    /// `mcp` (not in TS): the MCP server Codex is given at launch, whose one tool runs the agent commands (see
+    /// `crate::mcp`). Not listed in [`HELP_TEXT`].
+    Mcp,
     /// `new`, `ls`, `task`, `note`, `kill`, `remove`, `guide` (not in TS): Deckhand actions for the agents it runs
     /// (see `crate::commands`). Holds argv from the command word on.
     Agent(Vec<String>),
@@ -58,7 +62,7 @@ pub enum Command {
 }
 
 /// `deckhand help` (not in TS). Lists what a user runs by hand: not the internal `--daemon`, `--session-worker`,
-/// `--workspace-worker` and `--notify`, nor the dev channel's `status`/`stop`.
+/// `--workspace-worker`, `--notify` and `mcp`, nor the dev channel's `status`/`stop`.
 pub const HELP_TEXT: &str = "\
 Usage: deckhand [command]
 
@@ -98,7 +102,7 @@ pub fn process_title(dev_channel: bool) -> &'static str {
 }
 
 /// TS: cli.ts main's argv tests, in order: dev `status`/`stop` (first argument, dev channel only), `hook`, `hooks`
-/// (second argument `codex` selects Codex), the agent commands (first argument, not in TS: before the flags below, so a
+/// (second argument `codex` selects Codex), `mcp` (not in TS), the agent commands (first argument, not in TS: before the flags below, so a
 /// `--prompt` may say `--daemon`), `--session-worker`, `--workspace-worker`, `--daemon` (anywhere), `setup`
 /// / `doctor` / `restart` (first argument; the rest are passed on), `--version` (first argument), else the UI. `args` excludes
 /// the program name (`process.argv.slice(2)`). The port adds `help` / `--help` / `-h` (first argument) beside
@@ -110,6 +114,7 @@ pub fn parse_args(args: &[String], dev_channel: bool) -> Command {
         Some("stop") if dev_channel => return Command::DevDaemon(DevDaemonAction::Stop),
         Some("hook") => return Command::Hook,
         Some("hooks") => return Command::Hooks(HooksTarget::from_arg(args.get(1).map(String::as_str))),
+        Some("mcp") => return Command::Mcp,
         Some(word) if commands::args::COMMAND_WORDS.contains(&word) => return Command::Agent(args.to_vec()),
         _ => {}
     }
@@ -165,6 +170,7 @@ pub async fn run(command: Command) -> Result<ExitCode, DhError> {
         Command::DevDaemon(action) => run_dev_daemon(action).await?,
         Command::Hook => hook::run_hook().await,
         Command::Hooks(target) => hooks::run_hooks(target)?,
+        Command::Mcp => return mcp::run().await,
         Command::Agent(args) => return commands::run(&args).await,
         Command::SessionWorker => run_session_worker().await?,
         Command::WorkspaceWorker => run_workspace_worker().await?,
@@ -410,6 +416,16 @@ mod tests {
     }
 
     #[test]
+    fn mcp_is_the_first_argument_and_wins_over_internal_flags() {
+        assert_eq!(parse_args(&args(&["mcp"]), false), Command::Mcp);
+        assert_eq!(parse_args(&args(&["mcp"]), true), Command::Mcp);
+        assert_eq!(parse_args(&args(&["mcp", "--daemon"]), false), Command::Mcp);
+        assert_eq!(parse_args(&args(&["x", "mcp"]), false), Command::Ui);
+        assert_eq!(parse_args(&args(&["--daemon", "mcp"]), false), Command::Daemon);
+        assert_eq!(parse_args(&args(&["MCP"]), false), Command::Ui);
+    }
+
+    #[test]
     fn help_is_the_first_argument_and_internal_flags_win_over_it() {
         for flag in ["help", "--help", "-h"] {
             assert_eq!(parse_args(&args(&[flag]), false), Command::Help);
@@ -458,6 +474,7 @@ mod tests {
             "--session-worker",
             "--workspace-worker",
             "--notify",
+            "mcp",
             "status",
             "stop",
         ] {

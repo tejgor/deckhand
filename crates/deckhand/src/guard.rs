@@ -11,10 +11,16 @@ use crate::cli::Command;
 
 /// Whether `command` reads or writes the state directory (`DECKHAND_HOME` / `~/.deckhand`): everything except
 /// printing the hooks config, `setup`/`doctor` (which only probe the PATH and read Codex's own config), `--version`,
-/// `help`, `deckhand guide` and an agent command's `--help`.
+/// `help`, `deckhand guide`, an agent command's `--help` and `mcp` (whose commands run as processes of their own,
+/// each checked itself).
 pub fn needs_home(command: &Command) -> bool {
     match command {
-        Command::Hooks(_) | Command::Setup(_) | Command::Doctor(_) | Command::Version | Command::Help => false,
+        Command::Hooks(_)
+        | Command::Setup(_)
+        | Command::Doctor(_)
+        | Command::Version
+        | Command::Help
+        | Command::Mcp => false,
         Command::Agent(args) => crate::commands::args::needs_daemon(args),
         _ => true,
     }

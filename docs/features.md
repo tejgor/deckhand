@@ -378,7 +378,7 @@ New worktrees are created with `git worktree add` at the configured `worktree.lo
 
 ## Deckhand commands for agents
 
-An agent in a Deckhand session can take Deckhand actions when you ask it to: "start sub-sessions for these three tasks", "park this in the backlog", "add a step to our note". It runs `deckhand` commands in its shell to do it. The sessions it starts appear in the sidebar under it, and you watch them, attach to them and take over as with any other session. You can run the same commands yourself.
+An agent in a Deckhand session can take Deckhand actions when you ask it to: "start sub-sessions for these three tasks", "park this in the backlog", "add a step to our note". It runs `deckhand` commands in its shell to do it (Codex calls a `deckhand` tool that runs them, see [What agents are told](#what-agents-are-told)). The sessions it starts appear in the sidebar under it, and you watch them, attach to them and take over as with any other session. You can run the same commands yourself.
 
 | Command | What it does |
 | --- | --- |
@@ -426,17 +426,17 @@ At every launch (creating, `s`, `S` and forks alike) Deckhand tells the agent ab
 
 - **Claude** gets a plugin with a `deckhand` skill (`--plugin-dir`). Claude keeps only a skill's name and description in context until it uses it, and the skill's body is the guide. Without `--plugin-dir`, the short instruction goes in with `--append-system-prompt`.
 - **Pi** gets the same skill (`--skill`), else the short instruction with `--append-system-prompt`.
-- **Codex** gets the short instruction as `developer_instructions` (`-c`), placed after your own top-level `developer_instructions` from `$CODEX_HOME/config.toml` (by default `~/.codex/config.toml`), which the option would otherwise replace.
+- **Codex** gets the short instruction as `developer_instructions` (`-c`), placed after your own top-level `developer_instructions` from `$CODEX_HOME/config.toml` (by default `~/.codex/config.toml`), which the option would otherwise replace. Codex runs shell commands in a sandbox that keeps `deckhand` from reaching the daemon, so Codex 0.122.0 and later also get a small MCP server, `deckhand mcp`, added with one more `-c` (`mcp_servers.deckhand`, next to your own MCP servers, which stay as they are). Codex starts it itself, outside the sandbox, and its one tool, `deckhand`, runs the same commands for the session: the agent passes the command's words as `args`, as in `["task", "add", "Fix login"]`. The short instruction then says to call the tool with `["guide"]` first. An older Codex, or one whose version Deckhand couldn't read, gets only the instruction to run `deckhand guide`.
 
 Each option is passed only when the installed agent's `--help` lists it. Nothing is written to the agents' own configuration: the plugin lives in the state directory, in `~/.deckhand/agent-plugin/`, and is rewritten when a new version of Deckhand changes it.
 
-The `deckhand` an agent runs is the Deckhand that launched it: the agent's `PATH` starts with `~/.deckhand/agent-plugin/bin`, which holds a link to the daemon's binary.
+The `deckhand` an agent runs is the Deckhand that launched it: the agent's `PATH` starts with `~/.deckhand/agent-plugin/bin`, which holds a link to the daemon's binary. Codex starts its MCP server from that link, by its full path.
 
 ### Running them without a prompt
 
-So that asking for a Deckhand action doesn't come back as a permission prompt, Claude is launched with `deckhand` commands allowed (`--allowedTools "Bash(deckhand:*)"`). Pi doesn't ask before running commands. Codex has no launch option for this, so it asks as its own approval settings say. With commands allowed, the guide's "only when the user asks" is what keeps an agent from using them unasked, and the limits under [The caller](#the-caller) are what the daemon enforces.
+So that asking for a Deckhand action doesn't come back as a permission prompt, Claude is launched with `deckhand` commands allowed (`--allowedTools "Bash(deckhand:*)"`). Pi doesn't ask before running commands. Codex runs the `deckhand` tool without asking (its MCP server is added with `default_tools_approval_mode = "approve"`); a Codex too old for the tool asks before each `deckhand` command as its own approval settings say, and its sandbox may stop the command anyway (see [Troubleshooting](troubleshooting.md)). With commands allowed, the guide's "only when the user asks" is what keeps an agent from using them unasked, and the limits under [The caller](#the-caller) are what the daemon enforces.
 
-To have Claude ask before each `deckhand` command, set this in the user config (`~/.deckhand/config.json`). It has no Settings (`C`) row and applies to launches after the change; agents are still told about the commands:
+To have Claude ask before each `deckhand` command, and Codex before each call of the `deckhand` tool, set this in the user config (`~/.deckhand/config.json`). It has no Settings (`C`) row and applies to launches after the change; agents are still told about the commands:
 
 ```json
 {
