@@ -244,7 +244,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "Ctrl+]",
-                text: "Back (Ctrl+Space too); every other key goes to it, Esc and Ctrl+C included",
+                text: "Back (Ctrl+Space too; on Preview, h twice quickly after a pause); every other key goes to it, Esc and Ctrl+C included",
             },
             HelpLine::Note {
                 note: "Mouse wheel: Scroll speed in Settings (C); \"claude_scroll_override\": false in config.json keeps your own Claude scroll settings.",
@@ -596,7 +596,7 @@ mod tests {
     fn guide_explains_typing_to_the_agent() {
         let panes = topic_text("Panes");
         assert!(panes.contains("type to the agent (running) or the shell"));
-        assert!(panes.contains("Ctrl+] Back (Ctrl+Space too)"));
+        assert!(panes.contains("Ctrl+] Back (Ctrl+Space too; on Preview, h twice quickly after a pause)"));
         assert!(panes.contains("Esc and Ctrl+C included"));
     }
 

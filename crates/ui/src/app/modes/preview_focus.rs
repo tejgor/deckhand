@@ -1,9 +1,9 @@
 //! Preview focus (→ on a running session's Preview): typing to the agent in place. Every key goes to the agent as
-//! the terminal sent it, until Ctrl+] or Ctrl+Space; the mouse wheel scrolls the preview, or a fullscreen agent's
+//! the terminal sent it, until Ctrl+] or Ctrl+Space (or h twice quickly); the mouse wheel scrolls the preview, or a fullscreen agent's
 //! own view. Terminal focus (→ on the Terminal tab) types into the shell shown the same way. Also the changes-/
 //! notes-focus hand-off to their flows.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use deckhand_client::attach::detach_position;
 use deckhand_core::display::display_session_title;
@@ -33,15 +33,46 @@ pub static KEYMAP: Keymap = &[Binding {
 const PASTE_START: &str = "\x1b[200~";
 const PASTE_END: &str = "\x1b[201~";
 
+/// Not in the TS: in preview focus, h pressed twice within this long leaves as Ctrl+] does; a lone h waits this long
+/// before it reaches the agent.
+pub const DOUBLE_H_MS: u64 = 300;
+
+/// Not in the TS: only an h after this long a pause in typing is held for a second one, so an h h inside a word
+/// ("withhold") is text and an h typed mid-sentence is not delayed.
+pub const DOUBLE_H_PAUSE_MS: i64 = 400;
+
 /// One key event in preview or terminal focus, before any of Deckhand's own key handling (Ctrl+C included goes to
 /// the agent or shell): sent as the terminal sent it, one `input` per event, so the daemon sees a lone Esc, Enter or
-/// digit as an answer. Ctrl+] or Ctrl+Space (outside a paste) sends what came before it and leaves.
+/// digit as an answer. Ctrl+] or Ctrl+Space (outside a paste) sends what came before it and leaves; so does h twice
+/// within [`DOUBLE_H_MS`], after a [`DOUBLE_H_PAUSE_MS`] pause, in preview focus.
 pub fn on_raw_key(app: &mut App, event: &KeyEvent) {
+    on_raw_key_at(app, event, now_ms());
+}
+
+/// [`on_raw_key`] at `now` (epoch milliseconds).
+fn on_raw_key_at(app: &mut App, event: &KeyEvent, now: i64) {
     let sequence = event.sequence.as_str();
     // The wheel arrives through `on_mouse_data`; clicks and motion are not forwarded.
     if is_mouse_report(sequence) || event.input.key.event_type == Some(KeyEventType::Release) {
         return;
     }
+    let paused = app
+        .preview_focus
+        .last_key_at
+        .is_none_or(|at| now - at >= DOUBLE_H_PAUSE_MS);
+    app.preview_focus.last_key_at = Some(now);
+    if app.mode == Mode::PreviewFocus && !app.preview_focus.in_paste && sequence == "h" {
+        if app.preview_focus.held_h.take().is_some() {
+            leave_focus(app, None);
+            return;
+        }
+        if paused {
+            let timer = app.dispatch().after(Duration::from_millis(DOUBLE_H_MS), send_held_h);
+            app.preview_focus.held_h = Some(timer);
+            return;
+        }
+    }
+    send_held_h(app);
     let modes = typed_modes(app);
     if sequence == PASTE_START || sequence == PASTE_END {
         app.preview_focus.in_paste = sequence == PASTE_START;
@@ -92,6 +123,13 @@ fn typed_modes(app: &App) -> ScreenModes {
     screen.map(|screen| screen.modes).unwrap_or_default()
 }
 
+/// The h held back by [`on_raw_key`], to the agent: no second h came in time, or another key did.
+fn send_held_h(app: &mut App) {
+    if app.preview_focus.held_h.take().is_some() {
+        send_to_agent(app, "h");
+    }
+}
+
 /// Keys for the focused agent (the preview follows the latest output again) or shell.
 fn send_to_agent(app: &mut App, data: &str) {
     let (Some(client), Some(session_id)) = (app.client(), app.preview_focus.session_id.clone()) else {
@@ -112,6 +150,8 @@ pub fn leave_focus(app: &mut App, status: Option<String>) {
     app.set_mode(Mode::Browse);
     app.preview_focus.in_paste = false;
     app.preview_focus.ctrl_c_hinted = false;
+    app.preview_focus.held_h = None;
+    app.preview_focus.last_key_at = None;
     app.preview_focus.shell = None;
     app.panes.preview.screen = None;
     if status.is_some() {
@@ -312,6 +352,10 @@ pub(crate) mod tests {
         on_raw_key(app, &KeyEvent::from_sequence(sequence.to_owned()));
     }
 
+    fn key_at(app: &mut App, sequence: &str, now: i64) {
+        on_raw_key_at(app, &KeyEvent::from_sequence(sequence.to_owned()), now);
+    }
+
     fn with_modes(app: &mut App, modes: ScreenModes) {
         app.panes.preview.screen = Some(PreviewScreen {
             modes,
@@ -334,8 +378,8 @@ pub(crate) mod tests {
             let (mut app, _rx) = focused();
             let mut daemon = Daemon::connect(&mut app);
             app.preview_focus.scroll_offset = 4;
-            // Esc, h and j no longer step out or scroll; Ctrl+C does not quit.
-            for sequence in ["\x1b", "h", "j", "1", "\x03", "\r", "hi", "\x1b[A", "\x7f"] {
+            // Esc and j no longer step out or scroll (h waits for a second one: below); Ctrl+C does not quit.
+            for sequence in ["\x1b", "j", "1", "\x03", "\r", "hi", "\x1b[A", "\x7f"] {
                 key(&mut app, sequence);
                 let message = daemon.next().await;
                 assert_eq!(message["type"], "input");
@@ -381,6 +425,65 @@ pub(crate) mod tests {
                 assert_eq!(message["sessionId"], "s0");
                 assert_eq!(message["read"], true);
             }
+        });
+    }
+
+    #[test]
+    fn h_twice_quickly_after_a_pause_leaves() {
+        local(async {
+            let (mut app, mut rx) = focused();
+            let mut daemon = Daemon::connect(&mut app);
+            // The first key of a stint follows a pause: an h is held; another key sends it first.
+            key_at(&mut app, "h", 1000);
+            assert!(app.preview_focus.held_h.is_some());
+            key_at(&mut app, "i", 1100);
+            assert_eq!(daemon.next().await["data"], "h");
+            assert_eq!(daemon.next().await["data"], "i");
+            // Mid-typing, h h is text, sent at once ("withhold").
+            key_at(&mut app, "h", 1200);
+            assert!(app.preview_focus.held_h.is_none());
+            key_at(&mut app, "h", 1300);
+            assert_eq!(daemon.next().await["data"], "h");
+            assert_eq!(daemon.next().await["data"], "h");
+            assert_eq!(app.mode, Mode::PreviewFocus);
+            // After a pause, a lone h goes on its own once no second h came in time.
+            key_at(&mut app, "h", 1300 + DOUBLE_H_PAUSE_MS);
+            let started = Instant::now();
+            let update = rx.recv().await.unwrap_or_else(|| panic!("the h timer"));
+            assert!(started.elapsed() >= Duration::from_millis(DOUBLE_H_MS - 50));
+            update(&mut app);
+            assert_eq!(daemon.next().await["data"], "h");
+            assert_eq!(app.mode, Mode::PreviewFocus);
+            // Ctrl+] sends a held h before it leaves.
+            key_at(&mut app, "h", 3000);
+            key_at(&mut app, "\x1d", 3100);
+            assert_eq!(daemon.next().await["data"], "h");
+            assert_eq!(app.mode, Mode::Browse);
+
+            // h h leaves, sending neither, and marks a finished reply read as Ctrl+] does. Stepping back in starts
+            // after a pause.
+            app.set_mode(Mode::PreviewFocus);
+            app.preview_focus.session_id = Some("s0".to_owned());
+            reply_ended(&mut app);
+            key_at(&mut app, "h", 3200);
+            key_at(&mut app, "h", 3350);
+            assert_eq!(app.mode, Mode::Browse);
+            assert!(app.preview_focus.held_h.is_none());
+            assert_eq!(daemon.next().await["type"], "set-reply-read");
+            // As after Ctrl+], the list takes the next key at once (l steps back in).
+            assert_eq!(app.preview_focus.held_since, None);
+            assert!(!hold_key(&mut app, &Input::text("l"), 3400));
+
+            // Pasted, h is text.
+            app.set_mode(Mode::PreviewFocus);
+            app.preview_focus.session_id = Some("s0".to_owned());
+            key_at(&mut app, PASTE_START, 5000);
+            key_at(&mut app, "h", 5000);
+            key_at(&mut app, "h", 5000);
+            key_at(&mut app, PASTE_END, 5000);
+            assert_eq!(daemon.next().await["data"], "h");
+            assert_eq!(daemon.next().await["data"], "h");
+            assert_eq!(app.mode, Mode::PreviewFocus);
         });
     }
 
@@ -531,7 +634,8 @@ pub(crate) mod tests {
             let (mut app, _rx) = typing_into_a_shell();
             let mut daemon = Daemon::connect(&mut app);
             reply_ended(&mut app);
-            for sequence in ["\x1b", "ls\r", "\x03"] {
+            // h is not held: h h is text in a shell.
+            for sequence in ["\x1b", "ls\r", "\x03", "h", "h"] {
                 key(&mut app, sequence);
                 assert_eq!(
                     daemon.next().await,

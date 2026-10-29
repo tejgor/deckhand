@@ -156,6 +156,7 @@ Archived rows are dimmed. The archived view (`f` `A`) lists only archived sessio
 | Key | Action |
 | --- | --- |
 | `ctrl+]`, `ctrl+space` | Back to the session list |
+| `h` `h` (quickly, after a pause) | Typing to the agent: back to the session list too. An `h` after a 0.4 s pause in typing waits 0.3 s for a second one, then goes to the agent; mid-typing (`withhold`), in a paste or in a shell, `h` is just text |
 | any other key | Goes to the agent (or the shell), `esc`, `ctrl+c` and the arrows included. The first `ctrl+c` of each stint says so in the status line |
 | mouse wheel | On Preview: scroll the agent's view (or the preview's history); the [scroll speed](features.md#scroll-speed) is set in Settings |
 
