@@ -119,6 +119,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session fr
 | Glyph | Meaning |
 | --- | --- |
 | `⠋` (spinner) | Before the title: starting or working |
+| `◐` | Before the title: background: its turn is over and read, but sub-agents or a background process still work (listed under Working) |
 | `●` | Before the title: idle |
 | `○` | Before the title: exited |
 | `?` | Before the title: needs you (agent signals) |

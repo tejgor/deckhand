@@ -115,8 +115,8 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 note: "A row: number, tree, status, title, then markers and the agent. Archived rows are dimmed (except in the archived view, which lists only them).",
             },
             HelpLine::Key {
-                keys: "⠋ ● ○",
-                text: "Starting or working · idle · exited",
+                keys: "⠋ ◐ ● ○",
+                text: "Starting or working · background (turn over) · idle · exited",
             },
             HelpLine::Key {
                 keys: "? ◆ ⌛",
@@ -616,6 +616,7 @@ mod tests {
         let text = topic_text("Sidebar");
         for glyph in [
             "⠋",
+            "◐",
             "●",
             "○",
             "!",
