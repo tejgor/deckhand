@@ -59,6 +59,14 @@ pub const ACTIVITY_WINDOW: Duration = Duration::from_millis(3000);
 pub const IDLE_AFTER: Duration = Duration::from_millis(5000);
 /// TS: sessionWorker.ts ACTIVE_MIN_CHANGED_CHARS
 pub const ACTIVE_MIN_CHANGED_CHARS: usize = 1;
+/// Not in the TS: the agent turns `active` only once its screen has kept changing this long (agents animate while
+/// they work), so a single redraw, a menu opening or a status-line tick does not count as work.
+pub const ACTIVE_AFTER: Duration = Duration::from_millis(1000);
+/// Not in the TS: the longest pause between two changes of one run of [`ACTIVE_AFTER`].
+pub const ACTIVE_MAX_GAP: Duration = Duration::from_millis(500);
+/// Not in the TS: screen changes this soon after input are its echo (typing to the agent in its Preview, attached, a
+/// task draft): they keep the current activity but never make the agent `active`.
+pub const INPUT_ECHO_WINDOW: Duration = Duration::from_millis(500);
 /// TS: sessionWorker.ts RESIZE_ACTIVITY_SUPPRESSION_MS
 pub const RESIZE_ACTIVITY_SUPPRESSION: Duration = Duration::from_millis(750);
 /// TS: sessionWorker.ts EXIT_OUTPUT_QUIET_MS
@@ -138,6 +146,8 @@ pub struct AgentRuntime {
     pub last_preview_snapshot: String,
     pub preview_change_events: Vec<PreviewChangeEvent>,
     pub last_data_at: Option<Instant>,
+    /// Not in the TS: when input last reached the agent (see [`INPUT_ECHO_WINDOW`]).
+    pub last_input_at: Option<Instant>,
     /// Not in the TS: when the pending `pty.broadcast_timer` fires (`None` when none is pending, or once cleared on
     /// exit), so switching to the styled pace can bring a slow broadcast forward.
     pub broadcast_due: Option<Instant>,
@@ -534,6 +544,7 @@ impl SessionWorker {
             last_preview_snapshot: String::new(),
             preview_change_events: Vec::new(),
             last_data_at: None,
+            last_input_at: None,
             broadcast_due: None,
         }));
         self.inner.state.borrow_mut().agent = Some(Rc::clone(&agent));
@@ -758,11 +769,15 @@ impl SessionWorker {
         self.schedule_preview_broadcast();
     }
 
-    /// TS: `this.agent?.term.write(data)` (`input` for the agent).
+    /// TS: `this.agent?.term.write(data)` (`input` for the agent). Not in the TS: stamps `last_input_at`, so the echo
+    /// is not taken for work.
     pub async fn input_agent(&self, data: &str) {
         let Some(term) = self.agent_term() else {
             return;
         };
+        if let Some(agent) = self.agent() {
+            agent.borrow_mut().last_input_at = Some(Instant::now());
+        }
         // node-pty reports write failures on the socket, never to the caller.
         let _ = term.write(data.as_bytes()).await;
     }
@@ -865,13 +880,14 @@ impl SessionWorker {
     }
 
     /// TS: SessionWorker.evaluatePreviewActivity: counts changed characters since the last snapshot, keeps the
-    /// changes of the last [`ACTIVITY_WINDOW`], goes `active` when they reach [`ACTIVE_MIN_CHANGED_CHARS`] and re-arms
-    /// the idle timer ([`IDLE_AFTER`], which also clears the window).
+    /// changes of the last [`ACTIVITY_WINDOW`] and re-arms the idle timer ([`IDLE_AFTER`], which also clears the
+    /// window). Not in the TS: it goes `active` only on a sustained run of changes ([`sustained_change`]), and the
+    /// echo of input ([`INPUT_ECHO_WINDOW`]) re-arms the idle timer without counting as a change.
     pub fn evaluate_preview_activity(&self) {
         let Some(runtime) = self.agent() else {
             return;
         };
-        let total = {
+        let active = {
             let mut current = runtime.borrow_mut();
             if suppressed(&current, Instant::now()) {
                 return;
@@ -883,19 +899,20 @@ impl SessionWorker {
                 return;
             }
             let now = Instant::now();
-            current
-                .preview_change_events
-                .retain(|event| now.saturating_duration_since(event.at) <= ACTIVITY_WINDOW);
-            current
-                .preview_change_events
-                .push(PreviewChangeEvent { at: now, changed_chars });
-            current
-                .preview_change_events
-                .iter()
-                .map(|event| event.changed_chars)
-                .sum::<usize>()
+            let echo = current
+                .last_input_at
+                .is_some_and(|at| now.saturating_duration_since(at) < INPUT_ECHO_WINDOW);
+            !echo && {
+                current
+                    .preview_change_events
+                    .retain(|event| now.saturating_duration_since(event.at) <= ACTIVITY_WINDOW);
+                current
+                    .preview_change_events
+                    .push(PreviewChangeEvent { at: now, changed_chars });
+                sustained_change(&current.preview_change_events)
+            }
         };
-        if total >= ACTIVE_MIN_CHANGED_CHARS {
+        if active {
             self.set_agent_status(AgentActivityStatus::Active);
         }
         let worker = self.clone();
@@ -963,6 +980,22 @@ impl SessionWorker {
 /// `Date.now() < (runtime.suppressActivityUntil ?? 0)`.
 fn suppressed(runtime: &AgentRuntime, now: Instant) -> bool {
     runtime.suppress_activity_until.is_some_and(|until| now < until)
+}
+
+/// Not in the TS: whether the latest run of changes (each at most [`ACTIVE_MAX_GAP`] after the one before) spans
+/// [`ACTIVE_AFTER`].
+fn sustained_change(events: &[PreviewChangeEvent]) -> bool {
+    let Some(last) = events.last() else {
+        return false;
+    };
+    let mut start = last.at;
+    for event in events.iter().rev().skip(1) {
+        if start.saturating_duration_since(event.at) > ACTIVE_MAX_GAP {
+            break;
+        }
+        start = event.at;
+    }
+    last.at.saturating_duration_since(start) >= ACTIVE_AFTER
 }
 
 /// The live agent's preview record (`{sessionId, content, live: true, status: 'running', agentStatus,
@@ -1247,6 +1280,9 @@ mod tests {
         });
     }
 
+    /// Output for 1.6 s, a change every 0.2 s: long enough to count as work ([`ACTIVE_AFTER`]).
+    const BUSY_THEN_EXIT: &str = "for i in 1 2 3 4 5 6 7 8; do printf .; sleep 0.2; done";
+
     #[test]
     fn start_streams_preview_activity_and_exit() {
         run_local(async {
@@ -1258,16 +1294,14 @@ mod tests {
                     deckhand_protocol::PROTOCOL_VERSION
                 )
             );
-            daemon
-                .send(start_command("/bin/sh", &["-c", "printf hello; sleep 0.6"]))
-                .await;
+            daemon.send(start_command("/bin/sh", &["-c", BUSY_THEN_EXIT])).await;
             let running = daemon.next().await;
             assert_eq!(running["type"], "running");
             let pid = running["pid"].as_i64().expect("pid");
             assert!(pid > 0);
             // `{...session, status: 'running', pid}`: status keeps its place, pid is appended.
             let response = daemon.next_text().await;
-            let mut expected = session("/bin/sh", &["-c", "printf hello; sleep 0.6"]);
+            let mut expected = session("/bin/sh", &["-c", BUSY_THEN_EXIT]);
             expected["status"] = json!("running");
             expected["pid"] = json!(pid);
             let expected = json!({"type": "response", "requestId": "start-1", "ok": true, "data": expected});
@@ -1278,7 +1312,7 @@ mod tests {
             let exit = daemon.until(|m| m["type"] == "exit", &mut seen).await;
             assert_eq!(exit["exitCode"], 0);
             assert_eq!(exit["exitSignal"], 0);
-            assert_eq!(exit["lastPreview"], "hello");
+            assert_eq!(exit["lastPreview"], "........");
             let preview = seen
                 .iter()
                 .rev()
@@ -1286,7 +1320,7 @@ mod tests {
                 .expect("a preview update");
             assert_eq!(
                 serde_json::to_string(&preview["preview"]).expect("json"),
-                r#"{"sessionId":"s-1","content":"hello","live":true,"status":"running","agentStatus":"active","scrollOffset":0,"maxScrollOffset":0}"#
+                r#"{"sessionId":"s-1","content":"........","live":true,"status":"running","agentStatus":"active","scrollOffset":0,"maxScrollOffset":0}"#
             );
             assert!(seen.iter().all(|m| m["type"] != "output"), "not attached: {seen:?}");
             // The worker stops serving shortly after the exit.
@@ -1544,7 +1578,10 @@ mod tests {
             let mut daemon = Daemon::start();
             daemon.next().await;
             daemon
-                .send(start_command("/bin/sh", &["-c", "printf busy; sleep 30"]))
+                .send(start_command(
+                    "/bin/sh",
+                    &["-c", "for i in 1 2 3 4 5 6 7; do printf .; sleep 0.2; done; sleep 30"],
+                ))
                 .await;
             daemon.response("start-1").await;
             let mut seen = Vec::new();
@@ -1601,6 +1638,90 @@ mod tests {
             assert_eq!(agent.borrow().preview_change_events.len(), 1);
             assert_eq!(agent.borrow().last_preview_snapshot, "first");
             worker.kill(true).expect("kill");
+        });
+    }
+
+    #[test]
+    fn only_a_sustained_run_of_changes_is_work() {
+        let base = Instant::now();
+        let events = |times: &[u64]| -> Vec<PreviewChangeEvent> {
+            times
+                .iter()
+                .map(|&ms| PreviewChangeEvent {
+                    at: base + Duration::from_millis(ms),
+                    changed_chars: 1,
+                })
+                .collect()
+        };
+        assert!(!sustained_change(&[]));
+        // One redraw, or a burst shorter than ACTIVE_AFTER, is not work.
+        assert!(!sustained_change(&events(&[0])));
+        assert!(!sustained_change(&events(&[0, 150, 300, 450])));
+        // A change every 0.2 s for a second is.
+        assert!(sustained_change(&events(&[0, 200, 400, 600, 800, 1000])));
+        // A pause longer than ACTIVE_MAX_GAP starts the run again: blips a second apart are not work.
+        assert!(!sustained_change(&events(&[0, 1000])));
+        assert!(!sustained_change(&events(&[0, 200, 400, 1000, 1200])));
+    }
+
+    #[test]
+    fn single_changes_and_the_echo_of_input_do_not_make_the_agent_active() {
+        run_local(async {
+            let mut daemon = Daemon::start();
+            daemon.next().await;
+            daemon.send(start_command("/bin/sh", &["-c", "sleep 30"])).await;
+            daemon.response("start-1").await;
+            let worker = daemon.worker.clone();
+            let agent = worker.agent().expect("agent");
+            let active = || {
+                let state = worker.inner.state.borrow();
+                state.session.as_ref().and_then(|session| session.agent_status) == Some(AgentActivityStatus::Active)
+            };
+            // A single change is recorded, but is not work.
+            worker.on_agent_data(&agent, "first");
+            worker.evaluate_preview_activity();
+            assert_eq!(agent.borrow().preview_change_events.len(), 1);
+            assert!(!active());
+            // Right after input, a change is its echo: the baseline moves, but it does not continue a run that would
+            // otherwise make the agent active.
+            {
+                let mut runtime = agent.borrow_mut();
+                let now = Instant::now();
+                runtime.preview_change_events = [1200, 900, 600, 300]
+                    .iter()
+                    .map(|&ms| PreviewChangeEvent {
+                        at: now - Duration::from_millis(ms),
+                        changed_chars: 1,
+                    })
+                    .collect();
+                runtime.last_input_at = Some(now);
+            }
+            worker.on_agent_data(&agent, " typed");
+            worker.evaluate_preview_activity();
+            assert_eq!(agent.borrow().last_preview_snapshot, "first typed");
+            assert_eq!(agent.borrow().preview_change_events.len(), 4);
+            assert!(!active());
+            // The agent's own output continuing it is.
+            agent.borrow_mut().last_input_at = None;
+            worker.on_agent_data(&agent, ".");
+            worker.evaluate_preview_activity();
+            assert!(active());
+            worker.kill(true).expect("kill");
+        });
+    }
+
+    #[test]
+    fn input_is_stamped_for_the_echo_check() {
+        run_local(async {
+            let mut daemon = Daemon::start();
+            daemon.next().await;
+            daemon.send(start_command("/bin/sh", &["-c", "sleep 30"])).await;
+            daemon.response("start-1").await;
+            let agent = daemon.worker.agent().expect("agent");
+            assert!(agent.borrow().last_input_at.is_none());
+            daemon.worker.input_agent("x").await;
+            assert!(agent.borrow().last_input_at.is_some());
+            daemon.worker.kill(true).expect("kill");
         });
     }
 }

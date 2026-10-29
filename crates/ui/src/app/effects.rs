@@ -1083,15 +1083,19 @@ fn selected_session_effect(app: &mut App, derived: &Derived) {
     } else {
         String::new()
     };
+    // Not in the TS: an update of the same running session (its activity, a hook) keeps what the last preview
+    // carried, the styled screen and the scroll offsets; dropping them showed the plain preview while typing to the
+    // agent until its screen next changed.
+    let kept = same_session && selected.status != SessionStatus::Exited;
     app.panes.preview = PreviewRecord {
         session_id: Some(selected.id.clone()),
         content,
         live: same_session && current.live,
         status: Some(selected.status),
         agent_status: selected.agent_status,
-        scroll_offset: None,
-        max_scroll_offset: None,
-        screen: None,
+        scroll_offset: current.scroll_offset.filter(|_| kept),
+        max_scroll_offset: current.max_scroll_offset.filter(|_| kept),
+        screen: current.screen.clone().filter(|_| kept),
     };
 }
 
@@ -1526,6 +1530,37 @@ mod tests {
             app.data.repo_sessions.clear();
             run_effects(&mut app);
             assert_eq!(app.panes.preview.session_id, None);
+        });
+    }
+
+    #[test]
+    fn an_update_of_the_selected_session_keeps_its_styled_screen_and_scroll() {
+        local(async {
+            let (mut app, _rx) = app(AppProps {
+                initial_selected_id: Some("a".to_owned()),
+                ..AppProps::default()
+            });
+            app.data.repo_sessions = vec![session("a", "A", SessionStatus::Running)];
+            app.data.sessions_loaded = true;
+            run_effects(&mut app);
+            app.panes.preview.content = "plain".to_owned();
+            app.panes.preview.screen = Some(deckhand_protocol::screen::PreviewScreen::default());
+            app.panes.preview.scroll_offset = Some(3);
+            app.panes.preview.max_scroll_offset = Some(40);
+            // The agent goes idle with nothing new on screen (no preview update follows).
+            app.data.repo_sessions[0].agent_status = Some(AgentActivityStatus::Idle);
+            run_effects(&mut app);
+            let preview = &app.panes.preview;
+            assert_eq!(preview.agent_status, Some(AgentActivityStatus::Idle));
+            assert_eq!(preview.content, "plain");
+            assert!(preview.screen.is_some());
+            assert_eq!((preview.scroll_offset, preview.max_scroll_offset), (Some(3), Some(40)));
+            // Once it exits, its last preview is plain.
+            app.data.repo_sessions[0].status = SessionStatus::Exited;
+            run_effects(&mut app);
+            let preview = &app.panes.preview;
+            assert!(preview.screen.is_none());
+            assert_eq!((preview.scroll_offset, preview.max_scroll_offset), (None, None));
         });
     }
 
