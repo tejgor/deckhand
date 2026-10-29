@@ -300,11 +300,9 @@ pub fn handle_enter_name(app: &mut App, input: &Input) {
         app.create.worktree_mode = WORKTREE_MODES[next].key;
         return;
     }
-    // Not in the TS: Ctrl+N / Ctrl+P too, so the base needs no arrow keys (letters are the name here).
-    let (up, down) = (
-        key.up_arrow || (key.ctrl && input.input == "p"),
-        key.down_arrow || (key.ctrl && input.input == "n"),
-    );
+    // Not in the TS: Ctrl+N / Ctrl+P and Ctrl+J / Ctrl+K too, so the base needs no arrow keys (letters are the name
+    // here).
+    let (up, down) = crate::app::modes::typing_moves(input);
     if (up || down) && app.create.worktree_mode == WorktreeMode::New && !stays_in_parent {
         let count = base_options(app.create.branch_list.as_ref()).len();
         if count > 1 {
@@ -357,13 +355,13 @@ fn list_existing_worktrees(app: &mut App) {
 pub fn handle_pick_worktree(app: &mut App, input: &Input) {
     let key = &input.key;
     let typing = app.create.worktree_typing;
-    // Not in the TS: Ctrl+P / Ctrl+N move while typing the search too.
-    let ctrl = |letter: &str| key.ctrl && input.input == letter;
-    if key.up_arrow || ctrl("p") || (!typing && input.input == "k") {
+    // Not in the TS: Ctrl+P / Ctrl+N and Ctrl+K / Ctrl+J move while typing the search too.
+    let (up, down) = crate::app::modes::typing_moves(input);
+    if up || (!typing && input.input == "k") {
         app.create.worktree_index = app.create.worktree_index.saturating_sub(1);
         return;
     }
-    if key.down_arrow || ctrl("n") || (!typing && input.input == "j") {
+    if down || (!typing && input.input == "j") {
         let count = filtered_worktrees(&app.create.worktrees, &app.create.worktree_query).len();
         app.create.worktree_index = count.saturating_sub(1).min(app.create.worktree_index + 1);
         return;
@@ -1291,6 +1289,12 @@ mod tests {
         assert_eq!(app.create.base_index, 2);
         handle_enter_name(&mut app, &down());
         assert_eq!(app.create.base_index, 0);
+        // Ctrl+J (a bare line feed) and Ctrl+K too, leaving the name alone.
+        let name = app.create.draft_name.clone();
+        handle_enter_name(&mut app, &crate::input::input_for_event("\n"));
+        assert_eq!(app.create.base_index, 1);
+        handle_enter_name(&mut app, &crate::input::input_for_event("\x0b"));
+        assert_eq!((app.create.base_index, app.create.draft_name.clone()), (0, name));
         handle_enter_name(&mut app, &tab());
         assert_eq!(app.create.worktree_mode, WorktreeMode::Existing);
         handle_enter_name(&mut app, &down());

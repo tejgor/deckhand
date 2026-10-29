@@ -13,7 +13,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `1`–`9` | Select that numbered session |
 | `0` | Select session 10 (while 10 or fewer are visible) |
 | a number | With more than 10 visible, type it: `enter` or a short pause selects, `esc` clears |
-| `/` | Search titles, notes, tasks, agent, branch and path. While typing, `↑`/`↓` or `ctrl+n`/`ctrl+p` move the selection, `enter` keeps the search and `esc` clears it |
+| `/` | Search titles, notes, tasks, agent, branch and path. While typing, `↑`/`↓`, `ctrl+n`/`ctrl+p` or `ctrl+j`/`ctrl+k` move the selection, `enter` keeps the search and `esc` clears it |
 | `f` | Open the filter menu: `a` active, `r` running, `!` attention, `e` exited, `A` archived, `*` all |
 | `f` `f` | Go back to the active filter |
 | `!`, `;` | Select the next session that needs you, switching to the attention filter |
@@ -94,11 +94,11 @@ The list starts on your default agent (Claude unless [`defaultAgent`](features.m
 | --- | --- |
 | typing | The session's name, which can't be empty. With a new worktree, it also names the worktree's folder and branch, sanitised ([worktree settings](features.md#worktree-settings)) |
 | `tab` | Next workspace: **no worktree** (the launch checkout), **new worktree**, **existing worktree** ([modes](features.md#sessions-and-sub-sessions)) |
-| `↑` / `↓`, `ctrl+p` / `ctrl+n` | With a new worktree: the branch it starts from |
+| `↑` / `↓`, `ctrl+p` / `ctrl+n`, `ctrl+k` / `ctrl+j` | With a new worktree: the branch it starts from |
 | `enter` | Create the session (with an existing worktree: pick it first) |
 | `esc` | Back to the agent |
 
-The form opens on **no worktree** unless [`defaultWorkspace`](features.md#configuration) says otherwise. With **existing worktree**, `enter` lists the repository's worktrees: `j`/`k` pick one, `/` searches (while typing, `↑`/`↓` or `ctrl+p`/`ctrl+n` move), `enter` creates the session there and `esc` goes back.
+The form opens on **no worktree** unless [`defaultWorkspace`](features.md#configuration) says otherwise. With **existing worktree**, `enter` lists the repository's worktrees: `j`/`k` pick one, `/` searches (while typing, `↑`/`↓`, `ctrl+p`/`ctrl+n` or `ctrl+k`/`ctrl+j` move), `enter` creates the session there and `esc` goes back.
 
 The agent starts with no task: attach (`o`) and type it, or start the session from a task (`n` in the [task list](#tasks)) to have the task typed for you.
 

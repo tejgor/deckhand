@@ -56,11 +56,8 @@ pub fn handle_search(app: &mut App, input: &Input) {
         app.set_mode(Mode::Browse);
         return;
     }
-    // Not in the TS: ↑/↓, or Ctrl+P / Ctrl+N on the home row, move the selection among the matches while typing.
-    let (up, down) = (
-        key.up_arrow || (key.ctrl && input.input == "p"),
-        key.down_arrow || (key.ctrl && input.input == "n"),
-    );
+    // Not in the TS: ↑/↓, Ctrl+P / Ctrl+N or Ctrl+K / Ctrl+J move the selection among the matches while typing.
+    let (up, down) = crate::app::modes::typing_moves(input);
     if up || down {
         crate::app::modes::browse::move_selection(app, if down { 1 } else { -1 });
         return;
@@ -111,7 +108,7 @@ mod tests {
     }
 
     #[test]
-    fn arrows_and_ctrl_n_p_move_the_selection_while_typing() {
+    fn arrows_and_ctrl_n_p_j_k_move_the_selection_while_typing() {
         let (mut app, _rx) = app(AppProps::default());
         app.data.repo_sessions = vec![
             session("a", "Alpha one", SessionStatus::Running),
@@ -144,6 +141,12 @@ mod tests {
                 },
             ),
         );
+        assert_eq!(app.browse.selected_id.as_deref(), Some("c"));
+        // Ctrl+K / Ctrl+J too: Ctrl+J is the bare line feed the terminal sends, not a typed character.
+        let typed = |bytes: &[u8]| crate::input::input_for_event(std::str::from_utf8(bytes).unwrap());
+        handle_search(&mut app, &typed(b"\x0b"));
+        assert_eq!(app.browse.selected_id.as_deref(), Some("a"));
+        handle_search(&mut app, &typed(b"\n"));
         assert_eq!(app.browse.selected_id.as_deref(), Some("c"));
         assert_eq!((app.mode, app.browse.session_query.as_str()), (Mode::Search, "alpha"));
     }

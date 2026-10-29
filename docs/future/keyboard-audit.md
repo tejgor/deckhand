@@ -46,7 +46,7 @@ Shipped on 2026-10-28, in five commits on `agents-without-attaching` (`50ff34a`,
 - **3.3**: the text fields are the session search, the new-session name and its worktree search, both DELETE prompts, the notes and task editors, the task picker's search and the guide's search (`App::typing_in_field`). Notes are saved on every exit from the UI, attaches included.
 - **4.2**: Ctrl+D / Ctrl+U are PgDn / PgUp wherever a screen pages; the session list and the Tasks board, which had no page keys, move half their list. Worktrees keeps its ten rows.
 - **5.1**: a failed update's status says `G shows the output` (or `why`), since it can show on any screen.
-- **5.3**: Ctrl+N / Ctrl+P also move in the existing-worktree picker while typing its search.
+- **5.3**: Ctrl+N / Ctrl+P also move in the existing-worktree picker while typing its search. Ctrl+J / Ctrl+K move wherever Ctrl+N / Ctrl+P do (Ctrl+J arrives as a bare line feed, read as Ctrl+J only there).
 - **7.3**: the hint reads *ctrl+c went to the agent; ctrl+] returns to the list* (or *the shell*).
 
 Where each key is documented now: `docs/keys.md` (the Run list and Agents sections are new, with notes on Ctrl and letters and on press twice), `docs/features.md`, the in-app guide and `HANDOFF.md`.
