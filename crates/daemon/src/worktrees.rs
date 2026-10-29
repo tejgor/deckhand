@@ -329,7 +329,10 @@ impl Daemon {
             if other_worktree.as_deref() == Some(target.as_str())
                 || is_path_inside(&target, &realpath_or_resolve(&other.cwd).await)
             {
-                blockers.push(format!("worktree is in use by session \"{}\"", other.title));
+                blockers.push(format!(
+                    "worktree is in use by session \"{}\"",
+                    self.session_path(&other)
+                ));
                 break;
             }
         }
@@ -820,7 +823,7 @@ impl Daemon {
         {
             blockers.push(format!(
                 "session \"{}\" is starting; wait for it or cancel it",
-                starting.title
+                self.session_path(starting)
             ));
         }
         blockers
@@ -870,7 +873,7 @@ impl Daemon {
             .filter(|session| session.status == SessionStatus::Running)
             .map(|session| SessionTitle {
                 id: session.id.clone(),
-                title: session.title.clone(),
+                title: self.session_path(session),
             })
             .collect();
         inspection.safe = inspection.safe && structural_blockers.is_empty();

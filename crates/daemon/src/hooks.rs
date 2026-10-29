@@ -306,7 +306,7 @@ impl Daemon {
         if !enabled {
             return;
         }
-        let title = format!("Deckhand: {}", session.title);
+        let title = format!("Deckhand: {}", self.session_path(session));
         let note = match notify::send(&title, message).await {
             Delivery::Sent => None,
             Delivery::Blocked => (!BLOCKED_LOGGED.swap(true, Ordering::Relaxed))

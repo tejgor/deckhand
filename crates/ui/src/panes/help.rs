@@ -255,11 +255,13 @@ impl HelpView {
                 self.scroll = 0;
                 return None;
             }
-            if key.up_arrow {
+            // Not in the TS: Ctrl+P / Ctrl+N and Ctrl+K / Ctrl+J scroll too, as the sidebar's search moves.
+            let (up, down) = crate::app::modes::typing_moves(input);
+            if up {
                 self.scroll_by(-1);
                 return None;
             }
-            if key.down_arrow {
+            if down {
                 self.scroll_by(1);
                 return None;
             }
@@ -1055,6 +1057,12 @@ mod tests {
             },
         );
         assert_eq!(view.query.as_deref(), Some("la "));
+        // Ctrl+J (a bare line feed) and Ctrl+K scroll while typing, leaving the search alone.
+        view.view = HelpViewport { max: 5, page: 3 };
+        view.handle_input(&crate::input::input_for_event("\n"));
+        assert_eq!(view.scroll, 1);
+        view.handle_input(&crate::input::input_for_event("\x0b"));
+        assert_eq!((view.scroll, view.query.as_deref()), (0, Some("la ")));
         // Enter ends typing; j and k then scroll, / edits again, ? closes.
         special(
             &mut view,

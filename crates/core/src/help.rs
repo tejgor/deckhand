@@ -29,7 +29,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "n",
-                text: "New session: agent, name, Tab for the workspace (↑↓ a new worktree's base), Enter launches",
+                text: "New session: agent (or ⑂ fork the selected session), name, Tab for the workspace (↑↓ a new worktree's base), Enter launches",
             },
             HelpLine::Key {
                 keys: "j k  ↑↓",

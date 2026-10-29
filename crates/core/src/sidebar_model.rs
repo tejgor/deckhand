@@ -8,7 +8,8 @@ use serde_with::skip_serializing_none;
 
 use crate::agent_versions::{InstalledVersions, session_outdated};
 use crate::display::{
-    Color, THEME, display_session_title, program_glyph, status_color, status_glyph, truncate, wrap_words,
+    Color, THEME, display_session_title, program_glyph, projected_parents, status_color, status_glyph, truncate,
+    wrap_words,
 };
 use crate::jsstr::{date, js_len, js_pad_end, js_pad_start, js_slice, js_trim, path};
 use crate::notes::open_checklist_text;
@@ -383,10 +384,14 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
         let title = cut(&full_title, (width - prefix_width - 1 - suffix_width(&suffix)).max(0));
         // Not in the TS: outside the state view (which names it on a line of its own), a sub-session listed apart from
         // its parent (a search, the parent not listed) names it after its own title, in the room the title leaves:
-        // the first thing cut.
-        let parent_part = parent_of(session, input.all_sessions)
-            .filter(|_| input.parent_names && !input.sectioned && depth == 0 && title == full_title)
-            .map(|parent| display_session_title(parent, input.all_sessions))
+        // the first thing cut. A parent outside this checkout's list, which has no such line, is named from the path
+        // the daemon projected, in the state view too.
+        let parent_part = (input.parent_names && depth == 0 && title == full_title)
+            .then(|| match parent_of(session, input.all_sessions) {
+                Some(parent) => (!input.sectioned).then(|| display_session_title(parent, input.all_sessions)),
+                None => projected_parents(session),
+            })
+            .flatten()
             .filter(|parent| !parent.is_empty())
             .and_then(|parent| {
                 let room = width - prefix_width - jlen(&title) - suffix_width(&suffix) - 1;
@@ -1021,16 +1026,26 @@ fn details<S: SessionLike>(
 }
 
 /// Not in the TS: `↳ sub-session of <parent> · <its state>` (`⑂ fork of` for a fork), the parent's name cut to
-/// fit, its state dropped when even a short name would not; none for a top-level session.
+/// fit, its state dropped when even a short name would not. A top-level fork names the session it forked, while that
+/// is listed; other top-level sessions have none.
 fn parent_line<S: SessionLike>(session: &SessionRecord, all_sessions: &[S], width: usize) -> Option<DetailLine> {
-    let parent_id = session.parent_session_id.as_deref().filter(|id| !id.is_empty())?;
-    let parent = all_sessions
-        .iter()
-        .map(SessionLike::session)
-        .find(|candidate| candidate.id == parent_id)?;
-    let head = match session.sub_session_kind {
-        Some(SubSessionKind::Forked) => "⑂ fork of ",
-        _ => "↳ sub-session of ",
+    let find = |id: &str| {
+        all_sessions
+            .iter()
+            .map(SessionLike::session)
+            .find(|candidate| candidate.id == id)
+    };
+    let forked = session.sub_session_kind == Some(SubSessionKind::Forked);
+    let (parent, head) = match crate::session_order::parent_of(session) {
+        Some(parent_id) => (
+            find(parent_id)?,
+            if forked { "⑂ fork of " } else { "↳ sub-session of " },
+        ),
+        None if forked => (
+            find(session.forked_from_session_id.as_deref().filter(|id| !id.is_empty())?)?,
+            "⑂ fork of ",
+        ),
+        None => return None,
     };
     let mut name = display_session_title(parent, all_sessions);
     if name.is_empty() {
@@ -1804,6 +1819,42 @@ mod tests {
     }
 
     #[test]
+    fn a_sub_session_whose_parent_works_elsewhere_names_it_from_its_path() {
+        let child = sess(
+            "child",
+            json!({"title": "tests", "parentSessionId": "parent", "pathTitle": "Root / Fix login / tests"}),
+        );
+        let hint = |all: &[&SessionRecord], sectioned: bool| -> Option<String> {
+            rows_of(
+                &[&child],
+                Opts {
+                    all: Some(all),
+                    parent_names: true,
+                    sectioned,
+                    ..Opts::default()
+                },
+            )[0]
+            .parts
+            .iter()
+            .find(|part| part.role == RowRole::Parent)
+            .map(|part| part.text.clone())
+        };
+        // Its parent not among this checkout's sessions (it works in another): the path's parents name it, in the
+        // state view too (no line there names a parent it does not hold).
+        assert_eq!(hint(&[&child], false).as_deref(), Some(" · Root/Fix login"));
+        assert_eq!(hint(&[&child], true).as_deref(), Some(" · Root/Fix login"));
+        // A parent held here: the state view names it on its own line, not after the title.
+        let parent = sess("parent", json!({"title": "Fix login"}));
+        assert_eq!(hint(&[&parent, &child], true), None);
+        // A title that already holds the path (its parent removed) has nothing to add.
+        let orphan = SessionRecord {
+            title: "Root / Fix login / tests".into(),
+            ..child.clone()
+        };
+        assert_eq!(projected_parents(&orphan), None);
+    }
+
+    #[test]
     fn sectioned_rows_nest_only_a_parent_and_child_in_one_section() {
         let list = fixture();
         let all = refs(&list);
@@ -1902,9 +1953,47 @@ mod tests {
         );
         // A top-level session has no such line, and the TS details never do.
         assert!(!of("a", 48).iter().any(|line| line.contains("sub-session of")));
+        assert!(!of("a", 48).iter().any(|line| line.contains("fork of")));
         let b = all.iter().copied().find(|session| session.id == "b");
         let plain = line_texts(&session_details(b, &all, 48, 10, NOW, None, None));
         assert!(!plain.iter().any(|line| line.contains("sub-session of")));
+    }
+
+    #[test]
+    fn details_name_the_session_a_top_level_fork_copied() {
+        let list = fixture();
+        let fork = SessionRecord {
+            id: "top-fork".into(),
+            parent_session_id: None,
+            sub_session_kind: Some(SubSessionKind::Forked),
+            forked_from_session_id: Some("a".into()),
+            ..list[0].clone()
+        };
+        let gone = SessionRecord {
+            id: "gone-fork".into(),
+            forked_from_session_id: Some("removed".into()),
+            ..fork.clone()
+        };
+        let mut all = refs(&list);
+        all.extend([&fork, &gone]);
+        let of = |session: &SessionRecord| {
+            line_texts(&session_details_with_parent(
+                Some(session),
+                &all,
+                48,
+                10,
+                NOW,
+                None,
+                None,
+            ))
+        };
+        assert!(
+            of(&fork).contains(&"⑂ fork of auth refactor · working".to_owned()),
+            "{:?}",
+            of(&fork)
+        );
+        // Its source no longer listed: no line.
+        assert!(!of(&gone).iter().any(|line| line.contains("fork of")));
     }
 
     #[test]

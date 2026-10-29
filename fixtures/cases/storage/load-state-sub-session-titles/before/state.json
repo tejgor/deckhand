@@ -1,0 +1,81 @@
+{
+  "sessions": [
+    {
+      "id": "d",
+      "title": "Fix coaching tone / coaching-analysis / m… / milestone-migration",
+      "parentSessionId": "c",
+      "subSessionKind": "forked",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z"
+    },
+    {
+      "id": "c",
+      "title": "Fix coaching tone / coaching-analysis / milestone-5.5-audit",
+      "parentSessionId": "b",
+      "subSessionKind": "forked",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z"
+    },
+    {
+      "id": "b",
+      "title": "Fix coaching tone / coaching-analysis",
+      "parentSessionId": "a",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z"
+    },
+    {
+      "id": "a",
+      "title": "Fix coaching tone",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z"
+    },
+    {
+      "id": "e",
+      "title": "tests",
+      "parentSessionId": "b",
+      "program": "claude",
+      "command": "claude",
+      "cwd": "/r",
+      "repoRoot": "/r",
+      "worktree": {
+        "mode": "none"
+      },
+      "status": "exited",
+      "createdAt": "2026-09-10T09:00:00.000Z",
+      "updatedAt": "2026-09-10T09:00:00.000Z"
+    }
+  ],
+  "worktrees": []
+}

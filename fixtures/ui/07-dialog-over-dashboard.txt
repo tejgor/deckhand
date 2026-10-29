@@ -9,15 +9,15 @@ deckhand                                                                        
 │                      │ │ agent output line 3                                                                                   │
 │                      │ │ agent output line 4                                                                                   │
 │                      │ │ agent output line 5                                                                                   │
-│                      │ │ agent output line 6                                                                                   │
-│                      │ │ agent output line 7 ╭──────────────────────────────────────────────────────────╮                      │
-│                      │ │ agent output line 8 │                                                          │                      │
-│                      │ │ agent output line 9 │ New session                                              │                      │
-│                      │ │ agent output line 10│                                                          │                      │
-│                      │ │ agent output line 11│ Choose an agent                                          │                      │
-│                      │ │ agent output line 12│ ❯ ✶ Claude                                               │                      │
-│                      │ │ agent output line 13│   π Pi                                                   │                      │
-│                      │ │ agent output line 14│   ◇ Codex                                                │                      │
+│                      │ │ agent output line 6 ╭──────────────────────────────────────────────────────────╮                      │
+│                      │ │ agent output line 7 │                                                          │                      │
+│                      │ │ agent output line 8 │ New session                                              │                      │
+│                      │ │ agent output line 9 │                                                          │                      │
+│                      │ │ agent output line 10│ Choose an agent                                          │                      │
+│                      │ │ agent output line 11│ ❯ ✶ Claude                                               │                      │
+│                      │ │ agent output line 12│   π Pi                                                   │                      │
+│                      │ │ agent output line 13│   ◇ Codex                                                │                      │
+│                      │ │ agent output line 14│   ⑂ Fork auth refactor                                   │                      │
 │                      │ │ agent output line 15│                                                          │                      │
 │                      │ │ agent output line 16│ enter continue • esc cancel                              │                      │
 │                      │ │ agent output line 17│                                                          │                      │

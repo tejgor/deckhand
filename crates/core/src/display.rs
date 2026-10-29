@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use crate::jsstr::{js_collapse_whitespace, js_len, js_slice, js_split_whitespace, js_trim};
-use crate::session_order::SessionLike;
+use crate::session_order::{SessionLike, parent_of};
 use deckhand_protocol::data::{
     AgentActivityStatus, AttentionState, ExitReason, ProgramKey, SessionRecord, SessionStatus, SetupState,
 };
@@ -352,6 +352,67 @@ pub fn display_session_title<S: SessionLike>(session: &SessionRecord, sessions: 
     };
     // TS: `.replace(/\s+\/\s+/g, '/')`. Whitespace runs are single spaces by now, so `\s+` is exactly one space.
     local.replace(" / ", "/")
+}
+
+/// Not in the TS: a session's name with its ancestors' in front (`root / child / grandchild`): the path the daemon
+/// projected, else built from the `parentSessionId` links (a sub-session's title holds only its own name).
+pub fn session_path_title<S: SessionLike>(session: &SessionRecord, sessions: &[S]) -> String {
+    session_path_title_by(session, |id| {
+        sessions
+            .iter()
+            .map(SessionLike::session)
+            .find(|candidate| candidate.id == id)
+    })
+}
+
+/// [`session_path_title`] with `session_by_id` finding each parent (see [`session_path_names_by`]).
+pub fn session_path_title_by<'a>(
+    session: &'a SessionRecord,
+    session_by_id: impl Fn(&str) -> Option<&'a SessionRecord>,
+) -> String {
+    match session.path_title.as_deref().filter(|path| !path.is_empty()) {
+        Some(path) => path.to_owned(),
+        None => session_path_names_by(session, session_by_id).join(" / "),
+    }
+}
+
+/// Not in the TS: the parents' part of the path the daemon projected, shown as [`display_session_title`] shows a
+/// path (`root/parent`): what names a sub-session's parent where the parent is not among the sessions at hand. None
+/// without a projected path, or when the session's title already holds it.
+pub fn projected_parents(session: &SessionRecord) -> Option<String> {
+    let own = js_collapse_whitespace(js_trim(&session.title));
+    let parents = session
+        .path_title
+        .as_deref()?
+        .strip_suffix(own.as_str())?
+        .strip_suffix(" / ")?;
+    Some(parents.replace(" / ", "/")).filter(|parents| !parents.is_empty())
+}
+
+/// Not in the TS: the names [`session_path_title`] joins, the root's first and the session's own last (trimmed,
+/// whitespace collapsed), with `session_by_id` finding each parent, for callers that hold the sessions by ID (no list
+/// to scan once per parent). A missing parent ends the walk, and so does a cycle. A title that already starts with
+/// its ancestors' path (saved before titles were short) stands for that whole path, so it is not added twice.
+pub fn session_path_names_by<'a>(
+    session: &'a SessionRecord,
+    session_by_id: impl Fn(&str) -> Option<&'a SessionRecord>,
+) -> Vec<String> {
+    let mut chain = vec![session];
+    while let Some(parent) = parent_of(chain[chain.len() - 1])
+        .and_then(&session_by_id)
+        .filter(|parent| chain.iter().all(|seen| seen.id != parent.id))
+    {
+        chain.push(parent);
+    }
+    chain.iter().rev().fold(Vec::new(), |mut names, session| {
+        let name = js_collapse_whitespace(js_trim(&session.title));
+        if !names.is_empty() && name.starts_with(&format!("{} / ", names.join(" / "))) {
+            names = vec![name];
+        } else {
+            names.push(name);
+        }
+        names
+    })
 }
 
 /// TS: ui.ts statusLabel.
@@ -824,6 +885,48 @@ mod tests {
             let sessions: Vec<SessionRecord> = case.arg_as(1)?;
             Ok(display_session_title(&case.arg_as(0)?, &sessions))
         });
+    }
+
+    #[test]
+    fn a_sub_session_path_joins_its_ancestors_names() {
+        let session = |id: &str, title: &str, parent: Option<&str>| {
+            crate::session_features::tests::session(serde_json::json!({
+                "id": id, "title": title, "parentSessionId": parent,
+            }))
+        };
+        let sessions = vec![
+            session("root", "Fix coaching tone", None),
+            session("a", "coaching-analysis", Some("root")),
+            session("b", "  milestone-5.5-audit ", Some("a")),
+            session("c", "milestone-migration", Some("b")),
+            // Saved before titles were short: the path is not added twice.
+            session("old", "Fix coaching tone / coaching-analysis / old", Some("a")),
+            // Its parent is gone: the walk ends at it.
+            session("orphan", "orphan", Some("missing")),
+            // A cycle ends the walk where it repeats.
+            session("x", "x", Some("y")),
+            session("y", "y", Some("x")),
+        ];
+        let path = |id: &str| session_path_title(sessions.iter().find(|s| s.id == id).unwrap(), &sessions);
+        assert_eq!(path("root"), "Fix coaching tone");
+        assert_eq!(path("b"), "Fix coaching tone / coaching-analysis / milestone-5.5-audit");
+        assert_eq!(
+            path("c"),
+            "Fix coaching tone / coaching-analysis / milestone-5.5-audit / milestone-migration"
+        );
+        assert_eq!(path("old"), "Fix coaching tone / coaching-analysis / old");
+        assert_eq!(path("orphan"), "orphan");
+        assert_eq!(path("x"), "y / x");
+        // The path the daemon projected wins: it holds parents a client's list may leave out.
+        let projected = session("p", "milestone-migration", Some("not-here"));
+        let projected = SessionRecord {
+            path_title: Some("Fix coaching tone / milestone-migration".into()),
+            ..projected
+        };
+        assert_eq!(
+            session_path_title(&projected, &sessions),
+            "Fix coaching tone / milestone-migration"
+        );
     }
 
     #[test]

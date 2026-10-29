@@ -20,7 +20,7 @@ use crate::paths;
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{self, js_trim, locale_compare_sign};
 use deckhand_core::session_order::SessionLike;
-use deckhand_core::worktree_records::{migrate_done_markers, migrate_worktree_records};
+use deckhand_core::worktree_records::{migrate_done_markers, migrate_sub_session_titles, migrate_worktree_records};
 use deckhand_protocol::Ordered;
 use deckhand_protocol::data::{AttentionState, ExitReason, SessionAttention, SessionRecord, SessionStatus, SetupState};
 use deckhand_protocol::order::KeyOrder;
@@ -211,6 +211,7 @@ pub fn temporary_path(path: &Path) -> PathBuf {
 /// the temporary file is removed when anything fails (storage.ts saveState/writeRawConfig, notesStore.ts
 /// writeAtomically and the other temp + rename writers).
 pub async fn write_atomic(path: &Path, contents: &[u8], mode: u32) -> Result<()> {
+    paths::guard_debug_write(path)?;
     let temporary = temporary_path(path);
     let result = async {
         let mut file = tokio::fs::OpenOptions::new()
@@ -354,8 +355,9 @@ fn raw_worktree_id(session: &Value) -> Option<&str> {
 }
 
 /// TS: storage.ts readState (empty or missing file: an empty state is written; unparseable JSON is moved aside to
-/// `state.json.corrupt-<ms>` and replaced by an empty state; otherwise worktree records and done markers are
-/// migrated). Entries this version cannot read are kept aside (see [`Unreadable`]).
+/// `state.json.corrupt-<ms>` and replaced by an empty state; otherwise worktree records, done markers and, not in the
+/// TS, sub-session titles are migrated, the last after keeping a copy of the file). Entries this version cannot read
+/// are kept aside (see [`Unreadable`]).
 pub async fn read_state() -> Result<ReadState> {
     ensure_config_dir().await?;
     let state_path = paths::state_path();
@@ -429,7 +431,7 @@ pub async fn read_state() -> Result<ReadState> {
         .collect();
     let dropped_unreadable = unreadable_worktrees.len() != given;
     keep_unreadable(
-        state_path,
+        state_path.clone(),
         Unreadable {
             sessions: unreadable_sessions,
             worktrees: unreadable_worktrees,
@@ -437,13 +439,47 @@ pub async fn read_state() -> Result<ReadState> {
     );
     // Main-checkout sessions' old `M` markers become done markers (after the linked worktrees' moved to their records).
     let done = migrate_done_markers(lifted.sessions);
+    // Sub-sessions' `<parent> / <child>` titles keep only the child's name. A cut parent name cannot be rebuilt, so
+    // the file as it was is kept first; without that copy the titles stay as they are until a later read.
+    let titles = migrate_sub_session_titles(done.sessions.clone());
+    let titles_changed = titles.changed && keep_pre_titles_copy(&state_path, &raw).await.is_ok();
     Ok(ReadState {
         state: StateFile {
-            sessions: done.sessions,
+            sessions: if titles_changed { titles.sessions } else { done.sessions },
             worktrees: lifted.worktrees,
         },
-        migrated: lifted.changed || done.changed || dropped_unreadable,
+        migrated: lifted.changed || done.changed || titles_changed || dropped_unreadable,
     })
+}
+
+/// Not in the TS: before sub-session titles are first shortened, `state.json` as it was (`raw`) is kept as
+/// `state.json.pre-titles-<ms>`. One copy is enough: none is made while one exists.
+async fn keep_pre_titles_copy(state_path: &Path, raw: &str) -> Result<()> {
+    let Some(name) = state_path
+        .file_name()
+        .map(|name| format!("{}.pre-titles-", name.to_string_lossy()))
+    else {
+        return Err(DhError::msg("state.json has no file name"));
+    };
+    let directory = state_path.parent().unwrap_or(Path::new("."));
+    let mut entries = tokio::fs::read_dir(directory)
+        .await
+        .map_err(|error| read_error(&error, directory))?;
+    while let Some(entry) = entries
+        .next_entry()
+        .await
+        .map_err(|error| read_error(&error, directory))?
+    {
+        if entry.file_name().to_string_lossy().starts_with(&name) {
+            return Ok(());
+        }
+    }
+    write_atomic(
+        &directory.join(format!("{name}{}", now_ms())),
+        raw.as_bytes(),
+        FILE_MODE,
+    )
+    .await
 }
 
 /// Writes `state` as saveState does; any serialisable state (a record of another shape included).
@@ -2517,5 +2553,57 @@ pub(crate) mod tests {
                 || (worktree.get("mergedAt").is_none() && worktree.get("deletedAt").is_none())
         }));
         assert_eq!(block_on(load_state()).expect("loaded"), recovered);
+    }
+
+    #[test]
+    fn debug_builds_refuse_to_write_into_the_real_home() {
+        // A folder that does not exist there, so even a broken guard could write nothing.
+        let file = paths::guard_reference_home().join(".deckhand/no-such-folder-for-tests/state.json");
+        let error = block_on(write_atomic(&file, b"{}", FILE_MODE)).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .starts_with("Refusing to use the production Deckhand home"),
+            "{error}"
+        );
+        assert!(!file.parent().unwrap().exists());
+    }
+
+    #[test]
+    fn shortening_sub_session_titles_keeps_one_copy_of_the_state_first() {
+        let home = temp_home();
+        let _home = Home::set(home.path());
+        let file = home.path().join("state.json");
+        let session = |id: &str, title: &str, parent: Option<&str>| {
+            json!({"id": id, "title": title, "parentSessionId": parent, "program": "claude", "command": "claude",
+                "cwd": "/r", "repoRoot": "/r", "worktree": {"mode": "none"}, "status": "exited",
+                "createdAt": "2026-09-10T09:00:00.000Z", "updatedAt": "2026-09-10T09:00:00.000Z"})
+        };
+        let long =
+            json!({"sessions": [session("p", "Parent", None), session("c", "Parent / child", Some("p"))]}).to_string();
+        let copies = || -> Vec<String> {
+            let mut names: Vec<String> = std::fs::read_dir(home.path())
+                .unwrap()
+                .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+                .filter(|name| name.starts_with("state.json.pre-titles-"))
+                .collect();
+            names.sort();
+            names
+        };
+        std::fs::write(&file, &long).unwrap();
+        let read = block_on(read_state()).expect("read");
+        assert!(read.migrated);
+        assert_eq!(read.state.sessions[1].title, "child");
+        let kept = copies();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(std::fs::read_to_string(home.path().join(&kept[0])).unwrap(), long);
+        // Read again before anything wrote the short titles back (an older daemon still running): no second copy.
+        std::fs::write(&file, &long).unwrap();
+        assert!(block_on(read_state()).expect("read").migrated);
+        assert_eq!(copies(), kept);
+        // Once written back, nothing is migrated or copied.
+        block_on(mark_all_non_exited_sessions_exited()).expect("recovered");
+        assert!(!block_on(read_state()).expect("read").migrated);
+        assert_eq!(copies(), kept);
     }
 }

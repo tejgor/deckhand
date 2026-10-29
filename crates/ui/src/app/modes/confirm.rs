@@ -10,7 +10,7 @@ use ratatui::layout::Rect;
 
 use deckhand_client::live::{KillOptions, MergeOptions};
 use deckhand_core::display::{
-    HintPart, compact_path, display_session_title, error_message, fit_hint, truncate, wrap_words,
+    HintPart, compact_path, display_session_title, error_message, fit_hint, session_path_title, truncate, wrap_words,
 };
 use deckhand_core::jsstr::{js_pad_end, js_slice, js_trim};
 use deckhand_core::key::Input;
@@ -1143,7 +1143,9 @@ pub fn merge_pane_rows(props: &MergeConfirmPaneProps<'_>, width: u16) -> DialogR
         preview: flow.and_then(|flow| flow.preview.clone()),
         preview_error: flow.and_then(|flow| flow.preview_error.clone()),
         commit_first: flow.is_none_or(|flow| flow.commit_first),
-        commit_message: session.map_or_else(String::new, |session| js_trim(&session.title).to_owned()),
+        commit_message: session.map_or_else(String::new, |session| {
+            js_trim(&session_path_title(session, props.sessions)).to_owned()
+        }),
         error: flow.and_then(|flow| flow.error.clone()),
         notes: merge_note_entries(session, props.sessions),
         tasks: Some(started.iter().map(|task| task.title.clone()).collect()),
@@ -1301,6 +1303,8 @@ pub fn render_merge_conflict_pane(result: &WorktreeMergeResult, buf: &mut Buffer
 #[derive(Clone, Copy, Debug)]
 pub struct RemoveConfirmPaneProps<'a> {
     pub session: Option<&'a SessionRecord>,
+    /// Every session, for the path that names `session` (`parent / child`).
+    pub sessions: &'a [&'a SessionRecord],
     pub items: &'a [String],
 }
 
@@ -1329,7 +1333,10 @@ pub fn remove_dialog_rows(props: &RemoveConfirmPaneProps<'_>, width: u16) -> Dia
         &text(
             format!(
                 "Remove “{}” for good?",
-                props.session.map_or("session", |session| session.title.as_str())
+                props.session.map_or_else(
+                    || "session".to_owned(),
+                    |session| session_path_title(session, props.sessions)
+                )
             ),
             TextStyle::fg(THEME.error).bold(true),
         ),
@@ -2918,6 +2925,7 @@ mod tests {
         let alpha = session("s1", "alpha", SessionStatus::Exited);
         let props = RemoveConfirmPaneProps {
             session: Some(&alpha),
+            sessions: &[],
             items: &[],
         };
         assert_pane("55-confirm-remove", |buf, area| {
@@ -2930,6 +2938,7 @@ mod tests {
         let items: Vec<String> = (1..=10).map(|n| format!("item {n}")).collect();
         let props = RemoveConfirmPaneProps {
             session: None,
+            sessions: &[],
             items: &items,
         };
         let rows = dialog_rows(&drawn(|buf, area| render_remove_confirm_pane(&props, buf, area)));
@@ -2952,6 +2961,7 @@ mod tests {
         let one = [String::from("only")];
         let props = RemoveConfirmPaneProps {
             session: None,
+            sessions: &[],
             items: &one,
         };
         let rows = dialog_rows(&drawn(|buf, area| render_remove_confirm_pane(&props, buf, area)));
@@ -3171,6 +3181,7 @@ mod tests {
             render_remove_confirm_pane(
                 &RemoveConfirmPaneProps {
                     session: sessions.first(),
+                    sessions: &[],
                     items: &items,
                 },
                 &mut buf,

@@ -57,7 +57,6 @@
 //! | `SessionMap` | sessions.rs | `Daemon::set_session` | D3 |
 //! | `silentExitNote` | sessions.rs | `silent_exit_note` | D3 |
 //! | `truncateSessionTitle` | sessions.rs | `truncate_session_title` | D3 |
-//! | `inheritedChildTitle` | sessions.rs | `inherited_child_title` | D3 |
 //! | `readAgentExit` | sessions.rs | `read_agent_exit` | D3 |
 //! | `requireSession` | sessions.rs | `Daemon::require_session` | D3 |
 //! | `saveSession` | sessions.rs | `Daemon::save_session` | D3 |

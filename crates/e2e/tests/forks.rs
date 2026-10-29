@@ -49,6 +49,11 @@ impl Ctx {
         self.call(json!({"type": "create", "input": {"title": title, "program": parent["program"], "cwd": parent["cwd"], "repoRoot": self.root, "cols": 80, "rows": 24, "parentSessionId": parent["id"], "subSessionKind": "forked", "worktreeMode": worktree_mode}}))
     }
 
+    /// A top-level fork (n's ⑂): `source`'s conversation in a new session that has no parent.
+    fn fork_from(&self, source: &Value, title: &str, worktree_mode: &str) -> Result<Value, String> {
+        self.call(json!({"type": "create", "input": {"title": title, "program": source["program"], "cwd": source["cwd"], "repoRoot": self.root, "cols": 80, "rows": 24, "forkFromSessionId": source["id"], "subSessionKind": "forked", "worktreeMode": worktree_mode}}))
+    }
+
     fn trace(&self, id: &str) -> Option<Value> {
         serde_json::from_str(&fs::read_to_string(self.home.join(format!("trace-{id}.json"))).ok()?).ok()
     }
@@ -237,6 +242,33 @@ fn claude_forks(c: &Ctx, daemon: &mut Daemon) {
         "{note}"
     );
     c.kill_and_wait(&elsewhere_id);
+
+    // A top-level fork copies the conversation the same way, but is nobody's sub-session; s resumes its own.
+    let top = c.fork_from(&parent, "top-fork", "none").expect("fork");
+    let top_id = id_of(&top);
+    let top_started = c.wait(&top_id, |s| {
+        s["status"] == "running" && s["attention"]["event"] == "SessionStart"
+    });
+    assert!(top_started["parentSessionId"].is_null(), "{top_started}");
+    assert_eq!(top_started["subSessionKind"], "forked");
+    assert_eq!(top_started["forkedFromSessionId"], json!(parent_id));
+    let top_value = top_started["agentSessionRef"]["value"].as_str().unwrap().to_string();
+    assert_ne!(top_value, parent_value);
+    let top_args = strings(&c.trace(&top_id).expect("trace")["args"]);
+    let expected: Vec<String> = vec![
+        "--resume".into(),
+        parent_value.clone(),
+        "--fork-session".into(),
+        "--session-id".into(),
+        top_value.clone(),
+        "--name".into(),
+        format!("dh-top-fork-{}", &top_id[..8]),
+    ];
+    assert_eq!(top_args[..7], expected[..]);
+    c.kill_and_wait(&top_id);
+    let top_resumed = c.relaunch(&top_id);
+    assert_eq!(top_resumed[..2], ["--resume".to_string(), top_value.clone()]);
+    c.kill_and_wait(&top_id);
     c.kill_and_wait(&parent_id);
 
     // Legacy children: a /branch name resumes by name; one still holding the parent's ref forks again. A legacy
@@ -351,6 +383,11 @@ fn codex_forks(c: &Ctx) {
     assert_rejects(
         c.call(json!({"type": "create", "input": {"title": "elsewhere", "program": "codex", "cwd": c.home, "repoRoot": c.root, "cols": 80, "rows": 24, "parentSessionId": parent_id, "subSessionKind": "forked"}})),
         &["stay in the parent's worktree"],
+    );
+    // So is a top-level fork's.
+    assert_rejects(
+        c.fork_from(&parent, "elsewhere", "new"),
+        &["Codex forks stay in the source's worktree"],
     );
     // A parent whose ID was never captured cannot be forked.
     let unknown = c.create("codex-no-id", "codex");

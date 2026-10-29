@@ -270,7 +270,8 @@ impl Daemon {
         let MergeSource { session, worktree_path } = self.merge_source(session_id)?;
         let options = MergeOptions {
             commit_first: commit_first.then(|| {
-                let title = js_trim(&session.title);
+                let path = self.session_path(&session);
+                let title = js_trim(&path);
                 if title.is_empty() { "Deckhand session" } else { title }.to_owned()
             }),
         };

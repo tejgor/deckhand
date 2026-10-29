@@ -393,6 +393,9 @@ pub struct SessionRecord {
     pub reply_read_at: Option<String>,
     /// UI only: never sent by the daemon (derived from `reply_read_at` by `with_reply_read`).
     pub reply_read: Option<bool>,
+    /// Not in the TS: a sub-session's path (`parent / child`), projected by the daemon and never saved. The daemon
+    /// holds every parent; a client may not (a checkout's list leaves out parents that work elsewhere).
+    pub path_title: Option<String>,
     /// Keys this version does not know (kept, as the TS spreads keep them).
     #[serde(flatten)]
     pub extra: IndexMap<String, Value>,
@@ -826,6 +829,8 @@ pub struct CreateSessionInput {
     pub base_branch: Option<String>,
     pub task_id: Option<String>,
     pub project_fingerprint: Option<String>,
+    /// Not in the TS: the session a top-level fork (`subSessionKind: "forked"`, no parent) copies the conversation of.
+    pub fork_from_session_id: Option<String>,
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1333,8 +1338,8 @@ pub enum UiExitResult {
         shell: Option<i64>,
         #[serde(rename = "shellLabel")]
         shell_label: Option<String>,
-        /// Not in the TS: the session's full title (a sub-session's `parent / child`), for the status line under the
-        /// attach.
+        /// Not in the TS: the session's path (a sub-session's `parent / child`, built from its parents' names), for the
+        /// status line under the attach.
         #[serde(rename = "statusTitle")]
         status_title: Option<String>,
     },

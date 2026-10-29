@@ -66,8 +66,9 @@ The sidebar lists the sessions in your own order (the tree, `c` collapses). `V` 
 
 1. With `smoke claude` selected and a message exchanged, press `N`. Choose `claude` (clean): a `↳` child appears indented in the parent's worktree. Expected: fresh context.
 2. Press `N` again and choose **⑂ Fork parent**. Expected: a `⑂` child starts with the parent's conversation (`claude --resume <parent> --fork-session ...`); nothing is typed into it. Press `tab` in the form to see the new/existing worktree choice: a fork into another worktree makes the child's first message say where it now is.
-3. Select the `smoke pi` row and `N` then **⑂ Fork parent**: a Pi fork starts (`pi --fork`). Select `smoke codex`, `N`: **Fork parent** is offered only once Codex reported its conversation ID (otherwise it says why).
-4. `c` on a parent collapses and expands its subtree; `+N` shows hidden children. `J` / `K` reorder siblings; relaunch (step 14) must keep the order.
+3. Select the `smoke pi` row and `N` then **⑂ Fork parent**: a Pi fork starts (`pi --fork`). Select `smoke codex`, `N`, **⑂ Fork parent**: the form keeps it in the parent's worktree (`tab` does nothing). Creating it is refused, with the reason, until Codex has reported its conversation ID.
+4. Select `smoke claude` and press `n`: the agents are followed by **⑂ Fork smoke claude**. Choose it and name it. Expected: a top-level `⑂` row (not indented) starts with the conversation (`claude --resume <source> --fork-session ...`), its details say `⑂ fork of smoke claude`, and `s` after it exits resumes the fork's own conversation.
+5. `c` on a parent collapses and expands its subtree; `+N` shows hidden children. `J` / `K` reorder siblings; relaunch (step 14) must keep the order.
 
 ## 5. Notes, including an external vim edit
 

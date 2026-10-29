@@ -301,9 +301,17 @@ pub fn production_home_refusal(home: &Path) -> String {
 /// is the account's production home (see [`guard_reference_home`]) and `DECKHAND_ALLOW_PROD_HOME` is not `1`.
 /// Release builds always pass.
 pub fn guard_debug_home() -> Result<()> {
+    guard_debug_write(&config_dir())
+}
+
+/// Not in the TS: [`guard_debug_home`] for one file about to be written, moved or removed. The binary checks the state
+/// directory once at startup (crates/deckhand/src/guard.rs); this catches what never goes through it, such as a test
+/// that forgets to set `DECKHAND_HOME` and would otherwise write over the real `~/.deckhand`. Release builds always
+/// pass.
+pub fn guard_debug_write(file: &Path) -> Result<()> {
     if cfg!(debug_assertions) {
         let allow = std::env::var_os(ALLOW_PROD_HOME_ENV).as_deref() == Some(OsStr::new("1"));
-        return guard_home(&config_dir(), &guard_reference_home(), allow);
+        return guard_home(file, &guard_reference_home(), allow);
     }
     Ok(())
 }

@@ -271,7 +271,7 @@ impl Daemon {
             let titled: Vec<TitledNote> = owners
                 .iter()
                 .map(|session| TitledNote {
-                    title: session.title.clone(),
+                    title: self.session_path(session),
                     text: notes.get(&session_note(&session.id)).text,
                 })
                 .collect();
@@ -296,7 +296,7 @@ impl Daemon {
                 continue;
             }
             for session in &owners {
-                let label = format!("{} (merged into its worktree note)", session.title);
+                let label = format!("{} (merged into its worktree note)", self.session_path(session));
                 notes.remove(&session_note(&session.id), Some(&label)).await?;
             }
             let titles: Vec<&str> = owners.iter().map(|session| session.title.as_str()).collect();

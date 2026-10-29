@@ -14,7 +14,7 @@ use deckhand_protocol::data::{
     CreateSessionInput, ProgramKey, ProjectInfo, SessionRecord, SubSessionKind, Task, WorktreeInfoRecord, WorktreeMode,
 };
 
-use crate::app::state::{App, Mode, ReviewLabels, ReviewSkip, TaskStart};
+use crate::app::state::{App, CreateState, Mode, ReviewLabels, ReviewSkip, TaskStart};
 use crate::app::{
     PROGRAMS, ReviewOptions, WORKTREE_MODES, base_options, fork_stays_in_parent, hint_short, sanitize_name_input,
     session_title_from_task, supports_forked_sub_session, truthy,
@@ -110,10 +110,44 @@ pub static PICK_WORKTREE_KEYMAP: Keymap = &[
     },
 ];
 
+/// TS `sessions.find(session => session.id === id)`.
+fn session_with_id(app: &App, id: &str) -> Option<SessionRecord> {
+    app.sessions().into_iter().find(|session| session.id == id)
+}
+
 /// TS `sessions.find(session => session.id === createParentId)` (only with a parent ID).
 fn create_parent(app: &App) -> Option<SessionRecord> {
-    let id = app.create.parent_id.as_ref().filter(|id| !id.is_empty())?;
-    app.sessions().into_iter().find(|session| &session.id == id)
+    session_with_id(app, app.create.parent_id.as_ref().filter(|id| !id.is_empty())?)
+}
+
+/// Not in the TS: the session n's ⑂ row forks into a new top-level session: the one it was picked for, else the
+/// selected one when its agent can fork (never for a sub-session, a handoff or a task's session).
+pub fn top_level_fork_source<'a>(
+    create: &CreateState,
+    sessions: &'a [SessionRecord],
+    selected: Option<&'a SessionRecord>,
+) -> Option<&'a SessionRecord> {
+    if create.parent_id.is_some() || create.handoff_from_id.is_some() || create.task_start.is_some() {
+        return None;
+    }
+    match create.fork_from_id.as_ref() {
+        Some(id) => sessions.iter().find(|session| &session.id == id),
+        None => selected.filter(|session| supports_forked_sub_session(Some(session))),
+    }
+}
+
+/// The picker's ⑂ row: forking the parent (when its agent can), or a top-level fork's source; never from a handoff.
+pub fn fork_option_shown(
+    create: &CreateState,
+    parent: Option<&SessionRecord>,
+    fork_source: Option<&SessionRecord>,
+) -> bool {
+    !truthy(create.handoff_from_id.as_ref()) && (supports_forked_sub_session(parent) || fork_source.is_some())
+}
+
+/// Not in the TS: where the new session starts from: its parent, or the session a top-level fork copies.
+fn create_origin(app: &App) -> Option<SessionRecord> {
+    create_parent(app).or_else(|| session_with_id(app, app.create.fork_from_id.as_ref()?))
 }
 
 /// TS `Math.max(0, PROGRAMS.findIndex(program => program.key === key))`.
@@ -137,6 +171,7 @@ pub fn open_new_session(app: &mut App, sub_session: bool) {
             project.map(|project| project.effective.into_inner())
         };
         app.create.handoff_from_id = None;
+        app.create.fork_from_id = None;
         app.browse.session_filter = deckhand_protocol::records::SessionFilter::Active;
         app.browse.session_query.clear();
         let program = parent
@@ -175,6 +210,7 @@ pub fn start_from_task(app: &mut App, task: &Task) {
     let resume = Rc::new(move |app: &mut App, project: Option<ProjectInfo>| {
         let defaults = project.map(|project| project.effective.into_inner());
         app.create.handoff_from_id = None;
+        app.create.fork_from_id = None;
         app.create.parent_id = None;
         app.create.sub_session_kind = None;
         app.browse.session_filter = deckhand_protocol::records::SessionFilter::Active;
@@ -210,6 +246,7 @@ pub fn handle_pick_program(app: &mut App, input: &Input) {
         }
         app.create.parent_id = None;
         app.create.sub_session_kind = None;
+        app.create.fork_from_id = None;
         if app.create.task_start.is_some() {
             app.create.task_start = None;
             app.set_mode(Mode::Tasks);
@@ -220,8 +257,11 @@ pub fn handle_pick_program(app: &mut App, input: &Input) {
     }
     let parent = create_parent(app);
     let no_handoff = !truthy(app.create.handoff_from_id.as_ref());
+    // Not in the TS: with n, ⑂ forks the selected session into a new top-level one.
+    let (sessions, selected) = (app.sessions(), app.selected_session());
+    let fork_source = top_level_fork_source(&app.create, &sessions, selected.as_ref()).cloned();
     // After the agents: ⑂ fork the parent (when it can be), then ↳ from its handoff (after H exported one).
-    let fork_option = parent.is_some() && no_handoff && supports_forked_sub_session(parent.as_ref());
+    let fork_option = fork_option_shown(&app.create, parent.as_ref(), fork_source.as_ref());
     let handoff_option = parent
         .as_ref()
         .is_some_and(|parent| truthy(parent.handoff_path.as_ref()))
@@ -250,15 +290,21 @@ pub fn handle_pick_program(app: &mut App, input: &Input) {
         return;
     }
     if key.return_ {
-        match parent.as_ref() {
-            Some(parent) if fork_option && index == PROGRAMS.len() => {
+        match parent.as_ref().or(fork_source.as_ref()) {
+            Some(source) if fork_option && index == PROGRAMS.len() => {
                 app.create.sub_session_kind = Some(SubSessionKind::Forked);
-                app.create.program_index = program_position(parent.program);
-                if fork_stays_in_parent(Some(parent.program), Some(SubSessionKind::Forked)) {
+                if parent.is_none() {
+                    app.create.fork_from_id = Some(source.id.clone());
+                }
+                app.create.program_index = program_position(source.program);
+                if fork_stays_in_parent(Some(source.program), Some(SubSessionKind::Forked)) {
                     app.create.worktree_mode = WorktreeMode::None;
                 }
             }
-            _ => app.create.sub_session_kind = parent.as_ref().map(|_| SubSessionKind::Clean),
+            _ => {
+                app.create.sub_session_kind = parent.as_ref().map(|_| SubSessionKind::Clean);
+                app.create.fork_from_id = None;
+            }
         }
         app.set_mode(Mode::EnterName);
     }
@@ -332,7 +378,7 @@ fn list_existing_worktrees(app: &mut App) {
         app.set_error(Some("still connecting to daemon".to_owned()));
         return;
     };
-    let target_cwd = create_parent(app).map_or_else(|| app.props.cwd.clone(), |parent| parent.cwd);
+    let target_cwd = create_origin(app).map_or_else(|| app.props.cwd.clone(), |origin| origin.cwd);
     app.set_busy(true);
     let reply = client.list_worktrees(&target_cwd);
     let task = app.dispatch().spawn(reply, |app: &mut App, result| {
@@ -448,7 +494,7 @@ pub fn confirm_create(app: &mut App) {
         app.set_error(Some("title cannot be empty".to_owned()));
         return;
     }
-    let target_cwd = create_parent(app).map_or_else(|| app.props.cwd.clone(), |parent| parent.cwd);
+    let target_cwd = create_origin(app).map_or_else(|| app.props.cwd.clone(), |origin| origin.cwd);
     let labels = ReviewLabels {
         enter: Some(hint_short("enter trust & create", "enter trust")),
         skip: Some(hint_short(
@@ -496,10 +542,11 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
         app.set_busy(false);
         return;
     };
-    let parent = create_parent(app);
+    let origin = create_origin(app);
     let layout = app.layout();
     let create = &app.create;
     let has_parent = truthy(create.parent_id.as_ref());
+    let fork_from_id = create.fork_from_id.clone().filter(|_| !has_parent);
     let base_branch = if create.worktree_mode == WorktreeMode::New {
         base_options(create.branch_list.as_ref())
             .get(create.base_index)
@@ -511,18 +558,18 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
     let input = CreateSessionInput {
         title,
         program,
-        cwd: parent
+        cwd: origin
             .as_ref()
-            .map_or_else(|| app.props.cwd.clone(), |parent| parent.cwd.clone()),
-        repo_root: parent
+            .map_or_else(|| app.props.cwd.clone(), |origin| origin.cwd.clone()),
+        repo_root: origin
             .as_ref()
-            .map_or_else(|| app.props.repo_root.clone(), |parent| parent.repo_root.clone()),
+            .map_or_else(|| app.props.repo_root.clone(), |origin| origin.repo_root.clone()),
         cols: i64::from(layout.preview_cols),
         rows: i64::from(layout.preview_rows),
         worktree_mode: Some(create.worktree_mode),
         existing_worktree_path,
         parent_session_id: create.parent_id.clone(),
-        sub_session_kind: if has_parent {
+        sub_session_kind: if has_parent || fork_from_id.is_some() {
             Some(create.sub_session_kind.unwrap_or(SubSessionKind::Clean))
         } else {
             None
@@ -535,6 +582,7 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
             .filter(|_| !has_parent)
             .map(|task| task.id.clone()),
         project_fingerprint,
+        fork_from_session_id: fork_from_id,
     };
     let reply = client.create_session(input);
     let task = app.dispatch().spawn(reply, |app: &mut App, result| {
@@ -545,6 +593,7 @@ pub fn submit_create(app: &mut App, existing_worktree_path: Option<String>, proj
                 app.create.parent_id = None;
                 app.create.sub_session_kind = None;
                 app.create.handoff_from_id = None;
+                app.create.fork_from_id = None;
                 app.create.worktree_mode = WorktreeMode::None;
                 app.set_mode(Mode::Browse);
                 app.set_selected_id(Some(created.id.clone()));
@@ -637,6 +686,8 @@ pub struct CreatePaneProps<'a> {
     pub parent_workspace_label: Option<&'a str>,
     pub sub_session_kind: Option<SubSessionKind>,
     pub show_fork_option: bool,
+    /// Not in the TS: without a parent, the session the ⑂ row forks into a new top-level one.
+    pub fork_source_title: Option<&'a str>,
     /// ↳ From handoff: the parent has an exported handoff (H).
     pub show_handoff_option: bool,
     /// The child starts from the parent's handoff; only its agent is left to pick.
@@ -677,6 +728,9 @@ pub fn create_pane_rows(props: &CreatePaneProps<'_>, width: usize) -> Vec<Row> {
     let program_label = program.map_or("", |program| program.label);
     let stays_in_parent = fork_stays_in_parent(program.map(|program| program.key), props.sub_session_kind);
     let parent_title = props.parent_title.filter(|title| !title.is_empty());
+    let fork_source = props
+        .fork_source_title
+        .filter(|title| parent_title.is_none() && !title.is_empty());
     let workspace_label = match props.parent_workspace_label {
         Some(label) if !label.is_empty() && (props.worktree_mode == WorktreeMode::None || stays_in_parent) => {
             label.to_owned()
@@ -701,7 +755,12 @@ pub fn create_pane_rows(props: &CreatePaneProps<'_>, width: usize) -> Vec<Row> {
             ),
             None => " ".to_owned(),
         };
-        format!("New {program_label}{kind}session")
+        match fork_source {
+            Some(source) if props.sub_session_kind == Some(SubSessionKind::Forked) => {
+                format!("New {program_label} fork of {source}")
+            }
+            _ => format!("New {program_label}{kind}session"),
+        }
     };
     let muted = TextStyle::fg(THEME.muted);
     let mut rows = wrapped(
@@ -724,10 +783,11 @@ pub fn create_pane_rows(props: &CreatePaneProps<'_>, width: usize) -> Vec<Row> {
             ));
         }
         if props.show_fork_option {
+            let text = fork_source.map_or_else(|| "⑂ Fork parent".to_owned(), |source| format!("⑂ Fork {source}"));
             rows.extend(selectable_row(
                 &SelectableRowProps {
                     selected: fork_selected,
-                    text: "⑂ Fork parent",
+                    text: &text,
                     ..SelectableRowProps::default()
                 },
                 content_width,
@@ -796,8 +856,9 @@ pub fn create_pane_rows(props: &CreatePaneProps<'_>, width: usize) -> Vec<Row> {
             ));
         }
         if stays_in_parent {
+            let whose = fork_source.map_or_else(|| "the parent's".to_owned(), |source| format!("{source}'s"));
             let text = truncate(
-                &format!("{program_label} forks stay in the parent's worktree"),
+                &format!("{program_label} forks stay in {whose} worktree"),
                 content_width,
             );
             rows.extend(wrapped(vec![Seg::plain(text)], muted, content_width));
@@ -1199,6 +1260,155 @@ mod tests {
     }
 
     #[test]
+    fn n_offers_to_fork_the_selected_session_into_a_top_level_one() {
+        let (mut app, _rx) = app(AppProps::default());
+        let mut source = session("s1", "alpha", SessionStatus::Running);
+        source.cwd = "/repo/wt".to_owned();
+        app.data.repo_sessions = vec![source];
+        app.browse.selected_id = Some("s1".to_owned());
+        app.create.worktree_mode = WorktreeMode::New;
+        app.set_mode(Mode::PickProgram);
+        // Three agents and ⑂ fork alpha: four options, wrapping.
+        handle_pick_program(&mut app, &up());
+        assert_eq!(app.create.program_index, 3);
+        handle_pick_program(&mut app, &enter());
+        assert_eq!(app.mode, Mode::EnterName);
+        assert_eq!(app.create.parent_id, None);
+        assert_eq!(app.create.sub_session_kind, Some(SubSessionKind::Forked));
+        assert_eq!(app.create.fork_from_id.as_deref(), Some("s1"));
+        assert_eq!(app.create.program_index, 0);
+        // Claude forks across directories: n's worktree default stays.
+        assert_eq!(app.create.worktree_mode, WorktreeMode::New);
+        // Back to the agents, an agent row makes it a plain session again.
+        app.set_mode(Mode::PickProgram);
+        handle_pick_program(&mut app, &enter());
+        assert_eq!(app.create.sub_session_kind, None);
+        assert_eq!(app.create.fork_from_id, None);
+        // Esc forgets a picked fork.
+        app.set_mode(Mode::PickProgram);
+        handle_pick_program(&mut app, &up());
+        handle_pick_program(&mut app, &enter());
+        app.set_mode(Mode::PickProgram);
+        handle_pick_program(&mut app, &escape());
+        assert_eq!(app.mode, Mode::Browse);
+        assert_eq!(app.create.fork_from_id, None);
+        assert_eq!(app.create.sub_session_kind, None);
+    }
+
+    #[test]
+    fn n_offers_no_fork_without_a_selected_session_or_for_a_task() {
+        let (mut app, _rx) = app(AppProps::default());
+        app.data.repo_sessions = vec![session("s1", "alpha", SessionStatus::Running)];
+        app.set_mode(Mode::PickProgram);
+        let top_level_fork_source = |app: &App| {
+            let derived = app.derived();
+            top_level_fork_source(&app.create, &derived.sessions, derived.selected.as_ref()).cloned()
+        };
+        // Nothing selected: the three agents only.
+        handle_pick_program(&mut app, &up());
+        assert_eq!(app.create.program_index, 2);
+        assert_eq!(top_level_fork_source(&app), None);
+        // A task's session is never a fork.
+        app.browse.selected_id = Some("s1".to_owned());
+        assert!(top_level_fork_source(&app).is_some());
+        app.create.task_start = Some(TaskStart {
+            id: "t1".to_owned(),
+            title: "task".to_owned(),
+        });
+        assert_eq!(top_level_fork_source(&app), None);
+        app.create.program_index = 0;
+        handle_pick_program(&mut app, &up());
+        assert_eq!(app.create.program_index, 2);
+    }
+
+    #[test]
+    fn a_top_level_fork_is_sent_with_its_source_and_no_parent() {
+        run(async {
+            let (mut app, mut rx, mut daemon) = connected();
+            let mut source = session("s1", "alpha", SessionStatus::Running);
+            source.cwd = "/repo/wt".to_owned();
+            app.data.repo_sessions = vec![source];
+            app.browse.selected_id = Some("s1".to_owned());
+            app.set_mode(Mode::PickProgram);
+            handle_pick_program(&mut app, &up());
+            handle_pick_program(&mut app, &enter());
+            app.create.draft_name = "alpha-retry".to_owned();
+            handle_enter_name(&mut app, &enter());
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "create");
+            let input = &request["input"];
+            assert_eq!(input["forkFromSessionId"], "s1");
+            assert_eq!(input["subSessionKind"], "forked");
+            assert!(input.get("parentSessionId").is_none());
+            assert_eq!(input["program"], "claude");
+            // It starts where its source is.
+            assert_eq!(input["cwd"], "/repo/wt");
+            let created = serde_json::to_value(session("f1", "alpha-retry", SessionStatus::Starting))
+                .unwrap_or_else(|error| panic!("{error}"));
+            daemon.respond(&request, true, created).await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(app.mode, Mode::Browse);
+            assert_eq!(app.create.fork_from_id, None);
+            assert_eq!(app.create.sub_session_kind, None);
+        });
+    }
+
+    #[test]
+    fn a_codex_top_level_fork_stays_in_its_source_worktree() {
+        let (mut app, _rx) = app(AppProps::default());
+        let mut source = session("s1", "alpha", SessionStatus::Running);
+        source.program = ProgramKey::Codex;
+        app.data.repo_sessions = vec![source];
+        app.browse.selected_id = Some("s1".to_owned());
+        app.create.worktree_mode = WorktreeMode::New;
+        app.set_mode(Mode::PickProgram);
+        handle_pick_program(&mut app, &up());
+        handle_pick_program(&mut app, &enter());
+        assert_eq!(app.mode, Mode::EnterName);
+        assert_eq!(app.create.program_index, 2);
+        assert_eq!(app.create.worktree_mode, WorktreeMode::None);
+        // Tab does nothing: the workspace is the source's.
+        handle_enter_name(&mut app, &tab());
+        assert_eq!(app.create.worktree_mode, WorktreeMode::None);
+        let pick = CreatePaneProps {
+            mode: CreateStep::PickProgram,
+            program_index: 3,
+            draft_name: "",
+            worktree_mode: WorktreeMode::None,
+            parent_title: None,
+            parent_workspace_label: None,
+            sub_session_kind: None,
+            show_fork_option: true,
+            fork_source_title: Some("alpha"),
+            show_handoff_option: false,
+            from_handoff: false,
+            task_title: None,
+            base: None,
+        };
+        assert_eq!(texts(&create_pane_rows(&pick, 60))[6], "❯ ⑂ Fork alpha");
+        let props = CreatePaneProps {
+            mode: CreateStep::EnterName,
+            program_index: 2,
+            parent_workspace_label: Some("source dir: /repo"),
+            sub_session_kind: Some(SubSessionKind::Forked),
+            show_fork_option: false,
+            ..pick
+        };
+        assert_eq!(
+            texts(&create_pane_rows(&props, 60)),
+            [
+                "New Codex fork of alpha",
+                "",
+                "Name: █",
+                "Workspace: source dir: /repo",
+                "Codex forks stay in alpha's worktree",
+                "",
+                "enter create • esc back"
+            ]
+        );
+    }
+
+    #[test]
     fn a_codex_fork_stays_in_the_parent_directory() {
         let (mut app, _rx) = app(AppProps::default());
         let mut parent = session("p1", "beta", SessionStatus::Running);
@@ -1229,6 +1439,7 @@ mod tests {
             parent_workspace_label: Some("parent dir: /repo"),
             sub_session_kind: Some(SubSessionKind::Forked),
             show_fork_option: false,
+            fork_source_title: None,
             show_handoff_option: false,
             from_handoff: false,
             task_title: None,
@@ -1652,6 +1863,7 @@ mod tests {
             parent_workspace_label: None,
             sub_session_kind: None,
             show_fork_option: false,
+            fork_source_title: None,
             show_handoff_option: false,
             from_handoff: false,
             task_title: Some("Write docs"),
@@ -1684,6 +1896,7 @@ mod tests {
         );
         let options = CreatePaneProps {
             show_fork_option: true,
+            fork_source_title: None,
             show_handoff_option: true,
             from_handoff: false,
             program_index: 4,

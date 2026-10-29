@@ -6,18 +6,18 @@ deckhand                                                                        
 │   2 Sessions        │ or shell: Ctrl+]). Everywhere: Enter opens, Space toggles, E opens your editor; in lists a adds, x       │
 │   3 Sidebar         │ removes (on the session list: a Notes tab, x stop).                                                      │
 │   4 Find & organize │                                                                                                          │
-│   5 Panes           │ n         New session: agent, name, Tab for the workspace (↑↓ a new worktree's base), Enter launches     │
-│   6 Notes           │ j k  ↑↓   Select a session (or type its number)                                                          │
-│   7 Tasks           │ Enter  o  Open it full screen: the agent, or what the tab shows (shell, Git, Dev); on Notes, Enter       │
-│   8 Worktrees       │           edits them here, o in vim                                                                      │
-│   9 Git & PRs       │ Ctrl+]    Back to Deckhand from full screen (Ctrl+Space works too)                                       │
-│  10 Dev & actions   │ Tab  [ ]  Next / previous tab: Preview, Terminal, Git, Dev, Notes (Shift+Tab goes back too)              │
-│  11 Settings        │ b  W      Tasks: the repository's task list (n starts a session from one) / Worktrees: what is merged,   │
+│   5 Panes           │ n         New session: agent (or ⑂ fork the selected session), name, Tab for the workspace (↑↓ a new     │
+│   6 Notes           │           worktree's base), Enter launches                                                               │
+│   7 Tasks           │ j k  ↑↓   Select a session (or type its number)                                                          │
+│   8 Worktrees       │ Enter  o  Open it full screen: the agent, or what the tab shows (shell, Git, Dev); on Notes, Enter       │
+│   9 Git & PRs       │           edits them here, o in vim                                                                      │
+│  10 Dev & actions   │ Ctrl+]    Back to Deckhand from full screen (Ctrl+Space works too)                                       │
+│  11 Settings        │ Tab  [ ]  Next / previous tab: Preview, Terminal, Git, Dev, Notes (Shift+Tab goes back too)              │
+│                     │ b  W      Tasks: the repository's task list (n starts a session from one) / Worktrees: what is merged,   │
 │                     │           delete them                                                                                    │
 │                     │ C  G      Settings / Agents: versions and updates (Enter updates, R re-checks)                           │
 │                     │ ?         This guide (↑↓ or 1-9 pick a topic, / searches, Esc closes)                                    │
 │                     │ q         Quit the UI (agents and the daemon keep running); everywhere else Esc goes back                │
-│                     │                                                                                                          │
 │                     │                                                                                                          │
 │                     │                                                                                                          │
 │                     │                                                                                                          │

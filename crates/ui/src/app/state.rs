@@ -547,6 +547,8 @@ pub struct CreateState {
     pub worktree_index: usize,
     /// A clean child starting from the parent's exported handoff.
     pub handoff_from_id: Option<String>,
+    /// Not in the TS: a top-level fork (⑂ with n): the session whose conversation it copies.
+    pub fork_from_id: Option<String>,
     pub task_start: Option<TaskStart>,
     pub branch_list: Option<BranchList>,
     /// The new worktree's base (↑↓; 0: the setting).
@@ -738,6 +740,7 @@ impl App {
                 worktree_typing: false,
                 worktree_index: 0,
                 handoff_from_id: None,
+                fork_from_id: None,
                 task_start: None,
                 branch_list: None,
                 base_index: 0,

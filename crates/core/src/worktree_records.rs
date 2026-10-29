@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use indexmap::IndexMap;
 use serde::Serialize;
 
-use crate::jsstr::{date, path};
+use crate::jsstr::{date, js_collapse_whitespace, js_trim, path};
 use deckhand_protocol::data::{
     SessionRecord, SessionWorktreeMode, SessionWorktreeRecord, WorktreeMarkers, WorktreeMergeMode, WorktreeMode,
 };
@@ -626,6 +626,64 @@ pub fn migrate_done_markers(sessions: Vec<Ordered<SessionRecord>>) -> DoneMigrat
     }
 }
 
+/// Not in the TS: migrate_sub_session_titles result.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TitleMigration {
+    pub sessions: Vec<Ordered<SessionRecord>>,
+    pub changed: bool,
+}
+
+/// Not in the TS: a sub-session's title holds only its own name (the sidebar and the daemon build the
+/// `parent / child` path from the parent links). Versions before saved `<parent> / <child>`, its parent cut to
+/// `<start of parent>…` when the whole passed 64 characters; each such title loses its parent's part. Parents are
+/// matched by their saved titles before any is changed, so a chain comes out right whatever order its sessions are in.
+/// Idempotent.
+pub fn migrate_sub_session_titles(sessions: Vec<Ordered<SessionRecord>>) -> TitleMigration {
+    let titles: HashMap<String, String> = sessions
+        .iter()
+        .map(|session| (session.id.clone(), session.title.clone()))
+        .collect();
+    let mut changed = false;
+    let migrated = sessions
+        .into_iter()
+        .map(|mut session| {
+            let parent = session
+                .parent_session_id
+                .as_deref()
+                .filter(|id| !id.is_empty() && *id != session.id)
+                .and_then(|id| titles.get(id));
+            if let Some(name) = parent.and_then(|parent| own_title(&session.title, parent)) {
+                changed = true;
+                session.title = name;
+            }
+            session
+        })
+        .collect();
+    TitleMigration {
+        sessions: migrated,
+        changed,
+    }
+}
+
+/// The child's part of a saved `<parent> / <child>` title, or None when `title` does not start with its parent's.
+/// The parent's part may be cut (`<start of parent>…`); the longest such match wins, since the parent's own title can
+/// hold `… / ` (a sub-session of a sub-session whose title was cut).
+fn own_title(title: &str, parent_title: &str) -> Option<String> {
+    let title = js_collapse_whitespace(js_trim(title));
+    let parent = js_collapse_whitespace(js_trim(parent_title));
+    if parent.is_empty() {
+        return None;
+    }
+    if let Some(name) = title.strip_prefix(&format!("{parent} / ")) {
+        return Some(name.to_owned());
+    }
+    title
+        .match_indices("… / ")
+        .filter(|(index, _)| *index > 0 && parent.starts_with(&title[..*index]))
+        .last()
+        .map(|(index, separator)| title[index + separator.len()..].to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1137,5 +1195,48 @@ mod tests {
                 Ok::<_, String>(json!({"sessions": result.sessions, "changed": result.changed}))
             })
             .assert_ok();
+    }
+
+    #[test]
+    fn sub_session_titles_keep_only_their_own_name() {
+        let none = json!({"mode": "none"});
+        let child = |id: &str, title: &str, parent: &str| {
+            session(id, 0, none.clone(), json!({"title": title, "parentSessionId": parent}))
+        };
+        // The coaching chain as 3.1 saved it, children listed before their parents.
+        let sessions = vec![
+            child("d", "Fix coaching tone / coaching-analysis / m… / mile… / next", "c"),
+            child(
+                "c",
+                "Fix coaching tone / coaching-analysis / m… / milestone-migration",
+                "b",
+            ),
+            child("b", "Fix coaching tone / coaching-analysis / milestone-5.5-audit", "a"),
+            child("a", "Fix coaching tone / coaching-analysis", "root"),
+            session("root", 0, none.clone(), json!({"title": "Fix coaching tone"})),
+            // Already short, its parent gone, or not starting with its parent's title: left alone.
+            child("short", "tests", "a"),
+            child("orphan", "Gone / orphan", "missing"),
+            child("other", "Other… / thing", "a"),
+        ];
+        let first = migrate_sub_session_titles(sessions);
+        assert!(first.changed);
+        let titles: Vec<&str> = first.sessions.iter().map(|session| session.title.as_str()).collect();
+        assert_eq!(
+            titles,
+            [
+                "next",
+                "milestone-migration",
+                "milestone-5.5-audit",
+                "coaching-analysis",
+                "Fix coaching tone",
+                "tests",
+                "Gone / orphan",
+                "Other… / thing",
+            ]
+        );
+        let again = migrate_sub_session_titles(first.sessions.clone());
+        assert!(!again.changed);
+        assert_eq!(again.sessions, first.sessions);
     }
 }

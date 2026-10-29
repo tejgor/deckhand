@@ -41,7 +41,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `v` *(on Terminal)* | Show the next of the worktree's [shells](features.md#several-shells), then its last action |
 | `v` *(on Dev)* | Select the next [Dev process](features.md#several-dev-processes); `enter` opens the selected one |
 | `E` | Open the session's directory in Cursor or VS Code (on Notes: the note) |
-| `n` | New top-level session |
+| `n` | New top-level session, or a `⑂` fork of the selected one ([forks](features.md#sessions-and-sub-sessions)) |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
 | `x` | Stop the selected session, asking first (and whether to delete its worktree and branch) |
 | `X` | Force-stop the selected session, keeping its worktree: asks first, with the force kill chosen (one `enter`) |
@@ -71,7 +71,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 
 **Press twice**: a few keys that are hard to undo but don't need a dialog act on the second press. The first press says in the status line what the second will do; press the same key again within 2 seconds to do it, and any other key cancels. These are `S` (fresh restart), `x` in the [run list](#run-list) and in [Tasks](#tasks), and `a` / `A` in [Git changes](#git-changes) while a file is partly staged.
 
-**In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic (`g`/`G` the first or last), `/` searches every topic, `J`/`K` (or `pgdn`/`pgup`, `ctrl+d`/`ctrl+u`, `space`) scroll and `esc` closes.
+**In the guide** (`?`): `↑`/`↓` or `1`–`9` pick a topic (`g`/`G` the first or last), `/` searches every topic (while typing, `↑`/`↓`, `ctrl+p`/`ctrl+n` or `ctrl+k`/`ctrl+j` scroll the matches), `J`/`K` (or `pgdn`/`pgup`, `ctrl+d`/`ctrl+u`, `space`) scroll and `esc` closes.
 
 **Dialogs and the merge screen**: when what they show does not fit, `J`/`K` (or `pgdn`/`pgup`, `ctrl+d`/`ctrl+u`) scroll it, and the border says how much more there is (`↓ 12 more · J`). In `i`, the trust review and the DELETE prompt, `J`/`K` scroll a page. In Settings lists, `J`/`K` move five rows and `g`/`G` go to the first or last. In a DELETE prompt, `esc` goes back to the choices.
 
@@ -84,7 +84,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 
 | Key | Action |
 | --- | --- |
-| `j`, `↓` / `k`, `↑` | Next / previous agent (for `N`, also **⑂ Fork parent** and **↳ From its handoff**) |
+| `j`, `↓` / `k`, `↑` | Next / previous agent (for `n`, also **⑂ Fork** the selected session; for `N`, **⑂ Fork parent** and **↳ From its handoff**) |
 | `enter` | Continue to the name |
 | `esc` | Cancel |
 

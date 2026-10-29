@@ -156,7 +156,10 @@ impl SessionSummary {
 /// The status line of one attach: the output adjuster, the cursor-tracking mirror and the line's content.
 pub struct StatusLine {
     session_id: String,
+    /// The session's path (a sub-session's `parent / child`).
     title: String,
+    /// The parents' part of `title` (`parent / `), learnt from the first event: a rename replaces what follows it.
+    parents: Option<String>,
     /// The pane's name, shown after the title instead of the agent's state (`None`: the agent).
     pane: Option<String>,
     /// The outer terminal's size; the program gets `rows - HEIGHT`.
@@ -186,6 +189,7 @@ impl StatusLine {
         Some(StatusLine {
             session_id: session_id.to_owned(),
             title: title.to_owned(),
+            parents: None,
             pane: None,
             rows,
             cols,
@@ -247,15 +251,37 @@ impl StatusLine {
     /// A `session-updated` event: the line is drawn again when what it shows changed.
     pub fn session_updated(&mut self, session: &SessionRecord) -> String {
         let summary = SessionSummary::of(session, &self.scope);
-        let title_changed = session.id == self.session_id && session.title != self.title;
-        if title_changed {
-            session.title.clone_into(&mut self.title);
-        }
+        let title_changed = session.id == self.session_id
+            && match session.path_title.as_deref().filter(|path| !path.is_empty()) {
+                Some(path) if path == self.title => false,
+                Some(path) => {
+                    path.clone_into(&mut self.title);
+                    true
+                }
+                // A top-level session, or a daemon from before paths were projected.
+                None => self.retitle(&session.title),
+            };
         let before = self.sessions.insert(session.id.clone(), summary.clone());
         if title_changed || before != Some(summary) {
             return self.redraw_soon();
         }
         String::new()
+    }
+
+    /// Takes the session's own title from an event; true when the path shown changed. A sub-session's title holds only
+    /// its own name, so it replaces the path's last part and the parents' names stay.
+    fn retitle(&mut self, own: &str) -> bool {
+        // The first event: the path already ends with it, else its last part is taken for it.
+        let parents = self.parents.get_or_insert_with(|| match self.title.strip_suffix(own) {
+            Some(parents) if parents.is_empty() || parents.ends_with(" / ") => parents.to_owned(),
+            _ => self.title[..self.title.rfind(" / ").map_or(0, |at| at + " / ".len())].to_owned(),
+        });
+        let title = format!("{parents}{own}");
+        if title == self.title {
+            return false;
+        }
+        self.title = title;
+        true
     }
 
     /// A `session-removed` event.
@@ -783,6 +809,34 @@ mod tests {
         let mut status = line();
         assert_eq!(status.filter_output("ab\x1b[99"), "ab");
         assert_eq!(status.filter_output(";1H"), "\x1b[4;1H");
+    }
+
+    #[test]
+    fn a_sub_session_rename_keeps_its_parents_names() {
+        let mut status = StatusLine::new("s", "Root / Parent / Fix bug", 6, 80, ThemeMode::Terminal).unwrap();
+        let named = |title: &str| -> SessionRecord {
+            serde_json::from_value(serde_json::json!({
+                "id": "s", "title": title, "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r",
+                "status": "running", "createdAt": "x", "updatedAt": "x"
+            }))
+            .unwrap()
+        };
+        // Its own title, as events carry it, is the path's last part: nothing to redraw for the title.
+        status.session_updated(&named("Fix bug"));
+        assert_eq!(status.title, "Root / Parent / Fix bug");
+        assert!(!status.retitle("Fix bug"));
+        assert!(status.retitle("Fixed it"));
+        assert_eq!(status.title, "Root / Parent / Fixed it");
+        // The path the daemon projected is shown as it is.
+        let mut projected = named("Fix bug");
+        projected.path_title = Some("Root / Fix bug".into());
+        status.session_updated(&projected);
+        assert_eq!(status.title, "Root / Fix bug");
+        // A top-level session's title is the whole path.
+        let mut top = StatusLine::new("s", "Fix bug", 6, 80, ThemeMode::Terminal).unwrap();
+        assert!(!top.retitle("Fix bug"));
+        assert!(top.retitle("Fixed"));
+        assert_eq!(top.title, "Fixed");
     }
 
     #[test]

@@ -9,6 +9,7 @@ use std::rc::Rc;
 
 use deckhand_core::agent_signals::hooks_enabled;
 use deckhand_core::agents::{LaunchPlan, agent_spec, launch_args, new_agent_ref, relaunch_plan};
+use deckhand_core::display::session_path_names_by;
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{self, date, path};
 use deckhand_core::project_config::{resolve_settings, resolve_setup_command};
@@ -242,27 +243,14 @@ pub fn truncate_session_title(value: &str, max_length: usize) -> String {
     format!("{}…", jsstr::js_trim_end(&cut))
 }
 
-/// TS: daemon.ts inheritedChildTitle: `<parent> / <child>` within 64 characters.
-pub fn inherited_child_title(parent_title: &str, child_title: &str) -> String {
-    const SEPARATOR: &str = " / ";
-    let parent = jsstr::js_collapse_whitespace(jsstr::js_trim(parent_title));
+/// Not in the TS (daemon.ts inheritedChildTitle saved `<parent> / <child>`): the title a new sub-session stores, its
+/// own name alone (trimmed, whitespace collapsed); its parent's path typed in front is dropped.
+pub fn sub_session_title(parent_path: &str, child_title: &str) -> String {
     let child = jsstr::js_collapse_whitespace(jsstr::js_trim(child_title));
-    if parent.is_empty() || child == parent || child.starts_with(&format!("{parent}{SEPARATOR}")) {
-        return truncate_session_title(&child, 64);
+    match child.strip_prefix(&format!("{parent_path} / ")) {
+        Some(own) => own.to_owned(),
+        None => child,
     }
-    let separator_length = jsstr::js_len(SEPARATOR);
-    let parent_length = jsstr::js_len(&parent);
-    if parent_length + separator_length + jsstr::js_len(&child) <= 64 {
-        return format!("{parent}{SEPARATOR}{child}");
-    }
-    let min_prefix_length = parent_length.min(12);
-    let max_child_length = 64usize.saturating_sub(separator_length + min_prefix_length).max(1);
-    let child = truncate_session_title(&child, max_child_length);
-    let prefix = truncate_session_title(
-        &parent,
-        64usize.saturating_sub(separator_length + jsstr::js_len(&child)).max(1),
-    );
-    format!("{prefix}{SEPARATOR}{child}")
 }
 
 /// Not in the TS: the title a new worktree and its branch are named after. A sub-session's `<parent> / <child>`
@@ -270,6 +258,23 @@ pub fn inherited_child_title(parent_title: &str, child_title: &str) -> String {
 /// typed without spaces still nests, as in `feat/auth`.
 pub fn worktree_title(title: &str) -> String {
     title.replace(" / ", "-")
+}
+
+/// Not in the TS: [`worktree_title`] for a session's path (its ancestors' names, then its own): `<parent>-<child>`,
+/// dropping ancestors from the top until it fits in 64 characters, so the session's own name is always whole.
+pub fn worktree_title_for_path(names: &[String]) -> String {
+    let mut start = 0;
+    loop {
+        let title = names[start..]
+            .iter()
+            .map(|name| worktree_title(name))
+            .collect::<Vec<_>>()
+            .join("-");
+        if start + 1 >= names.len() || jsstr::js_len(&title) <= 64 {
+            return title;
+        }
+        start += 1;
+    }
 }
 
 /// TS: daemon.ts readAgentExit.
@@ -350,10 +355,11 @@ struct CreateChecks {
 }
 
 impl Daemon {
-    /// TS: SessionMap.set: stores the session with its worktree markers and notes projected into it.
+    /// TS: SessionMap.set: stores the session with its worktree markers and notes projected into it. Not in the TS:
+    /// and, a sub-session, its path from the parents held now.
     pub fn set_session(&self, session: Ordered<SessionRecord>) {
         let notes = self.notes_tasks.borrow().notes.clone();
-        let projected = {
+        let mut projected = {
             let worktrees = self.worktrees.borrow();
             let projected = project_worktree(&session, &worktrees.records);
             match notes {
@@ -362,10 +368,21 @@ impl Daemon {
                 None => projected,
             }
         };
+        projected.path_title = parent_of(&projected).map(|_| self.session_path(&projected));
         self.sessions
             .borrow_mut()
             .sessions
             .insert(projected.id.clone(), projected);
+    }
+
+    /// Not in the TS: projects every sub-session's path again once all sessions are held (at start, a sub-session
+    /// stored before its parent projected only part of it).
+    pub fn project_sub_session_paths(&self) {
+        for session in self.all_sessions() {
+            if parent_of(&session).is_some() {
+                self.set_session(session);
+            }
+        }
     }
 
     /// TS: `this.sessions.get(id)`.
@@ -376,6 +393,18 @@ impl Daemon {
     /// TS: `[...this.sessions.values()]`.
     pub fn all_sessions(&self) -> Vec<Ordered<SessionRecord>> {
         self.sessions.borrow().sessions.values().cloned().collect()
+    }
+
+    /// Not in the TS: the session's name with its ancestors' in front (`parent / child`), as the sidebar shows its
+    /// place; a sub-session's title holds only its own name.
+    pub fn session_path(&self, session: &SessionRecord) -> String {
+        self.session_path_names(session).join(" / ")
+    }
+
+    /// The names [`Daemon::session_path`] joins, the root's first; each parent is looked up by ID.
+    pub fn session_path_names(&self, session: &SessionRecord) -> Vec<String> {
+        let state = self.sessions.borrow();
+        session_path_names_by(session, |id| state.sessions.get(id).map(|parent| &**parent))
     }
 
     /// TS: InkDaemon.requireSession (`Session does not exist`).
@@ -847,6 +876,7 @@ impl Daemon {
                 text("taskId")
             },
             project_fingerprint: text("projectFingerprint"),
+            fork_from_session_id: id("forkFromSessionId"),
         };
         self.create_session_checked(input, checks).await
     }
@@ -870,8 +900,15 @@ impl Daemon {
         }
         let parent_id = input.parent_session_id.clone().filter(|id| !id.is_empty());
         let parent_session = parent_id.as_deref().and_then(|id| self.get_session(id));
-        let title = match parent_session.as_ref() {
-            Some(parent) => inherited_child_title(&parent.title, &input.title),
+        let fork_from_id = input.fork_from_session_id.clone().filter(|id| !id.is_empty());
+        if fork_from_id.is_some() && (!forked || parent_id.is_some()) {
+            return Err(DhError::msg(
+                "forkFromSessionId applies only to a forked session without a parent",
+            ));
+        }
+        let parent_path = parent_session.as_ref().map(|parent| self.session_path(parent));
+        let title = match parent_path.as_deref() {
+            Some(parent_path) => sub_session_title(parent_path, &input.title),
             None => jsstr::js_trim(&input.title).to_owned(),
         };
         if title.is_empty() {
@@ -889,48 +926,74 @@ impl Daemon {
                 return Err(DhError::msg("parent session does not exist in this repo"));
             }
         }
-        if forked {
-            let Some(parent) = parent_session.as_ref() else {
-                return Err(DhError::msg("forked sub-session requires a parent session"));
+        // What a fork copies: its parent's conversation, or (a top-level fork) the conversation of the session it
+        // names.
+        let fork_source = match (forked, parent_session.as_ref(), fork_from_id.as_deref()) {
+            (false, _, _) => None,
+            (true, Some(parent), _) => Some(parent.clone()),
+            (true, None, None) => return Err(DhError::msg("forked session requires a session to fork")),
+            (true, None, Some(source_id)) => {
+                let source = self.get_session(source_id);
+                let same = match source.as_ref() {
+                    Some(source) => self.same_repository(&source.repo_root, &input.repo_root).await?,
+                    None => false,
+                };
+                if !same {
+                    return Err(DhError::msg("source session does not exist in this repo"));
+                }
+                source
+            }
+        };
+        if let Some(source) = fork_source.as_ref() {
+            // The messages name a sub-session's parent, or a top-level fork's source.
+            let (what, whose, clean) = if parent_session.is_some() {
+                ("forked sub-session", "parent", "a clean sub-session")
+            } else {
+                ("forked session", "source", "a new session")
             };
-            let agent = agent_spec(parent.program);
+            let agent = agent_spec(source.program);
             if !agent.forks {
-                return Err(DhError::msg(format!(
-                    "forked sub-sessions are not supported for {}",
-                    agent.label
-                )));
+                return Err(DhError::msg(format!("{what}s are not supported for {}", agent.label)));
             }
-            if input.program != parent.program {
-                return Err(DhError::msg("forked sub-session must use the parent session program"));
+            if input.program != source.program {
+                return Err(DhError::msg(format!("{what} must use the {whose} session program")));
             }
-            if parent.agent_session_ref.is_none() {
+            if source.agent_session_ref.is_none() {
                 return Err(DhError::msg(if agent.id_at_launch {
-                    "parent session does not have a resumable agent reference".to_owned()
+                    format!("{whose} session does not have a resumable agent reference")
                 } else {
                     format!(
-                        "{} has not reported the parent's conversation ID yet (it comes from the SessionStart hook or the exit hint), so it cannot be forked",
+                        "{} has not reported the {whose}'s conversation ID yet (it comes from the SessionStart hook or the exit hint), so it cannot be forked",
                         agent.label
                     )
                 }));
             }
-            // Checked here so a fork never fails at agent launch: this agent may reopen the fork in the parent's
+            // Checked here so a fork never fails at agent launch: this agent may reopen the fork in the source's
             // directory.
             if !agent.forks_across_directories
                 && (input.worktree_mode.unwrap_or(WorktreeMode::None) != WorktreeMode::None
-                    || path::resolve(&input.cwd) != path::resolve(&parent.cwd))
+                    || path::resolve(&input.cwd) != path::resolve(&source.cwd))
             {
                 return Err(DhError::msg(format!(
-                    "{} forks stay in the parent's worktree; create a clean sub-session to work in another one",
+                    "{} forks stay in the {whose}'s worktree; create {clean} to work in another one",
                     agent.label
                 )));
             }
         }
-        let conflict = self.all_sessions().into_iter().any(|session| {
-            session.repo_root == input.repo_root && session.title == title && session.status != SessionStatus::Exited
+        // Sessions are told apart by their whole path, so two children named alike under different parents do not
+        // clash.
+        let path_title = match parent_path.as_deref() {
+            Some(parent_path) => format!("{parent_path} / {title}"),
+            None => title.clone(),
+        };
+        let conflict = self.sessions.borrow().sessions.values().any(|session| {
+            session.repo_root == input.repo_root
+                && session.status != SessionStatus::Exited
+                && self.session_path(session) == path_title
         });
         if conflict {
             return Err(DhError::msg(format!(
-                "an active session named \"{title}\" already exists in this repo"
+                "an active session named \"{path_title}\" already exists in this repo"
             )));
         }
 
@@ -996,13 +1059,7 @@ impl Daemon {
             };
         }
         let launch_id = uuid::Uuid::new_v4().to_string();
-        let parent_ref = if forked {
-            parent_session
-                .as_ref()
-                .and_then(|parent| parent.agent_session_ref.clone())
-        } else {
-            None
-        };
+        let fork_ref = fork_source.as_ref().and_then(|source| source.agent_session_ref.clone());
         let record: SessionRecord = serde_json::from_value(json!({
             "id": session_id,
             "launchId": launch_id,
@@ -1026,8 +1083,8 @@ impl Daemon {
             "lastPreview": "",
             "parentSessionId": input.parent_session_id,
             "subSessionKind": input.sub_session_kind,
-            "forkedFromSessionId": if forked { parent_session.as_ref().map(|parent| parent.id.clone()) } else { None },
-            "forkedFromAgentSessionRef": parent_ref,
+            "forkedFromSessionId": fork_source.as_ref().map(|source| source.id.clone()),
+            "forkedFromAgentSessionRef": fork_ref,
             "sidebarOrder": JsNumber(next_sidebar_order),
         }))?;
         let mut keys = vec![
@@ -1102,7 +1159,9 @@ impl Daemon {
             return Ok(());
         };
 
-        let title = starting_session.title.clone();
+        // A sub-session's worktree, branch and agent are named after its path (`parent / child`).
+        let path_names = self.session_path_names(&starting_session);
+        let path_title = path_names.join(" / ");
         let launch_cwd = input.cwd.clone();
         let launch_worktree_root = find_repo_root(Some(&launch_cwd)).await?;
         let app_config = load_app_config().await?;
@@ -1125,7 +1184,7 @@ impl Daemon {
                 .ok()
                 .and_then(|settings| settings.worktree.clone());
             let created = create_worktree_for_session(
-                &worktree_title(&title),
+                &worktree_title_for_path(&path_names),
                 &launch_cwd,
                 worktree_settings.as_ref(),
                 input.base_branch.as_deref().filter(|base| !base.is_empty()),
@@ -1186,7 +1245,7 @@ impl Daemon {
         }
 
         let program = starting_session.program;
-        let agent_name = build_deckhand_agent_name(&title, session_id, None);
+        let agent_name = build_deckhand_agent_name(&path_title, session_id, None);
         // A fork copies the parent's conversation as saved when the child launches (a turn in progress is not
         // included).
         let fork_from = match starting_session.sub_session_kind {
@@ -1548,7 +1607,7 @@ impl Daemon {
         }
         let agent = agent_spec(existing.program);
         let suffix = fresh.then(|| format!("fresh-{}", base36(date::now_ms())));
-        let agent_name = build_deckhand_agent_name(&existing.title, &existing.id, suffix.as_deref());
+        let agent_name = build_deckhand_agent_name(&self.session_path(&existing), &existing.id, suffix.as_deref());
         // s resumes the session's own conversation; a fork without one forks its parent again (new child ID); S
         // starts fresh.
         let relaunch_mode = if fresh { RestartMode::Fresh } else { RestartMode::Resume };
@@ -1746,7 +1805,28 @@ impl Daemon {
             .summaries
             .retain(|slot, _| !slot.starts_with(&slot_prefix));
         let workspace = self.workspace_key_of(&existing);
+        // Its notes go to the trash labelled with its path (`parent / child`).
+        let path_title = self.session_path(&existing);
+        // Not in the TS: a sub-session's title holds only its own name, so each child takes its path now (`parent /
+        // child`, as older versions saved it) and keeps naming its parent once it is gone. Deeper sessions' paths go
+        // through their parents, so they need nothing.
+        let orphaned: Vec<Ordered<SessionRecord>> = self
+            .sessions
+            .borrow()
+            .sessions
+            .values()
+            .filter(|session| session.id != session_id && session.parent_session_id.as_deref() == Some(session_id))
+            .map(|child| {
+                let mut child = child.clone();
+                child.title = self.session_path(&child);
+                child
+            })
+            .collect();
         self.sessions.borrow_mut().sessions.shift_remove(session_id);
+        for child in orphaned {
+            self.set_session(child.clone());
+            self.broadcast_session_updated(&child);
+        }
         // A worktree record lives as long as a session references it.
         let worktree_id = existing
             .worktree
@@ -1771,7 +1851,7 @@ impl Daemon {
             kind: NoteKind::Session,
             id: session_id.to_owned(),
         };
-        if let Err(error) = notes.remove(&session_note, Some(&existing.title)).await {
+        if let Err(error) = notes.remove(&session_note, Some(&path_title)).await {
             self.log(&format!("removing notes of {session_id} failed: {error}"))
                 .await;
         }
@@ -1785,7 +1865,7 @@ impl Daemon {
                 kind: NoteKind::Worktree,
                 id: dropped.to_owned(),
             };
-            let label = branch.clone().unwrap_or_else(|| existing.title.clone());
+            let label = branch.clone().unwrap_or_else(|| path_title.clone());
             if let Err(error) = notes.remove(&worktree_note, Some(&label)).await {
                 self.log(&format!("removing worktree notes {dropped} failed: {error}"))
                     .await;
@@ -1849,7 +1929,10 @@ impl Daemon {
                 body: task.body.clone(),
                 done: task.done,
             });
-        let file = export_handoff(session, include_output, git_context.as_ref(), task.as_ref()).await?;
+        // Its `Task:` line names the session by its path (`parent / child`).
+        let mut named = session.clone();
+        named.title = self.session_path(session);
+        let file = export_handoff(&named, include_output, git_context.as_ref(), task.as_ref()).await?;
         Ok(file.to_string_lossy().into_owned())
     }
 
@@ -2100,40 +2183,40 @@ mod tests {
         assert_eq!(truncate_session_title("a😀bc", 4), "a😀…");
         assert_eq!(truncate_session_title("short", 5), "short");
 
-        assert_eq!(
-            inherited_child_title("Parent  task", "  child\tone "),
-            "Parent task / child one"
-        );
-        assert_eq!(inherited_child_title("", "child"), "child");
-        assert_eq!(inherited_child_title("Parent", "Parent / child"), "Parent / child");
-        assert_eq!(
-            inherited_child_title(&"P".repeat(40), &"c".repeat(40)),
-            format!("{}… / {}", "P".repeat(20), "c".repeat(40))
-        );
-        assert_eq!(
-            inherited_child_title("Parent", &"x".repeat(70)),
-            format!("Parent / {}…", "x".repeat(54))
-        );
-        assert_eq!(
-            inherited_child_title(
-                "A long parent title that goes on",
-                "and a long child title that also goes on"
-            ),
-            "A long parent title… / and a long child title that also goes on"
-        );
+        assert_eq!(sub_session_title("Parent", "  child\tone "), "child one");
+        // The parent's path typed in front is dropped.
+        assert_eq!(sub_session_title("Root / Parent", "Root / Parent / child"), "child");
+        assert_eq!(sub_session_title("Parent", "Parent/child"), "Parent/child");
     }
 
     #[test]
-    fn a_sub_session_worktree_is_named_after_parent_and_child_without_nesting() {
-        let name = |title: &str| deckhand_sys::git::sanitize_worktree_name(&worktree_title(title));
-        let child = inherited_child_title("Fix coaching tone", "tone-fix-other-convs");
-        assert_eq!(name(&child), "fix_coaching_tone-tone-fix-other-convs");
+    fn a_sub_session_worktree_is_named_after_its_path_without_nesting() {
+        let names = |path: &[&str]| path.iter().map(|name| (*name).to_owned()).collect::<Vec<_>>();
+        let name = |path: &[&str]| deckhand_sys::git::sanitize_worktree_name(&worktree_title_for_path(&names(path)));
         assert_eq!(
-            name(&inherited_child_title(&child, "tests")),
+            name(&["Fix coaching tone", "tone-fix-other-convs"]),
+            "fix_coaching_tone-tone-fix-other-convs"
+        );
+        assert_eq!(
+            name(&["Fix coaching tone", "tone-fix-other-convs", "tests"]),
             "fix_coaching_tone-tone-fix-other-convs-tests"
         );
-        assert_eq!(name("feat/auth"), "feat/auth");
-        assert_eq!(name("Plain title"), "plain_title");
+        // Past 64 characters, ancestors are dropped from the top; the session's own name stays whole.
+        assert_eq!(
+            worktree_title_for_path(&names(&[
+                "Fix coaching tone",
+                "coaching-analysis",
+                "milestone-5.5-audit",
+                "milestone-migration"
+            ])),
+            "coaching-analysis-milestone-5.5-audit-milestone-migration"
+        );
+        assert_eq!(
+            worktree_title_for_path(&names(&["root", &"x".repeat(70)])),
+            "x".repeat(70)
+        );
+        assert_eq!(name(&["feat/auth"]), "feat/auth");
+        assert_eq!(name(&["Plain title"]), "plain_title");
     }
 
     #[test]
@@ -2245,6 +2328,32 @@ mod tests {
         assert!(text.starts_with(r#"{"id":"a","title":"renamed""#), "{text}");
         let ids: Vec<String> = daemon.all_sessions().iter().map(|session| session.id.clone()).collect();
         assert_eq!(ids, ["a", "b"]);
+    }
+
+    #[test]
+    fn sub_sessions_hold_their_path_for_clients_without_their_parents() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = daemon(dir.path());
+        // Stored before its parent (as a load may): only part of the path until every session is held.
+        daemon.set_session(record(
+            json!({"id": "grandchild", "title": "fix", "parentSessionId": "child"}),
+        ));
+        daemon.set_session(record(json!({"id": "root", "title": "Root"})));
+        daemon.set_session(record(
+            json!({"id": "child", "title": "Child", "parentSessionId": "root"}),
+        ));
+        let path = |id: &str| daemon.require_session(id).unwrap().path_title.clone();
+        assert_eq!(path("grandchild").as_deref(), Some("fix"));
+        assert_eq!(path("child").as_deref(), Some("Root / Child"));
+        daemon.project_sub_session_paths();
+        assert_eq!(path("grandchild").as_deref(), Some("Root / Child / fix"));
+        // A top-level session has none: its title is its path.
+        assert_eq!(path("root"), None);
+        // Each update projects it again (a worker answers with the record it was sent).
+        let mut stale = daemon.require_session("child").unwrap();
+        stale.path_title = Some("stale".into());
+        daemon.set_session(stale);
+        assert_eq!(path("child").as_deref(), Some("Root / Child"));
     }
 
     #[test]
@@ -2433,6 +2542,10 @@ mod tests {
                     "agentSessionRef": {"provider": "codex", "kind": "id", "value": parent_id}}),
                 ),
             );
+            put(
+                &daemon,
+                record(json!({"id": "tests", "title": "tests", "parentSessionId": "p", "status": "running"})),
+            );
             let cases = [
                 (
                     json!({"handoffFromSessionId": "p", "subSessionKind": "forked"}),
@@ -2449,7 +2562,35 @@ mod tests {
                 ),
                 (
                     json!({"subSessionKind": "forked"}),
-                    "forked sub-session requires a parent session",
+                    "forked session requires a session to fork",
+                ),
+                (
+                    json!({"forkFromSessionId": "p"}),
+                    "forkFromSessionId applies only to a forked session without a parent",
+                ),
+                (
+                    json!({"forkFromSessionId": "p", "subSessionKind": "forked", "parentSessionId": "p"}),
+                    "forkFromSessionId applies only to a forked session without a parent",
+                ),
+                (
+                    json!({"forkFromSessionId": "p", "subSessionKind": "forked", "handoffFromSessionId": "p"}),
+                    "Handoffs require a clean session",
+                ),
+                (
+                    json!({"forkFromSessionId": "gone", "subSessionKind": "forked"}),
+                    "source session does not exist in this repo",
+                ),
+                (
+                    json!({"forkFromSessionId": "p", "subSessionKind": "forked", "program": "codex"}),
+                    "forked session must use the source session program",
+                ),
+                (
+                    json!({"forkFromSessionId": "bare", "subSessionKind": "forked", "program": "codex"}),
+                    "Codex has not reported the source's conversation ID yet (it comes from the SessionStart hook or the exit hint), so it cannot be forked",
+                ),
+                (
+                    json!({"forkFromSessionId": "cx", "subSessionKind": "forked", "program": "codex", "worktreeMode": "new"}),
+                    "Codex forks stay in the source's worktree; create a new session to work in another one",
                 ),
                 (
                     json!({"parentSessionId": "p", "subSessionKind": "forked", "program": "codex"}),
@@ -2472,8 +2613,13 @@ mod tests {
                     "an active session named \"Busy\" already exists in this repo",
                 ),
                 (
-                    json!({"parentSessionId": "p", "title": "Parent"}),
-                    "an active session named \"Parent\" already exists in this repo",
+                    json!({"parentSessionId": "p", "title": "Parent / tests"}),
+                    "an active session named \"Parent / tests\" already exists in this repo",
+                ),
+                // A child named alike under another parent does not clash (refused later, for its base branch).
+                (
+                    json!({"parentSessionId": "busy", "title": "tests", "baseBranch": "main"}),
+                    "A base branch applies only to a new worktree",
                 ),
                 (
                     json!({"baseBranch": "main"}),
@@ -2496,8 +2642,54 @@ mod tests {
                     "{fields}"
                 );
             }
-            assert_eq!(daemon.all_sessions().len(), 4);
+            assert_eq!(daemon.all_sessions().len(), 5);
             assert!(daemon.sessions.borrow().preparing.is_empty());
+        });
+    }
+
+    #[test]
+    fn removing_a_parent_keeps_its_name_in_its_children() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            // Removing persists: state.json goes to this home, never the real one.
+            let _home = Home::set(dir.path());
+            let daemon = daemon(dir.path());
+            put(&daemon, record(json!({"id": "root", "title": "Root"})));
+            put(
+                &daemon,
+                record(json!({"id": "p", "title": "Parent", "parentSessionId": "root"})),
+            );
+            put(
+                &daemon,
+                record(json!({"id": "c", "title": "child", "parentSessionId": "p"})),
+            );
+            put(
+                &daemon,
+                record(json!({"id": "g", "title": "grand", "parentSessionId": "c"})),
+            );
+            put(
+                &daemon,
+                record(json!({"id": "other", "title": "other", "parentSessionId": "root"})),
+            );
+            daemon.remove_session("p").await.unwrap();
+            let title = |id: &str| daemon.get_session(id).unwrap().title.clone();
+            // The child takes the path it had; deeper sessions and other branches keep their own names.
+            assert_eq!(title("c"), "Root / Parent / child");
+            assert_eq!(title("g"), "grand");
+            assert_eq!(title("other"), "other");
+            let path = |id: &str| daemon.session_path(&daemon.get_session(id).unwrap());
+            assert_eq!(path("c"), "Root / Parent / child");
+            assert_eq!(path("g"), "Root / Parent / child / grand");
+            // Saved as shown.
+            let saved: Value =
+                serde_json::from_str(&std::fs::read_to_string(dir.path().join("state.json")).unwrap()).unwrap();
+            let saved_title = saved["sessions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|session| session["id"] == "c")
+                .map(|session| session["title"].clone());
+            assert_eq!(saved_title, Some(json!("Root / Parent / child")));
         });
     }
 

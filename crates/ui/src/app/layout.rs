@@ -15,7 +15,7 @@ use ratatui::style::Color;
 use regex::Regex;
 
 use deckhand_core::agent_versions::{installed_versions, update_hint};
-use deckhand_core::display::{HINT_SEPARATOR, HintPart, compact_path, fit_hint, truncate};
+use deckhand_core::display::{HINT_SEPARATOR, HintPart, compact_path, fit_hint, session_path_title, truncate};
 use deckhand_core::session_features::{TaskTitleOf, session_filter_counts};
 use deckhand_core::sidebar_model::{DetailTask, RowRole, SidebarRowsInput, sidebar_rows};
 use deckhand_core::tasks_board::{
@@ -31,13 +31,13 @@ use crate::app::modes::confirm::{
     kill_loading, render_conflict_pane, render_kill_dialog, render_merge_pane, render_remove_dialog,
 };
 use crate::app::modes::create::{
-    BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, filtered_worktrees, render_create_dialog,
-    render_worktree_picker,
+    BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, filtered_worktrees, fork_option_shown,
+    render_create_dialog, render_worktree_picker, top_level_fork_source,
 };
 use crate::app::state::{App, DialogState, Mode, TerminalSize};
 use crate::app::{
     Derived, base_options, connection_color, describe_connection, format_scroll_sensitivity, hint_short, notes_links,
-    parent_workspace_label, supports_forked_sub_session, truthy, with_props,
+    parent_workspace_label, truthy, with_props, workspace_label_of,
 };
 use crate::flow::Flow;
 use crate::flows::notes::NotesFlowProps;
@@ -808,6 +808,7 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
         Mode::ConfirmRemove => {
             let props = RemoveConfirmPaneProps {
                 session: selected,
+                sessions: &session_refs,
                 items: &app.remove.items,
             };
             app.dialog.last = render_remove_dialog(&props, buf, right, view);
@@ -920,7 +921,14 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 index,
                 count: options.len(),
             };
-            let workspace_label = parent_workspace_label(parent, usize::from(layout.preview_width));
+            // Not in the TS: with n, ⑂ forks the selected session into a new top-level one, which starts where it is.
+            let fork_source = top_level_fork_source(create, &derived.sessions, derived.selected.as_ref());
+            let fork_source_path = fork_source.map(|source| session_path_title(source, &derived.sessions));
+            let workspace_label = match fork_source.filter(|_| create.fork_from_id.is_some()) {
+                Some(source) => workspace_label_of(Some(source), "source", usize::from(layout.preview_width)),
+                None => parent_workspace_label(parent, usize::from(layout.preview_width)),
+            };
+            let parent_path = parent.map(|parent| session_path_title(parent, &derived.sessions));
             let props = CreatePaneProps {
                 mode: if mode == Mode::PickProgram {
                     CreateStep::PickProgram
@@ -930,10 +938,11 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 program_index: create.program_index,
                 draft_name: &create.draft_name,
                 worktree_mode: create.worktree_mode,
-                parent_title: parent.map(|parent| parent.title.as_str()),
+                parent_title: parent_path.as_deref(),
                 parent_workspace_label: workspace_label.as_deref(),
                 sub_session_kind: create.sub_session_kind,
-                show_fork_option: has_parent && create.handoff_from_id.is_none() && supports_forked_sub_session(parent),
+                show_fork_option: fork_option_shown(create, parent, fork_source),
+                fork_source_title: fork_source_path.as_deref(),
                 show_handoff_option: has_parent
                     && create.handoff_from_id.is_none()
                     && parent.is_some_and(|parent| truthy(parent.handoff_path.as_ref())),

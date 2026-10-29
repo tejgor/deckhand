@@ -1144,10 +1144,12 @@ impl TasksFlow {
             self.open_picker(switched(), props);
             return;
         }
-        if key.up_arrow {
+        // Not in the TS: Ctrl+P / Ctrl+N and Ctrl+K / Ctrl+J move too, as in the sidebar's search.
+        let (up, down) = crate::app::modes::typing_moves(input);
+        if up {
             return to(self, index - 1);
         }
-        if key.down_arrow {
+        if down {
             return to(self, index + 1);
         }
         if key.page_up {
@@ -3530,6 +3532,28 @@ pub(crate) mod tests {
         press(&mut flow, &props, &mut cx, key(|key| key.escape = true));
         assert_eq!(flow.picker, None);
         assert!(effects(&mut cx).is_empty());
+    }
+
+    #[test]
+    fn the_picker_moves_with_ctrl_keys_while_typing_its_search() {
+        let sessions: Vec<SessionRecord> = serde_json::from_str(TS_SESSIONS).unwrap_or_else(|error| panic!("{error}"));
+        let refs: Vec<&SessionRecord> = sessions.iter().collect();
+        let tasks = [task(TASK_ID, "Write the docs", "")];
+        let props = props(&tasks, &refs);
+        let mut flow = TasksFlow::default();
+        let mut cx = cx();
+        typed(&mut flow, &props, &mut cx, "w");
+        typed(&mut flow, &props, &mut cx, "/");
+        let index = |flow: &TasksFlow| flow.picker.as_ref().map(|picker| picker.index);
+        // It opens on the second row. Ctrl+J is the bare line feed the terminal sends; Ctrl+K, Ctrl+N and Ctrl+P
+        // arrive as Ctrl+letter.
+        assert_eq!(index(&flow), Some(1));
+        for (bytes, at) in [("\x0b", 0), ("\n", 1), ("\x10", 0), ("\x0e", 1)] {
+            press(&mut flow, &props, &mut cx, crate::input::input_for_event(bytes));
+            assert_eq!(index(&flow), Some(at), "{bytes:?}");
+        }
+        let picker = flow.picker.clone().unwrap_or_else(|| panic!("the picker"));
+        assert_eq!((picker.typing, picker.query.as_str()), (true, ""));
     }
 
     #[test]

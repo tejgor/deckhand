@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
 use crate::agent_signals::needs_attention;
+use crate::display::session_path_title_by;
 use crate::jsstr::{js_len, js_slice, js_split_whitespace, js_to_lower, js_trim, json_stringify_str};
 use crate::session_order::SessionLike;
 use deckhand_protocol::data::{AttentionState, ExitReason, SessionRecord, SessionStatus};
@@ -117,11 +118,14 @@ pub fn filter_session_list<'a, S: SessionLike>(
 ) -> Vec<&'a S> {
     let lowered = js_to_lower(query);
     let terms = js_split_whitespace(&lowered);
-    // `new Map(...)`: the last session with an id wins.
+    // `new Map(...)`: the last session with an id wins. Not in the TS: `first_by_id` finds parents for the paths
+    // searched below (the first session with an id, as a scan finds).
     let mut by_id: HashMap<&str, &SessionRecord> = HashMap::new();
+    let mut first_by_id: HashMap<&str, &SessionRecord> = HashMap::new();
     for item in sessions {
         let session = item.session();
         by_id.insert(session.id.as_str(), session);
+        first_by_id.entry(session.id.as_str()).or_insert(session);
     }
     let mut ids: HashSet<&str> = HashSet::new();
     for item in sessions {
@@ -142,9 +146,10 @@ pub fn filter_session_list<'a, S: SessionLike>(
             let task = task_title
                 .and_then(|task_title| task_title(session))
                 .unwrap_or_default();
+            // Not in the TS: the path (`parent / child`), so a parent's name finds its sub-sessions.
             let haystack = js_to_lower(&format!(
                 "{} {} {} {} {} {} {}",
-                session.title,
+                session_path_title_by(session, |id| first_by_id.get(id).copied()),
                 session.notes.as_deref().unwrap_or(""),
                 session.shared_notes.as_ref().map_or("", |shared| shared.text.as_str()),
                 session.program,
@@ -162,7 +167,7 @@ pub fn filter_session_list<'a, S: SessionLike>(
         }
         ids.insert(session.id.as_str());
         // Other views keep a match in its tree (its parents shown for context); the archived view lists only archived
-        // sessions: a parent there would count as archived and take its keys, and a child's title already names it.
+        // sessions: a parent there would count as archived and take its keys, and a child's path (searched) names it.
         if filter == SessionFilter::Archived {
             continue;
         }

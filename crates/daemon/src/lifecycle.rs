@@ -61,15 +61,16 @@ fn without_keys(order: &KeyOrder, names: &[&str]) -> KeyOrder {
 }
 
 /// TS: daemon.ts persistedSession: the session as state.json stores it: no projected markers or notes, and no
-/// attention reason (what the agent asked may quote code; kept in memory only).
+/// attention reason (what the agent asked may quote code; kept in memory only). Not in the TS: no projected path.
 pub fn persisted_session(session: &Ordered<SessionRecord>) -> Ordered<SessionRecord> {
     let stored = stored_session(session);
     // `{notes, notesFile, sharedNotes, ...stored}`: the rest keeps its order.
-    let order = without_keys(stored.key_order(), &["notes", "notesFile", "sharedNotes"]);
+    let order = without_keys(stored.key_order(), &["notes", "notesFile", "sharedNotes", "pathTitle"]);
     let mut record = stored.into_inner();
     record.notes = None;
     record.notes_file = None;
     record.shared_notes = None;
+    record.path_title = None;
     // What the agent asks or said (attention.reason) may quote commands or code: kept in memory, never written.
     // `{...stored, attention}` keeps attention's place; `{reason, ...attention}` the order of its other keys.
     if let Some(attention) = record.attention.as_mut() {
@@ -179,6 +180,7 @@ impl Daemon {
         for session in stored.sessions {
             self.set_session(session);
         }
+        self.project_sub_session_paths();
         if legacy_notes {
             self.persist().await?;
         }
@@ -576,7 +578,7 @@ mod tests {
     }
 
     #[test]
-    fn persisted_session_drops_projected_notes_and_the_attention_reason_in_place() {
+    fn persisted_session_drops_projected_notes_the_path_and_the_attention_reason_in_place() {
         let held: Ordered<SessionRecord> = serde_json::from_value(json!({
             "id": "s1",
             "title": "one",
@@ -592,6 +594,7 @@ mod tests {
             "updatedAt": "2026-01-01T00:00:00.000Z",
             "sharedNotes": {"kind": "repo", "id": "/r", "path": "/h/notes/repos/x.md", "text": "t", "revision": "r"},
             "unknownKey": [1, 2],
+            "pathTitle": "parent / one",
         }))
         .unwrap();
         let stored = persisted_session(&held);

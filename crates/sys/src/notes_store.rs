@@ -285,6 +285,7 @@ async fn make_parent(file: &Path) -> Result<()> {
 
 /// TS: notesStore.ts writeAtomically (`.<name>.tmp-<pid>-<uuid8>` beside the file, then a rename over it).
 async fn write_atomically(file: &Path, text: &str) -> Result<()> {
+    paths::guard_debug_write(file)?;
     let name = file
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
@@ -331,6 +332,7 @@ pub(crate) fn write_error(error: &io::Error) -> DhError {
 
 /// `fs.rm(file, {force: true})`.
 async fn remove_forced(file: &Path) -> Result<()> {
+    paths::guard_debug_write(file)?;
     match tokio::fs::remove_file(file).await {
         Err(error) if error.kind() != io::ErrorKind::NotFound => Err(DhError::io(&error, "rm", &display(file))),
         _ => Ok(()),
@@ -616,6 +618,7 @@ impl NotesStore {
             if js_trim(&text).is_empty() {
                 return remove_forced(&file).await;
             }
+            paths::guard_debug_write(&file)?;
             let trash = paths::notes_dir().join(TRASH_DIRECTORY);
             make_directory(&trash).await?;
             let target = trash.join(trash_file_name(note.kind, label.as_deref(), &stem, now_ms()));

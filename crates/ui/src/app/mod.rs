@@ -30,7 +30,9 @@ use deckhand_core::agents::agent_spec;
 use deckhand_core::detail_texts::{
     WorkspaceSummaryOptions, cleanup_override_text, create_pr_confirm_text, trust_review_text, workspace_summary_text,
 };
-use deckhand_core::display::{HintPart, compact_path, display_session_title, strip_terminal_controls, truncate};
+use deckhand_core::display::{
+    HintPart, compact_path, display_session_title, session_path_title, strip_terminal_controls, truncate,
+};
 use deckhand_core::jsstr::js_len;
 use deckhand_core::key::{Input, Key};
 use deckhand_core::session_features::{TaskTitleOf, filter_session_list, with_reply_read};
@@ -342,6 +344,11 @@ pub fn fork_stays_in_parent(program: Option<ProgramKey>, sub_session_kind: Optio
 
 /// TS: app.tsx parentWorkspaceLabel (`parent worktree: …` / `parent dir: …`).
 pub fn parent_workspace_label(session: Option<&SessionRecord>, width: usize) -> Option<String> {
+    workspace_label_of(session, "parent", width)
+}
+
+/// [`parent_workspace_label`] naming the session `whose` (not in the TS: `source worktree: …` for a top-level fork).
+pub fn workspace_label_of(session: Option<&SessionRecord>, whose: &str, width: usize) -> Option<String> {
     let session = session?;
     if let Some(worktree) = session.worktree.as_ref()
         && truthy(worktree.path.as_ref())
@@ -355,10 +362,10 @@ pub fn parent_workspace_label(session: Option<&SessionRecord>, width: usize) -> 
         } else {
             compact_path(worktree.path.as_deref().unwrap_or_default(), budget)
         };
-        return Some(format!("parent worktree: {}", truncate(&name, budget)));
+        return Some(format!("{whose} worktree: {}", truncate(&name, budget)));
     }
     Some(format!(
-        "parent dir: {}",
+        "{whose} dir: {}",
         compact_path(&session.cwd, width.saturating_sub(12).max(8))
     ))
 }
@@ -1087,7 +1094,7 @@ impl App {
             process,
             shell,
             shell_label: shell.map(|shell| shell_label(&self.panes.terminal, shell)),
-            status_title: Some(session.title.clone()),
+            status_title: Some(session_path_title(session, &self.sessions())),
         });
     }
 
