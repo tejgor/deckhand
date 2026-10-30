@@ -25,23 +25,28 @@ it is still in context.";
 /// The most an always-loaded text may be, in bytes (about 60 tokens).
 pub const ALWAYS_LOADED_BUDGET: usize = 240;
 
-/// The most [`GUIDE`] may be, in bytes (about 250 tokens): it is read whenever an agent takes a Deckhand action, so
+/// The most [`GUIDE`] may be, in bytes (about 330 tokens): it is read whenever an agent takes a Deckhand action, so
 /// details belong in each command's `--help`.
-pub const GUIDE_BUDGET: usize = 1100;
+pub const GUIDE_BUDGET: usize = 1400;
 
 /// `deckhand guide`: the full guide, and the skill's body.
 pub const GUIDE: &str = "\
 # deckhand: act for this Deckhand session, only when the user asks
 
+Never start sessions, move tasks or end sessions on your own. Merging and deleting worktrees stay with the user.
+
 deckhand new --prompt <brief> [--title <t>] [--agent claude|codex|pi] [--task <id>]
   [--worktree new|same|none|<path>] [--base <branch>] [--top-level] [--fork] [--draft]
-  A sub-session of this one in a new worktree; the prompt is sent (--draft: typed, not sent). The new agent
-  knows nothing of this conversation (unless --fork): give context, constraints and what done means.
+  Default: a sub-session in a new worktree; same: this worktree; none: the main checkout; --top-level: a sibling.
+  The prompt is sent (--draft: typed, not sent). Brief it fully (context, constraints, what done means): it knows
+  nothing of this conversation unless --fork. Shell: long prompts via a quoted heredoc (new --help).
+  --task: works on that task, replacing its text; ticked when merged or done; top-level unless in a new worktree.
 deckhand task list | task add <title> [--details <text>] | task done|reopen <id> | task move <id> --to backlog|<session>
-  task add parks work in the backlog.
+  Told to park something? task add it rather than doing it.
 deckhand note add <item>      a step in this session's note
 deckhand ls                   sessions (* is this one)
-deckhand kill <id>, deckhand remove <id>    only sub-sessions this session started
+deckhand kill <id>            end a sub-session this session started
+deckhand remove <id>          then take it off the list
 
 IDs: any unique prefix. --json on any command; <command> --help for details.
 As tool args, pass the words after `deckhand`, e.g. [\"new\", \"--prompt\", \"<brief>\"]; no quoting needed.
