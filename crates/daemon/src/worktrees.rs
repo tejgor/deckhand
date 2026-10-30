@@ -44,7 +44,7 @@ pub const WORKTREE_OVERVIEW_CONCURRENCY: usize = 4;
 pub const STOP_FOR_DELETE: Duration = Duration::from_millis(10_000);
 
 /// How often stopForDeletion looks whether the session has exited.
-const STOP_POLL: Duration = Duration::from_millis(100);
+pub const STOP_POLL: Duration = Duration::from_millis(100);
 
 /// TS: daemon.ts WorktreeTarget: a worktree W acts on.
 #[derive(Clone, Debug, PartialEq)]

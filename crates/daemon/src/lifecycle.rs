@@ -5,19 +5,23 @@
 //! worktree's note and follow-up tasks become note items; then the socket is opened. Shutdown (signal, `shutdown`
 //! request, fatal error) stops every worker, persists once more and removes the socket and pid file.
 
+use std::collections::HashMap;
 use std::os::unix::fs::PermissionsExt;
 use std::sync::Mutex;
 use std::time::Duration;
 
+use deckhand_core::agent_signals::live_activity;
 use deckhand_core::error::{DhError, Result, errno_code};
 use deckhand_core::jsstr::{self, js_trim};
 use deckhand_core::worktree_records::stored_session;
 use deckhand_protocol::Ordered;
-use deckhand_protocol::data::{OkResult, SessionRecord};
+use deckhand_protocol::data::{InterruptedWhile, OkResult, SessionRecord, SessionStatus};
 use deckhand_protocol::order::KeyOrder;
 use deckhand_protocol::records::StateFile;
 use deckhand_sys::async_util::{Coalescer, Interval, SharedTask, Timer, spawn};
 use deckhand_sys::{paths, storage};
+use nix::errno::Errno;
+use nix::fcntl::{Flock, FlockArg};
 use nix::sys::signal::Signal;
 use serde_json::{Map, Value};
 use tokio::signal::unix::{SignalKind, signal};
@@ -45,7 +49,16 @@ pub struct LifecycleState {
     /// TS `persistInFlight` / `persistQueued`: at most one state.json write in flight plus one queued, shared by
     /// every caller arriving before the queued one snapshots the sessions. Created by the first [`Daemon::persist`].
     pub persist: Option<Coalescer<Result<()>>>,
+    /// Not in the TS: `daemon.lock`, held for the daemon's whole life (see [`Daemon::take_daemon_lock`]).
+    pub daemon_lock: Option<Flock<std::fs::File>>,
 }
+
+/// Not in the TS: how long a starting daemon waits for `daemon.lock`. A daemon told to stop (`deckhand restart`)
+/// holds it until its process has exited, which takes a moment after it stopped answering.
+const DAEMON_LOCK_WAIT: Duration = Duration::from_secs(5);
+
+/// How often a starting daemon tries `daemon.lock` again.
+const DAEMON_LOCK_POLL: Duration = Duration::from_millis(50);
 
 /// Drops `names` from a recorded key order (the keys a rest destructuring leaves out).
 fn without_keys(order: &KeyOrder, names: &[&str]) -> KeyOrder {
@@ -61,16 +74,21 @@ fn without_keys(order: &KeyOrder, names: &[&str]) -> KeyOrder {
 }
 
 /// TS: daemon.ts persistedSession: the session as state.json stores it: no projected markers or notes, and no
-/// attention reason (what the agent asked may quote code; kept in memory only). Not in the TS: no projected path.
+/// attention reason (what the agent asked may quote code; kept in memory only). Not in the TS: no projected path,
+/// nor whether it is offered for resuming.
 pub fn persisted_session(session: &Ordered<SessionRecord>) -> Ordered<SessionRecord> {
     let stored = stored_session(session);
     // `{notes, notesFile, sharedNotes, ...stored}`: the rest keeps its order.
-    let order = without_keys(stored.key_order(), &["notes", "notesFile", "sharedNotes", "pathTitle"]);
+    let order = without_keys(
+        stored.key_order(),
+        &["notes", "notesFile", "sharedNotes", "pathTitle", "interruptedWhile"],
+    );
     let mut record = stored.into_inner();
     record.notes = None;
     record.notes_file = None;
     record.shared_notes = None;
     record.path_title = None;
+    record.interrupted_while = None;
     // What the agent asks or said (attention.reason) may quote commands or code: kept in memory, never written.
     // `{...stored, attention}` keeps attention's place; `{reason, ...attention}` the order of its other keys.
     if let Some(attention) = record.attention.as_mut() {
@@ -146,11 +164,25 @@ impl Daemon {
     pub async fn start(&self) -> Result<()> {
         storage::ensure_config_dir().await?;
         self.log(&format!("starting daemon pid={}", std::process::id())).await;
+        self.take_daemon_lock(DAEMON_LOCK_WAIT).await?;
         self.assert_no_live_daemon_from_pid_file().await?;
         // TS ensureNodePtyReady (node-pty's spawn-helper permissions) has no counterpart: the PTY is native.
         // If this daemon is starting, any previously-running sessions belonged to a different daemon process and their
         // PTY handles are gone. Mark them exited as crash/restart recovery, not as normal frontend quit behavior.
+        // Not in the TS: what each of them was doing first, so the next UI can offer to resume them.
+        let interrupted: HashMap<String, InterruptedWhile> = storage::read_state()
+            .await
+            .map(|read| {
+                read.state
+                    .sessions
+                    .iter()
+                    .filter(|session| session.status != SessionStatus::Exited)
+                    .map(|session| (session.id.clone(), live_activity(session)))
+                    .collect()
+            })
+            .unwrap_or_default();
         let stored = storage::mark_all_non_exited_sessions_exited().await?;
+        self.sessions.borrow_mut().interrupted = interrupted;
         {
             let mut worktrees = self.worktrees.borrow_mut();
             for record in &stored.worktrees {
@@ -262,6 +294,48 @@ impl Daemon {
             )));
         }
         Ok(())
+    }
+
+    /// Not in the TS: takes `daemon.lock` in the config dir, exclusively, before anything else, and keeps it until the
+    /// process exits (the system releases it then, however the daemon ends). Two clients that find no daemon each
+    /// start one; the pid file is only written once a daemon listens, so without the lock both would recover
+    /// state.json, and the later one would replace the earlier one's socket, leaving that daemon running unreachable
+    /// with the sessions it recovered. The later one waits up to `wait` (an earlier daemon may still be exiting), then
+    /// gives up: the client that started it then finds the other one answering.
+    pub async fn take_daemon_lock(&self, wait: Duration) -> Result<()> {
+        let path = self.paths.config_dir.join("daemon.lock");
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&path)
+            .map_err(|error| DhError::io(&error, "open", &path.to_string_lossy()))?;
+        let deadline = tokio::time::Instant::now() + wait;
+        let mut file = file;
+        loop {
+            match Flock::lock(file, FlockArg::LockExclusiveNonblock) {
+                Ok(lock) => {
+                    self.lifecycle.borrow_mut().daemon_lock = Some(lock);
+                    return Ok(());
+                }
+                Err((unlocked, Errno::EWOULDBLOCK)) if tokio::time::Instant::now() < deadline => {
+                    file = unlocked;
+                    tokio::time::sleep(DAEMON_LOCK_POLL).await;
+                }
+                Err((_, Errno::EWOULDBLOCK)) => {
+                    return Err(DhError::msg(
+                        "another daemon is running or starting (it holds daemon.lock)",
+                    ));
+                }
+                Err((_, errno)) => {
+                    return Err(DhError::msg(format!(
+                        "lock {}: {}",
+                        path.to_string_lossy(),
+                        errno.desc()
+                    )));
+                }
+            }
+        }
     }
 
     /// TS: InkDaemon.writePidFile (`<pid>\n`).
@@ -578,7 +652,7 @@ mod tests {
     }
 
     #[test]
-    fn persisted_session_drops_projected_notes_the_path_and_the_attention_reason_in_place() {
+    fn persisted_session_drops_projected_notes_the_path_the_resume_offer_and_the_attention_reason_in_place() {
         let held: Ordered<SessionRecord> = serde_json::from_value(json!({
             "id": "s1",
             "title": "one",
@@ -595,6 +669,7 @@ mod tests {
             "sharedNotes": {"kind": "repo", "id": "/r", "path": "/h/notes/repos/x.md", "text": "t", "revision": "r"},
             "unknownKey": [1, 2],
             "pathTitle": "parent / one",
+            "interruptedWhile": "working",
         }))
         .unwrap();
         let stored = persisted_session(&held);
@@ -762,6 +837,40 @@ mod tests {
             std::fs::create_dir(&pid_file).unwrap();
             let error = daemon.assert_no_live_daemon_from_pid_file().await.unwrap_err();
             assert_eq!(error.to_string(), "EISDIR: illegal operation on a directory, read");
+        });
+    }
+
+    #[test]
+    fn only_one_daemon_at_a_time_holds_the_daemon_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let first = test_daemon(dir.path());
+        let second = test_daemon(dir.path());
+        local(async {
+            first.take_daemon_lock(Duration::ZERO).await.unwrap();
+            let error = second.take_daemon_lock(Duration::from_millis(120)).await.unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "another daemon is running or starting (it holds daemon.lock)"
+            );
+            // Released when the first one's process exits.
+            drop(first.lifecycle.borrow_mut().daemon_lock.take());
+            second.take_daemon_lock(Duration::ZERO).await.unwrap();
+        });
+    }
+
+    #[test]
+    fn a_starting_daemon_waits_for_one_that_is_still_exiting() {
+        let dir = tempfile::tempdir().unwrap();
+        let exiting = test_daemon(dir.path());
+        let starting = test_daemon(dir.path());
+        local(async {
+            exiting.take_daemon_lock(Duration::ZERO).await.unwrap();
+            let release = async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                drop(exiting.lifecycle.borrow_mut().daemon_lock.take());
+            };
+            let (taken, ()) = tokio::join!(starting.take_daemon_lock(Duration::from_secs(5)), release);
+            taken.unwrap();
         });
     }
 

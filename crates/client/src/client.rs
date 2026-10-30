@@ -17,9 +17,10 @@ use serde_json::Value;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::UnixStream;
 
+use deckhand_core::agent_signals::live_activity;
 use deckhand_core::error::{DhError, errno_code};
 use deckhand_core::jsstr::date;
-use deckhand_protocol::data::PingResult;
+use deckhand_protocol::data::{InterruptedWhile, PingResult, SessionRecord};
 use deckhand_protocol::ndjson::{Frame, LineDecoder};
 use deckhand_protocol::{PROTOCOL_VERSION, Request, ServerMessage};
 use deckhand_sys::paths;
@@ -969,7 +970,8 @@ fn mismatch_restart_hint(live_pid: i32, pid_file: &Path) -> String {
 ///   path>))`. It never replaces that daemon itself: stopping it interrupts every running session.
 /// - Other failure with a live pid: retries for [`DAEMON_RETRY_DEADLINE_MS`], then fails with
 ///   `daemon pid <pid> is alive but did not respond; see <log path>: <error>`.
-/// - Otherwise: logs, removes the stale socket, spawns a daemon and waits [`DAEMON_START_DEADLINE_MS`] for it.
+/// - Otherwise: logs, spawns a daemon and waits [`DAEMON_START_DEADLINE_MS`] for it (the daemon removes a stale
+///   socket once it holds `daemon.lock`; another client's daemon may have taken the socket meanwhile).
 pub async fn ensure_daemon_running() -> Result<PingResult, DhError> {
     ensure_daemon_running_with(&DaemonFiles::from_env(), spawn_daemon).await
 }
@@ -1019,8 +1021,8 @@ pub(crate) async fn ensure_daemon_running_with(
     }
 
     log(files, format!("starting daemon after ping failure: {initial_error}")).await?;
-    // A stale socket from a dead daemon; failures are ignored.
-    let _ = tokio::fs::remove_file(&files.socket).await;
+    // Not in the TS: a stale socket is left for the daemon to remove once it holds daemon.lock. Removed here, it
+    // could be the socket of a daemon another client started meanwhile, leaving that one unreachable.
     spawn()?;
     wait_for_daemon_at(&files.socket, DAEMON_START_DEADLINE_MS).await
 }
@@ -1093,13 +1095,14 @@ pub(crate) async fn daemon_state_with(files: &DaemonFiles) -> DaemonState {
     }
 }
 
-/// How many of the daemon's sessions are not exited (what a restart interrupts); `None` when it cannot list them.
-/// Read as plain JSON so a daemon of another protocol can answer too.
-pub async fn count_live_sessions() -> Option<usize> {
-    count_live_sessions_at(&paths::socket_path()).await
+/// What each of the daemon's sessions that are not exited is doing (what a restart interrupts); `None` when it cannot
+/// list them. Read as plain JSON so a daemon of another protocol can answer too: a session this version cannot read
+/// counts as idle.
+pub async fn live_session_activities() -> Option<Vec<InterruptedWhile>> {
+    live_session_activities_at(&paths::socket_path()).await
 }
 
-pub(crate) async fn count_live_sessions_at(socket_path: &Path) -> Option<usize> {
+pub(crate) async fn live_session_activities_at(socket_path: &Path) -> Option<Vec<InterruptedWhile>> {
     let list = Request::List(deckhand_protocol::wire::RequestOnly {
         request_id: uuid::Uuid::new_v4().to_string(),
     });
@@ -1111,7 +1114,11 @@ pub(crate) async fn count_live_sessions_at(socket_path: &Path) -> Option<usize> 
         sessions
             .iter()
             .filter(|session| session.get("status").and_then(Value::as_str) != Some("exited"))
-            .count(),
+            .map(|session| {
+                serde_json::from_value::<SessionRecord>(session.clone())
+                    .map_or(InterruptedWhile::Idle, |session| live_activity(&session))
+            })
+            .collect(),
     )
 }
 
@@ -1729,7 +1736,9 @@ mod tests {
         let socket = files.socket.clone();
         let flag = Arc::clone(&spawned);
         ensure_daemon_running_with(&files, move || {
-            assert!(!socket.exists(), "the stale socket is removed first");
+            // Left for the daemon, which removes it before it listens.
+            assert!(socket.exists(), "the stale socket is the daemon's to remove");
+            std::fs::remove_file(&socket).unwrap();
             flag.store(true, Ordering::SeqCst);
             serve(&socket, |request| {
                 Some(response(
@@ -1881,10 +1890,23 @@ mod tests {
     async fn live_sessions_are_the_ones_not_exited() {
         let dir = tempfile::tempdir().unwrap();
         let socket = dir.path().join("daemon.sock");
-        assert_eq!(count_live_sessions_at(&socket).await, None);
-        let sessions = json!([{"status": "running"}, {"status": "exited"}, {"status": "starting"}, {"id": "x"}]);
+        assert_eq!(live_session_activities_at(&socket).await, None);
+        let working = json!({
+            "id": "w", "title": "w", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r",
+            "status": "running", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z",
+            "agentStatus": "active",
+        });
+        // A session this version cannot read counts as idle.
+        let sessions = json!([working, {"status": "running"}, {"status": "exited"}, {"id": "x"}]);
         fake_daemon(&socket, PROTOCOL_VERSION, json!({}), sessions);
-        assert_eq!(count_live_sessions_at(&socket).await, Some(3));
+        assert_eq!(
+            live_session_activities_at(&socket).await,
+            Some(vec![
+                InterruptedWhile::Working,
+                InterruptedWhile::Idle,
+                InterruptedWhile::Idle
+            ])
+        );
     }
 
     #[tokio::test(flavor = "current_thread")]

@@ -4,7 +4,7 @@
 //! (worktreeRecords.ts) and its notes (notesStore.ts) into it, so every reader sees them; persist() strips both. A
 //! record's key order is JS insertion order ([`Ordered`]): a spread that adds a key appends it.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use deckhand_core::agent_signals::hooks_enabled;
@@ -22,9 +22,10 @@ use deckhand_core::tasks::{parse_tasks, task_prompt};
 use deckhand_core::workspace::workspace_key;
 use deckhand_core::worktree_records::{own_worktree_path, project_worktree};
 use deckhand_protocol::data::{
-    AgentActivityStatus, AgentSessionRef, CreateSessionInput, ExitReason, JsNumber, LoadedProject, MoveDirection,
-    OkResult, ProgramKey, RestartMode, SessionRecord, SessionSetup, SessionStatus, SessionWorktreeMode,
-    SessionWorktreeRecord, SetupState, SubSessionKind, TaskLink, TaskOp, WorktreeCreator, WorktreeMode, WorktreeOrigin,
+    AgentActivityStatus, AgentSessionRef, CreateSessionInput, ExitReason, InterruptedWhile, JsNumber, LoadedProject,
+    MoveDirection, OkResult, ProgramKey, RestartMode, SessionRecord, SessionRestartOutcome, SessionSetup,
+    SessionStatus, SessionWorktreeMode, SessionWorktreeRecord, SetupState, SubSessionKind, TaskLink, TaskOp,
+    WorktreeCreator, WorktreeMode, WorktreeOrigin,
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage};
 use deckhand_protocol::wire::{
@@ -56,7 +57,7 @@ use crate::launch::{
 };
 use crate::server::send_message;
 use crate::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
-use crate::worktrees::is_linked_worktree_root;
+use crate::worktrees::{STOP_FOR_DELETE, STOP_POLL, is_linked_worktree_root};
 
 /// The sessions' part of the daemon state.
 #[derive(Default)]
@@ -65,6 +66,11 @@ pub struct SessionsState {
     pub sessions: IndexMap<String, Ordered<SessionRecord>>,
     /// TS `preparingSessions`: sessions whose worktree is still being prepared (they have no workspace yet).
     pub preparing: HashSet<String>,
+    /// Not in the TS: the sessions that were live when the previous daemon stopped, with what each was doing then,
+    /// until each is started again or the offer to resume them is dismissed (projected as `interrupted_while`).
+    pub interrupted: HashMap<String, InterruptedWhile>,
+    /// Not in the TS: sessions `restart-sessions` stops to resume, whose exit is not notified.
+    pub restarting: HashSet<String>,
 }
 
 /// TS: daemon.ts readAgentExit result: what an exited agent's last screen says about its conversation.
@@ -379,6 +385,7 @@ impl Daemon {
             }
         };
         projected.path_title = parent_of(&projected).map(|_| self.session_path(&projected));
+        projected.interrupted_while = self.sessions.borrow().interrupted.get(&projected.id).copied();
         self.sessions
             .borrow_mut()
             .sessions
@@ -574,7 +581,7 @@ impl Daemon {
             return Ok(());
         };
         self.save_session(updated.clone()).await?;
-        {
+        if !self.sessions.borrow().restarting.contains(session_id) {
             let daemon = self.clone();
             let session = updated.clone();
             let message = format!(
@@ -1619,6 +1626,8 @@ impl Daemon {
         {
             return Err(DhError::msg("cannot restart session because its worktree was deleted"));
         }
+        // Started again: no longer offered for resuming (the save below projects that).
+        self.sessions.borrow_mut().interrupted.remove(session_id);
 
         let now = now_iso();
         let fresh = mode == Some(RestartMode::Fresh);
@@ -1801,6 +1810,68 @@ impl Daemon {
                         .await?;
                 }
                 Err(error)
+            }
+        }
+    }
+
+    /// Not in the TS: `restart-sessions`: resumes each session in turn, as `s` does, stopping a running one first (as
+    /// `x` does, and waiting for it to exit), so a running agent picks up its newly installed version and an
+    /// interrupted one comes back. One that cannot be stopped or resumed does not hold up the others: each outcome
+    /// says why.
+    pub async fn restart_sessions(&self, session_ids: &[String], cols: i64, rows: i64) -> Vec<SessionRestartOutcome> {
+        let mut outcomes = Vec::with_capacity(session_ids.len());
+        for session_id in session_ids {
+            self.sessions.borrow_mut().restarting.insert(session_id.clone());
+            let result = async {
+                self.stop_and_wait(session_id).await?;
+                self.restart_session(session_id, cols, rows, Some(RestartMode::Resume), None)
+                    .await
+            }
+            .await;
+            self.sessions.borrow_mut().restarting.remove(session_id);
+            outcomes.push(SessionRestartOutcome {
+                session_id: session_id.clone(),
+                error: result.err().map(|error| error.message().to_owned()),
+            });
+        }
+        outcomes
+    }
+
+    /// Stops a session that is live (as `x` does) and waits until it has exited; an exited one is left as it is.
+    async fn stop_and_wait(&self, session_id: &str) -> Result<()> {
+        let session = self.require_session(session_id)?;
+        if session.status == SessionStatus::Exited {
+            return Ok(());
+        }
+        if let Err(error) = self.kill_session(session_id, KillOptions::default()).await
+            && !error.message().contains("not running")
+        {
+            return Err(error);
+        }
+        let deadline = tokio::time::Instant::now() + STOP_FOR_DELETE;
+        loop {
+            match self.get_session(session_id) {
+                None => return Err(DhError::msg("session does not exist")),
+                Some(session) if session.status == SessionStatus::Exited => return Ok(()),
+                Some(_) => {}
+            }
+            if tokio::time::Instant::now() > deadline {
+                return Err(DhError::msg("it did not stop"));
+            }
+            tokio::time::sleep(STOP_POLL).await;
+        }
+    }
+
+    /// Not in the TS: `dismiss-interrupted`: these sessions are no longer offered for resuming (each stays exited,
+    /// and `s` still resumes it).
+    pub fn dismiss_interrupted(&self, session_ids: &[String]) {
+        for session_id in session_ids {
+            if self.sessions.borrow_mut().interrupted.remove(session_id).is_none() {
+                continue;
+            }
+            if let Some(session) = self.get_session(session_id) {
+                self.set_session(session.clone());
+                self.broadcast_session_updated(&session);
             }
         }
     }
@@ -2461,6 +2532,63 @@ mod tests {
         stale.path_title = Some("stale".into());
         daemon.set_session(stale);
         assert_eq!(path("child").as_deref(), Some("Root / Child"));
+    }
+
+    #[test]
+    fn interrupted_sessions_are_offered_until_dismissed() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = daemon(dir.path());
+        daemon.sessions.borrow_mut().interrupted = HashMap::from([
+            ("working".to_owned(), InterruptedWhile::Working),
+            ("idle".to_owned(), InterruptedWhile::Idle),
+        ]);
+        for id in ["working", "idle", "earlier"] {
+            daemon.set_session(record(json!({"id": id, "exitReason": "interrupted"})));
+        }
+        let offered = |id: &str| daemon.require_session(id).unwrap().interrupted_while;
+        assert_eq!(offered("working"), Some(InterruptedWhile::Working));
+        assert_eq!(offered("idle"), Some(InterruptedWhile::Idle));
+        // Interrupted by an earlier daemon: not offered again.
+        assert_eq!(offered("earlier"), None);
+        // A UI dismisses the ones it showed (its repository's).
+        daemon.dismiss_interrupted(&["working".to_owned(), "earlier".to_owned()]);
+        assert_eq!(offered("working"), None);
+        assert_eq!(offered("idle"), Some(InterruptedWhile::Idle));
+        daemon.dismiss_interrupted(&["idle".to_owned()]);
+        assert_eq!(offered("idle"), None);
+        assert!(daemon.sessions.borrow().interrupted.is_empty());
+    }
+
+    #[test]
+    fn restarting_sessions_reports_each_one_that_could_not_resume() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = daemon(dir.path());
+        daemon.sessions.borrow_mut().interrupted = HashMap::from([("deleted".to_owned(), InterruptedWhile::Idle)]);
+        daemon.set_session(record(json!({
+            "id": "deleted",
+            "worktree": {"mode": "managed", "path": "/r/wt", "branch": "b", "deletedAt": "2026-01-02T00:00:00.000Z"},
+        })));
+        let outcomes = local(daemon.restart_sessions(&["missing".to_owned(), "deleted".to_owned()], 80, 24));
+        let errors: Vec<(&str, Option<&str>)> = outcomes
+            .iter()
+            .map(|outcome| (outcome.session_id.as_str(), outcome.error.as_deref()))
+            .collect();
+        assert_eq!(
+            errors,
+            [
+                ("missing", Some("Session does not exist")),
+                (
+                    "deleted",
+                    Some("cannot restart session because its worktree was deleted")
+                ),
+            ]
+        );
+        // Still offered: it was not started.
+        assert_eq!(
+            daemon.require_session("deleted").unwrap().interrupted_while,
+            Some(InterruptedWhile::Idle)
+        );
+        assert!(daemon.sessions.borrow().restarting.is_empty());
     }
 
     #[test]

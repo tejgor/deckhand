@@ -73,10 +73,44 @@ fn restart_yes_replaces_the_daemon_and_interrupts_its_sessions() {
     assert!(is_alive(i32::try_from(new_pid).unwrap_or_default()));
     let pid_file = std::fs::read_to_string(sandbox.home().join("daemon.pid")).unwrap_or_default();
     assert_eq!(pid_file.trim(), new_pid.to_string());
-    // The session it hosted is interrupted (resumable with s), not lost.
+    // The session it hosted is interrupted (resumable with s), not lost, and offered for resuming.
     let session: Value = state(&socket, &id);
     assert_eq!(session["status"], "exited", "{session}");
     assert_eq!(session["exitReason"], "interrupted", "{session}");
+    assert!(session["interruptedWhile"].is_string(), "{session}");
+}
+
+#[test]
+fn daemons_started_at_once_leave_one_that_offers_the_interrupted_sessions() {
+    let root = repo();
+    let sandbox = Sandbox::new("restart-race");
+    let socket = sandbox.socket();
+    let (mut old_daemon, id, bin) = daemon_with_a_running_session(&sandbox, root.path());
+    // Stopped as `deckhand restart` stops it.
+    let old_pid = nix::unistd::Pid::from_raw(i32::try_from(old_daemon.id()).unwrap_or_default());
+    nix::sys::signal::kill(old_pid, nix::sys::signal::Signal::SIGTERM).expect("SIGTERM");
+    wait_exit(&mut old_daemon, Duration::from_secs(10)).expect("the old daemon exited");
+
+    // Two clients find no daemon at the same moment (`deckhand restart` and an open UI) and each starts one.
+    let first = launch(&sandbox, root.path(), &bin);
+    let second = launch(&sandbox, root.path(), &bin);
+    ready(&socket);
+    let serving = ping_pid(&socket);
+    let (mut winner, mut loser) = if serving == i64::from(first.id()) {
+        (first, second)
+    } else {
+        (second, first)
+    };
+    assert_eq!(serving, i64::from(winner.id()));
+    // The other gives up once it cannot take daemon.lock, before it touched the state or the socket.
+    let status = wait_exit(&mut loser, Duration::from_secs(10)).expect("the second daemon gave up");
+    assert!(!status.success(), "{status:?}");
+    assert!(is_alive(i32::try_from(winner.id()).unwrap_or_default()));
+    // The one serving recovered the session, so it offers it for resuming.
+    let session: Value = state(&socket, &id);
+    assert_eq!(session["exitReason"], "interrupted", "{session}");
+    assert!(session["interruptedWhile"].is_string(), "{session}");
+    assert!(wait_exit(&mut winner, Duration::ZERO).is_none());
 }
 
 #[test]
@@ -91,8 +125,8 @@ fn restart_without_yes_refuses_without_a_terminal_while_sessions_run() {
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(
         text(&output.stderr),
-        "Not restarting the Deckhand daemon: 1 running session(s) would be interrupted (resume them with s). \
-         Run `deckhand restart --yes` to restart it anyway.\n"
+        "Not restarting the Deckhand daemon: 1 running session(s) (1 idle) would be interrupted (Deckhand offers \
+         to resume them when you next open it). Run `deckhand restart --yes` to restart it anyway.\n"
     );
     assert_eq!(text(&output.stdout), "");
     // Nothing was touched.

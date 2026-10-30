@@ -813,6 +813,32 @@ pub struct ReorderSession {
     pub before: Option<String>,
 }
 
+/// Not in the TS: stops offering to resume these sessions (the ones the last daemon stop interrupted).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DismissInterrupted {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    #[serde(default)]
+    pub session_ids: Vec<String>,
+}
+
+/// Not in the TS: resumes each session in turn (`s`), stopping a running one first, and answers what became of each.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestartSessions {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    #[serde(default)]
+    pub session_ids: Vec<String>,
+    #[serde(default, deserialize_with = "lenient::size")]
+    pub cols: Option<i64>,
+    #[serde(default, deserialize_with = "lenient::size")]
+    pub rows: Option<i64>,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1106,6 +1132,10 @@ pub enum Request {
     ReorderSession(ReorderSession),
     #[serde(rename = "restart")]
     Restart(Restart),
+    #[serde(rename = "restart-sessions")]
+    RestartSessions(RestartSessions),
+    #[serde(rename = "dismiss-interrupted")]
+    DismissInterrupted(DismissInterrupted),
     #[serde(rename = "kill")]
     Kill(Kill),
     #[serde(rename = "merge-preview")]
@@ -1195,6 +1225,7 @@ request_table! {
     TaskOp => "task-op", OpenTasks => "open-tasks", SendOpenItems => "send-open-items",
     PromoteNoteItem => "promote-note-item", ReturnTaskToNote => "return-task-to-note", TaskToNote => "task-to-note",
     ListBranches => "list-branches", Create => "create", ReorderSession => "reorder-session", Restart => "restart",
+    RestartSessions => "restart-sessions", DismissInterrupted => "dismiss-interrupted",
     Kill => "kill", MergePreview => "merge-preview", MergeWorktree => "merge-worktree",
     ResolveMerge => "resolve-merge", MarkSessionMerged => "mark-session-merged", SetSessionDone => "set-session-done",
     SetReplyRead => "set-reply-read", Remove => "remove", Attach => "attach", Input => "input", Resize => "resize", Detach => "detach",
@@ -1253,6 +1284,8 @@ impl Request {
             R::Create(r) => &r.request_id,
             R::ReorderSession(r) => &r.request_id,
             R::Restart(r) => &r.request_id,
+            R::RestartSessions(r) => &r.request_id,
+            R::DismissInterrupted(r) => &r.request_id,
             R::Kill(r) => &r.request_id,
             R::MergePreview(r) | R::MarkSessionMerged(r) => &r.request_id,
             R::MergeWorktree(r) => &r.request_id,
@@ -1448,6 +1481,6 @@ mod tests {
         tags.sort_unstable();
         tags.dedup();
         assert_eq!(tags.len(), Request::TYPES.len());
-        assert_eq!(Request::TYPES.len(), 80);
+        assert_eq!(Request::TYPES.len(), 82);
     }
 }

@@ -347,7 +347,7 @@ pub fn format_daemon_report(state: &DaemonState, log: &Path) -> String {
             let pid = pid.map(|pid| format!(" (pid {pid})")).unwrap_or_default();
             format!(
                 "• Daemon{pid}: {message}. A restart is required: {RESTART_COMMAND} (running sessions are \
-                 interrupted; resume them with s)\n"
+                 interrupted; Deckhand offers to resume them)\n"
             )
         }
         DaemonState::Unresponsive { pid, error } => format!(
@@ -431,7 +431,7 @@ mod tests {
         assert_eq!(
             format_daemon_report(&other, log),
             "• Daemon (pid 12): daemon protocol mismatch: expected v49, got 45. A restart is required: deckhand \
-             restart (running sessions are interrupted; resume them with s)\n"
+             restart (running sessions are interrupted; Deckhand offers to resume them)\n"
         );
         let stuck = DaemonState::Unresponsive {
             pid: 12,

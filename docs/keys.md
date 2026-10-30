@@ -228,8 +228,19 @@ The running action's row says `● running`. Starting Dev stops it in the reposi
 | --- | --- |
 | `j`, `↓` / `k`, `↑` | Next / previous agent |
 | `enter` | Update the selected agent (asks first while it has running sessions) |
+| `s` | Restart the selected agent's sessions on an older version (a checklist) |
 | `R` | Look the latest releases up again |
 | `esc`, `h`, `←` | Back |
+
+The restart checklist (also shown on connecting after the daemon stopped with sessions running; see [Resuming after a restart](features.md#resuming-after-a-restart)):
+
+| Key | Action |
+| --- | --- |
+| `j`, `↓` / `k`, `↑` | Next / previous session |
+| `space` | Tick or untick the session |
+| `a` | Tick every session (or none, when all are) |
+| `enter` | Resume (or restart) the ticked sessions |
+| `esc` | Leave them as they are |
 
 ## Tasks
 

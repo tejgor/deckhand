@@ -1389,7 +1389,7 @@ impl App {
     /// TS: the useTerminalInput handler: Ctrl+C, the busy gate, then the mode's keys (crates/ui/src/app/modes).
     pub fn handle_input(&mut self, input: &Input) {
         use crate::app::modes::{
-            action_picker, browse, confirm, create, filter, preview_focus, review, search, workspace_info,
+            action_picker, browse, confirm, create, filter, preview_focus, resume, review, search, workspace_info,
         };
         let key = &input.key;
         self.dismiss_notice();
@@ -1477,6 +1477,7 @@ impl App {
             Mode::Tasks => self.tasks_flow_call(|flow, props, cx| flow.handle_input(props, input, cx)),
             Mode::Worktrees => self.worktrees_flow_call(|flow, props, cx| flow.handle_input(props, input, cx)),
             Mode::ConfirmRemove => confirm::handle_confirm_remove(self, input),
+            Mode::ConfirmResume => resume::handle_confirm_resume(self, input),
             Mode::ChangesFocus => preview_focus::handle_changes_focus(self, input),
             Mode::NotesFocus => preview_focus::handle_notes_focus(self, input),
             Mode::PickFilter => {
@@ -1633,6 +1634,9 @@ impl FlowHost for App {
                 FlowEffect::GoTo(session_id) => self.go_to_session(&session_id),
                 FlowEffect::OpenNote(session_id) => self.open_note(&session_id),
                 FlowEffect::Session(session) => self.upsert(*session),
+                FlowEffect::OfferRestart { program, asked } => {
+                    crate::app::modes::resume::offer_outdated(self, program, asked);
+                }
                 FlowEffect::ScrollSpeed(speed) => {
                     self.preview_focus.scroll_sensitivity = normalize_scroll_sensitivity(Some(speed));
                     self.preview_focus.wheel = deckhand_core::wheel::WheelScaler::default();

@@ -6,6 +6,7 @@ pub mod confirm;
 pub mod create;
 pub mod filter;
 pub mod preview_focus;
+pub mod resume;
 pub mod review;
 pub mod search;
 pub mod workspace_info;

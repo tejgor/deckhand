@@ -4,9 +4,11 @@
 //! the old daemon, which keeps running the old daemon and worker code. That is compatible, so it is only mentioned
 //! (a footer notice once per daemon, `deckhand doctor`) with `deckhand restart` as the way to pick the update up. A
 //! daemon of another protocol is refused elsewhere (`deckhand_client::client`); its hint names the same command.
-//! Restarting the daemon interrupts running sessions, which `s` resumes.
+//! Restarting the daemon interrupts running sessions; the next UI offers to resume them (or `s` resumes each).
 
 use std::cmp::Ordering;
+
+use deckhand_protocol::data::InterruptedWhile;
 
 /// The command that restarts the daemon.
 pub const RESTART_COMMAND: &str = "deckhand restart";
@@ -142,33 +144,54 @@ pub fn doctor_line(client: &str, daemon: Option<&str>, daemon_pid: Option<u32>) 
         BuildRelation::Same => format!("✓ Daemon: {shown}{pid}, the same build as this deckhand\n"),
         _ => format!(
             "• Daemon: {shown}{pid} is running; this deckhand is {client}. It stays compatible; restart when \
-             convenient to run {client}: {RESTART_COMMAND} (running sessions are interrupted; resume them with s)\n"
+             convenient to run {client}: {RESTART_COMMAND} (running sessions are interrupted; Deckhand offers to \
+             resume them)\n"
         ),
     }
 }
 
-/// `deckhand restart`'s question before interrupting `running` sessions.
-/// (`None`: the daemon could not list them; the prompt adds ` [y/N] `).
-pub fn restart_prompt(running: Option<usize>) -> String {
+/// What restarting the daemon does to its running sessions, said after it.
+const RESUME_LATER: &str = "Deckhand offers to resume them when you next open it";
+
+/// What the running sessions are doing, most urgent first and only the ones with any: `2 working, 1 waiting for you,
+/// 3 idle`.
+pub fn activity_breakdown(activities: &[InterruptedWhile]) -> String {
+    let count = |kind: InterruptedWhile| activities.iter().filter(|&&activity| activity == kind).count();
+    [
+        (InterruptedWhile::Working, "working"),
+        (InterruptedWhile::NeedsInput, "waiting for you"),
+        (InterruptedWhile::Idle, "idle"),
+    ]
+    .into_iter()
+    .filter_map(|(kind, label)| Some(count(kind)).filter(|&n| n > 0).map(|n| format!("{n} {label}")))
+    .collect::<Vec<_>>()
+    .join(", ")
+}
+
+/// `N running session(s) (2 working, 1 idle)`, or the daemon's running sessions when it could not list them.
+fn running_sessions(running: Option<&[InterruptedWhile]>, capital: bool) -> String {
     match running {
-        Some(running) => format!(
-            "Restart the Deckhand daemon? {running} running session(s) will be interrupted (resume them with s)."
-        ),
-        None => {
-            "Restart the Deckhand daemon? Its running sessions will be interrupted (resume them with s).".to_owned()
-        }
+        Some(running) => format!("{} running session(s) ({})", running.len(), activity_breakdown(running)),
+        None if capital => "Its running sessions".to_owned(),
+        None => "its running sessions".to_owned(),
     }
+}
+
+/// `deckhand restart`'s question before interrupting the `running` sessions, given by what each is doing (`None`:
+/// the daemon could not list them; the prompt adds ` [y/N] `).
+pub fn restart_prompt(running: Option<&[InterruptedWhile]>) -> String {
+    format!(
+        "Restart the Deckhand daemon? {} will be interrupted; {RESUME_LATER}.",
+        running_sessions(running, true)
+    )
 }
 
 /// `deckhand restart`'s refusal without a terminal to ask on and without `--yes`.
-pub fn restart_refusal(running: Option<usize>) -> String {
-    let sessions = match running {
-        Some(running) => format!("{running} running session(s) would be interrupted"),
-        None => "its running sessions would be interrupted".to_owned(),
-    };
+pub fn restart_refusal(running: Option<&[InterruptedWhile]>) -> String {
     format!(
-        "Not restarting the Deckhand daemon: {sessions} (resume them with s). Run `{RESTART_COMMAND} --yes` to \
-         restart it anyway."
+        "Not restarting the Deckhand daemon: {} would be interrupted ({RESUME_LATER}). Run `{RESTART_COMMAND} --yes` \
+         to restart it anyway.",
+        running_sessions(running, false)
     )
 }
 
@@ -264,15 +287,21 @@ mod tests {
 
     #[test]
     fn restart_texts() {
+        use InterruptedWhile::{Idle, NeedsInput, Working};
         assert_eq!(
-            restart_prompt(Some(2)),
-            "Restart the Deckhand daemon? 2 running session(s) will be interrupted (resume them with s)."
+            restart_prompt(Some(&[Idle, Working, NeedsInput, Working])),
+            "Restart the Deckhand daemon? 4 running session(s) (2 working, 1 waiting for you, 1 idle) will be \
+             interrupted; Deckhand offers to resume them when you next open it."
         );
-        assert!(restart_prompt(None).contains("Its running sessions will be interrupted"));
         assert_eq!(
-            restart_refusal(Some(1)),
-            "Not restarting the Deckhand daemon: 1 running session(s) would be interrupted (resume them with s). \
-             Run `deckhand restart --yes` to restart it anyway."
+            restart_prompt(None),
+            "Restart the Deckhand daemon? Its running sessions will be interrupted; Deckhand offers to resume them \
+             when you next open it."
+        );
+        assert_eq!(
+            restart_refusal(Some(&[Idle])),
+            "Not restarting the Deckhand daemon: 1 running session(s) (1 idle) would be interrupted (Deckhand offers \
+             to resume them when you next open it). Run `deckhand restart --yes` to restart it anyway."
         );
         assert_eq!(
             restart_summary(Some("3.0.0"), Some("3.0.1")),

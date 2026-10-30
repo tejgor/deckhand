@@ -121,6 +121,15 @@ string_union!(AttentionReasonKind {
     Notice = "notice",
 });
 string_union!(ExitReason { Stopped = "stopped", Failed = "failed", Completed = "completed", Interrupted = "interrupted" });
+string_union!(
+    /// Not in the TS: what a session was doing when its daemon stopped (a restart, a crash, a reboot), as the next
+    /// daemon read it from state.json before marking the session interrupted.
+    InterruptedWhile {
+        Working = "working",
+        NeedsInput = "needs-input",
+        Idle = "idle",
+    }
+);
 string_union!(SetupState {
     Pending = "pending",
     Running = "running",
@@ -399,6 +408,9 @@ pub struct SessionRecord {
     /// Not in the TS: a sub-session's path (`parent / child`), projected by the daemon and never saved. The daemon
     /// holds every parent; a client may not (a checkout's list leaves out parents that work elsewhere).
     pub path_title: Option<String>,
+    /// Not in the TS: set on a session that was live when the previous daemon stopped, until it is resumed or the
+    /// offer to resume it is dismissed (what it was doing then). Projected by the daemon and never saved.
+    pub interrupted_while: Option<InterruptedWhile>,
     /// Keys this version does not know (kept, as the TS spreads keep them).
     #[serde(flatten)]
     pub extra: IndexMap<String, Value>,
@@ -665,6 +677,15 @@ pub struct AgentVersions {
     pub claude: AgentVersionInfo,
     pub pi: AgentVersionInfo,
     pub codex: AgentVersionInfo,
+}
+
+/// Not in the TS: one session's part of `restart-sessions`: `error` says why it was not resumed.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionRestartOutcome {
+    pub session_id: String,
+    pub error: Option<String>,
 }
 
 /// types.ts AgentUpdateResult: `{program, ...outcome, versions}`.

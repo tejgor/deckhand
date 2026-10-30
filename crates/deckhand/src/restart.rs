@@ -2,17 +2,18 @@
 //!
 //! A daemon keeps the binary it started from, so an update reaches the daemon and its workers only once the daemon is
 //! restarted (and a client refuses a daemon of another protocol until then). Restarting interrupts the running
-//! sessions (the next daemon marks them interrupted; `s` resumes them), so with any running and without `--yes` it
-//! asks first, and refuses when there is no terminal to ask on. The daemon is stopped with the `shutdown` request
-//! where it accepts it (the dev channel), else with SIGTERM to its pid, which every daemon (older and other-protocol
-//! ones included) handles by shutting down cleanly; SIGKILL follows after a grace period. The next daemon starts the
-//! usual way (`deckhand_client::client::ensure_daemon_running`).
+//! sessions (the next daemon marks them interrupted and the next UI offers to resume them), so with any running and
+//! without `--yes` it asks first, saying what each is doing, and refuses when there is no terminal to ask on. The
+//! daemon is stopped with the `shutdown` request where it accepts it (the dev channel), else with SIGTERM to its pid,
+//! which every daemon (older and other-protocol ones included) handles by shutting down cleanly; SIGKILL follows after
+//! a grace period. The next daemon starts the usual way (`deckhand_client::client::ensure_daemon_running`).
 
 use std::io::IsTerminal;
 use std::process::ExitCode;
 
 use deckhand_client::client::{
-    DAEMON_STOP_GRACE, DaemonState, StopOutcome, count_live_sessions, daemon_state, ensure_daemon_running, stop_daemon,
+    DAEMON_STOP_GRACE, DaemonState, StopOutcome, daemon_state, ensure_daemon_running, live_session_activities,
+    stop_daemon,
 };
 use deckhand_core::daemon_build::{restart_prompt, restart_refusal, restart_summary};
 use deckhand_core::error::DhError;
@@ -61,12 +62,12 @@ pub async fn run_restart(args: &[String]) -> Result<ExitCode, DhError> {
         DaemonState::Running { ping, .. } => ping.build.clone(),
         DaemonState::OtherProtocol { .. } | DaemonState::Unresponsive { .. } => None,
     };
-    let running = count_live_sessions().await;
-    if needs_confirmation(running, options.yes) {
+    let running = live_session_activities().await;
+    if needs_confirmation(running.as_ref().map(Vec::len), options.yes) {
         if !std::io::stdin().is_terminal() {
-            return Err(DhError::msg(restart_refusal(running)));
+            return Err(DhError::msg(restart_refusal(running.as_deref())));
         }
-        if prompt_yes(&restart_prompt(running), false).await != Some(true) {
+        if prompt_yes(&restart_prompt(running.as_deref()), false).await != Some(true) {
             print_line("Daemon not restarted.");
             return Ok(ExitCode::FAILURE);
         }

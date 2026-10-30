@@ -10,7 +10,7 @@ use std::process::Command;
 use deckhand_e2e::harness::{git, repo, workspace_root};
 
 const REQUIRED_49_50: &str = "**Daemon restart:** required — protocol 49 → 50. Run `deckhand restart` after updating \
-                              (running sessions are interrupted; resume them with s).";
+                              (running sessions are interrupted; Deckhand offers to resume them).";
 const NOT_REQUIRED: &str = "**Daemon restart:** not required — the running daemon stays compatible; `deckhand \
                             restart` when convenient picks up daemon fixes.";
 const FROM_NPM: &str =

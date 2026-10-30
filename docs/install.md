@@ -81,14 +81,14 @@ Then check the **Daemon restart** line in the [release notes](https://github.com
 - **Required**: the new version speaks a different protocol to the daemon, so `deckhand` refuses the running daemon until you run `deckhand restart`.
 - **Not required**: Deckhand keeps using the running daemon and tells you once, at the bottom of the screen (`Daemon 3.0.0 is still running (this is 3.0.1) · restart when convenient: deckhand restart`). Run `deckhand restart` when it suits you, to pick up daemon fixes.
 
-`deckhand restart` stops the daemon and starts the new version's. This interrupts running sessions, and `s` resumes each conversation. It asks first when sessions are running; `--yes` skips the question, and is required when there is no terminal to ask on. `deckhand doctor --check` shows which version the running daemon is.
+`deckhand restart` stops the daemon and starts the new version's. This interrupts running sessions; the next time you open Deckhand it offers to resume them in a checklist (or `s` resumes each). It asks first when sessions are running, saying what each is doing; `--yes` skips the question, and is required when there is no terminal to ask on. `deckhand doctor --check` shows which version the running daemon is.
 
 ## Upgrading from Deckhand 2 (npm)
 
 Your sessions, notes and settings carry over: the files in `~/.deckhand` are unchanged.
 
 1. Remove the npm install (`npm uninstall -g @tejgor/deckhand`) and install Deckhand 3 as above. Check with `deckhand --version`.
-2. Restart the daemon: `deckhand restart` stops the old one and starts the new one. This ends its running sessions; `s` resumes each conversation later.
+2. Restart the daemon: `deckhand restart` stops the old one and starts the new one. This ends its running sessions; the next time you open Deckhand it offers to resume them (or `s` resumes each).
 3. If you use Codex with agent signals, regenerate its hooks: `deckhand doctor --check` tells you if they still call the old version.
 
 [Upgrading from npm](upgrading-from-npm.md) is the careful version, with a backup and a way back.

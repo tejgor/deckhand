@@ -62,11 +62,13 @@ pub enum Mode {
     Worktrees,
     /// Not in the TS: → on the Terminal tab, typing into the shown shell.
     TerminalFocus,
+    /// Not in the TS: the checklist of sessions to resume (interrupted by a daemon stop, or on an older agent).
+    ConfirmResume,
 }
 
 impl Mode {
     /// Every mode, in the TS union's order (then the port's own).
-    pub const ALL: [Mode; 25] = [
+    pub const ALL: [Mode; 26] = [
         Mode::Browse,
         Mode::PreviewFocus,
         Mode::ChangesFocus,
@@ -92,6 +94,7 @@ impl Mode {
         Mode::PickFilter,
         Mode::Worktrees,
         Mode::TerminalFocus,
+        Mode::ConfirmResume,
     ];
 
     /// The TS name (`'preview-focus'`, ...).
@@ -122,6 +125,7 @@ impl Mode {
             Mode::PickFilter => "pick-filter",
             Mode::Worktrees => "worktrees",
             Mode::TerminalFocus => "terminal-focus",
+            Mode::ConfirmResume => "confirm-resume",
         }
     }
 
@@ -159,6 +163,7 @@ impl Mode {
                 | Mode::PickAction
                 | Mode::ConfirmKill
                 | Mode::ConfirmRemove
+                | Mode::ConfirmResume
         )
     }
 
@@ -634,6 +639,8 @@ pub struct App {
     pub kill: KillState,
     pub merge: MergeState,
     pub remove: RemoveState,
+    /// Not in the TS: confirm-resume's checklist.
+    pub resume: crate::app::modes::resume::ResumeState,
     pub create: CreateState,
     /// Not in the TS: the open dialog's body scroll (J/K, PgUp/PgDn).
     pub dialog: DialogState,
@@ -735,6 +742,7 @@ impl App {
             kill: KillState::default(),
             merge: MergeState::default(),
             remove: RemoveState::default(),
+            resume: Default::default(),
             dialog: DialogState::default(),
             create: CreateState {
                 program_index: 0,
@@ -811,7 +819,8 @@ mod tests {
                 "confirm-remove",
                 "pick-filter",
                 "worktrees",
-                "terminal-focus"
+                "terminal-focus",
+                "confirm-resume"
             ]
         );
         for mode in Mode::ALL {

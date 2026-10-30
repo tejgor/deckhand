@@ -57,7 +57,7 @@ fi
 if [ -z "$before" ]; then
     echo '**Daemon restart:** required when upgrading from the npm version — see docs/upgrading-from-npm.md.'
 elif [ "$before" != "$current" ]; then
-    echo "**Daemon restart:** required — protocol $before → $current. Run \`deckhand restart\` after updating (running sessions are interrupted; resume them with s)."
+    echo "**Daemon restart:** required — protocol $before → $current. Run \`deckhand restart\` after updating (running sessions are interrupted; Deckhand offers to resume them)."
 else
     echo '**Daemon restart:** not required — the running daemon stays compatible; `deckhand restart` when convenient picks up daemon fixes.'
 fi

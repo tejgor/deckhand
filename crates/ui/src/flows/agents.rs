@@ -1,5 +1,6 @@
 //! G → Agents. Each agent's installed and latest version and its own updater (enter). Updating never touches sessions:
-//! running ones keep their version until restarted (↑ in the sidebar). r looks the latest up again.
+//! running ones keep their version until restarted (↑ in the sidebar). After an update, and on s, the ones on an older
+//! version are offered for restarting in a checklist (confirm-resume). R looks the latest up again.
 
 use std::rc::Rc;
 
@@ -218,7 +219,7 @@ pub fn detail_lines(
     let sessions = if running != 0 {
         let outdated = info.map_or(0, |info| info.outdated);
         let older = if outdated != 0 {
-            format!(" · {outdated} on an older version (restart to update)")
+            format!(" · {outdated} on an older version (s restarts them)")
         } else {
             String::new()
         };
@@ -320,22 +321,24 @@ pub fn render_agents_pane(props: &AgentsPaneProps<'_>, buf: &mut Buffer, area: R
         }
     } else {
         MenuPaneLine {
-            text: "Running sessions keep their version until restarted (↑ in the sidebar).".to_owned(),
+            text: "Running sessions keep their version until restarted (↑ in the sidebar; s restarts them).".to_owned(),
             color: None,
         }
     }];
     let hint: Vec<HintPart> = if props.confirming.is_some() {
         vec![HintPart::from("enter update"), HintPart::from("esc cancel")]
     } else {
-        vec![
-            HintPart::from("enter update"),
-            HintPart {
-                text: "R re-check".to_owned(),
-                short: None,
-                drop: Some(2),
-            },
-            HintPart::from("esc back"),
-        ]
+        let mut hint = vec![HintPart::from("enter update")];
+        if info.is_some_and(|info| info.outdated > 0) {
+            hint.push(HintPart::from("s restart sessions"));
+        }
+        hint.push(HintPart {
+            text: "R re-check".to_owned(),
+            short: None,
+            drop: Some(2),
+        });
+        hint.push(HintPart::from("esc back"));
+        hint
     };
     render_menu_pane(
         &MenuPaneProps {
@@ -410,6 +413,10 @@ impl AgentsFlow {
                             exit_text(&result)
                         )
                     } else if let Some(after) = updated_to(&result) {
+                        // Its sessions on the old version are offered for restarting.
+                        if info_of(Some(&result.versions), program).is_some_and(|info| info.outdated > 0) {
+                            cx.emit(FlowEffect::OfferRestart { program, asked: false });
+                        }
                         format!("{label} updated to {after}")
                     } else {
                         format!("{label}: nothing new installed")
@@ -465,6 +472,11 @@ impl Flow<App> for AgentsFlow {
         // R checks again, as R reloads on the session list and Worktrees (it was r).
         if text == "R" {
             self.check(props, cx);
+            return;
+        }
+        // Not in the TS: s offers to restart the agent's sessions on an older version.
+        if text == "s" {
+            cx.emit(FlowEffect::OfferRestart { program, asked: true });
             return;
         }
         if key.return_ {
@@ -629,7 +641,7 @@ mod tests {
                 "Installed  2.1.287  /Users/me/.local/bin/claude",
                 "Latest     2.1.291  npm @anthropic-ai/claude-code · checked 3m ago",
                 "Update     claude update",
-                "3 running sessions · 1 on an older version (restart to update)",
+                "3 running sessions · 1 on an older version (s restarts them)",
                 "enter update",
                 "R re-check",
                 "esc back",
@@ -1005,6 +1017,47 @@ mod tests {
                 })
             );
             assert!(app.flows.agents.working.is_empty());
+        });
+    }
+
+    #[test]
+    fn an_update_offers_to_restart_the_sessions_left_on_the_old_version() {
+        run(async {
+            let (mut app, mut rx) = app(AppProps::default());
+            let mut daemon = connected(&mut app);
+            app.data.agent_versions = Some(fixture());
+            app.set_mode(Mode::Agents);
+            app.flows.agents.selected = 2;
+            press(&mut app, &key(|key| key.return_ = true));
+            let request = daemon.request().await;
+            let after = versions(
+                json!({}),
+                json!({}),
+                json!({"installed": "0.161.0", "path": "/usr/local/bin/codex", "running": 1, "outdated": 1}),
+            );
+            let body = json!({"program": "codex", "ok": true, "exitCode": 0, "command": "codex update", "output": "", "before": "0.160.1", "after": "0.161.0", "versions": after});
+            daemon.respond(&request, json!({"ok": true, "data": body})).await;
+            apply(&mut app, &mut rx).await;
+            let list = daemon.request().await;
+            assert_eq!(list["type"], "list");
+            let session = json!({
+                "id": "s", "title": "s", "program": "codex", "command": "codex", "cwd": "/repo", "repoRoot": "/repo",
+                "status": "running", "agentVersion": "0.160.1", "createdAt": "2026-01-01T00:00:00.000Z",
+                "updatedAt": "2026-01-01T00:00:00.000Z",
+            });
+            daemon.respond(&list, json!({"ok": true, "data": [session]})).await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(app.mode, Mode::ConfirmResume);
+            assert_eq!(
+                app.resume.kind,
+                Some(crate::app::modes::resume::ResumeKind::Outdated(ProgramKey::Codex))
+            );
+            assert_eq!(app.resume.back, Mode::Agents);
+            // s asks again whenever.
+            press(&mut app, &key(|key| key.escape = true));
+            app.set_mode(Mode::Agents);
+            press(&mut app, &Input::text("s"));
+            assert_eq!(daemon.request().await["type"], "list");
         });
     }
 }

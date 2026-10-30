@@ -274,6 +274,18 @@ impl Daemon {
                     .await;
                 reply(client, &r.request_id, restarted)
             }
+            Request::RestartSessions(r) => {
+                let (cols, rows) = (
+                    r.cols.unwrap_or(DEFAULT_PREVIEW_COLS),
+                    r.rows.unwrap_or(DEFAULT_PREVIEW_ROWS),
+                );
+                let outcomes = self.restart_sessions(&r.session_ids, cols, rows).await;
+                reply(client, &r.request_id, Ok(outcomes))
+            }
+            Request::DismissInterrupted(r) => {
+                self.dismiss_interrupted(&r.session_ids);
+                reply(client, &r.request_id, Ok(OkResult::default()))
+            }
             Request::Kill(r) => reply(client, &r.request_id, self.handle_kill(&r).await),
             Request::MergePreview(r) => reply(
                 client,

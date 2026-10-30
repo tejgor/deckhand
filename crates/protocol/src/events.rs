@@ -12,8 +12,8 @@ use crate::data::{
     AgentUpdateResult, AgentVersions, AttachResult, BranchList, CandidateSizes, ChangeDiff, ChangeStageResult,
     ChangesRecord, CreatePrResult, MergePreview, NoteSaveResult, OkResult, PaneRecord, PingResult, PreviewRecord,
     ProjectInfo, PromoteNoteItemResult, SavedConfigDocument, SendOpenItemsResult, SessionCleanupInspection,
-    SessionRecord, SettingsInfo, TasksDoc, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection,
-    WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeResult, WorktreeOverview,
+    SessionRecord, SessionRestartOutcome, SettingsInfo, TasksDoc, WorkspaceSummary, WorktreeCandidates,
+    WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeResult, WorktreeOverview,
 };
 use crate::order::Ordered;
 
@@ -292,6 +292,8 @@ pub enum ResponseData {
     MergePreview(Box<MergePreview>),
     Merge(Box<Ordered<WorktreeMergeResult>>),
     Attach(Box<Ordered<AttachResult>>),
+    /// Not in the TS: what became of each session `restart-sessions` resumed.
+    SessionRestarts(Vec<SessionRestartOutcome>),
 }
 
 /// `ResponseData::decode` was given a request type the daemon does not answer with data.
@@ -309,9 +311,14 @@ impl ResponseData {
         use serde_json::from_value as from;
         Ok(match request_type {
             "ping" => ResponseData::Ping(from(data)?),
-            "shutdown" | "agent-hook" | "cancel-start" | "stop-dev" | "stop-action" | "kill" | "remove" => {
-                ResponseData::Ok(from(data)?)
-            }
+            "shutdown"
+            | "agent-hook"
+            | "cancel-start"
+            | "stop-dev"
+            | "stop-action"
+            | "kill"
+            | "remove"
+            | "dismiss-interrupted" => ResponseData::Ok(from(data)?),
             "export-handoff" | "open-note" | "open-tasks" => ResponseData::Path(from(data)?),
             "set-session-done"
             | "set-reply-read"
@@ -335,6 +342,7 @@ impl ResponseData {
             "watch-preview" => ResponseData::Preview(from(data)?),
             "agent-versions" => ResponseData::AgentVersions(Box::new(from(data)?)),
             "update-agent" => ResponseData::AgentUpdate(Box::new(from(data)?)),
+            "restart-sessions" => ResponseData::SessionRestarts(from(data)?),
             "list-worktrees" => ResponseData::Worktrees(from(data)?),
             "worktree-overview" => ResponseData::WorktreeOverview(from(data)?),
             "delete-worktree" => ResponseData::WorktreeDelete(from(data)?),

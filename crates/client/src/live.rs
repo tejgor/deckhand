@@ -25,17 +25,18 @@ use deckhand_protocol::data::{
     ChangeStageResult, ChangesRecord, ConfigTargetKind, CreatePrResult, CreateSessionInput, DevRecord, MergePreview,
     MoveDirection, NoteSaveResult, NoteSection, PingResult, PreviewRecord, ProgramKey, ProjectInfo,
     PromoteNoteItemResult, ResolveMergeAction, RestartMode, SavedConfigDocument, SendOpenItemsResult,
-    SessionCleanupInspection, SessionRecord, SettingsInfo, StageMode, TaskOp, TasksDoc, TerminalRecord,
-    WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord,
-    WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview,
+    SessionCleanupInspection, SessionRecord, SessionRestartOutcome, SettingsInfo, StageMode, TaskOp, TasksDoc,
+    TerminalRecord, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection, WorktreeDeleteResult,
+    WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview,
 };
 use deckhand_protocol::wire::{
     AgentCaller, AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest,
-    DeleteWorktree, ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose, MergeWorktree, OpenNote,
-    PromoteNoteItem, Remove, ReorderSession, RequestOnly, ResolveMerge, Restart, ReturnTaskToNote, RunAction,
-    SaveConfig, SaveNote, SendOpenItems, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetReplyRead,
-    SetSessionDone, StopDevRequest, Subscribe, TaskOpRequest, TaskToNote, TrustProject, UpdateAgent, WatchChanges,
-    WatchPane, WatchPreview, WorkspaceSummaryRequest, WorktreeCandidateSizes,
+    DeleteWorktree, DismissInterrupted, ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose,
+    MergeWorktree, OpenNote, PromoteNoteItem, Remove, ReorderSession, RequestOnly, ResolveMerge, Restart,
+    RestartSessions, ReturnTaskToNote, RunAction, SaveConfig, SaveNote, SendOpenItems, SessionRequest,
+    SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone, StopDevRequest, Subscribe, TaskOpRequest,
+    TaskToNote, TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview, WorkspaceSummaryRequest,
+    WorktreeCandidateSizes,
 };
 
 use crate::client::{
@@ -705,6 +706,25 @@ impl LiveClient {
             rows: Some(rows),
             mode: mode.unwrap_or(RestartMode::Resume).into(),
             project_fingerprint: project_fingerprint.map(str::to_owned),
+        }))
+    }
+
+    /// Not in the TS: `restart-sessions`: resumes each session, stopping a running one first; what became of each.
+    pub fn restart_sessions(&self, session_ids: &[String], cols: i64, rows: i64) -> Reply<Vec<SessionRestartOutcome>> {
+        self.request(Request::RestartSessions(RestartSessions {
+            request_id: new_request_id(),
+            session_ids: session_ids.to_vec(),
+            cols: Some(cols),
+            rows: Some(rows),
+        }))
+    }
+
+    /// Not in the TS: `dismiss-interrupted`: stop offering to resume these sessions (the last daemon stop
+    /// interrupted them).
+    pub fn dismiss_interrupted(&self, session_ids: &[String]) -> Reply<()> {
+        self.request(Request::DismissInterrupted(DismissInterrupted {
+            request_id: new_request_id(),
+            session_ids: session_ids.to_vec(),
         }))
     }
 

@@ -114,7 +114,7 @@ Press `C` for Settings: your global settings (`~/.deckhand/config.json`) in one 
 ## FAQ
 
 **Does quitting Deckhand stop my agents?**
-No. The daemon keeps them running. Stopping or restarting the daemon itself ends them; `s` resumes each conversation afterwards.
+No. The daemon keeps them running. Stopping or restarting the daemon itself ends them; the next time you open Deckhand it offers to resume them (or `s` resumes each).
 
 **Does Deckhand commit or push for me?**
 It never commits on your branch: a merge leaves the result staged for you to commit. Before merging, it commits leftover changes in the agent's worktree, with the session title as the message; press `space` on the merge screen to leave them uncommitted. Deckhand pushes only when you open a pull request from the Git summary (`i`, then `c`), and asks first.

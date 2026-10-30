@@ -584,6 +584,8 @@ pub fn connect(app: &mut App) {
                 app.set_repo_sessions(sessions);
                 app.data.sessions_loaded = true;
                 app.set_error(None);
+                // Not in the TS: the sessions the daemon's last stop interrupted, offered for resuming.
+                crate::app::modes::resume::offer_interrupted(app);
             });
             // The daemon's cached versions; it looks the latest releases up in the background.
             let flag = Rc::clone(&cancelled);

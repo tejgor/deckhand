@@ -16,7 +16,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
 use deckhand_core::key::Input;
-use deckhand_protocol::data::{AgentVersions, ChangesRecord, SessionRecord, Task, TasksDoc};
+use deckhand_protocol::data::{AgentVersions, ChangesRecord, ProgramKey, SessionRecord, Task, TasksDoc};
 use deckhand_sys::async_util::{Task as LocalTask, Timer};
 
 use crate::app::event_loop::Dispatch;
@@ -60,6 +60,9 @@ pub enum FlowEffect<H> {
     Review { cwd: String, back: HostCallback<H> },
     /// Not in the TS: Settings saved a new wheel speed (`scroll_speed`), for Preview focus to use right away.
     ScrollSpeed(f64),
+    /// Not in the TS: agentsFlow offers to restart the agent's sessions on an older version (`asked`: `s` asked, so
+    /// none is said too).
+    OfferRestart { program: ProgramKey, asked: bool },
 }
 
 impl<H> std::fmt::Debug for FlowEffect<H> {
@@ -80,6 +83,11 @@ impl<H> std::fmt::Debug for FlowEffect<H> {
             FlowEffect::Session(session) => f.debug_tuple("Session").field(&session.id).finish(),
             FlowEffect::Review { cwd, .. } => f.debug_struct("Review").field("cwd", cwd).finish_non_exhaustive(),
             FlowEffect::ScrollSpeed(speed) => f.debug_tuple("ScrollSpeed").field(speed).finish(),
+            FlowEffect::OfferRestart { program, asked } => f
+                .debug_struct("OfferRestart")
+                .field("program", program)
+                .field("asked", asked)
+                .finish(),
         }
     }
 }

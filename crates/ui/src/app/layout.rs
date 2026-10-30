@@ -34,6 +34,7 @@ use crate::app::modes::create::{
     BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, filtered_worktrees, fork_option_shown,
     render_create_dialog, render_worktree_picker, top_level_fork_source,
 };
+use crate::app::modes::resume::{ResumeDialogProps, ResumeKind, render_resume_dialog};
 use crate::app::state::{App, DialogState, Mode, TerminalSize};
 use crate::app::{
     Derived, base_options, connection_color, describe_connection, format_scroll_sensitivity, hint_short, notes_links,
@@ -257,6 +258,7 @@ pub fn footer_hint(input: &FooterHintInput<'_>) -> String {
         | Mode::MergeConflicts
         | Mode::Tasks
         | Mode::ConfirmRemove
+        | Mode::ConfirmResume
         | Mode::Worktrees
         | Mode::Search => String::new(),
         Mode::TerminalFocus => fit_hint(
@@ -812,6 +814,23 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 items: &app.remove.items,
             };
             app.dialog.last = render_remove_dialog(&props, buf, right, view);
+        }
+        Mode::ConfirmResume => {
+            if let Some(kind) = app.resume.kind {
+                let installed = match kind {
+                    ResumeKind::Outdated(program) => installed_versions(app.data.agent_versions.as_ref())
+                        .get(&program)
+                        .cloned(),
+                    ResumeKind::Interrupted => None,
+                };
+                let props = ResumeDialogProps {
+                    kind,
+                    rows: &app.resume.rows,
+                    cursor: app.resume.cursor,
+                    installed: installed.as_deref(),
+                };
+                app.dialog.last = render_resume_dialog(&props, buf, right, view);
+            }
         }
         Mode::WorkspaceInfo | Mode::ReviewProject | Mode::ConfirmLoss => {
             if let Some(details) = app.details_content() {

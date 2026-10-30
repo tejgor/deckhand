@@ -25,7 +25,7 @@ The Git tab's Changes view needs no worker: the daemon reads `git status` for th
 
 ## Daemon lifecycle
 
-The first `deckhand` launch starts the daemon. Quitting the UI with `q` leaves the daemon and every running session in place, and the next `deckhand` reconnects to it. Stopping the daemon ends all running sessions. After a daemon crash, sessions are marked interrupted but keep their conversation IDs, so `s` resumes them.
+The first `deckhand` launch starts the daemon. Quitting the UI with `q` leaves the daemon and every running session in place, and the next `deckhand` reconnects to it. Stopping the daemon ends all running sessions. After a daemon crash or restart, sessions are marked interrupted but keep their conversation IDs, so `s` resumes them, and the next UI offers to resume them all in a checklist.
 
 | Action | Command |
 | --- | --- |
@@ -40,7 +40,7 @@ A dead PID file and a stale socket are cleaned up automatically on the next laun
 - **`daemon pid N is alive but did not respond; see …/daemon.log`**: the daemon process exists but did not answer within the retry window. Read `daemon.log`, then `deckhand restart` (or `kill N`) and relaunch.
 
 > [!WARNING]
-> A running daemon keeps the binary it started from until it is stopped, so an upgrade reaches the daemon and its workers only after a restart. While the protocol is unchanged the new `deckhand` keeps using the old daemon and says so once in its footer (`Daemon 3.0.0 is still running (this is 3.0.1) · restart when convenient: deckhand restart`). Restarting ends every running session; resume them afterwards with `s`.
+> A running daemon keeps the binary it started from until it is stopped, so an upgrade reaches the daemon and its workers only after a restart. While the protocol is unchanged the new `deckhand` keeps using the old daemon and says so once in its footer (`Daemon 3.0.0 is still running (this is 3.0.1) · restart when convenient: deckhand restart`). Restarting ends every running session; the next UI offers to resume them (or `s` resumes each).
 
 `deckhand restart` asks before interrupting running sessions (`--yes` skips the question; without a terminal it refuses unless given). It stops the daemon cleanly (SIGTERM, which every daemon version handles by stopping its workers and saving its state; SIGKILL after 10 s), then starts the installed version's daemon and prints `Daemon restarted (3.0.0 → 3.0.1).` With no daemon running it just starts one.
 

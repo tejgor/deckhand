@@ -16,7 +16,8 @@ use crate::agents::JS_SPACE;
 use crate::error::{DhError, Result};
 use crate::jsstr;
 use deckhand_protocol::data::{
-    AgentSessionRef, AgentSessionRefKind, AttentionReason, AttentionReasonKind, AttentionState, ProgramKey,
+    AgentActivityStatus, AgentSessionRef, AgentSessionRefKind, AttentionReason, AttentionReasonKind, AttentionState,
+    InterruptedWhile, ProgramKey, SessionRecord, SessionStatus,
 };
 
 /// TS: agentSignals.ts AgentSignal. Key order: a subagent's `{state, event, reason?, fromSubagent}`, otherwise
@@ -674,6 +675,26 @@ pub fn needs_attention(state: Option<AttentionState>) -> bool {
     )
 }
 
+/// Not in the TS: what a live session is doing, as stopping it now would interrupt it: waiting on you (a question, a
+/// plan or a permission prompt), working (its signals say so, else its screen is active, or it is still starting), or
+/// idle. A turn that ended (or failed) is idle whatever the screen last showed.
+pub fn live_activity(session: &SessionRecord) -> InterruptedWhile {
+    match session.attention.as_ref().map(|attention| attention.state) {
+        Some(AttentionState::NeedsInput) => InterruptedWhile::NeedsInput,
+        Some(AttentionState::Working) => InterruptedWhile::Working,
+        Some(AttentionState::ResponseEnded | AttentionState::Failed | AttentionState::Limited) => {
+            InterruptedWhile::Idle
+        }
+        Some(AttentionState::Unknown) | None => {
+            if session.status == SessionStatus::Starting || session.agent_status == Some(AgentActivityStatus::Active) {
+                InterruptedWhile::Working
+            } else {
+                InterruptedWhile::Idle
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // `new URL(url).host` (WHATWG URL), for the permission reason's host. `None` where the TS constructor throws.
 
@@ -920,6 +941,47 @@ mod tests {
             "agentSignals-P1/needsAttention",
             |case: &Case| -> Result<bool, String> { Ok(needs_attention(case.arg_as(0)?)) },
         );
+    }
+
+    #[test]
+    fn live_activity_prefers_signals_then_the_screen() {
+        let session = |fields: Value| -> SessionRecord {
+            let mut value = serde_json::json!({
+                "id": "s", "title": "s", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r",
+                "status": "running", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z",
+            });
+            if let (Value::Object(map), Value::Object(extra)) = (&mut value, fields) {
+                map.extend(extra);
+            }
+            serde_json::from_value(value).expect("a session")
+        };
+        let attention =
+            |state: &str| serde_json::json!({"state": state, "event": "e", "at": "2026-01-01T00:00:00.000Z"});
+        let cases = [
+            (
+                serde_json::json!({"attention": attention("needs-input")}),
+                InterruptedWhile::NeedsInput,
+            ),
+            (
+                serde_json::json!({"attention": attention("working"), "agentStatus": "idle"}),
+                InterruptedWhile::Working,
+            ),
+            // A turn that ended is idle, whatever the screen last showed.
+            (
+                serde_json::json!({"attention": attention("response-ended"), "agentStatus": "active"}),
+                InterruptedWhile::Idle,
+            ),
+            (
+                serde_json::json!({"attention": attention("unknown"), "agentStatus": "active"}),
+                InterruptedWhile::Working,
+            ),
+            (serde_json::json!({"agentStatus": "idle"}), InterruptedWhile::Idle),
+            (serde_json::json!({}), InterruptedWhile::Idle),
+            (serde_json::json!({"status": "starting"}), InterruptedWhile::Working),
+        ];
+        for (fields, expected) in cases {
+            assert_eq!(live_activity(&session(fields.clone())), expected, "{fields}");
+        }
     }
 
     /// `normalizeHook` as JSON (an undefined `nativeRef` is absent, as `JSON.stringify` drops it).
