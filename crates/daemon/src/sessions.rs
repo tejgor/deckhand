@@ -411,6 +411,24 @@ impl Daemon {
         self.session_path_names(session).join(" / ")
     }
 
+    /// Not in the TS: a desktop notification's title, `Deckhand: <repo> · <name>`: the repository's folder name and the
+    /// session's own name without its parents' (a long `root / child` path gets cut off, and the repo says where it
+    /// runs). A title saved with its parent's path in front (before titles were short) loses it too.
+    pub fn notification_title(&self, session: &SessionRecord) -> String {
+        let path = self.session_path(session);
+        let name = parent_of(session)
+            .and_then(|id| self.get_session(id))
+            .and_then(|parent| {
+                path.strip_prefix(&format!("{} / ", self.session_path(&parent)))
+                    .map(str::to_owned)
+            })
+            .unwrap_or(path);
+        match path::basename(&session.repo_root) {
+            repo if repo.is_empty() => format!("Deckhand: {name}"),
+            repo => format!("Deckhand: {repo} · {name}"),
+        }
+    }
+
     /// The names [`Daemon::session_path`] joins, the root's first; each parent is looked up by ID.
     pub fn session_path_names(&self, session: &SessionRecord) -> Vec<String> {
         let state = self.sessions.borrow();
@@ -2443,6 +2461,43 @@ mod tests {
         stale.path_title = Some("stale".into());
         daemon.set_session(stale);
         assert_eq!(path("child").as_deref(), Some("Root / Child"));
+    }
+
+    #[test]
+    fn notifications_name_the_repository_and_only_the_session_itself() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = daemon(dir.path());
+        let at = json!({"repoRoot": "/code/deckhand", "cwd": "/code/deckhand"});
+        let with = |extra: Value| {
+            let mut map = object(at.clone());
+            map.extend(object(extra));
+            record(Value::Object(map))
+        };
+        daemon.set_session(with(json!({"id": "root", "title": "Root"})));
+        daemon.set_session(with(
+            json!({"id": "child", "title": "Child", "parentSessionId": "root"}),
+        ));
+        daemon.set_session(with(
+            json!({"id": "grandchild", "title": "fix", "parentSessionId": "child"}),
+        ));
+        // Saved with its parent's path in front, before titles were short.
+        daemon.set_session(with(
+            json!({"id": "legacy", "title": "Root / Child / old", "parentSessionId": "child"}),
+        ));
+        // Its parent is gone: the title is all there is.
+        daemon.set_session(with(
+            json!({"id": "orphan", "title": "Gone / kept", "parentSessionId": "gone"}),
+        ));
+        daemon.set_session(record(
+            json!({"id": "bare", "title": "Bare", "repoRoot": "", "cwd": "/"}),
+        ));
+        let title = |id: &str| daemon.notification_title(&daemon.require_session(id).unwrap());
+        assert_eq!(title("root"), "Deckhand: deckhand · Root");
+        assert_eq!(title("child"), "Deckhand: deckhand · Child");
+        assert_eq!(title("grandchild"), "Deckhand: deckhand · fix");
+        assert_eq!(title("legacy"), "Deckhand: deckhand · old");
+        assert_eq!(title("orphan"), "Deckhand: deckhand · Gone / kept");
+        assert_eq!(title("bare"), "Deckhand: Bare");
     }
 
     #[test]

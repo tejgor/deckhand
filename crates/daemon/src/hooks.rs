@@ -316,10 +316,11 @@ impl Daemon {
         Some(native_ref.clone())
     }
 
-    /// TS: InkDaemon.notify: a desktop notification `Deckhand: <title>` when enabled (osascript on macOS,
-    /// notify-send elsewhere, 2 s timeout); failures are ignored. The port posts from Deckhand.app on macOS so the
-    /// notification shows Deckhand's icon (see `deckhand_sys::notify`), and logs, once per daemon, when macOS blocks
-    /// it or still waits for an answer, which Settings and `deckhand doctor` then explain.
+    /// TS: InkDaemon.notify: a desktop notification when enabled (osascript on macOS, notify-send elsewhere, 2 s
+    /// timeout); failures are ignored. The port titles it `Deckhand: <repo> · <name>` where the TS had `Deckhand:
+    /// <title>` (see [`Daemon::notification_title`]), posts from Deckhand.app on macOS so the notification shows
+    /// Deckhand's icon (see `deckhand_sys::notify`), and logs, once per daemon, when macOS blocks it or still waits for
+    /// an answer, which Settings and `deckhand doctor` then explain.
     pub async fn notify(&self, session: &SessionRecord, message: &str) {
         // Headless machines and denied notification permissions are normal.
         let enabled = load_app_config()
@@ -328,7 +329,7 @@ impl Daemon {
         if !enabled {
             return;
         }
-        let title = format!("Deckhand: {}", self.session_path(session));
+        let title = self.notification_title(session);
         let note = match notify::send(&title, message).await {
             Delivery::Sent => None,
             Delivery::Blocked => (!BLOCKED_LOGGED.swap(true, Ordering::Relaxed))
