@@ -664,9 +664,10 @@ pub fn status_words(session: &SessionRecord) -> &'static str {
         },
         SessionStatus::Starting => "starting",
         SessionStatus::Running => match session.agent_status {
-            // Not in the TS: as statusGlyph, a screen changing after a read reply is not work.
             Some(AgentActivityStatus::Active) if attention != Some(AttentionState::ResponseEnded) => "working",
-            Some(AgentActivityStatus::Active | AgentActivityStatus::Idle) => "idle",
+            // Not in the TS: as statusGlyph, a screen changing after a read reply is background work.
+            Some(AgentActivityStatus::Active) => "background",
+            Some(AgentActivityStatus::Idle) => "idle",
             // Not in the TS (`running`): activity not known yet reads as starting (`still_starting`).
             _ => "starting",
         },
@@ -2244,6 +2245,38 @@ mod tests {
             ..said.clone()
         };
         assert_eq!(details(&exited, 10)[3..], ["main checkout"]);
+    }
+
+    #[test]
+    fn a_read_turn_whose_screen_keeps_working_is_background_work() {
+        // Sub-agents still at work after the turn ended and its reply was read: Working, but not the agent's turn.
+        let ended = json!({"state": "response-ended", "event": "Stop", "at": ago(1)});
+        let background = sess(
+            "s",
+            json!({"attention": ended, "agentStatus": "active", "replyRead": true}),
+        );
+        assert_eq!(
+            crate::session_sections::session_section(&background),
+            crate::session_sections::SessionSection::Working
+        );
+        assert_eq!(status_glyph(&background, "⠋"), "◐");
+        assert_eq!(status_words(&background), "background");
+        assert_eq!(crate::display::status_label(Some(&background)), "background");
+        // Unread, the reply comes first.
+        let unread = sess("s", json!({"attention": ended, "agentStatus": "active"}));
+        assert_eq!(status_glyph(&unread, "⠋"), "◆");
+        assert_eq!(status_words(&unread), "unread reply");
+        // Once the screen settles it is idle.
+        let idle = sess(
+            "s",
+            json!({"attention": ended, "agentStatus": "idle", "replyRead": true}),
+        );
+        assert_eq!(
+            crate::session_sections::session_section(&idle),
+            crate::session_sections::SessionSection::Idle
+        );
+        assert_eq!(status_glyph(&idle, "⠋"), "●");
+        assert_eq!(status_words(&idle), "idle");
     }
 
     #[test]

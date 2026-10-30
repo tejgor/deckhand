@@ -267,6 +267,15 @@ pub fn still_starting(session: &SessionRecord) -> bool {
             && matches!(session.agent_status, None | Some(AgentActivityStatus::Unknown)))
 }
 
+/// Not in the TS: the agent ended its turn and its reply was read, but its screen keeps changing: sub-agents or a
+/// background process still work. The state view lists it under Working; it shows `◐` and reads `background`.
+pub fn in_background(session: &SessionRecord) -> bool {
+    session.status == SessionStatus::Running
+        && session.agent_status == Some(AgentActivityStatus::Active)
+        && session.attention.as_ref().map(|attention| attention.state) == Some(AttentionState::ResponseEnded)
+        && session.reply_read == Some(true)
+}
+
 /// TS: ui.ts statusGlyph (`spinner_frame` while working or starting).
 pub fn status_glyph(session: &SessionRecord, spinner_frame: &str) -> String {
     let attention = session.attention.as_ref().map(|attention| attention.state);
@@ -288,12 +297,13 @@ pub fn status_glyph(session: &SessionRecord, spinner_frame: &str) -> String {
     match session.status {
         SessionStatus::Starting => spinner_frame.to_owned(),
         SessionStatus::Running => match session.agent_status {
-            // Not in the TS: a screen changing after a read reply is not work, and the spinner does not animate for it
-            // (`session_animates`), so it showed one frame that never moved.
             Some(AgentActivityStatus::Active) if attention != Some(AttentionState::ResponseEnded) => {
                 spinner_frame.to_owned()
             }
-            Some(AgentActivityStatus::Active | AgentActivityStatus::Idle) => "●".to_owned(),
+            // Not in the TS: a screen changing after a read reply is background work ([`in_background`]), not the
+            // agent's turn. It does not animate (`session_animates`).
+            Some(AgentActivityStatus::Active) => "◐".to_owned(),
+            Some(AgentActivityStatus::Idle) => "●".to_owned(),
             // Not in the TS (`◌`): activity not known yet reads as starting ([`still_starting`]).
             _ => spinner_frame.to_owned(),
         },
@@ -440,6 +450,9 @@ pub fn status_label(session: Option<&SessionRecord>) -> String {
             AttentionState::ResponseEnded => "unread reply".to_owned(),
             state => state.as_str().to_owned(),
         };
+    }
+    if in_background(session) {
+        return "background".to_owned();
     }
     session
         .agent_status
