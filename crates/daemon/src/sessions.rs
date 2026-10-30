@@ -6,6 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::time::Duration;
 
 use deckhand_core::agent_signals::hooks_enabled;
 use deckhand_core::agents::{LaunchPlan, agent_spec, launch_args, new_agent_ref, relaunch_plan};
@@ -22,10 +23,10 @@ use deckhand_core::tasks::{parse_tasks, task_prompt};
 use deckhand_core::workspace::workspace_key;
 use deckhand_core::worktree_records::{own_worktree_path, project_worktree};
 use deckhand_protocol::data::{
-    AgentActivityStatus, AgentSessionRef, CreateSessionInput, ExitReason, InterruptedWhile, JsNumber, LoadedProject,
-    MoveDirection, OkResult, ProgramKey, RestartMode, SessionRecord, SessionRestartOutcome, SessionSetup,
-    SessionStatus, SessionWorktreeMode, SessionWorktreeRecord, SetupState, SubSessionKind, TaskLink, TaskOp,
-    WorktreeCreator, WorktreeMode, WorktreeOrigin,
+    AgentActivityStatus, AgentSessionRef, AttentionState, CreateSessionInput, ExitReason, InterruptedWhile, JsNumber,
+    LoadedProject, MoveDirection, OkResult, ProgramKey, RestartMode, SessionRecord, SessionRestartOutcome,
+    SessionSetup, SessionStatus, SessionWorktreeMode, SessionWorktreeRecord, SetupState, SubSessionKind, TaskLink,
+    TaskOp, WorktreeCreator, WorktreeMode, WorktreeOrigin,
 };
 use deckhand_protocol::events::{PreviewUpdated, ServerMessage};
 use deckhand_protocol::wire::{
@@ -44,6 +45,7 @@ use deckhand_sys::session_features::export_handoff;
 use deckhand_sys::storage::load_app_config;
 use deckhand_sys::workspace_git::get_handoff_git_context;
 use deckhand_sys::{config::load_project_config, proc};
+use futures::StreamExt;
 use indexmap::IndexMap;
 use nix::sys::signal::Signal;
 use serde::Deserialize;
@@ -58,6 +60,13 @@ use crate::launch::{
 use crate::server::send_message;
 use crate::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
 use crate::worktrees::{STOP_FOR_DELETE, STOP_POLL, is_linked_worktree_root};
+
+/// Not in the TS: how many sessions `restart-sessions` has booting at once.
+pub const RESTART_AT_ONCE: usize = 3;
+
+/// Not in the TS: how long `restart-sessions` waits for a session it started to settle before it starts the next one
+/// anyway (one that never settles must not keep its place).
+pub const RESTART_SETTLE_WAIT: Duration = Duration::from_secs(30);
 
 /// The sessions' part of the daemon state.
 #[derive(Default)]
@@ -1814,13 +1823,13 @@ impl Daemon {
         }
     }
 
-    /// Not in the TS: `restart-sessions`: resumes each session in turn, as `s` does, stopping a running one first (as
-    /// `x` does, and waiting for it to exit), so a running agent picks up its newly installed version and an
-    /// interrupted one comes back. One that cannot be stopped or resumed does not hold up the others: each outcome
-    /// says why.
+    /// Not in the TS: `restart-sessions`: resumes each session, as `s` does, stopping a running one first (as `x` does,
+    /// and waiting for it to exit), so a running agent picks up its newly installed version and an interrupted one comes
+    /// back. At most [`RESTART_AT_ONCE`] boot at a time: the next one starts as soon as one of them has settled (see
+    /// [`Daemon::wait_until_settled`]), so dozens of agents never load at once. One that cannot be stopped or resumed
+    /// does not hold up the others: each outcome, in the order asked, says why.
     pub async fn restart_sessions(&self, session_ids: &[String], cols: i64, rows: i64) -> Vec<SessionRestartOutcome> {
-        let mut outcomes = Vec::with_capacity(session_ids.len());
-        for session_id in session_ids {
+        let restarts = session_ids.iter().enumerate().map(|(index, session_id)| async move {
             self.sessions.borrow_mut().restarting.insert(session_id.clone());
             let result = async {
                 self.stop_and_wait(session_id).await?;
@@ -1829,12 +1838,44 @@ impl Daemon {
             }
             .await;
             self.sessions.borrow_mut().restarting.remove(session_id);
-            outcomes.push(SessionRestartOutcome {
+            if result.is_ok() {
+                self.wait_until_settled(session_id, RESTART_SETTLE_WAIT).await;
+            }
+            let outcome = SessionRestartOutcome {
                 session_id: session_id.clone(),
                 error: result.err().map(|error| error.message().to_owned()),
-            });
+            };
+            (index, outcome)
+        });
+        // Unordered: a slow one keeps its own place busy, not the next ones'.
+        let mut outcomes: Vec<(usize, SessionRestartOutcome)> = futures::stream::iter(restarts)
+            .buffer_unordered(RESTART_AT_ONCE)
+            .collect()
+            .await;
+        outcomes.sort_by_key(|(index, _)| *index);
+        outcomes.into_iter().map(|(_, outcome)| outcome).collect()
+    }
+
+    /// Waits, at most `wait`, until a session just started has booted: its screen settled (activity idle; a restart
+    /// sets it unknown), it waits on you (a prompt such as folder trust), or it is gone or exited.
+    async fn wait_until_settled(&self, session_id: &str, wait: Duration) {
+        let deadline = tokio::time::Instant::now() + wait;
+        while tokio::time::Instant::now() < deadline {
+            let Some(session) = self.get_session(session_id) else {
+                return;
+            };
+            let asks = session
+                .attention
+                .as_ref()
+                .is_some_and(|attention| attention.state == AttentionState::NeedsInput);
+            if session.status == SessionStatus::Exited
+                || session.agent_status == Some(AgentActivityStatus::Idle)
+                || asks
+            {
+                return;
+            }
+            tokio::time::sleep(STOP_POLL).await;
         }
-        outcomes
     }
 
     /// Stops a session that is live (as `x` does) and waits until it has exited; an exited one is left as it is.

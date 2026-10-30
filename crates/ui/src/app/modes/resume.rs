@@ -10,18 +10,22 @@
 //! Enter asks the daemon to resume the ticked ones (`restart-sessions`), stopping a running one first. Both lists
 //! cover every repository the daemon holds sessions for, so each row names its repository.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+use std::time::Duration;
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
+use deckhand_client::live::LiveClient;
 use deckhand_core::agent_signals::live_activity;
 use deckhand_core::agent_versions::{installed_versions, session_outdated};
 use deckhand_core::agents::agent_spec;
 use deckhand_core::display::{HintPart, RowStatus, error_message, fit_hint, session_path_title_by};
-use deckhand_core::jsstr::path;
+use deckhand_core::jsstr::{date, path};
 use deckhand_core::key::Input;
 use deckhand_protocol::data::{InterruptedWhile, ProgramKey, SessionRecord, SessionStatus};
+use deckhand_sys::async_util::{Task, spawn};
 
 use crate::app::state::{App, Mode};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
@@ -296,12 +300,14 @@ fn resume(app: &mut App, kind: ResumeKind, sessions: &[SessionRecord]) {
         ResumeKind::Interrupted => "Resuming",
         ResumeKind::Outdated(_) => "Restarting",
     };
-    // Not busy: stopping each one first can take seconds, and the list shows them coming back meanwhile.
+    // Not busy: the daemon boots a few at a time, so this can take a while; the list shows them coming back.
     app.set_error(None);
     app.set_status(Some(format!("{verb} {}…", sessions_word(ids.len()))));
+    let progress = count_launches(app, &client, &ids, verb);
     let layout = app.layout();
     let reply = client.restart_sessions(&ids, i64::from(layout.preview_cols), i64::from(layout.preview_rows));
     drop(app.dispatch().spawn(reply, move |app: &mut App, result| {
+        progress.abort();
         let outcomes = match result {
             Ok(outcomes) => outcomes,
             Err(error) => {
@@ -337,6 +343,44 @@ fn resume(app: &mut App, kind: ResumeKind, sessions: &[SessionRecord]) {
             )));
         }
     }));
+}
+
+/// How often the status line counts the sessions launched so far.
+const PROGRESS_EVERY: Duration = Duration::from_secs(1);
+
+/// While the daemon resumes `ids`, says how many have launched so far (`Resuming 7 of 23…`): each one whose agent
+/// started after now. Stopped (aborted) once the daemon answers.
+fn count_launches(app: &App, client: &Rc<LiveClient>, ids: &[String], verb: &'static str) -> Task<()> {
+    let since = date::to_iso_string(date::now_ms()).unwrap_or_default();
+    let dispatch = app.dispatch().clone();
+    let client = Rc::clone(client);
+    let ids: HashSet<String> = ids.iter().cloned().collect();
+    spawn(async move {
+        let mut shown = 0;
+        loop {
+            tokio::time::sleep(PROGRESS_EVERY).await;
+            let Ok(sessions) = client.list_sessions().await else {
+                continue;
+            };
+            let launched = sessions
+                .iter()
+                .filter(|session| {
+                    ids.contains(&session.id)
+                        && session
+                            .agent_started_at
+                            .as_deref()
+                            .is_some_and(|at| at > since.as_str())
+                })
+                .count();
+            if launched != shown {
+                shown = launched;
+                let total = ids.len();
+                dispatch.update(move |app: &mut App| {
+                    app.set_status(Some(format!("{verb} {launched} of {total}…")));
+                });
+            }
+        }
+    })
 }
 
 /// A session's name in the list: its path (`parent / child`), as the daemon projected it.
@@ -721,6 +765,16 @@ mod tests {
             assert_eq!(restart["sessionIds"], json!(["a", "c"]));
             daemon.respond(&dismiss, json!({"ok": true})).await;
             apply(&mut app, &mut rx).await;
+            // Meanwhile the status line counts the ones launched since.
+            let poll = daemon.request().await;
+            assert_eq!(poll["type"], "list");
+            let launched = json!([
+                record("a", json!({"status": "running", "agentStartedAt": "2099-01-01T00:00:00.000Z"})),
+                record("c", json!({"agentStartedAt": "2026-01-01T00:00:00.000Z"})),
+            ]);
+            daemon.respond(&poll, launched).await;
+            apply(&mut app, &mut rx).await;
+            assert_eq!(app.messages.status_message.as_deref(), Some("Resuming 1 of 2…"));
             daemon
                 .respond(
                     &restart,

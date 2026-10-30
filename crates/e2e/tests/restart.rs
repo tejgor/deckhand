@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use deckhand_e2e::daemon::{create, id_of, install_agents, launch, must, ready, running, state};
 use deckhand_e2e::fake_agent;
-use deckhand_e2e::harness::{Sandbox, is_alive, repo, wait_exit};
+use deckhand_e2e::harness::{Sandbox, is_alive, repo, stop, wait_exit};
 use serde_json::{Value, json};
 
 /// The build the binary under test reports (the workspace version, as this crate's).
@@ -111,6 +111,59 @@ fn daemons_started_at_once_leave_one_that_offers_the_interrupted_sessions() {
     assert_eq!(session["exitReason"], "interrupted", "{session}");
     assert!(session["interruptedWhile"].is_string(), "{session}");
     assert!(wait_exit(&mut winner, Duration::ZERO).is_none());
+}
+
+#[test]
+fn restarting_sessions_boots_at_most_three_at_a_time() {
+    let root = repo();
+    let sandbox = Sandbox::new("restart-many");
+    let socket = sandbox.socket();
+    let bin = install_agents(&sandbox, fake_agent!());
+    let mut daemon = launch(&sandbox, root.path(), &bin);
+    ready(&socket);
+    let root_path = root.path().to_string_lossy().into_owned();
+    let ids: Vec<String> = (1..=4)
+        .map(|n| {
+            let id = id_of(&create(&socket, &root_path, &format!("agent {n}"), "none", json!({})));
+            running(&socket, &id);
+            id
+        })
+        .collect();
+    let launched = |id: &str| {
+        state(&socket, id)["agentStartedAt"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let before: Vec<String> = ids.iter().map(|id| launched(id)).collect();
+
+    // Running ones are stopped, then resumed: every one comes back.
+    let outcomes = must(
+        &socket,
+        json!({"type": "restart-sessions", "sessionIds": ids, "cols": 80, "rows": 24}),
+    );
+    let expected: Vec<Value> = ids.iter().map(|id| json!({"sessionId": id})).collect();
+    assert_eq!(outcomes, Value::Array(expected));
+    let after: Vec<String> = ids.iter().map(|id| launched(id)).collect();
+    for (id, (old, new)) in ids.iter().zip(before.iter().zip(&after)) {
+        assert!(new > old, "{id} was not launched again: {old} → {new}");
+        assert_eq!(state(&socket, id)["status"], "running");
+    }
+    // The fourth waited for one of the first three to settle (its screen still for a second at least).
+    let millis = |iso: &str| {
+        let time = iso.get(11..23).unwrap_or_default();
+        let parts: Vec<f64> = time
+            .split([':', '.'])
+            .map(|part| part.parse().unwrap_or_default())
+            .collect();
+        ((parts[0] * 60.0 + parts[1]) * 60.0 + parts[2]) * 1000.0 + parts[3]
+    };
+    let first = after[..3].iter().map(|at| millis(at)).fold(f64::INFINITY, f64::min);
+    assert!(
+        millis(&after[3]) - first >= 900.0,
+        "the fourth started with the first three: {after:?}"
+    );
+    stop(&mut daemon);
 }
 
 #[test]
