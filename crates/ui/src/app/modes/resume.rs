@@ -769,7 +769,10 @@ mod tests {
             let poll = daemon.request().await;
             assert_eq!(poll["type"], "list");
             let launched = json!([
-                record("a", json!({"status": "running", "agentStartedAt": "2099-01-01T00:00:00.000Z"})),
+                record(
+                    "a",
+                    json!({"status": "running", "agentStartedAt": "2099-01-01T00:00:00.000Z"})
+                ),
                 record("c", json!({"agentStartedAt": "2026-01-01T00:00:00.000Z"})),
             ]);
             daemon.respond(&poll, launched).await;

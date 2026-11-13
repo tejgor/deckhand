@@ -23,3 +23,7 @@ hosting = "github"
 install-updater = false
 # After the release is published, append whether updating needs a daemon restart (.github/workflows/release-notes.yml)
 post-announce-jobs = ["./release-notes"]
+
+# GitHub retired the macos-14 image dist defaults to for Apple silicon builds
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
