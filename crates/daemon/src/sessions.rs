@@ -3093,6 +3093,7 @@ mod tests {
     fn set_reply_read_records_when_the_reply_was_read_and_clears_it() {
         local(async {
             let dir = tempfile::tempdir().unwrap();
+            let _home = Home::set(dir.path());
             let daemon = daemon(dir.path());
             let ended = json!({"state": "response-ended", "event": "Stop", "at": "2026-01-01T00:00:00.000Z"});
             put(
