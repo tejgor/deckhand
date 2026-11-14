@@ -1,5 +1,6 @@
 //! The orchestrator in the UI, in a real PTY: a plan applied while you are attached to a session detaches you to the
-//! confirmation, `enter` creates it and attaches you again; `O` starts the repository's orchestrator, then attaches.
+//! confirmation, `enter` creates it and attaches you again; `O` asks what you want to do and starts a new
+//! orchestrator for the idea, every time.
 
 use std::fs;
 use std::io::Read;
@@ -117,10 +118,40 @@ fn a_plan_detaches_you_to_its_confirmation_and_enter_creates_it_then_attaches_ag
     ui.press("\x1d");
     ui.screen("Auth rework");
 
-    // O starts the repository's orchestrator (◎) and selects it; once it runs, O attaches to it.
+    // O asks what you want to do; enter starts an orchestrator for the idea (◎, named after it) and selects it; once
+    // it runs, enter attaches to it.
     ui.press("O");
-    ui.screen("◎ orchestrator · pl");
+    ui.screen("What do you want to do?");
+    ui.press("Rework auth");
+    ui.screen("What do you want to do? Rework auth");
+    ui.press("\r");
+    let started = ui.screen("◎ orchestrator · pl");
+    assert!(started.contains("Rework auth"), "{started}");
     wait_until_attachable(&ui);
+    ui.press("\r");
+    wait_attached(&ui, "Rework auth");
+
+    // Another idea, while that one runs: another orchestrator. Esc on the prompt starts nothing.
+    ui.press("\x1d");
+    ui.screen("q quit");
     ui.press("O");
-    wait_attached(&ui, "Orchestrator");
+    ui.screen("What do you want to do?");
+    ui.press("Never mind");
+    ui.press("\x1b");
+    let frame = wait_for(
+        || ui.screen_text(),
+        |frame| !frame.contains("What do you want to do?"),
+        Duration::from_secs(5),
+    );
+    assert!(!frame.contains("Never mind"), "{frame}");
+    ui.press("O");
+    ui.screen("What do you want to do?");
+    ui.press("Speed up the build");
+    ui.press("\r");
+    let both = wait_for(
+        || ui.screen_text(),
+        |frame| frame.contains("Speed up the build") && frame.contains("Rework auth") && !frame.contains("What do"),
+        Duration::from_secs(15),
+    );
+    assert!(both.matches("◎ ").count() >= 2, "{both}");
 }

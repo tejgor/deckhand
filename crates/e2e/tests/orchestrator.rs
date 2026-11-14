@@ -1,6 +1,6 @@
 //! The orchestrator, black-box: `deckhand plan check|apply` against a real daemon with fake agents, a UI connection
-//! answering the confirmation (`plan-pending` → `plan-decide`), `deckhand do` starting the orchestrator and handing a
-//! running one a request, and `deckhand new --parent` from the orchestrator.
+//! answering the confirmation (`plan-pending` → `plan-decide`), `deckhand do` starting a new orchestrator per idea,
+//! an orchestrator's plan becoming its tree under its idea's line, and what its commands may do (its tree).
 
 use std::fs;
 use std::io::Read;
@@ -341,8 +341,39 @@ fn a_plan_waits_for_confirmation_then_creates_parents_first_with_their_briefs() 
     stop(&mut daemon);
 }
 
+/// The repository's lines (`deckhand task list --json`).
+fn lines(sandbox: &Sandbox, bin: &Path, root: &Path) -> Vec<Value> {
+    json_of(&cli(sandbox, bin, root, &["task", "list", "--json"], &[]))
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// The line titled `title`.
+fn line_titled(lines: &[Value], title: &str) -> Value {
+    lines
+        .iter()
+        .find(|line| line["title"] == title)
+        .cloned()
+        .unwrap_or_else(|| panic!("no line {title}: {lines:#?}"))
+}
+
+/// The note of `kind` (`line`, `brief`) of line `id`, as `watch-tasks` answers it.
+fn note_of(socket: &Path, root: &Path, kind: &str, id: &Value) -> Value {
+    let doc = must(socket, json!({"type": "watch-tasks", "cwd": p(root)}));
+    doc["notes"]
+        .as_array()
+        .and_then(|notes| {
+            notes
+                .iter()
+                .find(|note| note["kind"] == kind && note["id"] == *id)
+                .cloned()
+        })
+        .unwrap_or_default()
+}
+
 #[test]
-fn the_orchestrator_applies_plans_it_is_recorded_as_starting_and_a_late_ui_still_confirms() {
+fn an_orchestrators_plan_becomes_its_tree_under_its_idea_and_a_late_ui_still_confirms() {
     let root = repo();
     let sandbox = Sandbox::new("plan-orch");
     let root_path: PathBuf = fs::canonicalize(root.path()).expect("realpath");
@@ -350,29 +381,70 @@ fn the_orchestrator_applies_plans_it_is_recorded_as_starting_and_a_late_ui_still
     let mut daemon = launch(&sandbox, &root_path, &bin);
     ready(&sandbox.socket());
     let socket = sandbox.socket();
+    let run = |args: &[&str]| cli(&sandbox, &bin, &root_path, args, &[]);
 
-    // `deckhand do` starts the orchestrator with the request as its first message.
-    let started = json_of(&cli(
-        &sandbox,
-        &bin,
-        &root_path,
-        &["do", "Split", "the", "auth", "rework", "--json"],
-        &[],
-    ));
-    assert_eq!(started["started"], true, "{started}");
+    // `deckhand do` starts an orchestrator for the idea: titled by its first line, the idea its first message, on a
+    // new top-level line of the same title.
+    let started = json_of(&run(&[
+        "do",
+        "Rework auth\nso that tokens are stored encrypted",
+        "--json",
+    ]));
     let orchestrator = running(&socket, &id(&started["session"]));
     assert_eq!(orchestrator["role"], "orchestrator");
-    assert_eq!(orchestrator["title"], "Orchestrator");
+    assert_eq!(orchestrator["title"], "Rework auth");
     assert!(orchestrator["parentSessionId"].is_null());
     assert_eq!(orchestrator["cwd"], p(&root_path));
-    assert!(launched_with(&sandbox, &id(&orchestrator), "Split the auth rework"));
+    assert!(launched_with(
+        &sandbox,
+        &id(&orchestrator),
+        "so that tokens are stored encrypted"
+    ));
+    let idea = line_titled(&lines(&sandbox, &bin, &root_path), "Rework auth");
+    assert_eq!(idea["session"], orchestrator["id"], "{idea}");
+    assert!(idea["parent"].is_null(), "{idea}");
+    assert_eq!(started["lineId"], idea["id"]);
     let as_orchestrator = identity(&sandbox, &id(&orchestrator));
     let env = env_of(&as_orchestrator);
 
-    let plan = json!({"sessions": [{"key": "auth", "title": "Auth rework", "prompt": "Brief: rework auth"}]});
+    // A session of the user's, outside the orchestrator's tree: a plan may still put work under it (the user
+    // confirms), but the orchestrator's commands may not touch it.
+    let mine = json_of(&run(&["new", "--title", "Mine", "--worktree", "none", "--json"]));
+    let mine = running(&socket, &id(&mine));
+
+    let plan = json!({
+        "sessions": [
+            {"key": "tokens", "title": "Token storage", "prompt": "Brief: store the tokens"},
+            {"key": "schema", "title": "Schema", "prompt": "Brief: the schema", "parent": "tokens"},
+            {"key": "theirs", "title": "Their tests", "prompt": "Brief: tests", "parent": &id(&mine)[..8],
+             "worktree": "none"},
+        ],
+        "tasks": [{"title": "Remove legacy endpoint", "details": "Waits for Token storage to merge"}],
+        "brief": "Problem: tokens sit in plain text.\nRuled out: SSO.",
+    });
     let plan_file = sandbox.root().join("plan.json");
     fs::write(&plan_file, plan.to_string()).expect("write the plan");
     let plan_path = p(&plan_file);
+
+    // Checked from the orchestrator: it goes under the idea.
+    let checked = cli(&sandbox, &bin, &root_path, &["plan", "check", &plan_path], &env);
+    assert!(checked.status.success(), "{}", text(&checked.stderr));
+    let summary = text(&checked.stdout);
+    assert!(summary.starts_with("Under ◎ Rework auth:\n"), "{summary}");
+    assert!(
+        summary.contains("◇ Token storage  (new worktree · claude)"),
+        "{summary}"
+    );
+    assert!(summary.contains("☐ Parked: Remove legacy endpoint"), "{summary}");
+    assert!(summary.contains("✎ The idea's brief (2 lines)"), "{summary}");
+    // By hand, a brief has no idea to go to.
+    let refused = run(&["plan", "check", &plan_path]);
+    assert!(!refused.status.success());
+    assert!(
+        text(&refused.stderr).contains("brief is the idea's brief"),
+        "{}",
+        text(&refused.stderr)
+    );
 
     // A UI that connects while the plan waits is told about it, and its answer counts. Esc: nothing is created.
     let first_ui = subscribed(&socket, &p(&root_path));
@@ -382,7 +454,8 @@ fn the_orchestrator_applies_plans_it_is_recorded_as_starting_and_a_late_ui_still
     let pending = wait_pending(&ui, 0);
     assert_eq!(pending["id"], waiting["id"]);
     assert_eq!(pending["callerSessionId"], orchestrator["id"]);
-    assert_eq!(pending["callerTitle"], "Orchestrator");
+    assert_eq!(pending["callerTitle"], "Rework auth");
+    assert_eq!(pending["summary"]["idea"], "Rework auth");
     ui.request(json!({"type": "plan-decide", "planId": pending["id"], "approve": false}))
         .expect("reject");
     let cancelled = finish(cancelled);
@@ -392,15 +465,10 @@ fn the_orchestrator_applies_plans_it_is_recorded_as_starting_and_a_late_ui_still
         "{}",
         text(&cancelled.stdout)
     );
-    assert!(
-        text(&cancelled.stderr).contains("Cancelled in Deckhand"),
-        "{}",
-        text(&cancelled.stderr)
-    );
     let listed = ui.request(json!({"type": "list"})).expect("list");
-    assert_eq!(listed.as_array().map(Vec::len), Some(1), "{listed}");
+    assert_eq!(listed.as_array().map(Vec::len), Some(2), "{listed}");
 
-    // Enter: its sessions are top-level and recorded as started by the orchestrator.
+    // Enter: the plan becomes the orchestrator's tree.
     let applying = spawn_cli(
         &sandbox,
         &bin,
@@ -413,19 +481,63 @@ fn the_orchestrator_applies_plans_it_is_recorded_as_starting_and_a_late_ui_still
         .expect("approve");
     let outcome = json_of(&finish(applying));
     assert_eq!(outcome["status"], "created", "{outcome}");
-    let auth = running(&socket, &id(&outcome["sessions"][0]["session"]));
-    assert!(auth["parentSessionId"].is_null(), "{auth}");
-    assert_eq!(auth["spawnedBySessionId"], orchestrator["id"], "{auth}");
-    // Its brief is its line's, written by the orchestrator.
-    let doc = must(&socket, json!({"type": "watch-tasks", "cwd": p(&root_path)}));
-    let brief = doc["notes"]
-        .as_array()
-        .and_then(|notes| notes.iter().find(|note| note["kind"] == "brief").cloned())
-        .unwrap_or_default();
-    assert_eq!(brief["from"], "◎ Orchestrator", "{doc}");
-    assert_eq!(brief["text"], "Brief: rework auth\n");
+    let session_of = |key: &str| {
+        outcome["sessions"]
+            .as_array()
+            .and_then(|created| created.iter().find(|entry| entry["key"] == key))
+            .map(|entry| id(&entry["session"]))
+            .unwrap_or_default()
+    };
+    let tokens = running(&socket, &session_of("tokens"));
+    let schema = running(&socket, &session_of("schema"));
+    let theirs = running(&socket, &session_of("theirs"));
+    // A top-level entry is the orchestrator's sub-session, flat: the orchestrator has no worktree to stack on.
+    assert_eq!(tokens["parentSessionId"], orchestrator["id"], "{tokens}");
+    assert_eq!(tokens["spawnedBySessionId"], orchestrator["id"], "{tokens}");
+    assert!(tokens["worktree"]["targetBranch"].is_null(), "{tokens}");
+    assert!(
+        !tokens["worktree"]["branch"].as_str().unwrap_or_default().is_empty(),
+        "{tokens}"
+    );
+    // Its children stack on it, as anywhere.
+    assert_eq!(schema["parentSessionId"], tokens["id"]);
+    assert_eq!(
+        schema["worktree"]["targetBranch"], tokens["worktree"]["branch"],
+        "{schema}"
+    );
+    // Under a session outside its tree: there, and only recorded as started by the orchestrator.
+    assert_eq!(theirs["parentSessionId"], mine["id"]);
+    assert_eq!(theirs["spawnedBySessionId"], orchestrator["id"]);
+    // The orchestrator stays: one per idea, it is there to extend it.
+    assert_eq!(state(&socket, &id(&orchestrator))["status"], "running");
 
-    // It may start sessions under what it started (and end them); not under the user's own sessions.
+    // The lines line up with the sessions: under the idea's line, the parked work too; the idea has its brief.
+    let all = lines(&sandbox, &bin, &root_path);
+    let tokens_line = line_titled(&all, "Token storage");
+    assert_eq!(tokens_line["parent"], idea["id"], "{all:#?}");
+    assert_eq!(tokens_line["session"], tokens["id"]);
+    assert_eq!(line_titled(&all, "Schema")["parent"], tokens_line["id"]);
+    let parked = line_titled(&all, "Remove legacy endpoint");
+    assert_eq!(parked["parent"], idea["id"], "{parked}");
+    assert!(parked["session"].is_null() && parked["note"] == true, "{parked}");
+    assert!(
+        note_of(&socket, &root_path, "line", &parked["id"])["text"]
+            .as_str()
+            .is_some_and(|note| note.contains("Waits for Token storage to merge")),
+        "{parked}"
+    );
+    let brief = note_of(&socket, &root_path, "brief", &idea["id"]);
+    assert_eq!(
+        brief["text"], "Problem: tokens sit in plain text.\nRuled out: SSO.\n",
+        "{brief}"
+    );
+    assert_eq!(brief["from"], "◎ Rework auth", "{brief}");
+    let tokens_brief = note_of(&socket, &root_path, "brief", &tokens_line["id"]);
+    assert_eq!(tokens_brief["text"], "Brief: store the tokens\n");
+    assert_eq!(tokens_brief["from"], "◎ Rework auth");
+
+    // Permissions follow the tree: under its descendants, yes; under the user's session, or its own top-level
+    // session, no.
     let child = json_of(&cli(
         &sandbox,
         &bin,
@@ -433,9 +545,9 @@ fn the_orchestrator_applies_plans_it_is_recorded_as_starting_and_a_late_ui_still
         &[
             "new",
             "--parent",
-            &id(&auth)[..8],
+            &id(&schema)[..8],
             "--title",
-            "Token storage",
+            "Index",
             "--prompt",
             "Brief",
             "--json",
@@ -443,51 +555,59 @@ fn the_orchestrator_applies_plans_it_is_recorded_as_starting_and_a_late_ui_still
         &env,
     ));
     let child = running(&socket, &id(&child));
-    assert_eq!(child["parentSessionId"], auth["id"]);
-    assert_eq!(child["spawnedBySessionId"], orchestrator["id"]);
-    assert_eq!(child["worktree"]["targetBranch"], auth["worktree"]["branch"], "{child}");
-    let users = json_of(&cli(
+    assert_eq!(child["parentSessionId"], schema["id"]);
+    let sibling = json_of(&cli(
         &sandbox,
         &bin,
         &root_path,
-        &["new", "--title", "Mine", "--json"],
-        &[],
-    ));
-    let refused = cli(
-        &sandbox,
-        &bin,
-        &root_path,
-        &["new", "--parent", &id(&users), "--title", "Sneaky", "--json"],
+        &["new", "--top-level", "--worktree", "none", "--title", "Aside", "--json"],
         &env,
-    );
-    assert!(!refused.status.success());
-    assert!(
-        text(&refused.stderr).contains("starts sessions only under the session it runs in"),
-        "{}",
-        text(&refused.stderr)
-    );
+    ));
+    assert_eq!(sibling["spawnedBySessionId"], orchestrator["id"], "{sibling}");
+    for parent in [id(&mine), id(&theirs), id(&sibling)] {
+        let refused = cli(
+            &sandbox,
+            &bin,
+            &root_path,
+            &["new", "--parent", &parent, "--title", "Sneaky", "--json"],
+            &env,
+        );
+        assert!(!refused.status.success());
+        assert!(
+            text(&refused.stderr).contains("starts sessions only under the session it runs in"),
+            "{}",
+            text(&refused.stderr)
+        );
+    }
     let ended = cli(&sandbox, &bin, &root_path, &["kill", &id(&child)], &env);
     assert!(ended.status.success(), "{}", text(&ended.stderr));
     wf(|| state(&socket, &id(&child)), |child| child["status"] == "exited");
-    let refused = cli(&sandbox, &bin, &root_path, &["kill", &id(&users)], &env);
-    assert!(!refused.status.success());
+    for outside in [id(&mine), id(&theirs), id(&sibling)] {
+        let refused = cli(&sandbox, &bin, &root_path, &["kill", &outside], &env);
+        assert!(!refused.status.success());
+        assert!(
+            text(&refused.stderr).contains("Only the sessions under this session"),
+            "{}",
+            text(&refused.stderr)
+        );
+    }
 
-    // Another session may not apply a plan, or hand requests to the orchestrator.
-    let as_auth = identity(&sandbox, &id(&auth));
+    // Another session may not apply a plan, or start an orchestrator.
+    let as_tokens = identity(&sandbox, &id(&tokens));
     let refused = cli(
         &sandbox,
         &bin,
         &root_path,
         &["plan", "apply", &plan_path],
-        &env_of(&as_auth),
+        &env_of(&as_tokens),
     );
     assert!(!refused.status.success());
     assert!(
-        text(&refused.stderr).contains("runs only in the repository's orchestrator session"),
+        text(&refused.stderr).contains("runs only in an orchestrator session"),
         "{}",
         text(&refused.stderr)
     );
-    let refused = cli(&sandbox, &bin, &root_path, &["do", "More work"], &env_of(&as_auth));
+    let refused = cli(&sandbox, &bin, &root_path, &["do", "More work"], &env_of(&as_tokens));
     assert!(!refused.status.success());
     assert!(
         text(&refused.stderr).contains("deckhand do is for you"),
@@ -499,7 +619,65 @@ fn the_orchestrator_applies_plans_it_is_recorded_as_starting_and_a_late_ui_still
 }
 
 #[test]
-fn do_hands_a_running_orchestrator_the_request_only_while_it_is_idle() {
+fn the_idea_ticks_when_every_line_under_it_is_ticked() {
+    let root = repo();
+    let sandbox = Sandbox::new("plan-idea-done");
+    let root_path: PathBuf = fs::canonicalize(root.path()).expect("realpath");
+    let bin = install_agents(&sandbox, fake_agent!());
+    let mut daemon = launch(&sandbox, &root_path, &bin);
+    ready(&sandbox.socket());
+    let socket = sandbox.socket();
+    let run = |args: &[&str]| cli(&sandbox, &bin, &root_path, args, &[]);
+
+    let started = json_of(&run(&["do", "Tidy the docs", "--json"]));
+    let orchestrator = running(&socket, &id(&started["session"]));
+    let env_identity = identity(&sandbox, &id(&orchestrator));
+    let plan = json!({"tasks": [{"title": "Fix the links"}, {"title": "Spell check"}]});
+    let plan_file = sandbox.root().join("plan.json");
+    fs::write(&plan_file, plan.to_string()).expect("write the plan");
+    let mut ui = subscribed(&socket, &p(&root_path));
+    let applying = spawn_cli(
+        &sandbox,
+        &bin,
+        &root_path,
+        &["plan", "apply", "--json", &p(&plan_file)],
+        &env_of(&env_identity),
+    );
+    let pending = wait_pending(&ui, 0);
+    ui.request(json!({"type": "plan-decide", "planId": pending["id"], "approve": true}))
+        .expect("approve");
+    let outcome = json_of(&finish(applying));
+    assert_eq!(outcome["status"], "created", "{outcome}");
+
+    let idea_id = started["lineId"].clone();
+    let idea = |all: &[Value]| {
+        all.iter()
+            .find(|line| line["id"] == idea_id)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let all = lines(&sandbox, &bin, &root_path);
+    assert_eq!(
+        (idea(&all)["ticked"].clone(), idea(&all)["total"].clone()),
+        (json!(0), json!(2))
+    );
+    let done = run(&["task", "done", outcome["tasks"][0]["id"].as_str().unwrap_or_default()]);
+    assert!(done.status.success(), "{}", text(&done.stderr));
+    assert_eq!(idea(&lines(&sandbox, &bin, &root_path))["done"], false);
+    let done = run(&["task", "done", outcome["tasks"][1]["id"].as_str().unwrap_or_default()]);
+    assert!(done.status.success(), "{}", text(&done.stderr));
+    let all = lines(&sandbox, &bin, &root_path);
+    assert_eq!(idea(&all)["done"], true, "{all:#?}");
+    // Reopening a line under it reopens the idea.
+    let reopened = run(&["task", "reopen", outcome["tasks"][1]["id"].as_str().unwrap_or_default()]);
+    assert!(reopened.status.success(), "{}", text(&reopened.stderr));
+    assert_eq!(idea(&lines(&sandbox, &bin, &root_path))["done"], false);
+
+    stop(&mut daemon);
+}
+
+#[test]
+fn do_always_starts_a_new_orchestrator_and_several_run_at_once() {
     let root = repo();
     let sandbox = Sandbox::new("plan-do");
     let root_path: PathBuf = fs::canonicalize(root.path()).expect("realpath");
@@ -512,78 +690,70 @@ fn do_hands_a_running_orchestrator_the_request_only_while_it_is_idle() {
     let first = run(&["do", "Plan the auth work"]);
     assert!(first.status.success(), "{}", text(&first.stderr));
     let printed = text(&first.stdout);
-    assert!(printed.starts_with("Started the orchestrator "), "{printed}");
+    assert!(printed.starts_with("Started an orchestrator "), "{printed}");
+    assert!(printed.contains("for your idea: ◎ Plan the auth work."), "{printed}");
     assert!(
-        printed.contains("select Orchestrator and press enter to attach"),
+        printed.contains("select ◎ Plan the auth work and press enter to attach"),
         "{printed}"
     );
-    let orchestrator = wf(
-        || {
-            ui_list(&socket)
-                .into_iter()
-                .find(|session| session["role"] == "orchestrator")
-        },
-        Option::is_some,
-    )
-    .unwrap_or_default();
-    let orchestrator_id = id(&orchestrator);
-    assert!(printed.contains(&orchestrator_id[..8]), "{printed}");
-    // Once its agent sits idle at its input, a second request is typed and sent.
+    let orchestrators = || {
+        ui_list(&socket)
+            .into_iter()
+            .filter(|session| session["role"] == "orchestrator")
+            .collect::<Vec<_>>()
+    };
+    let first = wf(orchestrators, |found| found.len() == 1)
+        .first()
+        .cloned()
+        .unwrap_or_default();
+    let first = running(&socket, &id(&first));
+    // Once it runs and sits idle, a second request is not typed into it: it starts another orchestrator, numbered
+    // when the idea's name is taken.
     wait_for(
-        || state(&socket, &orchestrator_id),
-        |session| session["status"] == "running" && session["agentStatus"] == "idle",
+        || state(&socket, &id(&first)),
+        |session| session["agentStatus"] == "idle",
         Duration::from_secs(20),
     );
-    let second = run(&["do", "Also", "the", "login", "UI", "--json"]);
-    let delivered = json_of(&second);
-    assert_eq!(
-        (delivered["started"].clone(), delivered["delivered"].clone()),
-        (json!(false), json!(true))
-    );
-    assert_eq!(id(&delivered["session"]), orchestrator_id);
-    let input = sandbox.home().join(format!("input-{orchestrator_id}"));
-    wait_for(
-        || fs::read_to_string(&input).unwrap_or_default(),
-        |typed| typed.contains("\u{1b}[200~Also the login UI\u{1b}[201~\r"),
-        Duration::from_secs(10),
-    );
-    // Only one orchestrator: no second one started.
-    let orchestrators = ui_list(&socket)
-        .into_iter()
-        .filter(|session| session["role"] == "orchestrator")
-        .count();
-    assert_eq!(orchestrators, 1);
-
-    // While it works, nothing is sent.
-    let as_orchestrator = identity(&sandbox, &orchestrator_id);
-    let mut hook = sandbox.cli(&["hook"]);
-    hook.current_dir(&root_path).stdin(Stdio::piped()).stdout(Stdio::null());
-    for (key, value) in &as_orchestrator {
-        hook.env(key, value);
-    }
-    let mut hook = sandbox.spawn(hook);
-    {
-        use std::io::Write;
-        let mut stdin = hook.stdin.take().expect("stdin");
-        stdin
-            .write_all(br#"{"hook_event_name":"UserPromptSubmit","prompt":"x"}"#)
-            .expect("hook input");
-    }
-    wait_exit(&mut hook, Duration::from_secs(10)).expect("the hook finished");
-    wait_for(
-        || state(&socket, &orchestrator_id),
-        |session| session["attention"]["state"] == "working",
-        Duration::from_secs(10),
-    );
-    let before = fs::read_to_string(&input).unwrap_or_default();
-    let busy = run(&["do", "Third"]);
-    assert!(!busy.status.success());
+    let second = json_of(&run(&["do", "Plan the auth work", "--json"]));
+    assert!(second.get("delivered").is_none(), "{second}");
+    assert_ne!(id(&second["session"]), id(&first));
+    let second = running(&socket, &id(&second["session"]));
+    assert_eq!(second["title"], "Plan the auth work 2");
+    let third = json_of(&run(&["do", "Speed up the build", "--json"]));
+    let third = running(&socket, &id(&third["session"]));
+    assert!(launched_with(&sandbox, &id(&third), "Speed up the build"));
+    assert_eq!(orchestrators().len(), 3);
+    let input = sandbox.home().join(format!("input-{}", id(&first)));
     assert!(
-        text(&busy.stderr).contains("is busy with a turn: try again when it is idle; nothing was sent"),
-        "{}",
-        text(&busy.stderr)
+        !fs::read_to_string(&input)
+            .unwrap_or_default()
+            .contains("Plan the auth work"),
+        "nothing was typed into the first"
     );
-    assert_eq!(fs::read_to_string(&input).unwrap_or_default(), before);
+    // Each is on its own idea's line.
+    let all = lines(&sandbox, &bin, &root_path);
+    for (orchestrator, title) in [
+        (&first, "Plan the auth work"),
+        (&second, "Plan the auth work 2"),
+        (&third, "Speed up the build"),
+    ] {
+        let line = line_titled(&all, title);
+        assert_eq!(line["session"], orchestrator["id"], "{line}");
+        assert!(line["parent"].is_null(), "{line}");
+    }
+
+    // An exited one resumes while the others run (no longer one per repository).
+    let mut ui = subscribed(&socket, &p(&root_path));
+    ui.request(json!({"type": "kill", "sessionId": id(&first)}))
+        .expect("kill");
+    wf(|| state(&socket, &id(&first)), |session| session["status"] == "exited");
+    ui.request(json!({"type": "restart", "sessionId": id(&first), "cols": 80, "rows": 24}))
+        .expect("restart");
+    running(&socket, &id(&first));
+    // Without an idea, nothing starts.
+    let refused = run(&["do", " "]);
+    assert!(!refused.status.success());
+    assert_eq!(orchestrators().len(), 3);
 
     stop(&mut daemon);
 }
