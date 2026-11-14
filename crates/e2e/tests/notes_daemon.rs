@@ -1,9 +1,12 @@
-//! Notes, black-box: drives DECKHAND_TEST_BIN.
+//! Notes, black-box: drives DECKHAND_TEST_BIN. Every session has its own note; a line has a note (and a brief); the
+//! repository has a scratchpad. Each is a Markdown file under `notes/`.
 
 use deckhand_e2e::harness::repo;
+use deckhand_e2e::tasks::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use deckhand_e2e::client::Client;
 use deckhand_e2e::daemon::*;
 use deckhand_e2e::harness::{Sandbox, wait_for_default};
 use serde_json::{Value, json};
@@ -13,22 +16,16 @@ fn kill_and_wait(socket: &Path, id: &str) {
     wait_for_default(|| state(socket, id), |item| item["status"] == "exited");
 }
 
-fn save(socket: &Path, id: &str, section: &str, text: &str, revision: Option<&str>) -> Result<Value, String> {
-    let current = state(socket, id);
+/// Saves a session's own note (at its current revision unless `revision`).
+fn save(socket: &Path, id: &str, text: &str, revision: Option<&str>) -> Result<Value, String> {
     let base = match revision {
         Some(revision) => revision.to_string(),
-        None if section == "session" => current["notesFile"]["revision"].as_str().unwrap().to_string(),
-        None => current["sharedNotes"]["revision"].as_str().unwrap().to_string(),
+        None => state(socket, id)["notesFile"]["revision"].as_str().unwrap().to_string(),
     };
-    let mut message = json!({"type": "save-note", "sessionId": id, "section": section, "text": text, "revision": base});
-    if section == "shared" {
-        message["noteId"] = json!(format!(
-            "{}:{}",
-            current["sharedNotes"]["kind"].as_str().unwrap(),
-            current["sharedNotes"]["id"].as_str().unwrap()
-        ));
-    }
-    call(socket, message)
+    call(
+        socket,
+        json!({"type": "save-note", "note": {"kind": "session", "id": id}, "text": text, "revision": base}),
+    )
 }
 
 fn names(dir: &Path) -> Vec<String> {
@@ -41,7 +38,6 @@ fn names(dir: &Path) -> Vec<String> {
         .unwrap_or_default()
 }
 
-// ported from tests/notesDaemon.test.ts: notes are Markdown files: legacy migration, revision-checked saves, editor edits picked up, shared worktree and repository notes, lifetimes
 #[test]
 fn notes_are_markdown_files() {
     let repo_dir = repo();
@@ -69,18 +65,29 @@ fn notes_are_markdown_files() {
     );
     let mut daemon = launch(&sandbox, &root_path, &bin);
     ready(&socket);
+    let lines = || lines_of(&must(&socket, json!({"type": "watch-tasks", "cwd": root})));
 
-    // ported from tests/notesDaemon.test.ts: legacy notes move into their file once, and state.json stops carrying notes
+    // Legacy notes move into their file, then (the work-items migration) into the list: the session's line, with the
+    // note's checkbox as a step and its prose as the line's note; state.json stops carrying notes.
     {
         let legacy = state(&socket, &legacy_id);
         let file = home.join("notes").join("sessions").join(format!("{legacy_id}.md"));
-        assert_eq!(legacy["notes"], "legacy note\n- [ ] carry over");
+        assert_eq!(legacy["notes"], "");
         assert_eq!(legacy["notesFile"]["path"], json!(p(&file)));
-        assert_eq!(text_of(&file).as_deref(), Some("legacy note\n- [ ] carry over"));
+        let list = lines();
+        let line = line_titled(&list, "legacy").expect("the session's line");
+        assert_eq!(line.meta("s"), Some(legacy_id.as_str()));
+        assert_eq!(titles_under(&list, &line.id), ["carry over"]);
+        assert_eq!(
+            text_of(&home.join("notes").join("lines").join(format!("{}.md", line.id))).as_deref(),
+            Some("legacy note\n")
+        );
+        assert!(home.join("notes").join("work-items-migrated.json").exists());
         assert!(load_state(&home)["sessions"][0]["notes"].is_null());
         let raw = fs::read_to_string(home.join("state.json")).unwrap();
         assert!(!raw.contains("legacy note") && !raw.contains("notesFile") && !raw.contains("sharedNotes"));
-        // Idempotent: a state.json that still has (older) notes never overwrites the file, which wins.
+        // Idempotent: a state.json that still has (older) notes never overwrites a session's file, which wins, and the
+        // migration does not run again.
         fs::write(&file, "edited since").unwrap();
         deckhand_e2e::harness::stop(&mut daemon);
         let mut stored = load_state(&home);
@@ -92,17 +99,21 @@ fn notes_are_markdown_files() {
         ready(&socket);
         assert_eq!(state(&socket, &legacy_id)["notes"], "edited since");
         assert_eq!(text_of(&file).as_deref(), Some("edited since"));
+        assert_eq!(lines().len(), 2, "the list as it was");
         assert!(load_state(&home)["sessions"][0]["notes"].is_null());
     }
 
     let live = subscribed(&socket, root);
 
-    // ported from tests/notesDaemon.test.ts: saves are revision-checked and broadcast; an editor's edit (in place or by rename) shows up; a stale save is refused
+    // Saves are revision-checked and broadcast; an editor's edit (in place or by rename) shows up; a stale save is
+    // refused.
     {
         let file = PathBuf::from(state(&socket, &legacy_id)["notesFile"]["path"].as_str().unwrap());
         let mark = live.events().len();
-        let saved = save(&socket, &legacy_id, "session", "# Plan\n- [ ] one", None).unwrap();
+        let saved = save(&socket, &legacy_id, "# Plan\n- [ ] one", None).unwrap();
         assert_eq!(saved["saved"], true);
+        assert_eq!(saved["note"]["kind"], "session");
+        assert_eq!(saved["note"]["text"], "# Plan\n- [ ] one");
         assert_eq!(saved["session"]["notes"], "# Plan\n- [ ] one");
         assert_eq!(text_of(&file).as_deref(), Some("# Plan\n- [ ] one"));
         updated(&live, mark, &legacy_id, |s| s["notes"] == "# Plan\n- [ ] one");
@@ -110,36 +121,34 @@ fn notes_are_markdown_files() {
             .as_str()
             .unwrap()
             .to_string();
-        // An editor writing in place, then one saving through a temporary file and a rename.
         fs::write(&file, "edited in VS Code").unwrap();
         updated(&live, mark, &legacy_id, |s| s["notes"] == "edited in VS Code");
         let temporary = file.parent().unwrap().join("vim-swap.tmp");
         fs::write(&temporary, "saved via rename").unwrap();
         fs::rename(&temporary, &file).unwrap();
         updated(&live, mark, &legacy_id, |s| s["notes"] == "saved via rename");
-        // Deckhand's draft was based on the old revision: refused, nothing written, the file as it is comes back.
-        let stale = save(&socket, &legacy_id, "session", "clobber", Some(&base)).unwrap();
+        let stale = save(&socket, &legacy_id, "clobber", Some(&base)).unwrap();
         assert_eq!(stale["saved"], false);
         assert_eq!(stale["session"]["notes"], "saved via rename");
         assert_eq!(text_of(&file).as_deref(), Some("saved via rename"));
         // Text is capped; a file made longer elsewhere is shown cut and only editable in an editor.
         let long = "x".repeat(50_010);
-        let capped = save(&socket, &legacy_id, "session", &long, None).unwrap();
+        let capped = save(&socket, &legacy_id, &long, None).unwrap();
         assert_eq!(
             capped["session"]["notes"].as_str().map(|s| s.chars().count()),
             Some(50_000)
         );
         fs::write(&file, "y".repeat(60_000)).unwrap();
         updated(&live, mark, &legacy_id, |s| !falsy(&s["notesFile"]["tooLarge"]));
-        rejects(save(&socket, &legacy_id, "session", "short", None), "longer than");
-        assert_eq!(text_of(&file).map(|s| s.len()), Some(60_000));
+        rejects(save(&socket, &legacy_id, "short", None), "longer than");
         fs::write(&file, "back to normal").unwrap();
         updated(&live, mark, &legacy_id, |s| {
             s["notes"] == "back to normal" && falsy(&s["notesFile"]["tooLarge"])
         });
     }
 
-    // ported from tests/notesDaemon.test.ts: every session of a worktree shares its note (attached and mode-none sub-sessions too); handoffs include it
+    // Every session has its own note, sessions sharing a worktree too; a line's note reaches the clients watching the
+    // list; a handoff carries the line, its note and the session's own note.
     let first = running(&socket, &id_of(&create(&socket, root, "notes-a", "new", json!({}))));
     let attached = running(
         &socket,
@@ -151,94 +160,109 @@ fn notes_are_markdown_files() {
             json!({"existingWorktreePath": first["cwd"]}),
         )),
     );
-    let child = running(
-        &socket,
-        &id_of(&must(
-            &socket,
-            json!({"type": "create", "input": {"title": "notes-child", "program": "pi", "cwd": first["cwd"], "repoRoot": root, "cols": 80, "rows": 24, "parentSessionId": first["id"], "subSessionKind": "clean"}}),
-        )),
-    );
     let first_id = id_of(&first);
     let attached_id = id_of(&attached);
-    let child_id = id_of(&child);
+    let line_id;
     {
-        let record_id = first["worktree"]["id"].clone();
-        for session in [&first, &attached, &child] {
-            assert_eq!(
-                json!([session["sharedNotes"]["kind"], session["sharedNotes"]["id"]]),
-                json!(["worktree", record_id])
-            );
+        for session in [&first, &attached] {
+            assert!(session.get("sharedNotes").is_none(), "{session}");
         }
-        let mark = live.events().len();
-        assert_eq!(
-            save(&socket, &attached_id, "shared", "shared plan\n- [ ] review", None).unwrap()["saved"],
-            true
+        save(&socket, &first_id, "mine: check the diff", None).unwrap();
+        save(&socket, &attached_id, "theirs", None).unwrap();
+        assert_eq!(state(&socket, &first_id)["notes"], "mine: check the diff");
+        assert_eq!(state(&socket, &attached_id)["notes"], "theirs");
+        let mut watcher = Client::connect(&socket).expect("watcher");
+        watcher
+            .request(json!({"type": "watch-tasks", "cwd": root}))
+            .expect("watch-tasks");
+        let doc = must(
+            &socket,
+            json!({"type": "task-op", "cwd": root, "op": {"type": "session-line", "s": first_id}}),
         );
-        for id in [&first_id, &child_id] {
-            updated(&live, mark, id, |s| {
-                s["sharedNotes"]["text"] == "shared plan\n- [ ] review"
-            });
-        }
-        assert_eq!(
-            text_of(
-                &home
-                    .join("notes")
-                    .join("worktrees")
-                    .join(format!("{}.md", record_id.as_str().unwrap()))
-            )
-            .as_deref(),
-            Some("shared plan\n- [ ] review")
+        line_id = line_titled(&lines_of(&doc), "notes-a").expect("its line").id;
+        let note = json!({"kind": "line", "id": line_id});
+        let saved = must(
+            &socket,
+            json!({"type": "save-note", "note": note, "text": "shared plan", "revision": "e3b0c44298fc1c14"}),
         );
-        // The UI names the note it edited: a save for another note is refused.
+        assert_eq!(saved["saved"], true);
+        assert!(saved.get("session").is_none());
+        wait_for_default(
+            || {
+                watcher
+                    .events_of("work-note-updated")
+                    .iter()
+                    .any(|e| e["note"]["id"] == json!(line_id) && e["note"]["text"] == "shared plan")
+            },
+            |found| *found,
+        );
+        assert_eq!(
+            text_of(&home.join("notes").join("lines").join(format!("{line_id}.md"))).as_deref(),
+            Some("shared plan")
+        );
+        let handoff_path = must(&socket, json!({"type": "export-handoff", "sessionId": first_id}));
+        let handoff = fs::read_to_string(handoff_path.as_str().unwrap()).unwrap();
+        assert!(
+            handoff.contains(
+                "## Task\n\n[ ] notes-a\n\n## Task notes\n\nshared plan\n\n## Session notes\n\nmine: check the diff"
+            ),
+            "{handoff}"
+        );
+        // open-note creates a missing file for the editor, any kind.
+        let own_file = must(
+            &socket,
+            json!({"type": "open-note", "note": {"kind": "session", "id": attached_id}}),
+        );
+        assert_eq!(
+            own_file,
+            json!(p(&home
+                .join("notes")
+                .join("sessions")
+                .join(format!("{attached_id}.md"))))
+        );
+        let brief_file = must(
+            &socket,
+            json!({"type": "open-note", "note": {"kind": "brief", "id": line_id}}),
+        );
+        let expected = home.join("notes").join("briefs").join(format!("{line_id}.md"));
+        assert_eq!(brief_file, json!(p(&expected)));
+        assert_eq!(text_of(&expected).as_deref(), Some(""));
         rejects(
             call(
                 &socket,
-                json!({"type": "save-note", "sessionId": first_id, "section": "shared", "noteId": "worktree:other", "text": "x", "revision": state(&socket, &first_id)["sharedNotes"]["revision"]}),
+                json!({"type": "open-note", "note": {"kind": "line", "id": "deadbeef"}}),
             ),
-            "another note",
+            "no longer in the list",
         );
-        // A session in a worktree has one note, the worktree's: it has no note of its own to write.
-        rejects(
-            save(&socket, &child_id, "session", "child only", None),
-            "worktree\u{2019}s note",
-        );
-        let handoff_path = must(&socket, json!({"type": "export-handoff", "sessionId": child_id}));
-        let handoff = fs::read_to_string(handoff_path.as_str().unwrap()).unwrap();
-        assert!(
-            handoff.contains("## Notes\n\n(No notes recorded.)\n\n## Worktree notes\n\nshared plan\n- [ ] review"),
-            "{handoff}"
-        );
-        // open-note creates a missing file for the editor.
-        let own_file = must(
-            &socket,
-            json!({"type": "open-note", "sessionId": first_id, "section": "session"}),
-        );
-        let expected = home.join("notes").join("sessions").join(format!("{first_id}.md"));
-        assert_eq!(own_file, json!(p(&expected)));
-        assert_eq!(text_of(&expected).as_deref(), Some(""));
     }
 
-    // ported from tests/notesDaemon.test.ts: main-checkout sessions share the repository note, which outlives them; a session note goes with its session
+    // The repository's scratchpad outlives every session; a session's note goes with its session, to the trash.
     {
+        let key = must(&socket, json!({"type": "watch-tasks", "cwd": root}))["key"]
+            .as_str()
+            .unwrap()
+            .to_string();
         let one = running(&socket, &id_of(&create(&socket, root, "main-1", "none", json!({}))));
-        let two = running(&socket, &id_of(&create(&socket, root, "main-2", "none", json!({}))));
-        assert_eq!(one["sharedNotes"]["kind"], "repo");
-        assert_eq!(two["sharedNotes"]["id"], one["sharedNotes"]["id"]);
-        let (one_id, two_id) = (id_of(&one), id_of(&two));
-        let mark = live.events().len();
-        save(&socket, &one_id, "shared", "repo-wide", None).unwrap();
-        updated(&live, mark, &two_id, |s| s["sharedNotes"]["text"] == "repo-wide");
-        save(&socket, &one_id, "session", "mine", None).unwrap();
+        let one_id = id_of(&one);
+        must(
+            &socket,
+            json!({"type": "save-note", "note": {"kind": "scratchpad", "id": key}, "text": "repo-wide", "revision": "e3b0c44298fc1c14"}),
+        );
+        save(&socket, &one_id, "mine", None).unwrap();
         let own_file = PathBuf::from(state(&socket, &one_id)["notesFile"]["path"].as_str().unwrap());
-        let repo_file = PathBuf::from(one["sharedNotes"]["path"].as_str().unwrap());
-        assert_eq!(text_of(&own_file).as_deref(), Some("mine"));
-        for id in [&one_id, &two_id] {
-            kill_and_wait(&socket, id);
-            must(&socket, json!({"type": "remove", "sessionId": id}));
-        }
+        let scratchpad = home.join("notes").join("repos").join(format!("{key}.md"));
+        kill_and_wait(&socket, &one_id);
+        must(&socket, json!({"type": "remove", "sessionId": one_id}));
         assert!(!own_file.exists());
-        assert_eq!(text_of(&repo_file).as_deref(), Some("repo-wide"));
-        // It went to the notes trash, named after its session (an empty note is just deleted).
+        assert_eq!(text_of(&scratchpad).as_deref(), Some("repo-wide"));
+        let scratch = must(&socket, json!({"type": "watch-tasks", "cwd": root}))["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|note| note["kind"] == "scratchpad")
+            .cloned()
+            .unwrap();
+        assert_eq!(scratch["text"], "repo-wide");
         let trash = home.join("notes").join("trash");
         let trashed: Vec<String> = names(&trash)
             .into_iter()
@@ -246,13 +270,11 @@ fn notes_are_markdown_files() {
             .collect();
         assert_eq!(trashed.len(), 1);
         assert_eq!(text_of(&trash.join(&trashed[0])).as_deref(), Some("mine"));
-        assert!(!names(&trash).iter().any(|n| n.contains("_session_main-2_")));
     }
 
-    // ported from tests/notesDaemon.test.ts: a deleted worktree's note stays read-only; a new worktree at the path starts empty; the note goes with the record
+    // A line's note outlives its sessions and their worktree.
     {
         kill_and_wait(&socket, &attached_id);
-        kill_and_wait(&socket, &child_id);
         must(
             &socket,
             json!({"type": "kill", "sessionId": first_id, "deleteWorktree": true, "allowDataLoss": true}),
@@ -261,86 +283,13 @@ fn notes_are_markdown_files() {
             || state(&socket, &first_id),
             |item| !falsy(&item["worktree"]["deletedAt"]),
         );
-        let old = state(&socket, &child_id);
-        assert_eq!(old["sharedNotes"]["readOnly"], true);
-        assert_eq!(old["sharedNotes"]["text"], "shared plan\n- [ ] review");
-        rejects(save(&socket, &child_id, "shared", "nope", None), "read-only");
-        let again = running(&socket, &id_of(&create(&socket, root, "notes-a", "new", json!({}))));
-        assert_eq!(again["cwd"], first["cwd"]);
-        assert_ne!(again["sharedNotes"]["id"], old["sharedNotes"]["id"]);
-        assert_eq!(again["sharedNotes"]["text"], "");
-        assert!(again["sharedNotes"]["readOnly"].is_null());
-        let old_file = PathBuf::from(old["sharedNotes"]["path"].as_str().unwrap());
         must(&socket, json!({"type": "remove", "sessionId": first_id}));
         must(&socket, json!({"type": "remove", "sessionId": attached_id}));
-        assert_eq!(text_of(&old_file).as_deref(), Some("shared plan\n- [ ] review"));
-        must(&socket, json!({"type": "remove", "sessionId": child_id}));
-        assert!(!old_file.exists());
-        assert!(
-            names(&home.join("notes").join("trash"))
-                .iter()
-                .any(|n| n.contains("_worktree_")),
-            "the worktree note went to the trash"
-        );
-        kill_and_wait(&socket, &id_of(&again));
-    }
-
-    // ported from tests/notesDaemon.test.ts: at start, notes of sessions in a worktree are merged into its note (under their titles) and go to the trash
-    {
-        let owner = running(&socket, &id_of(&create(&socket, root, "merge-a", "new", json!({}))));
-        let helper = running(
-            &socket,
-            &id_of(&must(
-                &socket,
-                json!({"type": "create", "input": {"title": "merge-b", "program": "pi", "cwd": owner["cwd"], "repoRoot": root, "cols": 80, "rows": 24, "parentSessionId": owner["id"], "subSessionKind": "clean"}}),
-            )),
-        );
-        let lone = running(&socket, &id_of(&create(&socket, root, "merge-lone", "new", json!({}))));
-        save(&socket, &id_of(&owner), "shared", "worktree plan", None).unwrap();
-        for session in [&owner, &helper, &lone] {
-            kill_and_wait(&socket, &id_of(session));
-        }
-        // Notes written by an older version: each session's own.
-        deckhand_e2e::harness::stop(&mut daemon);
-        let own = |session: &Value| {
-            home.join("notes")
-                .join("sessions")
-                .join(format!("{}.md", id_of(session)))
-        };
-        fs::write(own(&owner), "- [ ] from the owner\n").unwrap();
-        fs::write(own(&helper), "helper context").unwrap();
-        fs::write(own(&lone), "- [ ] the only note").unwrap();
-        daemon = launch(&sandbox, &root_path, &bin);
-        ready(&socket);
-        let merged = state(&socket, &id_of(&owner))["sharedNotes"]["text"]
-            .as_str()
-            .unwrap()
-            .to_string();
-        // /^worktree plan\n\n## .*merge-a\n- \[ \] from the owner\n\n## .*merge-b\nhelper context$/
-        let rest = merged
-            .strip_prefix("worktree plan\n\n## ")
-            .expect("starts with the plan");
-        let (title_a, rest) = rest
-            .split_once("merge-a\n- [ ] from the owner\n\n## ")
-            .expect("owner section");
-        let title_b = rest.strip_suffix("merge-b\nhelper context").expect("helper section");
-        assert!(!title_a.contains('\n') && !title_b.contains('\n'), "{merged:?}");
-        assert_eq!(state(&socket, &id_of(&helper))["sharedNotes"]["text"], json!(merged));
-        // A lone note goes into an empty worktree note as it is.
+        let line = line_titled(&lines(), "notes-a").expect("the line stays");
+        assert!(line.meta("s").is_none());
         assert_eq!(
-            state(&socket, &id_of(&lone))["sharedNotes"]["text"],
-            "- [ ] the only note"
-        );
-        for session in [&owner, &helper, &lone] {
-            assert!(!own(session).exists());
-            assert_eq!(state(&socket, &id_of(session))["notes"], "");
-        }
-        assert_eq!(
-            names(&home.join("notes").join("trash"))
-                .iter()
-                .filter(|n| n.contains("merged-into-its-worktree-note"))
-                .count(),
-            3
+            text_of(&home.join("notes").join("lines").join(format!("{line_id}.md"))).as_deref(),
+            Some("shared plan")
         );
     }
     deckhand_e2e::harness::stop(&mut daemon);

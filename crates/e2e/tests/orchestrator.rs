@@ -9,7 +9,7 @@ use std::process::{Child, Output, Stdio};
 use std::time::Duration;
 
 use deckhand_e2e::client::Client;
-use deckhand_e2e::daemon::{install_agents, launch, p, ready, running, state, subscribed, wf};
+use deckhand_e2e::daemon::{install_agents, launch, must, p, ready, running, state, subscribed, wf};
 use deckhand_e2e::fake_agent;
 use deckhand_e2e::harness::{Sandbox, repo, stop, wait_exit, wait_for};
 use serde_json::{Value, json};
@@ -294,19 +294,48 @@ fn a_plan_waits_for_confirmation_then_creates_parents_first_with_their_briefs() 
     ] {
         assert!(launched_with(&sandbox, &id(session), brief), "{brief}");
     }
-    // The task went to the backlog.
+    // Each is on a line of its own, its brief kept as the line's brief (from the plan, run by hand); the lines nest as
+    // the sessions do. The task went to the backlog, its details as its line's note.
     let tasks = json_of(&run(&["task", "list", "--json"]));
-    let task = tasks
-        .as_array()
-        .and_then(|tasks| {
-            tasks
-                .iter()
-                .find(|task| task["title"] == "Remove legacy endpoint")
-                .cloned()
-        })
-        .unwrap_or_default();
-    assert_eq!(task["group"], "backlog", "{tasks}");
-    assert_eq!(task["details"], "After Auth rework merges", "{task}");
+    let line_of = |title: &str| {
+        tasks
+            .as_array()
+            .and_then(|tasks| tasks.iter().find(|task| task["title"] == title).cloned())
+            .unwrap_or_default()
+    };
+    let doc = must(&socket, json!({"type": "watch-tasks", "cwd": p(&root_path)}));
+    let brief_of = |line: &Value| {
+        doc["notes"]
+            .as_array()
+            .and_then(|notes| {
+                notes
+                    .iter()
+                    .find(|note| note["kind"] == "brief" && note["id"] == line["id"])
+                    .cloned()
+            })
+            .unwrap_or_default()
+    };
+    for (session, title, brief) in [
+        (&auth, "Auth rework", "Brief: rework auth"),
+        (&tokens, "Token storage", "Brief: store the tokens"),
+        (&ui_session, "Login UI", "Brief: the login UI"),
+        (&script, "Migration script", "Brief: the script"),
+        (&tests, "Login tests", "Brief: the tests"),
+    ] {
+        let line = line_of(title);
+        assert_eq!(line["session"], session["id"], "{tasks}");
+        assert!(line["brief"] == true && line["note"] == false, "{line}");
+        let note = brief_of(&line);
+        assert_eq!(note["text"], format!("{brief}\n"), "{note}");
+        assert_eq!(note["from"], "a plan", "{note}");
+    }
+    let auth_line = line_of("Auth rework");
+    assert_eq!(line_of("Token storage")["parent"], auth_line["id"]);
+    assert_eq!(line_of("Login UI")["parent"], auth_line["id"]);
+    assert!(line_of("Login tests")["parent"].is_null(), "Fix login has no line");
+    let task = line_of("Remove legacy endpoint");
+    assert!(task["parent"].is_null() && task["session"].is_null(), "{task}");
+    assert_eq!(task["note"], true, "{task}");
     assert_eq!(outcome["tasks"][0]["id"], task["id"]);
 
     stop(&mut daemon);
@@ -387,6 +416,14 @@ fn the_orchestrator_applies_plans_it_is_recorded_as_starting_and_a_late_ui_still
     let auth = running(&socket, &id(&outcome["sessions"][0]["session"]));
     assert!(auth["parentSessionId"].is_null(), "{auth}");
     assert_eq!(auth["spawnedBySessionId"], orchestrator["id"], "{auth}");
+    // Its brief is its line's, written by the orchestrator.
+    let doc = must(&socket, json!({"type": "watch-tasks", "cwd": p(&root_path)}));
+    let brief = doc["notes"]
+        .as_array()
+        .and_then(|notes| notes.iter().find(|note| note["kind"] == "brief").cloned())
+        .unwrap_or_default();
+    assert_eq!(brief["from"], "◎ Orchestrator", "{doc}");
+    assert_eq!(brief["text"], "Brief: rework auth\n");
 
     // It may start sessions under what it started (and end them); not under the user's own sessions.
     let child = json_of(&cli(
@@ -612,8 +649,14 @@ fn a_plan_that_fails_midway_keeps_what_it_created_and_says_what_failed() {
         .collect();
     assert!(titles.contains(&"First".to_owned()), "{titles:?}");
     assert!(!titles.contains(&"Third".to_owned()), "{titles:?}");
+    // The list holds the line of the session created (its brief kept), not the plan's tasks.
     let tasks = json_of(&run(&["task", "list", "--json"]));
-    assert_eq!(tasks.as_array().map(Vec::len), Some(0), "{tasks}");
+    let titles: Vec<&str> = tasks
+        .as_array()
+        .map(|tasks| tasks.iter().filter_map(|task| task["title"].as_str()).collect())
+        .unwrap_or_default();
+    assert_eq!(titles, ["First"], "{tasks}");
+    assert_eq!(tasks[0]["brief"], true, "{tasks}");
 
     stop(&mut daemon);
 }

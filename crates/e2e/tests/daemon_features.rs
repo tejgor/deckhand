@@ -614,9 +614,9 @@ fn handoffs_are_initial_context_only(c: &Ctx) {
     let parent = c.create_mode("shared-feature", "claude", "new");
     let parent_id = id_of(&parent);
     c.wait(&parent_id, |s| s["status"] == "running");
-    // A session in a worktree writes in the worktree's note.
-    let shared = c.state(&parent_id)["sharedNotes"].clone();
-    c.ok(json!({"type": "save-note", "sessionId": parent_id, "section": "shared", "noteId": format!("{}:{}", text(&shared["kind"]), text(&shared["id"])), "text": "Review this work", "revision": shared["revision"]}));
+    // The session's own note goes into its handoff.
+    let own = c.state(&parent_id)["notesFile"].clone();
+    c.ok(json!({"type": "save-note", "note": {"kind": "session", "id": parent_id}, "text": "Review this work", "revision": own["revision"]}));
     let handoff = c.ok(json!({"type": "export-handoff", "sessionId": parent_id}));
     let handoff = text(&handoff).to_string();
     let content = fs::read_to_string(&handoff).expect("handoff file");

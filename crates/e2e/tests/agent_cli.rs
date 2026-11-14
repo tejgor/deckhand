@@ -1,4 +1,4 @@
-//! The `deckhand` commands agents run (`new`, `task`, `ls`, `note`, `kill`), black-box: the CLI against a real
+//! The `deckhand` commands agents run (`new`, `task`, `step`, `ls`, `note`, `kill`), black-box: the CLI against a real
 //! daemon with fake agents, run by hand (no caller) and from inside a session (its `DECKHAND_SESSION_ID`,
 //! `DECKHAND_LAUNCH_ID` and `DECKHAND_HOOK_TOKEN`, as the fake agent saw them), directly and through `deckhand mcp`
 //! (Codex's MCP server).
@@ -101,20 +101,37 @@ fn by_hand_new_starts_a_prompted_session_and_tasks_and_ls_list_the_repository() 
         "--json",
     ]));
     assert_eq!(added["title"], "Write the docs");
-    assert_eq!(added["details"], "For the CLI");
-    assert_eq!(added["group"], "backlog");
+    assert!(added["parent"].is_null() && added["session"].is_null(), "{added}");
+    let added_id = added["id"].as_str().unwrap_or_default().to_owned();
+    // Its details are its line's note.
+    assert_eq!(
+        fs::read_to_string(sandbox.home().join("notes/lines").join(format!("{added_id}.md")))
+            .ok()
+            .as_deref(),
+        Some("For the CLI\n")
+    );
     let listed = json_of(&run(&["task", "list", "--json"]));
     assert!(
-        listed
-            .as_array()
-            .is_some_and(|tasks| tasks.iter().any(|task| task["id"] == added["id"])),
+        listed.as_array().is_some_and(|tasks| tasks
+            .iter()
+            .any(|task| task["id"] == added["id"] && task["note"] == true)),
         "{listed}"
     );
     let board = text(&run(&["task", "list"]).stdout);
     assert!(
-        board.contains("Backlog (1)\n") && board.contains("  Write the docs"),
+        board.contains(&format!("☐ {}  Write the docs", &added_id[..8])),
         "{board}"
     );
+    // Ticked, reopened; moved under another line, then back to the backlog.
+    let ticked = json_of(&run(&["task", "done", &added_id[..6], "--json"]));
+    assert_eq!(ticked["done"], true);
+    json_of(&run(&["task", "reopen", &added_id, "--json"]));
+    let other = json_of(&run(&["task", "add", "Release", "--json"]));
+    let other_id = other["id"].as_str().unwrap_or_default().to_owned();
+    let moved = json_of(&run(&["task", "move", &added_id, "--to", &other_id, "--json"]));
+    assert_eq!(moved["parent"], other["id"], "{moved}");
+    let moved = json_of(&run(&["task", "move", &added_id, "--to", "backlog", "--json"]));
+    assert!(moved["parent"].is_null(), "{moved}");
 
     let sessions = json_of(&run(&["ls", "--json"]));
     let listed = sessions
@@ -125,20 +142,26 @@ fn by_hand_new_starts_a_prompted_session_and_tasks_and_ls_list_the_repository() 
     let table = text(&run(&["ls"]).stdout);
     assert!(table.contains(&id[..8]) && table.contains("Say hello"), "{table}");
 
-    // By hand there is no session whose note to add to.
-    let refused = run(&["note", "add", "Check it"]);
-    assert!(!refused.status.success());
-    assert!(
-        text(&refused.stderr).contains("needs a Deckhand session"),
-        "{}",
-        text(&refused.stderr)
-    );
+    // By hand there is no session whose line to add to.
+    for args in [
+        &["note", "add", "Check it"][..],
+        &["step", "add", "Check it"],
+        &["step", "list"],
+    ] {
+        let refused = run(args);
+        assert!(!refused.status.success(), "{args:?}");
+        assert!(
+            text(&refused.stderr).contains("needs a Deckhand session"),
+            "{}",
+            text(&refused.stderr)
+        );
+    }
 
     stop(&mut daemon);
 }
 
 #[test]
-fn inside_a_session_new_starts_a_sub_session_it_may_end_and_note_add_adds_a_step() {
+fn inside_a_session_new_starts_a_sub_session_it_may_end_and_steps_and_notes_go_on_its_line() {
     let root = repo();
     let sandbox = Sandbox::new("agent-cli-caller");
     let root_path: PathBuf = fs::canonicalize(root.path()).expect("realpath");
@@ -174,14 +197,37 @@ fn inside_a_session_new_starts_a_sub_session_it_may_end_and_note_add_adds_a_step
     assert!(table.contains(&format!("*  {}", &lead_id[..8])), "{table}");
     assert!(table.contains("Lead / Write the tests"), "{table}");
 
-    let step = as_lead(&["note", "add", "Review the child's tests"]);
-    assert!(step.status.success(), "{}", text(&step.stderr));
-    let lead = state(&sandbox.socket(), &lead_id);
-    let note = lead["sharedNotes"]["text"]
-        .as_str()
-        .or(lead["notes"].as_str())
-        .unwrap_or_default();
-    assert!(note.contains("- [ ] Review the child's tests"), "{lead}");
+    // Lines on demand: the lead has none until its first step, which makes it (named after it), with the step under.
+    let none = text(&as_lead(&["step", "list"]).stdout);
+    assert!(none.contains("has no line yet"), "{none}");
+    let step = json_of(&as_lead(&["step", "add", "Review the child's tests", "--json"]));
+    let step_id = step["id"].as_str().unwrap_or_default().to_owned();
+    let steps = json_of(&as_lead(&["step", "list", "--json"]));
+    assert_eq!(steps[0]["title"], "Lead", "{steps}");
+    assert_eq!(steps[0]["session"], lead_id.as_str(), "{steps}");
+    assert_eq!(steps[1]["id"], step_id.as_str(), "{steps}");
+    assert_eq!(steps[1]["parent"], steps[0]["id"], "{steps}");
+    let ticked = json_of(&as_lead(&["step", "done", &step_id[..6], "--json"]));
+    assert_eq!(ticked["done"], true);
+    let listed = text(&as_lead(&["step", "list"]).stdout);
+    assert!(listed.contains("Lead  1/1") && listed.contains("☑"), "{listed}");
+    json_of(&as_lead(&["step", "reopen", &step_id, "--json"]));
+    let refused = as_lead(&["step", "done", "zzzz"]);
+    assert!(!refused.status.success());
+    // A note goes to its line's note, paragraph by paragraph.
+    let note = json_of(&as_lead(&["note", "add", "Found the cache", "--json"]));
+    assert_eq!(note["line"], steps[0]["id"]);
+    json_of(&as_lead(&["note", "add", "It is per process", "--json"]));
+    let line_note = sandbox
+        .home()
+        .join("notes/lines")
+        .join(format!("{}.md", steps[0]["id"].as_str().unwrap_or_default()));
+    assert_eq!(
+        fs::read_to_string(&line_note).ok().as_deref(),
+        Some("Found the cache\n\nIt is per process\n")
+    );
+    // The session's own note is the user's: untouched.
+    assert_eq!(state(&sandbox.socket(), &lead_id)["notes"], "");
 
     let ended = as_lead(&["kill", &child_id[..8]]);
     assert!(ended.status.success(), "{}", text(&ended.stderr));
@@ -339,13 +385,16 @@ fn the_mcp_server_answers_over_stdio_and_its_tool_acts_for_the_session() {
     assert_eq!(replies[5]["result"]["isError"], true);
     assert!(!text(&output.stdout).contains(&token));
 
-    // The step reached the lead's note, as the caller's.
-    let lead = state(&sandbox.socket(), &lead_id);
-    let note = lead["sharedNotes"]["text"]
-        .as_str()
-        .or(lead["notes"].as_str())
+    // The note reached the lead's line's note, as the caller's (the line made for it).
+    let notes = sandbox.home().join("notes/lines");
+    let written: Vec<String> = fs::read_dir(&notes)
+        .map(|entries| {
+            entries
+                .filter_map(|entry| fs::read_to_string(entry.ok()?.path()).ok())
+                .collect()
+        })
         .unwrap_or_default();
-    assert!(note.contains("- [ ] Check the \"MCP\" path"), "{lead}");
+    assert_eq!(written, ["Check the \"MCP\" path\n"], "{written:?}");
 
     stop(&mut daemon);
 }

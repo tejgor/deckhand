@@ -1,191 +1,112 @@
-//! Note items: steps and sending open items to Tasks, black-box: drives DECKHAND_TEST_BIN.
+//! Open steps when the work ends, black-box: drives DECKHAND_TEST_BIN. A session's steps are the lines under its line;
+//! merging its worktree ticks the line and moves its open steps up out of it (unless the merge keeps them); deleting
+//! the worktree unmerged leaves the line, with its steps, where it is.
 
 use deckhand_e2e::harness::repo;
 use deckhand_e2e::tasks::*;
 use std::fs;
 use std::path::PathBuf;
-use std::time::Duration;
 
 use deckhand_e2e::daemon::*;
-use deckhand_e2e::harness::Sandbox;
+use deckhand_e2e::harness::{Sandbox, wait_for_default};
 use serde_json::{Value, json};
 
-// ported from tests/noteItemsDaemon.test.ts: open note items go to Tasks at once: A, a merge, deletion from W and x with deletion
 #[test]
-fn open_note_items_go_to_tasks_at_once_a_merge_deletion_from_w_and_x_with_deletion() {
+fn open_steps_move_up_when_the_work_merges_and_stay_when_it_is_deleted() {
     let repo_dir = repo();
     let sandbox = Sandbox::new("items");
     let root_path = fs::canonicalize(repo_dir.path()).expect("realpath");
     let root_s = p(&root_path);
     let root = root_s.as_str();
-    let home = sandbox.home();
     let bin = install_agents(&sandbox, deckhand_e2e::fake_agent!());
     let mut daemon = launch(&sandbox, &root_path, &bin);
     let socket = sandbox.socket();
     ready(&socket);
-    let create_new = |title: &str| create(&socket, root, title, "new", json!({}));
-    let running_notes = |id: &str| {
-        deckhand_e2e::harness::wait_for(
-            || state(&socket, id),
-            |item| item["status"] == "running" && !falsy(&item["sharedNotes"]),
-            Duration::from_secs(20),
-        )
-    };
-    let tasks = || {
-        parse_tasks(
-            must(&socket, json!({"type": "watch-tasks", "cwd": root}))["text"]
-                .as_str()
-                .unwrap(),
-        )
-    };
-    let find = |list: &[Task], title: &str| list.iter().find(|t| t.title == title).cloned();
-    // Writes the worktree's note through the daemon, as the Notes tab does.
-    let write_note = |session: &Value, text: &str| -> Value {
-        let current = state(&socket, session["id"].as_str().unwrap());
-        let saved = must(
-            &socket,
-            json!({"type": "save-note", "sessionId": session["id"], "section": "shared", "noteId": format!("worktree:{}", current["worktree"]["id"].as_str().unwrap()), "text": text, "revision": current["sharedNotes"]["revision"]}),
+    let op = |value: Value| must(&socket, json!({"type": "task-op", "cwd": root, "op": value}));
+    let lines = || lines_of(&must(&socket, json!({"type": "watch-tasks", "cwd": root})));
+    let line = |title: &str| line_titled(&lines(), title).unwrap_or_else(|| panic!("no line {title}"));
+    // A running session in a new worktree, with a line and these steps (the first ticked).
+    let with_steps = |title: &str, steps: &[&str]| -> (Value, ListLine) {
+        let session = running(&socket, &id_of(&create(&socket, root, title, "new", json!({}))));
+        let session = wait_for_default(
+            || state(&socket, &id_of(&session)),
+            |item| !falsy(&item["worktree"]["branch"]),
         );
-        assert_eq!(saved["saved"], true);
-        saved["session"].clone()
+        op(json!({"type": "session-line", "s": session["id"]}));
+        let own = line(title);
+        assert_eq!(own.meta("s"), session["id"].as_str());
+        for step in steps {
+            op(json!({"type": "add", "title": step, "parent": own.id}));
+        }
+        if let Some(first) = steps.first() {
+            op(json!({"type": "tick", "id": line(first).id}));
+        }
+        (session, own)
     };
-    let shared_text = |id: &str| -> String {
-        state(&socket, id)["sharedNotes"]["text"]
-            .as_str()
-            .unwrap_or("")
-            .to_string()
+    let commit = |session: &Value| {
+        let cwd = PathBuf::from(session["cwd"].as_str().unwrap());
+        fs::write(cwd.join(format!("{}.txt", id_of(session))), "feature\n").unwrap();
+        assert!(git_try(&cwd, &["add", "."]).0);
+        assert!(git_try(&cwd, &["commit", "-m", "feature"]).0);
     };
 
-    // A in the Notes view: every open item of the note to the backlog (work of its own; the note's work's to-dos are its steps).
-    let one = running_notes(&id_of(&create_new("items one")));
-    let wt1 = one["worktree"]["id"].as_str().unwrap().to_string();
-    let saved = write_note(&one, "- [x] Done already\n- [ ] Parse tabs\n- [ ] Parse spaces\nprose");
-    rejects(
-        call(
-            &socket,
-            json!({"type": "send-open-items", "sessionId": one["id"], "section": "shared", "noteId": format!("worktree:{wt1}"), "revision": "stale"}),
-        ),
-        "changed meanwhile",
-    );
-    let sent = must(
-        &socket,
-        json!({"type": "send-open-items", "sessionId": one["id"], "section": "shared", "noteId": format!("worktree:{wt1}"), "revision": saved["sharedNotes"]["revision"]}),
-    );
-    assert_eq!(sent["sent"], 2);
-    let mut list = tasks();
-    for title in ["Parse tabs", "Parse spaces"] {
-        let task = find(&list, title).expect(title);
-        assert_eq!(meta_of(&task, "wt"), None);
-        assert!(!task.done);
-        let text = sent["session"]["sharedNotes"]["text"].as_str().unwrap();
-        assert!(
-            text.contains(&format!("- \u{2197} {title} <!-- dh:t={} -->", task.id)),
-            "{text}"
-        );
-    }
-    assert!(
-        sent["session"]["sharedNotes"]["text"]
-            .as_str()
-            .unwrap()
-            .starts_with("- [x] Done already\n")
-    );
-
-    // A clean merge with sendOpenItems: the items left in its note go to the backlog, marked as left open in its branch.
-    write_note(
-        &one,
-        &format!(
-            "{}\n- [ ] Benchmark it",
-            sent["session"]["sharedNotes"]["text"].as_str().unwrap()
-        ),
-    );
-    let one_cwd = PathBuf::from(one["cwd"].as_str().unwrap());
-    fs::write(one_cwd.join("feature.txt"), "feature\n").unwrap();
-    assert!(git_try(&one_cwd, &["add", "."]).0);
-    assert!(git_try(&one_cwd, &["commit", "-m", "feature"]).0);
+    // A clean merge: the line ticks, its open steps move up beside it (to the top level), marked as left open in the
+    // branch; the ticked step stays under it.
+    let (one, one_line) = with_steps("items one", &["Done already", "Parse tabs", "Parse spaces"]);
+    commit(&one);
     let merged = must(
         &socket,
-        json!({"type": "merge-worktree", "sessionId": one["id"], "mode": "merge", "targetCwd": root, "sendOpenItems": true}),
+        json!({"type": "merge-worktree", "sessionId": one["id"], "mode": "merge", "targetCwd": root}),
     );
-    assert_eq!(merged["sentItems"], 1);
-    list = tasks();
-    let benchmark = find(&list, "Benchmark it").expect("Benchmark it");
-    assert_eq!(meta_of(&benchmark, "wt"), None);
-    assert_eq!(
-        meta_of(&benchmark, "from").as_deref(),
-        one["worktree"]["branch"].as_str()
-    );
-    assert!(shared_text(&id_of(&one)).contains("- \u{2197} Benchmark it <!-- dh:t="));
+    assert_eq!(merged["liftedSteps"], 2);
+    let after = lines();
+    let ticked = line_titled(&after, "items one").unwrap();
+    assert!(ticked.done && ticked.meta("auto") == Some("merge"));
+    assert_eq!(titles_under(&after, &one_line.id), ["Done already"]);
+    for title in ["Parse tabs", "Parse spaces"] {
+        let lifted = line_titled(&after, title).unwrap();
+        assert_eq!(lifted.parent, None, "{title}");
+        assert!(!lifted.done && lifted.meta("s").is_none());
+        assert_eq!(lifted.meta("from"), one["worktree"]["branch"].as_str());
+    }
 
-    // Deleting from W with sendOpenItems: before the worktree goes (its running session is stopped too).
-    let two = running_notes(&id_of(&create_new("items two")));
-    write_note(&two, "- [ ] Write the docs");
+    // The merge stops before committing: commit it, as you would.
+    assert!(git_try(&root_path, &["commit", "-m", "merged items one"]).0);
+
+    // keepOpenSteps: they stay under the ticked line.
+    let (two, two_line) = with_steps("items two", &["Kept step"]);
+    op(json!({"type": "reopen", "id": line("Kept step").id}));
+    commit(&two);
+    let merged = must(
+        &socket,
+        json!({"type": "merge-worktree", "sessionId": two["id"], "mode": "squash", "targetCwd": root, "keepOpenSteps": true}),
+    );
+    assert!(merged["liftedSteps"].is_null(), "{merged}");
+    let after = lines();
+    assert!(line_titled(&after, "items two").unwrap().done);
+    assert_eq!(titles_under(&after, &two_line.id), ["Kept step"]);
+
+    // Deleting from W, unmerged: the line stays where it is with its steps, nobody on it, tried in the branch.
+    let (three, three_line) = with_steps("items three", &["Done", "Write the docs"]);
     let deleted = must(
         &socket,
-        json!({"type": "delete-worktree", "cwd": root, "path": two["worktree"]["path"], "branch": two["worktree"]["branch"], "stopSessions": true, "sendOpenItems": true}),
+        json!({"type": "delete-worktree", "cwd": root, "path": three["worktree"]["path"], "branch": three["worktree"]["branch"], "stopSessions": true}),
     );
     assert_eq!(deleted["removed"], "deleted");
-    assert_eq!(deleted["sentItems"], 1);
-    let docs = find(&tasks(), "Write the docs").expect("Write the docs");
-    assert_eq!(meta_of(&docs, "from").as_deref(), two["worktree"]["branch"].as_str());
-    assert!(!docs.done);
-    // Without it, the items stay in the (now read-only) note.
-    let three = running_notes(&id_of(&create_new("items three")));
-    write_note(&three, "- [ ] Stays put");
-    assert!(
-        must(
-            &socket,
-            json!({"type": "delete-worktree", "cwd": root, "path": three["worktree"]["path"], "branch": three["worktree"]["branch"], "stopSessions": true}),
-        )["sentItems"]
-            .is_null()
-    );
-    assert!(find(&tasks(), "Stays put").is_none());
-    assert_eq!(shared_text(&id_of(&three)), "- [ ] Stays put");
+    assert!(deleted.get("sentItems").is_none());
+    let left = wait_for_default(|| line("items three"), |left| left.meta("s").is_none());
+    assert!(!left.done);
+    assert_eq!(left.meta("tried"), three["worktree"]["branch"].as_str());
+    assert_eq!(titles_under(&lines(), &three_line.id), ["Done", "Write the docs"]);
 
-    // x with the worktree deleted (kill sendOpenItems): sent before the worktree is removed.
-    let four = running_notes(&id_of(&create_new("items four")));
-    write_note(&four, "- [ ] Clean up flags");
+    // x with the worktree deleted: the same.
+    let (four, _) = with_steps("items four", &["Done", "Clean up flags"]);
     must(
         &socket,
-        json!({"type": "kill", "sessionId": four["id"], "deleteWorktree": true, "sendOpenItems": true}),
+        json!({"type": "kill", "sessionId": four["id"], "deleteWorktree": true}),
     );
-    deckhand_e2e::harness::wait_for(
-        || state(&socket, &id_of(&four)),
-        |item| item["status"] == "exited" && !falsy(&item["worktree"]["deletedAt"]),
-        Duration::from_secs(20),
-    );
-    let flags = find(&tasks(), "Clean up flags").expect("Clean up flags");
-    assert_eq!(meta_of(&flags, "from").as_deref(), four["worktree"]["branch"].as_str());
-    assert!(shared_text(&id_of(&four)).contains("- \u{2197} Clean up flags <!-- dh:t="));
-
-    // Follow-ups of the old model become steps at daemon start: an open task assigned to a live worktree moves into its
-    // note; one assigned to a deleted worktree stays, in the backlog; the old bookkeeping goes.
-    deckhand_e2e::harness::stop(&mut daemon);
-    let tasks_dir = home.join("notes").join("tasks");
-    let mut files: Vec<String> = fs::read_dir(&tasks_dir)
-        .unwrap()
-        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
-        .filter(|name| name.ends_with(".md"))
-        .collect();
-    files.sort();
-    let file = tasks_dir.join(&files[0]);
-    let legacy = format!(
-        "- [ ] Legacy step <!-- dh:t=1e9acy01 wt={wt1} assigned=2026-10-01 -->\n  its details\n- [ ] Orphan <!-- dh:t=1e9acy02 wt={} assigned=2026-10-01 -->\n",
-        four["worktree"]["id"].as_str().unwrap()
-    );
-    let mut existing = fs::read_to_string(&file).unwrap();
-    existing.push_str(&legacy);
-    fs::write(&file, existing).unwrap();
-    daemon = launch(&sandbox, &root_path, &bin);
-    ready(&socket);
-    let after = tasks();
-    assert!(find(&after, "Legacy step").is_none());
-    let orphan = find(&after, "Orphan").expect("Orphan");
-    assert_eq!(
-        orphan.meta,
-        std::collections::BTreeMap::from([("t".to_string(), "1e9acy02".to_string())])
-    );
-    let one_note = shared_text(&id_of(&one));
-    assert!(one_note.ends_with("- [ ] Legacy step\n  its details\n"), "{one_note:?}");
-    assert!(!fs::read_to_string(&file).unwrap().contains("assigned="));
+    let left = wait_for_default(|| line("items four"), |left| left.meta("s").is_none());
+    assert_eq!(left.meta("tried"), four["worktree"]["branch"].as_str());
+    assert!(line_titled(&lines(), "Clean up flags").is_some());
     deckhand_e2e::harness::stop(&mut daemon);
 }
