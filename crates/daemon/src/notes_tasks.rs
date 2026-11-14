@@ -182,7 +182,7 @@ fn replace_keys(session: &mut Ordered<SessionRecord>, keys: &[&str]) {
 }
 
 /// The session with its own note (`notes`, `notesFile`) from the store. Since line notes there is no shared note:
-/// `sharedNotes` is never set.
+/// a `sharedNotes` an older version left is dropped.
 pub fn project_notes(session: Ordered<SessionRecord>, notes: &NotesStore) -> Ordered<SessionRecord> {
     let mut session = session;
     let own_id = session_note(&session.id);
@@ -194,7 +194,7 @@ pub fn project_notes(session: Ordered<SessionRecord>, notes: &NotesStore) -> Ord
         revision: own.revision,
         too_large: only_true(own.too_large),
     });
-    session.shared_notes = None;
+    session.extra.shift_remove("sharedNotes");
     session
 }
 
@@ -1113,7 +1113,6 @@ mod tests {
             let file = projected.notes_file.clone().unwrap();
             assert!(file.path.ends_with("notes/sessions/s1.md"), "{}", file.path);
             assert_eq!(file.revision, deckhand_core::notes::note_revision("remember the tests"));
-            assert_eq!(projected.shared_notes, None);
             let value = serde_json::to_value(&projected).unwrap();
             assert!(value.get("sharedNotes").is_none());
         });

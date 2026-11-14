@@ -667,10 +667,6 @@ mod tests {
                 if let Some(worktree) = object.get_mut("worktree").and_then(Value::as_object_mut) {
                     coerce(worktree, "mode", &["managed", "external", "none"], Some("managed"));
                 }
-                if let Some(shared) = object.get_mut("sharedNotes").and_then(Value::as_object_mut) {
-                    // Anything but 'worktree' fails workNote's kind check, as 'repo' does.
-                    coerce(shared, "kind", &["worktree", "repo"], Some("repo"));
-                }
                 serde_json::from_value(session).map_err(|error| error.to_string())
             })
             .collect()

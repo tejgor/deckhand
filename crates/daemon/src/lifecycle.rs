@@ -86,7 +86,8 @@ pub fn persisted_session(session: &Ordered<SessionRecord>) -> Ordered<SessionRec
     let mut record = stored.into_inner();
     record.notes = None;
     record.notes_file = None;
-    record.shared_notes = None;
+    // A shared note (before protocol 60) is not kept either.
+    record.extra.shift_remove("sharedNotes");
     record.path_title = None;
     record.interrupted_while = None;
     // What the agent asks or said (attention.reason) may quote commands or code: kept in memory, never written.

@@ -42,7 +42,6 @@ use deckhand_core::session_scope::sessions_in_scope;
 use deckhand_core::session_sections::{SessionSection, order_by_section, session_section};
 use deckhand_core::task_list::TaskList;
 use deckhand_core::tasks::parse_tasks;
-use deckhand_core::tasks_board::{OwnedTaskLinkLookup, task_link_lookup};
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::data::RightPaneTab;
 use deckhand_protocol::data::{
@@ -513,15 +512,6 @@ fn worktrees_flow(app: &mut App) -> &mut WorktreesFlow {
     &mut app.flows.worktrees
 }
 
-/// The task-link lookup the Notes flow gets (TS `tasksDoc ? taskLinkLookup(tasks) : undefined`).
-pub(crate) fn notes_links(app: &App) -> Option<OwnedTaskLinkLookup> {
-    if app.data.tasks_doc.is_some() {
-        task_link_lookup(Some(&app.data.tasks))
-    } else {
-        None
-    }
-}
-
 /// Builds a flow's props from the app's fields (borrowing them, not the flows) and calls `$call` with the flow.
 macro_rules! with_props {
     (agents, $app:expr, $call:expr) => {{
@@ -554,15 +544,13 @@ macro_rules! with_props {
     (notes, $app:expr, $call:expr) => {{
         let app: &mut $crate::app::state::App = $app;
         let derived = app.derived();
-        let refs: Vec<&deckhand_protocol::data::SessionRecord> = derived.sessions.iter().collect();
-        let lookup = $crate::app::notes_links(app);
-        let links: Option<deckhand_core::notes::TaskLinkLookup<'_>> = lookup.as_deref();
         let props = $crate::flows::notes::NotesFlowProps {
             client: app.connection.client.as_ref(),
+            repo_root: &app.props.repo_root,
             session: derived.selected.as_ref(),
-            sessions: &refs,
+            list: &app.data.task_list,
+            notes: &app.data.work_notes,
             focused: app.mode == $crate::app::state::Mode::NotesFocus,
-            links,
         };
         ($call)(&mut app.flows.notes, &props)
     }};

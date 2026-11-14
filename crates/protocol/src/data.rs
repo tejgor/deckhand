@@ -156,7 +156,6 @@ string_union!(SetupState {
     Cancelled = "cancelled",
     Complete = "complete",
 });
-string_union!(SharedNoteKind { Worktree = "worktree", Repo = "repo" });
 string_union!(BranchFrom { Current = "current", Default = "default", Origin = "origin" });
 string_union!(TargetOperation {
     Merge = "merge",
@@ -168,7 +167,6 @@ string_union!(TargetOperation {
 string_union!(WorktreeMissing { Prunable = "prunable", Unlisted = "unlisted" });
 string_union!(WorktreeInUse { This = "this", Other = "other" });
 string_union!(WorktreeRemoved { Deleted = "deleted", Pruned = "pruned", Forgotten = "forgotten" });
-string_union!(NoteSection { Session = "session", Shared = "shared" });
 string_union!(
     /// Which kind of note a [`NoteRef`] names: a session's note, a line's note, a line's brief, or a repository's
     /// scratchpad.
@@ -403,22 +401,6 @@ pub struct WorkNote {
     pub at: Option<String>,
 }
 
-/// Not sent by the daemon since protocol 60 (the worktree and main-checkout notes became line notes and the
-/// scratchpad); kept until the UI stops reading it. A worktree's (or the main checkout's) note shared by its sessions
-/// (types.ts SharedNote).
-#[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SharedNote {
-    pub kind: SharedNoteKind,
-    pub id: String,
-    pub path: String,
-    pub text: String,
-    pub revision: String,
-    pub too_large: Option<bool>,
-    pub read_only: Option<bool>,
-}
-
 /// types.ts SessionRecord. Order: the create literal (daemon.ts createSession), then keys in the order a session's
 /// life usually adds them. Its real key order is history-dependent: messages carry it as `Ordered<SessionRecord>`.
 #[skip_serializing_none]
@@ -457,8 +439,6 @@ pub struct SessionRecord {
     /// The session's own note (every session has one; `notes_file` names its file).
     pub notes: Option<String>,
     pub notes_file: Option<NoteFile>,
-    /// Not sent since protocol 60 (see [`SharedNote`]).
-    pub shared_notes: Option<SharedNote>,
     pub agent_session_ref: Option<AgentSessionRef>,
     pub pid: Option<i64>,
     pub agent_version: Option<String>,

@@ -508,17 +508,6 @@ pub(crate) mod tests {
             return Err("not an object".into());
         };
         object.extend(given.clone());
-        if let Some(shared) = object.get_mut("sharedNotes").and_then(Value::as_object_mut) {
-            for (key, placeholder) in [
-                ("kind", "worktree"),
-                ("id", ""),
-                ("path", ""),
-                ("text", ""),
-                ("revision", ""),
-            ] {
-                shared.entry(key).or_insert(json!(placeholder));
-            }
-        }
         if let Some(worktree) = object.get_mut("worktree").and_then(Value::as_object_mut) {
             worktree.entry("mode").or_insert(json!("none"));
         }

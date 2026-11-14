@@ -24,7 +24,6 @@ use sha2::{Digest, Sha256};
 
 use crate::error::{DhError, Result};
 use crate::jsstr::{self, is_js_whitespace};
-use crate::notes::parse_checklist_line;
 use crate::task_list::{self, Part, Render};
 use deckhand_protocol::data::{Task, TaskAuto, TaskLink, TaskMeta, TaskOp};
 
@@ -557,70 +556,6 @@ pub fn parse_note_task_link(line: &str) -> Option<NoteTaskLink> {
     })
 }
 
-/// TS: tasks.ts noteTaskLinkLine.
-pub fn note_task_link_line(indent: &str, title: &str, id: &str) -> String {
-    format!("{indent}- ↗ {title} <!-- dh:t={id} -->")
-}
-
-/// TS: tasks.ts promoteOpenNoteLines item.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PromotedItem {
-    pub id: String,
-    pub title: String,
-}
-
-/// TS: tasks.ts promoteOpenNoteLines result.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PromotedNoteLines {
-    pub text: String,
-    pub items: Vec<PromotedItem>,
-}
-
-/// TS: tasks.ts promoteOpenNoteLines. Every open checklist item of a note becomes its `↗` link to a new task
-/// (`new_id`); items without text are left alone. `items` are in note order.
-pub fn promote_open_note_lines(note_text: &str, new_id: &mut dyn FnMut() -> String) -> PromotedNoteLines {
-    let mut items = Vec::new();
-    let lines: Vec<String> = note_text
-        .split('\n')
-        .map(|line| {
-            let Some(item) = parse_checklist_line(line).filter(|item| !item.checked) else {
-                return line.to_owned();
-            };
-            let title = clean_task_title(&item.text);
-            if title.is_empty() {
-                return line.to_owned();
-            }
-            let id = new_id();
-            let linked = note_task_link_line(&item.indent, &title, &id);
-            items.push(PromotedItem { id, title });
-            linked
-        })
-        .collect();
-    PromotedNoteLines {
-        text: lines.join("\n"),
-        items,
-    }
-}
-
-/// TS: tasks.ts findNoteTaskLink (TS -1: `None`).
-pub fn find_note_task_link(note_text: &str, id: &str) -> Option<usize> {
-    note_text
-        .split('\n')
-        .position(|line| parse_note_task_link(line).is_some_and(|link| link.id == id))
-}
-
-/// TS: tasks.ts openNoteItems (the unchecked items, as task titles).
-pub fn open_note_items(note_text: Option<&str>) -> Vec<String> {
-    note_text
-        .unwrap_or("")
-        .split('\n')
-        .filter_map(parse_checklist_line)
-        .filter(|item| !item.checked)
-        .map(|item| clean_task_title(&item.text))
-        .filter(|title| !title.is_empty())
-        .collect()
-}
-
 /// TS: tasks.ts LegacyFollowUp (a follow-up of the old model, taken out of the list for its work's note).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LegacyFollowUp {
@@ -921,10 +856,6 @@ mod tests {
                 id: "abcd1234".to_owned(),
             })
         );
-        assert_eq!(
-            open_note_items(Some("- [ ] a\n- [x] b\n  * [ ] c\n- ↗ d <!-- dh:t=1 -->")),
-            ["a", "c"]
-        );
         assert_eq!(without_task_meta("- [ ] a <!-- dh:t=1 wt=2 -->"), "- [ ] a");
         assert_eq!(clean_task_title("a <!-- b --> c\u{7}"), "a b c");
         assert_eq!(
@@ -1220,14 +1151,6 @@ mod tests {
     }
 
     #[test]
-    fn find_note_task_link_parity() {
-        replay("tasks/findNoteTaskLink", |case: &Case| {
-            let found = find_note_task_link(case.arg_str(0)?, case.arg_str(1)?);
-            Ok::<_, String>(found.map_or(-1, |line| i64::try_from(line).unwrap_or(i64::MAX)))
-        });
-    }
-
-    #[test]
     fn group_tasks_parity() {
         replay("tasks/groupTasks", |case: &Case| {
             let tasks: Vec<Task> = case.arg_as(0)?;
@@ -1288,29 +1211,6 @@ mod tests {
     }
 
     #[test]
-    fn note_task_link_line_parity() {
-        replay("tasks/noteTaskLinkLine", |case: &Case| {
-            Ok::<_, String>(note_task_link_line(
-                case.arg_str(0)?,
-                case.arg_str(1)?,
-                case.arg_str(2)?,
-            ))
-        });
-    }
-
-    #[test]
-    fn open_note_items_parity() {
-        replay("tasks/openNoteItems", |case: &Case| {
-            let text = if case.arg_is_undefined(0) {
-                None
-            } else {
-                Some(case.arg_str(0)?)
-            };
-            Ok::<_, String>(open_note_items(text))
-        });
-    }
-
-    #[test]
     fn open_task_count_parity() {
         replay("tasks/openTaskCount", |case: &Case| {
             let tasks: Vec<Task> = case.arg_as(0)?;
@@ -1329,21 +1229,6 @@ mod tests {
     fn parse_tasks_parity() {
         replay("tasks/parseTasks", |case: &Case| {
             Ok::<_, String>(parse_tasks(case.arg_str(0)?))
-        });
-    }
-
-    #[test]
-    fn promote_open_note_lines_parity() {
-        replay("tasks/promoteOpenNoteLines", |case: &Case| {
-            if case.fn_name(1) != Some("seq") {
-                return Err(format!("unknown newId {:?}", case.fn_name(1)));
-            }
-            let mut n = 0;
-            let mut next = || {
-                n += 1;
-                format!("id{n}")
-            };
-            Ok(promote_open_note_lines(case.arg_str(0)?, &mut next))
         });
     }
 

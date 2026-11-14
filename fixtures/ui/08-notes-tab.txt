@@ -1,0 +1,36 @@
+deckhand                                                                                                    ☐ 1 task · b   ● ready
+<TMP>/demo
+╭─────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions              2 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes ☐ 2                                         │
+│› 1 ▾ ● Token storage  ✶ │ │                                                                                                    │
+│╎ 2   ● Refresh tokens ✶ │ │ ◆ Token storage · 1/3 steps                                                                        │
+│                         │ │   ☑ schema                                                                                         │
+│                         │ │   ☐ encryption                                                                                     │
+│                         │ │   ☐ refresh tokens                                                                                 │
+│                         │ │ ▸ Brief · from ◎ Rework auth · 14 Nov                                                              │
+│                         │ │ ────────────────────────────────────────────────────────────────────────────────────────────────── │
+│                         │ │ Token storage · shared with whoever works on it · ☐ 1 open                                         │
+│                         │ │ Chose AES-GCM; keys live in the keychain.                                                          │
+│                         │ │ ☐ decide on rotation                                                                               │
+│                         │ │ ────────────────────────────────────────────────────────────────────────────────────────────────── │
+│                         │ │ This session · only this conversation · ☐ 1 open                                                   │
+│                         │ │ Review crypto.rs before merging                                                                    │
+│                         │ │ ☐ ask about key rotation                                                                           │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│ ─────────────────────── │ │                                                                                                    │
+│ Token storage           │ │                                                                                                    │
+│ ✶ claude · idle · now   │ │                                                                                                    │
+│ main checkout ╎1        │ │                                                                                                    │
+│ ◆ Token storage 1/3     │ │                                                                                                    │
+│ ☐ 1 open                │ │                                                                                                    │
+╰─────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────────╯
+enter edit notes • o vim • E open in editor • x stop • ? help • n new • W worktrees • C settings • r run • / search • q quit
+

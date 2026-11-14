@@ -262,42 +262,50 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
         title: "Notes",
         lines: &[
             HelpLine::Note {
-                note: "A worktree has one note, shared by its sessions; a main-checkout session has its own and the main checkout's. Autosaved Markdown; removed notes go to notes/trash.",
+                note: "A session's line and its steps, the line's brief and note (shared with whoever works on it), then this session's own note. Autosaved Markdown.",
             },
             HelpLine::Key {
                 keys: "Enter  o",
-                text: "Edit here (Esc ends) / in vim: Ctrl+X, Ctrl+T, Ctrl+] back",
+                text: "Edit here (Esc ends) / in vim (Ctrl+] back)",
             },
             HelpLine::Key {
                 keys: "Tab",
-                text: "Main checkout: switch between this session's note and the shared one",
+                text: "Next part: steps, brief (when open), line's note, yours",
             },
             HelpLine::Key {
-                keys: "Ctrl+X",
-                text: "Check / uncheck the line's item, or make the line a - [ ] item",
+                keys: "j k  Space",
+                text: "On the steps: move / tick or reopen the step",
             },
             HelpLine::Key {
-                keys: "Ctrl+T",
-                text: "New checklist item below (Enter on an item continues the list)",
+                keys: "a  Enter",
+                text: "On the steps: add a step / rename it",
+            },
+            HelpLine::Key {
+                keys: "Ctrl+B  b  p",
+                text: "Open or fold the brief (b on the steps); p: parent's note",
+            },
+            HelpLine::Key {
+                keys: "Ctrl+X  Ctrl+T",
+                text: "Check or uncheck the item (or make one) / a new item",
             },
             HelpLine::Key {
                 keys: "Alt+← →",
-                text: "Jump a word (Ctrl+←→, Alt+B/F too); Alt+Backspace or Ctrl+W deletes one, Alt+Delete the next",
+                text: "Jump a word; Alt+Backspace or Ctrl+W deletes one",
             },
             HelpLine::Key {
                 keys: "Ctrl+A  E",
-                text: "Start / end of the line (Home / End too; Ctrl+Home/End: the note; PgUp/PgDn a screen)",
+                text: "Start / end of the line (Ctrl+Home/End: the note)",
             },
             HelpLine::Key {
                 keys: "Ctrl+P",
-                text: "Send the line's checklist item to Tasks (the note keeps a ↗ link)",
+                text: "Make the open checkbox a step of this session's line",
             },
             HelpLine::Key {
                 keys: "E  Ctrl+O",
-                text: "Open the note in Cursor / VS Code (Ctrl+O while editing)",
+                text: "The note in Cursor / VS Code (steps: the line's note)",
             },
             HelpLine::Note {
-                note: "☐ N open below the sidebar counts open items of both notes. A worktree's note goes when its last session is removed (removing asks first; Enter sends open items to Tasks).",
+                note: "A step or line note for a session on no line makes its line. ☐ N on the tab counts open steps.",
             },
         ],
     },

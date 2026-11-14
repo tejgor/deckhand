@@ -19,7 +19,7 @@ use deckhand_core::display::{HINT_SEPARATOR, HintPart, compact_path, fit_hint, s
 use deckhand_core::session_features::{TaskTitleOf, session_filter_counts};
 use deckhand_core::session_lines::{detail_line, line_title};
 use deckhand_core::sidebar_model::{DetailTask, RowRole, SidebarRowsInput, sidebar_rows};
-use deckhand_core::tasks_board::{StepCount, linked_task, other_open_tasks, task_count_label};
+use deckhand_core::tasks_board::task_count_label;
 use deckhand_core::workspace::workspace_key;
 use deckhand_protocol::data::{RightPaneTab, SessionRecord, SessionStatus};
 
@@ -37,19 +37,19 @@ use crate::app::modes::plan::{PlanDialogProps, plan_waiting_hidden, render_plan_
 use crate::app::modes::resume::{ResumeDialogProps, ResumeKind, render_resume_dialog};
 use crate::app::state::{App, DialogState, Mode, TerminalSize};
 use crate::app::{
-    Derived, connection_color, describe_connection, format_scroll_sensitivity, hint_short, notes_links,
-    parent_workspace_label, truthy, with_props, workspace_label_of,
+    Derived, connection_color, describe_connection, format_scroll_sensitivity, hint_short, parent_workspace_label,
+    truthy, with_props, workspace_label_of,
 };
 use crate::flow::Flow;
 use crate::flows::notes::NotesFlowProps;
 use crate::flows::settings::is_settings_flow_mode;
-use crate::flows::tasks::{TaskBannerProps, TasksFlowProps, render_task_banner, task_banner_rows};
+use crate::flows::tasks::TasksFlowProps;
 use crate::flows::worktrees::WorktreesFlowProps;
 use crate::panes::details::{DetailsPaneProps, render_details_pane};
 use crate::panes::dev::{DevPaneProps, render_dev_pane};
 use crate::panes::preview::{PreviewPaneProps, preview_body, render_preview_pane};
 use crate::panes::sidebar::{FilterMenu, SidebarProps, render_sidebar};
-use crate::panes::tabs::{TabBadges, open_note_count, render_tab_bar};
+use crate::panes::tabs::{TabBadges, open_step_count, render_tab_bar};
 use crate::panes::terminal::{
     TerminalPaneProps, action_status, has_action, render_terminal_pane, shell_label, shells, shown_shell, typed_screen,
 };
@@ -400,14 +400,13 @@ fn flow_hint(app: &App, derived: &Derived, width: usize) -> Option<String> {
             Some(app.flows.worktrees.hint(&props, width))
         }
         Mode::NotesFocus => {
-            let refs: Vec<&SessionRecord> = derived.sessions.iter().collect();
-            let lookup = notes_links(app);
             let props = NotesFlowProps {
                 client: app.connection.client.as_ref(),
+                repo_root: &app.props.repo_root,
                 session: derived.selected.as_ref(),
-                sessions: &refs,
+                list: &app.data.task_list,
+                notes: &app.data.work_notes,
                 focused: true,
-                links: lookup.as_deref(),
             };
             Some(app.flows.notes.hint(&props, width))
         }
@@ -647,7 +646,7 @@ fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, ar
     let inner = bordered(buf, area, &Border::round(border), 1);
     let badges = TabBadges {
         dev_running: selected.is_some_and(|session| session.dev_running == Some(true)),
-        open_notes: selected.map_or(0, open_note_count),
+        open_steps: selected.map_or(0, |session| open_step_count(&app.data.task_list, session)),
     };
     render_tab_bar(
         app.browse.active_tab,
@@ -701,37 +700,11 @@ fn render_tabbed_pane_for(app: &mut App, derived: &Derived, buf: &mut Buffer, ar
             render_dev_pane(&props, buf, pane);
         }
         RightPaneTab::Notes => {
-            let task = linked_task(&app.data.tasks, selected).cloned();
-            let mut notes_area = pane;
-            if let (Some(task), Some(session)) = (task, selected) {
-                let repo_refs: Vec<&SessionRecord> = app.data.repo_sessions.iter().collect();
-                // Its line's lines, ticked of total.
-                let count = app.data.task_list.count(&task.id);
-                let props = TaskBannerProps {
-                    task: &task,
-                    more: other_open_tasks(&app.data.tasks, Some(session)),
-                    steps: Some(StepCount {
-                        done: count.ticked,
-                        total: count.total,
-                    }),
-                    sessions: &repo_refs,
-                    spinner_frame: app.spinner_frame(),
-                };
-                let banner_rows = task_banner_rows(&props, usize::from(pane.width)).len();
-                let banner_height = u16::try_from(banner_rows).unwrap_or(u16::MAX);
-                render_task_banner(&props, buf, Rect::new(pane.x, pane.y, pane.width, banner_height));
-                notes_area = Rect::new(
-                    pane.x,
-                    pane.y.saturating_add(banner_height),
-                    pane.width,
-                    layout.pane_inner_height.saturating_sub(2).max(1),
-                );
-            }
             with_props!(
                 notes,
                 app,
                 |flow: &mut crate::flows::notes::NotesFlow, props: &NotesFlowProps<'_>| {
-                    flow.render(props, buf, notes_area)
+                    flow.render(props, buf, pane)
                 }
             );
         }
@@ -1834,6 +1807,88 @@ mod tests {
                 .modifier
                 .contains(ratatui::style::Modifier::DIM)
         );
+    }
+
+    /// Token storage (`a`) is on its line under an idea, with three steps (the last one its sub-session `b`'s), a
+    /// brief and a note; both sessions have notes of their own.
+    fn notes_tab_setup(app: &mut App, selected: &str) {
+        use deckhand_protocol::data::{NoteFile, TasksDoc, WorkNote, WorkNoteKind};
+        let now = deckhand_core::jsstr::date::to_iso_string(deckhand_core::jsstr::date::now_ms());
+        let mut token = session("a", "Token storage", SessionStatus::Running);
+        let mut refresh = session("b", "Refresh tokens", SessionStatus::Running);
+        refresh.parent_session_id = Some("a".to_owned());
+        for (record, notes) in [
+            (
+                &mut token,
+                "Review crypto.rs before merging\n- [ ] ask about key rotation",
+            ),
+            (&mut refresh, "told it to keep the old endpoint working"),
+        ] {
+            record.cwd = "<TMP>/demo".to_owned();
+            record.repo_root = "<TMP>/demo".to_owned();
+            record.agent_status_updated_at.clone_from(&now);
+            record.notes = Some(notes.to_owned());
+            record.notes_file = Some(NoteFile {
+                path: format!("/notes/sessions/{}.md", record.id),
+                revision: "r".to_owned(),
+                too_large: None,
+            });
+        }
+        app.data.repo_sessions = vec![token, refresh];
+        let note = |kind, text: &str, from: Option<&str>, at: Option<&str>| WorkNote {
+            kind,
+            id: "tok".to_owned(),
+            path: String::new(),
+            text: text.to_owned(),
+            revision: "n".to_owned(),
+            too_large: None,
+            from: from.map(str::to_owned),
+            at: at.map(str::to_owned),
+        };
+        app.set_tasks_doc(Some(TasksDoc {
+            key: "k".to_owned(),
+            path: "/notes/tasks/k.md".to_owned(),
+            text: "- [ ] Rework auth <!-- dh:t=idea -->\n  - [ ] Token storage <!-- dh:t=tok s=a -->\n    \
+                   - [x] schema <!-- dh:t=sch -->\n    - [ ] encryption <!-- dh:t=enc -->\n    \
+                   - [ ] refresh tokens <!-- dh:t=ref s=b -->\n"
+                .to_owned(),
+            revision: "t".to_owned(),
+            too_large: None,
+            notes: Some(vec![
+                note(
+                    WorkNoteKind::Line,
+                    "Chose AES-GCM; keys live in the keychain.\n- [ ] decide on rotation",
+                    None,
+                    None,
+                ),
+                note(
+                    WorkNoteKind::Brief,
+                    "Store tokens encrypted at rest. Refresh tokens are a sub-session's.\n",
+                    Some("◎ Rework auth"),
+                    Some("2026-11-14T10:00:00.000Z"),
+                ),
+            ]),
+        }));
+        app.set_selected_id(Some(selected.to_owned()));
+        app.set_active_tab(RightPaneTab::Notes);
+    }
+
+    #[test]
+    fn renders_the_notes_tab_snapshots() {
+        // A session on a line: its steps, the folded brief, the line's note and its own.
+        assert_screen("08-notes-tab", |app| notes_tab_setup(app, "a"));
+        // Editing its line's note with the brief open.
+        assert_screen("09-notes-tab-editing", |app| {
+            notes_tab_setup(app, "a");
+            app.flows.notes.briefs_open.insert("a".to_owned());
+            app.flows.notes.part = crate::flows::notes::NotePart::Line;
+            app.set_mode(Mode::NotesFocus);
+        });
+        // A sub-session: its parent's line note, opened (it is folded until p).
+        assert_screen("10-notes-tab-sub-session", |app| {
+            notes_tab_setup(app, "b");
+            app.flows.notes.parents_open.insert("b".to_owned());
+        });
     }
 
     #[test]

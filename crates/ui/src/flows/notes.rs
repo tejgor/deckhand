@@ -1,29 +1,35 @@
-//! The Notes tab's state. One draft per note (a shared note is one draft for every session showing it, so its cursor
-//! and unsaved text follow it), debounced revision-checked saves, reloads when the file changed elsewhere, and the keys
-//! of notes focus (Enter). The daemon owns the files; records carry their text and revision.
+//! The Notes tab (`docs/future/work-items.md`, *Notes*): the session's line and its steps, the line's brief and note,
+//! the session's own note, and for a sub-session its parent's line note. Notes focus (Enter) moves between them with
+//! `tab`: on the steps their keys tick, add and rename steps (ops on the list); on a note, the editor. One draft per
+//! note being edited: debounced, revision-checked saves; a newer file reloads a draft with nothing unsaved, and one with
+//! unsaved text keeps it and says so. The daemon owns the files: sessions carry their own note, the app's
+//! [`NoteMap`] the line notes and briefs, its [`TaskList`] the lines.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use serde_json::json;
 
 use deckhand_client::live::{LiveClient, Reply};
-use deckhand_core::display::{HintPart, display_session_title, error_message, fit_hint};
+use deckhand_core::display::{HintPart, error_message, fit_hint};
 use deckhand_core::error::DhError;
-use deckhand_core::jsstr::{js_len, js_trim, path};
+use deckhand_core::jsstr::{js_len, js_trim};
 use deckhand_core::key::{Input, Key};
 use deckhand_core::notes::{
-    MAX_NOTES_CHARS, MAX_NOTES_LABEL, TaskLinkLookup, continue_checklist, insert_checklist_item, note_key,
-    parse_checklist_line, shows_own_note, toggle_checklist,
+    MAX_NOTES_CHARS, MAX_NOTES_LABEL, continue_checklist, insert_checklist_item, note_revision, parse_checklist_line,
+    toggle_checklist,
 };
+use deckhand_core::task_list::{Line, TaskList};
 use deckhand_core::text_editor::{
     EditOptions, EditorState, clean_inserted_text, edit_text, line_end, line_start, replace_range,
 };
+use deckhand_core::work_notes::NoteMap;
 use deckhand_protocol::data::{
-    NoteRef, NoteSaveResult, NoteSection, PromoteNoteItemResult, SessionRecord, SharedNoteKind, WorkNoteKind,
+    NoteRef, NoteSaveResult, PromoteNoteItemResult, SessionRecord, TaskOp, TasksDoc, WorkNote, WorkNoteKind,
 };
 use deckhand_sys::async_util::Timer;
 use deckhand_sys::desktop::open_in_editor;
@@ -31,140 +37,222 @@ use deckhand_sys::desktop::open_in_editor;
 use crate::app::event_loop::Dispatch;
 use crate::app::state::App;
 use crate::flow::{Flow, FlowCx, FlowEffect, FlowHost, FlowThen};
-use crate::keymap::Keymap;
+use crate::flows::tasks::{brief_date, title_options};
+use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
+pub use crate::panes::notes::NotePart;
 use crate::panes::notes::{
-    NotesEditing, NotesLayoutInput, NotesSectionInput, notes_layout, render_notes_message, render_notes_rows,
+    FoldInput, NotesEditing, NotesLayoutInput, NotesSectionInput, StepEditing, StepRow, StepsInput, notes_layout,
+    render_notes_message, render_notes_rows,
 };
 
-/// What [`NotesFlow::active_file`] hands the file to (TS: the promise's `.then`).
+/// What [`NotesFlow::active_file`] hands the file to.
 pub type FileThen = Box<dyn FnOnce(&mut App, Option<String>)>;
 
-/// What [`NotesFlow::file_of`] hands its result to: none when there is no client or session to ask (TS: `fileOf`
-/// returns `undefined`).
-type FileDone = Box<dyn FnOnce(&mut App, Option<Result<String, DhError>>)>;
+/// What [`NotesFlow::file_of`] hands its result to (the list too, when the session's line was made on the way): none
+/// when there is no client or session to ask.
+type FileDone = Box<dyn FnOnce(&mut App, Option<Result<(Option<TasksDoc>, String), DhError>>)>;
+
+/// What a step op does with the list it answered.
+type ListThen = Box<dyn FnOnce(&mut NotesFlow, &TasksDoc, &mut FlowCx<App, NotesFlow>)>;
 
 /// TS: notesFlow.tsx SAVE_DEBOUNCE_MS.
 pub const SAVE_DEBOUNCE_MS: u64 = 300;
 
-/// Shown when a reload dropped an unsaved edit (TS: reconcile's `setError`).
-const RELOADED_MESSAGE: &str =
-    "These notes changed outside Deckhand (an editor?): reloaded them; your last unsaved edit was not saved";
+/// A note changed elsewhere while it had unsaved text here.
+pub const CONFLICT_MESSAGE: &str = "This note changed elsewhere meanwhile, so your edit was not saved; it is still \
+                                    here, and your next edit saves it over theirs";
 
-/// TS: notesFlow.tsx Draft.
+/// The session moved to another line while its line's note had unsaved text.
+const LINE_CHANGED_MESSAGE: &str =
+    "This session's line changed, so your unsaved edit to its old line's note was not saved";
+
+/// A note being edited.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Draft {
-    /// The session and section it is saved through (the last one edited from).
     pub session_id: String,
-    pub section: NoteSection,
-    /// For a shared note: `kind:id`, so a save never lands in another note.
-    pub note_id: Option<String>,
+    /// `Line`, `Brief` or `Session`.
+    pub part: NotePart,
+    /// The line whose note or brief it is (none: a session's note, or the note of a line the first save makes).
+    pub line_id: Option<String>,
     pub text: String,
     /// Byte offset into `text`.
     pub cursor: usize,
-    /// The file's text and revision as last known; `text` differs from `saved` while unsaved.
+    /// The file's text as last saved or loaded, and the revision a save names; `text` differs from `saved` while
+    /// unsaved.
     pub saved: String,
     pub revision: String,
     /// The text of the save in flight.
     pub in_flight: Option<String>,
     pub scroll_top: usize,
+    /// The note changed elsewhere while this had unsaved text: nothing is saved until the next edit, which saves it
+    /// over theirs.
+    pub conflict: bool,
 }
 
-/// TS: notesFlow.tsx NoteDoc.
+impl Draft {
+    fn of(session_id: &str, part: NotePart, doc: &NoteDoc) -> Draft {
+        Draft {
+            session_id: session_id.to_owned(),
+            part,
+            line_id: doc.line_id.clone(),
+            text: doc.text.clone(),
+            cursor: doc.text.len(),
+            saved: doc.text.clone(),
+            revision: doc.revision.clone(),
+            in_flight: None,
+            scroll_top: 0,
+            conflict: false,
+        }
+    }
+}
+
+/// A note as last heard of.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NoteDoc {
     pub text: String,
     pub revision: String,
-    pub read_only: bool,
     pub too_large: bool,
+    /// The line it belongs to (a line's note or brief).
+    pub line_id: Option<String>,
 }
 
-/// The note a section of the tab names: the session's own. Its shared note (a worktree's or the main checkout's) is
-/// gone since protocol 60: they became line notes and the scratchpad, which the tab does not show yet.
-fn section_note(session_id: &str, section: NoteSection) -> Result<NoteRef, DhError> {
-    match section {
-        NoteSection::Session => Ok(NoteRef {
-            kind: WorkNoteKind::Session,
-            id: session_id.to_owned(),
+impl NoteDoc {
+    fn of(note: &WorkNote, line_id: Option<String>) -> NoteDoc {
+        NoteDoc {
+            text: note.text.clone(),
+            revision: note.revision.clone(),
+            too_large: note.too_large == Some(true),
+            line_id,
+        }
+    }
+}
+
+/// The key of the draft of `part` of a session: each session has one line, so its line's note and brief are keyed by
+/// it too.
+pub fn draft_key(session_id: &str, part: NotePart) -> String {
+    let kind = match part {
+        NotePart::Line => "line",
+        NotePart::Brief => "brief",
+        NotePart::Steps | NotePart::Session => "session",
+    };
+    format!("{kind}:{session_id}")
+}
+
+/// The note of `part` as last heard of: the session's own (once its file is known), its line's (empty, and of no line,
+/// while it is on none), or its line's brief (none without one).
+pub fn doc_of(session: &SessionRecord, part: NotePart, list: &TaskList, notes: &NoteMap) -> Option<NoteDoc> {
+    match part {
+        NotePart::Session => session.notes_file.as_ref().map(|file| NoteDoc {
+            text: session.notes.clone().unwrap_or_default(),
+            revision: file.revision.clone(),
+            too_large: file.too_large == Some(true),
+            line_id: None,
         }),
-        NoteSection::Shared => Err(DhError::msg(
-            "A session has no shared note any more: its line's note and the scratchpad took its place",
-        )),
+        NotePart::Line => Some(match list.line_of_session(&session.id) {
+            Some(line) => NoteDoc::of(&notes.editable(WorkNoteKind::Line, &line.id), Some(line.id.clone())),
+            None => NoteDoc {
+                revision: note_revision(""),
+                ..NoteDoc::default()
+            },
+        }),
+        NotePart::Brief => {
+            let line = list.line_of_session(&session.id)?;
+            notes
+                .brief(&line.id)
+                .map(|brief| NoteDoc::of(brief, Some(line.id.clone())))
+        }
+        NotePart::Steps => None,
     }
 }
 
-/// `save-note` on a section's note.
-fn save_section(
-    client: &LiveClient,
-    session_id: &str,
-    section: NoteSection,
-    text: &str,
-    revision: &str,
-) -> Reply<NoteSaveResult> {
-    match section_note(session_id, section) {
-        Ok(note) => client.save_work_note(note, text, revision),
-        Err(error) => Box::pin(async move { Err(error) }),
+/// The brief's folded row: `Brief · from <who> · <date>`.
+fn brief_label(brief: &WorkNote) -> String {
+    let mut label = "Brief".to_owned();
+    if let Some(from) = brief.from.as_deref().filter(|from| !from.is_empty()) {
+        label.push_str(&format!(" · from {from}"));
     }
-}
-
-/// TS: notesFlow.tsx docOf: a session's note of `section` as last pushed (none without one).
-pub fn doc_of(session: Option<&SessionRecord>, section: NoteSection) -> Option<NoteDoc> {
-    let session = session?;
-    if section == NoteSection::Shared {
-        return session.shared_notes.as_ref().map(|shared| NoteDoc {
-            text: shared.text.clone(),
-            revision: shared.revision.clone(),
-            read_only: shared.read_only == Some(true),
-            too_large: shared.too_large == Some(true),
-        });
+    if let Some(at) = brief.at.as_deref().filter(|at| !at.is_empty()) {
+        label.push_str(&format!(" · {}", brief_date(at)));
     }
-    session.notes_file.as_ref().map(|file| NoteDoc {
-        text: session.notes.clone().unwrap_or_default(),
-        revision: file.revision.clone(),
-        read_only: false,
-        too_large: file.too_large == Some(true),
-    })
+    label
 }
 
-/// TS: notesFlow.tsx plural.
-pub fn plural(count: i64, word: &str) -> String {
-    format!("{count} {word}{}", if count == 1 { "" } else { "s" })
-}
-
-/// TS: notesFlow.tsx NotesFlowOptions (values; `onExit`, `setError`, `setStatusMessage` and `onTasks` are effects).
+/// The Notes flow's values.
 #[derive(Clone, Copy)]
 pub struct NotesFlowProps<'a> {
     pub client: Option<&'a Rc<LiveClient>>,
+    /// Where list ops go (the repository's list).
+    pub repo_root: &'a str,
     pub session: Option<&'a SessionRecord>,
-    pub sessions: &'a [&'a SessionRecord],
+    /// The list, and its line notes and briefs.
+    pub list: &'a TaskList,
+    pub notes: &'a NoteMap,
     pub focused: bool,
-    /// Whether each task a `↗` line links to is open, done or gone (none until the list is loaded).
-    pub links: Option<TaskLinkLookup<'a>>,
 }
 
-/// TS: useNotesFlow's state.
+impl<'a> NotesFlowProps<'a> {
+    /// The line the session is on.
+    fn line(&self) -> Option<&'a Line> {
+        self.list.line_of_session(&self.session?.id)
+    }
+
+    /// Its steps: the lines under its line.
+    fn steps(&self) -> Vec<&'a Line> {
+        self.line().map_or_else(Vec::new, |line| self.list.children(&line.id))
+    }
+
+    /// Its line's brief.
+    fn brief(&self) -> Option<&'a WorkNote> {
+        self.notes.brief(&self.line()?.id)
+    }
+
+    /// A sub-session's parent's line, and its note (when it has text).
+    fn parent_note(&self) -> Option<(&'a Line, &'a WorkNote)> {
+        let parent = self.session?.parent_session_id.as_deref()?;
+        let line = self.list.line_of_session(parent)?;
+        Some((line, self.notes.line_note(&line.id)?))
+    }
+}
+
+/// A step's title being written: a new step (`id` none), or a step renamed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StepEditor {
+    pub id: Option<String>,
+    pub title: EditorState,
+}
+
+/// The Notes flow's state.
 pub struct NotesFlow {
-    /// Drafts by note key (notes.ts noteKey).
+    /// Drafts by [`draft_key`].
     pub drafts: HashMap<String, Draft>,
-    /// Debounced saves by note key.
+    /// Debounced saves by draft key.
     pub timers: HashMap<String, Timer>,
-    /// The section notes focus edits (and E opens); kept while switching sessions.
-    pub section: NoteSection,
-    /// The editor's wrap width and body rows at the last render (TS `viewport`; 40 × 10 before one).
+    /// The part notes focus works on (and E opens); kept while switching sessions.
+    pub part: NotePart,
+    /// The selected step.
+    pub step: usize,
+    pub step_editor: Option<StepEditor>,
+    /// Sessions whose brief, or parent's line note, is open.
+    pub briefs_open: HashSet<String>,
+    pub parents_open: HashSet<String>,
+    /// The editor's wrap width and body rows at the last render (40 × 10 before one).
     pub viewport_width: usize,
     pub viewport_rows: usize,
     /// Inside a bracketed paste (`[200~` … `[201~`).
     pub pasting: bool,
-    /// Focus at the last call (TS: the `[focused]` effect saves everything when focus ends).
+    /// Focus at the last call (leaving notes focus saves everything).
     pub was_focused: bool,
-    /// An error a call found (a reload discarded an unsaved edit), reported when the call ends (TS
-    /// `queueMicrotask(() => setError(...))`); a render with no dispatcher yet keeps it for the next call.
+    /// An error a call found (a reload kept or dropped an unsaved edit), reported when the call ends; a render with no
+    /// dispatcher yet keeps it for the next call.
     pub deferred_error: Option<String>,
-    /// The client as of the last call (TS `latest.current.client`), for work that outlives it.
+    /// A step op is in flight.
+    busy: bool,
+    /// The client and repository as of the last call, for work that outlives it.
     latest_client: Option<Rc<LiveClient>>,
-    /// The host's dispatcher as of the last call (TS `latest.current.setError`): a render has no cx, so the error it
-    /// finds is sent through it, to show right after the frame whatever the mode (TS `queueMicrotask`).
+    latest_repo_root: String,
+    /// The host's dispatcher as of the last call: a render has no cx, so what it finds is sent through it.
     latest_dispatch: Option<Dispatch<App>>,
-    /// What waits for each draft's save in flight (TS: the `pending` promise's `.then`s).
+    /// What waits for each draft's save in flight.
     waiters: HashMap<String, Vec<FlowThen<App, NotesFlow>>>,
 }
 
@@ -173,7 +261,9 @@ impl std::fmt::Debug for NotesFlow {
         f.debug_struct("NotesFlow")
             .field("drafts", &self.drafts)
             .field("timers", &self.timers.keys().collect::<Vec<_>>())
-            .field("section", &self.section)
+            .field("part", &self.part)
+            .field("step", &self.step)
+            .field("step_editor", &self.step_editor)
             .field("viewport_width", &self.viewport_width)
             .field("viewport_rows", &self.viewport_rows)
             .field("pasting", &self.pasting)
@@ -188,21 +278,53 @@ impl Default for NotesFlow {
         NotesFlow {
             drafts: HashMap::new(),
             timers: HashMap::new(),
-            section: NoteSection::Session,
+            part: NotePart::Session,
+            step: 0,
+            step_editor: None,
+            briefs_open: HashSet::new(),
+            parents_open: HashSet::new(),
             viewport_width: 40,
             viewport_rows: 10,
             pasting: false,
             was_focused: false,
             deferred_error: None,
+            busy: false,
             latest_client: None,
+            latest_repo_root: String::new(),
             latest_dispatch: None,
             waiters: HashMap::new(),
         }
     }
 }
 
-/// The notes focus keys.
-pub static KEYMAP: Keymap = &[];
+const fn notes_key(keys: &'static [KeySpec], action: &'static str) -> Binding {
+    Binding {
+        keys,
+        action,
+        help: HelpRef::Topic("Notes"),
+    }
+}
+
+/// Notes focus's keys (each in the guide's Notes topic). Typing goes to the note being edited; these are the keys
+/// around it and the steps' keys.
+pub static KEYMAP: Keymap = &[
+    notes_key(
+        &[KeySpec::Named(NamedKey::Tab), KeySpec::Named(NamedKey::ShiftTab)],
+        "next / previous part",
+    ),
+    notes_key(&[KeySpec::Ctrl("b")], "open or fold the brief"),
+    notes_key(&[KeySpec::Char("j"), KeySpec::Named(NamedKey::Down)], "steps: next"),
+    notes_key(&[KeySpec::Char("k"), KeySpec::Named(NamedKey::Up)], "steps: previous"),
+    notes_key(&[KeySpec::Char(" ")], "steps: tick or reopen"),
+    notes_key(&[KeySpec::Char("a")], "steps: add one"),
+    notes_key(&[KeySpec::Named(NamedKey::Return)], "steps: rename it"),
+    notes_key(&[KeySpec::Char("b")], "steps: open or fold the brief"),
+    notes_key(&[KeySpec::Char("p")], "steps: open or fold the parent's note"),
+    notes_key(&[KeySpec::Char("E"), KeySpec::Ctrl("o")], "the note in your editor"),
+    notes_key(&[KeySpec::Ctrl("p")], "the checkbox becomes a step"),
+    notes_key(&[KeySpec::Ctrl("x"), KeySpec::Ctrl("t")], "tick a checkbox / a new one"),
+    notes_key(&[KeySpec::Named(NamedKey::Escape)], "done (saves)"),
+];
 
 /// `Math.min(cursor, text.length)`, kept on a character boundary.
 fn clamp_cursor(cursor: usize, text: &str) -> usize {
@@ -213,23 +335,40 @@ fn clamp_cursor(cursor: usize, text: &str) -> usize {
     cursor
 }
 
-/// TS: reconcile's body: takes the file's newer version into the draft; whether that dropped an unsaved edit.
-fn apply_reconcile(draft: &mut Draft, doc: &NoteDoc) -> bool {
+/// Takes a newer version of the note into the draft. Nothing unsaved: silently. Unsaved text that the file does not
+/// say: kept, the draft now naming the file's revision, so the next edit saves it over theirs (the message says so).
+fn apply_reconcile(draft: &mut Draft, doc: &NoteDoc) -> Option<&'static str> {
+    let unsaved = draft.text != draft.saved || draft.in_flight.is_some();
+    if draft.line_id != doc.line_id {
+        if draft.line_id.is_some() {
+            // Another line's note now: what was typed belonged to the old one.
+            let dropped = unsaved && draft.text != doc.text;
+            *draft = Draft::of(&draft.session_id, draft.part, doc);
+            return dropped.then_some(LINE_CHANGED_MESSAGE);
+        }
+        // Its line was made (by this draft's first save, or meanwhile): the draft is that line's note.
+        draft.line_id.clone_from(&doc.line_id);
+    }
     if doc.revision == draft.revision {
-        return false;
+        return None;
     }
     if draft.in_flight.as_deref() == Some(doc.text.as_str()) {
         draft.saved = doc.text.clone();
         draft.revision = doc.revision.clone();
-        return false;
+        return None;
     }
-    let unsaved = draft.text != draft.saved || draft.in_flight.is_some();
-    let discarded = unsaved && draft.text != doc.text;
+    if unsaved && draft.text != doc.text {
+        draft.saved = doc.text.clone();
+        draft.revision = doc.revision.clone();
+        draft.conflict = true;
+        return Some(CONFLICT_MESSAGE);
+    }
     draft.text = doc.text.clone();
     draft.saved = doc.text.clone();
     draft.revision = doc.revision.clone();
     draft.cursor = clamp_cursor(draft.cursor, &draft.text);
-    discarded
+    draft.conflict = false;
+    None
 }
 
 /// A hint part with a short form and a drop rank.
@@ -241,34 +380,97 @@ fn hint_part(text: &str, short: Option<&str>, drop: i32) -> HintPart {
     }
 }
 
+/// What a save answered, with the list when the session's line was made first.
+struct SaveOutcome {
+    tasks: Option<TasksDoc>,
+    line_id: Option<String>,
+    result: NoteSaveResult,
+}
+
+/// `session-line`: the session's line (made when it has none), and the list after it.
+async fn make_session_line(
+    client: &LiveClient,
+    repo_root: &str,
+    session_id: &str,
+) -> Result<(TasksDoc, String), DhError> {
+    let doc = client
+        .task_op_value(repo_root, json!({"type": "session-line", "s": session_id}))
+        .await?;
+    let id = TaskList::parse(&doc.text)
+        .line_of_session(session_id)
+        .map(|line| line.id.clone())
+        .ok_or_else(|| DhError::msg("The session's line was not made"))?;
+    Ok((doc, id))
+}
+
+/// The note a part names. A line's note of a session on no line makes its line first (lines on demand); the list
+/// after that comes back too.
+async fn resolve_note(
+    client: &LiveClient,
+    repo_root: &str,
+    session_id: &str,
+    part: NotePart,
+    line_id: Option<String>,
+) -> Result<(NoteRef, Option<TasksDoc>, Option<String>), DhError> {
+    let note = |kind, id: &str| NoteRef {
+        kind,
+        id: id.to_owned(),
+    };
+    match (part, line_id) {
+        (NotePart::Session | NotePart::Steps, _) => Ok((note(WorkNoteKind::Session, session_id), None, None)),
+        (NotePart::Brief, Some(id)) => Ok((note(WorkNoteKind::Brief, &id), None, Some(id))),
+        (NotePart::Brief, None) => Err(DhError::msg("This session's line has no brief")),
+        (NotePart::Line, Some(id)) => Ok((note(WorkNoteKind::Line, &id), None, Some(id))),
+        (NotePart::Line, None) => {
+            let (doc, id) = make_session_line(client, repo_root, session_id).await?;
+            Ok((note(WorkNoteKind::Line, &id), Some(doc), Some(id)))
+        }
+    }
+}
+
 impl NotesFlow {
-    /// TS: NotesFlow.focus (Enter / →): start editing (the section last edited, the session's by default).
+    /// Enter / →: notes focus, on the part last worked on (the session's note at first).
     pub fn focus(&mut self, props: &NotesFlowProps<'_>) {
-        self.latest_client = props.client.cloned();
-        if self.section == NoteSection::Shared && !shared_editable(props.session) {
-            self.section = NoteSection::Session;
-        }
+        self.remember_props(props);
+        self.part = self.active_part(props);
     }
 
-    /// The section being shown/edited (TS `activeSection`).
-    pub fn active_section(&self, props: &NotesFlowProps<'_>) -> NoteSection {
-        let has_shared = props.session.is_some_and(|session| session.shared_notes.is_some());
-        let own_note = own_note(props.session);
-        if has_shared && (self.section == NoteSection::Shared || !own_note) {
-            NoteSection::Shared
+    fn remember_props(&mut self, props: &NotesFlowProps<'_>) {
+        self.latest_client = props.client.cloned();
+        props.repo_root.clone_into(&mut self.latest_repo_root);
+    }
+
+    /// The parts `tab` moves through: the steps, the brief while it is open, the line's note, the session's.
+    fn parts(&self, props: &NotesFlowProps<'_>) -> Vec<NotePart> {
+        let mut parts = vec![NotePart::Steps];
+        let brief_open = props
+            .session
+            .is_some_and(|session| self.briefs_open.contains(&session.id));
+        if brief_open && props.brief().is_some() {
+            parts.push(NotePart::Brief);
+        }
+        parts.extend([NotePart::Line, NotePart::Session]);
+        parts
+    }
+
+    /// The part being worked on (a brief folded or gone: the line's note).
+    pub fn active_part(&self, props: &NotesFlowProps<'_>) -> NotePart {
+        if self.parts(props).contains(&self.part) {
+            self.part
         } else {
-            NoteSection::Session
+            NotePart::Line
         }
     }
 
-    /// TS: the `[focused]` effect: leaving notes focus saves every draft at once.
+    /// Leaving notes focus saves every draft at once.
     pub fn sync(&mut self, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
-        self.latest_client = props.client.cloned();
+        self.remember_props(props);
         self.remember(cx);
         let changed = self.was_focused != props.focused;
         self.was_focused = props.focused;
         if changed && !props.focused {
             self.pasting = false;
+            self.step_editor = None;
             let keys: Vec<String> = self.drafts.keys().cloned().collect();
             for key in keys {
                 self.flush(&key, props.client, cx, None);
@@ -277,80 +479,59 @@ impl NotesFlow {
         self.report_deferred(cx);
     }
 
-    /// Keeps the host's dispatcher for a later render (TS `latest.current = {client, setError}`).
+    /// Keeps the host's dispatcher for a later render.
     fn remember(&mut self, cx: &FlowCx<App, Self>) {
         self.latest_dispatch = Some(cx.dispatch().clone());
     }
 
-    /// Reports the error a call found (TS: the microtask `queueMicrotask` queued).
+    /// Reports the error a call found.
     fn report_deferred(&mut self, cx: &mut FlowCx<App, Self>) {
         if let Some(message) = self.deferred_error.take() {
             cx.set_error(message);
         }
     }
 
-    /// TS: useNotesFlow reconcile: applies a newer version of the file (silently when nothing is unsaved).
-    pub fn reconcile(draft: &mut Draft, doc: &NoteDoc, cx: &mut FlowCx<App, Self>) {
-        if apply_reconcile(draft, doc) {
-            cx.set_error(RELOADED_MESSAGE.to_owned());
-        }
-    }
-
-    /// draftFor's body without a cx (render has none): the key of the draft, and whether reconciling dropped an
-    /// unsaved edit.
-    fn draft_core(&mut self, session: &SessionRecord, section: NoteSection) -> Option<(String, bool)> {
-        let key = note_key(session, section)?;
-        let doc = doc_of(Some(session), section)?;
-        if let Some(draft) = self.drafts.get_mut(&key) {
-            let discarded = apply_reconcile(draft, &doc);
-            return Some((key, discarded));
-        }
-        let draft = Draft {
-            session_id: session.id.clone(),
-            section,
-            note_id: (section == NoteSection::Shared).then(|| key.clone()),
-            cursor: doc.text.len(),
-            saved: doc.text.clone(),
-            text: doc.text,
-            revision: doc.revision,
-            in_flight: None,
-            scroll_top: 0,
-        };
-        self.drafts.insert(key.clone(), draft);
-        Some((key, false))
-    }
-
-    /// TS: useNotesFlow draftFor: the draft of `session`'s `section` note (created or reconciled); its key.
-    pub fn draft_for(
+    /// The draft of `part` of `session`, created or reconciled with the note as last heard of; its key, and what
+    /// reconciling has to say.
+    fn draft_core(
         &mut self,
         session: &SessionRecord,
-        section: NoteSection,
-        _cx: &mut FlowCx<App, Self>,
-    ) -> Option<String> {
-        // The discarded-edit error is reported when the call ends, after the call's own errors, as TS's microtask.
-        let (key, discarded) = self.draft_core(session, section)?;
-        if discarded {
-            self.deferred_error = Some(RELOADED_MESSAGE.to_owned());
+        part: NotePart,
+        props: &NotesFlowProps<'_>,
+    ) -> Option<(String, Option<&'static str>)> {
+        let doc = doc_of(session, part, props.list, props.notes)?;
+        let key = draft_key(&session.id, part);
+        if let Some(draft) = self.drafts.get_mut(&key) {
+            let message = apply_reconcile(draft, &doc);
+            return Some((key, message));
+        }
+        self.drafts.insert(key.clone(), Draft::of(&session.id, part, &doc));
+        Some((key, None))
+    }
+
+    /// The draft of `part` of `session`; what reconciling had to say is reported when the call ends.
+    fn draft_for(&mut self, session: &SessionRecord, part: NotePart, props: &NotesFlowProps<'_>) -> Option<String> {
+        let (key, message) = self.draft_core(session, part, props)?;
+        if let Some(message) = message {
+            self.deferred_error = Some(message.to_owned());
         }
         Some(key)
     }
 
-    /// What `f` gets of the draft `draftFor` would give, without touching it: the text and cursor after reconciling.
-    fn peek<R>(&self, session: &SessionRecord, section: NoteSection, f: impl FnOnce(&str, usize) -> R) -> Option<R> {
-        let key = note_key(session, section)?;
-        let doc = doc_of(Some(session), section)?;
-        let Some(draft) = self.drafts.get(&key) else {
+    /// What `f` gets of the draft `draft_for` would give, without touching it.
+    fn peek<R>(&self, props: &NotesFlowProps<'_>, part: NotePart, f: impl FnOnce(&str, usize) -> R) -> Option<R> {
+        let session = props.session?;
+        let doc = doc_of(session, part, props.list, props.notes)?;
+        let Some(draft) = self.drafts.get(&draft_key(&session.id, part)) else {
             return Some(f(&doc.text, doc.text.len()));
         };
-        if draft.revision == doc.revision {
-            return Some(f(&draft.text, draft.cursor));
-        }
         let mut reloaded = draft.clone();
         apply_reconcile(&mut reloaded, &doc);
         Some(f(&reloaded.text, reloaded.cursor))
     }
 
-    /// TS: useNotesFlow flush: saves the draft `key` now (or after the save in flight); `then` runs when it settled.
+    /// Saves the draft `key` now (or after the save in flight); `then` runs when it settled. A draft in conflict is
+    /// not saved until it is edited again.
     pub fn flush(
         &mut self,
         key: &str,
@@ -375,12 +556,26 @@ impl NotesFlow {
             }
             return;
         }
-        if draft.text == draft.saved {
+        if draft.text == draft.saved || draft.conflict {
             return run_now(self, cx, then);
         }
         let text = draft.text.clone();
         draft.in_flight = Some(text.clone());
-        let request = save_section(client, &draft.session_id, draft.section, &text, &draft.revision);
+        let request: Reply<SaveOutcome> = {
+            let client = Rc::clone(client);
+            let repo_root = self.latest_repo_root.clone();
+            let (session_id, part, line_id, revision) = (
+                draft.session_id.clone(),
+                draft.part,
+                draft.line_id.clone(),
+                draft.revision.clone(),
+            );
+            Box::pin(async move {
+                let (note, tasks, line_id) = resolve_note(&client, &repo_root, &session_id, part, line_id).await?;
+                let result = client.save_work_note(note, &text, &revision).await?;
+                Ok(SaveOutcome { tasks, line_id, result })
+            })
+        };
         if let Some(then) = then {
             self.waiters.entry(key.to_owned()).or_default().push(then);
         }
@@ -388,25 +583,42 @@ impl NotesFlow {
         drop(cx.spawn(request, move |flow, result, cx| flow.saved(&key, result, cx)));
     }
 
-    /// TS: flush's `.then(result => ..., error => ...)`: the save settled.
-    fn saved(&mut self, key: &str, result: Result<NoteSaveResult, DhError>, cx: &mut FlowCx<App, Self>) {
+    /// A save settled: saved (the draft now names the new revision), or the note had changed (it keeps what was typed
+    /// and says so).
+    fn saved(&mut self, key: &str, result: Result<SaveOutcome, DhError>, cx: &mut FlowCx<App, Self>) {
         let Some(draft) = self.drafts.get_mut(key) else {
             return self.settle(key, cx);
         };
-        draft.in_flight = None;
+        let sent = draft.in_flight.take();
         match result {
-            Ok(result) => {
-                let doc = doc_of(result.session.as_deref(), draft.section);
-                match doc {
-                    Some(doc) if result.saved => {
-                        draft.saved = doc.text;
-                        draft.revision = doc.revision;
+            Ok(outcome) => {
+                if let Some(doc) = outcome.tasks {
+                    cx.emit(FlowEffect::TasksDoc(Box::new(doc)));
+                }
+                if draft.line_id.is_none() {
+                    draft.line_id = outcome.line_id;
+                }
+                let note = outcome.result.note;
+                match sent {
+                    // The file holds what was sent (a brief's as the daemon writes it).
+                    Some(sent) if outcome.result.saved => {
+                        draft.saved = sent;
+                        draft.revision = note.revision.clone();
+                        draft.conflict = false;
                     }
-                    Some(doc) => Self::reconcile(draft, &doc, cx),
-                    None => {}
+                    _ => {
+                        let doc = NoteDoc::of(&note, draft.line_id.clone());
+                        if let Some(message) = apply_reconcile(draft, &doc) {
+                            cx.set_error(message.to_owned());
+                        }
+                    }
+                }
+                match outcome.result.session {
+                    Some(session) => cx.emit(FlowEffect::Session(Box::new(session.into_inner()))),
+                    None => cx.emit(FlowEffect::WorkNote(Box::new(note))),
                 }
                 // Typed while it was saving: save that too.
-                if draft.text != draft.saved {
+                if draft.text != draft.saved && !draft.conflict {
                     let client = self.latest_client.clone();
                     self.flush(key, client.as_ref(), cx, None);
                 }
@@ -416,7 +628,7 @@ impl NotesFlow {
         self.settle(key, cx);
     }
 
-    /// Runs what waited for the draft's saves, once none is in flight (TS: the `pending` promise resolving).
+    /// Runs what waited for the draft's saves, once none is in flight.
     fn settle(&mut self, key: &str, cx: &mut FlowCx<App, Self>) {
         if self.drafts.get(key).is_some_and(|draft| draft.in_flight.is_some()) {
             return;
@@ -426,7 +638,7 @@ impl NotesFlow {
         }
     }
 
-    /// Not in the TS: saves every unsaved draft now (the UI is quitting; their debounce timers would die with it).
+    /// Saves every unsaved draft now (the UI is quitting; their debounce timers would die with it).
     pub fn flush_all(&mut self, client: Option<&Rc<LiveClient>>, cx: &mut FlowCx<App, Self>) {
         let keys: Vec<String> = self
             .drafts
@@ -439,37 +651,55 @@ impl NotesFlow {
         }
     }
 
-    /// Not in the TS: a save is still in flight.
+    /// A save is still in flight.
     pub fn saving(&self) -> bool {
         self.drafts.values().any(|draft| draft.in_flight.is_some())
     }
 
-    /// TS: useNotesFlow schedule: save `key` SAVE_DEBOUNCE_MS after the last edit.
+    /// Saves `key` SAVE_DEBOUNCE_MS after the last edit.
     pub fn schedule(&mut self, key: &str, cx: &mut FlowCx<App, Self>) {
         let owned = key.to_owned();
         let timer = cx.after(Duration::from_millis(SAVE_DEBOUNCE_MS), move |flow, cx| {
             let client = flow.latest_client.clone();
             flow.flush(&owned, client.as_ref(), cx, None);
         });
-        // Replacing the timer cancels the old one (clearTimeout).
+        // Replacing the timer cancels the old one.
         self.timers.insert(key.to_owned(), timer);
     }
 
-    /// TS: useNotesFlow fileOf: `which` saved first, so the editor opens what is shown; the daemon creates the file
-    /// if needed. `done` gets the file (or why not); it gets none when there is no client or session.
-    fn file_of(&mut self, props: &NotesFlowProps<'_>, which: NoteSection, cx: &mut FlowCx<App, Self>, done: FileDone) {
+    /// The note E and `o` open for `part`: the steps open their line's note, a folded brief the line's note too.
+    fn file_part(&self, props: &NotesFlowProps<'_>, part: NotePart) -> NotePart {
+        match part {
+            NotePart::Steps => NotePart::Line,
+            NotePart::Brief if props.brief().is_none() => NotePart::Line,
+            other => other,
+        }
+    }
+
+    /// The note of `part`'s file, saved first so the editor opens what is shown; the daemon creates the file if
+    /// needed (and a line's note of a session on no line makes its line). `done` gets the file (or why not); it gets
+    /// none when there is no client or session.
+    fn file_of(&mut self, props: &NotesFlowProps<'_>, part: NotePart, cx: &mut FlowCx<App, Self>, done: FileDone) {
         let (Some(client), Some(session)) = (props.client, props.session) else {
             drop(cx.dispatch().spawn(async {}, move |app: &mut App, ()| done(app, None)));
             return;
         };
-        let key = note_key(session, which);
+        let part = self.file_part(props, part);
+        let key = self.draft_for(session, part, props);
         let session_id = session.id.clone();
+        let line_now = props.line().map(|line| line.id.clone());
+        let repo_root = props.repo_root.to_owned();
         let client = Rc::clone(client);
-        let open: FlowThen<App, NotesFlow> = Box::new(move |_flow, cx| {
-            let request = match section_note(&session_id, which) {
-                Ok(note) => client.open_work_note(note),
-                Err(error) => Box::pin(async move { Err(error) }),
-            };
+        let open_key = key.clone();
+        let open: FlowThen<App, NotesFlow> = Box::new(move |flow, cx| {
+            let line_id = open_key
+                .and_then(|key| flow.drafts.get(&key))
+                .and_then(|draft| draft.line_id.clone())
+                .or(line_now);
+            let request: Reply<(Option<TasksDoc>, String)> = Box::pin(async move {
+                let (note, tasks, _) = resolve_note(&client, &repo_root, &session_id, part, line_id).await?;
+                Ok((tasks, client.open_work_note(note).await?))
+            });
             drop(
                 cx.dispatch()
                     .spawn(request, move |app: &mut App, result| done(app, Some(result))),
@@ -481,28 +711,33 @@ impl NotesFlow {
         }
     }
 
-    /// TS: useNotesFlow openSection: the note in Cursor / VS Code.
-    fn open_section(&mut self, props: &NotesFlowProps<'_>, which: NoteSection, cx: &mut FlowCx<App, Self>) {
+    /// The note of `part` in Cursor / VS Code.
+    fn open_part(&mut self, props: &NotesFlowProps<'_>, part: NotePart, cx: &mut FlowCx<App, Self>) {
         self.file_of(
             props,
-            which,
+            part,
             cx,
             Box::new(|app, result| {
                 let effects = match result {
                     None => return,
                     Some(Err(error)) => vec![FlowEffect::SetError(Some(error_message(&error)))],
-                    Some(Ok(file)) => {
+                    Some(Ok((tasks, file))) => {
                         let errors = RefCell::new(Vec::new());
                         let label = open_in_editor(
                             &file,
                             &|message| errors.borrow_mut().push(format!("{message}; the note is {file}")),
                             None,
                         );
-                        let mut effects: Vec<FlowEffect<App>> = errors
-                            .into_inner()
+                        let mut effects: Vec<FlowEffect<App>> = tasks
                             .into_iter()
-                            .map(|message| FlowEffect::SetError(Some(message)))
+                            .map(|doc| FlowEffect::TasksDoc(Box::new(doc)))
                             .collect();
+                        effects.extend(
+                            errors
+                                .into_inner()
+                                .into_iter()
+                                .map(|message| FlowEffect::SetError(Some(message))),
+                        );
                         if let Some(label) = label {
                             effects.push(FlowEffect::SetStatus(Some(format!(
                                 "Opened {file} in {label}; edits there show up here"
@@ -516,31 +751,34 @@ impl NotesFlow {
         );
     }
 
-    /// TS: NotesFlow.openActiveInEditor (E / Ctrl+O): the active section's file in Cursor / VS Code.
+    /// E (browse, on Notes) / Ctrl+O: the note being worked on in Cursor / VS Code.
     pub fn open_active_in_editor(&mut self, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
-        self.latest_client = props.client.cloned();
+        self.remember_props(props);
         self.remember(cx);
-        let which = self.active_section(props);
-        self.open_section(props, which, cx);
+        let part = self.active_part(props);
+        self.open_part(props, part, cx);
+        self.report_deferred(cx);
     }
 
-    /// TS: NotesFlow.activeFile (o): saves the active section, then `then` gets its file (none if unavailable).
+    /// `o` (browse, on Notes): saves the note being worked on, then `then` gets its file (none if unavailable).
     pub fn active_file(&mut self, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>, then: FileThen) {
-        self.latest_client = props.client.cloned();
+        self.remember_props(props);
         self.remember(cx);
-        let active = self.active_section(props);
-        // A deleted worktree's note is read-only: edit the session's instead.
-        let which = if active == NoteSection::Shared && !shared_editable(props.session) && own_note(props.session) {
-            NoteSection::Session
-        } else {
-            active
-        };
+        let part = self.active_part(props);
         self.file_of(
             props,
-            which,
+            part,
             cx,
             Box::new(|app, result| match result {
-                Some(Ok(file)) => then(app, Some(file)),
+                Some(Ok((tasks, file))) => {
+                    app.apply_flow_effects(
+                        tasks
+                            .into_iter()
+                            .map(|doc| FlowEffect::TasksDoc(Box::new(doc)))
+                            .collect(),
+                    );
+                    then(app, Some(file));
+                }
                 Some(Err(error)) => {
                     app.apply_flow_effects(vec![FlowEffect::SetError(Some(error_message(&error)))]);
                     then(app, None);
@@ -548,22 +786,35 @@ impl NotesFlow {
                 None => then(app, None),
             }),
         );
+        self.report_deferred(cx);
     }
 
-    /// TS: useNotesFlow promote (Ctrl+P): the cursor line's open checklist item becomes a task.
-    pub fn promote(&mut self, section: NoteSection, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
-        self.latest_client = props.client.cloned();
+    /// Ctrl+P: the open checkbox under the cursor becomes a step of the session's line (made if needed), and leaves
+    /// the note; what was typed is saved first.
+    pub fn promote(&mut self, part: NotePart, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
         let (Some(client), Some(session)) = (props.client, props.session) else {
             return;
         };
-        let Some(key) = self.draft_for(session, section, cx) else {
+        let Some(key) = self.draft_for(session, part, props) else {
             return;
         };
         let Some(draft) = self.drafts.get(&key) else {
             return;
         };
         let before_cursor = &draft.text[..clamp_cursor(draft.cursor, &draft.text)];
-        let line = i64::try_from(before_cursor.matches('\n').count()).unwrap_or(i64::MAX);
+        let at = before_cursor.matches('\n').count();
+        let item = draft
+            .text
+            .split('\n')
+            .nth(at)
+            .and_then(parse_checklist_line)
+            .filter(|item| !item.checked && !js_trim(&item.text).is_empty());
+        let Some(item) = item else {
+            cx.set_status("Put the cursor on an open checklist item (- [ ] …) to make it a step".to_owned());
+            return;
+        };
+        let title = js_trim(&item.text).to_owned();
+        let line = i64::try_from(at).unwrap_or(i64::MAX);
         let session_id = session.id.clone();
         let client = Rc::clone(client);
         let send: FlowThen<App, NotesFlow> = {
@@ -576,25 +827,33 @@ impl NotesFlow {
                     cx.set_error("These notes are not saved yet; try again".to_owned());
                     return;
                 }
-                let sent = draft.text.clone();
-                let request = match section_note(&session_id, section) {
-                    Ok(note) => client.promote_work_note_item(note, line, &draft.revision),
-                    Err(error) => Box::pin(async move { Err(error) }),
+                let note = match (part, draft.line_id.clone()) {
+                    (NotePart::Line, Some(id)) => NoteRef {
+                        kind: WorkNoteKind::Line,
+                        id,
+                    },
+                    (NotePart::Line, None) => return,
+                    _ => NoteRef {
+                        kind: WorkNoteKind::Session,
+                        id: session_id,
+                    },
                 };
+                let sent = draft.text.clone();
+                let request = client.promote_work_note_item(note, line, &draft.revision);
                 drop(cx.spawn(request, move |flow, result, cx| {
-                    flow.promoted(&key, section, &sent, result, cx)
+                    flow.promoted(&key, &sent, &title, result, cx)
                 }));
             })
         };
         self.flush(&key, props.client, cx, Some(send));
     }
 
-    /// TS: promote's `.then(({result, sent}) => ..., error => setError(...))`.
+    /// Ctrl+P answered: the note without the checkbox, the list with the step.
     fn promoted(
         &mut self,
         key: &str,
-        section: NoteSection,
         sent: &str,
+        title: &str,
         result: Result<PromoteNoteItemResult, DhError>,
         cx: &mut FlowCx<App, Self>,
     ) {
@@ -602,29 +861,28 @@ impl NotesFlow {
             Ok(result) => result,
             Err(error) => return cx.set_error(error_message(&error)),
         };
-        if let (Some(draft), Some(doc)) = (self.drafts.get_mut(key), doc_of(result.session.as_deref(), section)) {
+        if let Some(draft) = self.drafts.get_mut(key) {
+            let doc = NoteDoc::of(&result.note, draft.line_id.clone());
             if draft.text == sent {
                 draft.text = doc.text;
                 draft.saved = draft.text.clone();
                 draft.revision = doc.revision;
                 draft.cursor = clamp_cursor(draft.cursor, &draft.text);
-            } else {
-                Self::reconcile(draft, &doc, cx);
+                draft.conflict = false;
+            } else if let Some(message) = apply_reconcile(draft, &doc) {
+                cx.set_error(message.to_owned());
             }
         }
         cx.emit(FlowEffect::TasksDoc(Box::new(result.tasks)));
-        cx.set_status("Sent to Tasks (b shows it); the note keeps a ↗ link".to_owned());
+        match result.session {
+            Some(session) => cx.emit(FlowEffect::Session(Box::new(session.into_inner()))),
+            None => cx.emit(FlowEffect::WorkNote(Box::new(result.note))),
+        }
+        cx.set_status(format!("Now a step of this session's line: {title}"));
     }
 
-    /// TS: useNotesFlow edit: applies an editor result to the draft (and schedules its save).
-    pub fn edit(
-        &mut self,
-        key: &str,
-        next: EditorState,
-        session: &SessionRecord,
-        section: NoteSection,
-        cx: &mut FlowCx<App, Self>,
-    ) {
+    /// Applies an editor result to the draft (and schedules its save); an edit ends a conflict, knowingly.
+    pub fn edit(&mut self, key: &str, next: EditorState, cx: &mut FlowCx<App, Self>) {
         if let Some(message) = next.message {
             cx.set_error(message);
             return;
@@ -639,13 +897,12 @@ impl NotesFlow {
         draft.text = next.text;
         draft.cursor = next.cursor;
         if changed {
-            draft.session_id = session.id.clone();
-            draft.section = section;
+            draft.conflict = false;
             self.schedule(key, cx);
         }
     }
 
-    /// The editor's options for the notes (TS: handleInput's `options`).
+    /// The editor's options for the notes.
     fn edit_options(&self) -> EditOptions {
         EditOptions {
             select_all: Some(false),
@@ -659,16 +916,236 @@ impl NotesFlow {
         }
     }
 
-    /// TS: handleInput's body.
+    /// `tab` / `shift+tab`: the next or previous part.
+    fn cycle(&mut self, props: &NotesFlowProps<'_>, back: bool) {
+        let parts = self.parts(props);
+        let current = self.active_part(props);
+        let at = parts.iter().position(|part| *part == current).unwrap_or(0);
+        let next = if back {
+            (at + parts.len() - 1) % parts.len()
+        } else {
+            (at + 1) % parts.len()
+        };
+        self.part = parts.get(next).copied().unwrap_or_default();
+    }
+
+    /// Ctrl+B / `b` on the steps: opens or folds the brief (folding it while editing it moves to the line's note).
+    fn toggle_brief(&mut self, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
+        let Some(session) = props.session else {
+            return;
+        };
+        if props.brief().is_none() {
+            cx.set_status("This session's line has no brief".to_owned());
+            return;
+        }
+        if !self.briefs_open.remove(&session.id) {
+            self.briefs_open.insert(session.id.clone());
+        } else if self.part == NotePart::Brief {
+            self.part = NotePart::Line;
+        }
+    }
+
+    /// `p` on the steps: opens or folds the parent session's line note.
+    fn toggle_parent(&mut self, props: &NotesFlowProps<'_>, cx: &mut FlowCx<App, Self>) {
+        let Some(session) = props.session else {
+            return;
+        };
+        if props.parent_note().is_none() {
+            let status = if session.parent_session_id.is_some() {
+                "Its parent session's line has no note"
+            } else {
+                "Not a sub-session: there is no parent's note"
+            };
+            cx.set_status(status.to_owned());
+            return;
+        }
+        if !self.parents_open.remove(&session.id) {
+            self.parents_open.insert(session.id.clone());
+        }
+    }
+
+    /// A list op (or several, in `work`); the list it answers goes to the app, then `then`. One at a time.
+    fn change_list(
+        &mut self,
+        props: &NotesFlowProps<'_>,
+        cx: &mut FlowCx<App, Self>,
+        work: impl FnOnce(Rc<LiveClient>, String) -> Reply<TasksDoc>,
+        then: ListThen,
+    ) {
+        let Some(client) = props.client else {
+            cx.set_error("still connecting to daemon".to_owned());
+            return;
+        };
+        if self.busy {
+            return;
+        }
+        self.busy = true;
+        let request = work(Rc::clone(client), props.repo_root.to_owned());
+        drop(cx.spawn(request, move |flow: &mut NotesFlow, result, cx| {
+            flow.busy = false;
+            match result {
+                Ok(doc) => {
+                    cx.emit(FlowEffect::TasksDoc(Box::new(doc.clone())));
+                    then(flow, &doc, cx);
+                }
+                Err(error) => cx.set_error(error_message(&error)),
+            }
+        }));
+    }
+
+    /// The steps' keys.
+    fn steps_key(&mut self, props: &NotesFlowProps<'_>, input: &Input, cx: &mut FlowCx<App, Self>) {
+        let key = &input.key;
+        let text = if key.ctrl || key.meta { "" } else { input.input.as_str() };
+        let steps = props.steps();
+        let selected = steps.get(self.step.min(steps.len().saturating_sub(1))).copied();
+        if key.up_arrow || text == "k" {
+            self.step = self.step.min(steps.len().saturating_sub(1)).saturating_sub(1);
+        } else if key.down_arrow || text == "j" {
+            self.step = (self.step + 1).min(steps.len().saturating_sub(1));
+        } else if text == " " {
+            let Some(step) = selected else {
+                cx.set_status("No steps yet · a adds one".to_owned());
+                return;
+            };
+            let message = if step.done {
+                format!("Reopened {}", step.title)
+            } else {
+                format!("Done: {}", step.title)
+            };
+            let id = step.id.clone();
+            self.change_list(
+                props,
+                cx,
+                move |client, root| client.task_op(&root, TaskOp::Toggle { id }),
+                Box::new(move |_, _, cx| cx.set_status(message)),
+            );
+        } else if text == "a" {
+            self.step_editor = Some(StepEditor {
+                id: None,
+                title: EditorState::default(),
+            });
+        } else if key.return_ {
+            if let Some(step) = selected {
+                self.step_editor = Some(StepEditor {
+                    id: Some(step.id.clone()),
+                    title: EditorState {
+                        cursor: step.title.len(),
+                        text: step.title.clone(),
+                        ..EditorState::default()
+                    },
+                });
+            }
+        } else if text == "b" {
+            self.toggle_brief(props, cx);
+        } else if text == "p" {
+            self.toggle_parent(props, cx);
+        } else if text == "E" || (key.ctrl && input.input == "o") {
+            self.open_part(props, NotePart::Line, cx);
+        }
+    }
+
+    /// Keys while a step's title is written: Enter saves (a new step under the session's line, made first if it has
+    /// none; or the new title), Esc cancels.
+    fn step_editor_key(
+        &mut self,
+        mut editor: StepEditor,
+        props: &NotesFlowProps<'_>,
+        input: &Input,
+        cx: &mut FlowCx<App, Self>,
+    ) {
+        let key = &input.key;
+        if self.pasting || !(key.escape || key.return_) {
+            // A title is one line: a pasted line break or tab is a space.
+            let next = if self.pasting {
+                let typed = if key.return_ || key.tab {
+                    " ".to_owned()
+                } else {
+                    clean_inserted_text(&input.input).replace(['\n', '\t'], " ")
+                };
+                replace_range(
+                    &editor.title,
+                    editor.title.cursor,
+                    editor.title.cursor,
+                    &typed,
+                    &title_options(),
+                )
+            } else {
+                edit_text(&editor.title, &input.input, key, &title_options())
+            };
+            if let Some(message) = next.message.clone() {
+                cx.set_error(message);
+            } else {
+                editor.title = next;
+            }
+            self.step_editor = Some(editor);
+            return;
+        }
+        if key.escape {
+            return;
+        }
+        let title = js_trim(&editor.title.text).to_owned();
+        let Some(session) = props.session else {
+            return;
+        };
+        if title.is_empty() {
+            return;
+        }
+        let session_id = session.id.clone();
+        let line_id = props.line().map(|line| line.id.clone());
+        match editor.id {
+            Some(id) => {
+                if props.list.get(&id).is_some_and(|step| step.title == title) {
+                    return;
+                }
+                self.change_list(
+                    props,
+                    cx,
+                    move |client, root| client.task_op(&root, TaskOp::Retitle { id, title }),
+                    Box::new(|_, _, cx| cx.set_status("Renamed the step".to_owned())),
+                );
+            }
+            None => {
+                let before: HashSet<String> = props.list.lines().iter().map(|line| line.id.clone()).collect();
+                let added = format!("Added a step: {title}");
+                let owner = session_id.clone();
+                self.change_list(
+                    props,
+                    cx,
+                    move |client, root| {
+                        Box::pin(async move {
+                            let parent = match line_id {
+                                Some(id) => id,
+                                None => make_session_line(&client, &root, &session_id).await?.1,
+                            };
+                            client
+                                .task_op_value(&root, json!({"type": "add", "title": title, "parent": parent}))
+                                .await
+                        })
+                    },
+                    Box::new(move |flow, doc, cx| {
+                        let list = TaskList::parse(&doc.text);
+                        if let Some(line) = list.line_of_session(&owner) {
+                            let steps = list.children(&line.id);
+                            if let Some(at) = steps.iter().position(|step| !before.contains(&step.id)) {
+                                flow.step = at;
+                            }
+                        }
+                        cx.set_status(added);
+                    }),
+                );
+            }
+        }
+        self.step_editor = None;
+    }
+
+    /// The keys of notes focus.
     fn handle_key(&mut self, props: &NotesFlowProps<'_>, input: &Input, cx: &mut FlowCx<App, Self>) {
         let Some(session) = props.session else {
             cx.exit();
             return;
         };
         let key = &input.key;
-        let which = self.active_section(props);
-        let draft_key = self.draft_for(session, which, cx);
-        let doc = doc_of(Some(session), which);
         // Bracketed paste (enabled while editing): everything up to the end marker is text, Tab and Enter included.
         if input.input == "[200~" {
             self.pasting = true;
@@ -678,8 +1155,31 @@ impl NotesFlow {
             self.pasting = false;
             return;
         }
+        if let Some(editor) = self.step_editor.take() {
+            self.step_editor_key(editor, props, input, cx);
+            return;
+        }
+        let part = self.active_part(props);
+        if part == NotePart::Steps {
+            if self.pasting {
+                return;
+            }
+            if key.escape {
+                cx.exit();
+            } else if key.tab {
+                self.cycle(props, key.shift);
+            } else if key.ctrl && input.input == "b" {
+                self.toggle_brief(props, cx);
+            } else {
+                self.steps_key(props, input, cx);
+            }
+            return;
+        }
+        let draft_key = self.draft_for(session, part, props);
+        let doc = doc_of(session, part, props.list, props.notes);
         let options = self.edit_options();
-        let editable = draft_key.is_some() && doc.as_ref().is_none_or(|doc| !doc.read_only && !doc.too_large);
+        let too_large = doc.as_ref().is_some_and(|doc| doc.too_large);
+        let editable = draft_key.is_some() && !too_large;
         let state_of = |flow: &Self, draft_key: &str| {
             flow.drafts.get(draft_key).map(|draft| EditorState {
                 text: draft.text.clone(),
@@ -700,7 +1200,7 @@ impl NotesFlow {
             };
             if let (false, Some(state)) = (text.is_empty(), state_of(self, draft_key)) {
                 let next = replace_range(&state, state.cursor, state.cursor, &text, &options);
-                self.edit(draft_key, next, session, which, cx);
+                self.edit(draft_key, next, cx);
             }
             return;
         }
@@ -708,48 +1208,31 @@ impl NotesFlow {
             cx.exit();
             return;
         }
-        let has_shared = session.shared_notes.is_some();
         if key.tab {
-            if !own_note(Some(session)) {
-                cx.set_status("In a worktree there is one note, shared by its sessions".to_owned());
-                return;
-            }
-            if !has_shared {
-                cx.set_status("This session has no worktree note yet: its worktree is not ready".to_owned());
-                return;
-            }
-            if which == NoteSection::Session && !shared_editable(Some(session)) {
-                cx.set_status("Its worktree was deleted: the worktree note is read-only".to_owned());
-                return;
-            }
-            self.section = if which == NoteSection::Shared {
-                NoteSection::Session
-            } else {
-                NoteSection::Shared
-            };
+            self.cycle(props, key.shift);
+            return;
+        }
+        if key.ctrl && input.input == "b" {
+            self.toggle_brief(props, cx);
             return;
         }
         if key.ctrl && input.input == "o" {
-            self.open_section(props, which, cx);
+            self.open_part(props, part, cx);
             return;
         }
         let Some(draft_key) = draft_key else {
             return;
         };
-        let too_large = doc.as_ref().is_some_and(|doc| doc.too_large);
         if key.ctrl && input.input == "p" {
-            if !editable {
-                cx.set_error(
-                    if too_large {
-                        "This note is too large to change here"
-                    } else {
-                        "Its worktree was deleted: the worktree note is read-only"
-                    }
-                    .to_owned(),
+            if part == NotePart::Brief {
+                cx.set_status(
+                    "A brief's checkboxes stay in it: ctrl+p works in the line's note and this session's".to_owned(),
                 );
-                return;
+            } else if too_large {
+                cx.set_error("This note is too large to change here".to_owned());
+            } else {
+                self.promote(part, props, cx);
             }
-            self.promote(which, props, cx);
             return;
         }
         let Some(state) = state_of(self, &draft_key) else {
@@ -764,11 +1247,9 @@ impl NotesFlow {
             || key.page_up
             || key.page_down;
         if !editable && !navigation {
-            cx.set_error(if too_large {
-                format!("This note is longer than {MAX_NOTES_LABEL}: edit it in your editor (Ctrl+O)")
-            } else {
-                "Its worktree was deleted: the worktree note is read-only".to_owned()
-            });
+            cx.set_error(format!(
+                "This note is longer than {MAX_NOTES_LABEL}: edit it in your editor (Ctrl+O)"
+            ));
             return;
         }
         let mut next = if key.ctrl && input.input == "x" {
@@ -795,27 +1276,40 @@ impl NotesFlow {
                 };
             }
         }
-        self.edit(&draft_key, next, session, which, cx);
+        self.edit(&draft_key, next, cx);
     }
-}
 
-/// TS: `!session || showsOwnNote(session)`.
-fn own_note(session: Option<&SessionRecord>) -> bool {
-    session.is_none_or(shows_own_note)
-}
+    /// The draft of `part` for rendering (reconciled; what that has to say goes out right after the frame).
+    fn shown_draft(&mut self, session: &SessionRecord, part: NotePart, props: &NotesFlowProps<'_>) -> Option<Draft> {
+        let (key, message) = self.draft_core(session, part, props)?;
+        if let Some(message) = message {
+            match &self.latest_dispatch {
+                Some(dispatch) => dispatch.update(move |app: &mut App| {
+                    app.apply_flow_effects(vec![FlowEffect::SetError(Some(message.to_owned()))]);
+                }),
+                None => self.deferred_error = Some(message.to_owned()),
+            }
+        }
+        self.drafts.get(&key).cloned()
+    }
 
-/// TS: `Boolean(session?.sharedNotes && !session.sharedNotes.readOnly)`.
-fn shared_editable(session: Option<&SessionRecord>) -> bool {
-    session
-        .and_then(|session| session.shared_notes.as_ref())
-        .is_some_and(|shared| shared.read_only != Some(true))
+    /// The empty row of a note: what is missing, and how to write it from where you are.
+    fn empty_text(base: &str, part: NotePart, active: NotePart, focused: bool) -> String {
+        if focused {
+            format!("{base} · tab to write")
+        } else if part == active {
+            format!("{base} · enter to write")
+        } else {
+            base.to_owned()
+        }
+    }
 }
 
 impl Flow<App> for NotesFlow {
     type Props<'a> = NotesFlowProps<'a>;
 
     fn handle_input(&mut self, props: &NotesFlowProps<'_>, input: &Input, cx: &mut FlowCx<App, Self>) {
-        self.latest_client = props.client.cloned();
+        self.remember_props(props);
         self.remember(cx);
         self.handle_key(props, input, cx);
         self.report_deferred(cx);
@@ -828,217 +1322,198 @@ impl Flow<App> for NotesFlow {
         };
         let (width, height) = (usize::from(area.width), usize::from(area.height));
         let focused = props.focused;
-        let active = self.active_section(props);
-        let own_note = own_note(Some(session));
-        let has_shared = session.shared_notes.is_some();
-        let editing_section = focused.then_some(active);
-        // Reconciling may happen while rendering: report it after (TS `queueMicrotask`), as an update the loop runs
-        // right after this frame in any mode (then draws again).
-        let reload = |flow: &mut Self, which| {
-            let (key, discarded) = flow.draft_core(session, which)?;
-            if discarded {
-                match &flow.latest_dispatch {
-                    Some(dispatch) => dispatch.update(|app: &mut App| {
-                        app.apply_flow_effects(vec![FlowEffect::SetError(Some(RELOADED_MESSAGE.to_owned()))]);
-                    }),
-                    None => flow.deferred_error = Some(RELOADED_MESSAGE.to_owned()),
-                }
-            }
-            Some(key)
-        };
-        let own_key = reload(self, NoteSection::Session);
-        let shared_key_of_draft = if has_shared {
-            reload(self, NoteSection::Shared)
-        } else {
-            None
-        };
-        let draft_of = |flow: &Self, key: &Option<String>| key.as_ref().and_then(|key| flow.drafts.get(key)).cloned();
-        let own = draft_of(self, &own_key);
-        let shared = draft_of(self, &shared_key_of_draft);
+        let active = self.active_part(props);
+        let editing = |part: NotePart| focused && active == part;
+        let line = props.line();
+        let steps = props.steps();
+        let brief = props.brief();
+        let line_draft = self.shown_draft(session, NotePart::Line, props);
+        let session_draft = self.shown_draft(session, NotePart::Session, props);
+        let brief_draft = brief.and_then(|_| self.shown_draft(session, NotePart::Brief, props));
 
-        let titled = |target: &SessionRecord| {
-            let title = display_session_title(target, props.sessions);
-            if title.is_empty() {
-                "(untitled)".to_owned()
-            } else {
-                title
-            }
-        };
-        let shared_note = session.shared_notes.as_ref();
-        let shared_key = note_key(session, NoteSection::Shared);
-        let sharing: Vec<&&SessionRecord> = match &shared_key {
-            Some(shared_key) => props
-                .sessions
+        let step_input = StepsInput {
+            line: line.map(|line| (line.title.clone(), line.done)),
+            steps: steps
                 .iter()
-                .filter(|other| note_key(other, NoteSection::Shared).as_ref() == Some(shared_key))
-                .collect(),
-            None => Vec::new(),
-        };
-        // Archived sessions (gone from the active view) are not counted; the one shown always is.
-        let count = sharing
-            .iter()
-            .filter(|other| other.archived_at.as_deref().is_none_or(str::is_empty) || other.id == session.id)
-            .count()
-            .max(1);
-        let mut shared_input = None;
-        if let (Some(shared_note), Some(shared)) = (shared_note, &shared) {
-            let own_branch = session.worktree.as_ref().and_then(|worktree| worktree.branch.clone());
-            let branch = own_branch.filter(|branch| !branch.is_empty()).or_else(|| {
-                sharing
-                    .iter()
-                    .filter_map(|other| other.worktree.as_ref())
-                    .find(|worktree| {
-                        worktree.branch.as_deref().is_some_and(|branch| !branch.is_empty())
-                            && worktree.is_main != Some(true)
-                    })
-                    .and_then(|worktree| worktree.branch.clone())
-            });
-            let is_repo = shared_note.kind == SharedNoteKind::Repo;
-            let where_ = if is_repo {
-                "main checkout".to_owned()
-            } else {
-                branch.filter(|branch| !branch.is_empty()).unwrap_or_else(|| {
-                    match session.worktree.as_ref().and_then(|worktree| worktree.path.as_deref()) {
-                        Some(worktree_path) if !worktree_path.is_empty() => path::basename(worktree_path),
-                        _ => "worktree".to_owned(),
-                    }
+                .map(|step| StepRow {
+                    title: step.title.clone(),
+                    done: step.done,
                 })
-            };
-            let what = if is_repo {
-                "No main checkout notes"
-            } else {
-                "No worktree notes"
-            };
-            let read_only = shared_note.read_only == Some(true);
-            let too_large = shared_note.too_large == Some(true);
-            let sessions_label = plural(i64::try_from(count).unwrap_or(i64::MAX), "session");
-            shared_input = Some(NotesSectionInput {
-                titles: if is_repo {
-                    vec![
-                        format!("Main checkout (shared by {sessions_label})"),
-                        "Main checkout".to_owned(),
-                    ]
-                } else {
-                    vec![
-                        format!("Worktree · {where_} (shared by {sessions_label})"),
-                        format!("Worktree · {where_}"),
-                        "Worktree".to_owned(),
-                    ]
+                .collect(),
+            selected: (editing(NotePart::Steps) && !steps.is_empty()).then(|| self.step.min(steps.len() - 1)),
+            editing: self.step_editor.as_ref().filter(|_| focused).map(|editor| StepEditing {
+                at: editor
+                    .id
+                    .as_ref()
+                    .and_then(|id| steps.iter().position(|step| step.id == *id)),
+                title: editor.title.clone(),
+            }),
+            focused: editing(NotePart::Steps),
+        };
+        let note_editing = |draft: &Option<Draft>, part: NotePart| {
+            draft.as_ref().filter(|_| editing(part)).map(|draft| NotesEditing {
+                cursor: draft.cursor,
+                scroll_top: draft.scroll_top,
+            })
+        };
+        let too_large = |draft: &Option<Draft>, part: NotePart| {
+            doc_of(session, part, props.list, props.notes)
+                .is_some_and(|doc| doc.too_large)
+                .then(|| "too large, E to edit".to_owned())
+                .filter(|_| draft.is_some())
+        };
+        let brief_input = brief.map(|brief| {
+            let label = brief_label(brief);
+            FoldInput {
+                open: self.briefs_open.contains(&session.id),
+                section: NotesSectionInput {
+                    titles: vec![format!("▾ {label}"), "▾ Brief".to_owned()],
+                    text: brief_draft.as_ref().map(|draft| draft.text.clone()).unwrap_or_default(),
+                    empty: "An empty brief".to_owned(),
+                    flag: too_large(&brief_draft, NotePart::Brief),
+                    editing: note_editing(&brief_draft, NotePart::Brief),
+                    active: !focused && active == NotePart::Brief,
                 },
-                text: shared.text.clone(),
-                empty: if read_only {
-                    format!("{what} (its worktree was deleted)")
-                } else if !own_note {
-                    if focused {
-                        format!("{what} · type to add")
-                    } else {
-                        format!("{what} · enter to add")
-                    }
-                } else if focused {
-                    format!("{what} · tab to add")
-                } else {
-                    format!("{what} · enter, then tab to add")
-                },
-                flag: if read_only {
-                    Some("deleted, read-only".to_owned())
-                } else if too_large {
-                    Some("too large, E to edit".to_owned())
-                } else {
-                    None
-                },
-                editing: (editing_section == Some(NoteSection::Shared)).then_some(NotesEditing {
-                    cursor: shared.cursor,
-                    scroll_top: shared.scroll_top,
-                }),
-                active: !focused && active == NoteSection::Shared,
-            });
-        }
-        let session_input = own_note.then(|| NotesSectionInput {
-            titles: vec![format!("This session · {}", titled(session)), "This session".to_owned()],
-            text: own.as_ref().map(|own| own.text.clone()).unwrap_or_default(),
-            empty: if focused {
-                "No notes for this session · tab to add".to_owned()
-            } else {
-                "No notes for this session · enter to add".to_owned()
+                label,
+            }
+        });
+        let line_input = NotesSectionInput {
+            titles: match line {
+                Some(line) => vec![
+                    format!("{} · shared with whoever works on it", line.title),
+                    format!("{} · shared", line.title),
+                    line.title.clone(),
+                ],
+                None => vec![
+                    "Its line's note · shared with whoever works on it".to_owned(),
+                    "Its line's note".to_owned(),
+                ],
             },
-            flag: session
-                .notes_file
+            text: line_draft.as_ref().map(|draft| draft.text.clone()).unwrap_or_default(),
+            empty: Self::empty_text(
+                if line.is_some() {
+                    "No note for this line yet"
+                } else {
+                    "No line yet: writing here makes one"
+                },
+                NotePart::Line,
+                active,
+                focused,
+            ),
+            flag: too_large(&line_draft, NotePart::Line),
+            editing: note_editing(&line_draft, NotePart::Line),
+            active: !focused && active == NotePart::Line,
+        };
+        let session_input = NotesSectionInput {
+            titles: vec![
+                "This session · only this conversation".to_owned(),
+                "This session".to_owned(),
+            ],
+            text: session_draft
                 .as_ref()
-                .is_some_and(|file| file.too_large == Some(true))
-                .then(|| "too large, E to edit".to_owned()),
-            editing: own
-                .as_ref()
-                .filter(|_| editing_section == Some(NoteSection::Session))
-                .map(|own| NotesEditing {
-                    cursor: own.cursor,
-                    scroll_top: own.scroll_top,
-                }),
-            active: !focused && active == NoteSection::Session && has_shared,
+                .map(|draft| draft.text.clone())
+                .unwrap_or_default(),
+            empty: Self::empty_text("No notes for this session", NotePart::Session, active, focused),
+            flag: too_large(&session_draft, NotePart::Session),
+            editing: note_editing(&session_draft, NotePart::Session),
+            active: !focused && active == NotePart::Session,
+        };
+        let parent_input = props.parent_note().map(|(parent, note)| {
+            let label = format!("{}'s note", parent.title);
+            FoldInput {
+                open: self.parents_open.contains(&session.id),
+                section: NotesSectionInput {
+                    titles: vec![format!("▾ {label} · read-only"), format!("▾ {label}")],
+                    text: note.text.clone(),
+                    ..NotesSectionInput::default()
+                },
+                label,
+            }
         });
         let layout = notes_layout(&NotesLayoutInput {
-            shared: shared_input.as_ref(),
-            session: session_input.as_ref(),
+            steps: &step_input,
+            brief: brief_input.as_ref(),
+            line: &line_input,
+            session: &session_input,
+            parent: parent_input.as_ref(),
             width,
             height,
-            focus: editing_section,
-            links: props.links,
+            focus: focused.then_some(active),
         });
-        let edited_key = match editing_section {
-            Some(NoteSection::Shared) => shared_key_of_draft.as_ref(),
-            Some(NoteSection::Session) => own_key.as_ref(),
-            None => None,
-        };
-        if let (Some(edited), Some(scroll_top)) =
-            (edited_key.and_then(|key| self.drafts.get_mut(key)), layout.scroll_top)
+        if let (true, Some(scroll_top)) = (focused, layout.scroll_top)
+            && let Some(edited) = self.drafts.get_mut(&draft_key(&session.id, active))
         {
             edited.scroll_top = scroll_top;
         }
         // The editor's wrap width and body rows, for Up/Down and PageUp/PageDown.
         self.viewport_width = width.max(1);
-        self.viewport_rows = match editing_section {
-            Some(NoteSection::Shared) => layout.bodies.shared,
-            Some(NoteSection::Session) => layout.bodies.session,
-            None => 1,
-        }
-        .max(1);
+        self.viewport_rows = layout.edited_rows.unwrap_or(1).max(1);
         render_notes_rows(&layout.rows, buf, area);
     }
 
-    /// TS: NotesFlow.hint: the notes-focus footer.
+    /// The notes-focus footer.
     fn hint(&self, props: &NotesFlowProps<'_>, width: usize) -> String {
-        let session = props.session;
-        let has_shared = session.is_some_and(|session| session.shared_notes.is_some());
-        let active = self.active_section(props);
-        let mut parts: Vec<HintPart> = vec![HintPart::from("esc done")];
-        if has_shared && own_note(session) {
-            let text = if active == NoteSection::Shared {
-                "tab this session"
-            } else if session
-                .and_then(|session| session.shared_notes.as_ref())
-                .is_some_and(|shared| shared.kind == SharedNoteKind::Repo)
-            {
-                "tab main checkout notes"
-            } else {
-                "tab worktree notes"
-            };
-            parts.push(hint_part(text, Some("tab switch"), 1));
+        if self.step_editor.is_some() {
+            return fit_hint(
+                &[HintPart::from("enter save"), HintPart::from("esc cancel")],
+                width,
+                " • ",
+            );
         }
+        let active = self.active_part(props);
+        let mut parts: Vec<HintPart> = vec![HintPart::from("esc done")];
+        let has_brief = props.brief().is_some();
+        if active == NotePart::Steps {
+            let any = !props.steps().is_empty();
+            if any {
+                parts.push(hint_part("space tick", None, 1));
+            }
+            parts.push(hint_part("a add a step", Some("a add"), 1));
+            if any {
+                parts.push(hint_part("enter rename", None, 2));
+            }
+            parts.push(hint_part("tab notes", None, 1));
+            if has_brief {
+                parts.push(hint_part("b brief", None, 2));
+            }
+            if props.parent_note().is_some() {
+                parts.push(hint_part("p parent's note", None, 2));
+            }
+            parts.push(hint_part("E open in editor", Some("E editor"), 3));
+            return fit_hint(&parts, width, " • ");
+        }
+        let parts_list = self.parts(props);
+        let next = parts_list
+            .iter()
+            .position(|part| *part == active)
+            .and_then(|at| parts_list.get((at + 1) % parts_list.len()))
+            .copied()
+            .unwrap_or_default();
+        let next_text = match next {
+            NotePart::Steps => "tab steps",
+            NotePart::Brief => "tab brief",
+            NotePart::Line => "tab line's note",
+            NotePart::Session => "tab session's note",
+        };
+        parts.push(hint_part(next_text, Some("tab switch"), 1));
         parts.push(hint_part("ctrl+x toggle ☐", Some("ctrl+x ☐"), 1));
         parts.push(hint_part("ctrl+t new item", None, 2));
         parts.push(hint_part("ctrl+o open in editor", Some("ctrl+o editor"), 2));
-        // On an open checklist item, Ctrl+P (send it to Tasks) takes the word keys' place.
-        let on_open_item = session
-            .and_then(|session| {
-                self.peek(session, active, |text, cursor| {
+        if has_brief {
+            parts.push(hint_part("ctrl+b brief", None, 3));
+        }
+        // On an open checklist item, Ctrl+P (make it a step) is offered.
+        let on_open_item = active != NotePart::Brief
+            && self
+                .peek(props, active, |text, cursor| {
                     let line = text
                         .get(line_start(text, cursor)..line_end(text, cursor))
                         .unwrap_or_default();
                     parse_checklist_line(line).is_some_and(|item| !item.checked && !js_trim(&item.text).is_empty())
                 })
-            })
-            .unwrap_or(false);
+                .unwrap_or(false);
         if on_open_item {
-            parts.push(hint_part("ctrl+p → tasks", None, 2));
+            parts.push(hint_part("ctrl+p → step", None, 2));
         }
         fit_hint(&parts, width, " • ")
     }
@@ -1047,12 +1522,12 @@ impl Flow<App> for NotesFlow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::event_loop::{Dispatch, Update};
+    use crate::app::event_loop::Update;
     use crate::app::state::{AppProps, Mode};
     use crate::app::test_support::{app, session};
     use deckhand_client::live::LiveClientHandlers;
-    use deckhand_protocol::data::{NoteFile, SessionStatus, SessionWorktreeMode, SessionWorktreeRecord, SharedNote};
-    use serde_json::{Value, json};
+    use deckhand_protocol::data::{NoteFile, SessionStatus};
+    use serde_json::Value;
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::UnixStream;
     use tokio::net::unix::OwnedWriteHalf;
@@ -1066,9 +1541,50 @@ mod tests {
         tokio::task::LocalSet::new().block_on(&runtime, test);
     }
 
+    /// Token storage's session (`s1`) is on its line with three steps (one ticked, one a sub-session's: `s2`'s), under
+    /// an idea; the line has a brief and a note.
+    const LIST: &str = "- [ ] Rework auth <!-- dh:t=idea s=orch -->\n\
+        \x20 - [ ] Token storage <!-- dh:t=tok s=s1 -->\n\
+        \x20   - [x] schema <!-- dh:t=sch -->\n\
+        \x20   - [ ] encryption <!-- dh:t=enc -->\n\
+        \x20   - [ ] refresh tokens <!-- dh:t=ref s=s2 -->\n";
+
+    fn work_note(kind: WorkNoteKind, id: &str, text: &str, revision: &str) -> WorkNote {
+        WorkNote {
+            kind,
+            id: id.to_owned(),
+            path: format!("/notes/{id}.md"),
+            text: text.to_owned(),
+            revision: revision.to_owned(),
+            too_large: None,
+            from: None,
+            at: None,
+        }
+    }
+
+    fn brief() -> WorkNote {
+        WorkNote {
+            from: Some("◎ Rework auth".to_owned()),
+            at: Some("2026-11-14T10:00:00.000Z".to_owned()),
+            ..work_note(
+                WorkNoteKind::Brief,
+                "tok",
+                "Store tokens encrypted.\n- [ ] keep refresh out\n",
+                "b1",
+            )
+        }
+    }
+
+    fn line_notes() -> Vec<WorkNote> {
+        vec![
+            work_note(WorkNoteKind::Line, "tok", "chose AES-GCM\n- [ ] rotate keys", "n1"),
+            brief(),
+        ]
+    }
+
     /// A session whose own note is `text` at `revision`.
-    fn noted(id: &str, text: &str, revision: &str) -> SessionRecord {
-        let mut record = session(id, "Fix login", SessionStatus::Running);
+    fn noted(id: &str, title: &str, text: &str, revision: &str) -> SessionRecord {
+        let mut record = session(id, title, SessionStatus::Running);
         record.notes = Some(text.to_owned());
         record.notes_file = Some(NoteFile {
             path: format!("/notes/{id}.md"),
@@ -1078,34 +1594,13 @@ mod tests {
         record
     }
 
-    /// `record` with the shared note `wt1` (text, revision) beside its own, as a main-checkout session has.
-    fn side_by_side(mut record: SessionRecord, text: &str, revision: &str) -> SessionRecord {
-        record.shared_notes = Some(SharedNote {
-            kind: SharedNoteKind::Worktree,
-            id: "wt1".to_owned(),
-            path: "/notes/wt1.md".to_owned(),
-            text: text.to_owned(),
-            revision: revision.to_owned(),
-            too_large: None,
-            read_only: None,
-        });
-        record
+    fn token(text: &str, revision: &str) -> SessionRecord {
+        noted("s1", "Token storage", text, revision)
     }
 
-    /// `record` in the worktree note `wt1` (text, revision), the worktree on `branch`: it shows only that note.
-    fn in_worktree(mut record: SessionRecord, text: &str, revision: &str, branch: &str) -> SessionRecord {
-        let mut worktree = SessionWorktreeRecord::new(SessionWorktreeMode::Managed);
-        worktree.branch = Some(branch.to_owned());
-        worktree.path = Some("/repo/.wt/feat-x".to_owned());
-        worktree.id = Some("wt1".to_owned());
-        record.worktree = Some(worktree);
-        side_by_side(record, text, revision)
-    }
-
-    fn read_only(mut record: SessionRecord) -> SessionRecord {
-        if let Some(note) = record.shared_notes.as_mut() {
-            note.read_only = Some(true);
-        }
+    fn refresh() -> SessionRecord {
+        let mut record = noted("s2", "Refresh tokens", "", "e");
+        record.parent_session_id = Some("s1".to_owned());
         record
     }
 
@@ -1136,9 +1631,29 @@ mod tests {
 
     type Files = Rc<RefCell<Vec<Option<String>>>>;
 
+    const KEY: &str = "session:s1";
+    const LINE_KEY: &str = "line:s1";
+
+    fn key(update: impl FnOnce(&mut Key)) -> Key {
+        let mut key = Key::NONE;
+        update(&mut key);
+        key
+    }
+
+    fn list_doc(text: &str) -> TasksDoc {
+        TasksDoc {
+            key: "k".to_owned(),
+            path: "/notes/tasks/k.md".to_owned(),
+            text: text.to_owned(),
+            revision: "t0".to_owned(),
+            too_large: None,
+            notes: None,
+        }
+    }
+
     impl Harness {
-        /// An app in notes focus on `selected` of `sessions`, connected to a fake daemon.
-        fn new(sessions: Vec<SessionRecord>, selected: &str) -> Harness {
+        /// An app in notes focus on `selected` of `sessions`, the list `list` with `notes`, connected to a fake daemon.
+        fn new(sessions: Vec<SessionRecord>, selected: &str, list: &str, notes: Vec<WorkNote>) -> Harness {
             let (mut app, rx) = app(AppProps::default());
             let (client, server) = UnixStream::pair().expect("pair");
             let (read, writer) = server.into_split();
@@ -1159,6 +1674,10 @@ mod tests {
             });
             app.connection.client = Some(Rc::new(LiveClient::new(client, LiveClientHandlers::default())));
             app.data.repo_sessions = sessions;
+            app.set_tasks_doc(Some(TasksDoc {
+                notes: Some(notes),
+                ..list_doc(list)
+            }));
             app.browse.selected_id = Some(selected.to_owned());
             app.mode = Mode::NotesFocus;
             Harness {
@@ -1166,6 +1685,16 @@ mod tests {
                 rx,
                 daemon: Daemon { lines, writer },
             }
+        }
+
+        /// Token storage's tab: its line, steps, brief and note, and its own note.
+        fn token(text: &str) -> Harness {
+            Harness::new(vec![token(text, "r1"), refresh()], "s1", LIST, line_notes())
+        }
+
+        /// A session on no line.
+        fn lineless(text: &str) -> Harness {
+            Harness::new(vec![token(text, "r1")], "s1", "", Vec::new())
         }
 
         fn flow(&self) -> &NotesFlow {
@@ -1230,6 +1759,10 @@ mod tests {
             self.input(Input::key("", key));
         }
 
+        fn tab(&mut self) {
+            self.press(key(|key| key.tab = true));
+        }
+
         fn ctrl(&mut self, letter: &str) {
             self.input(Input::key(
                 letter,
@@ -1240,13 +1773,18 @@ mod tests {
             ));
         }
 
-        /// The daemon's answer to a save.
+        /// The daemon's answer: `data`.
+        async fn ok(&mut self, request: &Value, data: Value) {
+            self.daemon.respond(request, json!({"ok": true, "data": data})).await;
+        }
+
+        /// The daemon's answer to a session note's save.
         async fn saved(&mut self, request: &Value, record: &SessionRecord, saved: bool) {
             let note = json!({"kind": "session", "id": record.id, "path": "/notes/s.md",
                 "text": record.notes.clone().unwrap_or_default(),
                 "revision": record.notes_file.as_ref().map(|file| file.revision.clone()).unwrap_or_default()});
-            let body = json!({"ok": true, "data": {"saved": saved, "note": note, "session": record}});
-            self.daemon.respond(request, body).await;
+            self.ok(request, json!({"saved": saved, "note": note, "session": record}))
+                .await;
         }
 
         fn render(&mut self, width: u16, height: u16) -> Vec<String> {
@@ -1254,23 +1792,15 @@ mod tests {
             let mut buf = Buffer::empty(area);
             self.app
                 .notes_flow_call(|flow, props, _cx| flow.render(props, &mut buf, area));
-            (0..height)
-                .map(|y| {
-                    (0..width)
-                        .map(|x| buf[(x, y)].symbol().to_owned())
-                        .collect::<String>()
-                        .trim_end()
-                        .to_owned()
-                })
-                .collect()
+            crate::flows::tasks::tests::buffer_rows(&buf)
         }
 
         fn hint(&mut self, width: usize) -> String {
             self.app.notes_flow_call(|flow, props, _cx| flow.hint(props, width))
         }
 
-        fn replace_session(&mut self, record: SessionRecord) {
-            self.app.data.repo_sessions = vec![record];
+        fn part(&mut self) -> NotePart {
+            self.app.notes_flow_call(|flow, props, _cx| flow.active_part(props))
         }
 
         /// `activeFile` with a sink for what it resolves to.
@@ -1284,299 +1814,297 @@ mod tests {
         }
     }
 
-    const KEY: &str = "session:s1";
-
-    fn key(update: impl FnOnce(&mut Key)) -> Key {
-        let mut key = Key::NONE;
-        update(&mut key);
-        key
-    }
-
-    // doc_of / plural / reconcile
+    // ── What the tab shows ────────────────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn doc_of_reads_the_note_of_each_section() {
-        let own = noted("s1", "- [ ] a", "r1");
-        assert_eq!(
-            doc_of(Some(&own), NoteSection::Session),
-            Some(NoteDoc {
-                text: "- [ ] a".to_owned(),
-                revision: "r1".to_owned(),
-                read_only: false,
-                too_large: false
-            })
-        );
-        assert_eq!(doc_of(Some(&own), NoteSection::Shared), None);
-        assert_eq!(doc_of(None, NoteSection::Session), None);
-        let mut bare = session("s2", "T", SessionStatus::Running);
-        assert_eq!(doc_of(Some(&bare), NoteSection::Session), None);
-        bare.notes_file = Some(NoteFile {
-            path: "/n".to_owned(),
-            revision: "r".to_owned(),
-            too_large: Some(true),
-        });
-        let doc = doc_of(Some(&bare), NoteSection::Session).expect("doc");
-        assert_eq!((doc.text.as_str(), doc.too_large), ("", true));
-        let shared = read_only(in_worktree(own, "shared", "w1", "feat/x"));
-        let doc = doc_of(Some(&shared), NoteSection::Shared).expect("doc");
-        assert_eq!(
-            (doc.text.as_str(), doc.revision.as_str(), doc.read_only),
-            ("shared", "w1", true)
-        );
-    }
-
-    #[test]
-    fn plural_adds_an_s_except_for_one() {
-        assert_eq!(plural(1, "session"), "1 session");
-        assert_eq!(plural(0, "session"), "0 sessions");
-        assert_eq!(plural(3, "session"), "3 sessions");
-    }
-
-    fn draft(text: &str, saved: &str, revision: &str) -> Draft {
-        Draft {
-            session_id: "s1".to_owned(),
-            section: NoteSection::Session,
-            note_id: None,
-            text: text.to_owned(),
-            cursor: text.len(),
-            saved: saved.to_owned(),
-            revision: revision.to_owned(),
-            in_flight: None,
-            scroll_top: 0,
-        }
-    }
-
-    fn doc(text: &str, revision: &str) -> NoteDoc {
-        NoteDoc {
-            text: text.to_owned(),
-            revision: revision.to_owned(),
-            ..NoteDoc::default()
-        }
-    }
-
-    #[test]
-    fn reconcile_reloads_silently_unless_it_drops_an_unsaved_edit() {
-        // The same revision: nothing to do.
-        let mut same = draft("mine", "mine", "r1");
-        assert!(!apply_reconcile(&mut same, &doc("other", "r1")));
-        assert_eq!(same.text, "mine");
-        // Nothing unsaved: the new file is taken, the cursor kept inside it.
-        let mut clean = draft("long text", "long text", "r1");
-        assert!(!apply_reconcile(&mut clean, &doc("ab", "r2")));
-        assert_eq!(
-            (
-                clean.text.as_str(),
-                clean.saved.as_str(),
-                clean.revision.as_str(),
-                clean.cursor
-            ),
-            ("ab", "ab", "r2", 2)
-        );
-        // An unsaved edit that the new file lacks: dropped, and reported.
-        let mut dirty = draft("mine!", "mine", "r1");
-        assert!(apply_reconcile(&mut dirty, &doc("theirs", "r2")));
-        assert_eq!(dirty.text, "theirs");
-        // The unsaved edit is what the file now says: nothing lost.
-        let mut same_text = draft("mine!", "mine", "r1");
-        assert!(!apply_reconcile(&mut same_text, &doc("mine!", "r2")));
-        // The echo of the save in flight only moves the revision.
-        let mut flying = draft("mine!!", "mine", "r1");
-        flying.in_flight = Some("mine!".to_owned());
-        assert!(!apply_reconcile(&mut flying, &doc("mine!", "r2")));
-        assert_eq!(
-            (flying.text.as_str(), flying.saved.as_str(), flying.revision.as_str()),
-            ("mine!!", "mine!", "r2")
-        );
-        // A different file while one is in flight: the edit is dropped.
-        let mut lost = draft("mine!!", "mine", "r1");
-        lost.in_flight = Some("mine!".to_owned());
-        assert!(apply_reconcile(&mut lost, &doc("theirs", "r2")));
-        // The cursor never lands inside a character.
-        let mut multibyte = draft("aé", "aé", "r1");
-        multibyte.cursor = 3;
-        apply_reconcile(&mut multibyte, &doc("é", "r2"));
-        assert_eq!(multibyte.cursor, 2);
-    }
-
-    // render
-
-    #[test]
-    fn without_a_session_it_says_to_select_one() {
+    fn a_session_on_a_line_shows_its_steps_the_folded_brief_and_both_notes() {
         run(async {
-            let mut h = Harness::new(vec![], "none");
-            assert_eq!(h.render(40, 2), ["Select a session from the sidebar.", ""]);
-            // Any key leaves notes focus.
-            h.type_text("x");
-            h.pump().await;
-            assert_eq!(h.app.mode, Mode::Browse);
-        });
-    }
-
-    #[test]
-    fn a_session_note_shows_its_title_and_the_empty_line() {
-        run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
+            let mut h = Harness::token("Review crypto.rs before merging");
             h.app.mode = Mode::Browse;
+            let rule = "─".repeat(70);
             assert_eq!(
-                h.render(50, 2),
-                ["This session · Fix login", "No notes for this session · enter to add"]
-            );
-            h.app.mode = Mode::NotesFocus;
-            let rows = h.render(50, 2);
-            assert_eq!(rows[1], "");
-            assert_eq!(h.flow().viewport_width, 50);
-            let mut h = Harness::new(vec![noted("s1", "- [ ] ship it", "r1")], "s1");
-            h.app.mode = Mode::Browse;
-            assert_eq!(
-                h.render(50, 3),
-                ["This session · Fix login · ☐ 1 open", "☐ ship it", ""]
+                h.render(70, 14),
+                [
+                    "◆ Token storage · 1/3 steps",
+                    "  ☑ schema",
+                    "  ☐ encryption",
+                    "  ☐ refresh tokens",
+                    "▸ Brief · from ◎ Rework auth · 14 Nov",
+                    rule.as_str(),
+                    "Token storage · shared with whoever works on it · ☐ 1 open",
+                    "chose AES-GCM",
+                    "☐ rotate keys",
+                    rule.as_str(),
+                    "This session · only this conversation",
+                    "Review crypto.rs before merging",
+                    "",
+                    "",
+                ]
             );
         });
     }
 
     #[test]
-    fn a_worktree_note_names_its_branch_and_the_sessions_sharing_it() {
+    fn a_session_on_no_line_says_so_and_how_to_write_each_note() {
         run(async {
-            let first = in_worktree(noted("s1", "", "r1"), "- [ ] shared item", "w1", "feat/x");
-            let mut second = in_worktree(noted("s2", "", "r2"), "- [ ] shared item", "w1", "feat/x");
-            let mut third = in_worktree(noted("s3", "", "r3"), "- [ ] shared item", "w1", "feat/x");
-            second.title = "Other".to_owned();
-            let mut h = Harness::new(vec![first.clone(), second.clone(), third.clone()], "s1");
-            h.app.mode = Mode::Browse;
-            let rows = h.render(60, 6);
-            assert_eq!(rows[0], "Worktree · feat/x (shared by 3 sessions) · ☐ 1 open");
-            assert_eq!(rows[1], "☐ shared item");
-            // An archived session is not counted.
-            third.archived_at = Some("2026-01-02T00:00:00.000Z".to_owned());
-            h.app.data.repo_sessions = vec![first, second, third];
-            let rows = h.render(60, 6);
-            assert_eq!(rows[0], "Worktree · feat/x (shared by 2 sessions) · ☐ 1 open");
-        });
-    }
-
-    #[test]
-    fn a_worktree_note_without_a_branch_is_named_by_its_folder() {
-        run(async {
-            let mut record = in_worktree(noted("s1", "", "r1"), "", "w1", "");
-            if let Some(worktree) = record.worktree.as_mut() {
-                worktree.branch = None;
-            }
-            let mut h = Harness::new(vec![record], "s1");
-            h.app.mode = Mode::Browse;
-            assert_eq!(h.render(60, 6)[0], "Worktree · feat-x (shared by 1 session)");
-        });
-    }
-
-    #[test]
-    fn a_main_checkout_note_and_its_empty_lines() {
-        run(async {
-            let mut record = in_worktree(noted("s1", "- [ ] own", "r1"), "", "w1", "main");
-            if let Some(note) = record.shared_notes.as_mut() {
-                note.kind = SharedNoteKind::Repo;
-                note.id = "repo1".to_owned();
-            }
-            let mut h = Harness::new(vec![record], "s1");
-            h.app.mode = Mode::Browse;
-            let rows = h.render(60, 8);
-            assert_eq!(rows[0], "Main checkout (shared by 1 session)");
-            assert_eq!(rows[1], "No main checkout notes · enter, then tab to add");
-            h.app.mode = Mode::NotesFocus;
-            assert_eq!(h.render(60, 8)[1], "No main checkout notes · tab to add");
-        });
-    }
-
-    #[test]
-    fn a_worktree_session_shows_only_the_worktree_note() {
-        run(async {
-            let record = in_worktree(session("s1", "T", SessionStatus::Running), "", "w1", "feat/x");
-            let mut h = Harness::new(vec![record], "s1");
-            h.app.mode = Mode::Browse;
-            let rows = h.render(60, 4);
-            assert_eq!(rows[0], "Worktree · feat/x (shared by 1 session)");
-            assert_eq!(rows[1], "No worktree notes · enter to add");
-            assert!(rows.iter().all(|row| !row.contains("This session")), "{rows:?}");
-            h.app.mode = Mode::NotesFocus;
-            assert_eq!(h.render(60, 4)[1], "");
-            assert!(!h.hint(200).contains("tab"));
-        });
-    }
-
-    #[test]
-    fn a_deleted_worktree_note_is_flagged_read_only() {
-        run(async {
-            let record = read_only(in_worktree(noted("s1", "", "r1"), "", "w1", "feat/x"));
-            let mut h = Harness::new(vec![record], "s1");
+            let mut h = Harness::lineless("");
             h.app.mode = Mode::Browse;
             let rows = h.render(70, 8);
-            assert_eq!(rows[0], "Worktree · feat/x (shared by 1 session) · deleted, read-only");
-            assert_eq!(rows[1], "No worktree notes (its worktree was deleted)");
+            assert_eq!(rows[0], "No line yet");
+            assert_eq!(rows[2], "Its line's note · shared with whoever works on it");
+            assert_eq!(rows[3], "No line yet: writing here makes one");
+            assert_eq!(rows[5], "This session · only this conversation");
+            // Enter edits the session's note first.
+            assert_eq!(rows[6], "No notes for this session · enter to write");
+            h.app.mode = Mode::NotesFocus;
+            let rows = h.render(70, 8);
+            assert_eq!(rows[3], "No line yet: writing here makes one · tab to write");
+            assert_eq!(rows[6], "");
         });
     }
 
     #[test]
-    fn the_editing_section_scrolls_and_reports_its_viewport() {
+    fn a_sub_session_shows_its_parents_line_note_folded_and_p_opens_it() {
         run(async {
-            let text = (1..=30)
-                .map(|index| format!("line {index}"))
-                .collect::<Vec<_>>()
-                .join("\n");
-            let mut h = Harness::new(vec![noted("s1", &text, "r1")], "s1");
-            let rows = h.render(30, 8);
-            // Editing: the cursor is at the end, so the last lines are shown.
-            assert_eq!(rows[0], "This session · Fix login");
-            assert_eq!(rows[7], "line 30");
-            assert_eq!(h.flow().viewport_rows, 7);
-            assert!(h.draft(KEY).scroll_top > 0);
-        });
-    }
-
-    // hint
-
-    #[test]
-    fn the_hint_follows_the_section_and_the_cursor_line() {
-        run(async {
-            let mut h = Harness::new(vec![noted("s1", "plain", "r1")], "s1");
+            let mut h = Harness::new(vec![token("", "r1"), refresh()], "s2", LIST, line_notes());
+            let rows = h.render(70, 12);
+            assert_eq!(rows[0], "◆ refresh tokens");
+            assert_eq!(rows[7..9], ["", "▸ Token storage's note"]);
+            // On the steps, p opens it (read-only here) and folds it again.
+            h.tab();
+            assert_eq!(h.part(), NotePart::Steps);
+            h.type_text("p");
+            let rows = h.render(70, 12);
             assert_eq!(
-                h.hint(200),
-                "esc done • ctrl+x toggle ☐ • ctrl+t new item • ctrl+o open in editor"
+                rows[8..],
+                [
+                    "▾ Token storage's note · read-only · ☐ 1 open",
+                    "chose AES-GCM",
+                    "☐ rotate keys",
+                    ""
+                ]
             );
-            assert_eq!(h.hint(48), "esc done • ctrl+x ☐ • ctrl+t new item");
-            let mut h = Harness::new(vec![noted("s1", "- [ ] do it", "r1")], "s1");
-            assert!(h.hint(200).ends_with(" • ctrl+p → tasks"), "{}", h.hint(200));
-            let mut h = Harness::new(vec![noted("s1", "- [x] done", "r1")], "s1");
-            assert!(!h.hint(200).contains("ctrl+p"));
-            let mut h = Harness::new(vec![noted("s1", "- [ ]  ", "r1")], "s1");
-            assert!(!h.hint(200).contains("ctrl+p"));
-            let shared = side_by_side(noted("s1", "", "r1"), "", "w1");
-            let mut h = Harness::new(vec![shared.clone()], "s1");
-            assert!(h.hint(200).contains("tab worktree notes"), "{}", h.hint(200));
-            h.app.flows.notes.section = NoteSection::Shared;
-            assert!(h.hint(200).contains("tab this session"), "{}", h.hint(200));
-            let mut repo = shared;
-            if let Some(note) = repo.shared_notes.as_mut() {
-                note.kind = SharedNoteKind::Repo;
-            }
-            let mut h = Harness::new(vec![repo], "s1");
-            assert!(h.hint(200).contains("tab main checkout notes"), "{}", h.hint(200));
+            h.type_text("p");
+            assert_eq!(h.render(70, 12)[8], "▸ Token storage's note");
+            // A session that is not a sub-session has none.
+            let mut h = Harness::token("");
+            h.tab();
+            h.type_text("p");
+            assert_eq!(h.status(), Some("Not a sub-session: there is no parent's note"));
         });
     }
 
-    // keys
+    // ── Switching notes ───────────────────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn escape_leaves_notes_focus() {
+    fn tab_moves_through_the_steps_the_open_brief_and_both_notes() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
-            h.press(key(|key| key.escape = true));
-            assert_eq!(h.app.mode, Mode::Browse);
+            let mut h = Harness::token("");
+            assert_eq!(h.part(), NotePart::Session);
+            h.tab();
+            assert_eq!(h.part(), NotePart::Steps);
+            h.tab();
+            assert_eq!(h.part(), NotePart::Line);
+            h.tab();
+            assert_eq!(h.part(), NotePart::Session);
+            h.press(key(|key| {
+                key.tab = true;
+                key.shift = true;
+            }));
+            assert_eq!(h.part(), NotePart::Line);
+            // Typing goes to the note being edited.
+            h.type_text("!");
+            assert_eq!(h.draft(LINE_KEY).text, "chose AES-GCM\n- [ ] rotate keys!");
+            assert_eq!(h.draft(KEY).text, "");
+            // An open brief is a stop too; ctrl+b folds it again (and leaves it for the line's note).
+            h.ctrl("b");
+            h.press(key(|key| {
+                key.tab = true;
+                key.shift = true;
+            }));
+            assert_eq!(h.part(), NotePart::Brief);
+            h.ctrl("b");
+            assert_eq!(h.part(), NotePart::Line);
+            // A line without a brief says so.
+            let mut h = Harness::lineless("");
+            h.ctrl("b");
+            assert_eq!(h.status(), Some("This session's line has no brief"));
         });
     }
+
+    #[test]
+    fn an_open_brief_is_edited_and_saved_as_the_lines_brief() {
+        run(async {
+            let mut h = Harness::token("");
+            h.render(70, 20);
+            h.ctrl("b");
+            let rows = h.render(70, 20);
+            assert_eq!(rows[4], "▾ Brief · from ◎ Rework auth · 14 Nov · ☐ 1 open");
+            assert_eq!(rows[5], "Store tokens encrypted.");
+            // Shift+Tab from the session's note: the line's note, then the brief.
+            h.press(key(|key| {
+                key.tab = true;
+                key.shift = true;
+            }));
+            h.press(key(|key| {
+                key.tab = true;
+                key.shift = true;
+            }));
+            assert_eq!(h.part(), NotePart::Brief);
+            h.type_text("x");
+            let save = h.request().await;
+            assert_eq!(save["type"], "save-note");
+            assert_eq!(save["note"], json!({"kind": "brief", "id": "tok"}));
+            assert_eq!(save["revision"], "b1");
+            assert_eq!(save["text"], "Store tokens encrypted.\n- [ ] keep refresh out\nx");
+            // ctrl+p leaves a brief's checkboxes in it.
+            h.ctrl("p");
+            assert!(
+                h.status()
+                    .is_some_and(|status| status.starts_with("A brief's checkboxes stay in it"))
+            );
+        });
+    }
+
+    // ── Steps ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn space_ticks_the_selected_step_and_enter_renames_it() {
+        run(async {
+            let mut h = Harness::token("");
+            h.tab();
+            h.type_text("j");
+            let rows = h.render(70, 14);
+            assert_eq!(rows[2], "› ☐ encryption");
+            h.type_text(" ");
+            let op = h.request().await;
+            assert_eq!(op["type"], "task-op");
+            assert_eq!(op["op"], json!({"type": "toggle", "id": "enc"}));
+            let ticked = LIST.replace("[ ] encryption", "[x] encryption");
+            h.ok(&op, json!(list_doc(&ticked))).await;
+            h.pump().await;
+            assert_eq!(h.status(), Some("Done: encryption"));
+            assert_eq!(h.render(70, 14)[0], "◆ Token storage · 2/3 steps");
+            // Enter: its title in place; Enter saves it.
+            h.press(key(|key| key.return_ = true));
+            assert!(h.hint(100).starts_with("enter save"));
+            h.press(key(|key| key.backspace = true));
+            h.type_text("ing");
+            assert_eq!(h.render(70, 14)[2], "› ☐ encryptioing");
+            h.press(key(|key| key.return_ = true));
+            let op = h.request().await;
+            assert_eq!(
+                op["op"],
+                json!({"type": "retitle", "id": "enc", "title": "encryptioing"})
+            );
+            h.ok(&op, json!(list_doc(&ticked))).await;
+            h.pump().await;
+            assert_eq!(h.status(), Some("Renamed the step"));
+            // Esc cancels a title, and leaves the steps only after.
+            h.press(key(|key| key.return_ = true));
+            h.press(key(|key| key.escape = true));
+            assert_eq!(h.flow().step_editor, None);
+            assert_eq!(h.app.mode, Mode::NotesFocus);
+        });
+    }
+
+    #[test]
+    fn a_adds_a_step_under_the_sessions_line() {
+        run(async {
+            let mut h = Harness::token("");
+            h.tab();
+            h.type_text("a");
+            h.type_text("rotate keys");
+            assert_eq!(h.render(70, 20)[4], "› ☐ rotate keys");
+            h.press(key(|key| key.return_ = true));
+            let op = h.request().await;
+            assert_eq!(
+                op["op"],
+                json!({"type": "add", "title": "rotate keys", "parent": "tok"})
+            );
+            let added = format!("{LIST}    - [ ] rotate keys <!-- dh:t=rot -->\n");
+            h.ok(&op, json!(list_doc(&added))).await;
+            h.pump().await;
+            assert_eq!(h.status(), Some("Added a step: rotate keys"));
+            assert_eq!(h.flow().step, 3);
+            assert_eq!(h.render(70, 20)[0], "◆ Token storage · 1/4 steps");
+        });
+    }
+
+    #[test]
+    fn a_step_for_a_session_on_no_line_makes_its_line_first() {
+        run(async {
+            let mut h = Harness::lineless("");
+            h.tab();
+            assert_eq!(h.render(70, 8)[0], "No line yet · a adds a step (it gets its line)");
+            h.type_text("aReproduce it");
+            h.press(key(|key| key.return_ = true));
+            let made = h.request().await;
+            assert_eq!(made["op"], json!({"type": "session-line", "s": "s1"}));
+            let line = "- [ ] Token storage <!-- dh:t=new s=s1 -->\n";
+            h.ok(&made, json!(list_doc(line))).await;
+            let add = h.request().await;
+            assert_eq!(
+                add["op"],
+                json!({"type": "add", "title": "Reproduce it", "parent": "new"})
+            );
+            h.ok(
+                &add,
+                json!(list_doc(&format!("{line}  - [ ] Reproduce it <!-- dh:t=rep -->\n"))),
+            )
+            .await;
+            h.pump().await;
+            assert_eq!(
+                h.render(70, 8)[..2],
+                ["◆ Token storage · 0/1 steps", "› ☐ Reproduce it"]
+            );
+        });
+    }
+
+    #[test]
+    fn writing_the_line_note_of_a_session_on_no_line_makes_its_line() {
+        run(async {
+            let mut h = Harness::lineless("");
+            h.render(70, 10);
+            h.press(key(|key| {
+                key.tab = true;
+                key.shift = true;
+            }));
+            assert_eq!(h.part(), NotePart::Line);
+            h.type_text("why");
+            let made = h.request().await;
+            assert_eq!(made["op"], json!({"type": "session-line", "s": "s1"}));
+            h.ok(&made, json!(list_doc("- [ ] Token storage <!-- dh:t=new s=s1 -->\n")))
+                .await;
+            let save = h.request().await;
+            assert_eq!(save["note"], json!({"kind": "line", "id": "new"}));
+            assert_eq!(save["text"], "why");
+            assert_eq!(save["revision"], note_revision(""));
+            h.ok(
+                &save,
+                json!({"saved": true, "note": work_note(WorkNoteKind::Line, "new", "why", "n2")}),
+            )
+            .await;
+            h.pump().await;
+            let draft = h.draft(LINE_KEY);
+            assert_eq!(
+                (draft.line_id.as_deref(), draft.saved.as_str(), draft.revision.as_str()),
+                (Some("new"), "why", "n2")
+            );
+            let rows = h.render(70, 10);
+            assert_eq!(rows[0], "◆ Token storage");
+            assert_eq!(rows[3], "Token storage · shared with whoever works on it");
+            assert_eq!(h.error(), None);
+        });
+    }
+
+    // ── Saving ────────────────────────────────────────────────────────────────────────────────────────────────
 
     #[test]
     fn typing_edits_the_draft_and_saves_300ms_after_the_last_key() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", "hi", "r1")], "s1");
-            h.render(40, 5);
+            let mut h = Harness::token("hi");
+            h.render(70, 14);
             h.type_text("a");
             assert_eq!(h.draft(KEY).text, "hia");
             h.run_for(Duration::from_millis(200)).await;
@@ -1593,22 +2121,52 @@ mod tests {
             assert_eq!(request["text"], "hiab");
             assert_eq!(request["revision"], "r1");
             assert_eq!(h.draft(KEY).in_flight.as_deref(), Some("hiab"));
-            h.saved(&request, &noted("s1", "hiab", "r2"), true).await;
+            h.saved(&request, &token("hiab", "r2"), true).await;
             h.pump().await;
             let saved = h.draft(KEY);
             assert_eq!(
                 (saved.saved.as_str(), saved.revision.as_str(), saved.in_flight.clone()),
                 ("hiab", "r2", None)
             );
+            // The answer's session is the app's now.
+            assert_eq!(h.app.data.repo_sessions[0].notes.as_deref(), Some("hiab"));
             assert_eq!(h.error(), None);
+        });
+    }
+
+    #[test]
+    fn the_line_note_is_saved_against_its_revision_and_held_by_the_app() {
+        run(async {
+            let mut h = Harness::token("");
+            h.render(70, 14);
+            h.press(key(|key| {
+                key.tab = true;
+                key.shift = true;
+            }));
+            h.type_text("!");
+            let save = h.request().await;
+            assert_eq!(save["note"], json!({"kind": "line", "id": "tok"}));
+            assert_eq!(save["revision"], "n1");
+            let note = work_note(WorkNoteKind::Line, "tok", "chose AES-GCM\n- [ ] rotate keys!", "n2");
+            h.ok(&save, json!({"saved": true, "note": note})).await;
+            h.pump().await;
+            assert_eq!(
+                h.app
+                    .data
+                    .work_notes
+                    .line_note("tok")
+                    .map(|note| note.revision.as_str()),
+                Some("n2")
+            );
+            assert_eq!(h.draft(LINE_KEY).revision, "n2");
         });
     }
 
     #[test]
     fn leaving_focus_saves_every_draft_at_once() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
-            h.render(40, 5);
+            let mut h = Harness::token("");
+            h.render(70, 14);
             h.app.notes_flow_call(|flow, props, cx| flow.sync(props, cx));
             h.type_text("x");
             h.app.mode = Mode::Browse;
@@ -1618,7 +2176,7 @@ mod tests {
             assert!(start.elapsed() < Duration::from_millis(250));
             assert_eq!(request["text"], "x");
             // The debounce timer was cancelled: no second save.
-            h.saved(&request, &noted("s1", "x", "r2"), true).await;
+            h.saved(&request, &token("x", "r2"), true).await;
             h.run_for(Duration::from_millis(400)).await;
             assert!(h.daemon.lines.try_recv().is_err());
         });
@@ -1627,8 +2185,8 @@ mod tests {
     #[test]
     fn text_typed_while_saving_is_saved_after_it() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
-            h.render(40, 5);
+            let mut h = Harness::token("");
+            h.render(70, 14);
             h.type_text("a");
             let first = h.request().await;
             assert_eq!(first["text"], "a");
@@ -1636,44 +2194,52 @@ mod tests {
             // The timer fires while the first save is in flight: it waits for it.
             h.run_for(Duration::from_millis(400)).await;
             assert!(h.daemon.lines.try_recv().is_err());
-            h.saved(&first, &noted("s1", "a", "r2"), true).await;
+            h.saved(&first, &token("a", "r2"), true).await;
             let second = h.request().await;
             assert_eq!(
                 (second["text"].as_str(), second["revision"].as_str()),
                 (Some("ab"), Some("r2"))
             );
-            h.saved(&second, &noted("s1", "ab", "r3"), true).await;
-            h.pump().await;
-            assert_eq!(
-                (h.draft(KEY).saved.as_str(), h.draft(KEY).revision.as_str()),
-                ("ab", "r3")
-            );
         });
     }
 
     #[test]
-    fn a_save_the_daemon_refused_reloads_the_file_and_says_the_edit_was_dropped() {
+    fn a_save_refused_for_a_newer_note_keeps_the_typed_text_and_says_so() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
-            h.render(40, 5);
+            let mut h = Harness::token("");
+            h.render(70, 14);
             h.type_text("mine");
             let request = h.request().await;
-            h.saved(&request, &noted("s1", "theirs", "r9"), false).await;
+            h.saved(&request, &token("theirs", "r9"), false).await;
             h.pump().await;
             let draft = h.draft(KEY);
             assert_eq!(
-                (draft.text.as_str(), draft.saved.as_str(), draft.revision.as_str()),
-                ("theirs", "theirs", "r9")
+                (
+                    draft.text.as_str(),
+                    draft.saved.as_str(),
+                    draft.revision.as_str(),
+                    draft.conflict
+                ),
+                ("mine", "theirs", "r9", true)
             );
-            assert_eq!(h.error(), Some(RELOADED_MESSAGE));
+            assert_eq!(h.error(), Some(CONFLICT_MESSAGE));
+            // Nothing is saved on its own after that; the next edit saves it over theirs, naming their revision.
+            h.run_for(Duration::from_millis(400)).await;
+            assert!(h.daemon.lines.try_recv().is_err());
+            h.type_text("!");
+            let again = h.request().await;
+            assert_eq!(
+                (again["text"].as_str(), again["revision"].as_str()),
+                (Some("mine!"), Some("r9"))
+            );
         });
     }
 
     #[test]
     fn a_failed_save_is_reported_and_the_text_kept() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
-            h.render(40, 5);
+            let mut h = Harness::token("");
+            h.render(70, 14);
             h.type_text("mine");
             let request = h.request().await;
             h.daemon
@@ -1690,156 +2256,216 @@ mod tests {
     }
 
     #[test]
-    fn a_file_changed_elsewhere_is_reloaded_when_shown() {
+    fn a_note_changed_elsewhere_reloads_unless_text_is_unsaved() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", "old", "r1")], "s1");
-            h.render(40, 5);
-            h.replace_session(noted("s1", "new from the editor", "r2"));
-            h.render(40, 5);
+            let mut h = Harness::token("old");
+            h.render(70, 14);
+            h.app.data.repo_sessions[0] = token("new from the editor", "r2");
+            h.render(70, 14);
             assert_eq!(h.draft(KEY).text, "new from the editor");
             assert_eq!(h.error(), None);
-            // An unsaved edit is dropped with a message, reported right after the render (TS queueMicrotask), with no
-            // further key.
+            // Unsaved text is kept, reported right after the render.
             h.type_text("!");
-            h.replace_session(noted("s1", "again", "r3"));
-            h.render(40, 5);
-            assert_eq!(h.draft(KEY).text, "again");
+            h.app.data.repo_sessions[0] = token("again", "r3");
+            h.render(70, 14);
+            assert_eq!(h.draft(KEY).text, "new! from the editor");
+            assert_eq!(h.draft(KEY).revision, "r3");
             h.pump().await;
-            assert_eq!(h.error(), Some(RELOADED_MESSAGE));
-            assert_eq!(h.flow().deferred_error, None);
+            assert_eq!(h.error(), Some(CONFLICT_MESSAGE));
+            // A line note pushed while nothing is unsaved: taken as it is.
+            h.app
+                .data
+                .work_notes
+                .put(work_note(WorkNoteKind::Line, "tok", "pushed", "n5"));
+            h.render(70, 14);
+            assert_eq!(h.draft(LINE_KEY).text, "pushed");
         });
     }
 
-    #[test]
-    fn a_reload_in_browse_mode_that_drops_a_save_in_flight_is_reported() {
-        run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
-            h.render(40, 5);
-            h.app.notes_flow_call(|flow, props, cx| flow.sync(props, cx));
-            h.type_text("x");
-            // Esc: leaving notes focus starts the save at once; the daemon has not answered it.
-            h.app.mode = Mode::Browse;
-            h.app.notes_flow_call(|flow, props, cx| flow.sync(props, cx));
-            let request = h.request().await;
-            assert_eq!(request["text"], "x");
-            assert_eq!(h.draft(KEY).in_flight.as_deref(), Some("x"));
-            // The file changed elsewhere meanwhile: the browse-mode render reloads it.
-            h.replace_session(noted("s1", "theirs", "r2"));
-            h.render(40, 5);
-            crate::app::effects::run_effects(&mut h.app);
-            h.pump().await;
-            crate::app::effects::run_effects(&mut h.app);
-            assert_eq!(h.draft(KEY).text, "theirs");
-            assert_eq!(h.error(), Some(RELOADED_MESSAGE));
-        });
-    }
+    // ── ctrl+p ────────────────────────────────────────────────────────────────────────────────────────────────
 
     #[test]
-    fn tab_switches_sections_and_says_why_it_cannot() {
+    fn ctrl_p_in_the_session_note_saves_then_makes_the_checkbox_a_step() {
         run(async {
-            let tab = key(|key| key.tab = true);
-            // No worktree note yet.
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
-            h.press(tab);
-            assert_eq!(
-                h.status(),
-                Some("This session has no worktree note yet: its worktree is not ready")
-            );
-            // A worktree session has one note.
-            let worktree = in_worktree(session("s1", "T", SessionStatus::Running), "", "w1", "b");
-            let mut h = Harness::new(vec![worktree], "s1");
-            h.press(tab);
-            assert_eq!(
-                h.status(),
-                Some("In a worktree there is one note, shared by its sessions")
-            );
-            // Both: it switches, there and back.
-            let mut h = Harness::new(vec![side_by_side(noted("s1", "", "r1"), "", "w1")], "s1");
-            h.press(tab);
-            assert_eq!(h.flow().section, NoteSection::Shared);
-            h.type_text("w");
-            assert_eq!(h.draft("worktree:wt1").text, "w");
-            assert_eq!(h.draft("worktree:wt1").note_id.as_deref(), Some("worktree:wt1"));
-            assert_eq!(h.draft(KEY).text, "");
-            h.press(tab);
-            assert_eq!(h.flow().section, NoteSection::Session);
-            // A deleted worktree's note cannot be switched to.
-            let gone = read_only(side_by_side(noted("s1", "", "r1"), "", "w1"));
-            let mut h = Harness::new(vec![gone], "s1");
-            h.press(tab);
-            assert_eq!(
-                h.status(),
-                Some("Its worktree was deleted: the worktree note is read-only")
-            );
-            assert_eq!(h.flow().section, NoteSection::Session);
-        });
-    }
-
-    #[test]
-    fn a_shared_note_is_no_longer_saved() {
-        run(async {
-            // Since protocol 60 the daemon sends no shared note; one the UI still holds is not sent anywhere.
-            let mut h = Harness::new(vec![side_by_side(noted("s1", "", "r1"), "w", "w1")], "s1");
-            h.press(key(|key| key.tab = true));
+            let mut h = Harness::token("- [ ] one\n- [ ] two");
+            h.render(70, 14);
+            h.press(key(|key| key.up_arrow = true));
+            h.press(key(|key| key.end = true));
             h.type_text("!");
-            h.run_for(Duration::from_millis(400)).await;
-            h.pump().await;
-            assert!(h.daemon.lines.try_recv().is_err());
-            assert!(
-                h.error().is_some_and(|error| error.contains("no shared note")),
-                "{:?}",
-                h.error()
-            );
-        });
-    }
-
-    #[test]
-    fn focus_falls_back_to_the_session_note_when_the_shared_one_is_read_only() {
-        run(async {
-            let gone = read_only(side_by_side(noted("s1", "", "r1"), "", "w1"));
-            let mut h = Harness::new(vec![gone], "s1");
-            h.app.flows.notes.section = NoteSection::Shared;
-            h.app.notes_flow_call(|flow, props, _cx| flow.focus(props));
-            assert_eq!(h.flow().section, NoteSection::Session);
-        });
-    }
-
-    #[test]
-    fn a_read_only_note_allows_only_navigation() {
-        run(async {
-            let gone = read_only(in_worktree(
-                session("s1", "T", SessionStatus::Running),
-                "abc",
-                "w1",
-                "b",
-            ));
-            let mut h = Harness::new(vec![gone], "s1");
-            h.type_text("x");
+            let text = h.draft(KEY).text.clone();
+            assert_eq!(text, "- [ ] one!\n- [ ] two");
+            assert!(h.hint(200).ends_with(" • ctrl+p → step"), "{}", h.hint(200));
+            h.ctrl("p");
+            // Saved first, so the daemon finds the line as shown.
+            let save = h.request().await;
+            assert_eq!(save["type"], "save-note");
+            h.saved(&save, &token(&text, "r2"), true).await;
+            let promote = h.request().await;
+            assert_eq!(promote["type"], "promote-note-item");
+            assert_eq!(promote["note"], json!({"kind": "session", "id": "s1"}));
             assert_eq!(
-                h.error(),
-                Some("Its worktree was deleted: the worktree note is read-only")
+                (promote["line"].as_i64(), promote["revision"].as_str()),
+                (Some(0), Some("r2"))
             );
-            assert_eq!(h.draft("worktree:wt1").text, "abc");
-            h.app.messages.error = None;
-            h.press(key(|key| key.left_arrow = true));
+            let promoted = format!("{LIST}    - [ ] one! <!-- dh:t=one -->\n");
+            h.ok(
+                &promote,
+                json!({
+                    "tasks": list_doc(&promoted),
+                    "lineId": "one",
+                    "note": {"kind": "session", "id": "s1", "path": "/notes/s1.md", "text": "- [ ] two", "revision": "r3"},
+                    "session": token("- [ ] two", "r3"),
+                }),
+            )
+            .await;
+            h.pump().await;
+            assert_eq!(h.draft(KEY).text, "- [ ] two");
+            assert_eq!(h.status(), Some("Now a step of this session's line: one!"));
+            assert_eq!(h.render(70, 14)[0], "◆ Token storage · 1/4 steps");
             assert_eq!(h.error(), None);
-            assert_eq!(h.draft("worktree:wt1").cursor, 2);
+        });
+    }
+
+    #[test]
+    fn ctrl_p_in_the_line_note_promotes_from_the_line_note() {
+        run(async {
+            let mut h = Harness::token("");
+            h.render(70, 14);
+            h.press(key(|key| {
+                key.tab = true;
+                key.shift = true;
+            }));
+            h.ctrl("p");
+            let promote = h.request().await;
+            assert_eq!(promote["note"], json!({"kind": "line", "id": "tok"}));
+            assert_eq!(
+                (promote["line"].as_i64(), promote["revision"].as_str()),
+                (Some(1), Some("n1"))
+            );
+            h.ok(
+                &promote,
+                json!({
+                    "tasks": list_doc(LIST),
+                    "lineId": "rk",
+                    "note": work_note(WorkNoteKind::Line, "tok", "chose AES-GCM", "n2"),
+                }),
+            )
+            .await;
+            h.pump().await;
+            assert_eq!(h.draft(LINE_KEY).text, "chose AES-GCM");
+            assert_eq!(
+                h.app.data.work_notes.line_note("tok").map(|note| note.text.as_str()),
+                Some("chose AES-GCM")
+            );
+            assert_eq!(h.status(), Some("Now a step of this session's line: rotate keys"));
+        });
+    }
+
+    #[test]
+    fn ctrl_p_off_an_open_item_and_a_refusal_say_so() {
+        run(async {
+            let mut h = Harness::token("plain");
             h.ctrl("p");
             assert_eq!(
-                h.error(),
-                Some("Its worktree was deleted: the worktree note is read-only")
+                h.status(),
+                Some("Put the cursor on an open checklist item (- [ ] …) to make it a step")
             );
+            let mut h = Harness::token("- [ ] one");
+            h.ctrl("p");
+            let promote = h.request().await;
+            h.daemon
+                .respond(
+                    &promote,
+                    json!({"ok": false, "error": "These notes changed meanwhile; try again"}),
+                )
+                .await;
+            h.pump().await;
+            assert_eq!(h.error(), Some("These notes changed meanwhile; try again"));
+        });
+    }
+
+    // ── The editor ────────────────────────────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn escape_leaves_notes_focus_and_a_missing_session_too() {
+        run(async {
+            let mut h = Harness::token("");
+            h.press(key(|key| key.escape = true));
+            assert_eq!(h.app.mode, Mode::Browse);
+            let mut h = Harness::new(vec![], "none", "", Vec::new());
+            assert_eq!(h.render(40, 2), ["Select a session from the sidebar.", ""]);
+            h.type_text("x");
+            h.pump().await;
+            assert_eq!(h.app.mode, Mode::Browse);
         });
     }
 
     #[test]
-    fn a_too_large_note_is_edited_in_the_editor() {
+    fn the_edited_note_scrolls_and_reports_its_viewport() {
         run(async {
-            let mut big = noted("s1", "abc", "r1");
+            let text = (1..=30)
+                .map(|index| format!("line {index}"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let mut h = Harness::token(&text);
+            let rows = h.render(30, 20);
+            assert_eq!(rows[19], "line 30");
+            assert!(h.flow().viewport_rows > 1);
+            assert!(h.draft(KEY).scroll_top > 0);
+            assert_eq!(h.flow().viewport_width, 30);
+        });
+    }
+
+    #[test]
+    fn bracketed_paste_inserts_enter_and_tab_as_text() {
+        run(async {
+            let mut h = Harness::token("");
+            h.input(Input::text("[200~"));
+            assert!(h.flow().pasting);
+            h.input(Input::text("one"));
+            h.press(key(|key| key.return_ = true));
+            h.tab();
+            h.input(Input::text("two\u{1b}[31m"));
+            h.press(key(|key| key.escape = true));
+            assert_eq!(h.app.mode, Mode::NotesFocus);
+            h.input(Input::text("[201~"));
+            assert!(!h.flow().pasting);
+            assert_eq!(h.draft(KEY).text, "one\n\ttwo");
+        });
+    }
+
+    #[test]
+    fn checklist_keys_toggle_add_and_continue_items() {
+        run(async {
+            let mut h = Harness::token("- [ ] one");
+            h.ctrl("x");
+            assert_eq!(h.draft(KEY).text, "- [x] one");
+            h.ctrl("x");
+            h.press(key(|key| key.return_ = true));
+            assert_eq!(h.draft(KEY).text, "- [ ] one\n- [ ] ");
+            h.type_text("two");
+            h.ctrl("t");
+            assert_eq!(h.draft(KEY).text, "- [ ] one\n- [ ] two\n- [ ] ");
+            h.press(key(|key| key.return_ = true));
+            assert_eq!(h.draft(KEY).text, "- [ ] one\n- [ ] two\n");
+        });
+    }
+
+    #[test]
+    fn an_edit_over_the_limit_or_of_a_too_large_note_is_refused() {
+        run(async {
+            let mut h = Harness::token(&"a".repeat(MAX_NOTES_CHARS));
+            h.type_text("b");
+            assert_eq!(
+                h.error(),
+                Some(format!("Notes are limited to {MAX_NOTES_LABEL}; that edit was not applied.").as_str())
+            );
+            assert_eq!(js_len(&h.draft(KEY).text), MAX_NOTES_CHARS);
+            let mut big = token("abc", "r1");
             if let Some(file) = big.notes_file.as_mut() {
                 file.too_large = Some(true);
             }
-            let mut h = Harness::new(vec![big], "s1");
+            let mut h = Harness::new(vec![big], "s1", LIST, line_notes());
             h.type_text("x");
             assert_eq!(
                 h.error(),
@@ -1851,191 +2477,85 @@ mod tests {
         });
     }
 
+    // ── Hints and files ───────────────────────────────────────────────────────────────────────────────────────
+
     #[test]
-    fn an_edit_over_the_limit_is_refused() {
+    fn the_hint_follows_the_part() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", &"a".repeat(MAX_NOTES_CHARS), "r1")], "s1");
-            h.type_text("b");
+            let mut h = Harness::token("plain");
             assert_eq!(
-                h.error(),
-                Some(format!("Notes are limited to {MAX_NOTES_LABEL}; that edit was not applied.").as_str())
+                h.hint(200),
+                "esc done • tab steps • ctrl+x toggle ☐ • ctrl+t new item • ctrl+o open in editor • ctrl+b brief"
             );
-            assert_eq!(js_len(&h.draft(KEY).text), MAX_NOTES_CHARS);
-            // Deleting still works.
-            h.app.messages.error = None;
-            h.press(key(|key| key.backspace = true));
-            assert_eq!(js_len(&h.draft(KEY).text), MAX_NOTES_CHARS - 1);
-            assert_eq!(h.error(), None);
-        });
-    }
-
-    #[test]
-    fn bracketed_paste_inserts_enter_and_tab_as_text() {
-        run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
-            h.input(Input::text("[200~"));
-            assert!(h.flow().pasting);
-            h.input(Input::text("one"));
-            h.press(key(|key| key.return_ = true));
-            h.press(key(|key| key.tab = true));
-            h.input(Input::text("two\u{1b}[31m"));
-            // Escape does not leave while pasting.
-            h.press(key(|key| key.escape = true));
-            assert_eq!(h.app.mode, Mode::NotesFocus);
-            h.input(Input::text("[201~"));
-            assert!(!h.flow().pasting);
-            assert_eq!(h.draft(KEY).text, "one\n\ttwo");
-            h.input(Input::text("x"));
-            assert_eq!(h.draft(KEY).text, "one\n\ttwox");
-        });
-    }
-
-    #[test]
-    fn checklist_keys_toggle_add_and_continue_items() {
-        run(async {
-            let mut h = Harness::new(vec![noted("s1", "- [ ] one", "r1")], "s1");
-            h.ctrl("x");
-            assert_eq!(h.draft(KEY).text, "- [x] one");
-            h.ctrl("x");
-            assert_eq!(h.draft(KEY).text, "- [ ] one");
-            h.press(key(|key| key.return_ = true));
-            assert_eq!(h.draft(KEY).text, "- [ ] one\n- [ ] ");
-            h.type_text("two");
-            h.ctrl("t");
-            assert_eq!(h.draft(KEY).text, "- [ ] one\n- [ ] two\n- [ ] ");
-            // Enter on an empty item ends the list.
-            h.press(key(|key| key.return_ = true));
-            assert_eq!(h.draft(KEY).text, "- [ ] one\n- [ ] two\n");
-            // A plain line breaks as usual.
-            let mut h = Harness::new(vec![noted("s1", "note", "r1")], "s1");
-            h.press(key(|key| key.return_ = true));
-            assert_eq!(h.draft(KEY).text, "note\n");
-        });
-    }
-
-    // promote
-
-    #[test]
-    fn ctrl_p_saves_then_sends_the_cursor_line_to_tasks() {
-        run(async {
-            let mut h = Harness::new(vec![noted("s1", "- [ ] one\n- [ ] two", "r1")], "s1");
-            h.render(40, 5);
-            h.press(key(|key| key.up_arrow = true));
-            h.press(key(|key| key.end = true));
-            h.type_text("!");
-            let text = h.draft(KEY).text.clone();
-            assert_eq!(text, "- [ ] one!\n- [ ] two");
-            h.ctrl("p");
-            // Saved first, so the daemon finds the line as shown.
-            let save = h.request().await;
-            assert_eq!(save["type"], "save-note");
-            assert_eq!(save["text"].as_str(), Some(text.as_str()));
-            h.saved(&save, &noted("s1", &text, "r2"), true).await;
-            let promote = h.request().await;
-            assert_eq!(promote["type"], "promote-note-item");
+            h.tab();
             assert_eq!(
-                (promote["line"].as_i64(), promote["revision"].as_str()),
-                (Some(0), Some("r2"))
+                h.hint(200),
+                "esc done • space tick • a add a step • enter rename • tab notes • b brief • E open in editor"
             );
-            assert_eq!(promote["note"], json!({"kind": "session", "id": "s1"}));
-            let linked = noted("s1", "- [ ] one! ↗ T1\n- [ ] two", "r3");
-            let body = json!({"ok": true, "data": {
-                "tasks": {"key": "k", "path": "/repo/tasks.md", "text": "- [ ] one!", "revision": "t1"},
-                "lineId": "T1",
-                "note": {"kind": "session", "id": "s1", "path": "/notes/s1.md", "text": "- [ ] two", "revision": "r3"},
-                "session": linked,
-            }});
-            h.daemon.respond(&promote, body).await;
-            h.pump().await;
-            assert_eq!(h.draft(KEY).text, "- [ ] one! ↗ T1\n- [ ] two");
-            assert_eq!(h.draft(KEY).revision, "r3");
-            assert_eq!(h.status(), Some("Sent to Tasks (b shows it); the note keeps a ↗ link"));
+            h.tab();
+            assert!(h.hint(200).contains("tab session's note"), "{}", h.hint(200));
+            let mut h = Harness::new(vec![token("", "r1"), refresh()], "s2", LIST, line_notes());
+            h.tab();
             assert_eq!(
-                h.app.data.tasks_doc.as_ref().map(|doc| doc.revision.as_str()),
-                Some("t1")
+                h.hint(200),
+                "esc done • a add a step • tab notes • p parent's note • E open in editor"
             );
-            assert_eq!(h.error(), None);
         });
     }
-
-    #[test]
-    fn ctrl_p_reports_a_daemon_error() {
-        run(async {
-            let mut h = Harness::new(vec![noted("s1", "- [ ] one", "r1")], "s1");
-            h.ctrl("p");
-            let promote = h.request().await;
-            assert_eq!(promote["type"], "promote-note-item");
-            h.daemon
-                .respond(&promote, json!({"ok": false, "error": "That line is not an open item"}))
-                .await;
-            h.pump().await;
-            assert_eq!(h.error(), Some("That line is not an open item"));
-            assert_eq!(h.status(), None);
-        });
-    }
-
-    #[test]
-    fn ctrl_p_refuses_while_the_note_is_still_unsaved() {
-        run(async {
-            let mut h = Harness::new(vec![noted("s1", "- [ ] one", "r1")], "s1");
-            h.type_text("!");
-            h.ctrl("p");
-            let save = h.request().await;
-            // The save fails, so the note is still not saved when the flush settles.
-            h.daemon
-                .respond(&save, json!({"ok": false, "error": "disk full"}))
-                .await;
-            h.pump().await;
-            assert_eq!(h.error(), Some("These notes are not saved yet; try again"));
-            assert!(h.daemon.lines.try_recv().is_err());
-        });
-    }
-
-    // active file / open
 
     #[test]
     fn the_active_file_is_saved_first_and_handed_over() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
-            h.render(40, 5);
+            let mut h = Harness::token("");
+            h.render(70, 14);
             h.type_text("x");
             let got = h.active_file();
             let save = h.request().await;
             assert_eq!(save["type"], "save-note");
-            h.saved(&save, &noted("s1", "x", "r2"), true).await;
+            h.saved(&save, &token("x", "r2"), true).await;
             let open = h.request().await;
             assert_eq!(open["type"], "open-note");
             assert_eq!(open["note"], json!({"kind": "session", "id": "s1"}));
-            h.daemon
-                .respond(&open, json!({"ok": true, "data": "/notes/s1.md"}))
-                .await;
+            h.ok(&open, json!("/notes/s1.md")).await;
             h.pump().await;
             assert_eq!(*got.borrow(), [Some("/notes/s1.md".to_owned())]);
         });
     }
 
     #[test]
-    fn the_active_file_of_a_deleted_worktree_is_the_sessions() {
+    fn the_steps_and_a_folded_brief_open_the_lines_note_and_a_lineless_one_makes_the_line() {
         run(async {
-            let gone = read_only(side_by_side(noted("s1", "", "r1"), "", "w1"));
-            let mut h = Harness::new(vec![gone], "s1");
-            h.app.flows.notes.section = NoteSection::Shared;
+            let mut h = Harness::token("");
+            h.tab();
             let got = h.active_file();
             let open = h.request().await;
-            assert_eq!(open["note"], json!({"kind": "session", "id": "s1"}));
+            assert_eq!(open["note"], json!({"kind": "line", "id": "tok"}));
             h.daemon
                 .respond(&open, json!({"ok": false, "error": "no such note"}))
                 .await;
             h.pump().await;
             assert_eq!(*got.borrow(), [None]);
             assert_eq!(h.error(), Some("no such note"));
+            let mut h = Harness::lineless("");
+            h.tab();
+            let got = h.active_file();
+            let made = h.request().await;
+            assert_eq!(made["op"], json!({"type": "session-line", "s": "s1"}));
+            h.ok(&made, json!(list_doc("- [ ] Token storage <!-- dh:t=new s=s1 -->\n")))
+                .await;
+            let open = h.request().await;
+            assert_eq!(open["note"], json!({"kind": "line", "id": "new"}));
+            h.ok(&open, json!("/notes/lines/new.md")).await;
+            h.pump().await;
+            assert_eq!(*got.borrow(), [Some("/notes/lines/new.md".to_owned())]);
+            assert!(h.app.data.task_list.line_of_session("s1").is_some());
         });
     }
 
     #[test]
     fn the_active_file_is_none_without_a_client() {
         run(async {
-            let mut h = Harness::new(vec![noted("s1", "", "r1")], "s1");
+            let mut h = Harness::token("");
             h.app.connection.client = None;
             let got = h.active_file();
             h.pump().await;
@@ -2044,20 +2564,62 @@ mod tests {
     }
 
     #[test]
-    fn a_flush_without_a_client_runs_what_waits_at_once() {
-        run(async {
-            let (dispatch, _rx) = Dispatch::<App>::channel();
-            let mut flow = NotesFlow::default();
-            let mut cx = FlowCx::new(dispatch, |_app: &mut App| -> &mut NotesFlow { unreachable!() });
-            let ran = Rc::new(RefCell::new(0));
-            let counter = Rc::clone(&ran);
-            flow.flush(
-                "session:s1",
-                None,
-                &mut cx,
-                Some(Box::new(move |_flow, _cx| *counter.borrow_mut() += 1)),
-            );
-            assert_eq!(*ran.borrow(), 1);
-        });
+    fn the_keymap_is_in_the_notes_topic() {
+        assert!(
+            crate::keymap::undocumented_in_topic(KEYMAP, "Notes").is_empty(),
+            "{:?}",
+            crate::keymap::undocumented_in_topic(KEYMAP, "Notes")
+        );
+        assert!(crate::keymap::unknown_topics(KEYMAP).is_empty());
+    }
+
+    #[test]
+    fn reconciling_keeps_unsaved_text_and_follows_the_line() {
+        let doc = |text: &str, revision: &str, line: Option<&str>| NoteDoc {
+            text: text.to_owned(),
+            revision: revision.to_owned(),
+            too_large: false,
+            line_id: line.map(str::to_owned),
+        };
+        let draft = |text: &str, saved: &str, revision: &str, line: Option<&str>| Draft {
+            text: text.to_owned(),
+            cursor: text.len(),
+            saved: saved.to_owned(),
+            revision: revision.to_owned(),
+            line_id: line.map(str::to_owned),
+            ..Draft::of("s1", NotePart::Line, &doc("", "", None))
+        };
+        // The same revision: nothing to do.
+        let mut same = draft("mine", "mine", "r1", Some("l"));
+        assert_eq!(apply_reconcile(&mut same, &doc("other", "r1", Some("l"))), None);
+        assert_eq!(same.text, "mine");
+        // Nothing unsaved: the new text, the cursor kept inside it.
+        let mut clean = draft("long text", "long text", "r1", Some("l"));
+        assert_eq!(apply_reconcile(&mut clean, &doc("ab", "r2", Some("l"))), None);
+        assert_eq!((clean.text.as_str(), clean.cursor), ("ab", 2));
+        // The echo of the save in flight only moves the revision.
+        let mut flying = draft("mine!!", "mine", "r1", Some("l"));
+        flying.in_flight = Some("mine!".to_owned());
+        assert_eq!(apply_reconcile(&mut flying, &doc("mine!", "r2", Some("l"))), None);
+        assert_eq!((flying.text.as_str(), flying.saved.as_str()), ("mine!!", "mine!"));
+        // The line made by the first save: the draft follows it, nothing lost.
+        let mut first = draft("why", "", &note_revision(""), None);
+        assert_eq!(
+            apply_reconcile(&mut first, &doc("", &note_revision(""), Some("new"))),
+            None
+        );
+        assert_eq!((first.text.as_str(), first.line_id.as_deref()), ("why", Some("new")));
+        // Another line's note: the unsaved text belonged to the old one.
+        let mut moved = draft("typed", "", "r1", Some("old"));
+        assert_eq!(
+            apply_reconcile(&mut moved, &doc("theirs", "r7", Some("other"))),
+            Some(LINE_CHANGED_MESSAGE)
+        );
+        assert_eq!(moved.text, "theirs");
+        // The cursor never lands inside a character.
+        let mut multibyte = draft("aé", "aé", "r1", Some("l"));
+        multibyte.cursor = 3;
+        apply_reconcile(&mut multibyte, &doc("é", "r2", Some("l")));
+        assert_eq!(multibyte.cursor, 2);
     }
 }

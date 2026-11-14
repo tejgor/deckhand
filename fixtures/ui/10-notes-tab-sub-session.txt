@@ -1,0 +1,36 @@
+deckhand                                                                                                    ☐ 1 task · b   ● ready
+<TMP>/demo
+╭─────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions              2 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                             │
+│╎ 1 ▾ ● Token storage  ✶ │ │                                                                                                    │
+│› 2   ● Refresh tokens ✶ │ │ ◆ refresh tokens                                                                                   │
+│                         │ │   No steps yet                                                                                     │
+│                         │ │ ────────────────────────────────────────────────────────────────────────────────────────────────── │
+│                         │ │ refresh tokens · shared with whoever works on it                                                   │
+│                         │ │ No note for this line yet                                                                          │
+│                         │ │ ────────────────────────────────────────────────────────────────────────────────────────────────── │
+│                         │ │ This session · only this conversation                                                              │
+│                         │ │ told it to keep the old endpoint working                                                           │
+│                         │ │ ▾ Token storage's note · read-only · ☐ 1 open                                                      │
+│                         │ │ Chose AES-GCM; keys live in the keychain.                                                          │
+│                         │ │ ☐ decide on rotation                                                                               │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│                         │ │                                                                                                    │
+│ ─────────────────────── │ │                                                                                                    │
+│ Refresh tokens          │ │                                                                                                    │
+│ ✶ claude · idle · now   │ │                                                                                                    │
+│ main checkout ╎1        │ │                                                                                                    │
+│ ↳ sub-session of Token… │ │                                                                                                    │
+│ ◆ refresh tokens        │ │                                                                                                    │
+╰─────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────────────────╯
+enter edit notes • o vim • E open in editor • x stop • ? help • n new • W worktrees • C settings • r run • / search • q quit
+

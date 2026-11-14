@@ -12,10 +12,8 @@ use serde_with::skip_serializing_none;
 use sha2::{Digest, Sha256};
 
 use crate::display::{DISPLAY_CONTROL_PATTERN, truncate};
-use crate::jsstr::{js_len, js_trim, js_trim_end, path};
+use crate::jsstr::{js_len, js_trim, path};
 use crate::text_editor::{EditorState, line_end, line_start, wrap_rows};
-use crate::workspace::workspace_key;
-use deckhand_protocol::data::{NoteSection, SessionRecord, SharedNoteKind};
 
 /// TS: notes.ts MAX_NOTES_CHARS (UTF-16 units).
 pub const MAX_NOTES_CHARS: usize = 50_000;
@@ -42,93 +40,6 @@ pub fn note_revision(text: &str) -> String {
 /// checkout's (repository) note.
 pub fn repo_note_id(root: &str) -> String {
     short_sha256(&path::resolve(root))
-}
-
-/// TS: notes.ts sharedNoteIdentity result.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SharedNoteIdentity {
-    pub kind: SharedNoteKind,
-    pub id: String,
-}
-
-/// TS: notes.ts sharedNoteIdentity (the worktree incarnation's note, else the main checkout's; none while preparing).
-///
-/// The linked worktree's note stays its identity also for a deleted worktree, while the record exists.
-pub fn shared_note_identity(session: &SessionRecord) -> Option<SharedNoteIdentity> {
-    if let Some(id) = worktree_id(session) {
-        return Some(SharedNoteIdentity {
-            kind: SharedNoteKind::Worktree,
-            id: id.to_owned(),
-        });
-    }
-    workspace_key(session).map(|key| SharedNoteIdentity {
-        kind: SharedNoteKind::Repo,
-        id: repo_note_id(&key),
-    })
-}
-
-/// `session.worktree?.id` when truthy.
-fn worktree_id(session: &SessionRecord) -> Option<&str> {
-    session
-        .worktree
-        .as_ref()
-        .and_then(|worktree| worktree.id.as_deref())
-        .filter(|id| !id.is_empty())
-}
-
-/// TS: notes.ts showsOwnNote.
-///
-/// A session in a worktree has one note, the worktree's (it outlives any one session there); a main-checkout session
-/// keeps its own (each is a separate job). A leftover note of a worktree session (not merged yet) is never hidden.
-pub fn shows_own_note(session: &SessionRecord) -> bool {
-    worktree_id(session).is_none()
-        || session.notes.as_deref().is_some_and(|notes| !js_trim(notes).is_empty())
-        || session
-            .notes_file
-            .as_ref()
-            .is_some_and(|file| file.too_large == Some(true))
-}
-
-/// One session note to merge into its worktree's (TS: `{title, text}`).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TitledNote {
-    pub title: String,
-    pub text: String,
-}
-
-/// TS: notes.ts mergeIntoWorktreeNote: a lone note into an empty worktree note as it is, else each under a
-/// `## <session title>` heading after what the worktree note already says.
-pub fn merge_into_worktree_note(worktree_text: &str, notes: &[TitledNote]) -> String {
-    let parts: Vec<(&str, &str)> = notes
-        .iter()
-        .map(|note| (note.title.as_str(), js_trim_end(&note.text)))
-        .filter(|(_, text)| !js_trim(text).is_empty())
-        .collect();
-    if parts.is_empty() {
-        return worktree_text.to_owned();
-    }
-    if let [(_, text)] = parts.as_slice()
-        && js_trim(worktree_text).is_empty()
-    {
-        return (*text).to_owned();
-    }
-    std::iter::once(js_trim_end(worktree_text).to_owned())
-        .chain(parts.iter().map(|(title, text)| format!("## {title}\n{text}")))
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n\n")
-}
-
-/// TS: notes.ts noteKey (the UI's draft key: `session:<id>`, or `<kind>:<id>` of the shared note, the same draft for
-/// every session showing it).
-pub fn note_key(session: &SessionRecord, section: NoteSection) -> Option<String> {
-    match section {
-        NoteSection::Session => Some(format!("session:{}", session.id)),
-        NoteSection::Shared => session
-            .shared_notes
-            .as_ref()
-            .map(|shared| format!("{}:{}", shared.kind, shared.id)),
-    }
 }
 
 // ── Checklists ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -462,73 +373,76 @@ pub fn fit_read_rows(rows: Vec<NoteRow>, height: usize) -> Vec<NoteRow> {
 /// itself is smaller).
 pub const MIN_SECTION_ROWS: usize = 3;
 
-/// TS: notes.ts budgetSections result.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SectionBudget {
-    pub shared: usize,
-    pub session: usize,
-}
-
-/// TS: notes.ts budgetSections (`shared`: the shared section's need, `None` without one).
+/// How the Notes tab shares its height among the note bodies it shows (`needs`: each body's content rows, 1 for an
+/// empty one; `focus`: the body being edited; `rest_to`: the body that takes the rows nobody needs).
 ///
-/// Each section's need is its content rows (1 for an empty, collapsed one). When both fit, each gets its need and the
-/// session section the rest; otherwise each gets at least MIN_SECTION_ROWS (or its need), and the rest is split in
-/// proportion to what is still missing, the focused section's share counting double. Without a shared section, the
-/// session section gets everything.
-pub fn budget_sections(
-    total: usize,
-    shared: Option<usize>,
-    session: usize,
-    focus: Option<NoteSection>,
-) -> SectionBudget {
-    let Some(shared) = shared else {
-        return SectionBudget {
-            shared: 0,
-            session: total,
-        };
-    };
-    // Signed arithmetic as in TS; i128 holds every usize sum and product here.
-    let wide = |value: usize| i128::try_from(value).unwrap_or(i128::MAX);
-    let budget = |shared: i128, session: i128| SectionBudget {
-        shared: usize::try_from(shared.max(0)).unwrap_or(usize::MAX),
-        session: usize::try_from(session.max(0)).unwrap_or(usize::MAX),
-    };
-    let rows = wide(total);
-    let (need_shared, need_session) = (wide(shared).max(1), wide(session).max(1));
-    if need_shared + need_session <= rows {
-        return budget(need_shared, rows - need_shared);
+/// When every body fits, each gets its need and `rest_to` the rest. Otherwise each gets at least MIN_SECTION_ROWS (or
+/// its need), and the rest is split in proportion to what is still missing, the focused body's share counting double.
+/// In a pane too small for that, the focused body (else `rest_to`) keeps at least half, and the others get a row each
+/// (up to their minimum) while rows are left.
+pub fn budget_bodies(total: usize, needs: &[usize], focus: Option<usize>, rest_to: usize) -> Vec<usize> {
+    let count = needs.len();
+    let rest_to = rest_to.min(count.saturating_sub(1));
+    if count <= 1 {
+        return needs.iter().map(|_| total).collect();
     }
-    let min_rows = wide(MIN_SECTION_ROWS);
-    let (min_shared, min_session) = (need_shared.min(min_rows), need_session.min(min_rows));
-    let shared_focused = focus == Some(NoteSection::Shared);
-    if min_shared + min_session > rows {
-        // A tiny pane: the focused section (else the session's) first, one row for the other while there are two.
-        let other_min = if shared_focused { min_session } else { min_shared };
-        let other = if rows >= 2 {
-            other_min.min(rows - (rows + 1) / 2).max(1)
+    let needs: Vec<usize> = needs.iter().map(|need| (*need).max(1)).collect();
+    let sum: usize = needs.iter().sum();
+    if sum <= total {
+        let mut out = needs.clone();
+        if let Some(rest) = out.get_mut(rest_to) {
+            *rest += total - sum;
+        }
+        return out;
+    }
+    let mins: Vec<usize> = needs.iter().map(|need| (*need).min(MIN_SECTION_ROWS)).collect();
+    if mins.iter().sum::<usize>() > total {
+        // A tiny pane: the focused body (else `rest_to`) first; the others share what is beyond half, a row each first.
+        let primary = focus.filter(|at| *at < count).unwrap_or(rest_to);
+        let mut share = if total >= 2 { total / 2 } else { 0 };
+        let mut out = vec![0; count];
+        for round in [1, usize::MAX] {
+            for (at, min) in mins.iter().enumerate() {
+                if at == primary {
+                    continue;
+                }
+                let want = (*min).min(round).saturating_sub(out[at]).min(share);
+                out[at] += want;
+                share -= want;
+            }
+        }
+        out[primary] = total - out.iter().sum::<usize>();
+        return out;
+    }
+    let rest = total - mins.iter().sum::<usize>();
+    let extras: Vec<usize> = needs.iter().zip(&mins).map(|(need, min)| need - min).collect();
+    let weights: Vec<usize> = extras
+        .iter()
+        .enumerate()
+        .map(|(at, extra)| extra * if focus == Some(at) { 2 } else { 1 })
+        .collect();
+    let total_weight: usize = weights.iter().sum();
+    let mut give = vec![0; count];
+    let mut left = rest;
+    for at in (0..count).filter(|at| *at != rest_to) {
+        // Math.round of a non-negative quotient: floor(a / b + 1/2).
+        let share = if total_weight > 0 {
+            (2 * rest * weights[at] + total_weight) / (2 * total_weight)
         } else {
             0
         };
-        return if shared_focused {
-            budget(rows - other, other)
-        } else {
-            budget(other, rows - other)
-        };
+        give[at] = extras[at].min(share).min(left);
+        left -= give[at];
     }
-    let rest = rows - min_shared - min_session;
-    let (extra_shared, extra_session) = (need_shared - min_shared, need_session - min_session);
-    let weight_shared = extra_shared * if shared_focused { 2 } else { 1 };
-    let weight_session = extra_session * if focus == Some(NoteSection::Session) { 2 } else { 1 };
-    let weights = weight_shared + weight_session;
-    // Math.round of a non-negative quotient: floor(a / b + 1/2).
-    let mut give_shared = if weights > 0 {
-        extra_shared.min((2 * rest * weight_shared + weights) / (2 * weights))
-    } else {
-        0
-    };
-    let give_session = extra_session.min(rest - give_shared);
-    give_shared = extra_shared.min(rest - give_session);
-    budget(min_shared + give_shared, min_session + give_session)
+    give[rest_to] = extras[rest_to].min(left);
+    left -= give[rest_to];
+    // What `rest_to` could not use goes back to the others, in order.
+    for at in (0..count).filter(|at| *at != rest_to) {
+        let more = (extras[at] - give[at]).min(left);
+        give[at] += more;
+        left -= more;
+    }
+    mins.iter().zip(&give).map(|(min, give)| min + give).collect()
 }
 
 /// TS: notes.ts checklistLabel (`☐ 2 open` / `☑ 3 done` for a section header; empty without checklist items).
@@ -552,25 +466,6 @@ pub fn fit_first(candidates: &[String], width: usize) -> String {
         .unwrap_or_else(|| truncate(candidates.last().map_or("", String::as_str), width))
 }
 
-/// TS: notes.ts openChecklistText: the sidebar details' checklist line for the selected session, open items of its
-/// note plus its worktree's (`☐ 3 open (2 worktree)`), shortened to fit; `None` without open items.
-pub fn open_checklist_text(session: &SessionRecord, width: usize) -> Option<String> {
-    let own = checklist_counts(session.notes.as_deref()).open;
-    let shared = checklist_counts(session.shared_notes.as_ref().map(|shared| shared.text.as_str())).open;
-    let total = own + shared;
-    if total == 0 || width < 1 {
-        return None;
-    }
-    let mut candidates = Vec::with_capacity(4);
-    if shared > 0 {
-        candidates.push(format!("☐ {total} open ({shared} worktree)"));
-        candidates.push(format!("☐ {total} open ({shared} wt)"));
-    }
-    candidates.push(format!("☐ {total} open"));
-    candidates.push(format!("☐ {total}"));
-    Some(fit_first(&candidates, width))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -592,53 +487,6 @@ mod tests {
         } else {
             0
         })
-    }
-
-    /// A SessionRecord from a partial TS literal (`{...} as SessionRecord`): required fields the code under test never
-    /// reads get placeholder values. Fixture literals also use worktree modes outside the TS union (`'worktree'`),
-    /// which TS treats as any mode but `'none'`.
-    fn partial_session(value: &Value) -> Result<SessionRecord, String> {
-        let mut full = json!({
-            "id": "", "title": "", "program": "claude", "command": "", "cwd": "", "repoRoot": "",
-            "status": "running", "createdAt": "", "updatedAt": "",
-        });
-        let given = tags::untag(value);
-        let (Some(object), Some(given)) = (full.as_object_mut(), given.as_object()) else {
-            return Err("not an object".into());
-        };
-        object.extend(given.clone());
-        if let Some(worktree) = object.get_mut("worktree").and_then(Value::as_object_mut)
-            && worktree.get("mode") == Some(&json!("worktree"))
-        {
-            worktree.insert("mode".into(), json!("managed"));
-        }
-        if object.get("requestedWorktreeMode") == Some(&json!("worktree")) {
-            object.insert("requestedWorktreeMode".into(), json!("new"));
-        }
-        let placeholders: [(&str, &[&str]); 2] = [
-            ("notesFile", &["path", "revision"]),
-            ("sharedNotes", &["path", "text", "revision"]),
-        ];
-        for (key, fields) in placeholders {
-            if let Some(record) = object.get_mut(key).and_then(Value::as_object_mut) {
-                for field in fields {
-                    record.entry(*field).or_insert(json!(""));
-                }
-            }
-        }
-        serde_json::from_value(full).map_err(|error| error.to_string())
-    }
-
-    fn session(value: Value) -> SessionRecord {
-        partial_session(&value).expect("a session literal")
-    }
-
-    fn section(value: &Value) -> Option<NoteSection> {
-        match value.as_str() {
-            Some("shared") => Some(NoteSection::Shared),
-            Some("session") => Some(NoteSection::Session),
-            _ => None,
-        }
     }
 
     /// An editor state argument; a negative cursor (not a byte offset) is seen as 0, the start of the text.
@@ -684,36 +532,6 @@ mod tests {
     fn repo_note_id_parity() {
         replay("notes/repoNoteId", |case: &Case| {
             Ok::<_, String>(repo_note_id(case.arg_str(0)?))
-        });
-    }
-
-    #[test]
-    fn shared_note_identity_parity() {
-        replay("notes/sharedNoteIdentity", |case: &Case| {
-            Ok::<_, String>(maybe(shared_note_identity(&partial_session(case.arg(0))?)))
-        });
-    }
-
-    #[test]
-    fn shows_own_note_parity() {
-        replay("notes/showsOwnNote", |case: &Case| {
-            Ok::<_, String>(shows_own_note(&partial_session(case.arg(0))?))
-        });
-    }
-
-    #[test]
-    fn merge_into_worktree_note_parity() {
-        replay("notes/mergeIntoWorktreeNote", |case: &Case| {
-            let notes: Vec<TitledNote> = case.arg_as(1)?;
-            Ok::<_, String>(merge_into_worktree_note(case.arg_str(0)?, &notes))
-        });
-    }
-
-    #[test]
-    fn note_key_parity() {
-        replay("notes/noteKey", |case: &Case| {
-            let section = section(case.arg(1)).ok_or("section")?;
-            Ok::<_, String>(maybe(note_key(&partial_session(case.arg(0))?, section)))
         });
     }
 
@@ -822,20 +640,25 @@ mod tests {
         });
     }
 
+    /// The cases recorded for the two sections the tab had (the worktree's note, `shared`, above the session's)
+    /// still hold for two bodies, the second taking the rest.
     #[test]
-    fn budget_sections_parity() {
+    fn budget_bodies_parity() {
         replay("notes/budgetSections", |case: &Case| {
-            let shared = if case.arg_is_undefined(1) {
-                None
-            } else {
-                Some(count(case, 1)?)
+            let total = count(case, 0)?;
+            let session = count(case, 2)?;
+            let focus = match case.arg(3).as_str() {
+                Some("shared") => Some(0),
+                Some("session") => Some(1),
+                _ => None,
             };
-            Ok::<_, String>(budget_sections(
-                count(case, 0)?,
-                shared,
-                count(case, 2)?,
-                section(case.arg(3)),
-            ))
+            let (shared, session) = if case.arg_is_undefined(1) {
+                (0, budget_bodies(total, &[session], None, 0)[0])
+            } else {
+                let bodies = budget_bodies(total, &[count(case, 1)?, session], focus, 1);
+                (bodies[0], bodies[1])
+            };
+            Ok::<_, String>(json!({"shared": shared, "session": session}))
         });
     }
 
@@ -863,16 +686,6 @@ mod tests {
                 .position(|candidate| *candidate == result && candidate.contains('\u{FFFD}'))
                 .and_then(|index| case.arg(0).get(index).cloned());
             Ok::<_, String>(original.unwrap_or(Value::String(result)))
-        });
-    }
-
-    #[test]
-    fn open_checklist_text_parity() {
-        replay("notes/openChecklistText", |case: &Case| {
-            Ok::<_, String>(maybe(open_checklist_text(
-                &partial_session(case.arg(0))?,
-                count(case, 1)?,
-            )))
         });
     }
 
@@ -987,114 +800,37 @@ mod tests {
     }
 
     #[test]
-    fn sections_share_the_height() {
-        let budget = |shared, session| SectionBudget { shared, session };
-        let (shared, session) = (Some(NoteSection::Shared), Some(NoteSection::Session));
-        // Everything fits: each its need, the session section the rest.
-        assert_eq!(budget_sections(20, Some(4), 6, None), budget(4, 16));
-        // An empty (collapsed) section takes one row.
-        assert_eq!(budget_sections(20, Some(1), 30, None), budget(1, 19));
+    fn bodies_share_the_height() {
+        let (first, second) = (Some(0), Some(1));
+        // Everything fits: each its need, the last body the rest.
+        assert_eq!(budget_bodies(20, &[4, 6], None, 1), [4, 16]);
+        // An empty (collapsed) body takes one row.
+        assert_eq!(budget_bodies(20, &[0, 30], None, 1), [1, 19]);
         // Both too long: 3 each, the rest split by what is missing (equal needs, equal split), focus counts double.
-        assert_eq!(budget_sections(20, Some(30), 30, None), budget(10, 10));
-        assert_eq!(budget_sections(20, Some(30), 30, shared), budget(12, 8));
-        assert_eq!(budget_sections(20, Some(30), 30, session), budget(8, 12));
-        assert_eq!(budget_sections(20, Some(50), 10, None), budget(15, 5));
-        // The minimum holds for a short section; a section never gets more than it needs while the other wants rows.
-        assert_eq!(budget_sections(10, Some(2), 40, shared), budget(2, 8));
-        // Tiny panes: the focused (else the session's) section first, one row for the other.
-        assert_eq!(budget_sections(4, Some(10), 10, None), budget(2, 2));
-        assert_eq!(budget_sections(3, Some(10), 10, shared), budget(2, 1));
-        assert_eq!(budget_sections(1, Some(10), 10, None), budget(0, 1));
-        // No shared section: the session's gets everything.
-        assert_eq!(budget_sections(12, None, 40, None), budget(0, 12));
-    }
-
-    #[test]
-    fn one_note_per_worktree() {
-        let at = json!({"worktree": {"mode": "managed", "id": "w1", "path": "/wt"}});
-        assert!(shows_own_note(&session(json!({}))), "main checkout");
-        assert!(!shows_own_note(&session(at.clone())));
-        let mut leftover = at;
-        leftover["notes"] = json!("left over");
-        assert!(shows_own_note(&session(leftover)), "a leftover note is never hidden");
-        let note = |title: &str, text: &str| TitledNote {
-            title: title.into(),
-            text: text.into(),
-        };
-        assert_eq!(merge_into_worktree_note("", &[note("only", "- [ ] a\n")]), "- [ ] a");
-        assert_eq!(
-            merge_into_worktree_note("plan\n", &[note("one", "x"), note("two", "  "), note("three", "y\n")]),
-            "plan\n\n## one\nx\n\n## three\ny"
-        );
-        assert_eq!(
-            merge_into_worktree_note("", &[note("one", "x"), note("two", "y")]),
-            "## one\nx\n\n## two\ny"
-        );
-        assert_eq!(merge_into_worktree_note("kept", &[]), "kept");
-    }
-
-    #[test]
-    fn shared_note_identity_worktree_else_repo() {
-        let identity = |kind, id: &str| {
-            Some(SharedNoteIdentity {
-                kind,
-                id: id.to_owned(),
-            })
-        };
-        let repo = repo_note_id("/repo");
-        let of = |value: Value| shared_note_identity(&session(value));
-        assert_eq!(
-            of(json!({"cwd": "/wt/a", "worktree": {"mode": "none", "id": "rec"}})),
-            identity(SharedNoteKind::Worktree, "rec")
-        );
-        assert_eq!(
-            of(
-                json!({"cwd": "/wt/a", "worktree": {"mode": "managed", "id": "rec", "path": "/wt/a", "deletedAt": "yesterday"}})
-            ),
-            identity(SharedNoteKind::Worktree, "rec")
-        );
-        assert_eq!(
-            of(json!({"cwd": "/repo/sub", "launchWorktreeRoot": "/repo", "worktree": {"mode": "none"}})),
-            identity(SharedNoteKind::Repo, &repo)
-        );
-        assert_eq!(
-            of(json!({"cwd": "/repo", "worktree": {"mode": "attached", "path": "/repo/", "isMain": true}})),
-            identity(SharedNoteKind::Repo, &repo)
-        );
-        assert_eq!(of(json!({"cwd": "/repo", "requestedWorktreeMode": "new"})), None);
-        assert!(repo.len() == 16 && repo.chars().all(|character| matches!(character, '0'..='9' | 'a'..='f')));
-    }
-
-    // The P3 parts of TS tests deferred to the units owning the rest of them.
-
-    /// notes.test.ts "sidebar details: ..." (openChecklistText; sessionDetails is P8's).
-    #[test]
-    fn open_checklist_text_shortened_to_fit() {
-        let with = |fields: Value| {
-            let mut value = json!({"id": "s", "title": "task", "program": "claude", "command": "claude",
-                "cwd": "/repo", "repoRoot": "/repo", "status": "running", "agentStatus": "idle",
-                "createdAt": "1970-01-01T00:00:00.000Z", "updatedAt": "1970-01-01T00:00:00.000Z"});
-            if let (Some(object), Some(fields)) = (value.as_object_mut(), fields.as_object()) {
-                object.extend(fields.clone());
+        assert_eq!(budget_bodies(20, &[30, 30], None, 1), [10, 10]);
+        assert_eq!(budget_bodies(20, &[30, 30], first, 1), [12, 8]);
+        assert_eq!(budget_bodies(20, &[30, 30], second, 1), [8, 12]);
+        assert_eq!(budget_bodies(20, &[50, 10], None, 1), [15, 5]);
+        // The minimum holds for a short body; a body never gets more than it needs while another wants rows.
+        assert_eq!(budget_bodies(10, &[2, 40], first, 1), [2, 8]);
+        // Tiny panes: the focused (else the last) body first, a row for each other while there are rows.
+        assert_eq!(budget_bodies(4, &[10, 10], None, 1), [2, 2]);
+        assert_eq!(budget_bodies(3, &[10, 10], first, 1), [2, 1]);
+        assert_eq!(budget_bodies(1, &[10, 10], None, 1), [0, 1]);
+        assert_eq!(budget_bodies(5, &[10, 10, 10], Some(2), 1), [1, 1, 3]);
+        assert_eq!(budget_bodies(2, &[10, 10, 10], None, 1), [1, 1, 0]);
+        // One body: everything.
+        assert_eq!(budget_bodies(12, &[40], None, 0), [12]);
+        assert!(budget_bodies(12, &[], None, 0).is_empty());
+        // Three bodies, the middle one taking the rest: what it cannot use goes to the others in order.
+        assert_eq!(budget_bodies(30, &[2, 3, 4], None, 1), [2, 24, 4]);
+        assert_eq!(budget_bodies(20, &[30, 4, 30], Some(0), 1), [10, 3, 7]);
+        for total in 0..40 {
+            for focus in [None, Some(0), Some(1), Some(2)] {
+                let bodies = budget_bodies(total, &[7, 25, 3], focus, 1);
+                assert_eq!(bodies.iter().sum::<usize>(), total, "{total} {focus:?} {bodies:?}");
             }
-            session(value)
-        };
-        let with_notes = with(
-            json!({"notes": "- [ ] a", "sharedNotes": {"kind": "worktree", "id": "w",
-            "path": "/n/w.md", "revision": "r", "text": "- [ ] b\n- [ ] c\n- [x] d"}}),
-        );
-        assert_eq!(
-            open_checklist_text(&with_notes, 40).as_deref(),
-            Some("☐ 3 open (2 worktree)")
-        );
-        assert_eq!(open_checklist_text(&with_notes, 16).as_deref(), Some("☐ 3 open (2 wt)"));
-        assert_eq!(open_checklist_text(&with_notes, 9).as_deref(), Some("☐ 3 open"));
-        assert_eq!(open_checklist_text(&with_notes, 4).as_deref(), Some("☐ 3"));
-        assert_eq!(
-            open_checklist_text(&with(json!({"notes": "- [ ] a"})), 40).as_deref(),
-            Some("☐ 1 open")
-        );
-        assert_eq!(open_checklist_text(&with(json!({"notes": "- [x] a"})), 40), None);
+        }
     }
 
     /// noteSteps.test.ts: toggleChecklistLine on a step, and a `↗` line's read row (the rest is P6's).

@@ -3,7 +3,7 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
-use deckhand_core::tasks::open_note_items;
+use deckhand_core::task_list::TaskList;
 use deckhand_protocol::data::{RightPaneTab, SessionRecord};
 
 use crate::primitives::{Row, Seg, TextStyle, draw_rows};
@@ -57,23 +57,19 @@ pub const TABS: [TabSpec; 5] = [
 pub struct TabBadges {
     /// The workspace's Dev runs: Dev is green with ` ●`.
     pub dev_running: bool,
-    /// Not in the TS: unchecked items in the notes the Notes tab shows (` ☐ N`).
-    pub open_notes: usize,
+    /// Not in the TS: the open steps the Notes tab shows (` ☐ N`).
+    pub open_steps: usize,
 }
 
-/// The unchecked checklist items of the notes `session`'s Notes tab shows: its own and the shared one (a deleted
-/// worktree's read-only note left out).
-pub fn open_note_count(session: &SessionRecord) -> usize {
-    let shared = session
-        .shared_notes
-        .as_ref()
-        .filter(|note| note.read_only != Some(true))
-        .map(|note| note.text.as_str());
-    open_note_items(session.notes.as_deref()).len() + open_note_items(shared).len()
+/// The open steps of `session`: the unticked lines under its line (notes' checkboxes are text, not counted).
+pub fn open_step_count(list: &TaskList, session: &SessionRecord) -> usize {
+    list.line_of_session(&session.id).map_or(0, |line| {
+        list.children(&line.id).iter().filter(|step| !step.done).count()
+    })
 }
 
 /// TS: tabs.tsx TabBar as one row: `◈ p:Preview` per tab, two spaces apart; the active one bold and underlined, Dev
-/// green with ` ●` while it runs; not in the TS: Notes with ` ☐ N` while its notes have open items.
+/// green with ` ●` while it runs; not in the TS: Notes with ` ☐ N` while the session has open steps.
 pub fn tab_bar_row(active_tab: RightPaneTab, badges: TabBadges) -> Row {
     let mut row = Row::new();
     for (index, tab) in TABS.iter().enumerate() {
@@ -88,7 +84,7 @@ pub fn tab_bar_row(active_tab: RightPaneTab, badges: TabBadges) -> Row {
         };
         let badge = match tab.key {
             RightPaneTab::Dev if running => " ●".to_owned(),
-            RightPaneTab::Notes if badges.open_notes > 0 => format!(" ☐ {}", badges.open_notes),
+            RightPaneTab::Notes if badges.open_steps > 0 => format!(" ☐ {}", badges.open_steps),
             _ => String::new(),
         };
         let style = TextStyle::fg(color).bold(active).underline(active);
@@ -127,7 +123,7 @@ mod tests {
     fn a_running_dev_tab_is_green_with_a_dot() {
         let running = TabBadges {
             dev_running: true,
-            open_notes: 0,
+            open_steps: 0,
         };
         let row = tab_bar_row(RightPaneTab::Notes, running);
         assert!(row_text(&row).contains("▹ d:Dev ●"));
@@ -145,18 +141,22 @@ mod tests {
     }
 
     #[test]
-    fn notes_counts_the_open_items_of_both_notes_it_shows() {
+    fn notes_counts_the_open_steps_of_the_sessions_line() {
         let session: SessionRecord = serde_json::from_value(serde_json::json!({
             "id": "a", "title": "a", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r",
             "status": "running", "createdAt": "", "updatedAt": "",
-            "notes": "- [ ] mine\n- [x] done",
-            "sharedNotes": {"kind": "worktree", "id": "w", "path": "/n/w.md", "revision": "r", "text": "- [ ] ours"}
+            "notes": "- [ ] a checkbox in a note is not a step"
         }))
         .unwrap_or_else(|error| panic!("{error}"));
-        assert_eq!(open_note_count(&session), 2);
+        let list = TaskList::parse(
+            "- [ ] Auth <!-- dh:t=l1 s=a -->\n  - [ ] one <!-- dh:t=l2 -->\n  - [x] two <!-- dh:t=l3 -->\n  \
+             - [ ] three <!-- dh:t=l4 -->\n    - [ ] not direct <!-- dh:t=l5 -->\n",
+        );
+        assert_eq!(open_step_count(&list, &session), 2);
+        assert_eq!(open_step_count(&TaskList::default(), &session), 0);
         let badges = TabBadges {
             dev_running: false,
-            open_notes: open_note_count(&session),
+            open_steps: open_step_count(&list, &session),
         };
         assert!(row_text(&tab_bar_row(RightPaneTab::Preview, badges)).ends_with("✎ a:Notes ☐ 2"));
         assert!(row_text(&tab_bar_row(RightPaneTab::Preview, TabBadges::default())).ends_with("✎ a:Notes"));

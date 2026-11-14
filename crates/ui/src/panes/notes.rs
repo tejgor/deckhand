@@ -1,24 +1,24 @@
-//! The Notes tab's rows. The worktree's shared note above the session's own, each with a header, separated by a rule;
-//! read mode shows rendered checklists from the top (`+N more lines` when cut), the section being edited shows the raw
-//! Markdown with a cursor, scrolled to keep it visible. Layout is pure ([`notes_layout`]) so it is unit-tested.
+//! The Notes tab's rows, top to bottom: the session's line and its steps, the line's brief (folded unless opened), the
+//! line's note, the session's own note, and for a sub-session its parent's line note (folded unless opened), the notes
+//! each under a header. Read mode shows rendered checklists from the top (`+N more lines` when cut); the note being
+//! edited shows the raw Markdown with a cursor, scrolled to keep it visible. Layout is pure ([`notes_layout`]) so it is
+//! unit-tested.
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 
 use deckhand_core::display::truncate;
-use deckhand_core::jsstr::{js_len, js_trim};
+use deckhand_core::jsstr::{js_len, js_trim, js_trim_end};
 use deckhand_core::notes::{
-    NoteRowKind, SectionBudget, TaskLinkLookup, budget_sections, checklist_label, fit_first, fit_read_rows,
-    note_read_rows, visible_text,
+    NoteRowKind, budget_bodies, checklist_label, fit_first, fit_read_rows, note_read_rows, visible_text,
 };
 use deckhand_core::text_editor::{EditorState, scroll_top_for, wrapped_editor_lines};
-use deckhand_protocol::data::NoteSection;
 
 use crate::primitives::{Row, Seg, TextStyle, Wrap, draw_rows, fit_row, truncate_row};
 use crate::theme::THEME;
 
-/// TS: notesPane.tsx NotesSectionInput `editing`: the cursor (a byte offset) and the first row shown before this
+/// A note being edited (TS: notesPane.tsx NotesSectionInput `editing`): the cursor (a byte offset) and the first row shown before this
 /// render.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NotesEditing {
@@ -37,13 +37,13 @@ pub struct NotesSectionInput {
     /// Shown after the title (warning color): read-only, too large.
     pub flag: Option<String>,
     pub editing: Option<NotesEditing>,
-    /// The section E / Ctrl+O open (header in bold).
+    /// The note E opens and Enter edits (header in bold).
     pub active: bool,
 }
 
-/// TS: notesPane.tsx NotesPart.
+/// TS: notesPane.tsx NotesSpan.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct NotesPart {
+pub struct NotesSpan {
     pub text: String,
     pub color: Option<Color>,
     pub bold: bool,
@@ -52,22 +52,22 @@ pub struct NotesPart {
 }
 
 /// TS: notesPane.tsx NotesRow.
-pub type NotesRow = Vec<NotesPart>;
+pub type NotesRow = Vec<NotesSpan>;
 
 /// A part with only its text.
-fn plain(text: impl Into<String>) -> NotesPart {
-    NotesPart {
+fn plain(text: impl Into<String>) -> NotesSpan {
+    NotesSpan {
         text: text.into(),
-        ..NotesPart::default()
+        ..NotesSpan::default()
     }
 }
 
 /// A part with a color.
-fn colored(text: impl Into<String>, color: Color) -> NotesPart {
-    NotesPart {
+fn colored(text: impl Into<String>, color: Color) -> NotesSpan {
+    NotesSpan {
         text: text.into(),
         color: Some(color),
-        ..NotesPart::default()
+        ..NotesSpan::default()
     }
 }
 
@@ -99,11 +99,11 @@ pub fn header(section: &NotesSectionInput, width: usize, focused: bool) -> Notes
     };
     let title = fit_first(&section.titles, title_width);
     let fits = js_len(&title) + 3 + tail_len <= width;
-    let mut parts = vec![NotesPart {
+    let mut parts = vec![NotesSpan {
         text: title,
         color: Some(if focused { THEME.active } else { THEME.accent_soft }),
         bold: focused || section.active,
-        ..NotesPart::default()
+        ..NotesSpan::default()
     }];
     if !tail.is_empty() && fits {
         if let Some(flag) = flag {
@@ -120,14 +120,14 @@ pub fn header(section: &NotesSectionInput, width: usize, focused: bool) -> Notes
 
 /// TS: notesPane.tsx need: body rows a section needs at `width`: the editor's rows, one for an empty section, else
 /// its rendered rows.
-pub fn need(section: &NotesSectionInput, width: usize, links: Option<TaskLinkLookup<'_>>) -> usize {
+pub fn need(section: &NotesSectionInput, width: usize) -> usize {
     if let Some(editing) = &section.editing {
         return wrapped_editor_lines(&editor_state(section, editing), width).lines.len();
     }
     if js_trim(&section.text).is_empty() {
         1
     } else {
-        note_read_rows(&section.text, width, links).len()
+        note_read_rows(js_trim_end(&section.text), width, None).len()
     }
 }
 
@@ -139,7 +139,7 @@ pub struct NotesBody {
 }
 
 /// TS: notesPane.tsx body: a section's body in `rows` rows.
-pub fn body(section: &NotesSectionInput, width: usize, rows: usize, links: Option<TaskLinkLookup<'_>>) -> NotesBody {
+pub fn body(section: &NotesSectionInput, width: usize, rows: usize) -> NotesBody {
     if rows == 0 {
         return NotesBody::default();
     }
@@ -154,7 +154,7 @@ pub fn body(section: &NotesSectionInput, width: usize, rows: usize, links: Optio
             .map(|line| {
                 let mut row = vec![plain(visible_text(&line.before))];
                 if let Some(cursor) = &line.cursor {
-                    row.push(NotesPart {
+                    row.push(NotesSpan {
                         inverse: true,
                         ..plain(visible_text(cursor))
                     });
@@ -176,17 +176,18 @@ pub fn body(section: &NotesSectionInput, width: usize, rows: usize, links: Optio
             scroll_top: None,
         };
     }
-    let shown = fit_read_rows(note_read_rows(&section.text, width, links), rows)
+    // Read mode leaves out the blank lines a note ends with.
+    let shown = fit_read_rows(note_read_rows(js_trim_end(&section.text), width, None), rows)
         .into_iter()
         .map(|row| {
             vec![match row.kind {
                 Some(NoteRowKind::Done) => colored(row.text, THEME.muted),
                 Some(NoteRowKind::Link) => colored(row.text, THEME.accent_soft),
-                Some(NoteRowKind::More) => NotesPart {
+                Some(NoteRowKind::More) => NotesSpan {
                     dim: true,
                     ..colored(row.text, THEME.muted)
                 },
-                Some(NoteRowKind::Heading) => NotesPart {
+                Some(NoteRowKind::Heading) => NotesSpan {
                     bold: true,
                     ..plain(row.text)
                 },
@@ -200,68 +201,297 @@ pub fn body(section: &NotesSectionInput, width: usize, rows: usize, links: Optio
     }
 }
 
-/// TS: notesPane.tsx notesLayout's argument.
-#[derive(Clone, Copy)]
+/// The parts of the tab that take focus, in `tab` order (the brief only while it is open).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum NotePart {
+    /// The session's line and its steps.
+    Steps,
+    /// The line's brief.
+    Brief,
+    /// The line's note.
+    Line,
+    /// The session's own note.
+    #[default]
+    Session,
+}
+
+/// One step: a line under the session's line.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct StepRow {
+    pub title: String,
+    pub done: bool,
+}
+
+/// A step's title being written: renaming step `at`, or a new step (`at` none, below the others).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct StepEditing {
+    pub at: Option<usize>,
+    pub title: EditorState,
+}
+
+/// The session's line and its steps.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct StepsInput {
+    /// The title of the line the session is on (none: it is on no line yet), and whether it is ticked.
+    pub line: Option<(String, bool)>,
+    pub steps: Vec<StepRow>,
+    /// The selected step, while the steps have the focus.
+    pub selected: Option<usize>,
+    pub editing: Option<StepEditing>,
+    /// The steps have the focus (their keys work).
+    pub focused: bool,
+}
+
+/// A note shown folded to one row until opened: the brief, a sub-session's parent's line note.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct FoldInput {
+    /// The folded row, after `▸ `.
+    pub label: String,
+    pub open: bool,
+    /// The note when open (its titles start with `▾ `).
+    pub section: NotesSectionInput,
+}
+
+/// What the tab shows (see the module docs).
+#[derive(Clone, Copy, Debug)]
 pub struct NotesLayoutInput<'a> {
-    pub shared: Option<&'a NotesSectionInput>,
-    pub session: Option<&'a NotesSectionInput>,
+    pub steps: &'a StepsInput,
+    pub brief: Option<&'a FoldInput>,
+    pub line: &'a NotesSectionInput,
+    pub session: &'a NotesSectionInput,
+    pub parent: Option<&'a FoldInput>,
     pub width: usize,
     pub height: usize,
-    pub focus: Option<NoteSection>,
-    /// Whether each linked task is open, done or gone (`↗` lines say so).
-    pub links: Option<TaskLinkLookup<'a>>,
+    /// The part with the focus (none outside notes focus).
+    pub focus: Option<NotePart>,
 }
 
-/// TS: notesPane.tsx notesLayout's result.
+/// The tab's rows and what the edited note got.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NotesLayout {
-    /// Exactly `height` rows (at least one).
+    /// At most `height` rows (exactly `height` when everything has a row).
     pub rows: Vec<NotesRow>,
-    /// The edited section's first row, for the next render.
+    /// The edited note's first row, for the next render.
     pub scroll_top: Option<usize>,
-    /// The rows each section's body got.
-    pub bodies: SectionBudget,
+    /// The body rows the edited note got (none when no note is edited).
+    pub edited_rows: Option<usize>,
 }
 
-/// TS: notesPane.tsx notesLayout: the tab's rows, exactly `height` of them: the shared section (when the session has
-/// one), a rule, the session's (when it shows one: a session in a worktree has only the worktree's note).
-pub fn notes_layout(input: &NotesLayoutInput<'_>) -> NotesLayout {
-    let NotesLayoutInput {
-        shared,
-        session,
-        width,
-        height,
-        focus,
-        links,
-    } = *input;
-    let columns = width.max(1);
-    // A session in a worktree shows only the worktree's note (no session section).
-    let headers = if shared.is_some() && session.is_some() { 3 } else { 1 };
-    let available = height.saturating_sub(headers);
-    let bodies = match (shared, session) {
-        (Some(_), None) => SectionBudget {
-            shared: available,
-            session: 0,
-        },
-        // Neither section: TS throws reading the missing session; there is nothing to lay out here.
-        (shared, session) => budget_sections(
-            available,
-            shared.map(|shared| need(shared, columns, links)),
-            session.map_or(1, |session| need(session, columns, links)),
-            focus,
-        ),
-    };
+/// The step block's rows at most: a third of the pane, at least 3 (the line's row included).
+fn steps_cap(height: usize) -> usize {
+    (height / 3).max(3)
+}
+
+fn rule(columns: usize) -> NotesRow {
+    vec![colored("─".repeat(columns), THEME.border)]
+}
+
+fn muted_row(text: &str, columns: usize) -> NotesRow {
+    vec![colored(truncate(text, columns), THEME.muted)]
+}
+
+/// An edited one-line title: the text with the cursor cell inverted.
+fn title_editor_spans(state: &EditorState) -> Vec<NotesSpan> {
+    let mut cursor = state.cursor.min(state.text.len());
+    while !state.text.is_char_boundary(cursor) {
+        cursor -= 1;
+    }
+    let (before, rest) = state.text.split_at(cursor);
+    let mut chars = rest.chars();
+    let at = chars.next().map_or_else(|| " ".to_owned(), String::from);
+    let mut spans = Vec::new();
+    if !before.is_empty() {
+        spans.push(plain(visible_text(before)));
+    }
+    spans.push(NotesSpan {
+        inverse: true,
+        ..plain(visible_text(&at))
+    });
+    let after: String = chars.collect();
+    if !after.is_empty() {
+        spans.push(plain(visible_text(&after)));
+    }
+    spans
+}
+
+/// The line's row, then a row per step (`› ` marks the selected one while the steps have the focus), within
+/// [`steps_cap`]; the rest of the steps scroll to the selected one, or are counted (`+N more steps`).
+pub fn steps_rows(input: &StepsInput, columns: usize, height: usize) -> Vec<NotesRow> {
+    let focused = input.focused;
+    let head_color = if focused { THEME.active } else { THEME.accent_soft };
     let mut rows: Vec<NotesRow> = Vec::new();
+    let Some((title, done)) = &input.line else {
+        let text = if focused {
+            "No line yet · a adds a step (it gets its line)"
+        } else {
+            "No line yet"
+        };
+        rows.push(vec![NotesSpan {
+            bold: focused,
+            ..colored(
+                truncate(text, columns),
+                if focused { THEME.active } else { THEME.muted },
+            )
+        }]);
+        if let Some(editing) = &input.editing {
+            rows.push(step_editor_row(editing));
+        }
+        return rows;
+    };
+    let ticked = input.steps.iter().filter(|step| step.done).count();
+    let mut tail = Vec::new();
+    if !input.steps.is_empty() {
+        tail.push(format!("{ticked}/{} steps", input.steps.len()));
+    }
+    if *done {
+        tail.push("done".to_owned());
+    }
+    let tail = if tail.is_empty() {
+        String::new()
+    } else {
+        format!(" · {}", tail.join(" · "))
+    };
+    let title_width = columns.saturating_sub(js_len(&tail) + 2).max(4);
+    let mut head = vec![
+        colored("◆ ", THEME.accent),
+        NotesSpan {
+            bold: true,
+            ..colored(truncate(title, title_width), head_color)
+        },
+    ];
+    if !tail.is_empty() {
+        head.push(colored(tail, THEME.muted));
+    }
+    rows.push(head);
+    let room = steps_cap(height).saturating_sub(1).max(1);
+    let editing_new = input.editing.as_ref().filter(|editing| editing.at.is_none());
+    let count = input.steps.len() + usize::from(editing_new.is_some());
+    if count == 0 {
+        let text = if focused {
+            "  No steps yet · a adds one"
+        } else {
+            "  No steps yet"
+        };
+        rows.push(muted_row(text, columns));
+        return rows;
+    }
+    // The rows shown: all of them when they fit; else a window around the selection (focused), or the first ones and
+    // how many more.
+    let selected = editing_new
+        .map(|_| input.steps.len())
+        .or(input.selected)
+        .unwrap_or(0)
+        .min(count - 1);
+    let (start, shown, more) = if count <= room {
+        (0, count, 0)
+    } else if focused {
+        let start = selected.saturating_sub(room - 1).min(count - room);
+        (start, room, 0)
+    } else {
+        (0, room - 1, count - (room - 1))
+    };
+    for at in start..start + shown {
+        let marker = if focused && at == selected { "› " } else { "  " };
+        let marker = colored(marker, THEME.active);
+        if let Some(editing) = input
+            .editing
+            .as_ref()
+            .filter(|editing| editing.at.unwrap_or(input.steps.len()) == at)
+        {
+            let mut row = vec![marker, plain("☐ ")];
+            row.extend(title_editor_spans(&editing.title));
+            rows.push(row);
+            continue;
+        }
+        let Some(step) = input.steps.get(at) else {
+            continue;
+        };
+        let check = if step.done { "☑ " } else { "☐ " };
+        let text = format!("{check}{}", visible_text(&step.title));
+        rows.push(vec![
+            marker,
+            NotesSpan {
+                bold: focused && at == selected,
+                ..if step.done {
+                    colored(text, THEME.muted)
+                } else {
+                    plain(text)
+                }
+            },
+        ]);
+    }
+    if more > 0 {
+        rows.push(muted_row(
+            &format!("  +{more} more step{}", if more == 1 { "" } else { "s" }),
+            columns,
+        ));
+    }
+    rows
+}
+
+/// The editor row of a new step under a session with no line yet.
+fn step_editor_row(editing: &StepEditing) -> NotesRow {
+    let mut row = vec![colored("› ", THEME.active), plain("☐ ")];
+    row.extend(title_editor_spans(&editing.title));
+    row
+}
+
+/// A folded note's one row (`▸ label`).
+fn folded_row(fold: &FoldInput, columns: usize) -> NotesRow {
+    vec![colored(
+        truncate(&format!("▸ {}", fold.label), columns),
+        THEME.accent_soft,
+    )]
+}
+
+/// The tab's rows: the steps block, the brief, a rule, the line's note, a rule, the session's note, and the parent's
+/// note, then blank rows to the pane's height. The note bodies share the rows the rest leaves ([`budget_bodies`]); the
+/// edited note's share counts double when there is not enough.
+pub fn notes_layout(input: &NotesLayoutInput<'_>) -> NotesLayout {
+    let columns = input.width.max(1);
+    let height = input.height;
+    let steps = steps_rows(input.steps, columns, height);
+    let fixed = steps.len() + usize::from(input.brief.is_some()) + 4 + usize::from(input.parent.is_some());
+    // The bodies, in the order they are drawn.
+    // Each with the part it is (none: the parent's note, which is not edited here).
+    let mut bodies: Vec<(Option<NotePart>, &NotesSectionInput)> = Vec::new();
+    if let Some(brief) = input.brief.filter(|fold| fold.open) {
+        bodies.push((Some(NotePart::Brief), &brief.section));
+    }
+    bodies.push((Some(NotePart::Line), input.line));
+    bodies.push((Some(NotePart::Session), input.session));
+    if let Some(parent) = input.parent.filter(|fold| fold.open) {
+        bodies.push((None, &parent.section));
+    }
+    let needs: Vec<usize> = bodies.iter().map(|(_, section)| need(section, columns)).collect();
+    let focus = input
+        .focus
+        .and_then(|part| bodies.iter().position(|(which, _)| *which == Some(part)));
+    let rest_to = bodies
+        .iter()
+        .position(|(which, _)| *which == Some(NotePart::Session))
+        .unwrap_or(0);
+    let mut budget = budget_bodies(height.saturating_sub(fixed), &needs, focus, rest_to);
+    // The rows nobody needs go below everything, so the parent's note follows the session's.
+    let mut spare = 0;
+    if let (Some(given), Some(need)) = (budget.get_mut(rest_to), needs.get(rest_to))
+        && *given > *need
+    {
+        spare = *given - *need;
+        *given = *need;
+    }
+    let mut rows = steps;
     let mut scroll_top = None;
-    let add = |rows: &mut Vec<NotesRow>,
-               scroll_top: &mut Option<usize>,
-               section: &NotesSectionInput,
-               which: NoteSection,
-               count: usize| {
-        rows.push(header(section, columns, focus == Some(which)));
-        let shown = body(section, columns, count, links);
+    let mut edited_rows = None;
+    let mut add = |rows: &mut Vec<NotesRow>, part: Option<NotePart>, section: &NotesSectionInput| {
+        let at = bodies.iter().position(|(which, _)| *which == part);
+        let count = at.and_then(|at| budget.get(at)).copied().unwrap_or(0);
+        let focused = part.is_some() && input.focus == part;
+        rows.push(header(section, columns, focused));
+        let shown = body(section, columns, count);
         if shown.scroll_top.is_some() {
-            *scroll_top = shown.scroll_top;
+            scroll_top = shown.scroll_top;
+            edited_rows = Some(count);
         }
         let shown_rows = shown.rows.len();
         rows.extend(shown.rows);
@@ -269,26 +499,30 @@ pub fn notes_layout(input: &NotesLayoutInput<'_>) -> NotesLayout {
             rows.push(vec![plain(" ")]);
         }
     };
-    if let Some(shared) = shared {
-        add(&mut rows, &mut scroll_top, shared, NoteSection::Shared, bodies.shared);
-        if session.is_some() {
-            rows.push(vec![colored("─".repeat(columns), THEME.border)]);
+    if let Some(brief) = input.brief {
+        if brief.open {
+            add(&mut rows, Some(NotePart::Brief), &brief.section);
+        } else {
+            rows.push(folded_row(brief, columns));
         }
     }
-    if let Some(session) = session {
-        add(
-            &mut rows,
-            &mut scroll_top,
-            session,
-            NoteSection::Session,
-            bodies.session,
-        );
+    rows.push(rule(columns));
+    add(&mut rows, Some(NotePart::Line), input.line);
+    rows.push(rule(columns));
+    add(&mut rows, Some(NotePart::Session), input.session);
+    if let Some(parent) = input.parent {
+        if parent.open {
+            add(&mut rows, None, &parent.section);
+        } else {
+            rows.push(folded_row(parent, columns));
+        }
     }
+    rows.extend((0..spare).map(|_| vec![plain(" ")]));
     rows.truncate(height.max(1));
     NotesLayout {
         rows,
         scroll_top,
-        bodies,
+        edited_rows,
     }
 }
 
@@ -334,11 +568,6 @@ pub fn render_notes_message(text: &str, buf: &mut Buffer, area: Rect) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deckhand_core::notes::TaskLinkState;
-    use deckhand_testkit::{Case, replay};
-    use serde_json::{Map, Value, json};
-
-    // ── Ported TS tests ─────────────────────────────────────────────────────────────────────────────────────────
 
     fn section(titles: &[&str], text: &str, empty: &str) -> NotesSectionInput {
         NotesSectionInput {
@@ -349,157 +578,264 @@ mod tests {
         }
     }
 
-    /// TS tests/notes.test.ts `section(fields)`: title `Title`, empty text, `empty` as the empty line.
-    fn basic(text: &str) -> NotesSectionInput {
-        section(&["Title"], text, "empty")
-    }
-
-    fn input<'a>(
-        shared: Option<&'a NotesSectionInput>,
-        session: Option<&'a NotesSectionInput>,
-        width: usize,
-        height: usize,
-        focus: Option<NoteSection>,
-    ) -> NotesLayoutInput<'a> {
-        NotesLayoutInput {
-            shared,
-            session,
-            width,
-            height,
-            focus,
-            links: None,
+    fn steps(line: Option<&str>, list: &[(&str, bool)]) -> StepsInput {
+        StepsInput {
+            line: line.map(|title| (title.to_owned(), false)),
+            steps: list
+                .iter()
+                .map(|(title, done)| StepRow {
+                    title: (*title).to_owned(),
+                    done: *done,
+                })
+                .collect(),
+            ..StepsInput::default()
         }
     }
 
-    /// TS tests/notes.test.ts renderLayout: the rows drawn through NotesRows, trailing spaces trimmed.
-    fn render_layout(input: &NotesLayoutInput<'_>) -> Vec<String> {
-        let layout = notes_layout(input);
-        let area = Rect::new(
-            0,
-            0,
-            u16::try_from(input.width).unwrap_or(u16::MAX),
-            u16::try_from(input.height).unwrap_or(u16::MAX),
-        );
-        let mut buf = Buffer::empty(area);
-        render_notes_rows(&layout.rows, &mut buf, area);
-        (0..area.height)
-            .map(|y| {
-                (0..area.width)
-                    .map(|x| buf[(x, y)].symbol().to_owned())
-                    .collect::<String>()
-                    .trim_end()
-                    .to_owned()
+    fn line_note(text: &str) -> NotesSectionInput {
+        section(
+            &[
+                "Token storage · shared with whoever works on it",
+                "Token storage · shared",
+                "Token storage",
+            ],
+            text,
+            "No note for this line yet",
+        )
+    }
+
+    fn session_note(text: &str) -> NotesSectionInput {
+        section(
+            &["This session · only this conversation", "This session"],
+            text,
+            "No notes for this session",
+        )
+    }
+
+    fn fold(label: &str, text: &str, open: bool) -> FoldInput {
+        FoldInput {
+            label: label.to_owned(),
+            open,
+            section: section(&[&format!("▾ {label}"), "▾"], text, ""),
+        }
+    }
+
+    struct Tab {
+        steps: StepsInput,
+        brief: Option<FoldInput>,
+        line: NotesSectionInput,
+        session: NotesSectionInput,
+        parent: Option<FoldInput>,
+        focus: Option<NotePart>,
+    }
+
+    impl Tab {
+        fn new(steps: StepsInput, line: NotesSectionInput, session: NotesSectionInput) -> Tab {
+            Tab {
+                steps,
+                brief: None,
+                line,
+                session,
+                parent: None,
+                focus: None,
+            }
+        }
+
+        fn layout(&self, width: usize, height: usize) -> NotesLayout {
+            notes_layout(&NotesLayoutInput {
+                steps: &self.steps,
+                brief: self.brief.as_ref(),
+                line: &self.line,
+                session: &self.session,
+                parent: self.parent.as_ref(),
+                width,
+                height,
+                focus: self.focus,
             })
-            .collect()
+        }
+
+        /// The rows drawn through the renderer, trailing spaces trimmed.
+        fn render(&self, width: usize, height: usize) -> Vec<String> {
+            let layout = self.layout(width, height);
+            let area = Rect::new(
+                0,
+                0,
+                u16::try_from(width).unwrap_or(u16::MAX),
+                u16::try_from(height).unwrap_or(u16::MAX),
+            );
+            let mut buf = Buffer::empty(area);
+            render_notes_rows(&layout.rows, &mut buf, area);
+            (0..area.height)
+                .map(|y| {
+                    (0..area.width)
+                        .map(|x| buf[(x, y)].symbol().to_owned())
+                        .collect::<String>()
+                        .trim_end()
+                        .to_owned()
+                })
+                .collect()
+        }
     }
 
     fn joined(row: &NotesRow) -> String {
-        row.iter().map(|part| part.text.as_str()).collect()
+        row.iter().map(|span| span.text.as_str()).collect()
     }
 
     #[test]
-    fn notes_tab_layout_sections_rule_and_empty_collapse() {
-        let shared = section(
-            &["Worktree · feat/x (shared by 2 sessions)", "Worktree · feat/x"],
-            "- [ ] review\n- [x] merge",
-            "No worktree notes · tab to add",
+    fn the_line_its_steps_the_folded_brief_then_both_notes() {
+        let mut tab = Tab::new(
+            steps(
+                Some("Token storage"),
+                &[("schema", true), ("encryption", false), ("refresh tokens", false)],
+            ),
+            line_note("chose AES-GCM\n- [ ] rotate keys"),
+            session_note("Review crypto.rs before merging"),
         );
-        let lines: Vec<String> = (1..=8).map(|index| format!("line {index}")).collect();
-        let own = section(
-            &["This session · fix login", "This session"],
-            &lines.join("\n"),
-            "empty",
-        );
-        let rule = |width: usize| "─".repeat(width);
+        tab.brief = Some(fold(
+            "Brief · from ◎ Rework auth · 14 Nov",
+            "Store tokens encrypted.",
+            false,
+        ));
+        let rule = "─".repeat(70);
         assert_eq!(
-            render_layout(&input(Some(&shared), Some(&own), 56, 9, None)),
+            tab.render(70, 14),
             [
-                "Worktree · feat/x (shared by 2 sessions) · ☐ 1 open",
-                "☐ review",
-                "☑ merge",
-                &rule(56),
-                "This session · fix login",
-                "line 1",
-                "line 2",
-                "line 3",
-                "+5 more lines",
+                "◆ Token storage · 1/3 steps",
+                "  ☑ schema",
+                "  ☐ encryption",
+                "  ☐ refresh tokens",
+                "▸ Brief · from ◎ Rework auth · 14 Nov",
+                &rule,
+                "Token storage · shared with whoever works on it · ☐ 1 open",
+                "chose AES-GCM",
+                "☐ rotate keys",
+                &rule,
+                "This session · only this conversation",
+                "Review crypto.rs before merging",
+                "",
+                "",
             ]
         );
-        // Narrow headers drop the "shared by" part before the count, then cut the title; an empty section is one
-        // muted line.
-        assert_eq!(
-            render_layout(&input(Some(&shared), Some(&own), 40, 9, None))[0],
-            "Worktree · feat/x · ☐ 1 open"
-        );
-        assert_eq!(
-            render_layout(&input(Some(&shared), Some(&own), 24, 9, None))[0],
-            "Worktree · f… · ☐ 1 open"
-        );
-        let emptied = NotesSectionInput {
-            text: String::new(),
-            ..shared.clone()
-        };
-        assert_eq!(
-            render_layout(&input(Some(&emptied), Some(&own), 30, 6, None))[..4],
-            [
-                "Worktree · feat/x",
-                "No worktree notes · tab to add",
-                &rule(30),
-                "This session · fix login"
-            ]
-        );
-        // Without a shared note (worktree not ready), only the session's.
-        let only = section(&["This session"], "only", "empty");
-        assert_eq!(
-            render_layout(&input(None, Some(&only), 20, 3, None)),
-            ["This session", "only", ""]
-        );
-        // A session in a worktree: only the worktree's note, with the whole height.
-        let worktree = section(&["Worktree · feat/x"], "plan\n- [ ] one", "empty");
-        assert_eq!(
-            render_layout(&input(Some(&worktree), None, 40, 4, None)),
-            ["Worktree · feat/x · ☐ 1 open", "plan", "☐ one", ""]
-        );
+        // A narrower pane drops the longer titles before the checklist count, then cuts the title.
+        assert_eq!(tab.render(40, 14)[6], "Token storage · shared · ☐ 1 open");
+        assert_eq!(tab.render(22, 14)[6], "Token stor… · ☐ 1 open");
+        // An empty note is one muted row.
+        tab.line = line_note("");
+        let rows = tab.layout(70, 14);
+        assert_eq!(joined(&rows.rows[7]), "No note for this line yet");
+        assert_eq!(rows.rows[7][0].color, Some(THEME.muted));
+        assert_eq!(rows.rows.len(), 14);
     }
 
     #[test]
-    fn notes_tab_layout_while_editing_scrolls_to_the_cursor() {
-        let lines: Vec<String> = (1..=12).map(|index| format!("row {index}")).collect();
-        let text = lines.join("\n");
-        let shared = section(
-            &[
-                "Worktree · main checkout (shared by 1 session)",
-                "Worktree · main checkout",
-            ],
-            "shared\n- [ ] item",
-            "empty",
+    fn a_session_on_no_line_says_so_and_a_step_can_be_written_below() {
+        let mut tab = Tab::new(steps(None, &[]), line_note(""), session_note("mine"));
+        assert_eq!(tab.render(50, 8)[..2], ["No line yet", &"─".repeat(50)]);
+        tab.steps.focused = true;
+        tab.focus = Some(NotePart::Steps);
+        assert_eq!(tab.render(50, 8)[0], "No line yet · a adds a step (it gets its line)");
+        tab.steps.editing = Some(StepEditing {
+            at: None,
+            title: EditorState {
+                text: "Reproduce".to_owned(),
+                cursor: 9,
+                ..EditorState::default()
+            },
+        });
+        let layout = tab.layout(50, 8);
+        assert_eq!(joined(&layout.rows[1]), "› ☐ Reproduce ");
+        assert!(layout.rows[1].last().is_some_and(|span| span.inverse));
+    }
+
+    #[test]
+    fn a_line_without_steps_and_a_ticked_line() {
+        let mut tab = Tab::new(steps(Some("Docs"), &[]), line_note(""), session_note(""));
+        assert_eq!(tab.render(40, 8)[..2], ["◆ Docs", "  No steps yet"]);
+        tab.steps.focused = true;
+        assert_eq!(tab.render(40, 8)[1], "  No steps yet · a adds one");
+        tab.steps.line = Some(("Docs".to_owned(), true));
+        tab.steps.steps = vec![StepRow {
+            title: "write".to_owned(),
+            done: true,
+        }];
+        assert_eq!(tab.render(40, 8)[0], "◆ Docs · 1/1 steps · done");
+    }
+
+    #[test]
+    fn steps_take_a_third_of_the_pane_scrolling_to_the_selected_one_while_focused() {
+        let many: Vec<(String, bool)> = (1..=9).map(|n| (format!("step {n}"), false)).collect();
+        let list: Vec<(&str, bool)> = many.iter().map(|(title, done)| (title.as_str(), *done)).collect();
+        let mut tab = Tab::new(steps(Some("Big"), &list), line_note(""), session_note(""));
+        // 18 rows: 6 for the block, the line's row and 5 more; unfocused, the last says how many are not shown.
+        let rows = tab.render(40, 18);
+        assert_eq!(
+            rows[..6],
+            [
+                "◆ Big · 0/9 steps",
+                "  ☐ step 1",
+                "  ☐ step 2",
+                "  ☐ step 3",
+                "  ☐ step 4",
+                "  +5 more steps"
+            ]
         );
-        let editing_session = NotesSectionInput {
+        tab.steps.focused = true;
+        tab.steps.selected = Some(7);
+        let rows = tab.render(40, 18);
+        assert_eq!(
+            rows[..6],
+            [
+                "◆ Big · 0/9 steps",
+                "  ☐ step 4",
+                "  ☐ step 5",
+                "  ☐ step 6",
+                "  ☐ step 7",
+                "› ☐ step 8"
+            ]
+        );
+        // Renaming a step edits it in place.
+        tab.steps.editing = Some(StepEditing {
+            at: Some(7),
+            title: EditorState {
+                text: "step eight".to_owned(),
+                cursor: 0,
+                ..EditorState::default()
+            },
+        });
+        let layout = tab.layout(40, 18);
+        assert_eq!(joined(&layout.rows[5]), "› ☐ step eight");
+        assert!(layout.rows[5][2].inverse);
+    }
+
+    #[test]
+    fn an_open_brief_is_a_note_and_the_edited_note_scrolls_to_the_cursor() {
+        let text: String = (1..=12).map(|n| format!("row {n}")).collect::<Vec<_>>().join("\n");
+        let mut tab = Tab::new(steps(Some("Auth"), &[]), line_note("why"), session_note(""));
+        tab.brief = Some(fold("Brief · from you", "set up\n- [ ] in scope", true));
+        tab.session = NotesSectionInput {
             editing: Some(NotesEditing {
                 cursor: text.len(),
                 scroll_top: 0,
             }),
-            ..section(&["This session"], &text, "empty")
+            ..session_note(&text)
         };
-        let editing = notes_layout(&input(
-            Some(&shared),
-            Some(&editing_session),
-            40,
-            10,
-            Some(NoteSection::Session),
-        ));
-        // 7 body rows: the shared section keeps its 2, the session section 5 (its need is more), scrolled to the end.
-        assert_eq!(editing.scroll_top, Some(7));
-        assert_eq!(editing.bodies, SectionBudget { shared: 2, session: 5 });
-        let rows: Vec<String> = editing.rows.iter().map(joined).collect();
+        tab.focus = Some(NotePart::Session);
+        let layout = tab.layout(40, 16);
+        let rows: Vec<String> = layout.rows.iter().map(joined).collect();
         assert_eq!(
             rows,
             [
-                "Worktree · main checkout · ☐ 1 open",
-                "shared",
-                "☐ item",
+                "◆ Auth",
+                "  No steps yet",
+                "▾ Brief · from you · ☐ 1 open",
+                "set up",
+                "☐ in scope",
                 &"─".repeat(40),
-                "This session",
+                "Token storage · shared",
+                "why",
+                &"─".repeat(40),
+                "This session · only this conversation",
+                "row 7",
                 "row 8",
                 "row 9",
                 "row 10",
@@ -507,58 +843,68 @@ mod tests {
                 "row 12 ",
             ]
         );
-        assert!(
-            editing
-                .rows
-                .last()
-                .and_then(|row| row.last())
-                .is_some_and(|part| part.inverse)
-        );
-        // Moving the cursor to the top scrolls back; the raw checklist marker shows while editing.
-        let editing_shared = NotesSectionInput {
-            editing: Some(NotesEditing {
-                cursor: 0,
-                scroll_top: 0,
-            }),
-            ..shared.clone()
-        };
-        let plain_session = section(&["This session"], &text, "empty");
-        let top = notes_layout(&input(
-            Some(&editing_shared),
-            Some(&plain_session),
-            40,
-            10,
-            Some(NoteSection::Shared),
-        ));
-        let middle: Vec<String> = top.rows[1..3].iter().map(joined).collect();
-        assert_eq!(middle, ["shared", "- [ ] item"]);
-        assert_eq!(top.rows[1][0].text, "");
-        assert!(top.rows[1][1].inverse);
+        assert_eq!((layout.scroll_top, layout.edited_rows), (Some(6), Some(6)));
+        // The edited note's header is in the focus color; the others are not.
+        assert_eq!(layout.rows[9][0].color, Some(THEME.active));
+        assert_eq!(layout.rows[2][0].color, Some(THEME.accent_soft));
+        // Moving the cursor to the top scrolls back.
+        tab.session.editing = Some(NotesEditing {
+            cursor: 0,
+            scroll_top: 6,
+        });
+        assert_eq!(tab.layout(40, 16).scroll_top, Some(0));
     }
 
     #[test]
-    fn a_session_without_either_section_has_no_rows() {
-        let layout = notes_layout(&input(None, None, 40, 10, None));
-        assert!(layout.rows.is_empty());
-        assert_eq!(layout.scroll_top, None);
-        // A stray cursor (past the end, inside a character) never reaches a slice.
-        let stray = NotesSectionInput {
-            editing: Some(NotesEditing {
-                cursor: 99,
-                scroll_top: 5,
-            }),
-            ..basic("é中")
-        };
-        let layout = notes_layout(&input(None, Some(&stray), 10, 4, None));
-        assert_eq!(layout.rows.len(), 4);
-        let inside = NotesSectionInput {
-            editing: Some(NotesEditing {
-                cursor: 2,
-                scroll_top: 0,
-            }),
-            ..basic("é中")
-        };
-        assert_eq!(notes_layout(&input(None, Some(&inside), 10, 4, None)).rows.len(), 4);
+    fn a_sub_sessions_parent_note_follows_its_own_folded_until_opened() {
+        let mut tab = Tab::new(steps(Some("Refresh"), &[]), line_note(""), session_note("mine"));
+        tab.parent = Some(fold("Token storage's note", "keys live in the keychain", false));
+        let rows = tab.render(50, 10);
+        assert_eq!(rows[7..], ["mine", "▸ Token storage's note", ""]);
+        tab.parent = Some(FoldInput {
+            section: section(
+                &["▾ Token storage's note · read-only", "▾ Token storage's note"],
+                "keys live in the keychain",
+                "",
+            ),
+            ..fold("Token storage's note", "", true)
+        });
+        let rows = tab.render(50, 12);
+        assert_eq!(
+            rows[7..],
+            [
+                "mine",
+                "▾ Token storage's note · read-only",
+                "keys live in the keychain",
+                "",
+                "",
+            ]
+        );
+    }
+
+    #[test]
+    fn tiny_panes_and_stray_cursors_never_panic() {
+        let mut tab = Tab::new(
+            steps(Some("T"), &[("a", false), ("b", true)]),
+            NotesSectionInput {
+                editing: Some(NotesEditing {
+                    cursor: 99,
+                    scroll_top: 5,
+                }),
+                ..line_note("é中")
+            },
+            session_note("x"),
+        );
+        tab.focus = Some(NotePart::Line);
+        for height in 0..12 {
+            let layout = tab.layout(10, height);
+            assert!(layout.rows.len() <= height.max(1), "{height}: {:?}", layout.rows);
+        }
+        tab.line.editing = Some(NotesEditing {
+            cursor: 2,
+            scroll_top: 0,
+        });
+        assert_eq!(tab.layout(10, 12).rows.len(), 12);
     }
 
     #[test]
@@ -575,147 +921,5 @@ mod tests {
         let first: String = (0..6).map(|x| buf[(x, 0)].symbol().to_owned()).collect();
         assert_eq!(first, "a lon…");
         assert_eq!(buf[(0, 0)].fg, THEME.muted);
-    }
-
-    // ── Parity replay ───────────────────────────────────────────────────────────────────────────────────────────
-
-    fn link_by_id(id: &str) -> TaskLinkState {
-        match id.chars().next() {
-            Some(first) if first.is_ascii_digit() => TaskLinkState::Done,
-            Some('a'..='m') => TaskLinkState::Open,
-            _ => TaskLinkState::Gone,
-        }
-    }
-
-    fn section_arg(value: &Value) -> Result<NotesSectionInput, String> {
-        let string = |key: &str| value.get(key).and_then(Value::as_str).map(str::to_owned);
-        let count = |item: &Value, key: &str| -> usize {
-            // A negative scrollTop is the same as 0: scrollTopFor ends at max(0, ...) either way.
-            item.get(key)
-                .and_then(Value::as_f64)
-                .filter(|number| *number > 0.0)
-                .map_or(0, |number| number as usize)
-        };
-        Ok(NotesSectionInput {
-            titles: value
-                .get("titles")
-                .and_then(Value::as_array)
-                .ok_or("section without titles")?
-                .iter()
-                .map(|title| title.as_str().map(str::to_owned).ok_or("title is not a string"))
-                .collect::<Result<_, _>>()?,
-            text: string("text").ok_or("section without text")?,
-            empty: string("empty").ok_or("section without empty")?,
-            flag: string("flag"),
-            editing: value.get("editing").map(|editing| NotesEditing {
-                cursor: count(editing, "cursor"),
-                scroll_top: count(editing, "scrollTop"),
-            }),
-            active: value.get("active").and_then(Value::as_bool).unwrap_or(false),
-        })
-    }
-
-    /// The Ink name of a theme color (what the fixtures record).
-    fn ink_name(color: Color) -> String {
-        match color {
-            Color::Cyan => "cyan".to_owned(),
-            Color::LightMagenta => "magentaBright".to_owned(),
-            Color::DarkGray => "gray".to_owned(),
-            Color::Yellow => "yellow".to_owned(),
-            other => format!("{other:?}"),
-        }
-    }
-
-    fn part_json(part: &NotesPart) -> Value {
-        let mut object = Map::new();
-        object.insert("text".to_owned(), json!(part.text));
-        if let Some(color) = part.color {
-            object.insert("color".to_owned(), json!(ink_name(color)));
-        }
-        for (key, on) in [("bold", part.bold), ("dim", part.dim), ("inverse", part.inverse)] {
-            if on {
-                object.insert(key.to_owned(), json!(true));
-            }
-        }
-        Value::Object(object)
-    }
-
-    #[test]
-    fn notes_layout_parity() {
-        replay("notesPane/notesLayout", |case: &Case| {
-            let raw = case.arg(0);
-            let shared = raw.get("shared").map(section_arg).transpose()?;
-            let session = raw.get("session").map(section_arg).transpose()?;
-            let number = |key: &str| {
-                raw.get(key)
-                    .and_then(Value::as_f64)
-                    .filter(|number| *number > 0.0)
-                    .map_or(0, |number| number as usize)
-            };
-            let focus = match raw.get("focus").and_then(Value::as_str) {
-                Some("shared") => Some(NoteSection::Shared),
-                Some("session") => Some(NoteSection::Session),
-                _ => None,
-            };
-            let open = |_: &str| TaskLinkState::Open;
-            let done = |_: &str| TaskLinkState::Done;
-            let gone = |_: &str| TaskLinkState::Gone;
-            let links: Option<TaskLinkLookup<'_>> = match raw.get("links").and_then(|links| links.get("$fn")) {
-                Some(Value::String(name)) => match name.as_str() {
-                    "linkOpen" => Some(&open),
-                    "linkDone" => Some(&done),
-                    "linkGone" => Some(&gone),
-                    "linkById" => Some(&link_by_id),
-                    other => return Err(format!("unknown lookup {other}")),
-                },
-                _ => None,
-            };
-            let layout = notes_layout(&NotesLayoutInput {
-                shared: shared.as_ref(),
-                session: session.as_ref(),
-                width: number("width"),
-                height: number("height"),
-                focus,
-                links,
-            });
-            let mut rows: Vec<Vec<Value>> = layout
-                .rows
-                .iter()
-                .map(|row| row.iter().map(part_json).collect())
-                .collect();
-            // TS leaves `bold` as `false` (not unset) on a header whose `active` is `false` and that is not focused
-            // (`focused || section.active`); NotesPart has no unset state, so the recorded `false` is restored here.
-            let raw_active = |key: &str| {
-                raw.get(key)
-                    .and_then(|section| section.get("active"))
-                    .and_then(Value::as_bool)
-            };
-            let mut mark = |index: usize, active: Option<bool>, which: NoteSection| {
-                if active == Some(false)
-                    && focus != Some(which)
-                    && let Some(part) = rows.get_mut(index).and_then(|row| row.first_mut())
-                    && let Some(object) = part.as_object_mut()
-                {
-                    object.entry("bold").or_insert(json!(false));
-                }
-            };
-            if shared.is_some() {
-                mark(0, raw_active("shared"), NoteSection::Shared);
-            }
-            if session.is_some() {
-                let at = if shared.is_some() { 2 + layout.bodies.shared } else { 0 };
-                mark(at, raw_active("session"), NoteSection::Session);
-            }
-            let mut result = Map::new();
-            result.insert("rows".to_owned(), json!(rows));
-            if let Some(top) = layout.scroll_top {
-                result.insert("scrollTop".to_owned(), json!(top));
-            }
-            result.insert(
-                "bodies".to_owned(),
-                json!({"shared": layout.bodies.shared, "session": layout.bodies.session}),
-            );
-            Ok::<_, String>(Value::Object(result))
-        });
     }
 }

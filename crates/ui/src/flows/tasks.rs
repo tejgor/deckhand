@@ -30,11 +30,10 @@ use deckhand_core::notes::{MAX_NOTES_CHARS, parse_checklist_line};
 use deckhand_core::sidebar_model::attention_reason_lines;
 use deckhand_core::task_list::{Line, MovePlan, TaskList};
 use deckhand_core::tasks::MAX_TASK_TITLE;
-use deckhand_core::tasks_board::{StepCount, task_state};
 use deckhand_core::text_editor::{EditOptions, EditorLine, EditorState, edit_text, wrap_rows, wrapped_editor_lines};
 use deckhand_core::work_notes::NoteMap;
 use deckhand_protocol::data::{
-    NoteRef, NoteSaveResult, PromoteNoteItemResult, SessionRecord, Task, TaskOp, TasksDoc, WorkNoteKind,
+    NoteRef, NoteSaveResult, PromoteNoteItemResult, SessionRecord, TaskOp, TasksDoc, WorkNoteKind,
 };
 
 use crate::app::state::App;
@@ -42,7 +41,7 @@ use crate::flow::{Flow, FlowCx, FlowEffect};
 use crate::keymap::{Binding, HelpRef, KeySpec, Keymap, NamedKey};
 use crate::press_again::PressAgain;
 use crate::primitives::{
-    Border, Column, Row, Seg, TextStyle, Wrap, bordered, draw_rows, fit_row, space_between, truncate_row, with_base,
+    Border, Column, Row, Seg, TextStyle, Wrap, bordered, fit_row, space_between, truncate_row, with_base,
 };
 use crate::theme::{THEME, color};
 
@@ -391,7 +390,7 @@ fn wrapped(text: &str, width: usize) -> Vec<String> {
 }
 
 /// A brief's date as `14 Nov` (the ISO date when it is not one).
-fn brief_date(at: &str) -> String {
+pub(crate) fn brief_date(at: &str) -> String {
     const MONTHS: [&str; 12] = [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
@@ -551,56 +550,6 @@ pub fn detail_lines(row: Option<&BoardRow>, props: &TasksFlowProps<'_>, width: u
         }
         _ => Vec::new(),
     }
-}
-
-/// The Notes tab's first line for a session on a line: its line, how many more are open (legacy), its lines ticked,
-/// its state, and the board's key.
-#[derive(Clone, Copy, Debug)]
-pub struct TaskBannerProps<'a> {
-    pub task: &'a Task,
-    /// More open tasks on its work.
-    pub more: usize,
-    /// Its lines, ticked of total.
-    pub steps: Option<StepCount>,
-    pub sessions: &'a [&'a SessionRecord],
-    pub spinner_frame: &'a str,
-}
-
-/// The banner's rows (the line and a rule).
-pub fn task_banner_rows(props: &TaskBannerProps<'_>, width: usize) -> Vec<Row> {
-    let state = task_state(props.task, props.sessions, props.spinner_frame, None);
-    let steps = match props.steps {
-        Some(steps) if steps.total > 0 => format!("{}/{} steps · ", steps.done, steps.total),
-        _ => String::new(),
-    };
-    let more = if props.more > 0 {
-        format!("+{} open here · ", props.more)
-    } else {
-        String::new()
-    };
-    let state_text = if state.text.is_empty() {
-        String::new()
-    } else {
-        format!("{} · ", state.text)
-    };
-    let right = format!("{steps}{more}{state_text}b board");
-    let title = truncate(&props.task.title, minus(width, js_len(&right) + 10).max(4));
-    let left = vec![
-        Seg::new("◆ Task", TextStyle::fg(THEME.accent)),
-        Seg::plain(" "),
-        Seg::new(title, TextStyle::fg(THEME.accent_soft).bold(true)),
-    ];
-    let right = vec![Seg::new(right, TextStyle::fg(THEME.muted))];
-    vec![
-        space_between(&left, &right, width),
-        vec![Seg::new("─".repeat(width.max(1)), TextStyle::fg(THEME.border))],
-    ]
-}
-
-/// The banner, drawn.
-pub fn render_task_banner(props: &TaskBannerProps<'_>, buf: &mut Buffer, area: Rect) {
-    let rows = task_banner_rows(props, usize::from(area.width));
-    draw_rows(buf, area, &rows);
 }
 
 /// The board's values (the callbacks are effects: exit, start, go to, open a note, the doc, a note, a session, the
@@ -2337,7 +2286,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::app::event_loop::Dispatch;
     use crate::primitives::{row_text, string_width};
-    use deckhand_protocol::data::{TaskMeta, WorkNote};
+    use deckhand_protocol::data::WorkNote;
     use deckhand_protocol::events::WorkNoteUpdated;
     use ratatui::style::Color;
 
@@ -2811,36 +2760,6 @@ pub(crate) mod tests {
         // Nothing on the right of a backlog line.
         assert_eq!(text("rate"), "  ☐ Rate-limit export");
         assert_eq!(string_width(&text("tok")), 90);
-    }
-
-    #[test]
-    fn the_task_banner_counts_its_lines() {
-        let task = Task {
-            id: TASK_ID.to_owned(),
-            title: "Write the docs".to_owned(),
-            done: false,
-            body: String::new(),
-            meta: TaskMeta {
-                t: Some(TASK_ID.to_owned()),
-                added: Some(DATE.to_owned()),
-                ..TaskMeta::default()
-            },
-        };
-        let props = TaskBannerProps {
-            task: &task,
-            more: 0,
-            steps: Some(StepCount { done: 1, total: 3 }),
-            sessions: &[],
-            spinner_frame: "⠋",
-        };
-        let rows = task_banner_rows(&props, 80);
-        let first = row_text(&rows[0]);
-        assert!(first.starts_with("◆ Task Write the docs"), "{first}");
-        assert!(
-            first.ends_with(&format!("1/3 steps · added {DATE} · b board")),
-            "{first}"
-        );
-        assert_eq!(row_text(&rows[1]), "─".repeat(80));
     }
 
     #[test]
