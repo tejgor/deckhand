@@ -1420,8 +1420,8 @@ impl App {
     /// TS: the useTerminalInput handler: Ctrl+C, the busy gate, then the mode's keys (crates/ui/src/app/modes).
     pub fn handle_input(&mut self, input: &Input) {
         use crate::app::modes::{
-            action_picker, browse, confirm, create, filter, idea, plan, preview_focus, resume, review, search,
-            workspace_info,
+            action_picker, browse, confirm, create, filter, idea, messages, plan, preview_focus, resume, review,
+            search, workspace_info,
         };
         let key = &input.key;
         self.dismiss_notice();
@@ -1515,6 +1515,7 @@ impl App {
             Mode::ConfirmRemove => confirm::handle_confirm_remove(self, input),
             Mode::ConfirmResume => resume::handle_confirm_resume(self, input),
             Mode::ConfirmPlan => plan::handle_confirm_plan(self, input),
+            Mode::Messages => messages::handle_messages(self, input),
             Mode::ChangesFocus => preview_focus::handle_changes_focus(self, input),
             Mode::NotesFocus => preview_focus::handle_notes_focus(self, input),
             Mode::PickFilter => {

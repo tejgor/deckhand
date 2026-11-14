@@ -2,7 +2,7 @@
 //! the selected session's details block). Row contents come from deckhand_core::sidebar_model; this lays them out and
 //! styles them.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -10,6 +10,7 @@ use ratatui::style::Color;
 
 use deckhand_core::agent_versions::InstalledVersions;
 use deckhand_core::display::{THEME as INK_THEME, display_session_title, truncate};
+use deckhand_core::messages_model::MessagesBrief;
 use deckhand_core::session_features::{SESSION_FILTERS, SessionFilterCounts, session_needs_attention};
 use deckhand_core::session_sections::{SessionSection, session_section};
 use deckhand_core::sidebar_model::{
@@ -41,6 +42,9 @@ pub struct FilterMenu {
 /// TS: sidebar.tsx SidebarProps `taskOf`: the task a session works on, for the details block.
 pub type TaskOf<'a> = &'a dyn Fn(&SessionRecord) -> Option<DetailTask>;
 
+/// Not in the TS: a session's messages in brief, for the details block (`None`: it has none).
+pub type MessagesOf<'a> = &'a dyn Fn(&SessionRecord) -> Option<MessagesBrief>;
+
 /// TS: sidebar.tsx SidebarProps (width and height are the area's).
 #[derive(Clone, Copy)]
 pub struct SidebarProps<'a> {
@@ -71,6 +75,10 @@ pub struct SidebarProps<'a> {
     /// Not in the TS: the state view's Exited section is folded (`c`), holding this many exited sessions; `sessions`
     /// lists at most the selected one of them.
     pub folded_exited: Option<usize>,
+    /// Not in the TS: how many messages are held for each session, by ID (`✉N` on its row).
+    pub held_messages: Option<&'a HashMap<String, usize>>,
+    /// Not in the TS: a session's messages, for the details block.
+    pub messages_of: Option<MessagesOf<'a>>,
 }
 
 /// TS: sidebar.tsx visibleSessions: the index range of the rows shown, `available_rows` around the selection.
@@ -278,6 +286,7 @@ pub fn part_style_spec(part: &RowPart, row: &SidebarRow) -> PartStyleSpec {
         | RowRole::Outdated => spec(INK_THEME.muted, true),
         RowRole::Done | RowRole::Agent | RowRole::DevShared | RowRole::Parent => spec(INK_THEME.muted, false),
         RowRole::Dev => spec(INK_THEME.success, false),
+        RowRole::Messages => spec(INK_THEME.accent, false),
         RowRole::Cleanup => spec(INK_THEME.error, false),
         RowRole::Tree | RowRole::Status | RowRole::Title => spec(row.color, false),
         RowRole::Cursor | RowRole::Gap => PartStyleSpec::default(),
@@ -387,6 +396,8 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         .copied();
     let task_for = |session: &SessionRecord| props.task_of.and_then(|task_of| task_of(session));
     let task = selected.and_then(task_for);
+    let messages_for = |session: &SessionRecord| props.messages_of.and_then(|messages_of| messages_of(session));
+    let messages = selected.and_then(messages_for);
     // As many rows as the largest details block of any listed session needs (at most DETAIL_ROWS), so the list keeps
     // its size while the selection moves; sessions with less leave the rest blank.
     let parents = if props.sectioned {
@@ -400,6 +411,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             .iter()
             .map(|session| {
                 let task = task_for(session);
+                let messages = messages_for(session);
                 session_details_with_parent(
                     Some(session),
                     all_sessions,
@@ -408,6 +420,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
                     props.now,
                     props.installed_versions,
                     task.as_ref(),
+                    messages.as_ref(),
                 )
                 .len()
             })
@@ -477,6 +490,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
         shared_dev: true,
         sectioned: props.sectioned,
         parent_names: true,
+        held_messages: props.held_messages,
     });
     // The details take the rows the list leaves free (the ones kept for them when it scrolls).
     let details = if sessions.is_empty() {
@@ -490,6 +504,7 @@ pub fn sidebar_layout(props: &SidebarProps<'_>, width: usize, height: usize) -> 
             props.now,
             props.installed_versions,
             task.as_ref(),
+            messages.as_ref(),
         )
     };
 
@@ -786,6 +801,8 @@ mod tests {
             sectioned: false,
             typing: false,
             folded_exited: None,
+            held_messages: None,
+            messages_of: None,
         }
     }
 
@@ -1169,6 +1186,62 @@ mod tests {
         );
     }
 
+    // Not in the TS: messages waiting for a session mark its row (`✉N`, accent), and its details say so.
+    #[test]
+    fn held_messages_mark_the_row_and_the_details() {
+        let list = vec![
+            session("login", 0, json!({"title": "Login UI"})),
+            session(
+                "tokens",
+                1,
+                json!({"title": "Token storage", "agentStatus": "active",
+                    "attention": {"state": "working", "event": "PreToolUse", "at": ago(1)}}),
+            ),
+        ];
+        let sessions = refs(&list);
+        let held = HashMap::from([("tokens".to_owned(), 2)]);
+        let brief = MessagesBrief {
+            held: 2,
+            last_direction: deckhand_core::messages_model::Direction::Received,
+            last_party: "Login UI".to_owned(),
+            last_created_at: ago(3),
+            last_status: deckhand_protocol::data::MessageStatus::Held,
+        };
+        let messages_of = |session: &SessionRecord| (session.id == "tokens").then(|| brief.clone());
+        let mut props = props(&sessions, "tokens", SessionFilter::All);
+        props.held_messages = Some(&held);
+        props.messages_of = Some(&messages_of);
+        let lines = render(&props, 40, 24);
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("› 2 ⠋ Token storage") && line.contains("✉2 ✶")),
+            "{lines:#?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("✉ 2 waiting · last from Login UI 3m")),
+            "{lines:#?}"
+        );
+        assert_eq!(
+            lines.iter().filter(|line| line.contains('✉')).count(),
+            2,
+            "Login UI has none"
+        );
+        deckhand_testkit::assert_snapshot("fixtures/ui/panes/69-sidebar-messages.txt", &lines.join("\n"));
+        // Not selected, the marker is accent.
+        props.selected_id = Some("login");
+        let unselected = sidebar_layout(&props, 40, 24);
+        let marker = unselected
+            .rows
+            .iter()
+            .flat_map(|row| row.iter())
+            .find(|seg| seg.text == "✉2")
+            .unwrap_or_else(|| panic!("the marker"));
+        assert_eq!(marker.style.color, Some(THEME.accent));
+    }
+
     #[test]
     fn sidebar_with_more_sessions_than_fit_keeps_rows_for_the_details_and_scrolls_the_list() {
         let list = many(40);
@@ -1346,6 +1419,7 @@ mod tests {
                 shared_dev: false,
                 sectioned: false,
                 parent_names: false,
+                held_messages: None,
             })
         };
         let texts = |rows: Vec<SidebarRow>| -> Vec<String> {

@@ -86,7 +86,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "U",
-                text: "Mark its finished reply unread (◆) to come back to it / read again",
+                text: "Mark its finished reply unread (◆) / read again",
             },
             HelpLine::Key {
                 keys: "m  M",
@@ -103,6 +103,10 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             HelpLine::Key {
                 keys: "O",
                 text: "Orchestrator (◎) for a new idea; it plans sessions",
+            },
+            HelpLine::Key {
+                keys: "e",
+                text: "Its messages, newest first (x twice cancels a held one)",
             },
             HelpLine::Note {
                 note: "A fork copies the conversation as saved then, not a turn in progress.",
@@ -143,6 +147,10 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Dev runs in this worktree (first row; muted below)",
             },
             HelpLine::Key {
+                keys: "✉N",
+                text: "N messages wait to be typed into it (e lists its messages)",
+            },
+            HelpLine::Key {
                 keys: "▣ ✓ ☑",
                 text: "Archived · merged · done (Space; its title muted)",
             },
@@ -156,7 +164,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "↑",
-                text: "Runs an older agent version than installed: restart it (x, then s) to update",
+                text: "Older agent version than installed: restart it (x, then s)",
             },
             HelpLine::Key {
                 keys: "╎",

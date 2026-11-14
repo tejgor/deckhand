@@ -1,0 +1,31 @@
+
+  ╭────────────────────────────────────────────────────────────────────────────────────────────╮
+  │                                                                                            │
+  │ Messages · Token storage                                                                   │
+  │ 6 messages, newest first · 2 held until it is idle                                         │
+  │                                                                                            │
+  │   ← you · 4m · held                                                                 f6f6f6 │
+  │     And tell Login UI when it is green.                                                    │
+  │                                                                                            │
+  │   ← you · 5m · held                                                                 e5e5e5 │
+  │     Then rebase on main and run the e2e suite.                                             │
+  │                                                                                            │
+  │ › → you · reply to c3c3c3 · 6m · returned                                           d4d4d4 │
+  │     Done: the old store is read once and deleted.                                          │
+  │     The tests cover both paths.                                                            │
+  │                                                                                            │
+  │   ← you · 7m · answered                                                             c3c3c3 │
+  │     Is the migration done?                                                                 │
+  │     reply d4d4d4                                                                           │
+  │                                                                                            │
+  │   → Login UI · reply to a1a1a1 · 8m · returned                                      b2b2b2 │
+  │     The keychain, through TokenStore::shared().                                            │
+  │                                                                                            │
+  │   ← Login UI · wants an answer · 9m · answered                                      a1a1a1 │
+  │     Which token store does the login form read from?                                       │
+  │     reply b2b2b2                                                                           │
+  │                                                                                            │
+  │ j/k select • esc back                                                                      │
+  │                                                                                            │
+  ╰────────────────────────────────────────────────────────────────────────────────────────────╯
+

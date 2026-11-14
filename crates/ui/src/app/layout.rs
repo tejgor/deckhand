@@ -15,7 +15,10 @@ use ratatui::style::Color;
 use regex::Regex;
 
 use deckhand_core::agent_versions::{installed_versions, update_hint};
-use deckhand_core::display::{HINT_SEPARATOR, HintPart, compact_path, fit_hint, session_path_title, truncate};
+use deckhand_core::display::{
+    HINT_SEPARATOR, HintPart, compact_path, display_session_title, fit_hint, session_path_title, truncate,
+};
+use deckhand_core::messages_model::{MessagesBrief, held_counts, messages_brief};
 use deckhand_core::session_features::{TaskTitleOf, session_filter_counts};
 use deckhand_core::session_lines::{detail_line, line_title};
 use deckhand_core::sidebar_model::{DetailTask, RowRole, SidebarRowsInput, sidebar_rows};
@@ -33,6 +36,7 @@ use crate::app::modes::create::{
     BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, create_base_options, create_stack_branch,
     filtered_worktrees, fork_option_shown, render_create_dialog, render_worktree_picker, top_level_fork_source,
 };
+use crate::app::modes::messages::{MessagesDialogProps, render_messages_dialog, shown_rows, shown_title};
 use crate::app::modes::plan::{PlanDialogProps, plan_waiting_hidden, render_plan_dialog};
 use crate::app::modes::resume::{ResumeDialogProps, ResumeKind, render_resume_dialog};
 use crate::app::state::{App, DialogState, Mode, TerminalSize};
@@ -260,6 +264,7 @@ pub fn footer_hint(input: &FooterHintInput<'_>) -> String {
         | Mode::ConfirmRemove
         | Mode::ConfirmResume
         | Mode::ConfirmPlan
+        | Mode::Messages
         | Mode::Worktrees
         | Mode::Search
         | Mode::EnterIdea => String::new(),
@@ -586,6 +591,7 @@ pub fn measure_sidebar(app: &mut App, derived: &Derived) {
         shared_dev: true,
         sectioned: app.sectioned(),
         parent_names: true,
+        held_messages: None,
     });
     app.browse.sidebar_content = widths.into_iter().max();
 }
@@ -603,6 +609,18 @@ fn render_sidebar_for(app: &App, derived: &Derived, buf: &mut Buffer, area: Rect
     let list = app.task_list();
     let task_of: &dyn Fn(&SessionRecord) -> Option<DetailTask> =
         &|session: &SessionRecord| detail_line(&list, &session.id);
+    // Not in the TS: messages waiting for each session (`✉N`), and the selected one's in brief.
+    let messages = &app.data.session_messages;
+    let held = held_counts(messages.values());
+    let title_of = |id: &str| {
+        derived
+            .sessions
+            .iter()
+            .find(|session| session.id == id)
+            .map(|session| display_session_title(session, &derived.sessions))
+    };
+    let messages_of: &dyn Fn(&SessionRecord) -> Option<MessagesBrief> =
+        &|session: &SessionRecord| messages_brief(messages.values(), &session.id, &title_of);
     // Only while the filter menu is open: how many rows each filter would list.
     let filter_menu = (app.mode == Mode::PickFilter).then(|| {
         let title = |session: &SessionRecord| line_title(&list, &session.id);
@@ -629,6 +647,8 @@ fn render_sidebar_for(app: &App, derived: &Derived, buf: &mut Buffer, area: Rect
         sectioned: app.sectioned(),
         typing: app.mode.types_into_pane(),
         folded_exited: app.folded_exited_count(&derived.sessions),
+        held_messages: Some(&held),
+        messages_of: Some(messages_of),
     };
     render_sidebar(&props, buf, area);
 }
@@ -836,6 +856,22 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                 };
                 app.dialog.last = render_plan_dialog(&props, buf, right, view);
             }
+        }
+        Mode::Messages => {
+            let (rows, selected) = shown_rows(app);
+            let session_id = app.messages_view.session_id.clone().unwrap_or_default();
+            let title = shown_title(app);
+            let props = MessagesDialogProps {
+                title: &title,
+                session_id: &session_id,
+                rows: &rows,
+                selected,
+                cancelling: app.messages_view.cancelling.as_deref(),
+            };
+            let (scroll, last) = render_messages_dialog(&props, buf, right, view, app.messages_view.follow);
+            app.dialog.scroll = scroll;
+            app.dialog.last = last;
+            app.messages_view.follow = false;
         }
         Mode::WorkspaceInfo | Mode::ReviewProject | Mode::ConfirmLoss => {
             if let Some(details) = app.details_content() {
@@ -1333,6 +1369,7 @@ mod tests {
             shared_dev: true,
             sectioned: false,
             parent_names: false,
+            held_messages: None,
         });
         assert_eq!(widths[1] - widths[0], 13);
         let rendered = sidebar_rows(&SidebarRowsInput {
@@ -1350,6 +1387,7 @@ mod tests {
             shared_dev: true,
             sectioned: false,
             parent_names: false,
+            held_messages: None,
         });
         // At that width the longer title shows whole.
         assert!(
@@ -1433,6 +1471,7 @@ mod tests {
             shared_dev: true,
             sectioned: false,
             parent_names: false,
+            held_messages: None,
         });
         let text: String = drawn[0].parts.iter().map(|part| part.text.as_str()).collect();
         assert!(

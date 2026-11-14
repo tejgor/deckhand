@@ -16,6 +16,7 @@ pub mod key;
 pub mod lines_board;
 pub mod merge_model;
 pub mod merge_stack;
+pub mod messages_model;
 pub mod notes;
 pub mod orchestrator_guide;
 pub mod plan;

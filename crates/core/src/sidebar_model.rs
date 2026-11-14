@@ -12,6 +12,7 @@ use crate::display::{
     wrap_words,
 };
 use crate::jsstr::{date, js_len, js_pad_end, js_pad_start, js_slice, js_trim, path};
+use crate::messages_model::{MESSAGE_MARKER, MessagesBrief, brief_text};
 use crate::notes::{checklist_counts, fit_first};
 use crate::session_features::{
     SESSION_FILTERS, SessionFilter, SessionFilterCounts, filter_session_list, session_blocked, session_filter_key,
@@ -71,6 +72,10 @@ pub enum RowRole {
     /// Not in the TS: ` · parent title` after a sub-session listed apart from its parent (muted, cut first).
     #[serde(rename = "parent")]
     Parent,
+    /// Not in the TS: `✉N`: N messages from other sessions (or you) wait to be typed into it
+    /// ([`crate::messages_model`]).
+    #[serde(rename = "messages")]
+    Messages,
 }
 
 /// TS: sidebarModel.ts RowPart.
@@ -113,14 +118,16 @@ pub const ORCHESTRATOR_MARKER: &str = "◎";
 pub const MIN_TITLE: usize = 4;
 
 /// TS: sidebarModel.ts DROP_ORDER (suffix markers dropped first to last; the agent stays). Not in the TS: `2/3 in`
-/// goes early, being the widest marker and spelled out again in the details.
-pub const DROP_ORDER: [RowRole; 9] = [
+/// goes early, being the widest marker and spelled out again in the details. `✉N` (messages waiting) outlasts `✓` and
+/// `☑`: it is about to change what the agent does, while those are settled and repeated in the details.
+pub const DROP_ORDER: [RowRole; 10] = [
     RowRole::DevShared,
     RowRole::Integrated,
     RowRole::Outdated,
     RowRole::Count,
     RowRole::Merged,
     RowRole::Done,
+    RowRole::Messages,
     RowRole::Archived,
     RowRole::Cleanup,
     RowRole::Dev,
@@ -154,6 +161,9 @@ pub struct SidebarRowsInput<'a> {
     /// Not in the TS: outside the state view, a sub-session listed apart from its parent names it after its title
     /// (` · parent`).
     pub parent_names: bool,
+    /// Not in the TS: how many messages are held for each session, by ID ([`crate::messages_model::held_counts`]):
+    /// `✉N` on its row.
+    pub held_messages: Option<&'a HashMap<String, usize>>,
 }
 
 /// UTF-16 length as a JS number (widths here go negative).
@@ -484,6 +494,13 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
             prefix.insert(prefix.len() - 1, part(tree, RowRole::Tree));
         }
         let mut suffix = Vec::new();
+        if let Some(held) = input
+            .held_messages
+            .and_then(|held| held.get(&session.id))
+            .filter(|held| **held > 0)
+        {
+            suffix.push(part(format!("{MESSAGE_MARKER}{held}"), RowRole::Messages));
+        }
         // The TS puts ▶ first; the port (`shared_dev`) puts it last, beside the agent glyph.
         if let Some(role) = dev.filter(|_| !input.shared_dev) {
             suffix.push(part("▶", role));
@@ -1074,12 +1091,15 @@ pub fn session_details<S: SessionLike>(
         now_ms,
         installed_versions,
         task,
-        false,
+        None,
     )
 }
 
 /// Not in the TS: [`session_details`] with a sub-session's parent named after the location (`↳ sub-session of …`):
-/// the sidebar lists a sub-session apart from its parent in sections by state.
+/// the sidebar lists a sub-session apart from its parent in sections by state. Also its messages
+/// (`✉ 2 waiting · last from …`, [`crate::messages_model::brief_text`]), in a row the line it is on leaves, before the
+/// checklist line.
+#[allow(clippy::too_many_arguments)]
 pub fn session_details_with_parent<S: SessionLike>(
     session: Option<&SessionRecord>,
     all_sessions: &[S],
@@ -1088,6 +1108,7 @@ pub fn session_details_with_parent<S: SessionLike>(
     now_ms: i64,
     installed_versions: Option<&InstalledVersions>,
     task: Option<&DetailTask>,
+    messages: Option<&MessagesBrief>,
 ) -> Vec<DetailLine> {
     details(
         session,
@@ -1097,7 +1118,7 @@ pub fn session_details_with_parent<S: SessionLike>(
         now_ms,
         installed_versions,
         task,
-        true,
+        Some(messages),
     )
 }
 
@@ -1110,8 +1131,10 @@ fn details<S: SessionLike>(
     now_ms: i64,
     installed_versions: Option<&InstalledVersions>,
     task: Option<&DetailTask>,
-    parents: bool,
+    // `Some` for the sidebar's details: the parent's line, and the messages when it has any.
+    sidebar: Option<Option<&MessagesBrief>>,
 ) -> Vec<DetailLine> {
+    let parents = sidebar.is_some();
     let Some(session) = session else {
         return Vec::new();
     };
@@ -1182,6 +1205,13 @@ fn details<S: SessionLike>(
             js_slice(&format!("{head}{tail}"), 0, Some(jnum(width))),
             THEME.accent_soft,
         )]);
+    }
+    // Not in the TS: messages waiting for it, and its latest; kept longer than the checklist line below.
+    if let Some(brief) = sidebar.flatten()
+        && room(&lines) >= 1
+    {
+        let tone = if brief.held > 0 { THEME.accent } else { THEME.muted };
+        lines.push(vec![detail(brief_text(brief, now_ms, width), tone)]);
     }
     // Open checklist items of its note: the first line to go when rows are short.
     if let Some(checklist) = own_checklist_text(session, width).filter(|text| !text.is_empty())
@@ -1569,6 +1599,7 @@ mod tests {
                     shared_dev: false,
                     sectioned: false,
                     parent_names: false,
+                    held_messages: None,
                 }))
             },
         );
@@ -1738,6 +1769,7 @@ mod tests {
         shared_dev: bool,
         sectioned: bool,
         parent_names: bool,
+        held: Option<HashMap<String, usize>>,
     }
 
     fn rows_of(rows: &[&SessionRecord], opts: Opts<'_>) -> Vec<SidebarRow> {
@@ -1756,6 +1788,7 @@ mod tests {
             shared_dev: opts.shared_dev,
             sectioned: opts.sectioned,
             parent_names: opts.parent_names,
+            held_messages: opts.held.as_ref(),
         })
     }
 
@@ -1983,6 +2016,104 @@ mod tests {
         assert_eq!(roles, [Some(RowRole::Dev), Some(RowRole::DevShared), None]);
         // The muted ones go first when the row is too narrow.
         assert_eq!(DROP_ORDER[0], RowRole::DevShared);
+    }
+
+    // Not in the TS: messages waiting to be typed into a session mark its row, and outlast ✓ and ☑ when it is narrow.
+    #[test]
+    fn held_messages_mark_the_row_and_outlast_merged_and_done() {
+        let waiting = sess(
+            "auth",
+            json!({"title": "auth refactor", "mergedAt": ago(1), "doneAt": ago(1)}),
+        );
+        let quiet = sess("tests", json!({"title": "tests"}));
+        let held = HashMap::from([("auth".to_owned(), 2), ("tests".to_owned(), 0)]);
+        let rows = [&waiting, &quiet];
+        let at = |width: usize| {
+            texts(
+                &rows,
+                Opts {
+                    width: Some(width),
+                    held: Some(held.clone()),
+                    ..Opts::default()
+                },
+            )
+        };
+        assert_eq!(
+            at(32),
+            ["  1 ● auth refactor     ✉2 ✓ ☑ ✶", "  2 ● tests                    ✶"]
+        );
+        let parts = rows_of(
+            &rows,
+            Opts {
+                held: Some(held.clone()),
+                ..Opts::default()
+            },
+        );
+        assert!(
+            parts[0]
+                .parts
+                .iter()
+                .any(|part| part.text == "✉2" && part.role == RowRole::Messages)
+        );
+        // Narrower, the title is cut down to a few columns first; then ✓ goes, then ☑, and ✉ last.
+        assert_eq!(at(26)[0], "  1 ● auth refac… ✉2 ✓ ☑ ✶");
+        assert_eq!(at(18)[0], "  1 ● auth… ✉2 ☑ ✶");
+        assert_eq!(at(16)[0], "  1 ● auth… ✉2 ✶");
+        assert_eq!(at(13)[0], "  1 ● auth… ✶");
+        assert!(
+            DROP_ORDER.iter().position(|role| *role == RowRole::Messages)
+                > DROP_ORDER.iter().position(|role| *role == RowRole::Done)
+        );
+        // Without the counts, nothing.
+        assert_eq!(texts(&rows, Opts::default())[0].matches('✉').count(), 0);
+    }
+
+    // Not in the TS: the details say what messages wait for the session, before the checklist line, which goes first.
+    #[test]
+    fn the_details_say_what_messages_wait_before_the_checklist() {
+        let session = sess(
+            "auth",
+            json!({"title": "auth refactor", "notes": "- [ ] one\n- [ ] two"}),
+        );
+        let all = [&session];
+        let brief = MessagesBrief {
+            held: 2,
+            last_direction: crate::messages_model::Direction::Received,
+            last_party: "Login UI".to_owned(),
+            last_created_at: ago(3),
+            last_status: deckhand_protocol::data::MessageStatus::Answered,
+        };
+        let lines = |rows: usize, brief: Option<&MessagesBrief>| {
+            line_texts(&session_details_with_parent(
+                Some(&session),
+                &all,
+                48,
+                rows,
+                NOW,
+                None,
+                None,
+                brief,
+            ))
+        };
+        let full = lines(10, Some(&brief));
+        assert_eq!(
+            full[full.len() - 2..],
+            ["✉ 2 waiting · last from Login UI 3m (answered)", "☐ 2 open"]
+        );
+        // One row short: the checklist gives way, the messages stay.
+        let short = lines(full.len() - 1, Some(&brief));
+        assert_eq!(
+            short.last().map(String::as_str),
+            Some("✉ 2 waiting · last from Login UI 3m (answered)")
+        );
+        // No messages: no line.
+        assert!(!lines(10, None).iter().any(|line| line.contains('✉')));
+        // The details outside the sidebar (session_details) never show it.
+        assert!(
+            !line_texts(&session_details(Some(&session), &all, 48, 10, NOW, None, None))
+                .iter()
+                .any(|line| line.contains('✉'))
+        );
     }
 
     #[test]
@@ -2230,7 +2361,9 @@ mod tests {
         let all = refs(&list);
         let of = |id: &str, width: usize| -> Vec<String> {
             let session = all.iter().copied().find(|session| session.id == id);
-            line_texts(&session_details_with_parent(session, &all, width, 10, NOW, None, None))
+            line_texts(&session_details_with_parent(
+                session, &all, width, 10, NOW, None, None, None,
+            ))
         };
         // c is a fork of a (working); b a clean sub-session. Narrow, the state goes before the name is cut short.
         assert!(
@@ -2301,7 +2434,9 @@ mod tests {
         let all = refs(&list);
         let of = |id: &str, width: usize| -> Vec<String> {
             let session = all.iter().copied().find(|session| session.id == id);
-            line_texts(&session_details_with_parent(session, &all, width, 10, NOW, None, None))
+            line_texts(&session_details_with_parent(
+                session, &all, width, 10, NOW, None, None, None,
+            ))
         };
         assert!(
             of("o", 48).contains(&"◎ orchestrator · plans and dispatches sessions".to_owned()),
@@ -2353,6 +2488,7 @@ mod tests {
                 48,
                 10,
                 NOW,
+                None,
                 None,
                 None,
             ))
@@ -3087,6 +3223,7 @@ mod tests {
                 NOW,
                 None,
                 None,
+                None,
             ))
         };
         let find = |id: &str| all.iter().copied().find(|session| session.id == id).unwrap();
@@ -3104,6 +3241,7 @@ mod tests {
             40,
             10,
             NOW,
+            None,
             None,
             None,
         ));
@@ -3130,6 +3268,7 @@ mod tests {
             NOW,
             None,
             None,
+            None,
         ));
         assert!(narrow.iter().any(|line| line == "→ feat/auth (wa…"), "{narrow:?}");
     }
@@ -3145,6 +3284,7 @@ mod tests {
                 34,
                 rows,
                 NOW,
+                None,
                 None,
                 None,
             ))

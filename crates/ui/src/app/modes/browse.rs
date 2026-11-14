@@ -132,6 +132,11 @@ pub static KEYMAP: Keymap = &[
         help: HelpRef::Topic("Find & organize"),
     },
     Binding {
+        keys: &[KeySpec::Char("e")],
+        action: "the selected session's messages",
+        help: HelpRef::Topic("Sessions"),
+    },
+    Binding {
         keys: &[KeySpec::Named(NamedKey::Right), KeySpec::Char("l")],
         action: "step into the pane",
         help: HelpRef::Topic("Panes"),
@@ -422,6 +427,10 @@ pub fn handle_browse(app: &mut App, input: &Input) {
     }
     if text == "R" {
         refresh_sessions(app);
+        return;
+    }
+    if text == "e" && selected.is_some() {
+        crate::app::modes::messages::open(app);
         return;
     }
     // → / l steps into the pane (scroll the preview, browse the changes, edit the notes); ← / h is back out (Esc too).
@@ -1438,7 +1447,10 @@ pub fn refresh_sessions(app: &mut App) {
     };
     let reply = client.subscribe(&app.props.repo_root);
     drop(app.dispatch().spawn(reply, |app: &mut App, result| match result {
-        Ok(latest) => app.set_repo_sessions(latest),
+        Ok(latest) => {
+            app.set_repo_sessions(latest);
+            crate::app::modes::messages::load(app);
+        }
         Err(error) => app.set_error(Some(error.to_string())),
     }));
 }
@@ -2726,6 +2738,12 @@ pub(crate) mod tests {
             daemon.ok(&request, json!([json_of(&fresh)])).await;
             apply(&mut app, &mut rx).await;
             assert_eq!(app.data.repo_sessions.len(), 1);
+            // The messages are listed again with the sessions.
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "list-messages");
+            assert_eq!(request["repoRoot"], "/repo");
+            daemon.ok(&request, json!([])).await;
+            apply(&mut app, &mut rx).await;
 
             let mut exited = session("s9", "Fresh", SessionStatus::Exited);
             app.data.repo_sessions = vec![exited.clone()];

@@ -286,7 +286,7 @@ mod tests {
     }
 
     use crate::app::modes::{
-        action_picker, browse, confirm, create, filter, idea, plan, preview_focus, resume, review, search,
+        action_picker, browse, confirm, create, filter, idea, messages, plan, preview_focus, resume, review, search,
         workspace_info,
     };
     use crate::flows::{agents, changes, notes, settings, tasks, worktrees};
@@ -309,6 +309,7 @@ mod tests {
             ("confirm-remove", confirm::REMOVE_KEYMAP),
             ("confirm-resume", resume::KEYMAP),
             ("confirm-plan", plan::KEYMAP),
+            ("messages", messages::KEYMAP),
             ("agents", agents::KEYMAP),
             ("notes", notes::KEYMAP),
             ("settings", settings::KEYMAP),
@@ -351,6 +352,22 @@ mod tests {
             "Worktrees keys missing from the Worktrees help topic: {}",
             missing.join(" ")
         );
+    }
+
+    #[test]
+    fn the_messages_views_documented_keys_are_in_their_topic() {
+        for binding in messages::KEYMAP {
+            if let HelpRef::Topic(title) = binding.help {
+                let words = find_topic(title).map(topic_words).unwrap_or_default();
+                for key in binding.keys {
+                    if let KeySpec::Char(text) = key {
+                        assert!(words.contains(text), "{title} is missing the messages view's {text}");
+                    }
+                }
+            }
+        }
+        // `e` opens it from the session list, as the guide says.
+        assert!(topic_words(find_topic("Sessions").expect("a Sessions topic")).contains("e"));
     }
 
     #[test]

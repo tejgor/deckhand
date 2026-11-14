@@ -9,8 +9,8 @@ with ratatui's `TestBackend` and compare with `deckhand_testkit::assert_snapshot
   pending trust and narrow-column or choice-editor states.
 - `panes/<nn>-<name>.txt`: the right pane of the 130x36 app (98x31) drawn by `app/modes/confirm.rs`,
   `app/modes/create.rs`, `app/modes/action_picker.rs`, `flows/tasks.rs` and `panes/preview.rs`, at an explicit 98x31
-  size (`app/modes/plan.rs` draws the plan confirmation the same way; `panes/sidebar.rs` draws `66-sidebar-ideas`, a
-  40x24 sidebar, instead). A tasks snapshot also holds the footer
-  hint (after `── hint`) and the styled runs of every row (after `── styles`: `start..end` in columns, then `fg`/`bg`
-  and the modifiers that are set). The interactive Preview's (`60-preview-interactive`) holds its styled runs too,
-  then the terminal cursor's `x,y` (after `── cursor`).
+  size (`app/modes/plan.rs` draws the plan confirmation and `app/modes/messages.rs` the messages view the same way;
+  `panes/sidebar.rs` draws `66-sidebar-ideas` and `69-sidebar-messages`, a 40x24 sidebar, instead). A tasks snapshot
+  also holds the footer hint (after `── hint`) and the styled runs of every row (after `── styles`: `start..end` in
+  columns, then `fg`/`bg` and the modifiers that are set). The interactive Preview's (`60-preview-interactive`) holds
+  its styled runs too, then the terminal cursor's `x,y` (after `── cursor`).

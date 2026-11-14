@@ -16,9 +16,9 @@ use deckhand_core::display::HintPart;
 use deckhand_core::task_list::TaskList;
 use deckhand_core::work_notes::NoteMap;
 use deckhand_protocol::data::{
-    ActionRecord, AgentVersions, BranchList, ChangesRecord, DevRecord, JsNumber, MergePreview, PreviewRecord,
-    ProjectInfo, RightPaneTab, SessionCleanupInspection, SessionRecord, SubSessionKind, Task, TasksDoc, TerminalRecord,
-    UiExitResult, WorkspaceSummary, WorktreeInfoRecord, WorktreeMergeResult, WorktreeMode,
+    ActionRecord, AgentVersions, BranchList, ChangesRecord, DevRecord, JsNumber, MergePreview, MessageRecord,
+    PreviewRecord, ProjectInfo, RightPaneTab, SessionCleanupInspection, SessionRecord, SubSessionKind, Task, TasksDoc,
+    TerminalRecord, UiExitResult, WorkspaceSummary, WorktreeInfoRecord, WorktreeMergeResult, WorktreeMode,
 };
 use deckhand_protocol::records::{SessionFilter, SessionView};
 use deckhand_sys::async_util::{Interval, Task as LocalTask, Timer};
@@ -70,11 +70,13 @@ pub enum Mode {
     ConfirmPlan,
     /// Not in the TS: `O`'s one-line prompt, "What do you want to do?": a new orchestrator for the idea.
     EnterIdea,
+    /// Not in the TS: `e`, the selected session's messages (sent, received, and replies to yours).
+    Messages,
 }
 
 impl Mode {
     /// Every mode, in the TS union's order (then the port's own).
-    pub const ALL: [Mode; 28] = [
+    pub const ALL: [Mode; 29] = [
         Mode::Browse,
         Mode::PreviewFocus,
         Mode::ChangesFocus,
@@ -103,6 +105,7 @@ impl Mode {
         Mode::ConfirmResume,
         Mode::ConfirmPlan,
         Mode::EnterIdea,
+        Mode::Messages,
     ];
 
     /// The TS name (`'preview-focus'`, ...).
@@ -136,6 +139,7 @@ impl Mode {
             Mode::ConfirmResume => "confirm-resume",
             Mode::ConfirmPlan => "confirm-plan",
             Mode::EnterIdea => "enter-idea",
+            Mode::Messages => "messages",
         }
     }
 
@@ -176,6 +180,7 @@ impl Mode {
                 | Mode::ConfirmRemove
                 | Mode::ConfirmResume
                 | Mode::ConfirmPlan
+                | Mode::Messages
         )
     }
 
@@ -350,6 +355,9 @@ pub struct RepoData {
     /// The list's line notes, briefs and scratchpad (`watch-tasks`' answer, then `work-note-updated` and save answers).
     /// Session notes come with the sessions.
     pub work_notes: NoteMap,
+    /// Not in the TS: the messages between the repository's sessions the daemon keeps, by ID (`list-messages` after
+    /// each `subscribe`, then `messages-updated`).
+    pub session_messages: IndexMap<String, MessageRecord>,
 }
 
 /// The footer's messages and the busy gate.
@@ -678,6 +686,8 @@ pub struct App {
     pub resume: crate::app::modes::resume::ResumeState,
     /// Not in the TS: orchestrator plans waiting for an answer (confirm-plan).
     pub plans: crate::app::modes::plan::PlanState,
+    /// Not in the TS: the messages view (`e`).
+    pub messages_view: crate::app::modes::messages::MessagesViewState,
     pub create: CreateState,
     /// Not in the TS: the open dialog's body scroll (J/K, PgUp/PgDn).
     pub dialog: DialogState,
@@ -785,6 +795,7 @@ impl App {
                 reattach: props.plan_reattach.clone(),
                 ..Default::default()
             },
+            messages_view: Default::default(),
             dialog: DialogState::default(),
             create: CreateState {
                 program_index: 0,
@@ -864,7 +875,8 @@ mod tests {
                 "terminal-focus",
                 "confirm-resume",
                 "confirm-plan",
-                "enter-idea"
+                "enter-idea",
+                "messages"
             ]
         );
         for mode in Mode::ALL {

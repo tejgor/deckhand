@@ -589,6 +589,8 @@ pub fn connect(app: &mut App) {
                 app.set_repo_sessions(sessions);
                 app.data.sessions_loaded = true;
                 app.set_error(None);
+                // Not in the TS: the messages between its sessions; `messages-updated` follows them from here.
+                crate::app::modes::messages::load(app);
                 // Not in the TS: the sessions the daemon's last stop interrupted, offered for resuming.
                 crate::app::modes::resume::offer_interrupted(app);
             });
@@ -694,6 +696,7 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
     let work_note_updated = on();
     let plan_pending = on();
     let plan_settled = on();
+    let messages_updated = on();
     let error = on();
     let close = on();
     LiveClientHandlers {
@@ -792,8 +795,10 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
         on_plan_settled: Some(Box::new(move |settled| {
             plan_settled.update(move |app: &mut App| crate::app::modes::plan::plan_settled(app, &settled));
         })),
-        // Messages between sessions are not shown yet.
-        on_messages_updated: None,
+        // Not in the TS: messages between sessions (crates/ui/src/app/modes/messages.rs).
+        on_messages_updated: Some(Box::new(move |messages| {
+            messages_updated.update(move |app: &mut App| crate::app::modes::messages::messages_updated(app, messages));
+        })),
     }
 }
 
