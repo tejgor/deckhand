@@ -5,8 +5,13 @@
 //! {"sessions": [{"key": "auth", "title": "Auth rework", "prompt": "…", "agent": "claude", "parent": null,
 //!                "worktree": "new", "base": null, "flat": false, "task": null},
 //!               {"key": "tokens", "title": "Token storage", "prompt": "…", "parent": "auth"}],
-//!  "tasks": [{"title": "Remove legacy endpoint", "details": "After Auth rework merges: …"}]}
+//!  "tasks": [{"title": "Remove legacy endpoint", "details": "After Auth rework merges: …"}],
+//!  "brief": "What was agreed: …"}
 //! ```
+//!
+//! An orchestrator's plan ([`PlanContext::orchestrator`]) belongs to its idea: entries without a parent become the
+//! orchestrator's sub-sessions, tasks become lines under the idea's line and `brief` is that line's brief. Run by
+//! hand, entries without a parent are top-level, tasks go to the backlog, and there is no idea for a brief.
 //!
 //! Validation reports every problem at once, each naming its entry, so a plan is fixed in one go. Nothing here does
 //! I/O: what it needs from Git and the daemon comes in [`PlanContext`].
@@ -20,9 +25,13 @@ use deckhand_protocol::data::{
 use serde_json::{Map, Value};
 
 use crate::jsstr::{js_collapse_whitespace, js_len, js_trim};
+use crate::notes::{MAX_NOTES_CHARS, MAX_NOTES_LABEL};
 
 /// The longest session title the daemon takes (UTF-16 units).
 pub const MAX_TITLE: usize = 64;
+
+/// The keys a plan may have.
+pub const PLAN_KEYS: &[&str] = &["sessions", "tasks", "brief"];
 
 /// The keys a plan session may have.
 pub const SESSION_KEYS: &[&str] = &[
@@ -45,6 +54,9 @@ pub struct PlanContext<'a> {
     pub stack_branches: &'a HashMap<String, String>,
     /// `base` values that name no commit in the repository.
     pub missing_bases: &'a [String],
+    /// The orchestrator applying (or checking) the plan, whose idea it belongs to; `None` run by hand, or from a
+    /// session that is not an orchestrator.
+    pub orchestrator: Option<&'a SessionRecord>,
 }
 
 /// A validated plan session's parent.
@@ -56,7 +68,8 @@ pub enum PlanParent {
     Session(String),
 }
 
-/// A plan that passed validation: sessions in creation order (each after its parent), their parents resolved, and
+/// A plan that passed validation (a session's parent `None`: top-level, or in an orchestrator's plan under the
+/// orchestrator): sessions in creation order (each after its parent), their parents resolved, and
 /// the summary (its sessions in the same order).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ValidPlan {
@@ -245,7 +258,7 @@ pub fn validate_plan(raw: &Value, cx: &PlanContext<'_>) -> Result<ValidPlan, Vec
             "the plan must be a JSON object with \"sessions\" and \"tasks\"".to_owned(),
         ]);
     };
-    unknown_keys(top, &["sessions", "tasks"], "the plan", &mut problems);
+    unknown_keys(top, PLAN_KEYS, "the plan", &mut problems);
     let list = |name: &str, problems: &mut Vec<String>| match top.get(name) {
         None | Some(Value::Null) => Vec::new(),
         Some(Value::Array(items)) => items.clone(),
@@ -256,7 +269,18 @@ pub fn validate_plan(raw: &Value, cx: &PlanContext<'_>) -> Result<ValidPlan, Vec
     };
     let raw_sessions = list("sessions", &mut problems);
     let raw_tasks = list("tasks", &mut problems);
-    if raw_sessions.is_empty() && raw_tasks.is_empty() && problems.is_empty() {
+    let brief = text_field(top, "brief", "the plan", &mut problems).filter(|brief| !js_trim(brief).is_empty());
+    if let Some(brief) = brief.as_deref() {
+        if cx.orchestrator.is_none() {
+            problems.push(
+                "the plan: brief is the idea's brief, so only an orchestrator's plan has one (leave it out)".to_owned(),
+            );
+        }
+        if js_len(brief) > MAX_NOTES_CHARS {
+            problems.push(format!("the plan: brief is longer than {MAX_NOTES_LABEL}"));
+        }
+    }
+    if raw_sessions.is_empty() && raw_tasks.is_empty() && brief.is_none() && problems.is_empty() {
         problems.push("the plan has no sessions and no tasks".to_owned());
     }
     let entries: Vec<Entry> = raw_sessions
@@ -436,12 +460,15 @@ pub fn validate_plan(raw: &Value, cx: &PlanContext<'_>) -> Result<ValidPlan, Vec
     }
     let position: HashMap<usize, usize> = order.iter().enumerate().map(|(at, index)| (*index, at)).collect();
 
-    // Paths, for clashes with active sessions and between siblings.
+    // Paths, for clashes with active sessions and between siblings. In an orchestrator's plan, a root goes under it.
     let mut paths: Vec<String> = vec![String::new(); entries.len()];
     for &index in &order {
         let title = entries[index].title.clone().unwrap_or_default();
         paths[index] = match &named[index] {
-            None => title,
+            None => match cx.orchestrator {
+                Some(orchestrator) => format!("{} / {title}", path_of(orchestrator)),
+                None => title,
+            },
             Some(Named::Entry(parent)) => format!("{} / {title}", paths[*parent]),
             Some(Named::Session(id)) => {
                 let parent = cx.sessions.iter().find(|session| session.id == *id);
@@ -576,10 +603,61 @@ pub fn validate_plan(raw: &Value, cx: &PlanContext<'_>) -> Result<ValidPlan, Vec
             sessions: summary_entries,
             tasks: tasks.clone(),
             counts,
+            idea: cx.orchestrator.map(|orchestrator| path_of(orchestrator).to_owned()),
+            brief: brief.clone(),
         },
-        plan: Plan { sessions, tasks },
+        plan: Plan { sessions, tasks, brief },
         parents,
     })
+}
+
+/// An orchestrator's title from its idea: the first line with text, control characters dropped and spaces
+/// collapsed. Past [`MAX_TITLE`] it is cut at a word (where that keeps at least half of it) and ends with `…`.
+/// `Orchestrator` when there is no text.
+pub fn idea_title(idea: &str) -> String {
+    let line = idea
+        .lines()
+        .map(|line| line.chars().filter(|c| !c.is_control()).collect::<String>())
+        .map(|line| js_collapse_whitespace(js_trim(&line)))
+        .find(|line| !line.is_empty());
+    let Some(line) = line else {
+        return "Orchestrator".to_owned();
+    };
+    if js_len(&line) <= MAX_TITLE {
+        return line;
+    }
+    let room = MAX_TITLE - 1;
+    let mut units = 0;
+    let mut kept = String::new();
+    for c in line.chars() {
+        units += c.len_utf16();
+        if units > room {
+            break;
+        }
+        kept.push(c);
+    }
+    if let Some(space) = kept.rfind(' ')
+        && js_len(&kept[..space]) >= room / 2
+    {
+        kept.truncate(space);
+    }
+    format!("{}…", kept.trim_end())
+}
+
+/// `base` numbered `n` (`Rework auth 2`), cut so the number fits in [`MAX_TITLE`]: for a title an active session
+/// already has.
+pub fn numbered_title(base: &str, n: usize) -> String {
+    let suffix = format!(" {n}");
+    let room = MAX_TITLE.saturating_sub(js_len(&suffix));
+    let mut units = 0;
+    let cut: String = base
+        .chars()
+        .take_while(|c| {
+            units += c.len_utf16();
+            units <= room
+        })
+        .collect();
+    format!("{}{suffix}", cut.trim_end())
 }
 
 /// `3 sessions, 1 task` (a zero count is left out, unless both are).
@@ -667,10 +745,13 @@ pub fn entry_line(entry: &PlanSummaryEntry) -> PlanEntryLine {
     }
 }
 
-/// The summary as text lines, for the terminal and the confirmation: the tree ([`entry_line`]: `◇ Title  (where ·
-/// agent)`); the tasks; the counts.
+/// The summary as text lines, for the terminal: the idea it goes under, if any; the tree ([`entry_line`]: `◇ Title
+/// (where · agent)`); the tasks (parked under the idea, or for the backlog); the idea's brief; the counts.
 pub fn summary_lines(summary: &PlanSummary) -> Vec<String> {
     let mut lines = Vec::new();
+    if let Some(idea) = summary.idea.as_deref() {
+        lines.push(format!("Under ◎ {idea}:"));
+    }
     for entry in &summary.sessions {
         let line = entry_line(entry);
         lines.push(format!(
@@ -681,8 +762,16 @@ pub fn summary_lines(summary: &PlanSummary) -> Vec<String> {
             line.detail
         ));
     }
+    let parked = if summary.idea.is_some() { "Parked" } else { "Backlog" };
     for task in &summary.tasks {
-        lines.push(format!("☐ Backlog: {}", task.title));
+        lines.push(format!("☐ {parked}: {}", task.title));
+    }
+    if let Some(brief) = summary.brief.as_deref() {
+        let count = brief.trim_end().lines().count();
+        lines.push(format!(
+            "✎ The idea's brief ({count} {})",
+            if count == 1 { "line" } else { "lines" }
+        ));
     }
     lines.push(summary.counts.clone());
     lines
@@ -732,6 +821,7 @@ mod tests {
         stack: HashMap<String, String>,
         missing: Vec<String>,
         default_agent: Option<ProgramKey>,
+        orchestrator: Option<SessionRecord>,
     }
 
     impl Fixture {
@@ -744,6 +834,7 @@ mod tests {
                 stack: HashMap::from([("1f2e3d4c-lead".to_owned(), "fix-login".to_owned())]),
                 missing: vec!["nope".to_owned()],
                 default_agent: None,
+                orchestrator: None,
             }
         }
 
@@ -754,7 +845,18 @@ mod tests {
                 default_agent: self.default_agent,
                 stack_branches: &self.stack,
                 missing_bases: &self.missing,
+                orchestrator: self.orchestrator.as_ref(),
             }
+        }
+
+        /// As the orchestrator `Rework auth` checks it.
+        fn of_idea() -> Self {
+            let mut fixture = Fixture::new();
+            let mut orchestrator = session("0rch-idea", "Rework auth", "running");
+            orchestrator.role = Some(deckhand_protocol::data::SessionRole::Orchestrator);
+            fixture.sessions.push(orchestrator.clone());
+            fixture.orchestrator = Some(orchestrator);
+            fixture
         }
 
         fn valid(&self, plan: Value) -> ValidPlan {
@@ -840,7 +942,7 @@ mod tests {
             "notes": "",
         }));
         let expected = [
-            "the plan: unknown key \"notes\" (allowed: sessions, tasks)",
+            "the plan: unknown key \"notes\" (allowed: sessions, tasks, brief)",
             "sessions[0]: key is required (a short name other sessions use as their parent)",
             "sessions[1] (a): title is required",
             "sessions[1] (a): prompt is required (the session's complete brief, sent as its first message)",
@@ -1022,6 +1124,94 @@ mod tests {
                 detail: "stacked on Auth rework's branch · claude".to_owned(),
             }
         );
+    }
+
+    #[test]
+    fn an_orchestrators_plan_goes_under_its_idea_with_its_brief() {
+        let mut fixture = Fixture::of_idea();
+        // A child of the orchestrator's already has the name: an entry without a parent goes under it too.
+        let mut taken = session("5e55-taken", "Login UI", "running");
+        taken.parent_session_id = Some("0rch-idea".into());
+        taken.path_title = Some("Rework auth / Login UI".into());
+        fixture.sessions.push(taken);
+        let problems = fixture.problems(json!({"sessions": [
+            entry("tokens", json!({"title": "Token storage"})),
+            entry("ui", json!({"title": "Login UI"})),
+        ]}));
+        assert_eq!(
+            problems,
+            ["sessions[1] (ui): an active session named \"Rework auth / Login UI\" already exists in this repository"]
+        );
+        let valid = fixture.valid(json!({
+            "sessions": [
+                entry("tokens", json!({"title": "Token storage"})),
+                entry("schema", json!({"title": "Schema", "parent": "tokens"})),
+            ],
+            "tasks": [{"title": "Remove legacy endpoint", "details": "Waits for Token storage to merge"}],
+            "brief": "Problem: sessions leak.\nApproach: store tokens encrypted.\n",
+        }));
+        // Its roots stay without a parent in the plan (the daemon puts them under the orchestrator), flat: the
+        // orchestrator has no worktree to stack on.
+        assert_eq!(valid.parents, [None, Some(PlanParent::Entry(0))]);
+        assert_eq!(valid.summary.sessions[0].stacked, Some(false));
+        assert_eq!(
+            valid.plan.brief.as_deref(),
+            Some("Problem: sessions leak.\nApproach: store tokens encrypted.\n")
+        );
+        assert_eq!(valid.summary.idea.as_deref(), Some("Rework auth"));
+        assert_eq!(
+            summary_lines(&valid.summary),
+            [
+                "Under ◎ Rework auth:",
+                "◇ Token storage  (new worktree · claude)",
+                "  ↳ Schema  (stacked on Token storage's branch · claude)",
+                "☐ Parked: Remove legacy endpoint",
+                "✎ The idea's brief (2 lines)",
+                "2 sessions, 1 task",
+            ]
+        );
+        // A brief alone extends the idea.
+        let brief_only = fixture.valid(json!({"brief": "Decided: no SSO."}));
+        assert_eq!(
+            summary_lines(&brief_only.summary).last().map(String::as_str),
+            Some("nothing")
+        );
+    }
+
+    #[test]
+    fn only_an_orchestrators_plan_has_a_brief_and_it_is_as_long_as_a_note_at_most() {
+        let fixture = Fixture::new();
+        assert_eq!(
+            fixture.problems(json!({"tasks": [{"title": "x"}], "brief": "Agreed"})),
+            ["the plan: brief is the idea's brief, so only an orchestrator's plan has one (leave it out)"]
+        );
+        // An empty brief is none.
+        let valid = fixture.valid(json!({"tasks": [{"title": "x"}], "brief": "  "}));
+        assert_eq!((valid.plan.brief, valid.summary.idea), (None, None));
+        let idea = Fixture::of_idea();
+        assert_eq!(
+            idea.problems(json!({"brief": "x".repeat(MAX_NOTES_CHARS + 1)})),
+            ["the plan: brief is longer than 50 000 characters"]
+        );
+        assert_eq!(idea.problems(json!({"brief": 5})), ["the plan: brief must be text"]);
+        assert_eq!(idea.problems(json!({})), ["the plan has no sessions and no tasks"]);
+    }
+
+    #[test]
+    fn an_idea_titles_its_orchestrator_by_its_first_line_cut_at_a_word() {
+        assert_eq!(idea_title("\n  Rework   auth\nso tokens are safe"), "Rework auth");
+        assert_eq!(idea_title(" \t\n "), "Orchestrator");
+        assert_eq!(idea_title("Fix\u{1b}[31m the bug"), "Fix[31m the bug");
+        let long = "Move the session store to an encrypted file so that tokens never sit in plain text on disk";
+        let title = idea_title(long);
+        assert_eq!(title, "Move the session store to an encrypted file so that tokens…");
+        assert!(js_len(&title) <= MAX_TITLE);
+        // One long word: cut where the limit falls.
+        let word = idea_title(&"a".repeat(100));
+        assert_eq!((js_len(&word), word.ends_with('…')), (MAX_TITLE, true));
+        assert_eq!(numbered_title("Rework auth", 2), "Rework auth 2");
+        let numbered = numbered_title(&"b".repeat(64), 12);
+        assert_eq!((js_len(&numbered), numbered.ends_with(" 12")), (MAX_TITLE, true));
     }
 
     #[test]

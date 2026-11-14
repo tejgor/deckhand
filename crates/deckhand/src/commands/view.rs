@@ -339,19 +339,13 @@ pub fn plan_outcome(outcome: &PlanOutcome) -> String {
     lines.join("\n")
 }
 
-/// `deckhand do`: which orchestrator has the request, and how to reach it.
+/// `deckhand do`: the orchestrator started for the idea, and how to reach it.
 pub fn orchestrator(result: &OrchestratorResult) -> String {
     let id = short_id(&result.session.id);
-    let first = if result.started {
-        format!("Started the orchestrator {id} with your request.")
-    } else if result.delivered {
-        format!("Sent your request to the orchestrator {id}.")
-    } else {
-        format!("The orchestrator {id} is running.")
-    };
+    let title = session_path(&result.session);
     format!(
-        "{first}\nTo follow it, open Deckhand here (deckhand), select {} and press enter to attach.",
-        session_path(&result.session)
+        "Started an orchestrator {id} for your idea: ◎ {title}.\nTo follow it, open Deckhand here (deckhand), select ◎ \
+         {title} and press enter to attach."
     )
 }
 
@@ -526,18 +520,16 @@ mod tests {
     }
 
     #[test]
-    fn do_names_the_orchestrator_and_how_to_attach() {
-        let result = |started, delivered| OrchestratorResult {
-            session: session(json!({"title": "Orchestrator", "role": "orchestrator"})).into(),
-            started,
-            delivered,
+    fn do_names_the_new_orchestrator_by_its_idea_and_how_to_attach() {
+        let result = OrchestratorResult {
+            session: session(json!({"title": "Rework auth", "role": "orchestrator"})).into(),
+            line_id: Some("ab12cd34".into()),
         };
         assert_eq!(
-            orchestrator(&result(true, false)),
-            "Started the orchestrator 1a2b3c4d with your request.\n\
-             To follow it, open Deckhand here (deckhand), select Orchestrator and press enter to attach."
+            orchestrator(&result),
+            "Started an orchestrator 1a2b3c4d for your idea: ◎ Rework auth.\n\
+             To follow it, open Deckhand here (deckhand), select ◎ Rework auth and press enter to attach."
         );
-        assert!(orchestrator(&result(false, true)).starts_with("Sent your request to the orchestrator 1a2b3c4d."));
     }
 
     #[test]

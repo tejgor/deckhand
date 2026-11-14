@@ -8,15 +8,20 @@
 //!   parents first, each child once its parent's worktree is ready (so stacking sees the parent's live record), then
 //!   its tasks; the request is answered with what was created. Creation stops at the first failure and keeps what was
 //!   created. The confirmation only gates [`Daemon::create_plan`], so dropping it would be a small change.
-//! - `open-orchestrator` starts the repository's orchestrator, or types a request into the running one and submits it
-//!   ([`Daemon::deliver_prompt`]).
+//! - An orchestrator's plan belongs to its idea (docs/future/orchestrator.md, 3b): its entries without a parent become
+//!   the orchestrator's sub-sessions (their lines go under the idea's line, the orchestrator's), its tasks lines under
+//!   the idea's line, and its `brief` the idea's line's brief. Run by hand, they are top-level and go to the backlog.
+//! - `open-orchestrator` starts a new orchestrator for an idea, always: titled after it, the idea its first message,
+//!   on a new top-level line of the same title (the idea's line). Several run at once.
 
 use std::collections::HashMap;
 use std::time::Duration;
 
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{date, path};
-use deckhand_core::plan::{PlanContext, PlanParent, ValidPlan, plan_problems_message, validate_plan};
+use deckhand_core::plan::{
+    PlanContext, PlanParent, ValidPlan, idea_title, numbered_title, plan_problems_message, validate_plan,
+};
 use deckhand_core::project_config::resolve_settings;
 use deckhand_core::session_scope::is_path_inside;
 use deckhand_core::tasks::new_task_id;
@@ -37,7 +42,6 @@ use tokio::sync::oneshot;
 
 use crate::daemon::Daemon;
 use crate::server::{ClientHandle, ClientSubscription, DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS, send_message};
-use crate::sessions::ORCHESTRATOR_TITLE;
 use crate::stacking::is_live_target;
 
 /// How long a plan waits for the user's answer in Deckhand.
@@ -49,8 +53,11 @@ pub const PARENT_PREPARE_WAIT: Duration = Duration::from_secs(120);
 /// How often that wait looks again.
 const PARENT_PREPARE_POLL: Duration = Duration::from_millis(50);
 
-/// `plan apply` from a session that is not the orchestrator.
-pub const NOT_ORCHESTRATOR: &str = "deckhand plan apply runs only in the repository's orchestrator session, or by hand";
+/// `plan apply` from a session that is not an orchestrator.
+pub const NOT_ORCHESTRATOR: &str = "deckhand plan apply runs only in an orchestrator session, or by hand";
+
+/// `open-orchestrator` without an idea.
+pub const NO_IDEA: &str = "Say what you want to do: the idea is the new orchestrator's first message";
 
 /// A plan waiting for its answer.
 pub struct PendingEntry {
@@ -155,8 +162,14 @@ impl Daemon {
     }
 
     /// Validates `raw` against the repository at `repo_root`: its sessions (any of them may be a parent), its tasks,
-    /// its default agent, the branches its sessions stack on and the bases Git knows.
-    pub async fn validate_plan_in(&self, repo_root: &str, raw: Option<&Value>) -> Result<ValidPlan> {
+    /// its default agent, the branches its sessions stack on and the bases Git knows. `caller`: the session checking
+    /// or applying it; an orchestrator's plan belongs to its idea.
+    pub async fn validate_plan_in(
+        &self,
+        repo_root: &str,
+        raw: Option<&Value>,
+        caller: Option<&SessionRecord>,
+    ) -> Result<ValidPlan> {
         let raw = raw.cloned().unwrap_or(Value::Null);
         let mut sessions: Vec<SessionRecord> = Vec::new();
         let mut same: HashMap<String, bool> = HashMap::new();
@@ -229,6 +242,7 @@ impl Daemon {
             default_agent,
             stack_branches: &stack_branches,
             missing_bases: &missing_bases,
+            orchestrator: caller.filter(|caller| caller.role == Some(SessionRole::Orchestrator)),
         };
         validate_plan(&raw, &cx).map_err(|problems| DhError::msg(plan_problems_message(&problems)))
     }
@@ -254,14 +268,19 @@ impl Daemon {
 
     /// `plan-check`: the plan's summary, or every problem with it.
     pub async fn handle_plan_check(&self, request: &PlanRequest) -> Result<PlanSummary> {
-        let (repo_root, _) = self.plan_origin(request, false).await?;
-        Ok(self.validate_plan_in(&repo_root, request.plan.as_ref()).await?.summary)
+        let (repo_root, caller) = self.plan_origin(request, false).await?;
+        Ok(self
+            .validate_plan_in(&repo_root, request.plan.as_ref(), caller.as_deref())
+            .await?
+            .summary)
     }
 
     /// `plan-apply`: validates, waits for the user's answer in Deckhand (or the expiry), then creates the plan.
     pub async fn handle_plan_apply(&self, request: &PlanRequest) -> Result<PlanOutcome> {
         let (repo_root, caller) = self.plan_origin(request, true).await?;
-        let valid = self.validate_plan_in(&repo_root, request.plan.as_ref()).await?;
+        let valid = self
+            .validate_plan_in(&repo_root, request.plan.as_ref(), caller.as_deref())
+            .await?;
         let id = uuid::Uuid::new_v4().to_string();
         let expiry = self.plans.borrow().expiry;
         let now = date::now_ms();
@@ -400,8 +419,9 @@ impl Daemon {
         }
     }
 
-    /// Creates an approved plan: its sessions in order (each child once its parent is ready), then its tasks. Stops at
-    /// the first failure; what was created stays.
+    /// Creates an approved plan: an orchestrator's idea brief first, then its sessions in order (each child once its
+    /// parent is ready), then its tasks. Stops at the first failure; what was created stays. `spawned_by`: the session
+    /// that applied it; when that is an orchestrator, the plan goes under it and its idea's line.
     pub async fn create_plan(
         &self,
         id: &str,
@@ -416,23 +436,44 @@ impl Daemon {
             tasks: Vec::new(),
             failed: None,
         };
+        let caller = spawned_by.as_deref().and_then(|caller| self.get_session(caller));
+        let orchestrator = caller
+            .clone()
+            .filter(|caller| caller.role == Some(SessionRole::Orchestrator));
         // Who wrote the briefs: the orchestrator (or the session) that applied the plan, else the plan run by hand.
-        let brief_from = spawned_by
-            .as_deref()
-            .and_then(|caller| self.get_session(caller))
-            .map_or_else(
-                || "a plan".to_owned(),
-                |caller| {
-                    if caller.role.is_some() {
-                        format!("◎ {}", caller.title)
-                    } else {
-                        caller.title.clone()
-                    }
-                },
-            );
+        let brief_from = caller.map_or_else(
+            || "a plan".to_owned(),
+            |caller| {
+                if caller.role.is_some() {
+                    format!("◎ {}", caller.title)
+                } else {
+                    caller.title.clone()
+                }
+            },
+        );
+        // The idea's line: the orchestrator's, made when it has none (an older one, or its line was removed), before
+        // its sessions' lines go under it. What was agreed is its brief.
+        let idea_line = match orchestrator.as_deref() {
+            Some(orchestrator) => match self.ensure_session_line(orchestrator).await {
+                Ok(line) => Some(line),
+                Err(error) => {
+                    self.log(&format!("plan {id}: the idea's line failed: {error}")).await;
+                    None
+                }
+            },
+            None => None,
+        };
+        if let (Some((key, line)), Some(brief)) = (idea_line.as_ref(), valid.plan.brief.as_deref())
+            && let Err(error) = self.write_brief(key, line, brief, &brief_from).await
+        {
+            self.log(&format!("plan {id}: the idea's brief failed: {error}")).await;
+        }
         for (index, session) in valid.plan.sessions.iter().enumerate() {
             let parent = match valid.parents.get(index).cloned().flatten() {
-                None => None,
+                // In an orchestrator's plan, a sub-session of the orchestrator.
+                None => orchestrator
+                    .as_ref()
+                    .map(|orchestrator| (orchestrator.id.clone(), false)),
                 Some(PlanParent::Entry(parent)) => outcome
                     .sessions
                     .get(parent)
@@ -480,7 +521,13 @@ impl Daemon {
             }
         }
         if !valid.plan.tasks.is_empty() {
-            let key = match self.tasks_key_for(repo_root).await {
+            // Parked under the idea's line, else in the backlog.
+            let key = match idea_line.as_ref() {
+                Some((key, _)) => Ok(key.clone()),
+                None => self.tasks_key_for(repo_root).await,
+            };
+            let parent = idea_line.as_ref().map(|(_, line)| line.clone());
+            let key = match key {
                 Ok(key) => key,
                 Err(error) => {
                     outcome.status = PlanStatus::Failed;
@@ -494,7 +541,7 @@ impl Daemon {
             };
             for task in &valid.plan.tasks {
                 let task_id = new_task_id();
-                let op = crate::notes_tasks::add_line(&task.title, &task_id, None, None);
+                let op = crate::notes_tasks::add_line(&task.title, &task_id, parent.clone(), None);
                 // Its details are its line's note.
                 let added = async {
                     self.change_tasks(&key, op).await?;
@@ -570,31 +617,35 @@ impl Daemon {
         }
     }
 
-    /// `open-orchestrator`: the repository's running orchestrator (given `prompt`, typed and submitted), or a new one
-    /// (`prompt` its first message).
+    /// `open-orchestrator`: a new orchestrator for the idea `prompt` (its first message), titled after it (numbered
+    /// while an active session has the title), put on a new top-level line of the same title: the idea's line.
     pub async fn handle_open_orchestrator(&self, request: &OpenOrchestrator) -> Result<OrchestratorResult> {
         let cwd = match &request.cwd {
             Loose::Known(cwd) if !cwd.is_empty() => cwd.clone(),
             _ => return Err(DhError::msg("Invalid repository path")),
         };
+        let Some(idea) = request.prompt.clone().filter(|prompt| !prompt.trim().is_empty()) else {
+            return Err(DhError::msg(NO_IDEA));
+        };
         let repo_root = find_repo_root(Some(&cwd)).await?;
-        let prompt = request.prompt.clone().filter(|prompt| !prompt.trim().is_empty());
-        if let Some(running) = self.running_orchestrator(&repo_root).await {
-            let delivered = match prompt.as_deref() {
-                Some(prompt) => {
-                    self.deliver_prompt(&running.id, prompt).await?;
-                    true
-                }
-                None => false,
-            };
-            return Ok(OrchestratorResult {
-                session: self.get_session(&running.id).unwrap_or(running),
-                started: false,
-                delivered,
-            });
-        }
+        let base = idea_title(&idea);
+        let taken = |title: &str| {
+            self.all_sessions().iter().any(|session| {
+                session.repo_root == repo_root
+                    && session.status != SessionStatus::Exited
+                    && self.session_path(session) == title
+            })
+        };
+        let title = if taken(&base) {
+            (2..)
+                .map(|n| numbered_title(&base, n))
+                .find(|title| !taken(title))
+                .unwrap_or(base)
+        } else {
+            base
+        };
         let input = CreateSessionInput {
-            title: ORCHESTRATOR_TITLE.to_owned(),
+            title,
             program: ProgramKey::Claude,
             cwd: repo_root.clone(),
             repo_root,
@@ -609,16 +660,26 @@ impl Daemon {
             task_id: None,
             project_fingerprint: None,
             fork_from_session_id: None,
-            prompt,
+            prompt: Some(idea),
             submit: None,
             stacked: None,
             role: Some(SessionRole::Orchestrator),
         };
         let session = self.create_session(input).await?;
+        let line_id = match self.ensure_session_line(&session).await {
+            Ok((_, line)) => Some(line),
+            Err(error) => {
+                self.log(&format!(
+                    "the idea's line of orchestrator {} failed: {error}",
+                    session.id
+                ))
+                .await;
+                None
+            }
+        };
         Ok(OrchestratorResult {
-            session,
-            started: true,
-            delivered: false,
+            session: self.get_session(&session.id).unwrap_or(session),
+            line_id,
         })
     }
 }
@@ -907,6 +968,117 @@ mod tests {
             assert_eq!(pending.repo_root, root);
             daemon.handle_plan_decide(&decide(&id, json!(false))).await.unwrap();
             assert_eq!(applying.await.unwrap().unwrap().status, PlanStatus::Cancelled);
+        });
+    }
+
+    /// Session `id` of `root`: an orchestrator titled `title`, running.
+    fn orchestrator(daemon: &Daemon, id: &str, root: &str, title: &str) -> Ordered<SessionRecord> {
+        daemon.set_session(session(id, root, root));
+        daemon.patch_session(id, |session| {
+            session.title = title.to_owned();
+            session.role = Some(SessionRole::Orchestrator);
+        });
+        daemon.get_session(id).unwrap()
+    }
+
+    #[test]
+    fn an_orchestrators_plan_parks_its_tasks_under_its_idea_and_writes_the_ideas_brief() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        let daemon = test_daemon(dir.path());
+        local(async {
+            let orch = orchestrator(&daemon, "orch", &root, "Rework auth");
+            let plan = json!({
+                "tasks": [
+                    {"title": "Remove legacy endpoint", "details": "Waits for Token storage to merge"},
+                    {"title": "Update the docs"},
+                ],
+                "brief": "Problem: tokens leak.\nRuled out: SSO.",
+            });
+            let valid = daemon.validate_plan_in(&root, Some(&plan), Some(&orch)).await.unwrap();
+            assert_eq!(valid.summary.idea.as_deref(), Some("Rework auth"));
+            // Run by hand, a brief has no idea to go to.
+            let error = daemon.validate_plan_in(&root, Some(&plan), None).await.unwrap_err();
+            assert!(error.to_string().contains("brief is the idea's brief"), "{error}");
+
+            let outcome = daemon.create_plan("p", &root, &valid, Some("orch".into())).await;
+            assert_eq!(outcome.status, PlanStatus::Created, "{outcome:?}");
+            // The orchestrator had no line yet: the idea's line is made, top-level, named after it, and it is on it.
+            let (key, idea) = daemon.session_line("orch").unwrap();
+            assert_eq!((idea.title.as_str(), idea.parent.as_deref()), ("Rework auth", None));
+            let list = daemon.task_list(&key);
+            for task in &outcome.tasks {
+                let line = list.get(&task.id).unwrap();
+                assert_eq!(line.parent.as_deref(), Some(idea.id.as_str()), "{}", line.title);
+                assert!(!line.is_taken() && !line.done, "{}", line.title);
+            }
+            let parked = daemon.work_note(deckhand_protocol::data::WorkNoteKind::Line, &outcome.tasks[0].id);
+            assert!(parked.text.contains("Waits for Token storage to merge"), "{parked:?}");
+            let brief = daemon.work_note(deckhand_protocol::data::WorkNoteKind::Brief, &idea.id);
+            assert_eq!(brief.text, "Problem: tokens leak.\nRuled out: SSO.\n");
+            assert_eq!(brief.from.as_deref(), Some("◎ Rework auth"));
+
+            // The idea ticks by roll-up once every line under it is ticked (and reopens with one of them).
+            for task in &outcome.tasks {
+                daemon
+                    .handle_client_task_op(&root, &json!({"type": "tick", "id": task.id}))
+                    .await
+                    .unwrap();
+            }
+            assert!(daemon.task_list(&key).get(&idea.id).unwrap().done);
+            daemon
+                .handle_client_task_op(&root, &json!({"type": "reopen", "id": outcome.tasks[1].id}))
+                .await
+                .unwrap();
+            assert!(!daemon.task_list(&key).get(&idea.id).unwrap().done);
+
+            // A later plan from it joins the same idea: its line is not made again, and its brief replaces the first.
+            let later = json!({"tasks": [{"title": "Rotate the keys"}], "brief": "Also: rotate the keys."});
+            let valid = daemon.validate_plan_in(&root, Some(&later), Some(&orch)).await.unwrap();
+            let outcome = daemon.create_plan("p2", &root, &valid, Some("orch".into())).await;
+            let list = daemon.task_list(&key);
+            assert_eq!(
+                list.get(&outcome.tasks[0].id).unwrap().parent.as_deref(),
+                Some(idea.id.as_str())
+            );
+            assert_eq!(list.lines().iter().filter(|line| line.parent.is_none()).count(), 1);
+            let brief = daemon.work_note(deckhand_protocol::data::WorkNoteKind::Brief, &idea.id);
+            assert_eq!(brief.text, "Also: rotate the keys.\n");
+        });
+    }
+
+    #[test]
+    fn a_plan_from_a_session_that_is_not_an_orchestrator_is_checked_as_by_hand() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        let daemon = test_daemon(dir.path());
+        local(async {
+            daemon.set_session(session("plain", &root, &root));
+            let plain = daemon.get_session("plain").unwrap();
+            let valid = daemon
+                .validate_plan_in(&root, Some(&tasks_plan()), Some(&plain))
+                .await
+                .unwrap();
+            assert_eq!(valid.summary.idea, None);
+        });
+    }
+
+    #[test]
+    fn opening_an_orchestrator_needs_an_idea() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        let root = repo(&dir.path().join("repo"));
+        let daemon = test_daemon(dir.path());
+        local(async {
+            for prompt in [json!(null), json!("  \n ")] {
+                let request: OpenOrchestrator =
+                    serde_json::from_value(json!({"requestId": "o", "cwd": root, "prompt": prompt})).unwrap();
+                let error = daemon.handle_open_orchestrator(&request).await.unwrap_err();
+                assert_eq!(error.to_string(), NO_IDEA);
+            }
+            assert!(daemon.all_sessions().is_empty());
         });
     }
 

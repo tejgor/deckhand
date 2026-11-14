@@ -286,7 +286,8 @@ mod tests {
     }
 
     use crate::app::modes::{
-        action_picker, browse, confirm, create, filter, plan, preview_focus, resume, review, search, workspace_info,
+        action_picker, browse, confirm, create, filter, idea, plan, preview_focus, resume, review, search,
+        workspace_info,
     };
     use crate::flows::{agents, changes, notes, settings, tasks, worktrees};
 
@@ -295,6 +296,7 @@ mod tests {
             ("browse", browse::KEYMAP),
             ("review", review::KEYMAP),
             ("search", search::KEYMAP),
+            ("enter-idea", idea::KEYMAP),
             ("filter", filter::KEYMAP),
             ("workspace-info", workspace_info::KEYMAP),
             ("action-picker", action_picker::KEYMAP),

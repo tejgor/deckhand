@@ -92,18 +92,16 @@ pub struct AgentExitReading {
     pub note: Option<String>,
 }
 
-/// Not in the TS: a `deckhand` command's `kill`/`remove` of a session that is not one its caller started (or under
-/// one it started).
+/// Not in the TS: a `deckhand` command's `kill`/`remove` of a session that is not under its caller.
 pub const NOT_CALLERS_SUB_SESSION: &str =
-    "Only sessions this session started, and the sessions under them, can be stopped or removed from it";
+    "Only the sessions under this session (its sub-sessions, at any depth) can be stopped or removed from it";
 
 /// Not in the TS: a `deckhand` command's `create` naming a fork source or handoff other than its caller.
 pub const NOT_CALLERS_CHILD: &str = "A deckhand command forks or hands off only the session it runs in";
 
-/// Not in the TS: a `deckhand` command's `create` under a parent that is neither its caller nor a session the caller
-/// started (or under one it started).
-pub const NOT_CALLERS_PARENT: &str = "A deckhand command starts sessions only under the session it runs in, or under \
-a session it started (or one under those)";
+/// Not in the TS: a `deckhand` command's `create` under a parent that is neither its caller nor under it.
+pub const NOT_CALLERS_PARENT: &str =
+    "A deckhand command starts sessions only under the session it runs in, or under one of its sub-sessions";
 
 /// Not in the TS: a `deckhand` command asking for an orchestrator.
 pub const CALLER_CANNOT_ORCHESTRATE: &str = "Only the user starts an orchestrator (deckhand do, or Deckhand itself)";
@@ -1689,15 +1687,6 @@ impl Daemon {
         {
             return Err(DhError::msg("cannot restart session because its worktree was deleted"));
         }
-        // Not in the TS: one orchestrator runs per repository.
-        if existing.role == Some(SessionRole::Orchestrator)
-            && let Some(running) = self.running_orchestrator(&existing.repo_root).await
-        {
-            return Err(DhError::msg(format!(
-                "An orchestrator is already running in this repository ({}): use it, or end it first",
-                running.id
-            )));
-        }
         // Started again: no longer offered for resuming (the save below projects that).
         self.sessions.borrow_mut().interrupted.remove(session_id);
 
@@ -2226,8 +2215,8 @@ impl Daemon {
 
     /// `create`; not in the TS: with a `caller` (a `deckhand` command run inside a session), only once it is
     /// authenticated. Its input says the parent (the CLI names the caller unless `--top-level`, or `--parent`): the
-    /// caller, or a session it started or one under those ([`Daemon::started_by`]). A fork source or handoff can only
-    /// be the caller, and an orchestrator only the user's. The new session records the caller as `spawnedBySessionId`.
+    /// caller, or a session under it ([`Daemon::descendants_of`]). A fork source or handoff can only be the caller,
+    /// and an orchestrator only the user's. The new session records the caller as `spawnedBySessionId`.
     pub async fn handle_create(&self, request: &Create) -> Result<Ordered<SessionRecord>> {
         let mut spawned_by = None;
         if let Some(caller) = &request.caller {
@@ -2245,7 +2234,7 @@ impl Daemon {
             if let Some(parent) = given("parentSessionId").filter(|id| not_caller(id)) {
                 let managed = parent
                     .as_str()
-                    .is_some_and(|parent| self.started_by(&caller.id).contains(parent));
+                    .is_some_and(|parent| self.descendants_of(&caller.id).contains(parent));
                 if !managed {
                     return Err(DhError::msg(NOT_CALLERS_PARENT));
                 }
@@ -2258,40 +2247,26 @@ impl Daemon {
         self.create_session_request(request.input.as_ref(), spawned_by).await
     }
 
-    /// Not in the TS: the sessions `caller_id` started (with a `deckhand` command or plan: `spawnedBySessionId`, or
-    /// as its sub-sessions), and every session under one of those through parent links. Not the caller itself.
-    pub fn started_by(&self, caller_id: &str) -> HashSet<String> {
+    /// Not in the TS: the sessions under `caller_id` by parent links, at any depth (not the caller itself): what a
+    /// `deckhand` command run in it may act on. Who started a session (`spawnedBySessionId`) is a record only.
+    pub fn descendants_of(&self, caller_id: &str) -> HashSet<String> {
         let sessions = self.all_sessions();
-        let mut managed: HashSet<String> = sessions
-            .iter()
-            .filter(|session| {
-                session.id != caller_id
-                    && (session.spawned_by_session_id.as_deref() == Some(caller_id)
-                        || session.parent_session_id.as_deref() == Some(caller_id))
-            })
-            .map(|session| session.id.clone())
-            .collect();
-        loop {
-            let under: Vec<String> = sessions
-                .iter()
-                .filter(|session| session.id != caller_id && !managed.contains(&session.id))
-                .filter(|session| {
-                    session
-                        .parent_session_id
-                        .as_deref()
-                        .is_some_and(|parent| managed.contains(parent))
-                })
-                .map(|session| session.id.clone())
-                .collect();
-            if under.is_empty() {
-                return managed;
+        let mut under: HashSet<String> = HashSet::new();
+        let mut parents: Vec<String> = vec![caller_id.to_owned()];
+        while let Some(parent) = parents.pop() {
+            for session in &sessions {
+                if session.id != caller_id
+                    && session.parent_session_id.as_deref() == Some(parent.as_str())
+                    && under.insert(session.id.clone())
+                {
+                    parents.push(session.id.clone());
+                }
             }
-            managed.extend(under);
         }
+        under
     }
 
-    /// `kill`; not in the TS: with a `caller`, only a session it started (or one under those), and without deleting
-    /// anything.
+    /// `kill`; not in the TS: with a `caller`, only a session under it, and without deleting anything.
     pub async fn handle_kill(&self, request: &Kill) -> Result<OkResult> {
         let options = KillOptions {
             delete_worktree: request.delete_worktree.unwrap_or(false),
@@ -2309,12 +2284,12 @@ impl Daemon {
         Ok(OkResult::default())
     }
 
-    /// Not in the TS: a `deckhand` command may stop or remove only sessions its caller started, and those under them
-    /// ([`Daemon::started_by`]); an unknown session is left to the request's own error.
+    /// Not in the TS: a `deckhand` command may stop or remove only the sessions under its caller
+    /// ([`Daemon::descendants_of`]); an unknown session is left to the request's own error.
     fn assert_callers_sub_session(&self, caller: &AgentCaller, session_id: &str) -> Result<()> {
         let caller = self.authenticate_caller(caller)?;
         match self.get_session(session_id) {
-            Some(target) if !self.started_by(&caller.id).contains(&target.id) => {
+            Some(target) if !self.descendants_of(&caller.id).contains(&target.id) => {
                 Err(DhError::msg(NOT_CALLERS_SUB_SESSION))
             }
             _ => Ok(()),
@@ -2322,7 +2297,7 @@ impl Daemon {
     }
 
     /// Not in the TS: the orchestrator's rules. It runs Claude, as a top-level session without a worktree in its
-    /// launch checkout (it plans and never edits), and one runs per repository at a time.
+    /// launch checkout (it plans and never edits). There is one per idea, so several may run at once.
     pub async fn check_orchestrator(&self, input: &CreateSessionInput) -> Result<()> {
         if input.program != ProgramKey::Claude {
             return Err(DhError::msg(format!(
@@ -2349,38 +2324,11 @@ impl Daemon {
                 "The orchestrator runs without a worktree, in the repository's checkout",
             ));
         }
-        if let Some(running) = self.running_orchestrator(&input.repo_root).await {
-            return Err(DhError::msg(format!(
-                "An orchestrator is already running in this repository ({}): use it, or end it first",
-                running.id
-            )));
-        }
         Ok(())
     }
 
-    /// Not in the TS: the repository's orchestrator that has not exited, if any.
-    pub async fn running_orchestrator(&self, repo_root: &str) -> Option<Ordered<SessionRecord>> {
-        let candidates: Vec<Ordered<SessionRecord>> = self
-            .all_sessions()
-            .into_iter()
-            .filter(|session| {
-                session.role == Some(SessionRole::Orchestrator) && session.status != SessionStatus::Exited
-            })
-            .collect();
-        for session in candidates {
-            if self
-                .same_repository(&session.repo_root, repo_root)
-                .await
-                .unwrap_or(false)
-            {
-                return Some(session);
-            }
-        }
-        None
-    }
-
     /// TS: handleRequest `remove`: with `moveNote`, what is still open in the session's note goes to its line's note
-    /// first; then removeSession. Not in the TS: with a `caller`, only a session it started (or one under those).
+    /// first; then removeSession. Not in the TS: with a `caller`, only a session under it.
     pub async fn handle_remove(&self, request: &Remove) -> Result<OkResult> {
         if let Some(caller) = &request.caller {
             self.assert_callers_sub_session(caller, &request.session_id)?;
@@ -3096,7 +3044,7 @@ mod tests {
     }
 
     #[test]
-    fn an_orchestrator_is_a_top_level_claude_session_in_the_checkout_and_one_runs_per_repository() {
+    fn an_orchestrator_is_a_top_level_claude_session_in_the_checkout_and_several_may_run() {
         local(async {
             let dir = tempfile::tempdir().unwrap();
             let daemon = daemon(dir.path());
@@ -3140,17 +3088,10 @@ mod tests {
                     "{fields}"
                 );
             }
-            // An exited orchestrator does not count; a running one does.
+            // Several run at once, one per idea: another running in the repository does not stop a new one.
             put(
                 &daemon,
-                record(json!({"id": "old", "title": "Orchestrator", "role": "orchestrator", "status": "exited"})),
-            );
-            put(
-                &daemon,
-                record(
-                    json!({"id": "elsewhere", "title": "Orchestrator", "role": "orchestrator",
-                    "status": "running", "repoRoot": "/other", "cwd": "/other"}),
-                ),
+                record(json!({"id": "live", "title": "Rework auth", "role": "orchestrator", "status": "running"})),
             );
             let created = daemon
                 .create_session(orchestrator(json!({"title": " "})))
@@ -3160,17 +3101,11 @@ mod tests {
             assert_eq!(created.role, Some(SessionRole::Orchestrator));
             assert_eq!(created.parent_session_id, None);
             assert_eq!(created.requested_worktree_mode, Some(WorktreeMode::None));
-            // (It never starts here: `/r` is no repository. One that runs keeps another from starting.)
-            daemon.patch_session(&created.id, |session| session.status = SessionStatus::Exited);
-            put(
-                &daemon,
-                record(json!({"id": "live", "title": "Orchestrator", "role": "orchestrator", "status": "running"})),
-            );
-            let again = error(daemon.create_session(orchestrator(json!({"title": "Second"}))).await);
-            assert_eq!(
-                again,
-                "An orchestrator is already running in this repository (live): use it, or end it first"
-            );
+            let second = daemon
+                .create_session(orchestrator(json!({"title": "Login UI"})))
+                .await
+                .unwrap();
+            assert_eq!(second.role, Some(SessionRole::Orchestrator));
             // The role is read from a `create` as sent; an unknown one is refused.
             let refused = daemon
                 .create_session_request(

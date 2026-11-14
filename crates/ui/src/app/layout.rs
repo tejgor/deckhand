@@ -261,7 +261,8 @@ pub fn footer_hint(input: &FooterHintInput<'_>) -> String {
         | Mode::ConfirmResume
         | Mode::ConfirmPlan
         | Mode::Worktrees
-        | Mode::Search => String::new(),
+        | Mode::Search
+        | Mode::EnterIdea => String::new(),
         Mode::TerminalFocus => fit_hint(
             &["ctrl+] back".into(), dropped("keys go to the shell", 1)],
             width,
@@ -420,6 +421,10 @@ fn footer_rows_for(app: &App, derived: &Derived) -> [Row; 2] {
     let (hint, color) = match app.mode {
         Mode::Search => (
             format!("Search: /{} • enter keep • esc clear", app.browse.session_query),
+            THEME.active,
+        ),
+        Mode::EnterIdea => (
+            crate::app::modes::idea::prompt_line(&app.browse.idea, cols),
             THEME.active,
         ),
         Mode::Tasks | Mode::Worktrees => (flow_hint(app, derived, cols).unwrap_or_default(), THEME.hint),
@@ -1912,6 +1917,15 @@ mod tests {
         });
         assert_screen("06-filter-menu", |app| {
             app.set_mode(Mode::PickFilter);
+        });
+    }
+
+    #[test]
+    fn renders_the_idea_prompt_snapshot() {
+        // O: a one-line prompt in the footer, the list kept in sight.
+        assert_screen("11-enter-idea", |app| {
+            app.set_mode(Mode::EnterIdea);
+            app.browse.idea = "Rework auth so tokens are stored encrypted".to_owned();
         });
     }
 }

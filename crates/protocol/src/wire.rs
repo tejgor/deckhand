@@ -948,8 +948,8 @@ pub struct PlanDecide {
     pub approve: Option<bool>,
 }
 
-/// Not in the TS: the repository's orchestrator: started when none runs (with `prompt` as its first message), else
-/// given `prompt` (typed and submitted while it is idle at its input).
+/// Not in the TS: a new orchestrator for an idea (`prompt`, required): its first message, its title (the first line),
+/// and a new top-level line it is put on.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

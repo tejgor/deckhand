@@ -1,0 +1,36 @@
+deckhand                                                                                                                   ● ready
+<TMP>/demo
+╭─────────────────────────────────────╮ ╭────────────────────────────────────────────────────────────────────────────────────────╮
+│ Sessions                          0 │ │ ◈ p:Preview  ⌁ t:Terminal  ⑂ g:Git  ▹ d:Dev  ✎ a:Notes                                 │
+│                                     │ │                                                                                        │
+│ No sessions yet.                    │ │ Select a session from the sidebar                                                      │
+│ Press n to create.                  │ │ No sessions yet. Press n to create one.                                                │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+│                                     │ │                                                                                        │
+╰─────────────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────────╯
+What do you want to do? Rework auth so tokens are stored encrypted▏ • enter start • esc cancel
+

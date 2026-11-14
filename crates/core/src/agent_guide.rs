@@ -38,7 +38,7 @@ Never start sessions, move tasks or end sessions unasked. Merges and worktree de
 deckhand new --prompt <brief> [--title <t>] [--agent claude|codex|pi] [--task <id>] [--parent <id>]
   [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level] [--fork] [--draft]
   Default: a sub-session in a new worktree stacked on this branch (--flat: not); same: this worktree; none: the
-  main checkout; --top-level: a sibling; --parent: under one you started. Sent at once (--draft: typed). Brief it
+  main checkout; --top-level: a sibling; --parent: under one below you. Sent at once (--draft: typed). Brief it
   fully (context, constraints, what done is): it knows nothing of this chat unless --fork. Long prompts: quoted
   heredoc (new --help). --task: on that line, ticked when merged or done.
 deckhand task list | task add <title> [--details <text>] | task done|reopen <id> | task move <id> --to backlog|<session>
@@ -46,7 +46,7 @@ deckhand task list | task add <title> [--details <text>] | task done|reopen <id>
 deckhand step add <text> | step done|reopen <id> | step list  your steps
 deckhand note add <text>  findings for your line's note
 deckhand ls               sessions (* is this one)
-deckhand kill <id>        end a session you started
+deckhand kill <id>        end a session below you
 deckhand remove <id>      take it off the list
 
 IDs: any unique prefix. --json anywhere; <command> --help for more.

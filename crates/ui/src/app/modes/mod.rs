@@ -5,6 +5,7 @@ pub mod browse;
 pub mod confirm;
 pub mod create;
 pub mod filter;
+pub mod idea;
 pub mod plan;
 pub mod preview_focus;
 pub mod resume;

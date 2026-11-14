@@ -614,7 +614,7 @@ impl Cx {
         }
     }
 
-    /// `deckhand do`: the request goes to the repository's orchestrator (started with it, or typed into it).
+    /// `deckhand do`: a new orchestrator for the idea, always (one per idea).
     async fn hand_to_orchestrator(&self, request: &str) -> Result<(), DhError> {
         if self.caller.is_some() {
             return Err(DhError::msg(
@@ -624,7 +624,7 @@ impl Cx {
         let repo_root = self.repo_root().await?;
         let result = self
             .client
-            .open_orchestrator(&repo_root, Some(request), DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS)
+            .open_orchestrator(&repo_root, request, DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS)
             .await?;
         if self.json {
             return print_json(&result);

@@ -96,50 +96,55 @@ Deckhand session.";
 pub const KILL_USAGE: &str = "\
 Usage: deckhand kill <session id> [--json]
 
-Ends a running session. Inside a Deckhand session, only a session this session started (or one under those). Its
+Ends a running session. Inside a Deckhand session, only a session under it (a sub-session, at any depth). Its
 worktree and branch are kept.";
 
 /// `deckhand remove --help`.
 pub const REMOVE_USAGE: &str = "\
 Usage: deckhand remove <session id> [--json]
 
-Removes an ended session from the list. Inside a Deckhand session, only a session this session started (or one
-under those). Its worktree and branch are kept.";
+Removes an ended session from the list. Inside a Deckhand session, only a session under it (a sub-session, at any
+depth). Its worktree and branch are kept.";
 
 /// `deckhand plan --help`.
 pub const PLAN_USAGE: &str = "\
 Usage: deckhand plan check [<file>|-] [--json]
        deckhand plan apply [<file>|-] [--json]
 
-An orchestrator plan: sessions (a tree, each with its brief) and backlog tasks, as JSON from a file or stdin (-, the
-default). Every problem is reported at once, and nothing is created while there is one.
+An orchestrator plan: sessions (a tree, each with its brief), parked work and the idea's brief, as JSON from a file
+or stdin (-, the default). Every problem is reported at once, and nothing is created while there is one.
   check   Validates the plan and prints what it would create
   apply   Validates it, waits for you to confirm it in Deckhand (enter creates, esc cancels; it expires after 15
-          minutes), then creates it and prints what was created. Only in the orchestrator session, or by hand.
+          minutes), then creates it and prints what was created. Only in an orchestrator session, or by hand.
 
 {\"sessions\": [{\"key\": \"auth\", \"title\": \"Auth rework\", \"prompt\": \"<brief>\", \"agent\": \"claude\",
                \"parent\": null, \"worktree\": \"new\", \"base\": null, \"flat\": false, \"task\": null},
               {\"key\": \"tokens\", \"title\": \"Token storage\", \"prompt\": \"<brief>\", \"parent\": \"auth\"}],
- \"tasks\": [{\"title\": \"Remove legacy endpoint\", \"details\": \"After Auth rework merges: ...\"}]}
+ \"tasks\": [{\"title\": \"Remove legacy endpoint\", \"details\": \"After Auth rework merges: ...\"}],
+ \"brief\": \"<what was agreed>\"}
 
   key       Unique in the plan; other sessions name it as their parent
   title     At most 64 characters; prompt: the brief, sent as the session's first message
   agent     claude, codex or pi (default: the repository's default agent, else claude)
-  parent    Another session's key, an existing session's ID (or a unique prefix), or null for a top-level session
+  parent    Another session's key, an existing session's ID (or a unique prefix), or null: a sub-session of the
+            orchestrator applying it (by hand: a top-level session)
   worktree  new (the default), same (its parent's worktree) or none (the repository's checkout)
   base      Where a new worktree's branch starts; flat: true keeps a sub-session's new worktree from stacking on
             its parent's branch
   task      An open line's ID that nobody is on: the session takes it on
-Sessions are created parents first, each with its brief sent (and kept as its line's brief); then the tasks go to
-the backlog (details: their note).";
+  brief     What was agreed (the problem, the approach, decisions, what was ruled out): the idea's line's brief.
+            Only in an orchestrator's plan
+Sessions are created parents first, each with its brief sent (and kept as its line's brief); then the tasks become
+lines under the idea's line, nobody on them (by hand: in the backlog), their details their note.";
 
 /// `deckhand do --help`.
 pub const DO_USAGE: &str = "\
-Usage: deckhand do <request> [--json]
+Usage: deckhand do <idea> [--json]
 
-Hands a request to the repository's orchestrator, which splits it into sessions for you to confirm: starts it with
-the request as its first message, or, when it runs and is idle at its input, types the request and sends it. Run it
-from a terminal in the repository, not inside a session.";
+Starts a new orchestrator for an idea, which splits it into sessions for you to confirm: the idea is its first
+message, its first line the orchestrator's name, and a new top-level line of that name is the idea's, with the
+orchestrator on it. Every call starts a new one; several can run at once. Run it from a terminal in the repository,
+not inside a session.";
 
 /// `deckhand guide --help`.
 pub const GUIDE_USAGE: &str = "\
@@ -184,7 +189,7 @@ pub enum Action {
     PlanCheck(PlanSource),
     /// `plan apply`.
     PlanApply(PlanSource),
-    /// `do <request>`.
+    /// `do <idea>`.
     Do(String),
 }
 
@@ -368,7 +373,7 @@ pub fn parse(args: &[String]) -> Result<Invocation, DhError> {
                 return Ok(help(DO_USAGE));
             }
             Ok(Invocation {
-                action: Action::Do(words(&scanned, "a request", "do", DO_USAGE)?),
+                action: Action::Do(words(&scanned, "an idea", "do", DO_USAGE)?),
                 json: scanned.json,
             })
         }
@@ -873,7 +878,7 @@ mod tests {
     }
 
     #[test]
-    fn plan_reads_its_json_from_a_file_or_stdin_and_do_takes_the_request() {
+    fn plan_reads_its_json_from_a_file_or_stdin_and_do_takes_the_idea() {
         assert_eq!(parsed(&["plan", "check"]).action, Action::PlanCheck(PlanSource::Stdin));
         assert_eq!(
             parsed(&["plan", "apply", "-"]).action,
@@ -892,7 +897,7 @@ mod tests {
             parsed(&["do", "Split", "the", "auth", "rework"]).action,
             Action::Do("Split the auth rework".into())
         );
-        assert!(refused(&["do"]).starts_with("deckhand do needs a request"));
+        assert!(refused(&["do"]).starts_with("deckhand do needs an idea"));
         // The orchestrator's guide names plan; the agents' guide leaves out what is not theirs.
         assert!(deckhand_core::orchestrator_guide::ORCHESTRATOR_GUIDE.contains("deckhand plan apply"));
     }

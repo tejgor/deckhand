@@ -1,0 +1,31 @@
+
+
+
+   ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+   │                                                                                          │
+   │ Create this plan?                                                                        │
+   │ A plan for ◎ Rework auth: 3 sessions, 1 task. Each session starts on its brief at once,  │
+   │ under the orchestrator.                                                                  │
+   │                                                                                          │
+   │ ◇ Auth rework  (new worktree · claude)                                                   │
+   │   ↳ Token storage  (stacked on Auth rework's branch · claude)                            │
+   │ ◇ Migration script  (no worktree · codex)                                                │
+   │                                                                                          │
+   │ Parked under the idea                                                                    │
+   │ ☐ Remove legacy endpoint                                                                 │
+   │   After Auth rework merges: the old routes go.                                           │
+   │                                                                                          │
+   │ The idea's brief                                                                         │
+   │ Problem: tokens sit in plain text.                                                       │
+   │ Approach: an encrypted store.                                                            │
+   │ Decided: keep the API.                                                                   │
+   │ Ruled out: SSO.                                                                          │
+   │ … 2 more lines                                                                           │
+   │                                                                                          │
+   │ Unanswered, it expires in 13 min.                                                        │
+   │ enter create • esc cancel                                                                │
+   │                                                                                          │
+   ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+

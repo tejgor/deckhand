@@ -12,7 +12,7 @@ deckhand                                                                        
 │   8 Worktrees       │ Backspace  A  Archive an exited session (on an archived one: remove it for good, asking first) /         │
 │   9 Git & PRs       │               archive or unarchive any                                                                   │
 │  10 Dev & actions   │ H             Export a Markdown handoff (notes, commits, changed files, diff stat) and open it           │
-│  11 Settings        │ O             Orchestrator (◎): describe a problem; it plans sessions                                    │
+│  11 Settings        │ O             Orchestrator (◎) for a new idea; it plans sessions                                         │
 │                     │                                                                                                          │
 │                     │ A fork copies the conversation as saved then, not a turn in progress.                                    │
 │                     │ Deleting a worktree on stop is blocked by uncommitted work or unpushed commits unless you type DELETE.   │

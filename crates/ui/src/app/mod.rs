@@ -1084,7 +1084,7 @@ impl App {
     /// (`SettingsFlow::cancelable`).
     pub fn typing_in_field(&self) -> bool {
         match self.mode {
-            Mode::Search | Mode::EnterName | Mode::ConfirmLoss | Mode::NotesFocus => true,
+            Mode::Search | Mode::EnterName | Mode::EnterIdea | Mode::ConfirmLoss | Mode::NotesFocus => true,
             Mode::PickWorktree => self.create.worktree_typing,
             Mode::Help => self.flows.help.typing,
             Mode::Tasks => {
@@ -1420,7 +1420,8 @@ impl App {
     /// TS: the useTerminalInput handler: Ctrl+C, the busy gate, then the mode's keys (crates/ui/src/app/modes).
     pub fn handle_input(&mut self, input: &Input) {
         use crate::app::modes::{
-            action_picker, browse, confirm, create, filter, plan, preview_focus, resume, review, search, workspace_info,
+            action_picker, browse, confirm, create, filter, idea, plan, preview_focus, resume, review, search,
+            workspace_info,
         };
         let key = &input.key;
         self.dismiss_notice();
@@ -1521,6 +1522,7 @@ impl App {
                 filter::pick_filter(self, input, back.as_ref());
             }
             Mode::Search => search::handle_search(self, input),
+            Mode::EnterIdea => idea::handle_enter_idea(self, input),
             Mode::ReviewProject => review::handle_review_project(self, input),
             Mode::ConfirmLoss => confirm::handle_confirm_loss(self, input),
             Mode::WorkspaceInfo => workspace_info::handle_workspace_info(self, input),

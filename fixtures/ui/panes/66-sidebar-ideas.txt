@@ -1,0 +1,24 @@
+╭──────────────────────────────────────╮
+│ Sessions                     all 4/4 │
+│  Orchestrator 2 ──────────────────── │
+│╎ 1 ◎ ● Rework auth                 ✶ │
+│╎ 2 ◎ ● Speed up the build          ✶ │
+│  Working 2 ───────────────────────── │
+│    ◎ Rework auth ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │
+│› 3   ↳ ⠋ Token storage             ✶ │
+│╎ 4   ↳ ⠋ Login UI                  ✶ │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│                                      │
+│ ──────────────────────────────────── │
+│ Token storage                        │
+│ ✶ claude · working · 1m              │
+│ main checkout ╎3                     │
+│ ↳ sub-session of ◎ Rework au… · idle │
+╰──────────────────────────────────────╯
