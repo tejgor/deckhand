@@ -59,6 +59,18 @@ pub struct AttachSessionOptions {
     pub status_title: Option<String>,
     /// Not in the TS: the sessions the status line counts.
     pub status_scope: StatusScope,
+    /// Not in the TS: end the attach when a plan waits for an answer in the attached session's repository
+    /// (`plan-pending`), so Deckhand can ask ([`AttachEnd::PlanPending`]).
+    pub detach_on_plan: bool,
+}
+
+/// Not in the TS: how an attach ended without an error.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AttachEnd {
+    /// The detach key, the pane's `*-detached` event, or the session exiting.
+    Detached,
+    /// A plan waits for an answer ([`AttachSessionOptions::detach_on_plan`]): detached so Deckhand can ask.
+    PlanPending,
 }
 
 /// TS: attach.ts targetRequestNames result: the message types of one attach target.
@@ -611,12 +623,13 @@ pub fn leave_attach_screen() {
 /// pane (default the agent) at the outer terminal's size, puts stdin in raw mode and proxies until detach, the pane's
 /// `*-detached` event, or (agent only) the session exiting (`\n\r[session exited: <title>]\n`). Restores the terminal,
 /// title and process title on the way out. Errors: the attach response's `error` (or `attach failed`), a socket
-/// error, or `daemon connection closed during attach` after attaching.
+/// error, or `daemon connection closed during attach` after attaching. Not in the TS: with `detach_on_plan`, a plan
+/// waiting for an answer detaches too ([`AttachEnd::PlanPending`]).
 pub async fn attach_session(
     session_id: &str,
     target: Option<AttachTarget>,
     options: AttachSessionOptions,
-) -> Result<(), DhError> {
+) -> Result<AttachEnd, DhError> {
     let socket = open_persistent_connection().await?;
     let request_id = uuid::Uuid::new_v4().to_string();
     let mut console = StdConsole::new();
@@ -1023,7 +1036,7 @@ pub(crate) async fn run_attach<C: Console, S: AsyncRead + AsyncWrite + Unpin>(
     target: AttachTarget,
     options: &AttachSessionOptions,
     request_id: String,
-) -> Result<(), DhError> {
+) -> Result<AttachEnd, DhError> {
     let (read_half, mut writer) = tokio::io::split(socket);
     let mut reader = MessageReader::new(read_half);
     let (events, mut input) = mpsc::unbounded_channel();
@@ -1098,7 +1111,7 @@ impl<C: Console> Proxy<'_, C> {
         reader: &mut MessageReader<R>,
         writer: &mut W,
         input: &mut mpsc::UnboundedReceiver<ConsoleEvent>,
-    ) -> Result<(), DhError> {
+    ) -> Result<AttachEnd, DhError> {
         let attach = attach_request(
             self.target,
             Attach {
@@ -1159,9 +1172,14 @@ impl<C: Console> Proxy<'_, C> {
     }
 
     /// The attachJsonParser callback: `Some` when the message finishes the attach.
-    fn on_message(&mut self, message: ServerMessage) -> Option<Result<(), DhError>> {
+    fn on_message(&mut self, message: ServerMessage) -> Option<Result<AttachEnd, DhError>> {
         if let Some(done) = self.on_status_message(&message) {
             return done;
+        }
+        // Not in the TS: the plan is what you wait for while you talk to the orchestrator, and Deckhand asks for it.
+        if self.options.detach_on_plan && self.attached && matches!(message, ServerMessage::PlanPending(_)) {
+            self.detach();
+            return Some(Ok(AttachEnd::PlanPending));
         }
         if let ServerMessage::Response(response) = &message
             && response.request_id == self.request_id
@@ -1196,6 +1214,10 @@ impl<C: Console> Proxy<'_, C> {
             self.title_set = true;
             if let Some(status) = &self.status {
                 self.console.write(&status.setup());
+            }
+            // The status line's sessions, and plans waiting (`detach_on_plan`), come from subscribing to the
+            // repository: listing the sessions first says which one it is.
+            if self.subscribes() {
                 let list = Request::List(RequestOnly {
                     request_id: self.status_list_id.clone(),
                 });
@@ -1234,31 +1256,36 @@ impl<C: Console> Proxy<'_, C> {
             if update.session.status == SessionStatus::Exited && self.target == AttachTarget::Agent {
                 self.console
                     .write(&format!("\n\r[session exited: {}]\n", update.session.title));
-                return Some(Ok(()));
+                return Some(Ok(AttachEnd::Detached));
             }
             return None;
         }
 
         if target_detached(self.target, &message) == Some(self.session_id) {
-            return Some(Ok(()));
+            return Some(Ok(AttachEnd::Detached));
         }
         None
     }
 
+    /// Queues the target's detach message.
+    fn detach(&mut self) {
+        let detach = detach_request(
+            self.target,
+            Detach {
+                session_id: self.session_id.to_owned(),
+            },
+        );
+        // finish() follows the write at once; its listeners are gone before a write error could be reported.
+        let _ = self.outgoing.push(&detach);
+    }
+
     /// The stdin 'data' listener: `Some` when the input detaches (or a write fails).
-    fn on_input(&mut self, chunk: &[u8]) -> Option<Result<(), DhError>> {
+    fn on_input(&mut self, chunk: &[u8]) -> Option<Result<AttachEnd, DhError>> {
         // Ctrl+Space is usually NUL (0x00), but attached TUIs can enable enhanced keyboard protocols that encode it
         // as an escape sequence. Ctrl+] (0x1d) remains a secondary attach escape hatch.
         if is_detach_input(chunk) {
-            let detach = detach_request(
-                self.target,
-                Detach {
-                    session_id: self.session_id.to_owned(),
-                },
-            );
-            // finish() follows the write at once; its listeners are gone before a write error could be reported.
-            let _ = self.outgoing.push(&detach);
-            return Some(Ok(()));
+            self.detach();
+            return Some(Ok(AttachEnd::Detached));
         }
         let mut normalized = self.normalize_attach_input.normalize(&String::from_utf8_lossy(chunk));
         if let Some(status) = &mut self.status {
@@ -1303,10 +1330,17 @@ impl<C: Console> Proxy<'_, C> {
         }
     }
 
+    /// Whether the attach subscribes to its session's repository: for the status line, or to hear of plans.
+    fn subscribes(&self) -> bool {
+        self.status.is_some() || self.options.detach_on_plan
+    }
+
     /// The status line's own traffic: the `list` answer (to learn the repository), the `subscribe` answer, and other
     /// sessions' updates. `Some` when the message was one of its answers (the attach goes on either way).
-    fn on_status_message(&mut self, message: &ServerMessage) -> Option<Option<Result<(), DhError>>> {
-        let status = self.status.as_mut()?;
+    fn on_status_message(&mut self, message: &ServerMessage) -> Option<Option<Result<AttachEnd, DhError>>> {
+        if !self.subscribes() {
+            return None;
+        }
         match message {
             ServerMessage::Response(response) if response.request_id == self.status_list_id => {
                 let sessions: Vec<SessionRecord> = response
@@ -1328,23 +1362,29 @@ impl<C: Console> Proxy<'_, C> {
                 Some(self.outgoing.push(&subscribe).err().map(Err))
             }
             ServerMessage::Response(response) if response.request_id == self.status_subscribe_id => {
-                let sessions: Vec<SessionRecord> = response
-                    .data
-                    .clone()
-                    .and_then(|data| serde_json::from_value(data).ok())
-                    .unwrap_or_default();
-                let drawn = status.set_sessions(&sessions);
-                self.console.write(&drawn);
+                if let Some(status) = &mut self.status {
+                    let sessions: Vec<SessionRecord> = response
+                        .data
+                        .clone()
+                        .and_then(|data| serde_json::from_value(data).ok())
+                        .unwrap_or_default();
+                    let drawn = status.set_sessions(&sessions);
+                    self.console.write(&drawn);
+                }
                 Some(None)
             }
             ServerMessage::SessionUpdated(update) => {
-                let drawn = status.session_updated(&update.session);
-                self.console.write(&drawn);
+                if let Some(status) = &mut self.status {
+                    let drawn = status.session_updated(&update.session);
+                    self.console.write(&drawn);
+                }
                 None
             }
             ServerMessage::SessionRemoved(removed) => {
-                let drawn = status.session_removed(&removed.session_id);
-                self.console.write(&drawn);
+                if let Some(status) = &mut self.status {
+                    let drawn = status.session_removed(&removed.session_id);
+                    self.console.write(&drawn);
+                }
                 None
             }
             _ => None,
@@ -1799,6 +1839,7 @@ mod tests {
             shell: None,
             status_title: Some(String::from("Parent / Fix bug")),
             status_scope: StatusScope::default(),
+            detach_on_plan: false,
         };
         let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
         let driver = async {
@@ -2080,6 +2121,65 @@ mod tests {
         };
         let (result, ()) = tokio::join!(attach, driver);
         result.unwrap();
+    }
+
+    /// A plan waiting in the attached session's repository ends the attach (for Deckhand to ask), even without a
+    /// status line; without `detach_on_plan` it is ignored.
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_waiting_plan_detaches_when_asked_to() {
+        let plan = json!({"type": "plan-pending", "plan": {
+            "id": "p1", "repoRoot": "/r", "plan": {"sessions": [], "tasks": []},
+            "summary": {"sessions": [], "tasks": [], "counts": "nothing"},
+            "createdAt": "2026-01-01T00:00:00.000Z", "expiresAt": "2026-01-01T00:15:00.000Z"}});
+        // Not a TTY: no status line, but the attach still subscribes to hear of plans.
+        let (mut console, _state, client, mut daemon) = setup(false, None);
+        let options = AttachSessionOptions {
+            detach_on_plan: true,
+            ..AttachSessionOptions::default()
+        };
+        let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
+        let driver = async {
+            daemon.recv().await;
+            daemon
+                .send(json!({"type": "response", "requestId": "req", "ok": true}))
+                .await;
+            let list = daemon.recv().await;
+            assert_eq!(list["type"], "list");
+            assert_eq!(daemon.recv().await["type"], "resize");
+            let sessions = json!([session_json("s1", "running")]);
+            daemon
+                .send(json!({"type": "response", "requestId": list["requestId"], "ok": true, "data": sessions}))
+                .await;
+            let subscribe = daemon.recv().await;
+            assert_eq!(subscribe["repoRoot"], "/r");
+            daemon
+                .send(json!({"type": "response", "requestId": subscribe["requestId"], "ok": true, "data": sessions}))
+                .await;
+            daemon.send(plan.clone()).await;
+            assert_eq!(daemon.recv().await, json!({"type": "detach", "sessionId": "s1"}));
+        };
+        let (result, ()) = tokio::join!(attach, driver);
+        assert_eq!(result.unwrap(), AttachEnd::PlanPending);
+
+        // With a status line and no `detach_on_plan`: the plan changes nothing; the detach key still ends it.
+        let (mut console, state, client, mut daemon) = setup(true, Some((80, 24)));
+        let options = AttachSessionOptions::default();
+        let attach = run_attach(&mut console, client, "s1", AttachTarget::Agent, &options, "req".into());
+        let driver = async {
+            daemon.recv().await;
+            daemon
+                .send(json!({"type": "response", "requestId": "req", "ok": true}))
+                .await;
+            assert_eq!(daemon.recv().await["type"], "list");
+            assert_eq!(daemon.recv().await["type"], "resize");
+            daemon.send(plan.clone()).await;
+            send_input(&state, ConsoleEvent::Data(b"x".to_vec()));
+            assert_eq!(daemon.recv().await["type"], "input");
+            send_input(&state, ConsoleEvent::Data(vec![0x1d]));
+            assert_eq!(daemon.recv().await["type"], "detach");
+        };
+        let (result, ()) = tokio::join!(attach, driver);
+        assert_eq!(result.unwrap(), AttachEnd::Detached);
     }
 
     #[tokio::test(flavor = "current_thread")]

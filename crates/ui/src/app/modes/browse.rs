@@ -20,7 +20,7 @@ use deckhand_core::workspace::{no_workspace_reason, workspace_key};
 use deckhand_protocol::data::JsNumber;
 use deckhand_protocol::data::{
     AttachTarget, AttentionState, DevRecord, MoveDirection, ProjectInfo, RestartMode, RightPaneTab, SessionRecord,
-    SessionStatus, SessionWorktreeMode, SetupState, WorktreeMode,
+    SessionRole, SessionStatus, SessionWorktreeMode, SetupState, WorktreeMode,
 };
 use deckhand_protocol::records::{AppConfig, SessionFilter, SessionView};
 use deckhand_sys::desktop::open_in_editor;
@@ -120,6 +120,11 @@ pub static KEYMAP: Keymap = &[
     Binding {
         keys: &[KeySpec::Char("N")],
         action: "new sub-session",
+        help: HelpRef::Topic("Sessions"),
+    },
+    Binding {
+        keys: &[KeySpec::Char("O")],
+        action: "the repository's orchestrator: attach, or start it",
         help: HelpRef::Topic("Sessions"),
     },
     Binding {
@@ -410,6 +415,10 @@ pub fn handle_browse(app: &mut App, input: &Input) {
         // No review here: the repository's defaults only preselect the picker (trusted or not). Creating a new
         // worktree reviews whatever it would run (see confirmCreate). Children keep their parent's agent and directory.
         create::open_new_session(app, text == "N");
+        return;
+    }
+    if text == "O" {
+        open_orchestrator(app);
         return;
     }
     if text == "R" {
@@ -1547,6 +1556,63 @@ pub fn open_selected(app: &mut App, input: &Input) {
     }
     app.attach_to(&session, target);
 }
+
+/// Not in the TS: the repository's live orchestrator (role `orchestrator`, not exited), when there is one.
+fn running_orchestrator(app: &App) -> Option<SessionRecord> {
+    app.data
+        .repo_sessions
+        .iter()
+        .find(|session| session.role == Some(SessionRole::Orchestrator) && session.status != SessionStatus::Exited)
+        .cloned()
+}
+
+/// Not in the TS: O: the repository's orchestrator. A running one is selected and attached; one still starting is
+/// selected; without one, the daemon starts it (`open-orchestrator`) and it is selected, as `n` leaves a new session
+/// (`enter` attaches once it runs).
+pub fn open_orchestrator(app: &mut App) {
+    let Some(client) = app.client() else {
+        app.set_error(Some("still connecting to daemon".to_owned()));
+        return;
+    };
+    if let Some(session) = running_orchestrator(app) {
+        app.set_selected_id(Some(session.id.clone()));
+        if session.status == SessionStatus::Running {
+            app.attach_to(&session, AttachTarget::Agent);
+        } else {
+            app.set_status(Some(ORCHESTRATOR_STARTING.to_owned()));
+        }
+        return;
+    }
+    let layout = app.layout();
+    let reply = client.open_orchestrator(
+        &app.props.cwd,
+        None,
+        i64::from(layout.preview_cols),
+        i64::from(layout.preview_rows),
+    );
+    app.set_error(None);
+    app.set_busy(true);
+    drop(app.dispatch().spawn(reply, |app: &mut App, result| {
+        app.set_busy(false);
+        match result {
+            Ok(opened) => {
+                let session = opened.session.into_inner();
+                app.set_selected_id(Some(session.id.clone()));
+                app.upsert(session.clone());
+                if !opened.started && session.status == SessionStatus::Running {
+                    // Started meanwhile (another Deckhand, `deckhand do`): it runs already.
+                    app.attach_to(&session, AttachTarget::Agent);
+                } else {
+                    app.set_status(Some(ORCHESTRATOR_STARTING.to_owned()));
+                }
+            }
+            Err(error) => app.set_error(Some(error.to_string())),
+        }
+    }));
+}
+
+/// The status line while the orchestrator starts.
+const ORCHESTRATOR_STARTING: &str = "The orchestrator is starting · enter (or O) attaches once it runs";
 
 /// TS: Backspace on an exited session: archive it, or on an archived one ask to remove it for good.
 pub fn archive_or_remove(app: &mut App) {
@@ -2898,6 +2964,85 @@ pub(crate) mod tests {
             daemon.fail(&request, "already started").await;
             apply(&mut app, &mut rx).await;
             assert_eq!(app.messages.error.as_deref(), Some("already started"));
+        });
+    }
+
+    fn orchestrator(status: SessionStatus) -> SessionRecord {
+        let mut orchestrator = session("orch", "Orchestrator", status);
+        orchestrator.role = Some(SessionRole::Orchestrator);
+        orchestrator
+    }
+
+    #[test]
+    fn o_attaches_to_the_running_orchestrator() {
+        local(async {
+            let (mut app, _rx) = with_sessions(2);
+            let _daemon = Daemon::connect(&mut app);
+            // An exited orchestrator is not the one: the running one is.
+            let mut old = orchestrator(SessionStatus::Exited);
+            old.id = "old".to_owned();
+            app.data
+                .repo_sessions
+                .extend([old, orchestrator(SessionStatus::Running)]);
+            handle_browse(&mut app, &text("O"));
+            assert_eq!(app.browse.selected_id.as_deref(), Some("orch"));
+            assert!(
+                matches!(
+                    &app.connection.exit,
+                    Some(UiExitResult::Attach { session_id, target: AttachTarget::Agent, .. }) if session_id == "orch"
+                ),
+                "{:?}",
+                app.connection.exit
+            );
+        });
+    }
+
+    #[test]
+    fn o_starts_the_orchestrator_when_none_runs_and_selects_it() {
+        local(async {
+            let (mut app, mut rx) = with_sessions(1);
+            let mut daemon = Daemon::connect(&mut app);
+            handle_browse(&mut app, &text("O"));
+            assert!(app.messages.busy);
+            let request = daemon.next().await;
+            assert_eq!(request["type"], "open-orchestrator");
+            assert_eq!(request["cwd"], "/repo");
+            assert!(request.get("prompt").is_none_or(Value::is_null), "{request}");
+            let layout = app.layout();
+            assert_eq!(request["cols"], layout.preview_cols);
+            assert_eq!(request["rows"], layout.preview_rows);
+            let started = json_of(&orchestrator(SessionStatus::Starting));
+            daemon
+                .ok(
+                    &request,
+                    json!({"session": started, "started": true, "delivered": false}),
+                )
+                .await;
+            apply(&mut app, &mut rx).await;
+            assert!(!app.messages.busy);
+            assert_eq!(app.browse.selected_id.as_deref(), Some("orch"));
+            assert!(app.data.repo_sessions.iter().any(|session| session.id == "orch"));
+            assert_eq!(app.connection.exit, None);
+            assert_eq!(app.messages.status_message.as_deref(), Some(ORCHESTRATOR_STARTING));
+            // Still starting: O selects it and says so again; it attaches once it runs.
+            app.set_status(None);
+            handle_browse(&mut app, &text("O"));
+            assert_eq!(app.messages.status_message.as_deref(), Some(ORCHESTRATOR_STARTING));
+            assert_eq!(app.connection.exit, None);
+        });
+    }
+
+    #[test]
+    fn o_says_why_the_orchestrator_could_not_start() {
+        local(async {
+            let (mut app, mut rx) = with_sessions(1);
+            let mut daemon = Daemon::connect(&mut app);
+            handle_browse(&mut app, &text("O"));
+            let request = daemon.next().await;
+            daemon.fail(&request, "claude is not installed").await;
+            apply(&mut app, &mut rx).await;
+            assert!(!app.messages.busy);
+            assert_eq!(app.messages.error.as_deref(), Some("claude is not installed"));
         });
     }
 }

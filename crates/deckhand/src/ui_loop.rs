@@ -12,7 +12,7 @@ use std::rc::Rc;
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
-use deckhand_client::attach::{AttachSessionOptions, attach_session};
+use deckhand_client::attach::{AttachEnd, AttachSessionOptions, attach_session};
 use deckhand_client::attach_status::StatusScope;
 use deckhand_client::client::request;
 use deckhand_client::term_state::reset_terminal_state;
@@ -149,6 +149,7 @@ fn app_props(
         initial_terminal_view: Some(round_trip.terminal_view.get()),
         initial_dev_process: None,
         initial_collapsed_task_steps: Some(round_trip.collapsed_task_steps.borrow().clone()),
+        plan_reattach: None,
         callbacks: AppCallbacks {
             on_terminal_view_change: Some(Box::new(move |next| view.set(next))),
             on_session_visibility_change: Some(Box::new(move |filter, query| {
@@ -197,6 +198,7 @@ pub async fn run_ui(
     ui_state: &Rc<RefCell<UiState>>,
     round_trip: &RoundTrip,
     dev_process: Option<String>,
+    plan_reattach: Option<UiExitResult>,
 ) -> Result<Option<UiExitResult>, DhError> {
     let saver = SaveScheduler {
         repo_root: Rc::from(repo_root),
@@ -205,6 +207,7 @@ pub async fn run_ui(
     };
     let mut props = app_props(repo_root, ui_state, round_trip, &saver);
     props.initial_dev_process = dev_process;
+    props.plan_reattach = plan_reattach;
     deckhand_ui::theme::set_mode(configured_theme_mode().await);
     enter_alternate_screen();
     let result = deckhand_ui::app::run(props).await;
@@ -286,31 +289,26 @@ pub async fn run_ui_loop() -> Result<(), DhError> {
     let round_trip = RoundTrip::default();
     // The Dev process last attached, selected again when the UI comes back.
     let mut dev_process: Option<String> = None;
+    // Not in the TS: the attach a plan ended (Deckhand detached to ask), attached again once the plan is answered.
+    let mut plan_reattach: Option<UiExitResult> = None;
     loop {
         // TS: runUi resolves the repository again on every round trip.
         let repo_root = ensure_git_repo(None).await?;
-        let result = run_ui(&repo_root, &ui_state, &round_trip, dev_process.clone()).await?;
+        let result = run_ui(
+            &repo_root,
+            &ui_state,
+            &round_trip,
+            dev_process.clone(),
+            plan_reattach.take(),
+        )
+        .await?;
         match result {
             None | Some(UiExitResult::Quit) => return Ok(()),
-            Some(UiExitResult::Attach {
-                session_id,
-                target,
-                title,
-                process,
-                shell,
-                shell_label,
-                status_title,
-                ..
-            }) => {
-                if process.is_some() {
-                    dev_process.clone_from(&process);
+            Some(attach @ UiExitResult::Attach { .. }) => {
+                let end = hand_off_ui_attach(&ui_state, &repo_root, &attach, &mut dev_process).await;
+                if end == Some(AttachEnd::PlanPending) {
+                    plan_reattach = Some(attach);
                 }
-                let title = title.as_deref();
-                let pane = AttachPane {
-                    process,
-                    shell: shell.map(|shell| (shell, shell_label.unwrap_or_default())),
-                };
-                hand_off_attach(&ui_state, &repo_root, &session_id, target, title, status_title, pane).await;
             }
             Some(UiExitResult::EditNote {
                 session_id,
@@ -320,6 +318,45 @@ pub async fn run_ui_loop() -> Result<(), DhError> {
             }) => hand_off_editor(&ui_state, &session_id, &file, &editor, title.as_deref()).await,
         }
     }
+}
+
+/// The UI's `attach` exit, handed off ([`hand_off_attach`]); a Dev process attached is remembered in `dev_process`.
+async fn hand_off_ui_attach(
+    ui_state: &Rc<RefCell<UiState>>,
+    repo_root: &str,
+    attach: &UiExitResult,
+    dev_process: &mut Option<String>,
+) -> Option<AttachEnd> {
+    let UiExitResult::Attach {
+        session_id,
+        target,
+        title,
+        process,
+        shell,
+        shell_label,
+        status_title,
+        ..
+    } = attach
+    else {
+        return None;
+    };
+    if process.is_some() {
+        dev_process.clone_from(process);
+    }
+    let pane = AttachPane {
+        process: process.clone(),
+        shell: shell.map(|shell| (shell, shell_label.clone().unwrap_or_default())),
+    };
+    hand_off_attach(
+        ui_state,
+        repo_root,
+        session_id,
+        *target,
+        title.as_deref(),
+        status_title.clone(),
+        pane,
+    )
+    .await
 }
 
 /// TS: cli.ts the tab an attach target selects (`terminal`/`action` → terminal, `git`, `dev`, else preview).
@@ -377,7 +414,8 @@ pub struct AttachPane {
 /// sensitivity; only attaching to the agent marks its reply read (in the daemon). A failure prints `\nattach failed: <message>\n`
 /// on stderr and pauses [`HAND_OFF_ERROR_PAUSE`]. Clears the screen again on the way back. The status line shows
 /// `status_title` (the full title, with a sub-session's parent) and counts the sessions the UI of `repo_root` lists,
-/// with its read replies.
+/// with its read replies. Not in the TS: a plan waiting for an answer detaches too, for the UI to ask; how the attach
+/// ended is returned (`None`: it failed).
 pub async fn hand_off_attach(
     ui_state: &Rc<RefCell<UiState>>,
     repo_root: &str,
@@ -386,7 +424,7 @@ pub async fn hand_off_attach(
     title: Option<&str>,
     status_title: Option<String>,
     pane: AttachPane,
-) {
+) -> Option<AttachEnd> {
     record_attach(&mut ui_state.borrow_mut(), session_id, target);
     clear_terminal_screen();
     let status_scope = StatusScope {
@@ -402,23 +440,27 @@ pub async fn hand_off_attach(
             shell: pane.shell,
             status_title,
             status_scope,
+            detach_on_plan: true,
         };
         attach_session(session_id, Some(target), options).await
     }
     .await;
-    match attached {
-        Ok(()) => {
+    let end = match attached {
+        Ok(end) => {
             // Only attaching to the agent reads its reply; selecting the session or its other tabs does not.
             if target == AttachTarget::Agent {
                 record_reply_read(session_id).await;
             }
+            Some(end)
         }
         Err(error) => {
             write_stderr(&format!("\nattach failed: {error}\n"));
             tokio::time::sleep(HAND_OFF_ERROR_PAUSE).await;
+            None
         }
-    }
+    };
     clear_terminal_screen();
+    end
 }
 
 /// Node's message for a `spawnSync` that could not start (`spawnSync <command> ENOENT`).

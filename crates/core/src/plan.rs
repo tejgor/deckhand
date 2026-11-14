@@ -641,31 +641,68 @@ pub fn entry_placement(entry: &PlanSummaryEntry) -> String {
     }
 }
 
-/// The summary as text lines, for the terminal and the confirmation: the tree (two columns a level, `◇` for a root,
-/// `↳` for a child), each with where it works and its agent; the tasks; the counts.
+/// One session of a plan's tree as the confirmation lays it out: `indent` columns, then the marker (`◇` for a root,
+/// `↳` for a child), the title, and in `detail` where it works, its agent and its task.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PlanEntryLine {
+    pub indent: usize,
+    pub marker: &'static str,
+    pub title: String,
+    /// `new worktree · claude`, `under Fix login · stacked on fix-login · codex · task: …`.
+    pub detail: String,
+}
+
+/// [`PlanEntryLine`] of `entry`: two columns a level.
+pub fn entry_line(entry: &PlanSummaryEntry) -> PlanEntryLine {
+    let mut words = Vec::new();
+    if entry.depth == 0
+        && let Some(parent) = entry.parent_title.as_deref()
+    {
+        words.push(format!("under {parent}"));
+    }
+    words.push(entry_placement(entry));
+    words.push(entry.agent.as_str().to_owned());
+    if let Some(task) = entry.task_title.as_deref() {
+        words.push(format!("task: {task}"));
+    }
+    PlanEntryLine {
+        indent: 2 * usize::try_from(entry.depth).unwrap_or(0),
+        marker: if entry.depth == 0 { "◇" } else { "↳" },
+        title: entry.title.clone(),
+        detail: words.join(" · "),
+    }
+}
+
+/// The summary as text lines, for the terminal and the confirmation: the tree ([`entry_line`]: `◇ Title  (where ·
+/// agent)`); the tasks; the counts.
 pub fn summary_lines(summary: &PlanSummary) -> Vec<String> {
     let mut lines = Vec::new();
     for entry in &summary.sessions {
-        let indent = "  ".repeat(usize::try_from(entry.depth).unwrap_or(0));
-        let marker = if entry.depth == 0 { "◇" } else { "↳" };
-        let mut words = Vec::new();
-        if entry.depth == 0
-            && let Some(parent) = entry.parent_title.as_deref()
-        {
-            words.push(format!("under {parent}"));
-        }
-        words.push(entry_placement(entry));
-        words.push(entry.agent.as_str().to_owned());
-        if let Some(task) = entry.task_title.as_deref() {
-            words.push(format!("task: {task}"));
-        }
-        lines.push(format!("{indent}{marker} {}  ({})", entry.title, words.join(" · ")));
+        let line = entry_line(entry);
+        lines.push(format!(
+            "{}{} {}  ({})",
+            " ".repeat(line.indent),
+            line.marker,
+            line.title,
+            line.detail
+        ));
     }
     for task in &summary.tasks {
         lines.push(format!("☐ Backlog: {}", task.title));
     }
     lines.push(summary.counts.clone());
     lines
+}
+
+/// When a pending plan expiring at `expires_at` (ISO) is dropped unanswered, seen at `now_ms`: `expires in 14 min`,
+/// `expires in under a minute`; `None` when `expires_at` does not parse.
+pub fn expiry_text(expires_at: &str, now_ms: i64) -> Option<String> {
+    let left = crate::jsstr::date::parse(expires_at)? - now_ms;
+    if left < 60_000 {
+        return Some("expires in under a minute".to_owned());
+    }
+    // Whole minutes, rounded down: never more time than there is.
+    Some(format!("expires in {} min", left / 60_000))
 }
 
 #[cfg(test)]
@@ -982,6 +1019,28 @@ mod tests {
         assert_eq!(tests.parent_session_id.as_deref(), Some("1f2e3d4c-lead"));
         assert_eq!(tests.task_title.as_deref(), Some("Remove the legacy endpoint"));
         assert_eq!(valid.summary.sessions[1].parent_key.as_deref(), Some("auth"));
+        // The confirmation lays the same tree out in parts: indent, marker, title, then the rest muted.
+        assert_eq!(
+            entry_line(&valid.summary.sessions[3]),
+            PlanEntryLine {
+                indent: 4,
+                marker: "↳",
+                title: "Deep".to_owned(),
+                detail: "stacked on Auth rework's branch · claude".to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    fn a_pending_plan_says_how_long_it_waits_in_whole_minutes() {
+        let at = crate::jsstr::date::parse("2026-11-14T12:15:00.000Z").unwrap_or_default();
+        let expiry = |minutes_left: f64| expiry_text("2026-11-14T12:15:00.000Z", at - (minutes_left * 60_000.0) as i64);
+        assert_eq!(expiry(15.0).as_deref(), Some("expires in 15 min"));
+        assert_eq!(expiry(14.5).as_deref(), Some("expires in 14 min"));
+        assert_eq!(expiry(0.9).as_deref(), Some("expires in under a minute"));
+        // Past it (the daemon settles it any moment): still under a minute, never negative.
+        assert_eq!(expiry(-1.0).as_deref(), Some("expires in under a minute"));
+        assert_eq!(expiry_text("not a date", at), None);
     }
 
     #[test]

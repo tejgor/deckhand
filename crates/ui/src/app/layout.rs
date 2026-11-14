@@ -34,6 +34,7 @@ use crate::app::modes::create::{
     BaseShown, CreatePaneProps, CreateStep, WorktreePickerProps, create_base_options, create_stack_branch,
     filtered_worktrees, fork_option_shown, render_create_dialog, render_worktree_picker, top_level_fork_source,
 };
+use crate::app::modes::plan::{PlanDialogProps, plan_waiting_hidden, render_plan_dialog};
 use crate::app::modes::resume::{ResumeDialogProps, ResumeKind, render_resume_dialog};
 use crate::app::state::{App, DialogState, Mode, TerminalSize};
 use crate::app::{
@@ -259,6 +260,7 @@ pub fn footer_hint(input: &FooterHintInput<'_>) -> String {
         | Mode::Tasks
         | Mode::ConfirmRemove
         | Mode::ConfirmResume
+        | Mode::ConfirmPlan
         | Mode::Worktrees
         | Mode::Search => String::new(),
         Mode::TerminalFocus => fit_hint(
@@ -305,6 +307,12 @@ pub fn footer_hint(input: &FooterHintInput<'_>) -> String {
     }
 }
 
+/// Not in the TS: the header's word that a plan waits behind the screen shown.
+pub const PLAN_WAITING_HEADER: &str = "◎ Plan waiting";
+
+/// Not in the TS: the footer's line while a plan waits behind the screen shown.
+pub const PLAN_WAITING_MESSAGE: &str = "◎ Plan waiting · it opens when you close this screen";
+
 /// TS: app.tsx FooterMessage.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FooterMessage {
@@ -340,6 +348,10 @@ fn footer_messages_for(app: &App, selected: Option<&SessionRecord>) -> Vec<Foote
             THEME.success
         };
         messages.push(message(status.clone(), color));
+    }
+    // Not in the TS: a plan waits behind this screen (it opens on the session list).
+    if plan_waiting_hidden(app) {
+        messages.push(message(PLAN_WAITING_MESSAGE.to_owned(), THEME.warn));
     }
     if let Some(cleanup) = selected
         .and_then(|session| session.cleanup_error.as_ref())
@@ -516,6 +528,12 @@ pub fn header_rows(app: &App) -> [Row; 2] {
     let agent_update_hint = update_hint(app.data.agent_versions.as_ref());
     let connected = app.connection.client.is_some();
     let mut right = Vec::new();
+    if plan_waiting_hidden(app) {
+        right.push(Seg::new(
+            format!("{PLAN_WAITING_HEADER}   "),
+            TextStyle::fg(THEME.warn).bold(true),
+        ));
+    }
     if !task_count.is_empty() {
         right.push(Seg::new(format!("{task_count}   "), muted));
     }
@@ -830,6 +848,18 @@ fn render_content_for(app: &mut App, derived: &Derived, buf: &mut Buffer, area: 
                     installed: installed.as_deref(),
                 };
                 app.dialog.last = render_resume_dialog(&props, buf, right, view);
+            }
+        }
+        Mode::ConfirmPlan => {
+            if let Some(plan) = app.plans.queue.first() {
+                let props = PlanDialogProps {
+                    plan,
+                    more: app.plans.queue.len() - 1,
+                    answering: app.plans.answering,
+                    error: app.plans.error.as_deref(),
+                    now_ms: deckhand_core::jsstr::date::now_ms(),
+                };
+                app.dialog.last = render_plan_dialog(&props, buf, right, view);
             }
         }
         Mode::WorkspaceInfo | Mode::ReviewProject | Mode::ConfirmLoss => {

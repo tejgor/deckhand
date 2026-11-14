@@ -64,11 +64,13 @@ pub enum Mode {
     TerminalFocus,
     /// Not in the TS: the checklist of sessions to resume (interrupted by a daemon stop, or on an older agent).
     ConfirmResume,
+    /// Not in the TS: an orchestrator's plan waits for `enter` (create it) or `esc` (cancel it).
+    ConfirmPlan,
 }
 
 impl Mode {
     /// Every mode, in the TS union's order (then the port's own).
-    pub const ALL: [Mode; 26] = [
+    pub const ALL: [Mode; 27] = [
         Mode::Browse,
         Mode::PreviewFocus,
         Mode::ChangesFocus,
@@ -95,6 +97,7 @@ impl Mode {
         Mode::Worktrees,
         Mode::TerminalFocus,
         Mode::ConfirmResume,
+        Mode::ConfirmPlan,
     ];
 
     /// The TS name (`'preview-focus'`, ...).
@@ -126,6 +129,7 @@ impl Mode {
             Mode::Worktrees => "worktrees",
             Mode::TerminalFocus => "terminal-focus",
             Mode::ConfirmResume => "confirm-resume",
+            Mode::ConfirmPlan => "confirm-plan",
         }
     }
 
@@ -164,6 +168,7 @@ impl Mode {
                 | Mode::ConfirmKill
                 | Mode::ConfirmRemove
                 | Mode::ConfirmResume
+                | Mode::ConfirmPlan
         )
     }
 
@@ -249,6 +254,8 @@ pub struct AppProps {
     pub initial_dev_process: Option<String>,
     /// Not in the TS: the tasks whose steps the Tasks view hides (c), kept across attaches by the caller.
     pub initial_collapsed_task_steps: Option<Vec<String>>,
+    /// Not in the TS: the attach a plan ended (Deckhand detached to ask for it): attached again once you answer it.
+    pub plan_reattach: Option<UiExitResult>,
     pub callbacks: AppCallbacks,
 }
 
@@ -652,6 +659,8 @@ pub struct App {
     pub remove: RemoveState,
     /// Not in the TS: confirm-resume's checklist.
     pub resume: crate::app::modes::resume::ResumeState,
+    /// Not in the TS: orchestrator plans waiting for an answer (confirm-plan).
+    pub plans: crate::app::modes::plan::PlanState,
     pub create: CreateState,
     /// Not in the TS: the open dialog's body scroll (J/K, PgUp/PgDn).
     pub dialog: DialogState,
@@ -754,6 +763,10 @@ impl App {
             merge: MergeState::default(),
             remove: RemoveState::default(),
             resume: Default::default(),
+            plans: crate::app::modes::plan::PlanState {
+                reattach: props.plan_reattach.clone(),
+                ..Default::default()
+            },
             dialog: DialogState::default(),
             create: CreateState {
                 program_index: 0,
@@ -831,7 +844,8 @@ mod tests {
                 "pick-filter",
                 "worktrees",
                 "terminal-focus",
-                "confirm-resume"
+                "confirm-resume",
+                "confirm-plan"
             ]
         );
         for mode in Mode::ALL {

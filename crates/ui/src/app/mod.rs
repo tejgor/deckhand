@@ -1407,10 +1407,14 @@ impl App {
     /// TS: the useTerminalInput handler: Ctrl+C, the busy gate, then the mode's keys (crates/ui/src/app/modes).
     pub fn handle_input(&mut self, input: &Input) {
         use crate::app::modes::{
-            action_picker, browse, confirm, create, filter, preview_focus, resume, review, search, workspace_info,
+            action_picker, browse, confirm, create, filter, plan, preview_focus, resume, review, search, workspace_info,
         };
         let key = &input.key;
         self.dismiss_notice();
+        // Not in the TS: a key for anything but a plan means you moved on; answering a plan later attaches nowhere.
+        if self.mode != Mode::ConfirmPlan {
+            self.plans.reattach = None;
+        }
         // Ink's exitOnCtrlC is off (cli.ts) so a first Ctrl+C acts like Esc while a Settings edit or JSON draft is
         // open (asking before discarding it). Ctrl+C at the discard prompt, while a save is in flight, or anywhere
         // else quits like q. Not in the TS: in any other text field too (a search, a name, a note, a task, a DELETE
@@ -1496,6 +1500,7 @@ impl App {
             Mode::Worktrees => self.worktrees_flow_call(|flow, props, cx| flow.handle_input(props, input, cx)),
             Mode::ConfirmRemove => confirm::handle_confirm_remove(self, input),
             Mode::ConfirmResume => resume::handle_confirm_resume(self, input),
+            Mode::ConfirmPlan => plan::handle_confirm_plan(self, input),
             Mode::ChangesFocus => preview_focus::handle_changes_focus(self, input),
             Mode::NotesFocus => preview_focus::handle_notes_focus(self, input),
             Mode::PickFilter => {

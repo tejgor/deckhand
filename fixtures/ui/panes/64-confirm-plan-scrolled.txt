@@ -1,0 +1,20 @@
+
+  ╭────────────────────────────────────────────────────────────────╮
+  │ Create this plan?                                              │
+  │ Orchestrator's plan: 23 sessions, 1 task. Each session starts  │
+  │ on its brief at once.                                          │
+  │                                                                │
+  │ ◇ Auth rework  (new worktree · claude)                         │
+  │   ↳ Child 19  (stacked on Auth rework's branch · claude)       │
+  │   ↳ Child 18  (stacked on Auth rework's branch · claude)       │
+  │   ↳ Child 17  (stacked on Auth rework's branch · claude)       │
+  │   ↳ Child 16  (stacked on Auth rework's branch · claude)       │
+  │   ↳ Child 15  (stacked on Auth rework's branch · claude)       │
+  │   ↳ Child 14  (stacked on Auth rework's branch · claude)       │
+  │                                                                │
+  │ Unanswered, it expires in 13 min.                              │
+  │ No plan p1 is waiting for an answer (it was answered or        │
+  │ expired)                                                       │
+  │ enter create • esc cancel                                      │
+  ╰──────────────────────────────────────────────── ↓ 20 more · J ─╯
+

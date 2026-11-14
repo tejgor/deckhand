@@ -43,6 +43,7 @@ Every Deckhand key, screen by screen; press `?` in Deckhand for the in-app guide
 | `E` | Open the session's directory in Cursor or VS Code (on Notes: the note) |
 | `n` | New top-level session, or a `⑂` fork of the selected one ([forks](features.md#sessions-and-sub-sessions)) |
 | `N` | New sub-session: clean, a `⑂` fork or `↳` from the handoff ([sub-sessions](features.md#sessions-and-sub-sessions)) |
+| `O` | The repository's orchestrator (`◎`): attach to it when it runs; otherwise start it and select it (`enter` or `O` attaches once it runs). See [Plan confirmation](#plan-confirmation) |
 | `x` | Stop the selected session, asking first (and whether to delete its worktree and branch) |
 | `X` | Force-stop the selected session, keeping its worktree: asks first, with the force kill chosen (one `enter`) |
 | `s` | Resume the selected exited session (or retry a failed setup) |
@@ -129,6 +130,7 @@ The agent starts with no task: attach (`o`) and type it, or start the session fr
 | `▾` / `▸` | Parent with sub-sessions, expanded / collapsed (`c`) |
 | `↳` | Clean sub-session |
 | `⑂` | Forked sub-session |
+| `◎` | Before the status: the repository's orchestrator (`O`). Its details say `◎ orchestrator · plans and dispatches sessions`; a session it started says `◎ started by Orchestrator` |
 | `· name` | After a sub-session's title: its parent, when it isn't listed right above it (another section, a search); cut first when narrow |
 | `▶` | After the title: the worktree's Dev command runs (on its first row; muted on the worktree's other rows, which share it) |
 | `▣` | After the title: archived |
@@ -175,6 +177,20 @@ While you type, the rest of the sidebar is dimmed (the selected row stays bright
 | mouse wheel | Scroll the pane, scaled by the [scroll speed](features.md#scroll-speed) |
 
 Both detach keys still work when the attached program switches the terminal to an enhanced keyboard mode (kitty's or xterm's modifyOtherKeys, as Codex can).
+
+When an orchestrator's plan waits for your answer, Deckhand detaches by itself to show the [plan confirmation](#plan-confirmation), and attaches you again once the plan is answered.
+
+## Plan confirmation
+
+An orchestrator's plan (`deckhand plan apply`) creates nothing until you answer it in Deckhand. The dialog shows the sessions it would create as a tree, its backlog tasks and when it expires unanswered (15 minutes). It opens on the session list and while you type to an agent or a shell (typing resumes after the answer), and detaches an attach for it; on any other screen it waits until you close that screen, with `◎ Plan waiting` in the header. Several plans are shown one at a time, oldest first.
+
+| Key | Action |
+| --- | --- |
+| `enter` | Create the plan: its sessions start on their briefs, its tasks go to the backlog |
+| `esc` | Cancel the plan: nothing is created |
+| `J` / `K` | Scroll a plan that does not fit (`pgdn` / `pgup` too) |
+
+No other key acts while it shows, and keys typed on as it opens are ignored until you pause for 0.75 s, so a sentence you were typing to the agent can't answer it. Answered in another Deckhand, or expired, it closes by itself.
 
 ## Notes editor
 

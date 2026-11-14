@@ -262,6 +262,8 @@ fn effect_pass(app: &mut App) {
     collapsed_effect(app);
     mount_effect(app);
     active_tab_effect(app);
+    // Not in the TS: a plan that waited opens once the screen it waited behind is left.
+    crate::app::modes::plan::open_if_free(app);
     crate::app::modes::preview_focus::interactive_focus_effect(app);
     if app.effects.stdout_modes {
         let mut stdout = std::io::stdout();
@@ -467,6 +469,8 @@ fn mount_effect(app: &mut App) {
     app.effects.mounted = true;
     ran(app);
     load_scroll_sensitivity(app);
+    // Not in the TS: an attach a plan ended is attached again only if the plan comes to be asked.
+    crate::app::modes::plan::arm_reattach(app);
 }
 
 /// TS: the `[activeTab]` effect: remember it for the selected session, report it, and leave the focus modes bound to
@@ -674,6 +678,8 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
     let action_updated = on();
     let versions_updated = on();
     let tasks_updated = on();
+    let plan_pending = on();
+    let plan_settled = on();
     let error = on();
     let close = on();
     LiveClientHandlers {
@@ -757,13 +763,18 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
                 // Only the current connection's close reconnects (an older client was closed by its cleanup).
                 if app.connection.epoch == epoch {
                     app.connection.client = None;
+                    crate::app::modes::plan::connection_lost(app);
                     schedule_reconnect(app);
                 }
             });
         })),
-        // Orchestrator plans: the confirmation is not built yet.
-        on_plan_pending: None,
-        on_plan_settled: None,
+        // Not in the TS: orchestrator plans waiting for an answer (crates/ui/src/app/modes/plan.rs).
+        on_plan_pending: Some(Box::new(move |plan| {
+            plan_pending.update(move |app: &mut App| crate::app::modes::plan::plan_pending(app, plan));
+        })),
+        on_plan_settled: Some(Box::new(move |settled| {
+            plan_settled.update(move |app: &mut App| crate::app::modes::plan::plan_settled(app, &settled));
+        })),
     }
 }
 

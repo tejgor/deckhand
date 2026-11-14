@@ -23,7 +23,7 @@ use crate::session_order::{
 use crate::session_sections::{SessionSection, in_section, session_section};
 use crate::workspace::workspace_key;
 use deckhand_protocol::data::{
-    AgentActivityStatus, AttentionReasonKind, AttentionState, ExitReason, SessionRecord, SessionStatus,
+    AgentActivityStatus, AttentionReasonKind, AttentionState, ExitReason, SessionRecord, SessionRole, SessionStatus,
     SessionWorktreeMode, SubSessionKind,
 };
 
@@ -104,6 +104,9 @@ pub const DONE_MARKER: &str = "☑";
 
 /// TS: sidebarModel.ts OUTDATED_MARKER.
 pub const OUTDATED_MARKER: &str = "↑";
+
+/// Not in the TS: the orchestrator's marker, in its row's tree (before the status) and on its details lines.
+pub const ORCHESTRATOR_MARKER: &str = "◎";
 
 /// TS: sidebarModel.ts MIN_TITLE (title columns below which suffix markers are dropped).
 pub const MIN_TITLE: usize = 4;
@@ -280,19 +283,32 @@ fn parent_of<'a>(session: &SessionRecord, sessions: &[&'a SessionRecord]) -> Opt
     sessions.iter().copied().find(|candidate| candidate.id == parent)
 }
 
-/// Columns of indent before a row's ▾ ▸ and ↳ ⑂: for each ancestor `listed` shows, its ▾ and its own ↳ ⑂ (a top-level
-/// session has none), so a sub-session's marker starts under its parent's status glyph at every depth. Two columns a
-/// level would put a grandchild's title under its parent's, the parent's ▾ having taken the step. `apart` (the state
-/// view's row under a line naming its parent) adds one step.
+/// Columns of indent before a row's ▾ ▸ and ↳ ⑂: for each ancestor `listed` shows, its ▾ and its own ↳ ⑂ or ◎ (a
+/// top-level session has no ↳ ⑂), so a sub-session's marker starts under its parent's status glyph at every depth.
+/// Two columns a level would put a grandchild's title under its parent's, the parent's ▾ having taken the step.
+/// `apart` (the state view's row under a line naming its parent) adds one step.
 fn tree_indent(session: &SessionRecord, listed: &[&SessionRecord], apart: bool) -> usize {
     let mut indent = if apart { 2 } else { 0 };
     let mut seen: HashSet<&str> = HashSet::from([session.id.as_str()]);
     let mut current = session;
     while let Some(parent) = parent_of(current, listed).filter(|parent| seen.insert(parent.id.as_str())) {
-        indent += if parent.sub_session_kind.is_some() { 4 } else { 2 };
+        // Its ▾, then its own ↳ ⑂ and ◎.
+        let kind = if parent.sub_session_kind.is_some() { 2 } else { 0 };
+        let role = if role_mark(parent).is_empty() { 0 } else { 2 };
+        indent += 2 + kind + role;
         current = parent;
     }
     indent
+}
+
+/// Not in the TS: `◎ ` in the orchestrator's tree (its role, after any ▾ ▸), else nothing; [`tree_indent`] counts two
+/// columns for it.
+fn role_mark(session: &SessionRecord) -> &'static str {
+    if session.role == Some(SessionRole::Orchestrator) {
+        "◎ "
+    } else {
+        ""
+    }
 }
 
 /// The sessions `filter` lists (as ▾ ▸ and +N count them, whatever the search), and in the state view each section's.
@@ -423,7 +439,7 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
             };
         }
         let marks = format!(
-            "{}{}",
+            "{}{}{}",
             if has_children {
                 if collapsed { "▸ " } else { "▾ " }
             } else {
@@ -433,7 +449,8 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
                 Some(SubSessionKind::Forked) => "⑂ ",
                 Some(SubSessionKind::Clean) => "↳ ",
                 None => "",
-            }
+            },
+            role_mark(session)
         );
         let mut prefix = vec![
             if selected {
@@ -1127,6 +1144,12 @@ fn details<S: SessionLike>(
             THEME.muted,
         )]);
     }
+    // Not in the TS: the orchestrator says what it is for; a session it (or another session) started says who did.
+    if let Some(role) = role_line(session, all_sessions, width)
+        && room(&lines) >= 1
+    {
+        lines.push(role);
+    }
     // Not in the TS: whose sub-session it is, and how that one is doing (a row can sit far from its parent).
     if let Some(parent) = parent_line(session, all_sessions, width).filter(|_| parents)
         && room(&lines) >= 1
@@ -1208,6 +1231,40 @@ fn target_line(session: &SessionRecord, width: usize) -> Option<DetailLine> {
     if line.iter().map(|part| jlen(&part.text)).sum::<i64>() > width {
         line[0].text = "→ ".into();
     }
+    Some(cut_parts(&line, width))
+}
+
+/// Not in the TS: `◎ orchestrator · plans and dispatches sessions` for the orchestrator; `◎ started by <title>` for a
+/// session the orchestrator started (`started by <title>` when another session's `deckhand new` did), while the
+/// starter is known and is not its parent (the parent line names that one). Cut to `width`.
+fn role_line<S: SessionLike>(session: &SessionRecord, all_sessions: &[S], width: usize) -> Option<DetailLine> {
+    let width = jnum(width);
+    if session.role == Some(SessionRole::Orchestrator) {
+        let line = vec![
+            detail(format!("{ORCHESTRATOR_MARKER} "), THEME.accent_soft),
+            detail("orchestrator · plans and dispatches sessions", THEME.muted),
+        ];
+        return Some(cut_parts(&line, width));
+    }
+    let starter_id = session
+        .spawned_by_session_id
+        .as_deref()
+        .filter(|id| !id.is_empty() && session.parent_session_id.as_deref() != Some(*id))?;
+    let starter = all_sessions
+        .iter()
+        .map(SessionLike::session)
+        .find(|candidate| candidate.id == starter_id)?;
+    let mut name = display_session_title(starter, all_sessions);
+    if name.is_empty() {
+        name = "(untitled)".to_owned();
+    }
+    let head = if starter.role == Some(SessionRole::Orchestrator) {
+        format!("{ORCHESTRATOR_MARKER} started by ")
+    } else {
+        "started by ".to_owned()
+    };
+    let room = (width - jlen(&head)).max(1);
+    let line = vec![detail(head, THEME.muted), detail(cut(&name, room), THEME.accent_soft)];
     Some(cut_parts(&line, width))
 }
 
@@ -2196,6 +2253,96 @@ mod tests {
         let b = all.iter().copied().find(|session| session.id == "b");
         let plain = line_texts(&session_details(b, &all, 48, 10, NOW, None, None));
         assert!(!plain.iter().any(|line| line.contains("sub-session of")));
+    }
+
+    #[test]
+    fn the_orchestrator_is_marked_in_its_tree_and_its_children_indent_past_the_mark() {
+        let orchestrator = sess("o", json!({"title": "Orchestrator", "role": "orchestrator"}));
+        let child = sess(
+            "k",
+            json!({"title": "Kid", "parentSessionId": "o", "subSessionKind": "clean"}),
+        );
+        let plain = sess("p", json!({"title": "Plain"}));
+        let list = [orchestrator, child, plain];
+        let all = refs(&list);
+        let rows = texts(&all, Opts::default());
+        assert_eq!(rows[0], "  1 ▾ ◎ ● Orchestrator                      ✶");
+        // The child's ↳ starts under the orchestrator's status glyph, as under any parent's.
+        assert_eq!(rows[1], "  2     ↳ ● Kid                             ✶");
+        assert_eq!(rows[2], "  3 ● Plain                                 ✶");
+        // Every row keeps the width the drop rules give it, and the mark is part of the tree.
+        let parts = rows_of(&all, Opts::default());
+        assert!(parts.iter().all(|row| js_len(&row_text(row)) == 45));
+        assert_eq!(
+            parts[0]
+                .parts
+                .iter()
+                .find(|part| part.role == RowRole::Tree)
+                .map(|part| part.text.as_str()),
+            Some("▾ ◎ ")
+        );
+        // Narrow, the title keeps its minimum: the mark stays, the title is cut.
+        let narrow = texts(
+            &all[..1],
+            Opts {
+                width: Some(16),
+                ..Opts::default()
+            },
+        );
+        assert_eq!(narrow[0], "  1 ◎ ● Orche… ✶");
+    }
+
+    #[test]
+    fn details_say_what_the_orchestrator_is_for_and_who_started_a_session() {
+        let orchestrator = sess("o", json!({"title": "Orchestrator", "role": "orchestrator"}));
+        let started = sess("s", json!({"title": "Auth rework", "spawnedBySessionId": "o"}));
+        let by_agent = sess("t", json!({"title": "Tests", "spawnedBySessionId": "s"}));
+        // Started by its parent: the parent line says it already.
+        let child = sess(
+            "c",
+            json!({"title": "Token storage", "parentSessionId": "s", "subSessionKind": "clean", "spawnedBySessionId": "s"}),
+        );
+        let unknown = sess("u", json!({"title": "Orphan", "spawnedBySessionId": "gone"}));
+        let list = [orchestrator, started, by_agent, child, unknown];
+        let all = refs(&list);
+        let of = |id: &str, width: usize| -> Vec<String> {
+            let session = all.iter().copied().find(|session| session.id == id);
+            line_texts(&session_details(session, &all, width, 10, NOW, None, None))
+        };
+        assert!(
+            of("o", 48).contains(&"◎ orchestrator · plans and dispatches sessions".to_owned()),
+            "{:?}",
+            of("o", 48)
+        );
+        assert!(
+            of("o", 20).contains(&"◎ orchestrator · pl…".to_owned()),
+            "{:?}",
+            of("o", 20)
+        );
+        assert!(
+            of("s", 48).contains(&"◎ started by Orchestrator".to_owned()),
+            "{:?}",
+            of("s", 48)
+        );
+        // Cut to fit, the starter's name last.
+        assert!(
+            of("s", 20).contains(&"◎ started by Orches…".to_owned()),
+            "{:?}",
+            of("s", 20)
+        );
+        // Another session's `deckhand new`: no orchestrator mark.
+        assert!(
+            of("t", 48).contains(&"started by Auth rework".to_owned()),
+            "{:?}",
+            of("t", 48)
+        );
+        for id in ["c", "u"] {
+            assert!(
+                !of(id, 48).iter().any(|line| line.contains("started by")),
+                "{id}: {:?}",
+                of(id, 48)
+            );
+        }
     }
 
     #[test]

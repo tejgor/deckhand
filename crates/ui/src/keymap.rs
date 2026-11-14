@@ -286,7 +286,7 @@ mod tests {
     }
 
     use crate::app::modes::{
-        action_picker, browse, confirm, create, filter, preview_focus, resume, review, search, workspace_info,
+        action_picker, browse, confirm, create, filter, plan, preview_focus, resume, review, search, workspace_info,
     };
     use crate::flows::{agents, changes, notes, settings, tasks, worktrees};
 
@@ -306,6 +306,7 @@ mod tests {
             ("confirm-merge", confirm::MERGE_KEYMAP),
             ("confirm-remove", confirm::REMOVE_KEYMAP),
             ("confirm-resume", resume::KEYMAP),
+            ("confirm-plan", plan::KEYMAP),
             ("agents", agents::KEYMAP),
             ("notes", notes::KEYMAP),
             ("settings", settings::KEYMAP),

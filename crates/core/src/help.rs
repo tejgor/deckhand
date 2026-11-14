@@ -82,7 +82,7 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             },
             HelpLine::Key {
                 keys: "Space",
-                text: "Mark done / not done (☑; any session, not the same as merged)",
+                text: "Mark done / not done (☑; not the same as merged)",
             },
             HelpLine::Key {
                 keys: "U",
@@ -99,6 +99,10 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
             HelpLine::Key {
                 keys: "H",
                 text: "Export a Markdown handoff (notes, commits, changed files, diff stat) and open it",
+            },
+            HelpLine::Key {
+                keys: "O",
+                text: "Orchestrator (◎): describe a problem; it plans sessions",
             },
             HelpLine::Note {
                 note: "A fork copies the conversation as saved then, not a turn in progress.",
@@ -131,8 +135,8 @@ pub static HELP_TOPICS: &[HelpTopic] = &[
                 text: "Has sub-sessions: expanded / collapsed (c)",
             },
             HelpLine::Key {
-                keys: "↳ ⑂",
-                text: "Clean / forked sub-session",
+                keys: "↳ ⑂  ◎",
+                text: "Clean / forked sub-session · the orchestrator (O)",
             },
             HelpLine::Key {
                 keys: "▶",
@@ -627,6 +631,7 @@ mod tests {
             "▸",
             "↳",
             "⑂",
+            "◎",
             "▶",
             "▣",
             "✓",
