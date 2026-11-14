@@ -2562,6 +2562,7 @@ pub(crate) mod tests {
                 event: "Stop".to_owned(),
                 at: "2026-01-02T00:00:00.000Z".to_owned(),
                 reason: None,
+                carried: None,
                 extra: IndexMap::new(),
             });
             session.reply_read_at = Some("2026-01-02T00:05:00.000Z".to_owned());

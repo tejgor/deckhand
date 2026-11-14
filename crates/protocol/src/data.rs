@@ -149,6 +149,17 @@ string_union!(
         Idle = "idle",
     }
 );
+string_union!(
+    /// Not in the TS: what a relaunched session showed before it was relaunched (`s`, a controlled restart, a resume
+    /// after the daemon restarted), carried over as its attention until real activity: a reply you had not read, a
+    /// question or permission it waited on you for (now an unread reply too, since the agent no longer asks), or idle
+    /// (the attention's `at` is then when it went idle, which the Idle section orders by).
+    Carried {
+        Unread = "unread",
+        NeedsInput = "needs-input",
+        Idle = "idle",
+    }
+);
 string_union!(SetupState {
     Pending = "pending",
     Running = "running",
@@ -324,7 +335,8 @@ pub struct WorktreeMarkers {
     pub deleted_at: Option<String>,
 }
 
-/// agentSignals.ts AttentionReason: held in memory only, never persisted.
+/// agentSignals.ts AttentionReason: held in memory only, never persisted, except on an attention carried over a relaunch
+/// while its reply is unread (see [`SessionAttention::carried`]).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AttentionReason {
@@ -341,6 +353,10 @@ pub struct SessionAttention {
     pub event: String,
     pub at: String,
     pub reason: Option<AttentionReason>,
+    /// Not in the TS: set when a relaunch carried this attention over (a restart is not activity): what the session
+    /// showed before it. Any signal of the new launch but `SessionStart`, an interrupt or the idle prompt replaces it.
+    /// While its reply is unread, state.json keeps its `reason` too.
+    pub carried: Option<Carried>,
     /// Keys this version does not know (kept, as the TS spreads keep them).
     #[serde(flatten)]
     pub extra: IndexMap<String, Value>,

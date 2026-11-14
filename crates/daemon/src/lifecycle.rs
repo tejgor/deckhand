@@ -10,7 +10,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use deckhand_core::agent_signals::live_activity;
+use deckhand_core::agent_signals::{carried_reason_kept, carry_over, live_activity};
 use deckhand_core::error::{DhError, Result, errno_code};
 use deckhand_core::jsstr::{self, js_trim};
 use deckhand_core::worktree_records::stored_session;
@@ -75,8 +75,17 @@ fn without_keys(order: &KeyOrder, names: &[&str]) -> KeyOrder {
 
 /// TS: daemon.ts persistedSession: the session as state.json stores it: no projected markers or notes, and no
 /// attention reason (what the agent asked may quote code; kept in memory only). Not in the TS: no projected path,
-/// nor whether it is offered for resuming.
-pub fn persisted_session(session: &Ordered<SessionRecord>) -> Ordered<SessionRecord> {
+/// nor whether it is offered for resuming; and the one reason kept is an unread reply's carried over a relaunch
+/// ([`carried_reason_kept`]). `shutting_down`: the daemon writes for the last time, and the next one carries over what
+/// each live session shows, so the reasons it will keep are written now (the daemon's memory goes with it).
+pub fn persisted_session(session: &Ordered<SessionRecord>, shutting_down: bool) -> Ordered<SessionRecord> {
+    let keep_reason = if shutting_down && session.status != SessionStatus::Exited {
+        let mut next = (**session).clone();
+        carry_over(&mut next);
+        carried_reason_kept(&next)
+    } else {
+        carried_reason_kept(session)
+    };
     let stored = stored_session(session);
     // `{notes, notesFile, sharedNotes, ...stored}`: the rest keeps its order.
     let order = without_keys(
@@ -92,7 +101,7 @@ pub fn persisted_session(session: &Ordered<SessionRecord>) -> Ordered<SessionRec
     record.interrupted_while = None;
     // What the agent asks or said (attention.reason) may quote commands or code: kept in memory, never written.
     // `{...stored, attention}` keeps attention's place; `{reason, ...attention}` the order of its other keys.
-    if let Some(attention) = record.attention.as_mut() {
+    if let Some(attention) = record.attention.as_mut().filter(|_| !keep_reason) {
         attention.reason = None;
     }
     Ordered::with_order(record, order)
@@ -171,18 +180,39 @@ impl Daemon {
         // If this daemon is starting, any previously-running sessions belonged to a different daemon process and their
         // PTY handles are gone. Mark them exited as crash/restart recovery, not as normal frontend quit behavior.
         // Not in the TS: what each of them was doing first, so the next UI can offer to resume them.
-        let interrupted: HashMap<String, InterruptedWhile> = storage::read_state()
+        // Not in the TS: and what each showed, carried over (a restart is not activity: an unread reply stays unread,
+        // see `carry_over`), which marking them exited would replace.
+        let live: Vec<SessionRecord> = storage::read_state()
             .await
             .map(|read| {
                 read.state
                     .sessions
-                    .iter()
+                    .into_iter()
                     .filter(|session| session.status != SessionStatus::Exited)
-                    .map(|session| (session.id.clone(), live_activity(session)))
+                    .map(Ordered::into_inner)
                     .collect()
             })
             .unwrap_or_default();
-        let stored = storage::mark_all_non_exited_sessions_exited().await?;
+        let interrupted: HashMap<String, InterruptedWhile> = live
+            .iter()
+            .map(|session| (session.id.clone(), live_activity(session)))
+            .collect();
+        let mut carried: HashMap<String, SessionRecord> = live
+            .into_iter()
+            .map(|mut session| {
+                carry_over(&mut session);
+                (session.id.clone(), session)
+            })
+            .collect();
+        let mut stored = storage::mark_all_non_exited_sessions_exited().await?;
+        for session in &mut stored.sessions {
+            if let Some(before) = carried.remove(&session.id).filter(|before| before.attention.is_some()) {
+                session.touch("attention");
+                session.attention = before.attention;
+                session.reply_read_at = before.reply_read_at;
+            }
+        }
+        let carried_any = !interrupted.is_empty();
         self.sessions.borrow_mut().interrupted = interrupted;
         {
             let mut worktrees = self.worktrees.borrow_mut();
@@ -223,7 +253,7 @@ impl Daemon {
         if let Err(error) = self.load_messages().await {
             self.log(&format!("reading the messages failed: {error}")).await;
         }
-        if legacy_notes {
+        if legacy_notes || carried_any {
             self.persist().await?;
         }
 
@@ -524,10 +554,11 @@ impl Daemon {
     fn persisted_state(&self) -> StateFile {
         let sessions: Vec<Ordered<SessionRecord>> = self.sessions.borrow().sessions.values().cloned().collect();
         let worktrees = self.worktrees.borrow().records.values().cloned().collect();
+        let shutting_down = self.lifecycle.borrow().shutting_down;
         StateFile {
             sessions: storage::sort_sessions_newest_first(&sessions)
                 .iter()
-                .map(persisted_session)
+                .map(|session| persisted_session(session, shutting_down))
                 .collect(),
             worktrees,
         }
@@ -682,7 +713,7 @@ mod tests {
             "interruptedWhile": "working",
         }))
         .unwrap();
-        let stored = persisted_session(&held);
+        let stored = persisted_session(&held, false);
         assert_eq!(
             serde_json::to_string(&stored).unwrap(),
             serde_json::to_string(&json!({
@@ -706,6 +737,62 @@ mod tests {
     }
 
     #[test]
+    fn state_json_keeps_a_reason_only_for_an_unread_reply_carried_over_a_relaunch() {
+        let record = |status: &str, attention: Value, read_at: Option<&str>| -> Ordered<SessionRecord> {
+            let mut value = json!({
+                "id": "s1", "title": "one", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r",
+                "status": status, "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z",
+                "attention": attention,
+            });
+            if let Some(read_at) = read_at {
+                value["replyReadAt"] = json!(read_at);
+            }
+            serde_json::from_value(value).unwrap()
+        };
+        let attention = |state: &str, carried: Option<&str>| {
+            let mut attention = json!({"state": state, "event": "Stop", "at": "2026-01-01T10:00:00.000Z",
+                "reason": {"kind": "message", "text": "said: All tests pass."}});
+            if let Some(carried) = carried {
+                attention["carried"] = json!(carried);
+            }
+            attention
+        };
+        let read = Some("2026-01-01T11:00:00.000Z");
+        let kept = |session: &Ordered<SessionRecord>, shutting_down: bool| {
+            persisted_session(session, shutting_down)
+                .attention
+                .as_ref()
+                .is_some_and(|attention| attention.reason.is_some())
+        };
+        // Carried over and unread: kept, also what a session waited on you for; read, it goes at the next write.
+        for shutting_down in [false, true] {
+            for status in ["running", "exited"] {
+                let unread = record(status, attention("response-ended", Some("unread")), None);
+                assert!(kept(&unread, shutting_down), "{status}");
+                let waited = record(status, attention("response-ended", Some("needs-input")), None);
+                assert!(kept(&waited, shutting_down), "{status}");
+                let was_read = record(status, attention("response-ended", Some("unread")), read);
+                assert!(!kept(&was_read, shutting_down), "{status}");
+            }
+        }
+        // Not carried: in memory only, except what a live session will carry over when this daemon stops for good.
+        let unread = record("running", attention("response-ended", None), None);
+        assert!(!kept(&unread, false));
+        assert!(kept(&unread, true));
+        let asks = record(
+            "running",
+            attention("needs-input", None),
+            Some("2026-01-01T12:00:00.000Z"),
+        );
+        assert!(!kept(&asks, false));
+        assert!(kept(&asks, true));
+        assert!(!kept(&record("running", attention("response-ended", None), read), true));
+        assert!(!kept(&record("running", attention("working", None), None), true));
+        // An exited session is not carried over by the next daemon.
+        assert!(!kept(&record("exited", attention("response-ended", None), None), true));
+    }
+
+    #[test]
     fn persisted_session_drops_the_projected_worktree_markers() {
         let held: Ordered<SessionRecord> = serde_json::from_value(json!({
             "id": "s1",
@@ -720,7 +807,7 @@ mod tests {
             "updatedAt": "2026-01-01T00:00:00.000Z",
         }))
         .unwrap();
-        let stored = serde_json::to_value(persisted_session(&held)).unwrap();
+        let stored = serde_json::to_value(persisted_session(&held, false)).unwrap();
         assert_eq!(
             stored["worktree"],
             json!({"mode": "managed", "path": "/r/wt", "branch": "b", "id": "w1"})

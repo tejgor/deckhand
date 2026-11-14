@@ -91,19 +91,24 @@ fn js_string_cmp(a: &str, b: &str) -> Ordering {
 /// TS: sessionFeatures.ts withReplyRead: `replyRead` when the reply that ended the last turn came no later than the
 /// session's `replyReadAt` (the TS took that time from ui-state's `readReplies`; the daemon keeps it now).
 pub fn with_reply_read(mut session: SessionRecord) -> SessionRecord {
+    if reply_was_read(&session) {
+        session.reply_read = Some(true);
+    }
+    session
+}
+
+/// Whether the reply that ended the session's last turn came no later than its `replyReadAt` (what
+/// [`with_reply_read`] records as `replyRead`).
+pub fn reply_was_read(session: &SessionRecord) -> bool {
     // ISO timestamps compare as strings.
-    let read = match (&session.attention, &session.reply_read_at) {
+    match (&session.attention, &session.reply_read_at) {
         (Some(attention), Some(read_at)) => {
             attention.state == AttentionState::ResponseEnded
                 && !read_at.is_empty()
                 && js_string_cmp(read_at, &attention.at) != Ordering::Less
         }
         _ => false,
-    };
-    if read {
-        session.reply_read = Some(true);
     }
-    session
 }
 
 /// TS: sessionFeatures.ts filterSessionList `taskTitle`: the title of the line a session is on, if any.
@@ -599,6 +604,7 @@ pub(crate) mod tests {
             event: event.into(),
             at: at.into(),
             reason: None,
+            carried: None,
             extra: Default::default(),
         })
     }

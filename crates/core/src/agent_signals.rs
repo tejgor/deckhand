@@ -15,9 +15,10 @@ use serde_with::skip_serializing_none;
 use crate::agents::JS_SPACE;
 use crate::error::{DhError, Result};
 use crate::jsstr;
+use crate::session_features::reply_was_read;
 use deckhand_protocol::data::{
     AgentActivityStatus, AgentSessionRef, AgentSessionRefKind, AttentionReason, AttentionReasonKind, AttentionState,
-    InterruptedWhile, ProgramKey, SessionRecord, SessionStatus,
+    Carried, InterruptedWhile, ProgramKey, SessionAttention, SessionRecord, SessionStatus,
 };
 
 /// TS: agentSignals.ts AgentSignal. Key order: a subagent's `{state, event, reason?, fromSubagent}`, otherwise
@@ -695,6 +696,72 @@ pub fn live_activity(session: &SessionRecord) -> InterruptedWhile {
     }
 }
 
+/// The event of an idle session's carried attention ([`carry_over`]).
+pub const RELAUNCH_EVENT: &str = "Relaunch";
+
+/// Not in the TS: what a session shows once relaunched (`s`, a controlled restart, a resume after the daemon
+/// restarted), as its attention: a restart is not activity, so it keeps showing what it showed before, with the times
+/// the state view orders it by, until real activity (a signal of the new launch, see `SessionAttention::carried`).
+///
+/// - A reply not read stays unread, from when its turn ended, with its `said:` line.
+/// - A question or permission it waited on you for becomes an unread reply from when it started waiting (the agent no
+///   longer asks after a relaunch, but you have not seen what it wanted): its reason is kept, and a `replyReadAt` from
+///   before the relaunch no longer counts, since looking at a pending question did not resolve it.
+/// - Anything else is idle, from when it went idle (the later of reading its reply and its activity changing), which is
+///   when the Idle section orders it by, however the relaunched agent settles.
+///
+/// An attention carried already is kept as it is, so carrying again (a controlled restart carries at the exit, then
+/// at the launch) changes nothing. A session with no idle time known carries nothing.
+pub fn carry_over(session: &mut SessionRecord) {
+    if session
+        .attention
+        .as_ref()
+        .is_some_and(|attention| attention.carried.is_some())
+    {
+        return;
+    }
+    let read = reply_was_read(session);
+    let carried = match session.attention.take() {
+        Some(mut attention) if attention.state == AttentionState::ResponseEnded && !read => {
+            attention.carried = Some(Carried::Unread);
+            Some(attention)
+        }
+        Some(mut attention) if attention.state == AttentionState::NeedsInput => {
+            attention.state = AttentionState::ResponseEnded;
+            attention.carried = Some(Carried::NeedsInput);
+            session.reply_read_at = None;
+            Some(attention)
+        }
+        _ => session
+            .reply_read_at
+            .as_deref()
+            .max(session.agent_status_updated_at.as_deref())
+            .filter(|at| !at.is_empty())
+            .map(|at| SessionAttention {
+                state: AttentionState::Unknown,
+                event: RELAUNCH_EVENT.to_owned(),
+                at: at.to_owned(),
+                reason: None,
+                carried: Some(Carried::Idle),
+                extra: IndexMap::new(),
+            }),
+    };
+    session.attention = carried;
+}
+
+/// Not in the TS: whether state.json keeps the session's attention reason, which is otherwise held in memory only:
+/// for an unread reply carried over a relaunch (its `said:` line, or what it asked while it waited on you), until it is
+/// read or a new turn replaces it.
+pub fn carried_reason_kept(session: &SessionRecord) -> bool {
+    matches!(carried(session), Some(Carried::Unread | Carried::NeedsInput)) && !reply_was_read(session)
+}
+
+/// Not in the TS: whether the session's attention was carried over a relaunch ([`carry_over`]) and nothing of the new
+/// launch has replaced it yet.
+pub fn carried(session: &SessionRecord) -> Option<Carried> {
+    session.attention.as_ref().and_then(|attention| attention.carried)
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // `new URL(url).host` (WHATWG URL), for the permission reason's host. `None` where the TS constructor throws.
 
@@ -1291,5 +1358,118 @@ mod tests {
             Some("12345678-abcd".to_owned())
         );
         assert_eq!(codex_resume_from_output("codex resume --last"), None);
+    }
+
+    fn relaunched(fields: Value) -> SessionRecord {
+        let mut value = serde_json::json!({
+            "id": "s", "title": "s", "program": "claude", "command": "claude", "cwd": "/r", "repoRoot": "/r",
+            "status": "exited", "createdAt": "2026-01-01T00:00:00.000Z", "updatedAt": "2026-01-01T00:00:00.000Z",
+        });
+        if let (Value::Object(map), Value::Object(extra)) = (&mut value, fields) {
+            map.extend(extra);
+        }
+        let mut session: SessionRecord = serde_json::from_value(value).expect("a session");
+        carry_over(&mut session);
+        session
+    }
+
+    #[test]
+    fn a_relaunch_carries_an_unread_reply_over_with_its_time_and_said_line() {
+        let session = relaunched(serde_json::json!({
+            "attention": {"state": "response-ended", "event": "Stop", "at": "2026-01-01T10:00:00.000Z",
+                "reason": {"kind": "message", "text": "said: All 12 tests pass."}},
+            "replyReadAt": "2026-01-01T09:00:00.000Z", "agentStatusUpdatedAt": "2026-01-01T11:00:00.000Z",
+        }));
+        let attention = session.attention.clone().expect("carried");
+        assert_eq!(attention.state, AttentionState::ResponseEnded);
+        assert_eq!(attention.at, "2026-01-01T10:00:00.000Z");
+        assert_eq!(attention.carried, Some(Carried::Unread));
+        assert_eq!(
+            attention.reason.map(|reason| reason.text).as_deref(),
+            Some("said: All 12 tests pass.")
+        );
+        assert_eq!(session.reply_read_at.as_deref(), Some("2026-01-01T09:00:00.000Z"));
+        assert!(carried_reason_kept(&session));
+        // Read once relaunched: storage no longer keeps the line.
+        let mut read = session.clone();
+        read.reply_read_at = Some("2026-01-01T12:00:00.000Z".into());
+        assert!(!carried_reason_kept(&read));
+    }
+
+    #[test]
+    fn a_relaunch_turns_waiting_on_you_into_an_unread_reply_however_it_was_looked_at() {
+        let session = relaunched(serde_json::json!({
+            "attention": {"state": "needs-input", "event": "PermissionRequest", "at": "2026-01-01T10:00:00.000Z",
+                "reason": {"kind": "permission", "text": "wants to run: npm test"}},
+            // Attached to and left without answering: that did not resolve it.
+            "replyReadAt": "2026-01-01T10:05:00.000Z",
+        }));
+        let attention = session.attention.clone().expect("carried");
+        assert_eq!(attention.state, AttentionState::ResponseEnded);
+        assert_eq!(attention.carried, Some(Carried::NeedsInput));
+        assert_eq!(attention.at, "2026-01-01T10:00:00.000Z");
+        assert_eq!(
+            attention.reason.map(|reason| reason.text).as_deref(),
+            Some("wants to run: npm test")
+        );
+        assert_eq!(session.reply_read_at, None);
+        assert!(carried_reason_kept(&session));
+        // It reads as idle now: a later restart does not count it as waiting.
+        let mut running = session.clone();
+        running.status = SessionStatus::Running;
+        assert_eq!(live_activity(&running), InterruptedWhile::Idle);
+    }
+
+    #[test]
+    fn a_relaunch_carries_when_an_idle_session_went_idle() {
+        let at = |at: &str| serde_json::json!({"state": "response-ended", "event": "Stop", "at": at});
+        let cases = [
+            // A read reply: the later of reading it and the activity changing.
+            (
+                serde_json::json!({"attention": at("2026-01-01T10:00:00.000Z"), "replyReadAt": "2026-01-01T12:00:00.000Z",
+                    "agentStatusUpdatedAt": "2026-01-01T10:00:01.000Z"}),
+                Some("2026-01-01T12:00:00.000Z"),
+            ),
+            (
+                serde_json::json!({"attention": {"state": "working", "event": "UserPromptSubmit", "at": "2026-01-01T10:00:00.000Z"},
+                    "agentStatusUpdatedAt": "2026-01-01T10:00:02.000Z"}),
+                Some("2026-01-01T10:00:02.000Z"),
+            ),
+            (
+                serde_json::json!({"agentStatusUpdatedAt": "2026-01-01T08:00:00.000Z"}),
+                Some("2026-01-01T08:00:00.000Z"),
+            ),
+            // No time known: nothing to carry.
+            (serde_json::json!({}), None),
+        ];
+        for (fields, expected) in cases {
+            let session = relaunched(fields.clone());
+            let attention = session.attention.clone();
+            assert_eq!(
+                attention.as_ref().map(|attention| attention.at.as_str()),
+                expected,
+                "{fields}"
+            );
+            if let Some(attention) = attention {
+                assert_eq!(attention.state, AttentionState::Unknown, "{fields}");
+                assert_eq!(attention.carried, Some(Carried::Idle), "{fields}");
+                assert_eq!(attention.reason, None, "{fields}");
+            }
+            assert!(!carried_reason_kept(&session), "{fields}");
+        }
+    }
+
+    #[test]
+    fn carrying_again_keeps_what_was_carried() {
+        let once = relaunched(serde_json::json!({
+            "attention": {"state": "needs-input", "event": "PermissionRequest", "at": "2026-01-01T10:00:00.000Z"},
+        }));
+        let mut twice = once.clone();
+        // Read since, and its exit moved its activity time: neither changes what it carries, nor unreads it.
+        twice.reply_read_at = Some("2026-01-02T00:00:00.000Z".into());
+        twice.agent_status_updated_at = Some("2026-01-02T00:00:01.000Z".into());
+        carry_over(&mut twice);
+        assert_eq!(twice.attention, once.attention);
+        assert_eq!(twice.reply_read_at.as_deref(), Some("2026-01-02T00:00:00.000Z"));
     }
 }

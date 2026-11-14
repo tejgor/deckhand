@@ -660,6 +660,7 @@ fn interrupted(mut session: Ordered<SessionRecord>, now: &str) -> Ordered<Sessio
         event: "DaemonRestart".to_owned(),
         at: now.to_owned(),
         reason: None,
+        carried: None,
         // A fresh literal: unknown keys of the old attention are lost (MIGRATIONS.md row 14).
         extra: Default::default(),
     });

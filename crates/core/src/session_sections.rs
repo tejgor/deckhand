@@ -9,7 +9,9 @@ use std::collections::{HashMap, HashSet};
 use crate::display::still_starting;
 use crate::session_features::session_has_unread_reply;
 use crate::session_order::{SessionLike, parent_of, visit};
-use deckhand_protocol::data::{AgentActivityStatus, AttentionState, SessionRecord, SessionRole, SessionStatus};
+use deckhand_protocol::data::{
+    AgentActivityStatus, AttentionState, Carried, SessionRecord, SessionRole, SessionStatus,
+};
 /// Persisted in ui-state.json, so defined by deckhand-protocol.
 pub use deckhand_protocol::records::SessionView;
 
@@ -73,16 +75,21 @@ pub enum TimeOrder {
 }
 
 /// When `session` arrived in `section`, as an ISO time (they compare as strings), for the sections listed by time:
-/// when it asked for you or ended its turn, or for Idle the later of reading its reply and its agent going idle.
+/// when it asked for you or ended its turn, or for Idle the later of reading its reply and its agent going idle. A
+/// relaunch is not activity: a relaunched session keeps its times (an unread reply carried over keeps its own, and an
+/// idle one carries when it went idle before, whenever the relaunched agent settled).
 pub fn arrived_at(session: &SessionRecord, section: SessionSection) -> Option<&str> {
     match section {
         SessionSection::NeedsYou | SessionSection::Unread => {
             session.attention.as_ref().map(|attention| attention.at.as_str())
         }
-        SessionSection::Idle => session
-            .reply_read_at
-            .as_deref()
-            .max(session.agent_status_updated_at.as_deref()),
+        SessionSection::Idle => {
+            let went_idle = match &session.attention {
+                Some(attention) if attention.carried == Some(Carried::Idle) => Some(attention.at.as_str()),
+                _ => session.agent_status_updated_at.as_deref(),
+            };
+            session.reply_read_at.as_deref().max(went_idle)
+        }
         SessionSection::Orchestrator | SessionSection::Working | SessionSection::Exited => None,
     }
 }
@@ -401,5 +408,161 @@ mod tests {
             .collect();
         assert_eq!(ids, ["o", "o2", "w", "i", "x"]);
         assert_eq!(SessionSection::ALL[0].label(), "Orchestrator");
+    }
+
+    /// Relaunched at `at` (`s`, a controlled restart, a resume after the daemon restarted), its agent settled idle since.
+    fn relaunched(mut session: SessionRecord, at: &str) -> SessionRecord {
+        crate::agent_signals::carry_over(&mut session);
+        session.status = SessionStatus::Running;
+        session.agent_status = Some(AgentActivityStatus::Idle);
+        session.agent_status_updated_at = Some(at.to_owned());
+        session.reply_read = None;
+        crate::session_features::with_reply_read(session)
+    }
+
+    fn sections(list: &[SessionRecord]) -> Vec<(SessionSection, &str)> {
+        order_by_section(list)
+            .into_iter()
+            .map(|item| (session_section(item), item.id.as_str()))
+            .collect()
+    }
+
+    #[test]
+    fn a_relaunch_keeps_each_section_in_its_order_until_real_activity() {
+        let attention = |state: &str, at: &str| json!({"state": state, "event": "Stop", "at": at});
+        let day = |day: u32| format!("2026-10-{day:02}T00:00:00.000Z");
+        let list: Vec<SessionRecord> = vec![
+            session("reply-late", json!({"attention": attention("response-ended", &day(6)), "agentStatusUpdatedAt": day(6)})),
+            session("reply-early", json!({"attention": attention("response-ended", &day(3)), "agentStatusUpdatedAt": day(3)})),
+            session("asked", json!({"attention": attention("needs-input", &day(5)), "replyReadAt": day(5), "agentStatusUpdatedAt": day(5)})),
+            session(
+                "read-early",
+                json!({"attention": attention("response-ended", &day(1)), "replyReadAt": day(4), "agentStatusUpdatedAt": day(1)}),
+            ),
+            session("idle-late", json!({"agentStatusUpdatedAt": day(7), "replyReadAt": day(2)})),
+            session(
+                "read-late",
+                json!({"attention": attention("response-ended", &day(1)), "replyReadAt": day(8), "agentStatusUpdatedAt": day(1)}),
+            ),
+        ]
+        .into_iter()
+        .map(crate::session_features::with_reply_read)
+        .collect();
+        use SessionSection::{Idle, NeedsYou, Unread};
+        assert_eq!(
+            sections(&list),
+            [
+                (NeedsYou, "asked"),
+                (Unread, "reply-early"),
+                (Unread, "reply-late"),
+                (Idle, "read-late"),
+                (Idle, "idle-late"),
+                (Idle, "read-early"),
+            ]
+        );
+
+        // Relaunched one after another (whatever order they come back in), each agent settling idle later.
+        let mut list: Vec<SessionRecord> = list
+            .into_iter()
+            .enumerate()
+            .map(|(index, session)| relaunched(session, &day(20 + u32::try_from(index).unwrap_or(0))))
+            .collect();
+        // The question waits no longer, but you have not seen it: unread, from when it asked.
+        assert_eq!(
+            sections(&list),
+            [
+                (Unread, "reply-early"),
+                (Unread, "asked"),
+                (Unread, "reply-late"),
+                (Idle, "read-late"),
+                (Idle, "idle-late"),
+                (Idle, "read-early"),
+            ]
+        );
+
+        // Real activity moves them: a new turn of read-early ends (unread again), you read reply-early.
+        let new_turn = |session: &mut SessionRecord, at: &str| {
+            session.attention = serde_json::from_value(attention("response-ended", at)).ok();
+            session.agent_status_updated_at = Some(at.to_owned());
+            session.reply_read = None;
+        };
+        for session in &mut list {
+            match session.id.as_str() {
+                "read-early" => new_turn(session, &day(28)),
+                "reply-early" => session.reply_read_at = Some(day(29)),
+                _ => {}
+            }
+        }
+        let list: Vec<SessionRecord> = list.into_iter().map(crate::session_features::with_reply_read).collect();
+        assert_eq!(
+            sections(&list),
+            [
+                (Unread, "asked"),
+                (Unread, "reply-late"),
+                (Unread, "read-early"),
+                (Idle, "reply-early"),
+                (Idle, "read-late"),
+                (Idle, "idle-late"),
+            ]
+        );
+    }
+
+    #[test]
+    fn sessions_from_a_state_json_without_carried_markers_are_unread_by_their_old_times_after_a_relaunch() {
+        // As the version before carried attention wrote state.json: the attention without a reason or marker.
+        let day = |day: u32| format!("2026-10-{day:02}T00:00:00.000Z");
+        let stored = |id: &str, fields: Value| -> SessionRecord {
+            let mut record = json!({
+                "id": id, "title": id, "program": "claude", "command": "/bin/claude", "cwd": "/repo", "repoRoot": "/repo",
+                "status": "running", "agentStatus": "idle", "agentStatusUpdatedAt": day(1),
+                "createdAt": day(1), "updatedAt": day(1),
+            });
+            if let (Some(record), Some(fields)) = (record.as_object_mut(), fields.as_object()) {
+                record.extend(fields.clone());
+            }
+            serde_json::from_value(record).expect("a stored session")
+        };
+        let list = vec![
+            stored(
+                "replied-late",
+                json!({"attention": {"state": "response-ended", "event": "Stop", "at": day(6)}, "replyReadAt": day(2)}),
+            ),
+            stored(
+                "asked",
+                json!({"attention": {"state": "needs-input", "event": "PermissionRequest", "at": day(4)}}),
+            ),
+            stored(
+                "replied-early",
+                json!({"attention": {"state": "response-ended", "event": "Stop", "at": day(3)}}),
+            ),
+            stored(
+                "was-read",
+                json!({"attention": {"state": "response-ended", "event": "Stop", "at": day(3)}, "replyReadAt": day(5)}),
+            ),
+        ];
+        // Relaunched (resumed after the daemon restarted), and again (`s`).
+        let once: Vec<SessionRecord> = list.into_iter().map(|session| relaunched(session, &day(20))).collect();
+        let twice: Vec<SessionRecord> = once
+            .iter()
+            .cloned()
+            .map(|session| relaunched(session, &day(21)))
+            .collect();
+        use SessionSection::{Idle, Unread};
+        let expected = [
+            (Unread, "replied-early"),
+            (Unread, "asked"),
+            (Unread, "replied-late"),
+            (Idle, "was-read"),
+        ];
+        assert_eq!(sections(&once), expected);
+        assert_eq!(sections(&twice), expected);
+        // Waiting on you says so, without what it asked (never stored).
+        let asked = twice.iter().find(|session| session.id == "asked").expect("asked");
+        let note: Vec<String> = crate::sidebar_model::attention_reason_lines(asked, 40, 3)
+            .iter()
+            .map(|line| line.iter().map(|part| part.text.as_str()).collect())
+            .collect();
+        assert_eq!(note, ["was waiting on you before the restart"]);
+        assert_eq!(arrived_at(asked, Unread), Some(day(4).as_str()));
     }
 }

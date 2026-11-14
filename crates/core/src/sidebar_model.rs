@@ -25,8 +25,8 @@ use crate::session_sections::{SessionSection, in_section, session_section};
 use crate::task_list::LineCount;
 use crate::workspace::workspace_key;
 use deckhand_protocol::data::{
-    AgentActivityStatus, AttentionReasonKind, AttentionState, ExitReason, SessionRecord, SessionRole, SessionStatus,
-    SessionWorktreeMode, SubSessionKind,
+    AgentActivityStatus, AttentionReasonKind, AttentionState, Carried, ExitReason, SessionRecord, SessionRole,
+    SessionStatus, SessionWorktreeMode, SubSessionKind,
 };
 
 /// TS: sidebarModel.ts RowRole (what a row segment is; the sidebar pane maps roles to colors).
@@ -852,6 +852,16 @@ pub fn status_since(session: &SessionRecord) -> Option<&str> {
     {
         return Some(&attention.at);
     }
+    // Not in the TS: a relaunched session idle as it was before has been idle since then (a restart is not activity).
+    if session.status == SessionStatus::Running
+        && session.agent_status != Some(AgentActivityStatus::Active)
+        && let Some(attention) = session
+            .attention
+            .as_ref()
+            .filter(|attention| attention.carried == Some(Carried::Idle))
+    {
+        return Some(&attention.at);
+    }
     Some(
         session
             .agent_status_updated_at
@@ -1341,31 +1351,44 @@ fn parent_line<S: SessionLike>(session: &SessionRecord, all_sessions: &[S], widt
 /// TS: sidebarModel.ts attentionReasonLines: what a running session waits on, from its agent signal's reason (`asks:
 /// …`, `plan ready: …`, `wants to run: …`, `said: …`, a failure): up to two lines when `rows` leaves one for the
 /// location after them, else one.
+///
+/// Not in the TS: a session relaunched while it waited on you is an unread reply until read, and says so first (`was
+/// waiting on you before the restart`), then what it asked when known; once read, it says neither.
 pub fn attention_reason_lines(session: &SessionRecord, width: usize, rows: usize) -> Vec<DetailLine> {
-    let reason = if session.status == SessionStatus::Running {
-        session
-            .attention
-            .as_ref()
-            .and_then(|attention| attention.reason.as_ref())
-    } else {
-        None
-    };
-    let Some(reason) = reason else {
-        return Vec::new();
-    };
-    if rows < 1 || width < 1 {
+    let running = session.status == SessionStatus::Running;
+    let attention = session.attention.as_ref().filter(|_| running);
+    let waited = attention.is_some_and(|attention| attention.carried == Some(Carried::NeedsInput));
+    if waited && !session_has_unread_reply(session) {
         return Vec::new();
     }
+    let reason = attention.and_then(|attention| attention.reason.as_ref());
+    if (reason.is_none() && !waited) || rows < 1 || width < 1 {
+        return Vec::new();
+    }
+    let mut room = if rows >= 3 { 2 } else { 1 };
+    let mut lines = Vec::new();
+    if waited {
+        lines.push(vec![detail(truncate(WAITED_BEFORE_RESTART, width), THEME.warn)]);
+        room -= 1;
+    }
+    let Some(reason) = reason.filter(|_| room > 0) else {
+        return lines;
+    };
     let color = match reason.kind {
         AttentionReasonKind::Message => THEME.muted,
         AttentionReasonKind::Failure => status_color(session),
         _ => THEME.warn,
     };
-    title_lines(&reason.text, width, if rows >= 3 { 2 } else { 1 })
-        .into_iter()
-        .map(|text| vec![detail(text, color)])
-        .collect()
+    lines.extend(
+        title_lines(&reason.text, width, room)
+            .into_iter()
+            .map(|text| vec![detail(text, color)]),
+    );
+    lines
 }
+
+/// Not in the TS: the details of a session relaunched while it waited on you, until its reply is read.
+pub const WAITED_BEFORE_RESTART: &str = "was waiting on you before the restart";
 
 /// `<glyph> <agent> · <state> · <age>`; when too wide, the agent's name goes first (its glyph stays), then the age.
 /// An outdated session names both versions first (`claude 2.1.287 · 2.1.290 installed`, then `2.1.287 → 2.1.290`).
@@ -2987,6 +3010,66 @@ mod tests {
                 arg_width(case, 2)?,
             ))
         });
+    }
+
+    #[test]
+    fn a_session_relaunched_while_it_waited_on_you_says_so_until_read() {
+        let mut session = partial_session(&serde_json::json!({
+            "id": "s", "title": "task", "program": "claude", "command": "claude", "cwd": "/repo", "repoRoot": "/repo",
+            "status": "exited", "agentStatusUpdatedAt": "1970-01-01T00:00:00.000Z",
+            "createdAt": "1970-01-01T00:00:00.000Z", "updatedAt": "1970-01-01T00:00:00.000Z",
+            "attention": {"state": "needs-input", "event": "PermissionRequest", "at": "1970-01-01T00:00:00.000Z",
+                "reason": {"kind": "permission", "text": "wants to run: npm test"}},
+        }))
+        .expect("a session literal");
+        crate::agent_signals::carry_over(&mut session);
+        session.status = SessionStatus::Running;
+        session.agent_status = Some(AgentActivityStatus::Idle);
+        let details = |session: &SessionRecord, free: usize| -> Vec<String> {
+            let session = crate::session_features::with_reply_read(session.clone());
+            session_details(Some(&session), &[&session], 40, free, 60_000, None, None)
+                .iter()
+                .map(|line| line.iter().map(|part| part.text.as_str()).collect())
+                .collect()
+        };
+        assert_eq!(session_section(&session), SessionSection::Unread);
+        assert_eq!(
+            details(&session, 6)[2..],
+            [
+                "✶ claude · unread reply · 1m".to_owned(),
+                "was waiting on you before the restart".to_owned(),
+                "wants to run: npm test".to_owned(),
+                "main checkout".to_owned(),
+            ]
+        );
+        // With room for one line, the note.
+        assert_eq!(details(&session, 4)[3], "was waiting on you before the restart");
+        // Read: idle, and it says neither.
+        session.reply_read_at = Some("1970-01-01T00:00:30.000Z".into());
+        let read = crate::session_features::with_reply_read(session.clone());
+        assert_eq!(session_section(&read), SessionSection::Idle);
+        assert_eq!(
+            details(&session, 6)[2..],
+            ["✶ claude · idle · 1m".to_owned(), "main checkout".to_owned()]
+        );
+    }
+
+    #[test]
+    fn a_relaunched_idle_session_has_been_idle_since_before_the_restart() {
+        let mut session = partial_session(&serde_json::json!({
+            "id": "s", "title": "task", "program": "claude", "command": "claude", "cwd": "/repo", "repoRoot": "/repo",
+            "status": "exited", "agentStatusUpdatedAt": "1970-01-01T00:00:00.000Z",
+            "createdAt": "1970-01-01T00:00:00.000Z", "updatedAt": "1970-01-01T00:00:00.000Z",
+        }))
+        .expect("a session literal");
+        crate::agent_signals::carry_over(&mut session);
+        session.status = SessionStatus::Running;
+        session.agent_status = Some(AgentActivityStatus::Idle);
+        session.agent_status_updated_at = Some("1970-01-01T01:00:00.000Z".into());
+        assert_eq!(status_since(&session), Some("1970-01-01T00:00:00.000Z"));
+        // Busy again: since then.
+        session.agent_status = Some(AgentActivityStatus::Active);
+        assert_eq!(status_since(&session), Some("1970-01-01T01:00:00.000Z"));
     }
 
     #[test]

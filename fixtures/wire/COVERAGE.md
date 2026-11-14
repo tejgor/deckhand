@@ -155,7 +155,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | `plan-settled` | 0 | 1 |
 | d2c | - | `preview-updated` | 1 | 1 |
 | d2c | - | `session-removed` | 1 | 0 |
-| d2c | - | `session-updated` | 24 | 2 |
+| d2c | - | `session-updated` | 24 | 3 |
 | d2c | - | `tasks-updated` | 1 | 0 |
 | d2c | - | `terminal-attached` | 1 | 0 |
 | d2c | - | `terminal-detached` | 1 | 0 |

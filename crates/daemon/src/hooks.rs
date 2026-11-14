@@ -10,14 +10,14 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use deckhand_core::agent_signals::{attention_message, needs_attention, normalize_hook};
+use deckhand_core::agent_signals::{attention_message, carried, needs_attention, normalize_hook};
 use deckhand_core::agents::{agent_spec, same_agent_session_ref};
 use deckhand_core::error::{DhError, Result};
 use deckhand_core::jsstr::{date, js_trim};
 use deckhand_protocol::Ordered;
 use deckhand_protocol::data::{
-    AgentActivityStatus, AgentSessionRef, AttentionReasonKind, AttentionState, SessionAttention, SessionRecord,
-    SessionStatus, SubSessionKind,
+    AgentActivityStatus, AgentSessionRef, AttentionReasonKind, AttentionState, Carried, SessionAttention,
+    SessionRecord, SessionStatus, SubSessionKind,
 };
 use deckhand_protocol::wire::{AgentCaller, AgentHook};
 use deckhand_sys::async_util::{Timer, spawn};
@@ -137,6 +137,7 @@ fn plain_attention(state: AttentionState, event: &str, at: String) -> SessionAtt
         event: event.to_owned(),
         at,
         reason: None,
+        carried: None,
         extra: IndexMap::new(),
     }
 }
@@ -183,6 +184,26 @@ impl Daemon {
         }
         let previous = session.attention.clone();
         let previous_state = previous.as_ref().map(|previous| previous.state);
+        // Not in the TS: a relaunched session shows what it showed before (an unread reply, when it went idle) until
+        // real activity. Starting up (`SessionStart`, as a resumed agent sends it), an interrupt or the idle prompt is
+        // not: only the conversation ID such a signal reports is taken.
+        if previous.as_ref().is_some_and(|previous| previous.carried.is_some())
+            && (signal.state == AttentionState::Unknown || signal.idle == Some(true))
+        {
+            if let Some(native_ref) = self.accepted_native_ref(&session, signal.native_ref.as_ref(), &signal.event) {
+                let mut updated = session;
+                updated.touch("agentSessionRef");
+                updated.agent_session_ref = Some(native_ref);
+                self.save_session(updated).await?;
+            }
+            self.messages_on_signal(&message.session_id);
+            return Ok(());
+        }
+        // What a carried attention said was the previous launch's: a notification's text does not fall back to it.
+        let previous_reason = previous
+            .as_ref()
+            .filter(|previous| previous.carried.is_none())
+            .and_then(|previous| previous.reason.clone());
         if signal.idle == Some(true)
             && previous_state.is_some_and(|state| state != AttentionState::Working && state != AttentionState::Unknown)
         {
@@ -202,7 +223,6 @@ impl Daemon {
                 session.id, native_ref.value, current.value, signal.event
             ));
         }
-        let previous_reason = previous.as_ref().and_then(|previous| previous.reason.clone());
         // A notification's generic text ("Claude is waiting for your input") never replaces the reason it follows.
         let reason = match (&signal.reason, previous_reason) {
             (Some(reason), Some(previous_reason)) if reason.kind == AttentionReasonKind::Notice => {
@@ -370,7 +390,16 @@ impl Daemon {
         }
         // A stale working signal is ended by `settle_working`, not here: the screen can settle without ever having
         // counted as active (Esc within a second of a prompt), so no change of activity would come.
+        // Not in the TS: a relaunched agent booting is not activity, but one that settled and is busy again is: an idle
+        // session carried over a relaunch no longer keeps when it went idle before.
+        let active_again = agent_status == AgentActivityStatus::Active
+            && session.agent_status == Some(AgentActivityStatus::Idle)
+            && carried(&session) == Some(Carried::Idle);
         let mut updated = session;
+        if active_again {
+            updated.touch("attention");
+            updated.attention = None;
+        }
         updated.touch("agentStatus");
         updated.agent_status = Some(agent_status);
         updated.touch("agentStatusUpdatedAt");
@@ -1397,6 +1426,117 @@ pub(crate) mod tests {
             let daemon = test_daemon(dir.path());
             // No config: returns without running anything.
             daemon.notify(&session("s", "/r", "/r"), "needs input").await;
+        });
+    }
+
+    /// What a relaunch of session `s` carries over now (as `s` or a restart does).
+    fn relaunch(daemon: &Daemon) {
+        daemon.patch_session("s", |session| {
+            session.touch("attention");
+            deckhand_core::agent_signals::carry_over(session);
+            session.touch("agentStatus");
+            session.agent_status = Some(AgentActivityStatus::Unknown);
+        });
+    }
+
+    #[test]
+    fn a_carried_unread_reply_outlasts_the_relaunched_agent_starting_until_a_new_turn() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, _worker, _fake) = setup(dir.path()).await;
+            seed(
+                &daemon,
+                AttentionState::ResponseEnded,
+                Some("said: All tests pass."),
+                Some("conv-1"),
+            );
+            relaunch(&daemon);
+            let carried = attention(&daemon).unwrap();
+            assert_eq!(carried.carried, Some(Carried::Unread));
+            // The resumed agent starting, an interrupt and the idle prompt are not activity: only the conversation ID
+            // is taken.
+            for payload in [
+                json!({"hook_event_name": "SessionStart", "session_id": "conv-2"}),
+                json!({"hook_event_name": "Interrupt"}),
+                json!({"hook_event_name": "Notification", "notification_type": "idle_prompt", "message": "Waiting"}),
+            ] {
+                daemon.handle_agent_hook(&hook(payload.clone(), None)).await.unwrap();
+                assert_eq!(attention(&daemon), Some(carried.clone()), "{payload}");
+            }
+            let session = daemon.get_session("s").unwrap();
+            assert_eq!(
+                session.agent_session_ref.as_ref().map(|r| r.value.as_str()),
+                Some("conv-2")
+            );
+            // A new turn replaces it.
+            daemon
+                .handle_agent_hook(&hook(json!({"hook_event_name": "UserPromptSubmit"}), None))
+                .await
+                .unwrap();
+            let working = attention(&daemon).unwrap();
+            assert_eq!(
+                (working.state, working.carried, working.reason),
+                (AttentionState::Working, None, None)
+            );
+        });
+    }
+
+    #[test]
+    fn a_question_carried_over_a_relaunch_is_not_what_a_new_prompt_asks() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, _worker, _fake) = setup(dir.path()).await;
+            seed(
+                &daemon,
+                AttentionState::NeedsInput,
+                Some("asks: Which token store?"),
+                None,
+            );
+            relaunch(&daemon);
+            assert_eq!(state(&daemon), Some(AttentionState::ResponseEnded));
+            daemon
+                .handle_agent_hook(&hook(
+                    json!({"hook_event_name": "Notification", "notification_type": "permission_prompt", "message": "Claude needs your permission"}),
+                    None,
+                ))
+                .await
+                .unwrap();
+            let asks = attention(&daemon).unwrap();
+            assert_eq!(asks.state, AttentionState::NeedsInput);
+            assert_eq!(asks.carried, None);
+            assert_eq!(asks.reason.unwrap().text, "Claude needs your permission");
+        });
+    }
+
+    #[test]
+    fn a_relaunched_idle_session_keeps_when_it_went_idle_until_its_agent_is_busy_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let _home = Home::set(dir.path());
+        local(async {
+            let (daemon, _worker, _fake) = setup(dir.path()).await;
+            daemon.patch_session("s", |session| {
+                session.touch("agentStatusUpdatedAt");
+                session.agent_status_updated_at = Some("2026-01-01T00:00:00.000Z".into());
+            });
+            relaunch(&daemon);
+            let carried = attention(&daemon).unwrap();
+            assert_eq!(
+                (carried.carried, carried.at.as_str()),
+                (Some(Carried::Idle), "2026-01-01T00:00:00.000Z")
+            );
+            // Booting (its screen busy, then still) is not activity.
+            for status in [AgentActivityStatus::Active, AgentActivityStatus::Idle] {
+                daemon.set_worker_agent_status("s", status).await.unwrap();
+                assert_eq!(attention(&daemon), Some(carried.clone()), "{status:?}");
+            }
+            // Busy once it had settled is.
+            daemon
+                .set_worker_agent_status("s", AgentActivityStatus::Active)
+                .await
+                .unwrap();
+            assert_eq!(attention(&daemon), None);
         });
     }
 }

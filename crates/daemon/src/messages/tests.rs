@@ -945,3 +945,34 @@ fn list_messages_keeps_to_the_repository_or_the_session() {
         assert_eq!(list(None, None).len(), 2);
     });
 }
+
+#[test]
+fn a_session_relaunched_with_an_unread_reply_or_a_question_takes_its_messages() {
+    let dir = tempfile::tempdir().unwrap();
+    let _home = Home::set(dir.path());
+    local(async {
+        let daemon = daemon_in(dir.path());
+        let (_b, mut fake) = running(&daemon, "b", "Token storage", None).await;
+        for state in [AttentionState::NeedsInput, AttentionState::ResponseEnded] {
+            // Carried over a relaunch: the agent no longer asks, and an unread reply never held a message.
+            set_attention(&daemon, "b", state);
+            daemon.patch_session("b", |session| deckhand_core::agent_signals::carry_over(session));
+            assert!(
+                daemon
+                    .get_session("b")
+                    .unwrap()
+                    .attention
+                    .as_ref()
+                    .unwrap()
+                    .carried
+                    .is_some()
+            );
+            let id = send_ok(&daemon, send("b", "Hello", None, None)).await.message.id;
+            assert!(fake.delivered().await.ends_with("\nHello"), "{state:?}");
+            assert_eq!(status_of(&daemon, &id), MessageStatus::Delivered);
+            // Its turn ends before the next one is typed.
+            let worker = daemon.launch.borrow().workers.get("b").cloned().unwrap();
+            worker.inbox.turn.borrow_mut().take();
+        }
+    });
+}

@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::time::Duration;
 
-use deckhand_core::agent_signals::hooks_enabled;
+use deckhand_core::agent_signals::{carry_over, hooks_enabled};
 use deckhand_core::agents::{LaunchPlan, agent_spec, launch_args, new_agent_ref, relaunch_plan};
 use deckhand_core::display::session_path_names_by;
 use deckhand_core::error::{DhError, Result};
@@ -554,6 +554,12 @@ impl Daemon {
             ExitReason::Completed
         };
         let mut exited = existing.clone();
+        // Not in the TS: stopped to be resumed at once, it carries what it showed now, before its exit is recorded as
+        // activity (see `carry_over`).
+        if self.sessions.borrow().restarting.contains(session_id) {
+            assign(&mut exited, "attention");
+            carry_over(&mut exited);
+        }
         if let Some(reference) = agent_exit.agent_session_ref.clone() {
             assign(&mut exited, "agentSessionRef");
             exited.agent_session_ref = Some(reference);
@@ -1776,8 +1782,14 @@ impl Daemon {
         starting.agent_started_at = if fresh { None } else { existing.agent_started_at.clone() };
         assign(&mut starting, "archivedAt");
         starting.archived_at = None;
+        // A restart is not activity: `s` and a restart keep what the session showed (an unread reply, when it went
+        // idle) until something of the new launch replaces it; `S` starts a new conversation, with nothing to carry.
         assign(&mut starting, "attention");
-        starting.attention = None;
+        if fresh {
+            starting.attention = None;
+        } else {
+            carry_over(&mut starting);
+        }
         assign(&mut starting, "exitReason");
         starting.exit_reason = None;
         assign(&mut starting, "cleanupError");
@@ -2352,6 +2364,7 @@ impl Daemon {
 mod tests {
     use super::*;
     use crate::server::tests::{local, session, test_client, test_daemon};
+    use deckhand_protocol::data::Carried;
     use deckhand_protocol::records::WorktreeRecord;
     use std::path::Path;
     use std::sync::MutexGuard;
@@ -3240,6 +3253,88 @@ mod tests {
             let untouched = daemon.require_session("missing").unwrap();
             assert_eq!(untouched.status, SessionStatus::Exited);
             assert_eq!(untouched.launch_id.as_deref(), Some("l1"));
+        });
+    }
+
+    #[test]
+    fn a_session_stopped_to_be_restarted_carries_what_it_showed_before_its_exit() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let _home = Home::set(dir.path());
+            let daemon = daemon(dir.path());
+            let ended = json!({"state": "response-ended", "event": "Stop", "at": "2026-01-01T10:00:00.000Z"});
+            let went_idle = "2026-01-01T09:00:00.000Z";
+            for id in ["unread", "idle", "stopped"] {
+                let attention = if id == "idle" { Value::Null } else { ended.clone() };
+                put(
+                    &daemon,
+                    record(
+                        json!({"id": id, "status": "running", "attention": attention, "agentStatus": "idle",
+                        "agentStatusUpdatedAt": went_idle}),
+                    ),
+                );
+            }
+            for id in ["unread", "idle"] {
+                daemon.sessions.borrow_mut().restarting.insert(id.to_owned());
+            }
+            for id in ["unread", "idle", "stopped"] {
+                daemon.handle_worker_session_exit(id, Some(0), None, "").await.unwrap();
+            }
+            let attention = |id: &str| daemon.require_session(id).unwrap().attention.clone().unwrap();
+            let unread = attention("unread");
+            assert_eq!(
+                (unread.state, unread.carried, unread.at.as_str()),
+                (
+                    AttentionState::ResponseEnded,
+                    Some(Carried::Unread),
+                    "2026-01-01T10:00:00.000Z"
+                )
+            );
+            // When it went idle, not when it exited.
+            let idle = attention("idle");
+            assert_eq!((idle.carried, idle.at.as_str()), (Some(Carried::Idle), went_idle));
+            assert!(
+                daemon
+                    .require_session("idle")
+                    .unwrap()
+                    .agent_status_updated_at
+                    .as_deref()
+                    > Some(went_idle)
+            );
+            // Stopped for good (`x`): its exit is recorded as it always was.
+            assert_eq!(attention("stopped").carried, None);
+        });
+    }
+
+    #[test]
+    fn reading_a_carried_reply_takes_its_said_line_out_of_state_json() {
+        local(async {
+            let dir = tempfile::tempdir().unwrap();
+            let _home = Home::set(dir.path());
+            let daemon = daemon(dir.path());
+            let carried = json!({"state": "response-ended", "event": "Stop", "at": "2026-01-01T00:00:00.000Z",
+                "reason": {"kind": "message", "text": "said: All tests pass."}, "carried": "unread"});
+            put(
+                &daemon,
+                record(json!({"id": "s", "status": "running", "attention": carried})),
+            );
+            let stored_reason = || {
+                let state: Value =
+                    serde_json::from_str(&std::fs::read_to_string(dir.path().join("state.json")).unwrap()).unwrap();
+                state["sessions"][0]["attention"]["reason"]["text"].clone()
+            };
+            daemon.persist().await.unwrap();
+            assert_eq!(stored_reason(), json!("said: All tests pass."));
+            let read = SetReplyRead {
+                request_id: "r".into(),
+                session_id: "s".into(),
+                read: true,
+            };
+            daemon.handle_set_reply_read(&read).await.unwrap();
+            assert_eq!(stored_reason(), Value::Null);
+            // Held in memory, as any reply's is.
+            let held = daemon.require_session("s").unwrap();
+            assert!(held.attention.as_ref().unwrap().reason.is_some());
         });
     }
 

@@ -1070,7 +1070,12 @@ impl Daemon {
         let (Some(session), Some(worker)) = (self.get_session(target), self.worker(target)) else {
             return;
         };
-        match session.attention.as_ref().map(|attention| attention.state) {
+        // An attention carried over a relaunch is the previous launch's: no turn of this one ended.
+        let attention = session
+            .attention
+            .as_ref()
+            .filter(|attention| attention.carried.is_none());
+        match attention.map(|attention| attention.state) {
             Some(AttentionState::Working) => self.turn_started(&worker),
             Some(AttentionState::NeedsInput) => self.tell_waiters_waiting(target),
             Some(AttentionState::ResponseEnded | AttentionState::Failed | AttentionState::Limited) => {
