@@ -56,7 +56,7 @@ Merging Refresh tokens ticks its line; merging Token storage ticks its own; "Rew
 
 ### Rules
 
-- **Every session is on exactly one line.** Starting a session from a line puts it on that line. Starting one without picking a line creates a line named after the session (under its parent's line for a sub-session, else top-level), so every session has a place for steps and notes. A quick throwaway session's line ticks when it is done and goes when the session is removed.
+- **A session is on at most one line, created when something needs it.** Starting a session from a line puts it on that line. A session started without one gets a line (named after it, under its parent's line for a sub-session, else top-level) only once something needs it: you or its agent add a step, a line note or a brief to it. Until then it has none, so quick sessions don't fill the list (a repository can have hundreds of sessions). A session's line ticks when it is done and is unhooked when it is removed.
 - **The trees line up.** A sub-session's line is under its parent's line. The sidebar's session tree and the list have the same shape where sessions exist; lines nobody is on are the only extra.
 - **Starting work is one action.** `n` on a line (the Tasks board), a session handing off a step, or an orchestrator's plan: each puts a new session on a line. On a line nobody is on, it makes the session; on a line under the selected session's line, a sub-session.
 - **Ticking.** Merging a worktree ticks the lines of its sessions; marking a session done (`space`) ticks its line; ticking a line by hand ticks only it. A line with lines under it shows `ticked/total` of its direct lines, and ticks itself when the last one ticks (it can be reopened).
@@ -106,11 +106,17 @@ A brief is not a note: it is **what the line was set up to be**, written once at
 
 ## Migration (once, by the daemon, with backups)
 
-- Each worktree's task line keeps its ID; it moves onto a session: the worktree's owning session (the one that created the worktree), else its oldest live session. Same-worktree sub-sessions get lines of their own under it.
-- A worktree note's checkboxes become lines under that worktree's task line (checked state kept). `↗` lines resolve: an item sent to Tasks is already a line, so the `↗` line is dropped. The rest of the note (prose, headings) becomes the task line's note. A worktree note with no task gets a line for its owning session first.
-- A main-checkout session's note: its checkboxes become lines under its line; the rest becomes its line's note.
-- Task details become the start of the line note.
-- Old files are kept in `notes/trash/` as the follow-up-task migration did; the migration is idempotent and leaves a marker. A frozen fixture of today's layout (like `fixtures/state/home-v45`) must keep migrating.
+Decided with the user on 2026-11-14, against their real data (2 task files, 16 tasks, 9 worktree notes, 4 session notes, no `↗` lines, 210 sessions).
+
+- **Backup first**: `notes/` (the list included) is copied to `notes/trash/work-items-migration-<time>/` before anything changes; a marker makes the migration run once; old note files go to the backup only after the new files are written, so an interrupted run loses nothing and runs again.
+- **Lines only where something needs one** (above): no line is created for a session with nothing to put on it.
+- **A worktree-linked task** (`wt=`) moves onto one session: the worktree's owning session (the one that created it), else its oldest session. Its details become its line note.
+- **A worktree note**: its checkboxes become lines under that worktree's task line (checked state kept); its prose and headings become that line's note. A worktree note with checkboxes or prose but no task first gets a line for the owning session, named after it. `↗` lines are dropped (their item is already a line).
+- **A main-checkout session's note**: the same, under that session's line (created if needed), whether the session runs or has exited.
+- **Open steps of merged work**: lines under a line whose worktree was merged that are still open move to the backlog marked `from=<branch>` (as merging does from now on), so nothing is hidden under a ticked line.
+- **One session on two lines** (a hand-edited legacy file): it stays on the first; the others are unhooked.
+- A frozen fixture of today's layout (like `fixtures/state/home-v45`) keeps migrating; the migration is pure (texts and records in, texts out) and tested on copies of real layouts.
+- **Checked before it runs for real**: copy the real `notes/` and `state.json` into the dev namespace (`~/.deckhand-dev`) and open the dev build; the real `~/.deckhand` is untouched until the new version is installed.
 - Every Deckhand of the repository needs updating together: an older one reading the new list would show it wrongly. The protocol bump makes an old UI refuse the new daemon, but two installs (say a stable and a dev build) could share one repository's files; say so in the upgrade note.
 
 ## What changes for you
