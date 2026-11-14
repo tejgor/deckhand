@@ -219,6 +219,10 @@ impl Daemon {
             self.set_session(session);
         }
         self.project_sub_session_paths();
+        // Not in the TS: held messages wait for their sessions to run again.
+        if let Err(error) = self.load_messages().await {
+            self.log(&format!("reading the messages failed: {error}")).await;
+        }
         if legacy_notes {
             self.persist().await?;
         }
@@ -1040,6 +1044,7 @@ done
             last_hook_at: Cell::new(None),
             preview_styled: Cell::new(false),
             working_settle: RefCell::new(None),
+            inbox: crate::messages::Inbox::default(),
         })
     }
 

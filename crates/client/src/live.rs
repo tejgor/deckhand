@@ -23,20 +23,22 @@ use deckhand_protocol::Request;
 use deckhand_protocol::data::{
     ActionRecord, AgentUpdateResult, AgentVersions, BranchList, CandidateSizes, ChangeDiff, ChangeGroup,
     ChangeStageResult, ChangesRecord, ConfigTargetKind, CreatePrResult, CreateSessionInput, DevRecord, MergePreview,
-    MoveDirection, NoteRef, NoteSaveResult, OrchestratorResult, PendingPlan, PingResult, PlanOutcome, PlanSummary,
-    PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult, ResolveMergeAction, RestartMode,
-    SavedConfigDocument, SessionCleanupInspection, SessionRecord, SessionRestartOutcome, SettingsInfo, StageMode,
-    TaskOp, TasksDoc, TerminalRecord, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection,
-    WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult, WorktreeOverview,
+    MessageRecord, MoveDirection, NoteRef, NoteSaveResult, OrchestratorResult, PendingPlan, PingResult, PlanOutcome,
+    PlanSummary, PreviewRecord, ProgramKey, ProjectInfo, PromoteNoteItemResult, ResolveMergeAction, RestartMode,
+    SavedConfigDocument, SendMessageResult, SessionCleanupInspection, SessionRecord, SessionRestartOutcome,
+    SettingsInfo, StageMode, TaskOp, TasksDoc, TerminalRecord, WorkspaceSummary, WorktreeCandidates,
+    WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeMode, WorktreeMergeResult,
+    WorktreeOverview,
 };
-use deckhand_protocol::events::{PlanSettled, WorkNoteUpdated};
+use deckhand_protocol::events::{MessagesUpdated, PlanSettled, WorkNoteUpdated};
 use deckhand_protocol::wire::{
-    AgentCaller, AgentVersionsRequest, ArchiveSession, ChangeStage, ChangesDiff, Create, CreatePr, CwdRequest,
-    DeleteWorktree, DismissInterrupted, ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill, Loose,
-    MergeWorktree, OpenNote, OpenOrchestrator, PlanDecide, PlanRequest, PromoteNoteItem, Remove, ReorderSession,
-    RequestOnly, ResolveMerge, Restart, RestartSessions, RunAction, SaveConfig, SaveNote, SessionRequest,
-    SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone, StopDevRequest, Subscribe, TaskOpRequest,
-    TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview, WorkspaceSummaryRequest, WorktreeCandidateSizes,
+    AgentCaller, AgentVersionsRequest, ArchiveSession, CancelMessage, ChangeStage, ChangesDiff, Create, CreatePr,
+    CwdRequest, DeleteWorktree, DismissInterrupted, ExportHandoff, Input, InspectCleanup, InspectWorktree, Kill,
+    ListMessages, Loose, MergeWorktree, OpenNote, OpenOrchestrator, PlanDecide, PlanRequest, PromoteNoteItem, Remove,
+    ReorderSession, ReplyMessage, RequestOnly, ResolveMerge, Restart, RestartSessions, RunAction, SaveConfig, SaveNote,
+    SendMessage, SessionRequest, SessionSizeRequest, SessionTargetRequest, SetReplyRead, SetSessionDone,
+    StopDevRequest, Subscribe, TaskOpRequest, TrustProject, UpdateAgent, WatchChanges, WatchPane, WatchPreview,
+    WorkspaceSummaryRequest, WorktreeCandidateSizes,
 };
 
 use crate::client::{
@@ -78,6 +80,9 @@ pub struct LiveClientHandlers {
     pub on_plan_pending: Option<Box<dyn Fn(PendingPlan)>>,
     /// Not in the TS: `plan-settled` (a pending plan was answered or expired).
     pub on_plan_settled: Option<Box<dyn Fn(PlanSettled)>>,
+    /// Not in the TS: `messages-updated` (messages between sessions in the subscribed repository changed; each
+    /// record replaces the one with its ID).
+    pub on_messages_updated: Option<Box<dyn Fn(Vec<MessageRecord>)>>,
     /// A socket error, or a message that could not be handled.
     pub on_error: Option<Box<dyn Fn(DhError)>>,
     /// The connection closed (after every pending request was rejected with `daemon connection closed`).
@@ -217,6 +222,20 @@ fn dispatch(state: &RefCell<LiveState>, handlers: &LiveClientHandlers, message: 
             }
         }
         "plan-pending" => deliver(h, h.on_plan_pending.as_deref(), message, "plan"),
+        "messages-updated" => {
+            if let Some(handler) = h.on_messages_updated.as_deref() {
+                match serde_json::from_value::<MessagesUpdated>(message.clone()) {
+                    Ok(updated) => handler(updated.messages),
+                    Err(error) => {
+                        if let Some(on_error) = &h.on_error {
+                            on_error(DhError::msg(format!(
+                                "invalid messages-updated in daemon message: {error}"
+                            )));
+                        }
+                    }
+                }
+            }
+        }
         "plan-settled" => {
             if let Some(handler) = h.on_plan_settled.as_deref() {
                 match serde_json::from_value::<PlanSettled>(message.clone()) {
@@ -904,6 +923,55 @@ impl LiveClient {
         }))
     }
 
+    /// Not in the TS: queues `text` for session `session_id` (`deckhand send`), as `caller` when there is one. With
+    /// `wait`, answered once the first reply comes or the wait ends otherwise (`timeout_ms`; the daemon's default
+    /// is 9 minutes).
+    pub fn send_message(
+        &self,
+        session_id: &str,
+        text: &str,
+        wait: Option<u64>,
+        caller: Option<AgentCaller>,
+    ) -> Reply<SendMessageResult> {
+        self.request(Request::SendMessage(SendMessage {
+            request_id: new_request_id(),
+            session_id: session_id.to_owned(),
+            text: Some(text.to_owned()),
+            wait: wait.map(|_| true),
+            timeout_ms: wait.map(|ms| i64::try_from(ms).unwrap_or(i64::MAX)),
+            caller,
+        }))
+    }
+
+    /// Not in the TS: answers message `message_id` (any unique prefix) sent to `caller` (`deckhand reply`).
+    pub fn reply_message(&self, message_id: &str, text: &str, caller: Option<AgentCaller>) -> Reply<MessageRecord> {
+        self.request(Request::ReplyMessage(ReplyMessage {
+            request_id: new_request_id(),
+            message_id: message_id.to_owned(),
+            text: Some(text.to_owned()),
+            caller,
+        }))
+    }
+
+    /// Not in the TS: cancels a held message (any unique prefix) `caller` sent (`deckhand send --cancel`).
+    pub fn cancel_message(&self, message_id: &str, caller: Option<AgentCaller>) -> Reply<MessageRecord> {
+        self.request(Request::CancelMessage(CancelMessage {
+            request_id: new_request_id(),
+            message_id: message_id.to_owned(),
+            caller,
+        }))
+    }
+
+    /// Not in the TS: the kept messages of the sessions in scope of `repo_root` (as `subscribe` scopes sessions),
+    /// oldest first; `messages-updated` follows their changes once subscribed.
+    pub fn list_messages(&self, repo_root: &str) -> Reply<Vec<MessageRecord>> {
+        self.request(Request::ListMessages(ListMessages {
+            request_id: new_request_id(),
+            repo_root: Some(repo_root.to_owned()),
+            session_id: None,
+        }))
+    }
+
     /// TS: LiveClient.watchTasks: the task list of `cwd`'s repository; `tasks-updated` follows its changes.
     pub fn watch_tasks(&self, cwd: &str) -> Reply<TasksDoc> {
         self.request(Request::WatchTasks(cwd_request(cwd)))
@@ -1541,6 +1609,64 @@ mod tests {
                 json!({"type": "remove", "sessionId": "s2", "caller": caller})
             );
             assert_eq!(without_id(from_shell), json!({"type": "kill", "sessionId": "s3"}));
+        });
+    }
+
+    #[test]
+    fn messages_are_sent_with_their_wait_and_caller_and_updates_reach_the_handler() {
+        run(async {
+            let log = Log::default();
+            let seen: Rc<RefCell<Vec<String>>> = Rc::default();
+            let mut handlers = recording(&log);
+            let into = Rc::clone(&seen);
+            handlers.on_messages_updated = Some(Box::new(move |messages: Vec<MessageRecord>| {
+                into.borrow_mut().extend(messages.into_iter().map(|message| message.id));
+            }));
+            let (client, mut daemon) = connect(handlers);
+            let caller = AgentCaller {
+                session_id: "s1".into(),
+                launch_id: "l1".into(),
+                token: "t1".into(),
+            };
+            drop(client.send_message("s2", "Which store?", Some(60_000), Some(caller.clone())));
+            drop(client.send_message("s2", "FYI", None, None));
+            drop(client.reply_message("7a3f", "Keychain", Some(caller)));
+            drop(client.cancel_message("7a3f", None));
+            drop(client.list_messages("/r"));
+            let without_id = |mut message: Value| {
+                message.as_object_mut().map(|object| object.remove("requestId"));
+                message
+            };
+            let caller = json!({"sessionId": "s1", "launchId": "l1", "token": "t1"});
+            assert_eq!(
+                without_id(daemon.next().await.unwrap()),
+                json!({"type": "send-message", "sessionId": "s2", "text": "Which store?", "wait": true,
+                    "timeoutMs": 60000, "caller": caller})
+            );
+            assert_eq!(
+                without_id(daemon.next().await.unwrap()),
+                json!({"type": "send-message", "sessionId": "s2", "text": "FYI"})
+            );
+            assert_eq!(
+                without_id(daemon.next().await.unwrap()),
+                json!({"type": "reply-message", "messageId": "7a3f", "text": "Keychain", "caller": caller})
+            );
+            assert_eq!(
+                without_id(daemon.next().await.unwrap()),
+                json!({"type": "cancel-message", "messageId": "7a3f"})
+            );
+            assert_eq!(
+                without_id(daemon.next().await.unwrap()),
+                json!({"type": "list-messages", "repoRoot": "/r"})
+            );
+            daemon
+                .send(
+                    r#"{"type":"messages-updated","messages":[{"id":"7a3f01","kind":"message","toSessionId":"s2","toTitle":"B","text":"FYI","status":"held","createdAt":"t","updatedAt":"t"}]}
+"#,
+                )
+                .await;
+            settle().await;
+            assert_eq!(*seen.borrow(), ["7a3f01"]);
         });
     }
 }

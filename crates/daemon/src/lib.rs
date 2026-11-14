@@ -9,6 +9,7 @@ pub mod hooks;
 pub mod launch;
 pub mod lifecycle;
 pub mod merge;
+pub mod messages;
 pub mod notes_tasks;
 pub mod plans;
 pub mod server;

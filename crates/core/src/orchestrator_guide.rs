@@ -25,7 +25,8 @@ stacked or flat; then the parked work. Revise it until the user agrees. Create n
 … `EOF`, then the same with `deckhand plan apply -` (Bash timeout 600000). Deckhand asks the user to confirm; the \
 command prints what was created, or that it was cancelled. If it is cut off, the plan stays open in Deckhand: read \
 `deckhand ls` later.
-5. Report what was created, then stop. Do not monitor, wait for or follow up on the sessions. You stay open: to \
+5. Report what was created, then stop. Do not monitor the sessions or wait for them: they work with the user. When \
+the user asks, you may send instructions to your sessions with `deckhand send <id> <message>`. You stay open: to \
 extend the idea later, read both lists again and apply another plan.
 
 The plan:
@@ -76,6 +77,7 @@ mod tests {
             "stacked",
             "\"flat\": true only for independent work",
             "Do not monitor",
+            "When the user asks, you may send instructions to your sessions with `deckhand send",
             "press O",
             "your own sub-session",
             "lines under your idea's line",

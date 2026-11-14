@@ -10,11 +10,11 @@ use serde_with::skip_serializing_none;
 
 use crate::data::{
     AgentUpdateResult, AgentVersions, AttachResult, BranchList, CandidateSizes, ChangeDiff, ChangeStageResult,
-    ChangesRecord, CreatePrResult, MergePreview, NoteSaveResult, OkResult, OrchestratorResult, PaneRecord, PendingPlan,
-    PingResult, PlanDecision, PlanOutcome, PlanSummary, PreviewRecord, ProjectInfo, PromoteNoteItemResult,
-    SavedConfigDocument, SessionCleanupInspection, SessionRecord, SessionRestartOutcome, SettingsInfo, TasksDoc,
-    WorkNote, WorkspaceSummary, WorktreeCandidates, WorktreeCleanupInspection, WorktreeDeleteResult,
-    WorktreeInfoRecord, WorktreeMergeResult, WorktreeOverview,
+    ChangesRecord, CreatePrResult, MergePreview, MessageRecord, NoteSaveResult, OkResult, OrchestratorResult,
+    PaneRecord, PendingPlan, PingResult, PlanDecision, PlanOutcome, PlanSummary, PreviewRecord, ProjectInfo,
+    PromoteNoteItemResult, SavedConfigDocument, SendMessageResult, SessionCleanupInspection, SessionRecord,
+    SessionRestartOutcome, SettingsInfo, TasksDoc, WorkNote, WorkspaceSummary, WorktreeCandidates,
+    WorktreeCleanupInspection, WorktreeDeleteResult, WorktreeInfoRecord, WorktreeMergeResult, WorktreeOverview,
 };
 use crate::order::Ordered;
 
@@ -161,6 +161,15 @@ pub struct PlanSettled {
     pub decision: PlanDecision,
 }
 
+/// Not in the TS: messages between sessions changed (sent, delivered, answered, cancelled, dropped), to the clients
+/// subscribed to a repository in which their sender or target is (as `session-updated` is scoped). Each record is the
+/// message as it is now; replace the one with its ID.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MessagesUpdated {
+    pub messages: Vec<MessageRecord>,
+}
+
 /// types.ts ServerMessage (= ServerResponse | ServerEvent), internally tagged on `type`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -195,6 +204,8 @@ pub enum ServerMessage {
     PlanPending(Box<PlanPending>),
     #[serde(rename = "plan-settled")]
     PlanSettled(PlanSettled),
+    #[serde(rename = "messages-updated")]
+    MessagesUpdated(MessagesUpdated),
     #[serde(rename = "terminal-output")]
     TerminalOutput(SessionOutput),
     #[serde(rename = "git-output")]
@@ -243,6 +254,7 @@ impl ServerMessage {
         "work-note-updated",
         "plan-pending",
         "plan-settled",
+        "messages-updated",
         "terminal-output",
         "git-output",
         "dev-output",
@@ -277,6 +289,7 @@ impl ServerMessage {
             ServerMessage::WorkNoteUpdated(_) => "work-note-updated",
             ServerMessage::PlanPending(_) => "plan-pending",
             ServerMessage::PlanSettled(_) => "plan-settled",
+            ServerMessage::MessagesUpdated(_) => "messages-updated",
             ServerMessage::TerminalOutput(_) => "terminal-output",
             ServerMessage::GitOutput(_) => "git-output",
             ServerMessage::DevOutput(_) => "dev-output",
@@ -339,6 +352,12 @@ pub enum ResponseData {
     PlanOutcome(Box<PlanOutcome>),
     /// Not in the TS: `open-orchestrator`.
     Orchestrator(Box<OrchestratorResult>),
+    /// Not in the TS: `send-message`.
+    MessageSent(Box<SendMessageResult>),
+    /// Not in the TS: `reply-message` (the reply) and `cancel-message` (the cancelled message).
+    Message(Box<MessageRecord>),
+    /// Not in the TS: `list-messages`.
+    Messages(Vec<MessageRecord>),
 }
 
 /// `ResponseData::decode` was given a request type the daemon does not answer with data.
@@ -392,6 +411,9 @@ impl ResponseData {
             "plan-check" => ResponseData::PlanSummary(Box::new(from(data)?)),
             "plan-apply" => ResponseData::PlanOutcome(Box::new(from(data)?)),
             "open-orchestrator" => ResponseData::Orchestrator(Box::new(from(data)?)),
+            "send-message" => ResponseData::MessageSent(Box::new(from(data)?)),
+            "reply-message" | "cancel-message" => ResponseData::Message(Box::new(from(data)?)),
+            "list-messages" => ResponseData::Messages(from(data)?),
             "list-worktrees" => ResponseData::Worktrees(from(data)?),
             "worktree-overview" => ResponseData::WorktreeOverview(from(data)?),
             "delete-worktree" => ResponseData::WorktreeDelete(from(data)?),

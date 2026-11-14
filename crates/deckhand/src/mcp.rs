@@ -33,9 +33,33 @@ Deckhand action. args are the command's words, e.g. [\"guide\"], [\"task\", \"ad
 /// The `args` property's description.
 const ARGS_DESCRIPTION: &str = "The words after `deckhand`, one string each (no shell quoting).";
 
-/// The longest one command may run before it is stopped (`new` waits up to 20 s for its worktree). Codex's own
-/// limit on a call (`tool_timeout_sec`) is longer.
+/// The longest one command may run before it is stopped (`new` waits up to 20 s for its worktree), but `send --wait`
+/// ([`command_timeout`]). Codex's own limit on a call (`tool_timeout_sec`) is longer.
 pub const COMMAND_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// The longest `send --wait` may run: its wait and a margin, within Codex's limit on a call (600 s).
+pub const WAIT_COMMAND_TIMEOUT: Duration = Duration::from_secs(570);
+
+/// What `send --wait` gets beyond its own wait, so it answers before it is stopped.
+const WAIT_MARGIN: Duration = Duration::from_secs(20);
+
+/// How long the command `args` may run: [`COMMAND_TIMEOUT`], or for `send --wait` its wait (`--timeout`, else the
+/// default) and a margin, at most [`WAIT_COMMAND_TIMEOUT`].
+pub fn command_timeout(args: &[String]) -> Duration {
+    if args.first().map(String::as_str) != Some("send") || !args.iter().any(|arg| arg == "--wait") {
+        return COMMAND_TIMEOUT;
+    }
+    let given = args.iter().enumerate().find_map(|(at, arg)| {
+        arg.strip_prefix("--timeout=")
+            .map(str::to_owned)
+            .or_else(|| (arg == "--timeout").then(|| args.get(at + 1).cloned()).flatten())
+    });
+    let wait_ms = given
+        .as_deref()
+        .and_then(crate::commands::args::parse_duration)
+        .unwrap_or(crate::commands::args::DEFAULT_WAIT_MS);
+    (Duration::from_millis(wait_ms) + WAIT_MARGIN).clamp(COMMAND_TIMEOUT, WAIT_COMMAND_TIMEOUT)
+}
 
 /// The shortest hook token kept out of the tool's output (a UUID is 36 characters).
 const MIN_REDACTED_TOKEN: usize = 16;
@@ -146,6 +170,7 @@ where
             ));
         }
         let word = args.first().cloned().unwrap_or_default();
+        let timeout = command_timeout(&args);
         let ran = match (self.run)(args).await {
             Ok(ran) => ran,
             Err(error) => {
@@ -154,7 +179,7 @@ where
             }
         };
         log(&format!("`deckhand {word}` ended: {:?}", ran.code));
-        let (text, failed) = output_text(&word, &ran);
+        let (text, failed) = output_text(&word, &ran, timeout);
         let text = match &self.token {
             Some(token) => text.replace(token.as_str(), "<redacted>"),
             None => text,
@@ -189,12 +214,12 @@ pub fn command_words(arguments: Option<&Value>) -> Result<Vec<String>, String> {
 }
 
 /// What the tool answers for a command that ran, and whether it failed.
-pub fn output_text(word: &str, ran: &Ran) -> (String, bool) {
+pub fn output_text(word: &str, ran: &Ran, timeout: Duration) -> (String, bool) {
     if ran.timed_out {
         return (
             format!(
                 "deckhand {word} did not finish within {} s and was stopped.",
-                COMMAND_TIMEOUT.as_secs()
+                timeout.as_secs()
             ),
             true,
         );
@@ -273,8 +298,9 @@ fn log(message: &str) {
     eprintln!("deckhand mcp: {message}");
 }
 
-/// Runs `deckhand <args>` (this executable), its output captured, stopped after [`COMMAND_TIMEOUT`].
+/// Runs `deckhand <args>` (this executable), its output captured, stopped after [`command_timeout`].
 async fn run_deckhand(args: Vec<String>) -> std::io::Result<Ran> {
+    let timeout = command_timeout(&args);
     let exe = deckhand_sys::paths::cli_entry_path().map_err(std::io::Error::other)?;
     let child = tokio::process::Command::new(exe)
         .args(&args)
@@ -284,7 +310,7 @@ async fn run_deckhand(args: Vec<String>) -> std::io::Result<Ran> {
         .kill_on_drop(true)
         .spawn()?;
     // On a timeout the dropped child is killed.
-    match tokio::time::timeout(COMMAND_TIMEOUT, child.wait_with_output()).await {
+    match tokio::time::timeout(timeout, child.wait_with_output()).await {
         Ok(output) => {
             let output = output?;
             Ok(Ran {
@@ -511,7 +537,7 @@ mod tests {
         let refused = reply(&server, &call(json!(["restart"]))).unwrap();
         assert_eq!(
             refused["result"]["content"][0]["text"],
-            "`deckhand restart` is not available here. The tool runs: new, ls, task, step, note, kill, remove, guide."
+            "`deckhand restart` is not available here. The tool runs: new, ls, task, step, note, send, reply, kill, remove, guide."
         );
         // Outside a Deckhand session nothing runs.
         let (outside, calls) = fake_server(false, ok(""));
@@ -541,7 +567,8 @@ mod tests {
                 &Ran {
                     timed_out: true,
                     ..Ran::default()
-                }
+                },
+                COMMAND_TIMEOUT
             )
             .0,
             "deckhand new did not finish within 60 s and was stopped."
@@ -552,18 +579,54 @@ mod tests {
                 &Ran {
                     code: Some(2),
                     ..Ran::default()
-                }
+                },
+                COMMAND_TIMEOUT
             ),
             ("deckhand kill failed (exit status 2).".to_owned(), true)
         );
-        assert_eq!(output_text("ls", &ok("")), ("(no output)".to_owned(), false));
+        assert_eq!(
+            output_text("ls", &ok(""), COMMAND_TIMEOUT),
+            ("(no output)".to_owned(), false)
+        );
         let both = Ran {
             code: Some(0),
             stdout: "out\n".into(),
             stderr: "note\n".into(),
             timed_out: false,
         };
-        assert_eq!(output_text("ls", &both), ("out\nnote".to_owned(), false));
+        assert_eq!(
+            output_text("ls", &both, COMMAND_TIMEOUT),
+            ("out\nnote".to_owned(), false)
+        );
+    }
+
+    #[test]
+    fn send_with_wait_may_run_for_its_wait_within_codexs_limit() {
+        let words = |list: &[&str]| list.iter().map(|word| (*word).to_owned()).collect::<Vec<_>>();
+        assert_eq!(command_timeout(&words(&["ls"])), COMMAND_TIMEOUT);
+        assert_eq!(command_timeout(&words(&["send", "1a2b", "hi"])), COMMAND_TIMEOUT);
+        // The default wait (9 minutes) and a margin.
+        assert_eq!(
+            command_timeout(&words(&["send", "1a2b", "hi", "--wait"])),
+            Duration::from_secs(560)
+        );
+        assert_eq!(
+            command_timeout(&words(&["send", "1a2b", "hi", "--wait", "--timeout", "2m"])),
+            Duration::from_secs(140)
+        );
+        assert_eq!(
+            command_timeout(&words(&["send", "1a2b", "hi", "--wait", "--timeout=5s"])),
+            COMMAND_TIMEOUT
+        );
+        // Never past what Codex allows a call.
+        assert_eq!(
+            command_timeout(&words(&["send", "1a2b", "hi", "--wait", "--timeout", "1h"])),
+            WAIT_COMMAND_TIMEOUT
+        );
+        let limit = deckhand_sys::agent_commands::CODEX_MCP_TOOL_TIMEOUT_SECS;
+        assert!(WAIT_COMMAND_TIMEOUT.as_secs() < limit);
+        assert!(command_words(Some(&json!({"args": ["send", "1a2b", "hi"]}))).is_ok());
+        assert!(command_words(Some(&json!({"args": ["reply", "7a3f", "yes"]}))).is_ok());
     }
 
     #[test]

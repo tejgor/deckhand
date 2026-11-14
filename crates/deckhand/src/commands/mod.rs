@@ -1,5 +1,5 @@
-//! `deckhand new|ls|task|step|note|kill|remove|guide|plan|do`: Deckhand actions from a shell, for the agents Deckhand
-//! runs (not in the TS), the orchestrator's `plan` and your `do`.
+//! `deckhand new|ls|task|step|note|send|reply|kill|remove|guide|plan|do`: Deckhand actions from a shell, for the
+//! agents Deckhand runs (not in the TS), the orchestrator's `plan` and your `do`.
 //!
 //! Inside a session the command acts for that session, the caller: its `DECKHAND_SESSION_ID`, `DECKHAND_LAUNCH_ID`
 //! and `DECKHAND_HOOK_TOKEN` go with `create`, `kill` and `remove`, and the daemon checks them as it does hook
@@ -32,7 +32,8 @@ use deckhand_core::work_notes::append_paragraph;
 use deckhand_daemon::server::{DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS};
 use deckhand_protocol::Ordered;
 use deckhand_protocol::data::{
-    NoteRef, PlanStatus, SessionRecord, SessionStatus, Task, TasksDoc, WorkNote, WorkNoteKind,
+    MessageRecord, NoteRef, PlanStatus, SessionRecord, SessionStatus, Task, TasksDoc, WaitOutcomeKind, WorkNote,
+    WorkNoteKind,
 };
 use deckhand_protocol::wire::AgentCaller;
 use deckhand_sys::git::ensure_git_repo;
@@ -40,7 +41,7 @@ use deckhand_sys::git::ensure_git_repo;
 use crate::cli::print_line;
 use crate::hook::HookEnv;
 
-use args::{Action, Invocation, MoveTo, NewArgs, PlanSource, WorktreeChoice};
+use args::{Action, Invocation, MoveTo, NewArgs, PlanSource, SendArgs, TextSource, WorktreeChoice};
 use plan::{
     MovePlan, MoveTarget, NewContext, create_input, find_line, find_session, find_task, plan_move, session_path,
 };
@@ -81,13 +82,30 @@ pub async fn run(args: &[String]) -> Result<ExitCode, DhError> {
                 updates: receiver,
                 caller: caller_from_env(),
                 json,
+                exit: None,
             };
             let result = cx.act(action).await;
             cx.client.close();
             result?;
+            if let Some(code) = cx.exit {
+                return Ok(ExitCode::from(code));
+            }
         }
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// `send --wait`'s exit status for how the wait ended (0: a reply).
+pub fn wait_exit_status(kind: WaitOutcomeKind) -> u8 {
+    match kind {
+        WaitOutcomeKind::Replied => 0,
+        WaitOutcomeKind::Timeout => 2,
+        WaitOutcomeKind::Waiting => 3,
+        WaitOutcomeKind::Ended => 4,
+        WaitOutcomeKind::Exited => 5,
+        WaitOutcomeKind::NotStarted => 6,
+        WaitOutcomeKind::Cancelled => 7,
+    }
 }
 
 /// One command's connection and caller.
@@ -96,6 +114,8 @@ struct Cx {
     updates: mpsc::UnboundedReceiver<SessionRecord>,
     caller: Option<AgentCaller>,
     json: bool,
+    /// An exit status other than success without an error (`send --wait` ending early).
+    exit: Option<u8>,
 }
 
 /// Pretty JSON on stdout.
@@ -119,6 +139,9 @@ impl Cx {
             Action::StepReopen(id) => self.step_tick(&id, false).await,
             Action::StepList => self.step_list().await,
             Action::NoteAdd(text) => self.note_add(&text).await,
+            Action::Send(args) => self.send(&args).await,
+            Action::CancelMessage(id) => self.cancel_message(&id).await,
+            Action::Reply { id, text } => self.reply(&id, &text).await,
             Action::Kill(id) => self.end(&id, true).await,
             Action::Remove(id) => self.end(&id, false).await,
             Action::PlanCheck(source) => self.plan_check(&source).await,
@@ -532,6 +555,64 @@ impl Cx {
             return Ok(());
         }
         Err(DhError::msg("The note kept changing while saving; try again"))
+    }
+
+    /// A message's text, given or from stdin.
+    fn read_text(source: &TextSource) -> Result<String, DhError> {
+        match source {
+            TextSource::Given(text) => Ok(text.clone()),
+            TextSource::Stdin => {
+                let mut text = String::new();
+                std::io::stdin()
+                    .read_to_string(&mut text)
+                    .map_err(|error| DhError::msg(format!("Cannot read the message from stdin: {error}")))?;
+                Ok(text.trim_end_matches('\n').to_owned())
+            }
+        }
+    }
+
+    async fn send(&mut self, args: &SendArgs) -> Result<(), DhError> {
+        let text = Self::read_text(&args.text)?;
+        let (sessions, _) = self.sessions().await?;
+        let target = find_session(&args.to, &sessions)?.clone();
+        let result = self
+            .client
+            .send_message(&target.id, &text, args.wait, self.caller.clone())
+            .await?;
+        if let Some(outcome) = &result.outcome {
+            let code = wait_exit_status(outcome.kind);
+            if code != 0 {
+                self.exit = Some(code);
+            }
+        }
+        if self.json {
+            return print_json(&result);
+        }
+        print_line(&view::sent(&result, &target, args.wait, self.caller.is_some()));
+        Ok(())
+    }
+
+    async fn cancel_message(&self, id: &str) -> Result<(), DhError> {
+        let cancelled = self.client.cancel_message(id, self.caller.clone()).await?;
+        if self.json {
+            return print_json(&cancelled);
+        }
+        print_line(&format!(
+            "Cancelled message {} to {}",
+            cancelled.id,
+            view::quoted_title(cancelled.to_title.as_deref())
+        ));
+        Ok(())
+    }
+
+    async fn reply(&self, id: &str, text: &TextSource) -> Result<(), DhError> {
+        let text = Self::read_text(text)?;
+        let reply: MessageRecord = self.client.reply_message(id, &text, self.caller.clone()).await?;
+        if self.json {
+            return print_json(&reply);
+        }
+        print_line(&view::replied(&reply));
+        Ok(())
     }
 
     /// The plan's JSON, from its file or stdin.

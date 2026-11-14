@@ -82,7 +82,7 @@ pub fn paste(text: &str) -> String {
 }
 
 /// The worker event typing `data` into the agent.
-fn agent_input(data: &str) -> Map<String, Value> {
+pub(crate) fn agent_input(data: &str) -> Map<String, Value> {
     let mut payload = Map::new();
     payload.insert("type".to_owned(), Value::String("input".to_owned()));
     payload.insert("target".to_owned(), Value::String("agent".to_owned()));
@@ -227,6 +227,7 @@ impl Daemon {
             held.attention = Some(attention);
             self.set_session(held);
             self.settle_working(&message.session_id);
+            self.messages_on_signal(&message.session_id);
             return Ok(());
         }
         let mut updated = session;
@@ -238,6 +239,7 @@ impl Daemon {
         updated.attention = Some(attention);
         let updated = self.save_session(updated).await?;
         self.settle_working(&message.session_id);
+        self.messages_on_signal(&message.session_id);
         if needs_attention(Some(signal.state)) && (previous_state != Some(signal.state) || reason_changed) {
             let text = attention_message(signal.state, reason.as_ref());
             let daemon = self.clone();
@@ -377,6 +379,7 @@ impl Daemon {
         if agent_status == AgentActivityStatus::Idle {
             self.type_draft(session_id).await?;
         }
+        self.messages_on_activity(session_id, agent_status);
         Ok(())
     }
 
@@ -418,6 +421,7 @@ impl Daemon {
         updated.touch("attention");
         updated.attention = Some(plain_attention(AttentionState::Unknown, "ScreenIdle", now_iso()));
         self.save_session(updated).await?;
+        self.messages_on_attention(session_id);
         Ok(())
     }
 
@@ -447,6 +451,7 @@ impl Daemon {
         }
         self.drop_draft(session_id, None, true);
         self.send_worker_event(session_id, agent_input(&paste(&text)));
+        self.messages_on_draft_typed(&worker);
         self.log(&format!("typed the task draft into {session_id}")).await;
         Ok(())
     }
@@ -582,6 +587,7 @@ pub(crate) mod tests {
             last_hook_at: Cell::new(None),
             preview_styled: Cell::new(false),
             working_settle: RefCell::new(None),
+            inbox: crate::messages::Inbox::default(),
         });
         daemon
             .launch

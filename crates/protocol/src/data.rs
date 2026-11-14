@@ -1589,6 +1589,116 @@ pub struct OrchestratorResult {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Messages between sessions (not in the TS)
+
+string_union! {
+    /// What a message is: one sent with `deckhand send`, an answer to one (`deckhand reply`), or Deckhand's notice
+    /// that a message was dropped.
+    MessageKind {
+        Message = "message",
+        Reply = "reply",
+        Notice = "notice",
+    }
+}
+
+string_union! {
+    /// Where a message is.
+    MessageStatus {
+        /// In its target's queue, waiting until the target is idle at its input.
+        Held = "held",
+        /// Typed into its target and submitted.
+        Delivered = "delivered",
+        /// Delivered (or returned), and answered at least once (`replies`).
+        Answered = "answered",
+        /// Cancelled by its sender while held.
+        Cancelled = "cancelled",
+        /// Dropped while held: its target exited (`note` says why).
+        Dropped = "dropped",
+        /// A reply handed back outside any session: to the sender's waiting `send --wait`, or to you (by hand).
+        Returned = "returned",
+    }
+}
+
+string_union! {
+    /// How a `send --wait` ended.
+    WaitOutcomeKind {
+        /// The first reply (`reply`).
+        Replied = "replied",
+        /// The target waits on a question or permission (`reason`).
+        Waiting = "waiting",
+        /// The target ended the turn the message started without replying (agents with turn signals only).
+        Ended = "ended",
+        /// The target exited (a held message was dropped).
+        Exited = "exited",
+        /// The message was typed but no turn started (agents with turn signals only); nothing was retyped.
+        NotStarted = "not-started",
+        /// The message was cancelled while held.
+        Cancelled = "cancelled",
+        /// No reply in time.
+        Timeout = "timeout",
+    }
+}
+
+/// A message from one session (or you, by hand) to another, its reply, or Deckhand's notice. Kept in the state
+/// directory's `messages.json`: every held message, and the recent ones of each session.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageRecord {
+    /// Short (6 hex digits), unique among the kept messages; commands take any unique prefix.
+    pub id: String,
+    pub kind: MessageKind,
+    /// The sending session; absent: you, by hand (a message or reply), or Deckhand (a notice).
+    pub from_session_id: Option<String>,
+    /// The sender's title when it was sent.
+    pub from_title: Option<String>,
+    /// The target session; absent: you (a reply to a message you sent by hand).
+    pub to_session_id: Option<String>,
+    /// The target's title when it was sent.
+    pub to_title: Option<String>,
+    /// The text as sent, without the header; once it has left the queue, at most its first 2000 characters are
+    /// kept (`textTruncated`).
+    pub text: String,
+    pub text_truncated: Option<bool>,
+    /// The sender waits for an answer (`send --wait`).
+    pub wants_answer: Option<bool>,
+    /// A reply's (or notice's) message.
+    pub in_reply_to: Option<String>,
+    /// The IDs of its replies, oldest first.
+    pub replies: Option<Vec<String>>,
+    pub status: MessageStatus,
+    pub created_at: String,
+    pub delivered_at: Option<String>,
+    pub updated_at: String,
+    /// Why it was dropped, or that no turn started after it was typed.
+    pub note: Option<String>,
+    /// Keys this version does not know.
+    #[serde(flatten)]
+    pub extra: IndexMap<String, Value>,
+}
+
+/// How a `send --wait` ended.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WaitOutcome {
+    pub kind: WaitOutcomeKind,
+    /// `replied`: the reply.
+    pub reply: Option<Box<MessageRecord>>,
+    /// `waiting`: what the target waits on (its attention reason), when known.
+    pub reason: Option<String>,
+}
+
+/// `send-message`'s answer: the message as queued (or delivered by then), and with `wait`, how the wait ended.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendMessageResult {
+    pub message: MessageRecord,
+    pub outcome: Option<WaitOutcome>,
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Small results
 
 /// `{ok: true}` (kill, remove, stop-dev, agent-hook, ...).

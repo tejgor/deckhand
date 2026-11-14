@@ -792,6 +792,8 @@ pub fn live_client_handlers(dispatch: &Dispatch<App>, epoch: u64) -> LiveClientH
         on_plan_settled: Some(Box::new(move |settled| {
             plan_settled.update(move |app: &mut App| crate::app::modes::plan::plan_settled(app, &settled));
         })),
+        // Messages between sessions are not shown yet.
+        on_messages_updated: None,
     }
 }
 

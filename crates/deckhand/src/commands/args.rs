@@ -1,4 +1,4 @@
-//! Parsing `deckhand new|ls|task|step|note|kill|remove|guide|plan|do` and their usage texts.
+//! Parsing `deckhand new|ls|task|step|note|send|reply|kill|remove|guide|plan|do` and their usage texts.
 //!
 //! Options take their value as the next argument or after `=` (`--title=x`), so a value may start with `-`. `--`
 //! ends the options. Every command takes `--json` and `--help` (`-h`).
@@ -8,12 +8,14 @@ use deckhand_protocol::data::ProgramKey;
 
 /// The words that run one of these commands (the first argument).
 pub const COMMAND_WORDS: &[&str] = &[
-    "new", "ls", "task", "step", "note", "kill", "remove", "guide", "plan", "do",
+    "new", "ls", "task", "step", "note", "send", "reply", "kill", "remove", "guide", "plan", "do",
 ];
 
 /// The commands every agent may run (its guide's, and Codex's `deckhand` tool's): not the orchestrator's `plan`
 /// (Claude only) or your `do`.
-pub const AGENT_WORDS: &[&str] = &["new", "ls", "task", "step", "note", "kill", "remove", "guide"];
+pub const AGENT_WORDS: &[&str] = &[
+    "new", "ls", "task", "step", "note", "send", "reply", "kill", "remove", "guide",
+];
 
 /// `deckhand new --help`.
 pub const NEW_USAGE: &str = "\
@@ -91,6 +93,37 @@ Usage: deckhand note add <text> [--json]
 Appends <text> as a paragraph to the note of this session's line (findings, decisions, context for whoever works
 on it next; the line is made the first time it needs one). Steps go in with deckhand step add. Only inside a
 Deckhand session.";
+
+/// `deckhand send --help`.
+pub const SEND_USAGE: &str = "\
+Usage: deckhand send <session id> <message>|- [--wait [--timeout <duration>]] [--json]
+       deckhand send --cancel <message id> [--json]
+
+Sends a message to another session: it is queued, then typed into that session's agent and submitted once the
+agent is idle at its input (not while it starts, works on a turn or waits on a question or permission, nor while
+you are typing into it or have typed text there you have not sent). Messages to a session arrive one at a time, in
+the order sent, under a header saying who sent them. Inside a Deckhand session, only to a session in its tree
+(everything under the same top-level session); run by hand, to any session. At most 20 KB: put more in your line's
+note (deckhand note add) and point at it. Prints the message's ID; the receiver answers with deckhand reply.
+
+  -                  Read the message from stdin (a quoted heredoc: deckhand send <id> - <<'EOF' ... EOF)
+  --wait             Wait for the first reply and print it (run it with a long timeout: Bash timeout 600000).
+                     It returns early, with the exit status in brackets, when the session waits on a question
+                     or permission (3), ends its turn without replying (4; agents that report turns: Claude,
+                     Codex with hooks), exits (5), or did not start a turn after the message was typed (6);
+                     after --timeout too (2). A later reply then comes to this session as a message.
+  --timeout <time>   How long --wait waits: 90s, 5m, 1h (default 9m)
+  --cancel <id>      Cancels a message this session sent that is still queued (by hand: any)
+IDs may be shortened to any unique prefix.";
+
+/// `deckhand reply --help`.
+pub const REPLY_USAGE: &str = "\
+Usage: deckhand reply <message id> <answer>|- [--json]
+
+Answers a message sent to this session (its header has the ID). The answer goes to the sender: to its waiting
+deckhand send --wait, else it is queued and typed into the sender as a message (a message you sent by hand: back to
+you). You may reply more than once. Only inside the Deckhand session the message was sent to. - reads the answer
+from stdin. At most 20 KB.";
 
 /// `deckhand kill --help`.
 pub const KILL_USAGE: &str = "\
@@ -183,6 +216,15 @@ pub enum Action {
     StepReopen(String),
     StepList,
     NoteAdd(String),
+    /// `send <session> <message>`.
+    Send(SendArgs),
+    /// `send --cancel <message id>`.
+    CancelMessage(String),
+    /// `reply <message id> <answer>`.
+    Reply {
+        id: String,
+        text: TextSource,
+    },
     Kill(String),
     Remove(String),
     /// `plan check`.
@@ -191,6 +233,51 @@ pub enum Action {
     PlanApply(PlanSource),
     /// `do <idea>`.
     Do(String),
+}
+
+/// A message's text: given, or `-` (stdin).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TextSource {
+    Given(String),
+    Stdin,
+}
+
+/// `deckhand send`'s arguments.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SendArgs {
+    /// A session ID (or a prefix of one).
+    pub to: String,
+    pub text: TextSource,
+    /// `--wait`, with its timeout in milliseconds (default [`DEFAULT_WAIT_MS`]).
+    pub wait: Option<u64>,
+}
+
+/// `send --wait` without `--timeout`: 9 minutes, inside the 10 minutes a Bash tool call may take.
+pub const DEFAULT_WAIT_MS: u64 = 9 * 60 * 1000;
+
+/// A duration: a number with `ms`, `s`, `m` or `h` (a bare number is seconds).
+pub fn parse_duration(text: &str) -> Option<u64> {
+    let text = text.trim();
+    let split = text
+        .find(|c: char| !c.is_ascii_digit() && c != '.')
+        .unwrap_or(text.len());
+    let (number, unit) = text.split_at(split);
+    let number: f64 = number
+        .parse()
+        .ok()
+        .filter(|number: &f64| number.is_finite() && *number >= 0.0)?;
+    let factor = match unit.trim() {
+        "ms" => 1.0,
+        "" | "s" | "sec" => 1000.0,
+        "m" | "min" => 60_000.0,
+        "h" => 3_600_000.0,
+        _ => return None,
+    };
+    let ms = (number * factor).round();
+    // Bounded above, so the cast is exact enough and never wraps.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let ms = ms.min(1e15) as u64;
+    Some(ms)
 }
 
 /// Where a plan's JSON comes from.
@@ -366,6 +453,8 @@ pub fn parse(args: &[String]) -> Result<Invocation, DhError> {
         "task" => parse_task(rest),
         "step" => parse_step(rest),
         "note" => parse_note(rest),
+        "send" => parse_send(rest),
+        "reply" => parse_reply(rest),
         "plan" => parse_plan(rest),
         "do" => {
             let scanned = scan(rest, &[], DO_USAGE)?;
@@ -584,6 +673,94 @@ fn parse_step(rest: &[String]) -> Result<Invocation, DhError> {
     })
 }
 
+/// A message's words after its first positional (`-`: stdin).
+fn message_text(rest: &[String], what: &str, command: &str, usage: &str) -> Result<TextSource, DhError> {
+    match rest {
+        [only] if only == "-" => Ok(TextSource::Stdin),
+        _ => {
+            let text = rest.join(" ");
+            if text.trim().is_empty() {
+                return Err(usage_error(&format!("deckhand {command} needs {what}"), usage));
+            }
+            Ok(TextSource::Given(text))
+        }
+    }
+}
+
+fn parse_send(rest: &[String]) -> Result<Invocation, DhError> {
+    let usage = SEND_USAGE;
+    let options = [
+        ("--wait", Kind::Switch),
+        ("--timeout", Kind::Value),
+        ("--cancel", Kind::Value),
+    ];
+    let scanned = scan(rest, &options, usage)?;
+    if scanned.help || rest.is_empty() {
+        return Ok(help(usage));
+    }
+    if let Some(id) = scanned.value("--cancel") {
+        if scanned.switch("--wait") || scanned.value("--timeout").is_some() {
+            return Err(usage_error("--cancel takes no --wait or --timeout", usage));
+        }
+        none(&scanned, usage)?;
+        if id.trim().is_empty() {
+            return Err(usage_error("--cancel needs a message ID", usage));
+        }
+        return Ok(Invocation {
+            action: Action::CancelMessage(id),
+            json: scanned.json,
+        });
+    }
+    let timeout = match scanned.value("--timeout") {
+        None => None,
+        Some(_) if !scanned.switch("--wait") => {
+            return Err(usage_error("--timeout applies only with --wait", usage));
+        }
+        Some(text) => Some(
+            parse_duration(&text)
+                .ok_or_else(|| usage_error(&format!("Unknown duration: {text} (e.g. 90s, 5m, 1h)"), usage))?,
+        ),
+    };
+    let Some((to, words)) = scanned
+        .positionals
+        .split_first()
+        .filter(|(to, _)| !to.trim().is_empty())
+    else {
+        return Err(usage_error("deckhand send needs a session ID and a message", usage));
+    };
+    let text = message_text(words, "a message", "send", usage)?;
+    Ok(Invocation {
+        action: Action::Send(SendArgs {
+            to: to.clone(),
+            text,
+            wait: scanned.switch("--wait").then(|| timeout.unwrap_or(DEFAULT_WAIT_MS)),
+        }),
+        json: scanned.json,
+    })
+}
+
+fn parse_reply(rest: &[String]) -> Result<Invocation, DhError> {
+    let usage = REPLY_USAGE;
+    let scanned = scan(rest, &[], usage)?;
+    if scanned.help || rest.is_empty() {
+        return Ok(help(usage));
+    }
+    let Some((id, words)) = scanned
+        .positionals
+        .split_first()
+        .filter(|(id, _)| !id.trim().is_empty())
+    else {
+        return Err(usage_error("deckhand reply needs a message ID and an answer", usage));
+    };
+    Ok(Invocation {
+        action: Action::Reply {
+            id: id.clone(),
+            text: message_text(words, "an answer", "reply", usage)?,
+        },
+        json: scanned.json,
+    })
+}
+
 fn parse_note(rest: &[String]) -> Result<Invocation, DhError> {
     let usage = NOTE_USAGE;
     let sub = rest.first().map(String::as_str);
@@ -746,6 +923,10 @@ mod tests {
             (&["plan"], PLAN_USAGE),
             (&["plan", "apply", "--help"], PLAN_USAGE),
             (&["do", "--help"], DO_USAGE),
+            (&["send"], SEND_USAGE),
+            (&["send", "1a2b", "--help"], SEND_USAGE),
+            (&["reply"], REPLY_USAGE),
+            (&["reply", "-h"], REPLY_USAGE),
         ] {
             assert_eq!(parsed(list).action, Action::Help(usage), "{list:?}");
         }
@@ -900,6 +1081,70 @@ mod tests {
         assert!(refused(&["do"]).starts_with("deckhand do needs an idea"));
         // The orchestrator's guide names plan; the agents' guide leaves out what is not theirs.
         assert!(deckhand_core::orchestrator_guide::ORCHESTRATOR_GUIDE.contains("deckhand plan apply"));
+    }
+
+    #[test]
+    fn send_takes_a_session_a_message_and_how_long_to_wait() {
+        assert_eq!(
+            parsed(&["send", "1a2b", "Which", "store?"]).action,
+            Action::Send(SendArgs {
+                to: "1a2b".into(),
+                text: TextSource::Given("Which store?".into()),
+                wait: None,
+            })
+        );
+        assert_eq!(
+            parsed(&["send", "1a2b", "-", "--wait", "--json"]),
+            Invocation {
+                action: Action::Send(SendArgs {
+                    to: "1a2b".into(),
+                    text: TextSource::Stdin,
+                    wait: Some(DEFAULT_WAIT_MS),
+                }),
+                json: true
+            }
+        );
+        let Action::Send(args) = parsed(&["send", "1a2b", "hi", "--wait", "--timeout", "90s"]).action else {
+            panic!()
+        };
+        assert_eq!(args.wait, Some(90_000));
+        assert_eq!(
+            parsed(&["send", "--cancel", "7a3f"]).action,
+            Action::CancelMessage("7a3f".into())
+        );
+        assert!(refused(&["send", "1a2b"]).starts_with("deckhand send needs a message"));
+        assert!(refused(&["send", "1a2b", "hi", "--timeout", "5m"]).starts_with("--timeout applies only with --wait"));
+        assert!(refused(&["send", "1a2b", "hi", "--wait", "--timeout", "soon"]).starts_with("Unknown duration: soon"));
+        assert!(refused(&["send", "--cancel", "7a3f", "--wait"]).starts_with("--cancel takes no --wait"));
+        assert!(refused(&["send", "--cancel", "7a3f", "extra"]).starts_with("Unexpected argument: extra"));
+        assert_eq!(
+            parsed(&["reply", "7a3f", "The", "keychain"]).action,
+            Action::Reply {
+                id: "7a3f".into(),
+                text: TextSource::Given("The keychain".into())
+            }
+        );
+        assert_eq!(
+            parsed(&["reply", "7a3f", "-"]).action,
+            Action::Reply {
+                id: "7a3f".into(),
+                text: TextSource::Stdin
+            }
+        );
+        assert!(refused(&["reply", "7a3f"]).starts_with("deckhand reply needs an answer"));
+    }
+
+    #[test]
+    fn durations_take_a_unit_and_a_bare_number_is_seconds() {
+        assert_eq!(parse_duration("90"), Some(90_000));
+        assert_eq!(parse_duration("90s"), Some(90_000));
+        assert_eq!(parse_duration("5m"), Some(300_000));
+        assert_eq!(parse_duration("1.5h"), Some(5_400_000));
+        assert_eq!(parse_duration("250ms"), Some(250));
+        assert_eq!(parse_duration("5 min"), Some(300_000));
+        assert_eq!(parse_duration("-5s"), None);
+        assert_eq!(parse_duration("5d"), None);
+        assert_eq!(parse_duration(""), None);
     }
 
     #[test]

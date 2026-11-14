@@ -9,8 +9,9 @@
 pub const SKILL_NAME: &str = "deckhand";
 
 /// The skill's description: all an agent with lazily loaded skills keeps in context until it uses the skill.
-pub const SKILL_DESCRIPTION: &str = "Deckhand actions in this Deckhand session: start sessions or sub-sessions, add \
-tasks to the backlog, add steps or notes to this session's line, list or tick tasks. Only when the user asks for one.";
+pub const SKILL_DESCRIPTION: &str = "Deckhand actions in this Deckhand session: start sessions or sub-sessions, \
+message them, add tasks to the backlog, add steps or notes to this session's line, list or tick tasks. Only when the \
+user asks for one.";
 
 /// The always-loaded instruction for agents without lazily loaded skills.
 pub const TRIGGER: &str = "This is a Deckhand session. Only when the user asks for a Deckhand action (start a \
@@ -25,29 +26,37 @@ it is still in context.";
 /// The most an always-loaded text may be, in bytes (about 60 tokens).
 pub const ALWAYS_LOADED_BUDGET: usize = 240;
 
-/// The most [`GUIDE`] may be, in bytes (about 330 tokens): it is read whenever an agent takes a Deckhand action, so
-/// details belong in each command's `--help`.
-pub const GUIDE_BUDGET: usize = 1400;
+/// The most [`GUIDE`] may be, in bytes (about 480 tokens): it is read only when an agent takes a Deckhand action (or
+/// answers a message), so it can be clear rather than terse; details belong in each command's `--help`.
+pub const GUIDE_BUDGET: usize = 2000;
 
 /// `deckhand guide`: the full guide, and the skill's body.
 pub const GUIDE: &str = "\
 # deckhand: act for this Deckhand session, only when the user asks
 
-Never start sessions, move tasks or end sessions unasked. Merges and worktree deletions stay with the user.
+Take Deckhand actions only when the user asks, with one exception: when a message asks you for an answer, answer it
+with deckhand reply. Never start or end sessions or move tasks unasked. Merges and worktree deletions stay with the
+user.
 
 deckhand new --prompt <brief> [--title <t>] [--agent claude|codex|pi] [--task <id>] [--parent <id>]
   [--worktree new|same|none|<path>] [--base <branch>] [--flat] [--top-level] [--fork] [--draft]
-  Default: a sub-session in a new worktree stacked on this branch (--flat: not); same: this worktree; none: the
-  main checkout; --top-level: a sibling; --parent: under one below you. Sent at once (--draft: typed). Brief it
-  fully (context, constraints, what done is): it knows nothing of this chat unless --fork. Long prompts: quoted
-  heredoc (new --help). --task: on that line, ticked when merged or done.
+  Starts a sub-session of this one in a new worktree, stacked on this branch (--flat: not). --worktree same: this
+  worktree; none: the main checkout. --top-level: a sibling; --parent: under a session below you. Its
+  prompt is sent at once (--draft: typed for the user to send). It knows nothing of this chat unless --fork: brief
+  it fully (context, constraints, what done is). Long prompts: a quoted heredoc (new --help). --task: it works on
+  that line, ticked when merged or done.
+deckhand ls  the sessions (* is this one)
+deckhand kill <id>  ends a session below you; deckhand remove <id> takes an ended one off the list
+
+deckhand send <id> <message> [--wait]  messages a session in your tree (under the same top-level session),
+  typed in once it is idle. --wait prints the first reply (Bash timeout 600000) or why none came: it waits on a
+  question, ended its turn without replying, or exited. Later replies come as messages.
+deckhand reply <message id> <answer>  answers a message sent to you (its header has the ID)
+
 deckhand task list | task add <title> [--details <text>] | task done|reopen <id> | task move <id> --to backlog|<session>
   Told to park something? task add it.
 deckhand step add <text> | step done|reopen <id> | step list  your steps
 deckhand note add <text>  findings for your line's note
-deckhand ls               sessions (* is this one)
-deckhand kill <id>        end a session below you
-deckhand remove <id>      take it off the list
 
 IDs: any unique prefix. --json anywhere; <command> --help for more.
 As tool args, pass the words after `deckhand`, e.g. [\"new\", \"--prompt\", \"<brief>\"]; no quoting needed.
@@ -76,5 +85,13 @@ mod tests {
         assert!(TRIGGER.contains("`deckhand guide` once per conversation"));
         assert!(GUIDE.contains("As tool args, pass the words after `deckhand`"));
         assert!(GUIDE.starts_with("# deckhand: "));
+    }
+
+    #[test]
+    fn the_guide_makes_answering_a_message_the_one_exception() {
+        assert!(GUIDE.contains("only when the user asks, with one exception: when a message asks you for an answer"));
+        assert!(GUIDE.contains("deckhand reply <message id> <answer>"));
+        assert!(GUIDE.contains("deckhand send <id> <message> [--wait]"));
+        assert!(GUIDE.contains("Bash timeout 600000"));
     }
 }

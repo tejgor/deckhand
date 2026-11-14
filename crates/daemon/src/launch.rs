@@ -41,6 +41,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use crate::daemon::Daemon;
 use crate::dispatch::response;
 use crate::hooks::{DRAFT_SETTLE, types_letters};
+use crate::messages::Inbox;
 use crate::server::{
     ClientHandle, ClientId, Connection, DEFAULT_PREVIEW_COLS, DEFAULT_PREVIEW_ROWS, clamp_non_negative, clamp_size,
     send_message,
@@ -90,6 +91,8 @@ pub struct WorkerRuntime {
     /// Not in the TS: while the session works, ends that signal once the screen has not changed for
     /// STALE_WORKING_AFTER (restarted by every screen update and signal; `Daemon::settle_working`).
     pub working_settle: RefCell<Option<Timer>>,
+    /// Not in the TS: what holds this launch's queue of messages (see messages.rs).
+    pub inbox: Inbox,
 }
 
 impl WorkerRuntime {
@@ -108,6 +111,7 @@ impl WorkerRuntime {
             last_hook_at: Cell::new(None),
             preview_styled: Cell::new(false),
             working_settle: RefCell::new(None),
+            inbox: Inbox::default(),
         }
     }
 }
@@ -268,7 +272,7 @@ impl Daemon {
     }
 
     /// TS: `this.workers.get(id) === worker`.
-    fn is_current_worker(&self, session_id: &str, worker: &Rc<WorkerRuntime>) -> bool {
+    pub(crate) fn is_current_worker(&self, session_id: &str, worker: &Rc<WorkerRuntime>) -> bool {
         self.worker_of(session_id)
             .is_some_and(|current| Rc::ptr_eq(&current, worker))
     }
@@ -711,6 +715,7 @@ impl Daemon {
                     session.touch("updatedAt");
                     session.updated_at = now_iso();
                     self.save_session(session).await?;
+                    self.pump_messages(session_id);
                 }
             }
             WorkerMessage::Exit(exit) => {
@@ -723,6 +728,7 @@ impl Daemon {
             WorkerMessage::PreviewUpdated(updated) => {
                 *worker.screen.borrow_mut() = Some(updated.preview.content.clone());
                 self.settle_working(session_id);
+                self.messages_on_screen(session_id, worker);
                 // A draft is typed once the screen stops changing (each update restarts the wait).
                 if let Some(draft) = worker.draft.borrow_mut().as_mut() {
                     let daemon = self.downgrade();
@@ -1152,6 +1158,8 @@ impl Daemon {
             .data
             .known()
             .ok_or_else(|| replace_type_error(&request.data, "data"))?;
+        // Not in the TS: what you type holds the session's queue of messages (never typed over you).
+        self.messages_on_input(&request.session_id, data);
         if answers_prompt(data) {
             // markAnswered's synchronous part runs now, as TS calls it here: a hook queued behind this input finds
             // the answer's time already recorded. Only the save goes on in the background.

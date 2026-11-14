@@ -9,8 +9,8 @@ use deckhand_core::sidebar_model::status_words;
 use deckhand_core::task_list::{Line, TaskList};
 use deckhand_core::tasks::{RECENT_DONE_DAYS, today};
 use deckhand_protocol::data::{
-    OrchestratorResult, PlanOutcome, PlanStatus, SessionRecord, SessionWorktreeMode, WorkNote, WorkNoteKind,
-    WorktreeMode,
+    MessageRecord, MessageStatus, OrchestratorResult, PlanOutcome, PlanStatus, SendMessageResult, SessionRecord,
+    SessionWorktreeMode, WaitOutcomeKind, WorkNote, WorkNoteKind, WorktreeMode,
 };
 
 use super::plan::session_path;
@@ -347,6 +347,92 @@ pub fn orchestrator(result: &OrchestratorResult) -> String {
         "Started an orchestrator {id} for your idea: ◎ {title}.\nTo follow it, open Deckhand here (deckhand), select ◎ \
          {title} and press enter to attach."
     )
+}
+
+/// A session's title in quotes, as headers show it (`a session` when unknown).
+pub fn quoted_title(title: Option<&str>) -> String {
+    title.map_or_else(|| "a session".to_owned(), |title| format!("\"{title}\""))
+}
+
+/// A wait in milliseconds as `9m`, `90s`, `1h`.
+pub fn duration_text(ms: u64) -> String {
+    match ms {
+        ms if ms % 3_600_000 == 0 && ms > 0 => format!("{}h", ms / 3_600_000),
+        ms if ms % 60_000 == 0 && ms > 0 => format!("{}m", ms / 60_000),
+        ms if ms % 1000 == 0 => format!("{}s", ms / 1000),
+        ms => format!("{ms}ms"),
+    }
+}
+
+/// `deckhand send`: where the message is, or how `--wait` ended (`wait`: its timeout in ms).
+pub fn sent(result: &SendMessageResult, target: &SessionRecord, wait: Option<u64>, in_session: bool) -> String {
+    let message = &result.message;
+    let id = &message.id;
+    let title = &target.title;
+    let later = if in_session {
+        format!("A later reply to message {id} comes to this session as a message.")
+    } else {
+        format!("A later reply to message {id} shows in Deckhand.")
+    };
+    let Some(outcome) = &result.outcome else {
+        let state = match message.status {
+            MessageStatus::Held => {
+                format!("queued for \"{title}\": it is typed in once that session is idle at its input")
+            }
+            _ => format!("typed into \"{title}\""),
+        };
+        return format!("Message {id} {state}. It can answer with deckhand reply {id}.");
+    };
+    match outcome.kind {
+        WaitOutcomeKind::Replied => match &outcome.reply {
+            Some(reply) => format!(
+                "[Reply from {} to your message {id}]\n{}",
+                quoted_title(reply.from_title.as_deref()),
+                reply.text
+            ),
+            None => format!("Message {id} was answered."),
+        },
+        WaitOutcomeKind::Waiting => {
+            let reason = outcome.reason.as_deref().unwrap_or("a question or a permission");
+            let place = if message.status == MessageStatus::Held {
+                "stays queued until then"
+            } else {
+                "was typed in"
+            };
+            format!("{title} is waiting on: {reason}\nMessage {id} {place}. {later}")
+        }
+        WaitOutcomeKind::Ended => format!("{title} ended its turn without replying\n{later}"),
+        WaitOutcomeKind::Exited => {
+            if message.status == MessageStatus::Dropped {
+                format!("{title} exited before message {id} reached it: nothing was delivered")
+            } else {
+                format!("{title} exited without replying to message {id}")
+            }
+        }
+        WaitOutcomeKind::NotStarted => format!(
+            "Message {id} was typed into {title}, but no turn started: it may still be in its input. Nothing was \
+             typed again; attach to it in Deckhand to see.\n{later}"
+        ),
+        WaitOutcomeKind::Cancelled => format!("Message {id} was cancelled"),
+        WaitOutcomeKind::Timeout => format!(
+            "No reply from {title} within {}.\n{later}",
+            duration_text(wait.unwrap_or_default())
+        ),
+    }
+}
+
+/// `deckhand reply`: where the answer went.
+pub fn replied(reply: &MessageRecord) -> String {
+    let to = reply.in_reply_to.as_deref().unwrap_or_default();
+    let target = quoted_title(reply.to_title.as_deref());
+    match (reply.status, reply.to_session_id.is_some()) {
+        (MessageStatus::Returned, true) => format!("Replied to message {to}: {target} was waiting for it."),
+        (MessageStatus::Returned, false) => format!("Replied to message {to}: it goes back to the user."),
+        (MessageStatus::Held, _) => {
+            format!("Replied to message {to}: queued for {target}, typed in once it is idle at its input.")
+        }
+        _ => format!("Replied to message {to}: typed into {target}."),
+    }
 }
 
 #[cfg(test)]

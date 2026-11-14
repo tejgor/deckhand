@@ -81,6 +81,8 @@ Deckhand actions, for the agents in its sessions (and for you):
   ls                           List the checkout's sessions
   task list|add|done|reopen|move  List, add, tick or move the repository's tasks
   note add <item>              Add a step to this session's note
+  send <id> <message> [--wait] Send a message to a session, typed in once it is idle (--wait: print its reply)
+  reply <id> <answer>          Answer a message sent to this session
   kill <id>, remove <id>       End, or remove, a session (from inside one: only sessions under it)
   guide                        Print the guide to these commands for agents
   plan check|apply [<file>]    Check an orchestrator plan, or create it once you confirm it in Deckhand

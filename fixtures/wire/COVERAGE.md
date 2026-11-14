@@ -57,6 +57,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `attach-git` | 0 | 1 |
 | c2d | - | `attach-terminal` | 2 | 2 |
 | c2d | - | `attach` | 0 | 1 |
+| c2d | - | `cancel-message` | 0 | 1 |
 | c2d | - | `cancel-start` | 1 | 0 |
 | c2d | - | `change-stage` | 3 | 0 |
 | c2d | - | `changes-diff` | 2 | 0 |
@@ -79,6 +80,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `inspect-worktree` | 2 | 0 |
 | c2d | - | `kill` | 7 | 0 |
 | c2d | - | `list-branches` | 2 | 0 |
+| c2d | - | `list-messages` | 0 | 1 |
 | c2d | - | `list-worktrees` | 1 | 0 |
 | c2d | - | `list` | 1 | 0 |
 | c2d | - | `mark-session-merged` | 1 | 0 |
@@ -96,6 +98,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `promote-note-item` | 2 | 0 |
 | c2d | - | `remove` | 3 | 0 |
 | c2d | - | `reorder-session` | 0 | 2 |
+| c2d | - | `reply-message` | 0 | 1 |
 | c2d | - | `resize` | 0 | 1 |
 | c2d | - | `resolve-merge` | 2 | 0 |
 | c2d | - | `restart` | 2 | 0 |
@@ -104,6 +107,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | c2d | - | `run-action` | 2 | 0 |
 | c2d | - | `save-config` | 4 | 0 |
 | c2d | - | `save-note` | 3 | 0 |
+| c2d | - | `send-message` | 0 | 2 |
 | c2d | - | `set-reply-read` | 0 | 1 |
 | c2d | - | `set-session-done` | 2 | 0 |
 | c2d | - | `settings-info` | 2 | 0 |
@@ -145,6 +149,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | `git-detached` | 0 | 1 |
 | d2c | - | `git-output` | 0 | 1 |
 | d2c | - | `git-updated` | 0 | 2 |
+| d2c | - | `messages-updated` | 0 | 2 |
 | d2c | - | `output` | 0 | 1 |
 | d2c | - | `plan-pending` | 0 | 1 |
 | d2c | - | `plan-settled` | 0 | 1 |
@@ -157,7 +162,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | `terminal-output` | 1 | 0 |
 | d2c | - | `terminal-updated` | 1 | 1 |
 | d2c | - | `work-note-updated` | 0 | 2 |
-| d2c | - | response (failure) | 21 | 2 |
+| d2c | - | response (failure) | 21 | 3 |
 | d2c | - | response `agent-hook` | 1 | 0 |
 | d2c | - | response `agent-versions` | 3 | 0 |
 | d2c | - | response `archive-session` | 2 | 0 |
@@ -166,6 +171,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `attach-git` | 0 | 1 |
 | d2c | - | response `attach-terminal` | 1 | 0 |
 | d2c | - | response `attach` | 0 | 1 |
+| d2c | - | response `cancel-message` | 0 | 1 |
 | d2c | - | response `cancel-start` | 1 | 0 |
 | d2c | - | response `change-stage` | 1 | 0 |
 | d2c | - | response `changes-diff` | 1 | 0 |
@@ -180,6 +186,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `inspect-worktree` | 3 | 0 |
 | d2c | - | response `kill` | 1 | 0 |
 | d2c | - | response `list-branches` | 1 | 0 |
+| d2c | - | response `list-messages` | 0 | 1 |
 | d2c | - | response `list-worktrees` | 1 | 0 |
 | d2c | - | response `list` | 24 | 0 |
 | d2c | - | response `mark-session-merged` | 5 | 0 |
@@ -197,6 +204,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `promote-note-item` | 2 | 0 |
 | d2c | - | response `remove` | 1 | 0 |
 | d2c | - | response `reorder-session` | 0 | 1 |
+| d2c | - | response `reply-message` | 0 | 1 |
 | d2c | - | response `resolve-merge` | 3 | 0 |
 | d2c | - | response `restart` | 9 | 0 |
 | d2c | - | response `restart-sessions` | 0 | 1 |
@@ -204,6 +212,7 @@ Counts of lines per variant: captured (corpus) and hand-written (extra). `respon
 | d2c | - | response `run-action` | 1 | 0 |
 | d2c | - | response `save-config` | 2 | 0 |
 | d2c | - | response `save-note` | 6 | 0 |
+| d2c | - | response `send-message` | 0 | 3 |
 | d2c | - | response `set-reply-read` | 0 | 1 |
 | d2c | - | response `set-session-done` | 9 | 0 |
 | d2c | - | response `settings-info` | 10 | 0 |

@@ -62,9 +62,9 @@ pub const CODEX_MCP_ENV_VARS: [&str; 6] = [
     paths::ALLOW_PROD_HOME_ENV,
 ];
 
-/// Codex's timeout for one call of the tool (s): above the server's own limit on one command
-/// (`deckhand mcp`, 60 s), so the server answers first.
-pub const CODEX_MCP_TOOL_TIMEOUT_SECS: u64 = 90;
+/// Codex's timeout for one call of the tool (s): above the server's own limit on one command (`deckhand mcp`: 60 s,
+/// `send --wait` up to 570 s), so the server answers first.
+pub const CODEX_MCP_TOOL_TIMEOUT_SECS: u64 = 600;
 
 /// The plugin's description (Claude lists it with the plugin; it is not loaded into the conversation).
 const PLUGIN_DESCRIPTION: &str = "The deckhand commands, for agents running in a Deckhand session.";
@@ -577,14 +577,14 @@ mod tests {
         );
         // The environment goes by name only: no `env` table, whose values would be arguments.
         assert!(!server.contains_key("env"));
-        assert_eq!(server["tool_timeout_sec"].as_integer(), Some(90));
+        assert_eq!(server["tool_timeout_sec"].as_integer(), Some(600));
         assert_eq!(server["default_tools_approval_mode"].as_str(), Some("approve"));
         // The exact argument, as `ps` shows it.
         assert_eq!(
             args[3],
             "mcp_servers.deckhand={command=\"/h/agent-plugin/bin/deckhand\", args=[\"mcp\"], env_vars=[\
              \"DECKHAND_SESSION_ID\", \"DECKHAND_LAUNCH_ID\", \"DECKHAND_HOOK_TOKEN\", \"DECKHAND_HOME\", \
-             \"DECKHAND_CHANNEL\", \"DECKHAND_ALLOW_PROD_HOME\"], tool_timeout_sec=90, \
+             \"DECKHAND_CHANNEL\", \"DECKHAND_ALLOW_PROD_HOME\"], tool_timeout_sec=600, \
              default_tools_approval_mode=\"approve\"}"
         );
         // From the first version that has it on.

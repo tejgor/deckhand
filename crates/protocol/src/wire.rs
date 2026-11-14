@@ -966,6 +966,73 @@ pub struct OpenOrchestrator {
     pub rows: Option<i64>,
 }
 
+/// Not in the TS: `send-message` (`deckhand send`): queues `text` for session `sessionId`. With `wait`, answered once
+/// the first reply comes or the wait ends otherwise (`timeoutMs`, default 9 minutes); else at once.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendMessage {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    /// The target session (its full ID).
+    #[serde(default, deserialize_with = "lenient::string")]
+    pub session_id: String,
+    #[serde(default, deserialize_with = "lenient::opt_string")]
+    pub text: Option<String>,
+    #[serde(default, deserialize_with = "lenient::strict_true")]
+    pub wait: Option<bool>,
+    #[serde(default, deserialize_with = "lenient::size")]
+    pub timeout_ms: Option<i64>,
+    /// Set by `deckhand` commands run inside a session: the daemon checks it and sends as that session.
+    #[serde(default)]
+    pub caller: Option<AgentCaller>,
+}
+
+/// Not in the TS: `reply-message` (`deckhand reply`): answers message `messageId` (any unique prefix), which was sent
+/// to the caller.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplyMessage {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    #[serde(default, deserialize_with = "lenient::string")]
+    pub message_id: String,
+    #[serde(default, deserialize_with = "lenient::opt_string")]
+    pub text: Option<String>,
+    #[serde(default)]
+    pub caller: Option<AgentCaller>,
+}
+
+/// Not in the TS: `cancel-message` (`deckhand send --cancel`): cancels a held message (any unique prefix) the caller
+/// sent (by hand: any).
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelMessage {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    #[serde(default, deserialize_with = "lenient::string")]
+    pub message_id: String,
+    #[serde(default)]
+    pub caller: Option<AgentCaller>,
+}
+
+/// Not in the TS: `list-messages`: the kept messages (held ones and each session's recent ones), oldest first, of the
+/// sessions in scope of `repoRoot` as `subscribe` scopes sessions, or only those to or from `sessionId`; neither:
+/// all. `messages-updated` follows their changes for a subscribed client.
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListMessages {
+    #[serde(default, deserialize_with = "lenient::request_id")]
+    pub request_id: String,
+    #[serde(default, deserialize_with = "lenient::opt_string")]
+    pub repo_root: Option<String>,
+    #[serde(default, deserialize_with = "lenient::opt_id")]
+    pub session_id: Option<String>,
+}
+
 /// `attach`, `attach-terminal`, `attach-git`, `attach-dev`, `attach-action` (attach.ts literal order).
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1154,6 +1221,14 @@ pub enum Request {
     PlanDecide(PlanDecide),
     #[serde(rename = "open-orchestrator")]
     OpenOrchestrator(OpenOrchestrator),
+    #[serde(rename = "send-message")]
+    SendMessage(SendMessage),
+    #[serde(rename = "reply-message")]
+    ReplyMessage(ReplyMessage),
+    #[serde(rename = "cancel-message")]
+    CancelMessage(CancelMessage),
+    #[serde(rename = "list-messages")]
+    ListMessages(ListMessages),
     #[serde(rename = "attach")]
     Attach(Attach),
     #[serde(rename = "input")]
@@ -1231,7 +1306,9 @@ request_table! {
     Kill => "kill", MergePreview => "merge-preview", MergeWorktree => "merge-worktree",
     ResolveMerge => "resolve-merge", MarkSessionMerged => "mark-session-merged", SetSessionDone => "set-session-done",
     SetReplyRead => "set-reply-read", Remove => "remove", PlanCheck => "plan-check", PlanApply => "plan-apply",
-    PlanDecide => "plan-decide", OpenOrchestrator => "open-orchestrator", Attach => "attach", Input => "input", Resize => "resize", Detach => "detach",
+    PlanDecide => "plan-decide", OpenOrchestrator => "open-orchestrator", SendMessage => "send-message",
+    ReplyMessage => "reply-message", CancelMessage => "cancel-message", ListMessages => "list-messages",
+    Attach => "attach", Input => "input", Resize => "resize", Detach => "detach",
     AttachTerminal => "attach-terminal", TerminalInput => "terminal-input", TerminalResize => "terminal-resize",
     TerminalDetach => "terminal-detach", AttachGit => "attach-git", GitInput => "git-input", GitResize => "git-resize",
     GitDetach => "git-detach", AttachDev => "attach-dev", DevInput => "dev-input", DevResize => "dev-resize",
@@ -1296,6 +1373,10 @@ impl Request {
             R::PlanCheck(r) | R::PlanApply(r) => &r.request_id,
             R::PlanDecide(r) => &r.request_id,
             R::OpenOrchestrator(r) => &r.request_id,
+            R::SendMessage(r) => &r.request_id,
+            R::ReplyMessage(r) => &r.request_id,
+            R::CancelMessage(r) => &r.request_id,
+            R::ListMessages(r) => &r.request_id,
             R::Attach(r) | R::AttachTerminal(r) | R::AttachGit(r) | R::AttachDev(r) | R::AttachAction(r) => {
                 &r.request_id
             }
@@ -1489,6 +1570,6 @@ mod tests {
         tags.sort_unstable();
         tags.dedup();
         assert_eq!(tags.len(), Request::TYPES.len());
-        assert_eq!(Request::TYPES.len(), 83);
+        assert_eq!(Request::TYPES.len(), 87);
     }
 }

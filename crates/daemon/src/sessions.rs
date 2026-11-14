@@ -583,6 +583,11 @@ impl Daemon {
         assign(&mut exited, "exitReason");
         exited.exit_reason = Some(exit_reason);
         self.set_session(exited);
+        // Not in the TS: its held messages are dropped and their senders told, unless it is being restarted (resumed
+        // at once, so they wait for it).
+        if !self.sessions.borrow().restarting.contains(session_id) {
+            self.messages_on_exit(session_id);
+        }
         let _ = tokio::fs::remove_file(self.paths.worker_dir.join(format!("{session_id}.pid"))).await;
 
         let worktree = existing.worktree.clone();
@@ -2037,6 +2042,8 @@ impl Daemon {
                 child
             })
             .collect();
+        // Not in the TS: messages still held for it (after a daemon restart) are dropped, their senders told.
+        self.messages_on_exit(session_id);
         self.sessions.borrow_mut().sessions.shift_remove(session_id);
         for child in orphaned {
             self.set_session(child.clone());
