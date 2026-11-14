@@ -180,6 +180,21 @@ fn parent_of<'a>(session: &SessionRecord, sessions: &[&'a SessionRecord]) -> Opt
     sessions.iter().copied().find(|candidate| candidate.id == parent)
 }
 
+/// Columns of indent before a row's ▾ ▸ and ↳ ⑂: for each ancestor `listed` shows, its ▾ and its own ↳ ⑂ (a top-level
+/// session has none), so a sub-session's marker starts under its parent's status glyph at every depth. Two columns a
+/// level would put a grandchild's title under its parent's, the parent's ▾ having taken the step. `apart` (the state
+/// view's row under a line naming its parent) adds one step.
+fn tree_indent(session: &SessionRecord, listed: &[&SessionRecord], apart: bool) -> usize {
+    let mut indent = if apart { 2 } else { 0 };
+    let mut seen: HashSet<&str> = HashSet::from([session.id.as_str()]);
+    let mut current = session;
+    while let Some(parent) = parent_of(current, listed).filter(|parent| seen.insert(parent.id.as_str())) {
+        indent += if parent.sub_session_kind.is_some() { 4 } else { 2 };
+        current = parent;
+    }
+    indent
+}
+
 /// The sessions `filter` lists (as ▾ ▸ and +N count them, whatever the search), and in the state view each section's.
 fn listed_sessions<'a>(
     all_sessions: &[&'a SessionRecord],
@@ -305,9 +320,8 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
                 input.shared_dev.then_some(RowRole::DevShared)
             };
         }
-        let tree = format!(
-            "{}{}{}",
-            "  ".repeat(depth.min(4)),
+        let marks = format!(
+            "{}{}",
             if has_children {
                 if collapsed { "▸ " } else { "▾ " }
             } else {
@@ -335,13 +349,20 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
                 RowRole::Number,
             ),
         ];
-        if !tree.is_empty() {
-            prefix.push(part(tree, RowRole::Tree));
-        }
         prefix.push(part(
             format!("{} ", status_glyph(session, input.spinner_frame)),
             RowRole::Status,
         ));
+        // Each level's full step while the title keeps its few columns; never less than two columns a level up to four,
+        // which rows always had (on a very narrow row that indent wins over the title and is cut with the row).
+        let full_title = display_session_title(session, input.all_sessions);
+        let min_title = jnum(MIN_TITLE).min(jlen(&full_title));
+        let room = width - parts_width(&prefix) - jlen(&marks) - 1 - jlen(program_glyph(session.program)) - min_title;
+        let indent = tree_indent(session, listed, apart).min(usize::try_from(room).unwrap_or(0).max(2 * depth.min(4)));
+        let tree = format!("{}{marks}", " ".repeat(indent));
+        if !tree.is_empty() {
+            prefix.insert(prefix.len() - 1, part(tree, RowRole::Tree));
+        }
         let mut suffix = Vec::new();
         // The TS puts ▶ first; the port (`shared_dev`) puts it last, beside the agent glyph.
         if let Some(role) = dev.filter(|_| !input.shared_dev) {
@@ -371,8 +392,6 @@ pub fn sidebar_rows(input: &SidebarRowsInput<'_>) -> Vec<SidebarRow> {
         suffix.push(part(program_glyph(session.program), RowRole::Agent));
         let suffix_width = |suffix: &[RowPart]| parts_width(suffix) + jnum(suffix.len()) - 1;
         let prefix_width = parts_width(&prefix);
-        let full_title = display_session_title(session, input.all_sessions);
-        let min_title = jnum(MIN_TITLE).min(jlen(&full_title));
         for role in DROP_ORDER {
             if width - prefix_width - 1 - suffix_width(&suffix) >= min_title {
                 break;
@@ -1588,7 +1607,7 @@ mod tests {
             roles,
             [RowRole::Number, RowRole::Status, RowRole::Title, RowRole::Agent]
         );
-        // Deep nesting at a narrow width gives up the count, then other markers, before the title gets under 4 columns.
+        // Deep nesting at a narrow width gives up the count, then other markers, then the full step of its levels.
         let mut deep = vec![sess("p0", json!({"cleanupError": "x"}))];
         for level in 1..=5 {
             deep.push(sess(
@@ -1606,9 +1625,42 @@ mod tests {
             },
         );
         assert_eq!(collapsed[0], "  1 ▾ ● p0        ! ✶");
-        // p2 (collapsed, merged) drops its +3 count; at depth 4 only the agent stays and the title gets what is left.
-        assert_eq!(collapsed[2], "  3     ▸ ↳ ● p2  ✓ ✶");
+        // p2 (collapsed, merged) takes its full step and drops its +3 count and ✓. At depth 4 a full step would leave
+        // no title, so the row keeps the old two columns a level and the title gets what is left.
+        assert_eq!(collapsed[2], "  3       ▸ ↳ ● p2  ✶");
         assert_eq!(collapsed[4], "  5         ▸ ↳ ● p ✶");
+    }
+
+    #[test]
+    fn a_sub_sessions_marker_starts_under_its_parents_status_glyph_at_every_depth() {
+        // The shape that showed grandchildren at their parent's level: a parent's ▾ took the two columns a level adds.
+        let list = vec![
+            sess("root", json!({})),
+            sess("clean", json!({"parentSessionId": "root", "subSessionKind": "clean"})),
+            sess("fork", json!({"parentSessionId": "root", "subSessionKind": "forked"})),
+            sess(
+                "grandfork",
+                json!({"parentSessionId": "fork", "subSessionKind": "forked"}),
+            ),
+            sess(
+                "grandclean",
+                json!({"parentSessionId": "fork", "subSessionKind": "clean"}),
+            ),
+        ];
+        let rows = texts(&refs(&list), Opts::default());
+        let column = |row: &str, text: &str| row.find(text).map(|at| row[..at].chars().count());
+        assert_eq!(column(&rows[0], "●"), column(&rows[1], "↳"));
+        assert_eq!(column(&rows[0], "●"), column(&rows[2], "▾"));
+        assert_eq!(column(&rows[2], "●"), column(&rows[3], "⑂"));
+        assert_eq!(column(&rows[2], "●"), column(&rows[4], "↳"));
+        assert!(column(&rows[3], "grandfork") > column(&rows[2], "fork"));
+        // A top-level fork has a ⑂ of its own, so its children step past it too.
+        let list = vec![
+            sess("top", json!({"subSessionKind": "forked"})),
+            sess("child", json!({"parentSessionId": "top", "subSessionKind": "clean"})),
+        ];
+        let rows = texts(&refs(&list), Opts::default());
+        assert_eq!(column(&rows[0], "●"), column(&rows[1], "↳"));
     }
 
     #[test]
